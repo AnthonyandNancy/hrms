@@ -10,7 +10,8 @@ use Tests\TestCase;
 /**
  * Keeps the HTTP surface and docs/openapi/openapi.yaml in lockstep.
  *
- * Routes declared as internal (health probe, storage) are excluded explicitly.
+ * Routes under `storage/` are excluded explicitly; framework probes (`up`)
+ * are outside `/v1` and therefore not part of the documented API surface.
  * The test is dependency-free: it reads the small set of fields it needs and
  * validates structure rather than pretending to be a full OpenAPI compiler.
  */
