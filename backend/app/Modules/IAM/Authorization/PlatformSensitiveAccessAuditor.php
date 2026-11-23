@@ -7,6 +7,7 @@ namespace App\Modules\IAM\Authorization;
 use App\Modules\Platform\Models\AuditEvent;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\RequestContext;
+use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Log;
  */
 final class PlatformSensitiveAccessAuditor implements SensitiveAccessAuditor
 {
+    public function __construct(private readonly Clock $clock) {}
+
     public function record(
         int $tenantId,
         int $userId,
@@ -37,7 +40,7 @@ final class PlatformSensitiveAccessAuditor implements SensitiveAccessAuditor
                 ...$context,
             ],
             'request_id' => RequestContext::requestId(),
-            'occurred_at' => now()->utc(),
+            'occurred_at' => $this->clock->now(),
         ]);
 
         // Log field names only; values are never logged.

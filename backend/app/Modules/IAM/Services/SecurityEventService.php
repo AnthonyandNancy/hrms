@@ -6,6 +6,7 @@ namespace App\Modules\IAM\Services;
 
 use App\Modules\IAM\Models\AuthEvent;
 use App\Shared\RequestContext;
+use App\Shared\Time\Clock;
 use Illuminate\Http\Request;
 
 /**
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 final class SecurityEventService
 {
+    public function __construct(private readonly Clock $clock) {}
+
     /**
      * @param  array<string, mixed>  $metadata
      */
@@ -51,7 +54,7 @@ final class SecurityEventService
             'user_agent' => $request instanceof Request ? mb_substr((string) $request->userAgent(), 0, 1000) : null,
             'request_id' => RequestContext::requestId(),
             'metadata_json' => $safe === [] ? null : $safe,
-            'occurred_at' => now()->utc(),
+            'occurred_at' => $this->clock->now(),
         ]);
     }
 }

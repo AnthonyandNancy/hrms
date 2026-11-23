@@ -12,6 +12,7 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\ErrorCode;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Time\Clock;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,7 @@ final class RequireCapability
     public function __construct(
         private readonly Authorizer $authorizer,
         private readonly AuthenticationContext $context,
+        private readonly Clock $clock,
     ) {}
 
     public function handle(Request $request, Closure $next, string $capability, string $anchorType = 'SELF', ?string $anchorParameter = null): Response
@@ -51,7 +53,7 @@ final class RequireCapability
                 $principal,
                 $capability,
                 new AnchorRef($anchor, $anchorId),
-                now()->toDateString(),
+                $this->clock->now()->toDateString(),
             );
         } catch (AuthenticationFailedException) {
             return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication is required.', 401, ['reason' => 'AUTH_VERSION_STALE']);

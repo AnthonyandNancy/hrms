@@ -9,12 +9,16 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Shared\ApiResponse;
+use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class MeController
 {
-    public function __construct(private readonly AuthenticationContext $context) {}
+    public function __construct(
+        private readonly AuthenticationContext $context,
+        private readonly Clock $clock,
+    ) {}
 
     public function show(Request $request): JsonResponse
     {
@@ -34,8 +38,8 @@ final class MeController
             'roles' => UserRole::query()
                 ->where('tenant_id', $principal->tenantId())
                 ->where('user_id', $principal->userId())
-                ->where('valid_from', '<=', now()->utc())
-                ->where('valid_to', '>', now()->utc())
+                ->where('valid_from', '<=', $this->clock->now())
+                ->where('valid_to', '>', $this->clock->now())
                 ->orderBy('role_code')
                 ->pluck('role_code')
                 ->all(),
@@ -45,7 +49,7 @@ final class MeController
     public function capabilities(Request $request): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
-        $businessDate = now()->toDateString();
+        $businessDate = $this->clock->now()->toDateString();
 
         $bindings = AuthorityBinding::query()
             ->where('tenant_id', $principal->tenantId())
@@ -87,8 +91,8 @@ final class MeController
             ->where('tenant_id', $tenantId)
             ->where('principal_id', $userId)
             ->whereIn('capability_code', ['payroll.run.prepare', 'payroll.run.approve', 'payroll.run.publish', 'payroll.export'])
-            ->where('valid_from', '<=', now()->utc())
-            ->where('valid_to', '>', now()->utc())
+            ->where('valid_from', '<=', $this->clock->now())
+            ->where('valid_to', '>', $this->clock->now())
             ->exists();
 
         return $codes;

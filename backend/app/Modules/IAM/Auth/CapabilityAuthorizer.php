@@ -21,6 +21,7 @@ use App\Shared\Authorization\ResourceRef;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Time\Clock;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -73,6 +74,7 @@ final class CapabilityAuthorizer implements Authorizer
         private readonly PayrollRunMembershipDirectory $payroll,
         private readonly SensitiveAccessAuditor $auditor,
         private readonly \App\Shared\Authorization\Contracts\AccessSubjectStateDirectory $subjects,
+        private readonly Clock $clock,
     ) {}
 
     public function constrain(Builder $query, Principal $p, string $capability, string $businessDate): Builder
@@ -423,6 +425,6 @@ final class CapabilityAuthorizer implements Authorizer
 
     private function today(): string
     {
-        return \Carbon\CarbonImmutable::now('UTC')->toDateString();
+        return $this->clock->now()->toDateString();
     }
 }
