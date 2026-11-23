@@ -18,6 +18,7 @@ Baseline: `b869706`
 | `194d463` | `docs(payroll)`: `docs/07-business-rules.md` Payroll section |
 | `870dde3` | `feat(payroll)`: reconciling correction delta value object and carry-forward regression coverage |
 | `0ffdaf0` | `fix(payroll)`: checked intermediate aggregation and result invariants |
+| `31319b3` | `test(payroll)`: percentage-ratio integration and proration rounding boundaries |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
@@ -74,6 +75,8 @@ No work was performed outside the worktree.
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollCorrectionDeltaTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollIntermediateOverflowTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/PercentageIntegrationTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/ProrationRoundingTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollTestFixtures.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollValueObjectTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayslipLineSourceTest.php`
@@ -94,13 +97,13 @@ to `PATH`.
 
 ```text
 php artisan test
-Tests: 160 passed (30418 assertions)
-Duration: 2.89s
+Tests: 164 passed (30426 assertions)
+Duration: 3.38s
 ```
 
 ```text
 vendor/bin/pint --test
-PASS 111 files
+PASS 113 files
 ```
 
 ```text
