@@ -1071,8 +1071,7 @@ paths:
         - People
       operationId: listEmployees
       summary: Paginated as-of employee projection
-      description: Requires capability `people.employee.read`. Rows are constrained
-        before pagination.
+      description: Requires capability `people.employee.read`. Rows are constrained before pagination.
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: org_unit_id
@@ -1155,8 +1154,7 @@ paths:
         - People
       operationId: createPerson
       summary: Create a natural person (identity hashed + encrypted)
-      description: Requires capability `people.employee.manage`. Identity plaintext is
-        never returned or audited.
+      description: Requires capability `people.employee.manage`. Identity plaintext is never returned or audited.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/IfMatchOptional"
@@ -1480,8 +1478,7 @@ paths:
     post:
       operationId: transferEmploymentLegalEntity
       summary: Transfer an employment to another legal entity
-      description: Ends the source employment and creates a new employment for the
-        same person. Requires `people.employment.manage`.
+      description: Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
       tags:
         - People
       parameters:
@@ -1612,8 +1609,7 @@ paths:
         - Organization
       operationId: moveOrgUnit
       summary: Move an org unit by appending a closure version
-      description: Requires capability `org.unit.manage`. Historical closure rows are
-        ended, never rewritten.
+      description: Requires capability `org.unit.manage`. Historical closure rows are ended, never rewritten.
       parameters:
         - name: id
           in: path
@@ -1660,8 +1656,7 @@ paths:
         - Organization
       operationId: previewOrgUnitImpact
       summary: Preview affected employees/managers and cross-entity warning
-      description: Requires capability `org.unit.manage`. Payroll cost-center count is
-        0 until Task 7.
+      description: Requires capability `org.unit.manage`. Payroll cost-center count is 0 until Task 7.
       parameters:
         - name: id
           in: path
@@ -1697,8 +1692,7 @@ paths:
         - People
       operationId: downloadDocument
       summary: Request an authorized short-lived document download
-      description: Requires `people.contract.read` and `people.document.download`;
-        never returns storage keys.
+      description: Requires `people.contract.read` and `people.document.download`; never returns storage keys.
       parameters:
         - name: document_id
           in: path
@@ -2811,8 +2805,7 @@ paths:
       tags:
         - Time
       summary: Idempotently import raw punches for one employment
-      description: Requires capability `time.punch.import`. Punches are immutable;
-        duplicate payload hashes are no-ops.
+      description: Requires capability `time.punch.import`. Punches are immutable; duplicate payload hashes are no-ops.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -2903,8 +2896,7 @@ paths:
       tags:
         - Time
       summary: Self attendance month projection for the frontend calendar
-      description: Requires capability `time.attendance.read`. Dates are business
-        dates in the legal entity timezone.
+      description: Requires capability `time.attendance.read`. Dates are business dates in the legal entity timezone.
       parameters:
         - name: month
           in: query
@@ -3028,8 +3020,7 @@ paths:
       tags:
         - Time
       summary: Scoped attendance-day projection read
-      description: Requires capability `time.attendance.read`. Other tenant or
-        out-of-scope employment returns 404.
+      description: Requires capability `time.attendance.read`. Other tenant or out-of-scope employment returns 404.
       parameters:
         - name: employment_id
           in: path
@@ -3109,8 +3100,7 @@ paths:
       tags:
         - Time
       summary: Request an attendance correction Case
-      description: Requires capability `time.attendance.correct.request`. Raw punches
-        are never edited.
+      description: Requires capability `time.attendance.correct.request`. Raw punches are never edited.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3470,8 +3460,7 @@ paths:
       tags:
         - Time
       summary: Reserve leave and create a Workflow Case
-      description: Requires capability `time.leave.request`. A RESERVE ledger entry is
-        written at submit.
+      description: Requires capability `time.leave.request`. A RESERVE ledger entry is written at submit.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3704,8 +3693,7 @@ paths:
       tags:
         - Time
       summary: Append-only leave ledger drill-down for the signed-in employee
-      description: Requires capability `time.leave.ledger.read`. Entries and summary
-        explain the balance.
+      description: Requires capability `time.leave.ledger.read`. Entries and summary explain the balance.
       parameters:
         - name: leave_type
           in: query
@@ -3951,8 +3939,7 @@ paths:
       tags:
         - Time
       summary: Brief-compatible scoped leave balance list
-      description: Requires capability `time.leave.read`. Out-of-scope employment
-        returns 404.
+      description: Requires capability `time.leave.read`. Out-of-scope employment returns 404.
       parameters:
         - name: employment_id
           in: path
