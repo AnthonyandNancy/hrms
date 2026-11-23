@@ -8,7 +8,8 @@ x-app-common: &app-common
   image: factoryhr/php-app:local
   restart: unless-stopped
   env_file:
-    - ../../backend/.env
+    - path: ../../backend/.env
+      required: false
   environment:
     APP_ENV: ${APP_ENV:-production}
     APP_DEBUG: ${APP_DEBUG:-false}
@@ -43,7 +44,7 @@ x-app-common: &app-common
     minio:
       condition: service_healthy
   healthcheck:
-    test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/up') === false ? 1 : 0);"]
+    test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) === false ? 1 : 0);"]
     interval: 30s
     timeout: 5s
     retries: 5
