@@ -146,7 +146,7 @@ abstract class TimeTestCase extends TestCase
         );
     }
 
-    protected function actingAs(\App\Modules\Time\Contracts\TimeActor $actor): static
+    protected function actAsTimeActor(\App\Modules\Time\Contracts\TimeActor $actor): static
     {
         $this->actors->setActor($actor);
 

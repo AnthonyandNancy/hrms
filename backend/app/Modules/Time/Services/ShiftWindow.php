@@ -69,7 +69,7 @@ final class ShiftWindow
         $localTime = $local->format('H:i:s');
         $end = strlen($endLocalTime) === 8 ? $endLocalTime : $endLocalTime.':00';
 
-        return $localTime < $end
+        return $localTime <= $end
             ? $local->subDay()->format('Y-m-d')
             : $local->format('Y-m-d');
     }

@@ -14,6 +14,8 @@ final class LeaveBalance extends Model
 {
     public const UPDATED_AT = 'updated_at';
 
+    public const CREATED_AT = null;
+
     protected $fillable = [
         'tenant_id',
         'employment_id',
