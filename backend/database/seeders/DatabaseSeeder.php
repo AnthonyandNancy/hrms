@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $password = env('DEMO_SEED_PASSWORD');
+        $password = config('iam.demo_seed_password');
 
         if (! is_string($password) || strlen($password) < 12) {
             $this->command?->warn('DEMO_SEED_PASSWORD is not set; no demo user was seeded.');

@@ -32,7 +32,7 @@ final class AuthenticationContext
     public function requirePrincipal(): Principal
     {
         if ($this->principal === null) {
-            throw new AuthenticationFailedException();
+            throw new AuthenticationFailedException;
         }
 
         return $this->principal;

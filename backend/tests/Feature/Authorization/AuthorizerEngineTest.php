@@ -7,10 +7,9 @@ namespace Tests\Feature\Authorization;
 use App\Modules\IAM\Auth\CapabilityAuthorizer;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
-use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\AnchorRef;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
-use App\Shared\Authorization\ResourceRef;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 

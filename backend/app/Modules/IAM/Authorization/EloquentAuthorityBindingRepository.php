@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Authorization;
 
+use App\Modules\IAM\Models\AuthorityBinding;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\BindingGrant;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
 use App\Shared\Authorization\FieldProfile;
-use App\Shared\Authorization\AnchorType;
-use App\Modules\IAM\Models\AuthorityBinding;
-use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -19,8 +18,6 @@ use Illuminate\Support\Facades\Cache;
  */
 final class EloquentAuthorityBindingRepository implements AuthorityBindingRepository
 {
-    public function __construct(private readonly Clock $clock) {}
-
     public function effectiveBindings(
         int $tenantId,
         int $principalId,

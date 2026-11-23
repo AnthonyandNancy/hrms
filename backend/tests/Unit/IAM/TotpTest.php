@@ -15,7 +15,7 @@ final class TotpTest extends TestCase
 {
     public function test_rfc6238_sha1_test_vectors(): void
     {
-        $totp = new TotpService();
+        $totp = new TotpService;
         $secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 
         $vectors = [
@@ -38,7 +38,7 @@ final class TotpTest extends TestCase
 
     public function test_code_uses_six_digits_and_thirty_second_step(): void
     {
-        $totp = new TotpService();
+        $totp = new TotpService;
         $secret = 'JBSWY3DPEHPK3PXP';
 
         $this->assertMatchesRegularExpression('/^\d{6}$/', $totp->code($secret, 59));
@@ -50,7 +50,7 @@ final class TotpTest extends TestCase
 
     public function test_verification_accepts_only_plus_or_minus_one_window(): void
     {
-        $totp = new TotpService();
+        $totp = new TotpService;
         $secret = 'JBSWY3DPEHPK3PXP';
         $now = 120;
         $current = $totp->code($secret, $now);
@@ -65,7 +65,7 @@ final class TotpTest extends TestCase
 
     public function test_invalid_base32_or_non_numeric_code_is_rejected(): void
     {
-        $totp = new TotpService();
+        $totp = new TotpService;
 
         $this->assertFalse($totp->verify('NOT-BASE-32!', '123456', 0));
         $this->assertFalse($totp->verify('JBSWY3DPEHPK3PXP', 'abcdef', 0));
@@ -74,7 +74,7 @@ final class TotpTest extends TestCase
 
     public function test_base32_round_trip_and_constant_time_comparison(): void
     {
-        $totp = new TotpService();
+        $totp = new TotpService;
         $raw = random_bytes(20);
 
         $this->assertSame($raw, $totp->base32Decode($totp->base32Encode($raw)));

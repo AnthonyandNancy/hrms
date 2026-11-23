@@ -113,7 +113,7 @@ final class UserAdminController
         $user = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
 
         if ($user === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         DB::transaction(function () use ($user, $validated, $principal, $request): void {
@@ -154,7 +154,7 @@ final class UserAdminController
         $role = Role::query()->whereKey((string) $validated['role_code'])->first();
 
         if ($target === null || $role === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         if (! $role->is_template) {
@@ -176,7 +176,7 @@ final class UserAdminController
             ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC')
             : $now->addYear();
 
-        if ($role->expires_at !== null && $role->expires_at->lessThan($to)) {
+        if ($role->expires_at instanceof \Carbon\CarbonInterface && $role->expires_at->lessThan($to)) {
             $to = $role->expires_at;
         }
 

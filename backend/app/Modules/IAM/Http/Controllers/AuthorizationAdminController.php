@@ -9,13 +9,11 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
-use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\SodRules;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
@@ -39,6 +37,7 @@ final class AuthorizationAdminController
             ->orderBy('code')
             ->get()
             ->map(function (Role $role): array {
+                /** @var Role $role */
                 $grants = RoleCapability::query()
                     ->where('role_code', $role->code)
                     ->orderBy('capability_code')
@@ -54,7 +53,7 @@ final class AuthorizationAdminController
                     'name' => $role->name,
                     'is_template' => (bool) $role->is_template,
                     'purpose' => $role->purpose,
-                    'expires_at' => $role->expires_at?->toIso8601ZuluString(),
+                    'expires_at' => $role->expires_at instanceof \Carbon\CarbonInterface ? $role->expires_at->toIso8601ZuluString() : null,
                     'capabilities' => $grants,
                 ];
             })
@@ -92,7 +91,7 @@ final class AuthorizationAdminController
             ->first();
 
         if ($target === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         $bindings = AuthorityBinding::query()
@@ -138,7 +137,7 @@ final class AuthorizationAdminController
             ->first();
 
         if ($target === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         $anchor = AnchorType::tryFrom(strtoupper((string) $validated['anchor_type']));
@@ -149,11 +148,11 @@ final class AuthorizationAdminController
             throw new ValidationException(['anchor_type' => ['Unknown anchor type.']], 'The given data was invalid.', ['reason' => 'INVALID_ANCHOR']);
         }
 
-        if (! in_array($anchor->value, $capability?->anchor_types_json ?? [], true)) {
+        if ($capability === null || ! in_array($anchor->value, $capability->anchor_types_json ?? [], true)) {
             throw new ValidationException(['anchor_type' => ['This capability does not support the anchor type.']]);
         }
 
-        if ($profile === null || $profile->rank() > FieldProfile::from((string) $capability?->field_profile_max)->rank()) {
+        if ($profile === null || $capability === null || $profile->rank() > FieldProfile::from((string) $capability->field_profile_max)->rank()) {
             throw new ValidationException(['field_profile' => ['The field profile exceeds the capability maximum.']]);
         }
 
@@ -234,7 +233,7 @@ final class AuthorizationAdminController
             ->first();
 
         if ($binding === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         DB::transaction(function () use ($binding, $principal, $request): void {

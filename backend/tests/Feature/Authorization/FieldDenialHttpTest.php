@@ -55,5 +55,4 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
 
         $response->assertStatus(403)->assertJsonPath('code', 'FORBIDDEN');
     }
-
 }

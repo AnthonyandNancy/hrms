@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Append-only security event. Update and delete are blocked in addition to the
  * absence of any evidence-editing endpoint.
+ *
+ * @property \Carbon\CarbonImmutable $occurred_at
  */
 final class AuthEvent extends Model
 {

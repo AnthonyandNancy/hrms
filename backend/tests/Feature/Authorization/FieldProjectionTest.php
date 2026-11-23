@@ -11,7 +11,6 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\ResourceRef;
 use App\Shared\Exceptions\ValidationException;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Field projection is resolved from the same binding as row scope. A P3 field
@@ -121,8 +120,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $this->assertStringNotContainsString('999999', $output);
         $this->assertStringNotContainsString('health', $output);
 
-        Log::spy();
-        Log::shouldNotHaveReceived('info', ['*', ['salary' => '999999']]);
     }
 
     private function grant(User $user, string $capability, AnchorType $anchor, ?int $anchorId, FieldProfile $profile): void

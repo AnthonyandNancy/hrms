@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 final class MfaFactor extends Model
 {
     public const TYPE_TOTP = 'TOTP';
+
     public const TYPE_WEBAUTHN = 'WEBAUTHN';
 
     protected $table = 'mfa_factors';

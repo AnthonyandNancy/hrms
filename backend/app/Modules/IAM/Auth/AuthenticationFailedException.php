@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Auth;
 
-use App\Modules\IAM\Contracts\Principal;
-use App\Shared\Exceptions\DomainException;
 use App\Shared\ErrorCode;
+use App\Shared\Exceptions\DomainException;
 
 /**
  * Signals a deliberate authentication failure. The envelope uses a stable

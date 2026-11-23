@@ -19,7 +19,7 @@ final class SeedDemoCommand extends Command
 
     public function handle(PasswordHasher $passwords, Clock $clock): int
     {
-        $password = env((string) config('iam.demo_password_env', 'DEMO_SEED_PASSWORD'));
+        $password = config('iam.demo_seed_password');
 
         if (! is_string($password) || strlen($password) < 12) {
             $this->error('DEMO_SEED_PASSWORD must be set to at least 12 characters. No hard-coded production password exists.');

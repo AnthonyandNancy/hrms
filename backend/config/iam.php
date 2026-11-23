@@ -48,4 +48,5 @@ return [
     ],
 
     'demo_password_env' => 'DEMO_SEED_PASSWORD',
+    'demo_seed_password' => env('DEMO_SEED_PASSWORD'),
 ];

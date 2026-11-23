@@ -25,8 +25,11 @@ final class FakePayrollRunMembershipDirectory implements PayrollRunMembershipDir
         return $this->runsByUser[$userId] ?? [];
     }
 
+    /** @var array<int, int> */
+    public array $runEntity = [];
+
     public function legalEntityForRun(int $tenantId, int $payrollRunId): ?int
     {
-        return 1;
+        return $this->runEntity[$payrollRunId] ?? null;
     }
 }

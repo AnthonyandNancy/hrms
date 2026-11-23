@@ -6,7 +6,6 @@ namespace Tests\Support;
 
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
-use Illuminate\Testing\TestResponse;
 
 /**
  * Authenticates test requests through the real login endpoint, preserving the
@@ -15,7 +14,7 @@ use Illuminate\Testing\TestResponse;
 trait AuthenticatesRequests
 {
     /**
-     * @return array{cookie: string, csrf: string, session: Session, response: TestResponse}
+     * @return array{cookie: string, csrf: string, session: Session}
      */
     protected function loginAs(User $user, string $password = 'Correct-Horse-9!'): array
     {
@@ -44,7 +43,6 @@ trait AuthenticatesRequests
             'cookie' => (string) $cookie->getValue(),
             'csrf' => $csrf,
             'session' => Session::query()->latest('created_at')->firstOrFail(),
-            'response' => $response,
         ];
     }
 

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Services;
 
-use App\Modules\IAM\Models\AuthEvent;
 use App\Modules\IAM\Models\LoginAttempt;
-use App\Modules\IAM\Models\User;
 use App\Shared\Time\Clock;
 
 /**

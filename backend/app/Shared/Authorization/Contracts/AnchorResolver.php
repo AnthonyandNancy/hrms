@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\Authorization\Contracts;
 
+use App\Modules\IAM\Contracts\Principal;
 use Illuminate\Database\Eloquent\Builder;
-use App\Shared\Authorization\Principal;
 
 /**
  * Resolve one anchor to a row predicate and an optional field-profile floor.

@@ -6,7 +6,6 @@ namespace App\Modules\IAM\Services;
 
 use App\Shared\Exceptions\ValidationException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Crypt;
 
 /**
  * WebAuthn (Level 2) ceremony verifier. This is a real challenge verifier:
@@ -66,11 +65,17 @@ final class WebAuthnService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function verifyRegistrationClientData(int $tenantId, int $userId, string $clientDataJson): array
     {
         return $this->verifyClientData($tenantId, $userId, 'register', 'webauthn.create', $clientDataJson);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function verifyAssertionClientData(int $tenantId, int $userId, string $clientDataJson): array
     {
         return $this->verifyClientData($tenantId, $userId, 'assert', 'webauthn.get', $clientDataJson);
@@ -124,15 +129,6 @@ final class WebAuthnService
         $rpId = (string) config('iam.mfa.webauthn_rp_id', 'localhost');
 
         return hash_equals(hash('sha256', $rpId, true), substr($authenticatorData, 0, 32));
-    }
-
-    /**
-     * Parse a DER SubjectPublicKeyInfo into a PEM public key. No signature
-     * verification succeeds unless this returns a real key.
-     */
-    public function publicKeyFromCose(string $coseKey): ?string
-    {
-        return null;
     }
 
     public function base64UrlEncode(string $raw): string

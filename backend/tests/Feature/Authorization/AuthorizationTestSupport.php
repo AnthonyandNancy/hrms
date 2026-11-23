@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Authorization;
 
-use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Auth\AuthenticatedPrincipal;
+use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\IAM\Models\User;
-use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
 use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
 use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
+use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Fakes\FakeCaseMembershipDirectory;
 use Tests\Fakes\FakeOrganizationScopeDirectory;
@@ -31,20 +31,26 @@ abstract class AuthorizationTestSupport extends TestCase
     use RefreshDatabase;
 
     protected FakePersonEmploymentDirectory $people;
+
     protected FakeOrganizationScopeDirectory $organization;
+
     protected FakeCaseMembershipDirectory $cases;
+
     protected FakePayrollRunMembershipDirectory $payroll;
+
     protected SpySensitiveAccessAuditor $sensitiveAuditor;
+
+    protected FrozenClock $clock;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->people = new FakePersonEmploymentDirectory();
-        $this->organization = new FakeOrganizationScopeDirectory();
-        $this->cases = new FakeCaseMembershipDirectory();
-        $this->payroll = new FakePayrollRunMembershipDirectory();
-        $this->sensitiveAuditor = new SpySensitiveAccessAuditor();
+        $this->people = new FakePersonEmploymentDirectory;
+        $this->organization = new FakeOrganizationScopeDirectory;
+        $this->cases = new FakeCaseMembershipDirectory;
+        $this->payroll = new FakePayrollRunMembershipDirectory;
+        $this->sensitiveAuditor = new SpySensitiveAccessAuditor;
 
         $this->app->instance(PersonEmploymentDirectory::class, $this->people);
         $this->app->instance(OrganizationScopeDirectory::class, $this->organization);

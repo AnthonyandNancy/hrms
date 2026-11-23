@@ -6,7 +6,6 @@ namespace Tests\Feature\Authorization;
 
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\MfaFactor;
-use App\Modules\IAM\Models\RecoveryCode;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\TotpService;
 use App\Shared\Authorization\AnchorType;
@@ -61,7 +60,7 @@ final class MfaTest extends AuthorizationTestSupport
 
         $secret = (string) $enroll->json('data.secret');
         $this->assertStringStartsWith('otpauth://totp/', (string) $enroll->json('data.otpauth_uri'));
-        $this->assertStringNotContainsString($secret, json_encode(\App\Modules\IAM\Models\MfaFactor::query()->get()->toArray(), JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString($secret, json_encode(MfaFactor::query()->get()->toArray(), JSON_THROW_ON_ERROR));
 
         $code = app(TotpService::class)->code($secret, $this->clock->now()->getTimestamp());
         $confirm = $this->postJson('/v1/auth/mfa/totp/confirm', [
@@ -85,7 +84,7 @@ final class MfaTest extends AuthorizationTestSupport
     {
         $this->freeze('2026-11-23T09:00:00Z');
         $user = $this->selfSessionUser();
-        $authenticator = app(\App\Modules\IAM\Services\TotpService::class);
+        $authenticator = app(TotpService::class);
         $secret = $authenticator->generateSecret();
         $factor = MfaFactor::query()->create([
             'tenant_id' => 1,

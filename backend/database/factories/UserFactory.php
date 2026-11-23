@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Database\Factories;
 
 use App\Modules\IAM\Models\User;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use App\Modules\IAM\Services\PasswordHasher;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
  * @extends Factory<User>

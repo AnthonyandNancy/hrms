@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Authorization;
 
-use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
-use App\Modules\IAM\Services\PasswordHasher;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class DenyByDefaultTest extends AuthorizationTestSupport
 {
@@ -74,13 +70,5 @@ class DenyByDefaultTest extends AuthorizationTestSupport
         $cookie = $response->getCookie((string) config('iam.session.cookie'), false);
         $this->withCredentials()->withUnencryptedCookie((string) config('iam.session.cookie'), (string) $cookie?->getValue());
         $this->defaultHeaders['X-CSRF-Token'] = (string) $response->json('data.csrf_token');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function authHeadersFor(User $user): array
-    {
-        return [];
     }
 }

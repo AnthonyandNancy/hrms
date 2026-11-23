@@ -7,8 +7,6 @@ namespace Tests\Feature\Authorization;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\BreakGlassGrant;
 use App\Modules\IAM\Models\User;
-use App\Modules\Platform\Models\AuditEvent;
-use App\Modules\Platform\Models\OutboxEvent;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;

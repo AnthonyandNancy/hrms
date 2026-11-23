@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Providers;
 
+use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Auth\CapabilityAuthorizer;
 use App\Modules\IAM\Authorization\EloquentAccessSubjectStateDirectory;
 use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
 use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
 use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
-use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\AccessSubjectStateDirectory;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;

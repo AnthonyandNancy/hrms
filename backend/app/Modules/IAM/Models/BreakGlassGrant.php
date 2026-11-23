@@ -11,6 +11,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $requester_user_id
  * @property int $approver_user_id
  * @property list<string> $scope_json
+ * @property \Carbon\CarbonImmutable $granted_at
+ * @property \Carbon\CarbonImmutable $expires_at
+ * @property \Carbon\CarbonImmutable|null $revoked_at
+ * @property \Carbon\CarbonImmutable|null $alert_sent_at
+ * @property \Carbon\CarbonImmutable|null $created_at
+ * @property \Carbon\CarbonImmutable|null $updated_at
  */
 final class BreakGlassGrant extends Model
 {

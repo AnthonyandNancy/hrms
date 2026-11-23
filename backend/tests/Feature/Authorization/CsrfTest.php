@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Authorization;
 
-use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
-use App\Shared\Authorization\AnchorType;
 use Tests\Support\AuthenticatesRequests;
 
 final class CsrfTest extends AuthorizationTestSupport

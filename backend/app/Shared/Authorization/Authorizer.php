@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\Authorization;
 
-use Illuminate\Database\Eloquent\Builder;
 use App\Modules\IAM\Contracts\Principal;
+use Illuminate\Database\Eloquent\Builder;
 
 interface Authorizer
 {
@@ -14,6 +14,7 @@ interface Authorizer
      * sorting, aggregation or export.
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */

@@ -19,6 +19,8 @@ use Tests\TestCase;
 
 final class IamCommandsTest extends TestCase
 {
+    protected FrozenClock $clock;
+
     use RefreshDatabase;
 
     public function test_sync_capabilities_is_idempotent_and_refuses_referenced_removal(): void
@@ -52,9 +54,7 @@ final class IamCommandsTest extends TestCase
         $this->freeze();
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
-        putenv('DEMO_SEED_PASSWORD=Correct-Horse-9!');
-        $_ENV['DEMO_SEED_PASSWORD'] = 'Correct-Horse-9!';
-        $_SERVER['DEMO_SEED_PASSWORD'] = 'Correct-Horse-9!';
+        config(['iam.demo_seed_password' => 'Correct-Horse-9!']);
 
         $this->artisan('iam:seed-demo')->assertSuccessful();
         $this->artisan('iam:seed-demo')->assertSuccessful();
@@ -63,8 +63,6 @@ final class IamCommandsTest extends TestCase
         $this->assertDatabaseHas('users', ['username' => 'demo.admin', 'is_privileged' => true]);
         $this->assertGreaterThan(0, AuthorityBinding::query()->count());
 
-        putenv('DEMO_SEED_PASSWORD');
-        unset($_ENV['DEMO_SEED_PASSWORD'], $_SERVER['DEMO_SEED_PASSWORD']);
     }
 
     public function test_reap_sessions_revokes_only_expired_sessions(): void

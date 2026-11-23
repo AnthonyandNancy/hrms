@@ -14,7 +14,7 @@ class CapabilityCatalogTest extends TestCase
 {
     public function test_capability_codes_are_unique_and_cover_the_frozen_catalog(): void
     {
-        $catalog = new CapabilityCatalog();
+        $catalog = new CapabilityCatalog;
         $definitions = $catalog->all();
 
         $this->assertNotEmpty($definitions);
@@ -66,7 +66,7 @@ class CapabilityCatalogTest extends TestCase
 
     public function test_every_definition_uses_known_anchors_and_profiles(): void
     {
-        foreach ((new CapabilityCatalog())->all() as $definition) {
+        foreach ((new CapabilityCatalog)->all() as $definition) {
             $this->assertNotEmpty($definition->anchorTypes);
             foreach ($definition->anchorTypes as $anchorType) {
                 $this->assertInstanceOf(AnchorType::class, $anchorType);

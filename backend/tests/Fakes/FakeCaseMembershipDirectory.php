@@ -25,8 +25,11 @@ final class FakeCaseMembershipDirectory implements CaseMembershipDirectory
         return $this->casesByUser[$userId] ?? [];
     }
 
+    /** @var array<int, int> */
+    public array $caseEntity = [];
+
     public function legalEntityForCase(int $tenantId, int $caseId): ?int
     {
-        return 1;
+        return $this->caseEntity[$caseId] ?? null;
     }
 }

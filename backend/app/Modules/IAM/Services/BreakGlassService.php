@@ -27,7 +27,6 @@ final class BreakGlassService
         private readonly Clock $clock,
         private readonly OutboxService $outbox,
         private readonly SecurityEventService $events,
-        private readonly MfaService $mfa,
     ) {}
 
     /**
@@ -51,12 +50,12 @@ final class BreakGlassService
             ->first();
 
         if ($approver === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         // MFA enrollment is mandatory for anyone who can trigger break-glass.
         if (! $requester->hasConfirmedMfa()) {
-            throw new \App\Shared\Exceptions\ConflictException(
+            throw new ConflictException(
                 'MFA enrollment is required before activating break-glass.',
                 ['reason' => 'MFA_REQUIRED'],
             );
@@ -125,7 +124,7 @@ final class BreakGlassService
             ->first();
 
         if ($grant === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         if ($grant->revoked_at !== null) {

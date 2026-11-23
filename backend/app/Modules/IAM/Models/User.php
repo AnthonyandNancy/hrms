@@ -22,13 +22,20 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * @property int $auth_version
  * @property int|null $person_id
  * @property bool $is_privileged
+ * @property \Carbon\CarbonImmutable|null $mfa_enrolled_at
+ * @property \Carbon\CarbonImmutable|null $last_login_at
+ * @property \Carbon\CarbonImmutable|null $created_at
+ * @property \Carbon\CarbonImmutable|null $updated_at
  */
 final class User extends Authenticatable
 {
+    /** @use HasFactory<UserFactory> */
     use HasFactory;
 
     public const STATUS_ACTIVE = 'ACTIVE';
+
     public const STATUS_LOCKED = 'LOCKED';
+
     public const STATUS_DISABLED = 'DISABLED';
 
     protected $table = 'users';
@@ -65,6 +72,7 @@ final class User extends Authenticatable
         ];
     }
 
+    /** @return HasMany<Session, $this> */
     public function sessions(): HasMany
     {
         return $this->hasMany(Session::class, 'user_id');

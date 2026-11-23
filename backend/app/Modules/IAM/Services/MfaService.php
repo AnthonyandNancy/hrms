@@ -8,7 +8,6 @@ use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\RecoveryCode;
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\Crypt;
@@ -96,13 +95,13 @@ final class MfaService
     {
         $type = strtoupper($factorType);
 
-        if (! in_array($type, ['TOTP', 'WEBAUTHN', 'RECOVERY_CODE'], true)) {
-            throw new ValidationException([], 'Unsupported second factor type.', ['reason' => 'MFA_FACTOR_UNSUPPORTED']);
-        }
-
         // SMS and email are explicitly not accepted second factors.
         if (in_array($type, ['SMS', 'EMAIL'], true)) {
             throw new ValidationException([], 'SMS and email are not accepted second factors.', ['reason' => 'MFA_FACTOR_UNSUPPORTED']);
+        }
+
+        if (! in_array($type, ['TOTP', 'WEBAUTHN', 'RECOVERY_CODE'], true)) {
+            throw new ValidationException([], 'Unsupported second factor type.', ['reason' => 'MFA_FACTOR_UNSUPPORTED']);
         }
 
         $verified = match ($type) {

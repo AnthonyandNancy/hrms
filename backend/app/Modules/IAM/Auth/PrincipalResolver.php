@@ -8,7 +8,6 @@ use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\SessionManager;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
-use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use Illuminate\Http\Request;
 
 /**
@@ -23,12 +22,15 @@ final class PrincipalResolver
         private readonly PersonEmploymentDirectory $people,
     ) {}
 
+    /**
+     * @return array{0: AuthenticatedPrincipal, 1: Session, 2: User}
+     */
     public function resolve(Request $request): array
     {
         $token = $request->cookie((string) config('iam.session.cookie', 'hrms_session')) ?? $request->cookies->get((string) config('iam.session.cookie', 'hrms_session'));
 
         if (! is_string($token) || $token === '') {
-            throw new AuthenticationFailedException();
+            throw new AuthenticationFailedException;
         }
 
         $session = $this->sessions->findValid($token);

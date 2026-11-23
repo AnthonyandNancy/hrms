@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
-use App\Modules\IAM\Auth\AuthenticationFailedException;
 use App\Modules\IAM\Models\LoginAttempt;
 use App\Modules\IAM\Models\User;
-use App\Modules\IAM\Services\LoginService;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
@@ -19,7 +17,6 @@ use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 final class AuthController
 {
@@ -27,7 +24,6 @@ final class AuthController
         private readonly SessionManager $sessions,
         private readonly PasswordHasher $passwords,
         private readonly SecurityEventService $events,
-        private readonly LoginService $login,
         private readonly Clock $clock,
         private readonly AuthenticationContext $context,
     ) {}
@@ -81,7 +77,7 @@ final class AuthController
         ]);
 
         if (! $valid || ! $user instanceof User || ! $user->isActive()) {
-            $this->events->record((int) ($user?->tenant_id ?? 0), $user?->id, 'login.failure', 'FAILURE', ['reason' => 'BAD_CREDENTIALS'], $request);
+            $this->events->record($user === null ? 0 : (int) $user->tenant_id, $user?->id, 'login.failure', 'FAILURE', ['reason' => 'BAD_CREDENTIALS'], $request);
 
             return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication failed.', 401, ['reason' => 'BAD_CREDENTIALS']);
         }

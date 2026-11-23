@@ -17,9 +17,14 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $anchor_id
  * @property string $field_profile
  * @property int $auth_version
+ * @property \Carbon\CarbonImmutable $valid_from
+ * @property \Carbon\CarbonImmutable $valid_to
+ * @property \Carbon\CarbonImmutable|null $last_used_at
+ * @property \Carbon\CarbonImmutable|null $created_at
  */
 final class AuthorityBinding extends Model
 {
+    /** @use HasFactory<AuthorityBindingFactory> */
     use HasFactory;
 
     public const UPDATED_AT = null;

@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use App\Modules\IAM\Http\Controllers\AuthController;
-use App\Modules\IAM\Http\Controllers\BreakGlassController;
 use App\Modules\IAM\Http\Controllers\AuthorizationAdminController;
+use App\Modules\IAM\Http\Controllers\BreakGlassController;
 use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;

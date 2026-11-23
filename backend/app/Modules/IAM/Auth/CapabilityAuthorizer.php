@@ -6,24 +6,22 @@ namespace App\Modules\IAM\Auth;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Authorization\AnchorRef;
-use App\Shared\Authorization\AnchorType;
-use App\Shared\Authorization\FieldProfile;
-use App\Shared\Authorization\FieldSet;
-use App\Shared\Authorization\ResourceRef;
-use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\AnchorType as Anchor;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\BindingGrant;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
 use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
 use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
-use App\Shared\Authorization\BindingGrant;
+use App\Shared\Authorization\FieldProfile;
+use App\Shared\Authorization\FieldSet;
+use App\Shared\Authorization\ResourceRef;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Default-deny authorization engine.
@@ -158,7 +156,7 @@ final class CapabilityAuthorizer implements Authorizer
         }
 
         if ($max === null) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         $effective = $capability === 'payroll.export' || str_ends_with($capability, '.export')
@@ -225,6 +223,11 @@ final class CapabilityAuthorizer implements Authorizer
         ));
     }
 
+    /**
+     * @param  Builder<TModel>  $query
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     */
     private function constrainForGrant(
         Builder $query,
         BindingGrant $grant,
@@ -276,6 +279,12 @@ final class CapabilityAuthorizer implements Authorizer
     /**
      * @param  list<int|null>  $ids
      */
+    /**
+     * @param  Builder<TModel>  $query
+     * @param  list<int|null>  $ids
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     */
     private function whereColumnIn(Builder $query, string $column, array $ids): void
     {
         $clean = array_values(array_filter($ids, static fn (?int $id): bool => $id !== null && $id > 0));
@@ -289,6 +298,11 @@ final class CapabilityAuthorizer implements Authorizer
         $query->whereIn($column, $clean);
     }
 
+    /**
+     * @param  Builder<TModel>  $query
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     */
     private function orgColumn(Builder $query): string
     {
         $model = $query->getModel();
@@ -374,18 +388,18 @@ final class CapabilityAuthorizer implements Authorizer
     private function assertLiveSubject(Principal $p): void
     {
         if (! $this->subjects->isEnabled($p->tenantId(), $p->userId())) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
 
         if ($this->subjects->currentAuthVersion($p->tenantId(), $p->userId()) !== $p->authVersion()) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
     }
 
     private function assertPrincipalIntegrity(Principal $p): void
     {
         if ($p->userId() <= 0 || $p->tenantId() <= 0 || $p->authVersion() <= 0) {
-            throw new NotFoundOrForbiddenException();
+            throw new NotFoundOrForbiddenException;
         }
     }
 

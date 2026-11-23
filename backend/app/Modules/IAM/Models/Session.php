@@ -19,9 +19,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $tenant_id
  * @property int $auth_version
  * @property bool $mfa_verified
+ * @property \Carbon\CarbonImmutable|null $mfa_verified_until
+ * @property \Carbon\CarbonImmutable $idle_expires_at
+ * @property \Carbon\CarbonImmutable $absolute_expires_at
+ * @property \Carbon\CarbonImmutable|null $revoked_at
+ * @property \Carbon\CarbonImmutable $last_seen_at
+ * @property \Carbon\CarbonImmutable $created_at
  */
 final class Session extends Model
 {
+    /** @use HasFactory<SessionFactory> */
     use HasFactory, HasUlids;
 
     public const UPDATED_AT = null;
@@ -73,6 +80,7 @@ final class Session extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
