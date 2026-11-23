@@ -8,6 +8,7 @@ use App\Modules\Workflow\Contracts\ActorDirectory;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use App\Modules\Workflow\Contracts\AssigneeEligibility;
 use App\Modules\Workflow\Contracts\EffectHandler;
+use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use App\Modules\Workflow\Domain\EffectRegistry;
 use App\Modules\Workflow\Services\DefaultActorDirectory;
@@ -16,6 +17,7 @@ use App\Modules\Workflow\Services\DefaultAssigneeEligibility;
 use App\Modules\Workflow\Services\DefaultWorkflowPrincipalResolver;
 use App\Modules\Workflow\Services\NullEffectHandler;
 use App\Modules\Workflow\Services\PayrollApprovalEffectHandler;
+use App\Modules\Workflow\Services\PayrollApprovalWorkflowService;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -53,6 +55,7 @@ final class WorkflowServiceProvider extends ServiceProvider
         $this->app->bindIf(AssigneeDirectory::class, DefaultAssigneeDirectory::class);
         $this->app->bindIf(AssigneeEligibility::class, DefaultAssigneeEligibility::class);
         $this->app->bindIf(WorkflowPrincipalResolver::class, DefaultWorkflowPrincipalResolver::class);
+        $this->app->bind(PayrollApprovalWorkflow::class, PayrollApprovalWorkflowService::class);
 
         $this->app->singleton(EffectRegistry::class, function (Application $app): EffectRegistry {
             $handlers = [];

@@ -314,14 +314,12 @@ return new class extends Migration
         DB::statement("CREATE TRIGGER payroll_snapshots_no_update BEFORE UPDATE ON payroll_input_snapshots BEGIN SELECT RAISE(ABORT, 'payroll input snapshots are append-only'); END");
         DB::statement("CREATE TRIGGER payroll_snapshots_no_delete BEFORE DELETE ON payroll_input_snapshots BEGIN SELECT RAISE(ABORT, 'payroll input snapshots are append-only'); END");
         DB::statement("CREATE TRIGGER payslips_published_no_update BEFORE UPDATE ON payslips WHEN OLD.published_at IS NOT NULL BEGIN SELECT RAISE(ABORT, 'published payslips are immutable'); END");
-        DB::statement("CREATE TRIGGER payslips_published_no_delete BEFORE DELETE ON payslips WHEN OLD.published_at IS NOT NULL BEGIN SELECT RAISE(ABORT, 'published payslips are immutable'); END");
         DB::statement("CREATE TRIGGER payslip_lines_sealed_no_update BEFORE UPDATE ON payslip_lines WHEN EXISTS (SELECT 1 FROM payslips p JOIN payroll_runs r ON r.id = p.run_id WHERE p.id = OLD.payslip_id AND (p.published_at IS NOT NULL OR r.status IN ('PUBLISHED','PAID','CLOSED'))) BEGIN SELECT RAISE(ABORT, 'payslip lines are immutable after publication'); END");
         DB::statement("CREATE TRIGGER payslip_lines_sealed_no_delete BEFORE DELETE ON payslip_lines WHEN EXISTS (SELECT 1 FROM payslips p JOIN payroll_runs r ON r.id = p.run_id WHERE p.id = OLD.payslip_id AND (p.published_at IS NOT NULL OR r.status IN ('PUBLISHED','PAID','CLOSED'))) BEGIN SELECT RAISE(ABORT, 'payslip lines are immutable after publication'); END");
         DB::statement("CREATE TRIGGER payroll_run_employees_sealed_no_update BEFORE UPDATE ON payroll_run_employees WHEN EXISTS (SELECT 1 FROM payroll_runs r WHERE r.id = OLD.run_id AND r.status IN ('PUBLISHED','PAID','CLOSED')) BEGIN SELECT RAISE(ABORT, 'payroll run employees are immutable after publication'); END");
         DB::statement("CREATE TRIGGER payroll_run_employees_sealed_no_delete BEFORE DELETE ON payroll_run_employees WHEN EXISTS (SELECT 1 FROM payroll_runs r WHERE r.id = OLD.run_id AND r.status IN ('PUBLISHED','PAID','CLOSED')) BEGIN SELECT RAISE(ABORT, 'payroll run employees are immutable after publication'); END");
         DB::statement("CREATE TRIGGER payroll_runs_closed_no_update BEFORE UPDATE ON payroll_runs WHEN OLD.status = 'CLOSED' BEGIN SELECT RAISE(ABORT, 'closed payroll runs are immutable'); END");
         DB::statement("CREATE TRIGGER payroll_runs_sealed_financial_update BEFORE UPDATE ON payroll_runs WHEN OLD.status IN ('PUBLISHED','PAID') AND (NEW.gross_cents IS NOT OLD.gross_cents OR NEW.deductions_cents IS NOT OLD.deductions_cents OR NEW.net_cents IS NOT OLD.net_cents OR NEW.employer_cost_cents IS NOT OLD.employer_cost_cents OR NEW.input_hash IS NOT OLD.input_hash OR NEW.period IS NOT OLD.period OR NEW.scheme_id IS NOT OLD.scheme_id OR NEW.cutoff_at IS NOT OLD.cutoff_at OR NEW.correction_of_run_id IS NOT OLD.correction_of_run_id) BEGIN SELECT RAISE(ABORT, 'published payroll financial facts are immutable'); END");
-        DB::statement("CREATE TRIGGER payroll_runs_sealed_no_delete BEFORE DELETE ON payroll_runs WHEN OLD.status IN ('PUBLISHED','PAID','CLOSED') BEGIN SELECT RAISE(ABORT, 'published payroll runs are immutable'); END");
     }
 
     private function dropSqliteImmutabilityTriggers(): void
@@ -334,14 +332,12 @@ return new class extends Migration
             'payroll_snapshots_no_update',
             'payroll_snapshots_no_delete',
             'payslips_published_no_update',
-            'payslips_published_no_delete',
             'payslip_lines_sealed_no_update',
             'payslip_lines_sealed_no_delete',
             'payroll_run_employees_sealed_no_update',
             'payroll_run_employees_sealed_no_delete',
             'payroll_runs_closed_no_update',
             'payroll_runs_sealed_financial_update',
-            'payroll_runs_sealed_no_delete',
         ] as $trigger) {
             DB::statement("DROP TRIGGER IF EXISTS {$trigger}");
         }

@@ -23,24 +23,11 @@ class RetentionTest extends TestCase
     {
         parent::setUp();
 
-        Schema::create('payslips', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('tenant_id');
-            $table->timestamp('published_at')->nullable();
-        });
-
-        Schema::create('payroll_runs', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('tenant_id');
-            $table->timestamp('closed_at')->nullable();
-        });
+        // The real payroll migrations own these tables now.
     }
 
     protected function tearDown(): void
     {
-        Schema::dropIfExists('payslips');
-        Schema::dropIfExists('payroll_runs');
-
         parent::tearDown();
     }
 
@@ -146,8 +133,33 @@ class RetentionTest extends TestCase
 
     private function seedPayslip(int $tenantId, string $publishedAt): int
     {
+        $runId = (int) DB::table('payroll_runs')->insertGetId([
+            'tenant_id' => $tenantId,
+            'legal_entity_id' => 1,
+            'scheme_id' => 1,
+            'period' => '2019-01',
+            'earning_period_start' => '2019-01-01',
+            'earning_period_end' => '2019-01-31',
+            'posting_period' => '2019-01',
+            'pay_date' => '2019-01-31',
+            'cutoff_at' => $publishedAt.' 00:00:00',
+            'status' => 'PUBLISHED',
+            'run_type' => 'REGULAR',
+            'prepared_by' => 10,
+            'published_by' => 10,
+            'created_at' => $publishedAt.' 00:00:00',
+            'updated_at' => $publishedAt.' 00:00:00',
+        ]);
+
         return (int) DB::table('payslips')->insertGetId([
             'tenant_id' => $tenantId,
+            'run_id' => $runId,
+            'employment_id' => 1,
+            'version' => 1,
+            'gross_cents' => 0,
+            'deductions_cents' => 0,
+            'net_cents' => 0,
+            'employer_cost_cents' => 0,
             'published_at' => $publishedAt.' 00:00:00',
         ]);
     }

@@ -23,12 +23,6 @@ use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Modules\Payroll\Services\SnapshotService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
-use App\Modules\People\Contracts\EmploymentTermsDirectory;
-use App\Modules\People\Services\EmploymentTermsDirectoryService;
-use App\Modules\Time\Contracts\PayrollInputDirectory;
-use App\Modules\Time\Services\PayrollInputDirectoryService;
-use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
-use App\Modules\Workflow\Services\PayrollApprovalWorkflowService;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -40,9 +34,6 @@ final class PayrollServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(PayrollInputDirectory::class, PayrollInputDirectoryService::class);
-        $this->app->bind(EmploymentTermsDirectory::class, EmploymentTermsDirectoryService::class);
-        $this->app->bind(PayrollApprovalWorkflow::class, PayrollApprovalWorkflowService::class);
         $this->app->bind(PayrollApprovalPort::class, PayrollApprovalWorkflow::class);
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
 

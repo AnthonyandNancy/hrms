@@ -439,8 +439,10 @@ final class CalculationService
     }
 
     /**
-     * Baseline payable position = original full payslip + all previously
-     * published corrections in the same chain.
+     * Baseline is the original full payslip. Each correction run is a
+     * delta against the original; prior correction deltas are separate
+     * payable rows and must not be folded into this baseline or the same
+     * adjustment would be counted twice.
      *
      * @return array{gross: int, taxable: int, employee_si: int, employee_hf: int, tax: int, deductions: int, employer_si: int, employer_hf: int, employer_cost: int, net: int, ytd_taxable: int, ytd_withheld: int, lines: array<string, array{category: string, amount: int}>}
      */
@@ -484,58 +486,6 @@ final class CalculationService
             'ytd_withheld' => (int) $originalEmployee->ytd_tax_withheld_opening_cents,
             'lines' => $this->linesByKey((int) $originalPayslip->id),
         ];
-
-        $prior = PayrollRun::query()
-            ->where('tenant_id', $correction->tenant_id)
-            ->where('correction_of_run_id', $originalRunId)
-            ->whereKeyNot($correction->id)
-            ->whereIn('status', [
-                PayrollRunStatus::PUBLISHED->value,
-                PayrollRunStatus::PAID->value,
-                PayrollRunStatus::CLOSED->value,
-            ])
-            ->orderBy('id')
-            ->get();
-
-        foreach ($prior as $priorRun) {
-            $employee = PayrollRunEmployee::query()
-                ->where('run_id', $priorRun->id)
-                ->where('employment_id', $employmentId)
-                ->first();
-
-            if ($employee === null) {
-                continue;
-            }
-
-            $fieldColumns = [
-                'gross' => 'gross_cents',
-                'taxable' => 'taxable_cents',
-                'employee_si' => 'employee_si_cents',
-                'employee_hf' => 'employee_hf_cents',
-                'tax' => 'tax_cents',
-                'deductions' => 'deductions_cents',
-                'employer_si' => 'employer_si_cents',
-                'employer_hf' => 'employer_hf_cents',
-                'employer_cost' => 'employer_cost_cents',
-                'net' => 'net_cents',
-            ];
-
-            foreach ($fieldColumns as $field => $column) {
-                $baseline[$field] += (int) $employee->{$column};
-            }
-
-            $priorPayslip = Payslip::query()
-                ->where('run_id', $priorRun->id)
-                ->where('employment_id', $employmentId)
-                ->first();
-
-            if ($priorPayslip !== null) {
-                foreach ($this->linesByKey((int) $priorPayslip->id) as $key => $line) {
-                    $baseline['lines'][$key] ??= $line;
-                    $baseline['lines'][$key]['amount'] += $line['amount'];
-                }
-            }
-        }
 
         return $baseline;
     }

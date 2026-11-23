@@ -10,4 +10,11 @@ namespace App\Modules\Time\Contracts;
 interface PayrollInputDirectory
 {
     public function attendanceForPeriod(int $tenantId, int $employmentId, string $period): ?PayrollAttendanceExport;
+
+    /**
+     * Whether Time has any attendance or leave evidence for this employment
+     * and period. Payroll uses this to distinguish "no Time module data yet"
+     * (full-month salary) from an actual absence.
+     */
+    public function hasRecordedAttendance(int $tenantId, int $employmentId, string $period): bool;
 }

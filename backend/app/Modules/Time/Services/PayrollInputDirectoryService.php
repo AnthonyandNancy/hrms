@@ -110,6 +110,30 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         );
     }
 
+    public function hasRecordedAttendance(int $tenantId, int $employmentId, string $period): bool
+    {
+        if (preg_match('/^\d{4}-\d{2}$/', $period) !== 1) {
+            return false;
+        }
+
+        $start = BusinessDate::from($period.'-01');
+        $end = BusinessDate::from(CarbonImmutable::parse($start->value(), 'UTC')->endOfMonth()->format('Y-m-d'));
+
+        return AttendanceDay::query()
+            ->where('tenant_id', $tenantId)
+            ->where('employment_id', $employmentId)
+            ->where('business_date', '>=', $start->value())
+            ->where('business_date', '<=', $end->value())
+            ->exists()
+            || LeaveLedgerEntry::query()
+                ->where('tenant_id', $tenantId)
+                ->where('employment_id', $employmentId)
+                ->where('account', 'CONSUME')
+                ->where('effective_on', '>=', $start->value())
+                ->where('effective_on', '<=', $end->value())
+                ->exists();
+    }
+
     private function isUnpaidCode(?string $code): bool
     {
         return $code !== null && in_array(strtoupper($code), ['UNPAID', 'UNPAID_LEAVE', 'NO_PAY'], true);

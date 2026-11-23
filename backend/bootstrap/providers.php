@@ -7,6 +7,7 @@ use App\Modules\Organization\Providers\OrganizationServiceProvider;
 use App\Modules\Payroll\Providers\PayrollServiceProvider;
 use App\Modules\People\Providers\PeopleServiceProvider;
 use App\Modules\Platform\Providers\PlatformServiceProvider;
+use App\Modules\Time\Providers\TimeServiceProvider;
 use App\Modules\Workflow\Providers\WorkflowServiceProvider;
 use App\Providers\AppServiceProvider;
 
@@ -15,6 +16,7 @@ return [
     PlatformServiceProvider::class,
     IamServiceProvider::class,
     WorkflowServiceProvider::class,
+    TimeServiceProvider::class,
     OrganizationServiceProvider::class,
     PeopleServiceProvider::class,
     PayrollServiceProvider::class,
