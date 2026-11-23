@@ -53,7 +53,7 @@ final class EnsureCapability
             && $container->make(Authorizer::class)->allows(
                 $container->make(\App\Modules\IAM\Contracts\Principal::class),
                 $capability,
-                AnchorRef::global(),
+                AnchorRef::self(),
                 \App\Shared\Time\BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), $container->make(\App\Shared\Time\Clock::class))->value(),
             )) {
             return $next($request);

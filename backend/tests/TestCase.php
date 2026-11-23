@@ -12,6 +12,17 @@ use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Test seam: replace the production session gate with one that reads
+        // the explicitly bound TestPrincipal, and keep the capability alias
+        // testable. Production bootstrap aliases still apply to app code.
+        $this->app['router']->aliasMiddleware('auth.session', Support\TestSessionMiddleware::class);
+        $this->app['router']->aliasMiddleware('capability', Support\TestCapabilityMiddleware::class);
+    }
+
     /**
      * Register HTTP fixtures used to exercise framework exception mapping.
      * These routes exist only in the in-memory test application.

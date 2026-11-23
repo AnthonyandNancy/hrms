@@ -43,13 +43,16 @@ final class IdempotentCommand
             ], 422);
         }
 
+        // The IAM session middleware aliases its request-scoped principal into
+        // the shared identity seam. Platform depends only on that seam.
         if (! $this->container->bound(AuthenticatedPrincipal::class)) {
             return $next($request);
         }
 
-        $principal = $this->container->make(AuthenticatedPrincipal::class);
+        $bound = $this->container->make(AuthenticatedPrincipal::class);
+        $principal = $bound instanceof AuthenticatedPrincipal ? $bound : null;
 
-        if (! $principal instanceof AuthenticatedPrincipal) {
+        if ($principal === null) {
             return $next($request);
         }
 

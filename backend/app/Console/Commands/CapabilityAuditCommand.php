@@ -30,6 +30,7 @@ final class CapabilityAuditCommand extends Command
         'v1/health/live',
         'v1/health/ready',
         'v1/meta',
+        'v1/auth/login',
     ];
 
     protected $signature = 'capability:audit

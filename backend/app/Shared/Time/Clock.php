@@ -7,12 +7,12 @@ namespace App\Shared\Time;
 use Carbon\CarbonImmutable;
 
 /**
- * Injectable time source. Domain and application code must never call now()
- * directly; tests use FrozenClock to make as-of and recording behaviour stable.
+ * Injectable time source. Domain and security code must never call now()
+ * directly; tests use FrozenClock to make as-of and expiry behaviour stable.
  *
  * The UTC instant and the local business day are deliberately separate:
- * timestamps are stored in UTC, while a "today" is always resolved in the
- * legal entity's IANA timezone.
+ * timestamps are stored in UTC, while "today" is resolved in the legal
+ * entity's IANA timezone.
  */
 interface Clock
 {

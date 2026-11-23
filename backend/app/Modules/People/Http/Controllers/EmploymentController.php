@@ -170,7 +170,7 @@ final class EmploymentController
 
     private function assertAllows(Principal $principal, string $capability, string $on): void
     {
-        if (! $this->authorizer->allows($principal, $capability, AnchorRef::global(), $on)) {
+        if (! $this->authorizer->allows($principal, $capability, AnchorRef::self(), $on)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

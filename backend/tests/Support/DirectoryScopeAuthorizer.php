@@ -46,12 +46,14 @@ final class DirectoryScopeAuthorizer implements Authorizer
 
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
-        return $anchor->type === 'GLOBAL' || $anchor->type === $this->scope;
+        return true;
     }
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
-        return new FieldSet(visible: ['*'], filterable: ['*'], exportable: ['*']);
+        return new FieldSet([
+            '*' => \App\Shared\Authorization\FieldProfile::P0_PUBLIC,
+        ], exportUnlocked: true);
     }
 
     /**

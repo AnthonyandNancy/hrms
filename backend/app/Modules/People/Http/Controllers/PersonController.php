@@ -30,7 +30,7 @@ final class PersonController
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
 
-        if (! $this->authorizer->allows($principal, 'people.employee.manage', AnchorRef::global(), $today->value())) {
+        if (! $this->authorizer->allows($principal, 'people.employee.manage', AnchorRef::self(), $today->value())) {
             throw new AuthorizationException('Forbidden.');
         }
 

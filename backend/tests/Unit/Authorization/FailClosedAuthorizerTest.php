@@ -20,8 +20,8 @@ final class FailClosedAuthorizerTest extends TestCase
         $principal = new TestPrincipal(tenantId: 1, userId: 7);
         $authorizer = new DenyAllAuthorizer;
 
-        $this->assertFalse($authorizer->allows($principal, 'people.employee.read', AnchorRef::global(), '2026-11-23'));
-        $this->assertInstanceOf(FieldSet::class, $authorizer->fields($principal, 'people.employee.read', new ResourceRef('employment', 1)));
+        $this->assertFalse($authorizer->allows($principal, 'people.employee.read', AnchorRef::self(), '2026-11-23'));
+        $this->assertInstanceOf(FieldSet::class, $authorizer->fields($principal, 'people.employee.read', new ResourceRef('employment', 1, [])));
         $this->assertInstanceOf(Builder::class, $authorizer->constrain(\App\Modules\People\Models\Employment::query(), $principal, 'people.employee.read', '2026-11-23'));
         $this->assertInstanceOf(Principal::class, $principal);
     }

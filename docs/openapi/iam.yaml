@@ -1,0 +1,543 @@
+openapi: 3.1.0
+info:
+  title: HRMS IAM API fragment
+  version: 1.0.0
+  description: |
+    IAM endpoints owned by Task 2. This is a merge fragment because
+    `docs/openapi/openapi.yaml` is owned by Task 1B and is not present in this
+    worktree. The merge coordinator must fold these paths, components and the
+    security scheme into the canonical document.
+servers:
+  - url: /v1
+security:
+  - sessionCookie: []
+    csrfHeader: []
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      security: []
+      tags: [IAM Auth]
+      summary: Authenticate with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, maxLength: 80 }
+                password: { type: string, maxLength: 1024, format: password }
+      responses:
+        '200':
+          description: Session issued
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: HttpOnly, Secure (config), SameSite=Lax session cookie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [IAM Auth]
+      summary: Revoke the current session
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/logout-all:
+    post:
+      operationId: logoutAll
+      tags: [IAM Auth]
+      summary: Increment auth_version and revoke every session for the caller
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/password:
+    post:
+      operationId: changePassword
+      tags: [IAM Auth]
+      summary: Change password, increment auth_version and revoke sessions
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, format: password }
+                new_password: { type: string, minLength: 12, format: password }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /me:
+    get:
+      operationId: getMe
+      tags: [IAM Me]
+      summary: Current access subject and session state
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+  /me/capabilities:
+    get:
+      operationId: getMyCapabilities
+      tags: [IAM Me]
+      summary: Effective bindings for the current auth_version
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+  /auth/mfa/totp/enroll:
+    post:
+      operationId: enrollTotp
+      tags: [IAM MFA]
+      summary: Begin TOTP enrollment; returns the otpauth URI and secret once
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '201': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/mfa/totp/confirm:
+    post:
+      operationId: confirmTotp
+      tags: [IAM MFA]
+      summary: Confirm a TOTP factor and receive single-use recovery codes
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factor_id, code]
+              properties:
+                factor_id: { type: integer, minimum: 1 }
+                code: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /auth/mfa/step-up:
+    post:
+      operationId: mfaStepUp
+      tags: [IAM MFA]
+      summary: Verify TOTP, WebAuthn or a recovery code for 15 minutes
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [factor_type, code]
+              properties:
+                factor_type: { type: string, enum: [TOTP, WEBAUTHN, RECOVERY_CODE] }
+                code: { type: string, maxLength: 32 }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /auth/webauthn/register/options:
+    post:
+      operationId: webauthnRegisterOptions
+      tags: [IAM MFA]
+      summary: Begin WebAuthn registration
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/webauthn/assert/options:
+    post:
+      operationId: webauthnAssertOptions
+      tags: [IAM MFA]
+      summary: Begin WebAuthn assertion
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/break-glass:
+    post:
+      operationId: activateBreakGlass
+      tags: [IAM Break Glass]
+      summary: Two-person, 30-minute emergency elevation
+      parameters: [{ $ref: '#/components/parameters/CsrfToken' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approver_user_id, reason]
+              properties:
+                approver_user_id: { type: integer, minimum: 1 }
+                reason: { type: string, minLength: 10, maxLength: 500 }
+                scope: { type: array, maxItems: 10, items: { type: string } }
+      responses:
+        '201': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /auth/break-glass/{id}/revoke:
+    post:
+      operationId: revokeBreakGlass
+      tags: [IAM Break Glass]
+      summary: Revoke a break-glass grant as either party
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+  /users:
+    get:
+      operationId: listUsers
+      tags: [IAM Administration]
+      summary: List access subjects in the caller legal entity
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createUser
+      tags: [IAM Administration]
+      summary: Create an access subject (requires MFA enrollment and fresh step-up)
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, maxLength: 80, pattern: '^[a-zA-Z0-9._-]+$' }
+                email: { type: [string, 'null'], format: email }
+                password: { type: string, minLength: 12, format: password }
+                is_privileged: { type: boolean, default: false }
+      responses:
+        '201': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /users/{id}:
+    patch:
+      operationId: updateUserStatus
+      tags: [IAM Administration]
+      summary: Change user status; increments auth_version and revokes sessions
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              properties:
+                status: { type: string, enum: [ACTIVE, LOCKED, DISABLED] }
+                reason: { type: string, minLength: 3, maxLength: 255 }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /users/{id}/roles:
+    post:
+      operationId: assignRole
+      tags: [IAM Administration]
+      summary: Expand a role template into authority bindings
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_code, reason]
+              properties:
+                role_code: { type: string, pattern: '^[A-Z][A-Z0-9_]{2,63}$', examples: [PAYROLL_SPECIALIST] }
+                reason: { type: string, minLength: 3, maxLength: 255 }
+                valid_from: { type: string, format: date-time }
+                valid_to: { type: string, format: date-time }
+                binding_anchors:
+                  type: object
+                  additionalProperties: { type: integer, minimum: 1 }
+                  description: Required anchor ids by anchor type, e.g. PAYROLL_RUN and ORG_UNIT
+      responses:
+        '201': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: SOD conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [IAM Administration]
+      summary: List the ten templates and tenant exception roles
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /capabilities:
+    get:
+      operationId: listCapabilities
+      tags: [IAM Administration]
+      summary: Read-only synced capability catalog
+      description: There is deliberately no create, update or delete endpoint.
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /users/{id}/bindings:
+    get:
+      operationId: listUserBindings
+      tags: [IAM Administration]
+      summary: List authority bindings for one access subject
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: createUserBinding
+      tags: [IAM Administration]
+      summary: Create an authority binding (requires fresh MFA step-up)
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [capability_code, anchor_type, field_profile, purpose_code]
+              properties:
+                capability_code: { type: string, maxLength: 120 }
+                anchor_type:
+                  type: string
+                  enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY]
+                anchor_id: { type: [integer, 'null'], minimum: 1 }
+                field_profile:
+                  type: string
+                  enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED]
+                purpose_code: { type: string, maxLength: 48 }
+                valid_from: { type: string, format: date-time }
+                valid_to: { type: string, format: date-time }
+      responses:
+        '201': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: SOD conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+  /bindings/{id}:
+    delete:
+      operationId: deleteBinding
+      tags: [IAM Administration]
+      summary: Revoke an authority binding immediately
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '419': { $ref: '#/components/responses/CsrfFailed' }
+  /auth/events:
+    get:
+      operationId: listAuthEvents
+      tags: [IAM Administration]
+      summary: Read append-only authentication and authorization events
+      parameters:
+        - { $ref: '#/components/parameters/CsrfToken' }
+        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { $ref: '#/components/responses/Envelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: hrms_session
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+  parameters:
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string }
+  responses:
+    Envelope:
+      description: Standard success envelope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+    Unauthenticated:
+      description: Missing, expired, revoked or stale-auth-version session
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            unauthenticated:
+              value:
+                code: UNAUTHENTICATED
+                message: Authentication is required.
+                data: { reason: UNAUTHENTICATED }
+                request_id: 01M83YXN5D1504BQSXJ36VQPGF
+    Forbidden:
+      description: Capability, anchor, MFA or field policy denied
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Missing or out-of-scope resource (never discloses other tenants)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    CsrfFailed:
+      description: Missing or invalid X-CSRF-Token on a mutating request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            csrf:
+              value:
+                code: CSRF_FAILED
+                message: The CSRF token is missing or invalid.
+                data: { reason: CSRF_FAILED }
+                request_id: 01M83YXN5D1504BQSXJ36VQPGF
+    ValidationFailed:
+      description: Validation or non-filterable-field error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: Login or request rate limit exceeded
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    Envelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, examples: [OK] }
+        message: { type: string }
+        data: {}
+        request_id: { type: string, examples: [01M83YXN5D1504BQSXJ36VQPGF] }
+    ErrorEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, examples: [FORBIDDEN] }
+        message: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+        request_id: { type: string }
+    SessionEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [user, csrf_token, session]
+              properties:
+                user:
+                  type: object
+                  required: [id, username, is_privileged, mfa_enrolled, auth_version]
+                  properties:
+                    id: { type: integer }
+                    username: { type: string }
+                    email: { type: [string, 'null'] }
+                    is_privileged: { type: boolean }
+                    mfa_enrolled: { type: boolean }
+                    auth_version: { type: integer }
+                csrf_token:
+                  type: string
+                  description: Raw CSRF token; only its SHA-256 hash is stored
+                session:
+                  type: object
+                  required: [id, mfa_verified, idle_expires_at, absolute_expires_at]
+                  properties:
+                    id: { type: string }
+                    mfa_verified: { type: boolean }
+                    idle_expires_at: { type: string, format: date-time }
+                    absolute_expires_at: { type: string, format: date-time }

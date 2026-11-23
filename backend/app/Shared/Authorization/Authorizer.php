@@ -7,19 +7,20 @@ namespace App\Shared\Authorization;
 use App\Modules\IAM\Contracts\Principal;
 use Illuminate\Database\Eloquent\Builder;
 
-/**
- * Frozen authorization seam shared with IAM (Task 2). Implementations must
- * push row predicates into SQL; callers never serialize then filter.
- */
 interface Authorizer
 {
     /**
-     * @param  Builder<*>  $query
-     * @return Builder<*>
+     * Push the union of allowed row predicates into SQL before pagination,
+     * sorting, aggregation or export.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
-    public function constrain(Builder $query, Principal $principal, string $capability, string $businessDate): Builder;
+    public function constrain(Builder $query, Principal $p, string $capability, string $businessDate): Builder;
 
-    public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool;
+    public function allows(Principal $p, string $capability, AnchorRef $anchor, string $businessDate): bool;
 
-    public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet;
+    public function fields(Principal $p, string $capability, ResourceRef $row): FieldSet;
 }

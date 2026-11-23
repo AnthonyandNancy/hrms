@@ -26,6 +26,6 @@ final class DenyAllAuthorizer implements Authorizer
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
-        return new FieldSet(visible: [], hidden: ['*']);
+        return new FieldSet([], exportUnlocked: false);
     }
 }

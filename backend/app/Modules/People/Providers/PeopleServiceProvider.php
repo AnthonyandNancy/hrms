@@ -10,8 +10,6 @@ use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\PeopleDirectoryService;
-use App\Shared\Authorization\Authorizer;
-use App\Shared\Authorization\DenyAllAuthorizer;
 use App\Shared\Time\Clock;
 use App\Shared\Time\SystemClock;
 use Illuminate\Support\ServiceProvider;
@@ -27,7 +25,6 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(PeopleDirectory::class, PeopleDirectoryService::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
-        $this->app->singleton(Authorizer::class, DenyAllAuthorizer::class);
     }
 
     public function boot(): void

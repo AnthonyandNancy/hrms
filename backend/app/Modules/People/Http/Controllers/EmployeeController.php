@@ -57,7 +57,7 @@ final class EmployeeController
         $principal = $this->principals->resolve();
         $data = $request->validate(['as_of' => ['nullable', new BusinessDateRule]]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId());
-        $this->assertAllows($principal, 'people.employee.read', AnchorRef::global(), $asOf->value());
+        $this->assertAllows($principal, 'people.employee.read', AnchorRef::self(), $asOf->value());
 
         $asOfValue = $asOf->value();
         $employment = Employment::query()
@@ -127,7 +127,7 @@ final class EmployeeController
         ]);
         $this->businessDates->resolve($data['from'] ?? null, $principal->tenantId(), 'from');
         $this->businessDates->resolve($data['to'] ?? null, $principal->tenantId(), 'to');
-        $this->assertAllows($principal, 'people.employee.read', AnchorRef::global(), $this->businessDates->today($principal->tenantId())->value());
+        $this->assertAllows($principal, 'people.employee.read', AnchorRef::self(), $this->businessDates->today($principal->tenantId())->value());
 
         $employment = Employment::query()->where('tenant_id', $principal->tenantId())->whereKey($employmentId)->first();
 

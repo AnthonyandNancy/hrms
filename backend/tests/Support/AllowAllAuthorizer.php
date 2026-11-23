@@ -21,7 +21,7 @@ final class AllowAllAuthorizer implements Authorizer
 
     public function constrain(Builder $query, Principal $principal, string $capability, string $businessDate): Builder
     {
-        $this->calls[] = ['capability' => $capability, 'anchor' => AnchorRef::global(), 'on' => $businessDate];
+        $this->calls[] = ['capability' => $capability, 'anchor' => AnchorRef::self(), 'on' => $businessDate];
 
         return in_array($capability, $this->deniedCapabilities, true) ? $query->whereRaw('1 = 0') : $query;
     }
@@ -35,10 +35,8 @@ final class AllowAllAuthorizer implements Authorizer
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
-        return new FieldSet(
-            visible: ['*'],
-            filterable: ['*'],
-            exportable: ['*'],
-        );
+        return new FieldSet([
+            '*' => \App\Shared\Authorization\FieldProfile::P0_PUBLIC,
+        ], exportUnlocked: true);
     }
 }

@@ -4,26 +4,32 @@ declare(strict_types=1);
 
 namespace App\Shared\Authorization;
 
-use Illuminate\Database\Eloquent\Model;
-
-final readonly class ResourceRef
+/**
+ * Reference to a resource row for field projection. The resource type prevents
+ * callers from accidentally applying one resource's field schema to another.
+ */
+final class ResourceRef
 {
     /**
-     * @param  array<string, mixed>  $values
+     * @param  array<string, mixed>  $row
      */
     public function __construct(
-        public string $type,
-        public int|string $id,
-        public array $values = [],
+        public readonly string $resourceType,
+        public readonly int $id,
+        public readonly array $row,
+        public readonly ?int $tenantId = null,
+        public readonly ?int $employmentId = null,
+        public readonly ?int $orgUnitId = null,
+        public readonly ?int $legalEntityId = null,
+        public readonly ?int $caseId = null,
+        public readonly ?int $payrollRunId = null,
     ) {}
 
-    public static function fromModel(Model $model): self
+    /**
+     * @return array<string, mixed>
+     */
+    public function row(): array
     {
-        return new self($model->getTable(), (int) $model->getKey(), $model->attributesToArray());
-    }
-
-    public function value(string $field): mixed
-    {
-        return $this->values[$field] ?? null;
+        return $this->row;
     }
 }

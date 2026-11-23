@@ -15,6 +15,8 @@ final readonly class TestPrincipal implements Principal
         private int $authVersion = 1,
         private bool $privileged = false,
         private bool $mfa = true,
+        private ?string $sessionId = 'test-session',
+        private ?int $breakGlassGrantId = null,
     ) {}
 
     public function userId(): int
@@ -45,5 +47,15 @@ final readonly class TestPrincipal implements Principal
     public function hasMfa(): bool
     {
         return $this->mfa;
+    }
+
+    public function sessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    public function breakGlassGrantId(): ?int
+    {
+        return $this->breakGlassGrantId;
     }
 }

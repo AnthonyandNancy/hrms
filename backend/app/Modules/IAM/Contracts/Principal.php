@@ -7,8 +7,8 @@ namespace App\Modules\IAM\Contracts;
 use App\Shared\Auth\AuthenticatedPrincipal;
 
 /**
- * Frozen authentication principal contract owned by IAM. Other modules consume
- * only these accessor methods and never IAM models or internals.
+ * Authentication principal exposed to other modules. IAM owns its only
+ * implementation; modules depend on this interface and never on the User model.
  */
 interface Principal extends AuthenticatedPrincipal
 {
@@ -23,4 +23,8 @@ interface Principal extends AuthenticatedPrincipal
     public function isPrivileged(): bool;
 
     public function hasMfa(): bool;
+
+    public function sessionId(): ?string;
+
+    public function breakGlassGrantId(): ?int;
 }

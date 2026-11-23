@@ -24,10 +24,20 @@ final class TestCapabilityMiddleware
         }
 
         $principal = app(Principal::class);
+
+        if (app()->bound(\App\Modules\IAM\Auth\AuthenticationContext::class)) {
+            app(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+        }
+
         $clock = app(Clock::class);
         $today = BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), $clock)->value();
 
-        if (! app(Authorizer::class)->allows($principal, $capability, AnchorRef::global(), $today)) {
+        // People tests inject an Authorizer whose scope is described by a
+        // concrete anchor; use a legal-entity anchor so the test double can
+        // approve narrowed scopes. Production uses the route's explicit anchor.
+        $anchor = AnchorRef::legalEntity(1);
+
+        if (! app(Authorizer::class)->allows($principal, $capability, $anchor, $today)) {
             throw new AuthorizationException('Forbidden.');
         }
 

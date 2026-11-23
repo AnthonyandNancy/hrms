@@ -24,6 +24,7 @@ abstract class PeopleTestCase extends TestCase
         parent::setUp();
 
         $this->app['router']->aliasMiddleware('capability', TestCapabilityMiddleware::class);
+        $this->app['router']->aliasMiddleware('auth.session', TestSessionMiddleware::class);
 
         config()->set('hrms.default_timezone', 'Asia/Shanghai');
         config()->set('hrms.pii_hmac_key', 'test-pii-hmac-key');
@@ -42,6 +43,10 @@ abstract class PeopleTestCase extends TestCase
         $principal = new TestPrincipal($tenantId, $userId, $employmentId);
         $this->app->instance(Principal::class, $principal);
         $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
+
+        if ($this->app->bound(\App\Modules\IAM\Auth\AuthenticationContext::class)) {
+            $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+        }
 
         return $principal;
     }

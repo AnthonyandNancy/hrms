@@ -12,9 +12,15 @@ final class FrozenClock implements Clock
 {
     private CarbonImmutable $now;
 
-    public function __construct(string|DateTimeInterface $now = '2026-11-23T00:00:00Z', string $timezone = 'UTC')
+    public function __construct(string|DateTimeInterface|CarbonImmutable $now = '2026-11-23T00:00:00Z', string $timezone = 'UTC')
     {
-        $this->set($now, $timezone);
+        if ($now instanceof CarbonImmutable) {
+            $this->now = $now->utc();
+        } else {
+            $this->now = $now instanceof DateTimeInterface
+                ? CarbonImmutable::instance($now)->setTimezone('UTC')
+                : CarbonImmutable::parse($now, new DateTimeZone($timezone))->utc();
+        }
     }
 
     public function now(): CarbonImmutable
@@ -27,20 +33,20 @@ final class FrozenClock implements Clock
         return $this->now->setTimezone($timezone)->startOfDay();
     }
 
+    public function set(CarbonImmutable $now): void
+    {
+        $this->now = $now->utc();
+    }
+
     public function setNow(string|DateTimeInterface $now): void
     {
-        $this->set($now);
+        $this->now = $now instanceof DateTimeInterface
+            ? CarbonImmutable::instance($now)->setTimezone('UTC')
+            : CarbonImmutable::parse($now, 'UTC')->utc();
     }
 
     public function advanceSeconds(int $seconds): void
     {
         $this->now = $this->now->addSeconds($seconds);
-    }
-
-    public function set(string|DateTimeInterface $now, string $timezone = 'UTC'): void
-    {
-        $this->now = $now instanceof DateTimeInterface
-            ? CarbonImmutable::instance($now)->setTimezone('UTC')
-            : CarbonImmutable::parse($now, new DateTimeZone($timezone))->utc();
     }
 }

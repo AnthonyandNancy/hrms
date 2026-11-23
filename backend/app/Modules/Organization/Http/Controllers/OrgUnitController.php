@@ -34,8 +34,8 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->asOf($request, $principal->tenantId());
-        $this->assertAllows($principal, 'org.tree.read', AnchorRef::global(), $asOf->value());
-        $this->assertAllows($principal, 'org.unit.read', AnchorRef::global(), $asOf->value());
+        $this->assertAllows($principal, 'org.tree.read', AnchorRef::self(), $asOf->value());
+        $this->assertAllows($principal, 'org.unit.read', AnchorRef::self(), $asOf->value());
 
         $data = $request->validate([
             'as_of' => ['nullable', new BusinessDateRule],
@@ -60,7 +60,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $today = $this->today($principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::global(), $today->value());
+        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $today->value());
 
         $data = $request->validate([
             'legal_entity_id' => ['required', 'integer', 'min:1'],
@@ -81,7 +81,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $today = $this->today($principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::global(), $today->value());
+        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $today->value());
 
         $data = $request->validate([
             'new_parent_id' => ['present', 'nullable', 'integer', 'min:1'],
@@ -101,7 +101,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->asOf($request, $principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::global(), $asOf->value());
+        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $asOf->value());
 
         $data = $request->validate([
             'new_parent_id' => ['present', 'nullable', 'integer', 'min:1'],
