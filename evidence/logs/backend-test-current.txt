@@ -1,0 +1,855 @@
+
+   PASS  Tests\Unit\AuditAppendOnlyTest
+  ✓ creating audit event persists json payloads                                                                  0.63s  
+  ✓ updating audit event throws                                                                                  0.03s  
+  ✓ deleting audit event throws                                                                                  0.03s  
+
+   PASS  Tests\Unit\Authorization\AnchorTypeTest
+  ✓ catalog exposes exactly the seven frozen anchors
+  ✓ custom anchor is rejected
+
+   PASS  Tests\Unit\Authorization\CapabilityCatalogTest
+  ✓ capability codes are unique and cover the frozen catalog
+  ✓ every definition uses known anchors and profiles
+  ✓ exactly ten role templates exist and are code owned
+
+   PASS  Tests\Unit\Authorization\FailClosedAuthorizerTest
+  ✓ default authorizer denies unknown capabilities                                                               0.04s  
+
+   PASS  Tests\Unit\Authorization\FieldProfileTest
+  ✓ profiles have strictly ordered ranks
+  ✓ field set derives visibility filtering and export flags
+  ✓ export capability unlocks p1 and p2 but never p3
+  ✓ mask keeps p0 masks p1 and p2 and never returns p3
+  ✓ filtering by p2 or p3 throws domain validation error
+
+   PASS  Tests\Unit\Authorization\SodConflictTest
+  ✓ payroll maker and approver are a conflict
+  ✓ governance and audit are a conflict
+  ✓ assert allowed throws a typed conflict
+  ✓ unrelated capabilities are allowed
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Unit\IAM\IamCommandsTest
+  ✓ sync capabilities is idempotent and refuses referenced removal                                               0.12s  
+  ✓ seed demo requires password env and is idempotent                                                            0.45s  
+  ✓ reap sessions revokes only expired sessions                                                                  0.21s  
+  ✓ access review requires quarter and reports json                                                              0.05s  
+
+   PASS  Tests\Unit\IAM\TotpTest
+  ✓ rfc6238 sha1 test vectors
+  ✓ code uses six digits and thirty second step
+  ✓ verification accepts only plus or minus one window
+  ✓ invalid base32 or non numeric code is rejected
+  ✓ base32 round trip and constant time comparison
+
+   PASS  Tests\Unit\IAM\WebAuthnChallengeTest
+  ✓ challenge is random stored once and expires                                                                  0.05s  
+  ✓ client data with wrong challenge or origin is rejected                                                       0.04s  
+  ✓ challenge is single use                                                                                      0.04s  
+  ✓ assertion requires authentication type and challenge                                                         0.03s  
+
+   PASS  Tests\Unit\IdempotencyServiceTest
+  ✓ first call executes and replay returns stored response                                                       0.05s  
+  ✓ same key with different payload is a conflict                                                                0.04s  
+  ✓ failed key is released and can be reused                                                                     0.03s  
+  ✓ in progress key returns conflict instead of running twice                                                    0.03s  
+  ✓ unique index prevents duplicate reservations                                                                 0.03s  
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\CumulativeWithholdingTest
+  ✓ january progression starts from empty ytd                                                                    0.02s  
+  ✓ february uses cumulative tax minus january withholding
+  ✓ march changing deductions recompute the full year
+  ✓ negative difference withholds zero and carries forward
+  ✓ zero current taxable income never refunds prior withholding
+  ✓ year rollover starts a fresh cumulative tax year
+  ✓ prior year ytd snapshot is rejected
+  ✓ negative carry is not subtracted a second time in following month
+  ✓ correction delta is revised result minus original result
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\ManualAdjustmentAmountTest
+  ✓ negative adjustment absolute amount is exact and becomes deduction                                           0.01s  
+  ✓ php int min recovery is rejected because its absolute value is not representable
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\NegativeZeroTest
+  ✓ zero result has no negative zero anywhere
+  ✓ money and rounded decimals never serialize minus zero
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\NetPayTest
+  ✓ negative net is rejected unless explicitly allowed
+  ✓ negative net can be returned when explicitly allowed
+  ✓ exact zero net never emits negative zero
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\NoFloatTest
+  ✓ scanner detects each forbidden float pattern with data set "float type"
+  ✓ scanner detects each forbidden float pattern with data set "float literal"
+  ✓ scanner detects each forbidden float pattern with data set "float cast"
+  ✓ scanner detects each forbidden float pattern with data set "floatval call"
+  ✓ scanner detects each forbidden float pattern with data set "round call"
+  ✓ scanner detects each forbidden float pattern with data set "native abs call"
+  ✓ scanner allows integer arithmetic and comments about floating point
+  ✓ payroll and money sources contain no float arithmetic                                                        0.03s  
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationInputTest
+  ✓ rejects an input line in a different currency                                                                0.01s  
+  ✓ rejects an unexpected element type in a line collection
+  ✓ keeps the four payroll time axes separate
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationPropertyTest
+  ✓ five hundred seeded cases preserve all money invariants                                                      0.13s  
+  ✓ generated cases are deterministic for the same seed
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultInvariantTest
+  ✓ rejects a result with a positive tax carry
+  ✓ accepts a valid zero result
+  ✓ rejects deduction lines that do not equal deduction total
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultTest
+  ✓ rejects a component in a different currency
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCorrectionDeltaTest
+  ✓ zero correction is zero
+  ✓ recovery can produce negative deltas
+  ✓ delta currencies must match
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollIntermediateOverflowTest
+  ✓ cumulative taxable addition is checked
+  ✓ other deduction summation is checked
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollOverflowTest
+  ✓ gross aggregation rejects native integer overflow
+  ✓ zero scheduled minutes with zero salary is zero not a division error
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollResultExtremeValueTest
+  ✓ result balance check never overflows on extreme component sums
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollValueObjectTest
+  ✓ period rejects invalid year and month
+  ✓ rounding config rejects unsupported money scale
+  ✓ context rejects invalid timezone
+  ✓ context rejects lowercase currency code
+  ✓ attendance rejects overlapping minutes
+  ✓ attendance accepts exact scheduled minutes
+  ✓ si and hf rules reject inverted bounds
+  ✓ tax bracket rejects zero width and negative rate data
+  ✓ tax bracket rejects negative lower bound
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PayslipLineSourceTest
+  ✓ every generated line has mandatory source and increasing sort order
+  ✓ totals equal the sum of their respective lines
+  ✓ duplicate sort orders cannot be emitted by calculator inputs
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\PercentageIntegrationTest
+  ✓ fractional percentage rate is applied as a ratio not as raw percent
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\ProrationRoundingTest
+  ✓ proration rounds only once at the salary line boundary
+  ✓ proration down mode truncates a fractional cent
+  ✓ proration up mode rounds a fractional cent to one cent
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\ProrationTest
+  ✓ full attendance pays the full monthly salary
+  ✓ mid month join deducts unworked days with annual divisor
+  ✓ mid month join uses fixed 21 75 divisor
+  ✓ paid leave remains paid
+  ✓ explicit unpaid leave reduces pay by the daily rate
+  ✓ overtime uses exact minutes and a parameterised multiplier
+  ✓ leap year february has 29 days and still pays full salary
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\SocialInsuranceBaseTest
+  ✓ base below minimum is clamped up for employee and employer
+  ✓ base within range uses gross
+  ✓ base above maximum is clamped down
+  ✓ rate change is parameter driven
+  ✓ housing fund has an independent base clamp
+  ✓ rounding mode changes contribution at the cent boundary
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\TaxTableTest
+  ✓ zero income has zero tax
+  ✓ bracket boundaries are contiguous and use quick deduction
+  ✓ bracket rounding uses requested mode at the cent
+  ✓ overlapping brackets are rejected
+  ✓ gap between brackets is rejected
+  ✓ table must start at zero and have an open top bracket
+  ✓ negative quick deduction is rejected
+
+   PASS  Tests\Unit\Modules\Payroll\Domain\UserProvidedMetadataTest
+  ✓ source rejects a null byte laden id                                                                          0.01s  
+  ✓ source rejects a null byte laden type
+  ✓ line rejects a category info with negative money
+  ✓ money rejects a malformed currency code
+
+   PASS  Tests\Unit\Organization\ClosureBuilderTest
+  ✓ it builds self and ancestor paths with depth
+  ✓ it detects a parent cycle
+
+   PASS  Tests\Unit\OutboxServiceTest
+  ✓ record persists event with json payload and ulid                                                             0.04s  
+  ✓ record rolls back with caller transaction                                                                    0.04s  
+  ✓ payload with prohibited sensitive keys is rejected                                                           0.03s  
+  ✓ dispatcher contract is bound                                                                                 0.03s  
+
+   PASS  Tests\Unit\People\AssignmentOverlapTest
+  ✓ two primary intervals may not overlap                                                                        0.01s  
+  ✓ touching half open intervals do not overlap
+  ✓ concurrent secondments and matrix assignments are allowed
+  ✓ primary flag and type are both authoritative
+
+   PASS  Tests\Unit\People\CrossLegalEntityTransferTest
+  ✓ transfer contract ends old and opens new employment for same person                                          0.05s  
+  ✓ transfer to same entity is rejected                                                                          0.04s  
+  ✓ transfer before current start is rejected                                                                    0.04s  
+  ✓ unknown employment is 404 domain exception                                                                   0.04s  
+
+   PASS  Tests\Unit\People\PersonPrivacyTest
+  ✓ identity hash is deterministic but plaintext independent                                                     0.03s  
+  ✓ mobile masking never returns full number                                                                     0.04s  
+  ✓ encryption uses application key                                                                              0.04s  
+
+   PASS  Tests\Unit\Shared\Money\DecimalScaleTest
+  ✓ negative tie and remainder modes exactly with data set "half up keeps sign on exact half"
+  ✓ negative tie and remainder modes exactly with data set "half even negative exact half to even"
+  ✓ negative tie and remainder modes exactly with data set "half even negative odd up to even"
+  ✓ negative tie and remainder modes exactly with data set "down never rounds away from zero on negative tie"
+  ✓ negative tie and remainder modes exactly with data set "up always rounds away from zero on negative remainder"
+  ✓ division into negative divisor preserves sign
+  ✓ zero divided by negative is positive zero
+  ✓ scale must be non negative
+  ✓ division scale must be non negative
+  ✓ scaled integer scale must be non negative
+  ✓ to scaled int rounds with requested mode
+
+   PASS  Tests\Unit\Shared\Money\DecimalTest
+  ✓ add and subtract are exact and preserve result scale                                                         0.01s  
+  ✓ multiply and divide are exact
+  ✓ division uses configured rounding mode and sticky remainder
+  ✓ compare is numeric not lexicographic
+  ✓ scaled integer round trip
+  ✓ rejects invalid or out of range input with data set "empty"
+  ✓ rejects invalid or out of range input with data set "letters"
+  ✓ rejects invalid or out of range input with data set "scientific notation"
+  ✓ rejects invalid or out of range input with data set "two decimal points"
+  ✓ rejects invalid or out of range input with data set "bare sign"
+  ✓ rejects invalid or out of range input with data set "bare decimal point"
+  ✓ rejects invalid or out of range input with data set "too many integer digits"
+  ✓ rejects invalid or out of range input with data set "too many integer digits with fraction"
+  ✓ rejects invalid or out of range input with data set "whitespace"
+  ✓ rejects division by zero
+  ✓ decimal string normalizes signed zero and leading zeroes
+  ✓ large supported value can be manipulated exactly
+
+   PASS  Tests\Unit\Shared\Money\MoneyTest
+  ✓ add and subtract keep integer minor units                                                                    0.01s  
+  ✓ addition rejects native integer overflow
+  ✓ subtraction rejects native integer overflow
+  ✓ absolute is exact and rejects unrepresentable int min
+  ✓ currency mismatch is rejected
+  ✓ allocation distributes every cent and stays deterministic
+  ✓ allocation requires positive part count
+  ✓ multiply by decimal ratio rounds once at the money boundary
+  ✓ money can be created from decimal string at stored scale
+  ✓ json has stable shape and decimal amount
+  ✓ zero has single representation
+
+   PASS  Tests\Unit\Shared\Money\PercentageTest
+  ✓ percent and ratio round trip at six decimals                                                                 0.01s  
+  ✓ percentage rejects negative inputs
+  ✓ one hundred percent is exactly one
+
+   PASS  Tests\Unit\Shared\Money\RoundingTest
+  ✓ rounds exactly at requested scale with data set "half-up positive tie"
+  ✓ rounds exactly at requested scale with data set "half-up negative tie rounds away from zero"
+  ✓ rounds exactly at requested scale with data set "half-up just below tie"
+  ✓ rounds exactly at requested scale with data set "half-up above tie"
+  ✓ rounds exactly at requested scale with data set "half-even positive down to even"
+  ✓ rounds exactly at requested scale with data set "half-even positive up to even"
+  ✓ rounds exactly at requested scale with data set "half-even negative down to even"
+  ✓ rounds exactly at requested scale with data set "half-even negative up to even"
+  ✓ rounds exactly at requested scale with data set "half-even above tie"
+  ✓ rounds exactly at requested scale with data set "down positive truncates"
+  ✓ rounds exactly at requested scale with data set "down negative truncates toward zero"
+  ✓ rounds exactly at requested scale with data set "up positive moves away from zero"
+  ✓ rounds exactly at requested scale with data set "up negative moves away from zero"
+  ✓ rounds exactly at requested scale with data set "up exact amount does not move"
+  ✓ rounds exactly at requested scale with data set "half-up one decimal place"
+  ✓ rounds exactly at requested scale with data set "half-even one decimal place"
+  ✓ rounding that produces zero never emits negative zero
+  ✓ rounding to a larger scale pads with zeroes
+
+   PASS  Tests\Unit\Time\AsOfQueryTest
+  ✓ where valid on is half open and grouped                                                                      0.04s  
+  ✓ where known at respects recorded and superseded timestamps                                                   0.04s  
+
+   PASS  Tests\Unit\Time\BusinessCalendarTest
+  ✓ workweek holiday and makeup override weekday rules                                                           0.06s  
+  ✓ public holiday and company holiday are non working                                                           0.04s  
+  ✓ makeup workday on a weekend is working                                                                       0.04s  
+  ✓ unknown timezone is rejected                                                                                 0.04s  
+  ✓ shift window maps overnight morning punch to start business date                                             0.03s  
+  ✓ day shift uses legal entity local date not utc date                                                          0.03s  
+
+   PASS  Tests\Unit\Time\BusinessDateTest
+  ✓ it accepts a real calendar date
+  ✓ it rejects impossible calendar dates
+  ✓ today is derived from the tenant timezone and injected clock
+  ✓ it compares dates as business dates
+  ✓ open end is the documented constant
+
+   PASS  Tests\Unit\Time\ClockTest
+  ✓ frozen clock returns utc and can advance
+  ✓ system clock returns utc
+
+   PASS  Tests\Unit\Time\DateRangeTest
+  ✓ half open range contains start but not end
+  ✓ open ended range contains all future business dates
+  ✓ overlap respects half open boundaries
+  ✓ a range must end after it starts
+  ✓ it can clip a range to a business date
+
+   PASS  Tests\Unit\Time\LeaveEquationTest
+  ✓ equation accounts for every ledger account                                                                   0.03s  
+  ✓ available excludes reserve and balance is total                                                              0.03s  
+  ✓ negative quantity is rejected                                                                                0.03s  
+  ✓ balance can be asserted exact                                                                                0.03s  
+  ✓ negative available without permission is rejected                                                            0.04s  
+
+   PASS  Tests\Unit\Time\QuantityUnitTest
+  ✓ day quantity is stored as integer minutes using standard day                                                 0.04s  
+  ✓ fraction below one minute is rejected not rounded                                                            0.03s  
+  ✓ display days round trip for quarter day                                                                      0.03s  
+  ✓ bad standard day is rejected                                                                                 0.03s  
+
+   PASS  Tests\Unit\Time\ShiftWindowTest
+  ✓ cross midnight elapsed minutes are real utc minutes                                                          0.03s  
+  ✓ fall back elapsed minutes include repeated hour once as real time                                            0.03s  
+  ✓ shift boundaries resolve dst wall clock correctly                                                            0.03s  
+  ✓ overnight window without midnight crossing rejects configuration                                             0.03s  
+
+   PASS  Tests\Unit\Time\StatutoryFloorTest
+  ✓ floors are five ten and fifteen days by cumulative service                                                   0.03s  
+  ✓ one day short of ten years still gets five days                                                              0.03s  
+  ✓ statutory entitlement below floor is rejected                                                                0.03s  
+  ✓ company leave may be set below statutory floor                                                               0.04s  
+  ✓ statutory entitlement at floor is accepted                                                                   0.03s  
+
+   PASS  Tests\Unit\Workflow\ConditionEvaluatorTest
+  ✓ supported leaf operators compare scalar payload fields                                                       0.01s  
+  ✓ all and any compose only declarative conditions
+  ✓ nested dotted payload fields are supported
+  ✓ missing or non scalar fields do not match
+  ✓ unknown or expression operators are rejected
+  ✓ arbitrary expression strings are rejected
+  ✓ in operator requires a non empty list of scalars
+  ✓ depth and node count are bounded
+
+   PASS  Tests\Unit\Workflow\EffectRegistryTest
+  ✓ resolves handler by supported effect type                                                                    0.01s  
+  ✓ unknown effect type is rejected at decision time
+  ✓ two handlers supporting the same type is a configuration error
+  ✓ effect types are known from registered handlers
+
+   PASS  Tests\Unit\Workflow\IdempotencyHashTest
+  ✓ key order does not change the hash
+  ✓ list order and scalar types are part of the hash
+  ✓ hash is stable sha256 hex
+
+   PASS  Tests\Unit\Workflow\WorkflowStateMachineTest
+  ✓ case transitions follow the application lifecycle
+  ✓ case transitions reject skipping approval or resurrecting closed cases
+  ✓ invalid case transition throws conflict with stable reason
+  ✓ instance transitions
+  ✓ task transitions
+  ✓ decision actions are allowed only while case is open
+
+   PASS  Tests\Feature\Authorization\AnchorScopeTest
+  ✓ self anchor                                                                                                  0.05s  
+  ✓ managed anchor                                                                                               0.03s  
+  ✓ org unit anchor                                                                                              0.04s  
+  ✓ org subtree anchor                                                                                           0.04s  
+  ✓ case anchor                                                                                                  0.04s  
+  ✓ payroll run anchor                                                                                           0.04s  
+  ✓ legal entity anchor and cross entity isolation                                                               0.04s  
+  ✓ cross tenant user never uses another tenants binding                                                         0.04s  
+  ✓ every binding carries a known anchor type                                                                    0.03s  
+
+   PASS  Tests\Feature\Authorization\AuthorizationScopeTest
+  ✓ self scope resolves only the principals employment                                                           0.14s  
+  ✓ managed scope resolves direct reports                                                                        0.04s  
+  ✓ org subtree scope resolves descendant org members                                                            0.05s  
+  ✓ legal entity scope is isolated                                                                               0.04s  
+  ✓ cross tenant detail is 404                                                                                   0.07s  
+  ✓ unauthenticated request is 401                                                                               0.04s  
+  ✓ missing capability is 403                                                                                    0.03s  
+
+   PASS  Tests\Feature\Authorization\AuthorizerEngineTest
+  ✓ default deny when no binding and no elevation                                                                0.04s  
+  ✓ self anchor allows only the callers employments                                                              0.04s  
+  ✓ managed anchor follows manager directory                                                                     0.04s  
+  ✓ expired and future bindings do not grant                                                                     0.03s  
+  ✓ tenant mismatch never grants                                                                                 0.03s  
+  ✓ sod conflict hard denies both capabilities                                                                   0.03s  
+  ✓ stale auth version is not granted                                                                            0.04s  
+  ✓ constrain pushes scope into sql before pagination                                                            0.04s  
+  ✓ cross module ports are fakes and nothing queries other tables                                                0.03s  
+
+   PASS  Tests\Feature\Authorization\BreakGlassTest
+  ✓ activation requires two distinct people                                                                      0.22s  
+  ✓ reason minimum and active approver are enforced                                                              0.20s  
+  ✓ activation creates thirty minute grant with audit and outbox                                                 0.21s  
+  ✓ expired grant no longer allows actions automatically                                                         0.21s  
+  ✓ either party can revoke and revocation is audited                                                            0.36s  
+  ✓ grant id header is bound to actions and unknown grant does not elevate                                       0.20s  
+  ✓ reason is never exposed in grant json                                                                        0.20s  
+
+   PASS  Tests\Feature\Authorization\ConcurrencyTest
+  ✓ parallel binding changes increment auth version monotonically without lost updates                           0.73s  
+
+   PASS  Tests\Feature\Authorization\CsrfTest
+  ✓ missing csrf header on mutation returns 419 envelope                                                         0.20s  
+  ✓ invalid csrf header on mutation returns 419                                                                  0.19s  
+  ✓ get request is not subject to csrf                                                                           0.20s  
+
+   PASS  Tests\Feature\Authorization\DenyByDefaultTest
+  ✓ unauthenticated request gets 401 envelope                                                                    0.03s  
+  ✓ authenticated user without capability gets 403                                                               0.20s  
+  ✓ capability catalog has no editable surface                                                                   0.03s  
+  ✓ all protected routes carry capability metadata                                                               0.04s  
+
+   PASS  Tests\Feature\Authorization\FieldDenialHttpTest
+  ✓ hidden field filter returns 422 and never queries it                                                         0.03s  
+  ✓ idor user cannot read another users bindings                                                                 0.22s  
+
+   PASS  Tests\Feature\Authorization\FieldProjectionTest
+  ✓ p0 visible and filterable p1 visible but masked p2 visible but masked p3 hidden                              0.04s  
+  ✓ p2 is not filterable and throws domain 422                                                                   0.04s  
+  ✓ caller without field coverage gets 404 not partial projection                                                0.04s  
+  ✓ export flag only applies to export capability and never unlocks p3                                           0.04s  
+  ✓ sensitive field access is audited without values                                                             0.04s  
+  ✓ p3 values never reach serialized output or logs                                                              0.04s  
+
+   PASS  Tests\Feature\Authorization\LoginSecurityTest
+  ✓ login sets hardened cookie and returns csrf once                                                             0.20s  
+  ✓ bad password is 401 and never issues session                                                                 0.19s  
+  ✓ login is rate limited after five attempts per minute                                                         0.83s  
+  ✓ account locks after ten failures in window                                                                   1.60s  
+  ✓ successful login records last login and audit event                                                          0.20s  
+
+   PASS  Tests\Feature\Authorization\MfaTest
+  ✓ privileged user without enrollment cannot use privileged capability                                          0.26s  
+  ✓ payroll role without mfa gets 403 but ordinary capability is unaffected                                      0.21s  
+  ✓ totp enrollment confirm returns otpauth uri and single use recovery codes                                    0.39s  
+  ✓ totp step up marks mfa verified and expires after 15 minutes                                                 0.21s  
+  ✓ sms and email are rejected as second factors                                                                 0.21s  
+  ✓ invalid totp is rejected and audited                                                                         0.20s  
+
+   PASS  Tests\Feature\Authorization\RoleAssignmentTest
+  ✓ role code rejects free text person or department name                                                        0.24s  
+  ✓ role assignment requires anchor ids for id bearing anchors                                                   0.24s  
+  ✓ role assignment expands to bindings with explicit anchor                                                     0.24s  
+  ✓ sod conflict blocks role assignment                                                                          0.24s  
+
+   PASS  Tests\Feature\Authorization\SessionRevocationTest
+  ✓ role change increments auth version and next request is 401                                                  0.19s  
+  ✓ binding change increments auth version and isolates session                                                  0.19s  
+  ✓ logout all increments auth version and revokes sessions                                                      0.20s  
+  ✓ password change revokes other sessions and requires reauth                                                   0.66s  
+  ✓ standard idle expiry is 30 minutes                                                                           0.19s  
+  ✓ privileged timeout is 15 minutes and 8 hours                                                                 0.20s  
+  ✓ absolute expiry wins even after activity                                                                     0.20s  
+  ✓ offboarding increments auth version and old session fails immediately                                        0.21s  
+
+   PASS  Tests\Feature\CapabilityGuardTest
+  ✓ unbound capability gate fails closed                                                                         0.04s  
+  ✓ client headers cannot assert capability                                                                      0.04s  
+  ✓ gate denial is audited via structured log not success audit                                                  0.04s  
+  ✓ capability middleware denies unknown principal and allows bound gate                                         0.04s  
+
+   PASS  Tests\Feature\DemoSeedTest
+  ✓ seed is idempotent and verify passes in honest shadow mode                                                   0.23s  
+  ✓ reset is refused in production                                                                               0.04s  
+  ✓ reset removes shadow staging and dataset rows                                                                0.12s  
+
+   PASS  Tests\Feature\ErrorEnvelopeTest
+  ✓ missing route returns stable not found envelope                                                              0.04s  
+  ✓ validation failure returns validation envelope                                                               0.04s  
+  ✓ method not allowed returns envelope                                                                          0.04s  
+  ✓ throttled request returns rate limited envelope                                                              0.04s  
+  ✓ debug mode does not leak internals                                                                           0.04s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response                                                                0.06s  
+
+   PASS  Tests\Feature\FeatureFlagTest
+  ✓ risky domains default off and return 404 with stable code                                                    0.04s  
+  ✓ enabling flag allows route                                                                                   0.04s  
+  ✓ flag change is audited and idempotent override                                                               0.04s  
+  ✓ unknown flag is rejected                                                                                     0.03s  
+  ✓ flag route requires capability metadata                                                                      0.04s  
+
+   PASS  Tests\Feature\HealthProbeTest
+  ✓ liveness is ok without touching any dependency                                                               0.04s  
+  ✓ readiness returns 503 when database is down                                                                  0.04s  
+  ✓ readiness returns 503 when cache or storage is down                                                          0.04s  
+  ✓ legacy health remains degraded not unavailable for cache failure                                             0.03s  
+
+   PASS  Tests\Feature\HealthTest
+  ✓ health is public and reports all checks                                                                      0.07s  
+  ✓ cache or storage degradation is reported as degraded with http 200                                           0.05s  
+  ✓ database failure returns service unavailable envelope                                                        0.03s  
+
+   PASS  Tests\Feature\LogRedactionTest
+  ✓ context keys are redacted at every depth                                                                     0.03s  
+  ✓ identity numbers emails and mobiles are masked in free text                                                  0.03s  
+  ✓ real log channel redacts context and message                                                                 0.04s  
+  ✓ request log line contains correlation fields and no payload                                                  0.05s  
+
+   PASS  Tests\Feature\MetaTest
+  ✓ meta returns version environment time and api version                                                        0.06s  
+  ✓ root returns api meta instead of unused welcome page                                                         0.04s  
+
+   PASS  Tests\Feature\Migration\MigrationCommandsTest
+  ✓ validate command is read only and exits zero                                                                 0.05s  
+  ✓ validate command exits non zero for broken fixture                                                           0.06s  
+  ✓ apply without shadow fails closed when no database target is available                                       0.04s  
+  ✓ apply to shadow reconciles with positive exit                                                                0.06s  
+  ✓ rollback plan writes json and never executes destructive sql                                                 0.08s  
+  ✓ command rejects unknown domain                                                                               0.06s  
+
+   PASS  Tests\Feature\Migration\MigrationIdempotencyTest
+  ✓ applying the same domain twice does not duplicate target rows                                                0.07s  
+  ✓ dry run never writes target rows                                                                             0.05s  
+
+   PASS  Tests\Feature\Migration\MigrationReconciliationTest
+  ✓ leave opening reconciliation matches count and sum                                                           0.05s  
+  ✓ payroll ytd reconciliation covers all totals                                                                 0.05s  
+  ✓ injected target mismatch fails reconciliation                                                                0.05s  
+  ✓ injected sum mismatch fails reconciliation                                                                   0.05s  
+
+   PASS  Tests\Feature\Migration\MigrationRehearsalTest
+  ✓ rehearsal applies all domains to shadow and reconciles                                                       0.19s  
+  ✓ rehearsal requires positive round                                                                            0.06s  
+  ✓ rehearsal stops on missing dataset                                                                           0.04s  
+
+   PASS  Tests\Feature\Migration\MigrationValidateTest
+  ✓ known good fixture validates for every domain                                                                0.09s  
+  ✓ broken fixtures report expected codes and write no target rows                                               0.08s  
+  ✓ missing required header fails run without writing                                                            0.04s  
+
+   PASS  Tests\Feature\Organization\ClosureHistoryTest
+  ✓ move does not rewrite existing closure paths                                                                 0.07s  
+  ✓ a second move cannot predate the latest closure version                                                      0.05s  
+  ✓ union closures are derived from existing ancestor paths                                                      0.04s  
+
+   PASS  Tests\Feature\Organization\OrgTenantIsolationTest
+  ✓ move of other tenant org is 404                                                                              0.04s  
+  ✓ impact of other tenant org is 404                                                                            0.04s  
+  ✓ tree for other tenant legal entity is 404                                                                    0.04s  
+
+   PASS  Tests\Feature\Organization\OrgUnitWriteTest
+  ✓ create org unit builds closure and audits                                                                    0.04s  
+  ✓ impact preview counts employees managers and zero payroll cost centers                                       0.05s  
+  ✓ impact warns on cross entity parent                                                                          0.04s  
+  ✓ org type is validated                                                                                        0.04s  
+  ✓ org unit codes are unique within tenant                                                                      0.04s  
+  ✓ tenant cannot create org unit under another tenants entity                                                   0.04s  
+
+   PASS  Tests\Feature\People\AsOfQueryTest
+  ✓ t minus one t and t plus one for employment assignment and terms                                             0.05s  
+  ✓ terminated employee is absent after the termination date                                                     0.05s  
+  ✓ future hire is absent before hire date                                                                       0.04s  
+  ✓ invalid as of returns 422 and never scopes silently                                                          0.04s  
+  ✓ list and detail agree at the same as of                                                                      0.04s  
+
+   PASS  Tests\Feature\People\AssignmentTimelineTest
+  ✓ concurrent second assignment is allowed                                                                      0.05s  
+  ✓ two overlapping primary assignments are rejected                                                             0.04s  
+  ✓ future assignment does not change today                                                                      0.05s  
+  ✓ half open boundaries of assignments                                                                          0.05s  
+  ✓ manager chain is projected in snapshot                                                                       0.04s  
+
+   PASS  Tests\Feature\People\CrossLegalEntityTest
+  ✓ assignment to another legal entity is rejected with reason code                                              0.04s  
+  ✓ cross entity transfer ends old and creates new employment for same person                                    0.04s  
+  ✓ employee number is unique per legal entity only                                                              0.04s  
+
+   PASS  Tests\Feature\People\CrossTenantIsolationTest
+  ✓ person service never reads another tenants person                                                            0.04s  
+  ✓ person dedup is tenant scoped                                                                                0.04s  
+  ✓ assignment route 404s for other tenant employment                                                            0.04s  
+
+   PASS  Tests\Feature\People\EmploymentWriteTest
+  ✓ create employment validates hire inside validity                                                             0.04s  
+  ✓ create employment rejects unknown person or entity tenant safely                                             0.04s  
+  ✓ employment type and status enums are enforced                                                                0.04s  
+  ✓ assignment cannot outlive employment window                                                                  0.04s  
+  ✓ assignment to future org unit is rejected before activation                                                  0.04s  
+  ✓ terms cannot start before employment                                                                         0.04s  
+
+   PASS  Tests\Feature\People\FieldPrivacyTest
+  ✓ identity number never appears in profile or timeline responses                                               0.04s  
+  ✓ mobile is masked for p1 profile                                                                              0.03s  
+  ✓ document download requires capability                                                                        0.04s  
+  ✓ document metadata hides storage key and hash                                                                 0.04s  
+  ✓ sensitive access material is not persisted in plaintext                                                      0.04s  
+
+   PASS  Tests\Feature\People\FieldProfileProjectionTest
+  ✓ identity ciphertext and plaintext are absent from every profile with data set " p0"                          0.03s  
+  ✓ identity ciphertext and plaintext are absent from every profile with data set " p1"                          0.03s  
+  ✓ identity ciphertext and plaintext are absent from every profile with data set " p2"                          0.03s  
+  ✓ identity ciphertext and plaintext are absent from every profile with data set " p3"                          0.04s  
+
+   PASS  Tests\Feature\People\IdempotencyHttpTest
+  ✓ idempotency key replays the original command response without duplicate write                                0.05s  
+  ✓ same key with different payload is 409                                                                       0.05s  
+
+   PASS  Tests\Feature\Organization\OrgClosureTest
+  ✓ subtree as of before and after a move                                                                        0.05s  
+  ✓ move rejects a cycle                                                                                         0.04s  
+  ✓ tree reflects the requested business date                                                                    0.04s  
+  ✓ historical closure path is ended not rewritten                                                               0.04s  
+
+   PASS  Tests\Feature\Organization\OrgUnitAsOfBoundaryTest
+  ✓ org unit validity window is half open in directory                                                           0.04s  
+  ✓ invalid or blank as of defaults to tenant timezone today                                                     0.04s  
+  ✓ org tree requires legal entity id                                                                            0.04s  
+  ✓ org move requires effective from and rejects before current start                                            0.05s  
+
+   PASS  Tests\Feature\People\PaginationScopeTest
+  ✓ total counts are computed after row scope                                                                    0.06s  
+  ✓ last page returns remaining rows in stable order                                                             0.05s  
+
+   PASS  Tests\Feature\People\PersonDedupTest
+  ✓ same identity type and hash is rejected                                                                      0.05s  
+  ✓ identity type is normalized before deduplication                                                             0.04s  
+  ✓ different identity type is allowed                                                                           0.04s  
+  ✓ identity and mobile are encrypted at rest and never serialized                                               0.06s  
+  ✓ audit and outbox payloads never contain identity plaintext                                                   0.05s  
+
+   PASS  Tests\Feature\People\RequirementGapsTest
+  ✓ assignment outside org active window is rejected                                                             0.05s  
+  ✓ terms effective to is clipped to employment window                                                           0.04s  
+  ✓ manager assignment must exist and be valid                                                                   0.04s  
+  ✓ document requires same tenant file object                                                                    0.04s  
+  ✓ document versions increment per category                                                                     0.04s  
+  ✓ document download returns no storage key and requires both capabilities                                      0.04s  
+  ✓ legal entity timezone and currency are validated                                                             0.04s  
+  ✓ terms historical row is not overwritten when new version closes it                                           0.05s  
+
+   PASS  Tests\Feature\People\TermsVersionTest
+  ✓ versions increment and history is preserved                                                                  0.05s  
+  ✓ historical terms are returned as of the requested date                                                       0.05s  
+  ✓ terms are not edited in place                                                                                0.05s  
+  ✓ non monotonic effective date is a conflict                                                                   0.04s  
+
+   PASS  Tests\Feature\People\TimelineTest
+  ✓ timeline orders employment assignment terms and document facts                                               0.05s  
+  ✓ timeline filters by from and to half open                                                                    0.05s  
+  ✓ timeline rejects invalid dates and hides other tenants                                                       0.04s  
+
+   PASS  Tests\Feature\RequestIdTest
+  ✓ valid inbound request id is preserved                                                                        0.04s  
+  ✓ invalid inbound request id is replaced with ulid                                                             0.04s  
+  ✓ response header is present without inbound id                                                                0.04s  
+  ✓ error responses also carry request id                                                                        0.05s  
+
+   PASS  Tests\Feature\RetentionTest
+  ✓ preview reports candidates without deleting                                                                  0.04s  
+  ✓ legal hold blocks purge and is skipped                                                                       0.04s  
+  ✓ purge without confirm is a dry run                                                                           0.04s  
+  ✓ contract and accounting retention classes exist                                                              0.03s  
+  ✓ permanent classes are never purged                                                                           0.04s  
+
+   PASS  Tests\Feature\Time\AttendanceCorrectionTest
+  ✓ correction creates case and does not change raw punch                                                        0.06s  
+  ✓ recalculation is idempotent and reuses source hash                                                           0.04s  
+  ✓ corrected punches do not replace device punches                                                              0.04s  
+
+   PASS  Tests\Feature\Time\LeaveConcurrencyTest
+  ✓ two requests for the last day produce one success and no negative balance                                    0.06s  
+  ✓ ledger unique source prevents double reserve                                                                 0.04s  
+
+   PASS  Tests\Feature\Time\LeaveLedgerBalanceTest
+  ✓ all ledger accounts are reflected and equation holds exactly                                                 0.06s  
+  ✓ reserve reduces available and release restores                                                               0.05s  
+  ✓ no negative balance unless type allows it                                                                    0.04s  
+  ✓ negative balance is permitted when type allows it                                                            0.04s  
+  ✓ day display uses legal entity standard day                                                                   0.04s  
+  ✓ duplicate source append is idempotent                                                                        0.04s  
+
+   PASS  Tests\Feature\Time\OvernightShiftTest
+  ✓ morning punch after midnight maps to shift start business date                                               0.04s  
+  ✓ overnight shift across spring forward dst counts real minutes once                                           0.04s  
+  ✓ overnight shift across fall back counts repeated hour once                                                   0.04s  
+  ✓ asia shanghai has no dst shift minutes                                                                       0.04s  
+
+   PASS  Tests\Feature\Time\ReversalTest
+  ✓ consume then reverse restores balance once                                                                   0.05s  
+  ✓ reverse entry direction is opposite of target                                                                0.04s  
+
+   PASS  Tests\Feature\Workflow\ApprovedNotEffectiveTest
+  ✓ handler exception keeps decision and approved application status but marks effect failed                     0.10s  
+  ✓ retry of failed effect applies once and does not duplicate decision                                          0.07s  
+
+   PASS  Tests\Feature\Workflow\AuthorizationTest
+  ✓ unauthenticated request is 401                                                                               0.04s  
+  ✓ missing capability is 403                                                                                    0.04s  
+  ✓ requester sees own case and approver sees assigned case but unrelated user gets 404                          0.06s  
+  ✓ tasks my returns only current users pending tasks with sla                                                   0.05s  
+  ✓ admin override requires reason and is audited                                                                0.06s  
+  ✓ effect retry requires admin capability and reason                                                            0.06s  
+  ✓ list queries do not n plus one                                                                               0.06s  
+
+   PASS  Tests\Feature\Workflow\CommandsTest
+  ✓ seed templates is idempotent and creates the seven document flows                                            0.05s  
+  ✓ workflow check fails when an approved case has no effect rows                                                0.04s  
+  ✓ workflow check passes for completed approval with effect rows                                                0.06s  
+  ✓ workflow check does not fail for approved but pending scheduled effects                                      0.06s  
+
+   PASS  Tests\Feature\Workflow\ConcurrentApprovalTest
+  ✓ replaying same idempotency key returns the same decision and effect without duplicates                       0.06s  
+  ✓ second approval after case completed is a conflict and does not create another decision                      0.06s  
+  ✓ required count blocks completion until enough distinct approvers decide                                      0.07s  
+
+   PASS  Tests\Feature\Workflow\DecisionImmutabilityTest
+  ✓ updating or deleting a decision throws                                                                       0.05s  
+  ✓ template edit does not change live or historical case snapshot                                               0.05s  
+  ✓ actor snapshot is stored with decision                                                                       0.05s  
+  ✓ decisions are append only and keep action sequence                                                           0.06s  
+
+   PASS  Tests\Feature\Workflow\DelegationTest
+  ✓ proxy within range and scope can approve on behalf of assignee                                               0.06s  
+  ✓ expired delegation is rejected                                                                               0.05s  
+  ✓ delegation amount limit is enforced                                                                          0.05s  
+  ✓ delegation out of scope is rejected                                                                          0.05s  
+  ✓ revoked delegation cannot be used                                                                            0.05s  
+
+   PASS  Tests\Feature\Workflow\EffectIdempotencyTest
+  ✓ same effect applied twice only runs handler once                                                             0.06s  
+  ✓ unique constraint rejects duplicate effect sequence                                                          0.05s  
+  ✓ retry after failure works and max attempts is enforced                                                       0.08s  
+
+   PASS  Tests\Feature\Workflow\OutboxOnDecisionTest
+  ✓ external effect records outbox event with ids and versions only                                              0.05s  
+  ✓ external effect is not silently marked applied                                                               0.06s  
+
+   PASS  Tests\Feature\Workflow\ReassignTest
+  ✓ terminated assignee is replaced by next eligible manager with case event                                     0.05s  
+  ✓ eligible assignee is untouched and reassignment is idempotent                                                0.05s  
+  ✓ no eligible candidate is recorded as escalation without duplicate tasks                                      0.05s  
+
+   PASS  Tests\Feature\Workflow\ScheduledEffectTest
+  ✓ future effect is not applied today and applies once on due date                                              0.06s  
+  ✓ due scheduler only processes effects that are due                                                            0.09s  
+  ✓ due scheduler limit is respected                                                                             0.10s  
+
+   PASS  Tests\Feature\Workflow\StatusSeparationTest
+  ✓ case detail timeline and list never expose a combined completed status                                       0.06s  
+  ✓ decision response reports both statuses independently                                                        0.05s  
+
+   PASS  Tests\Feature\Workflow\TemplateVersionTest
+  ✓ version two does not retroactively change version one cases and new cases use latest explicit version        0.07s  
+  ✓ template creation is idempotent for same tenant code version                                                 0.03s  
+  ✓ template definition rejects unsupported node types and assignee rules                                        0.03s  
+  ✓ template http create is validated and capability guarded                                                     0.04s  
+
+   PASS  Tests\Feature\Workflow\WorkflowSchemaTest
+  ✓ workflow tables exist with separate application and effect columns on cases                                  0.04s  
+  ✓ decision uniqueness constraint is present                                                                    0.03s  
+  ✓ effect uniqueness constraint is present                                                                      0.04s  
+
+   PASS  Tests\Contract\IamOpenApiContractTest
+  ✓ iam fragment declares every route with security                                                              0.03s  
+  ✓ every iam route has capability metadata except public allowlist                                              0.03s  
+
+   PASS  Tests\Contract\IamRouteMatrixTest
+  ✓ every iam route appears in the denial matrix                                                                 0.03s  
+  ✓ high risk rows have at least eight denial classes                                                            0.03s  
+
+   PASS  Tests\Contract\OpenApiContractTest
+  ✓ every v1 route is documented in openapi                                                                      0.04s  
+  ✓ health and meta document success and error shapes                                                            0.04s  
+  ✓ openapi is 31 and declares auth schemes                                                                      0.04s  
+
+   PASS  Tests\Contract\OpenApiLintCliTest
+  ✓ lint accepts the repository spec                                                                             0.48s  
+  ✓ lint fails on malformed yaml                                                                                 0.44s  
+  ✓ lint fails when an operation lacks responses                                                                 0.43s  
+
+   PASS  Tests\Contract\PeopleDirectoryFrozenSignatureTest
+  ✓ people directory methods match the interface freeze                                                          0.05s  
+  ✓ organization directory methods match the interface freeze                                                    0.03s  
+
+   PASS  Tests\Contract\PeopleOrgApiContractTest
+  ✓ person creation envelope matches frozen shape                                                                0.04s  
+  ✓ employee list uses paginated data shape                                                                      0.04s  
+  ✓ org tree uses list envelope                                                                                  0.04s  
+  ✓ commands emit outbox events without pii                                                                      0.04s  
+  ✓ api errors keep stable codes                                                                                 0.04s  
+
+   PASS  Tests\Integration\AsOfConsistencyTest
+  ✓ employee list detail org tree and directory agree at same as of                                              0.05s  
+  ✓ org tree and as of subtree agree after move boundary                                                         0.05s  
+
+   PASS  Tests\Integration\BackupRestoreSmokeTest
+  ✓ script copies hashes restores and reports pass                                                               1.34s  
+  ✓ script fails for missing database                                                                            0.41s  
+
+   PASS  Tests\Integration\DirectoryContractTest
+  ✓ contracts are bound to real directory implementations                                                        0.05s  
+  ✓ employment for user and tenant isolation                                                                     0.04s  
+  ✓ employment for user uses tenant business date not utc date                                                   0.04s  
+  ✓ employment snapshot is as of and carries manager                                                             0.04s  
+  ✓ org directory tree and legal entity lookup                                                                   0.04s  
+  ✓ iam authorizer scope via real directories for manager and hr and self                                        0.04s  
+
+   PASS  Tests\Integration\ModuleContractBoundaryTest
+  ✓ organization facts contract is bound and tenant scoped                                                       0.04s  
+  ✓ people impact contract is used by org impact preview                                                         0.04s  
+  ✓ demo seeder contract is idempotent and org owned                                                             0.04s  
+
+   PASS  Tests\Architecture\ArchTestCommandTest
+  ✓ command passes for clean module tree                                                                         0.05s  
+  ✓ command fails and lists synthetic cross module violation                                                     0.06s  
+  ✓ default command passes for current application                                                               0.31s  
+
+   PASS  Tests\Architecture\ArchitectureBoundaryTest
+  ✓ organization does not reference people internal models                                                       0.06s  
+  ✓ organization does not reference people models or tables directly                                             0.04s  
+  ✓ controllers contain no sql or model writes                                                                   0.04s  
+  ✓ effective dated migrations do not add current department or position columns                                 0.03s  
+  ✓ business code does not use where date for business dates                                                     0.05s  
+
+   PASS  Tests\Architecture\CapabilityAuditCommandTest
+  ✓ audit passes for current public health and meta routes                                                       0.04s  
+  ✓ audit fails and lists synthetic unguarded route                                                              0.04s  
+  ✓ audit accepts capability middleware metadata                                                                 0.04s  
+  ✓ audit accepts capability route default                                                                       0.04s  
+  ✓ missing negative test manifest entry warns without failing                                                   0.04s  
+
+   PASS  Tests\Architecture\ModuleOwnershipTest
+  ✓ people never imports organization models or services                                                         0.05s  
+  ✓ organization never imports people models or services                                                         0.04s  
+  ✓ no controller runs sql or eloquent writes                                                                    0.04s  
+  ✓ effective dated tables have no current snapshot columns                                                      0.03s  
+  ✓ business modules do not use where date                                                                       0.05s  
+
+   PASS  Tests\Architecture\ModuleScannerTest
+  ✓ clean tree allows shared and other module contracts                                                          0.01s  
+  ✓ cross module use and fully qualified reference are violations                                                0.01s  
+  ✓ grouped use declarations are expanded and checked                                                            0.03s  
+  ✓ platform model import is not allowed by default                                                              0.02s  
+  ✓ platform may not depend on business module contracts                                                         0.02s  
+  ✓ db table uses owned table and flags cross module and unknown tables                                          0.02s  
+  ✓ schema usage in application modules is a violation                                                           0.01s  
+
+   PASS  Tests\Architecture\WorkflowArchitectureTest
+  ✓ workflow does not import iam people or organization models                                                   0.09s  
+  ✓ workflow controllers do not query other module tables                                                        0.04s  
+  ✓ workflow sources have strict types                                                                           0.07s  
+  ✓ decision and case event models block mutation                                                                0.04s  
+
+  Tests:    579 passed (33230 assertions)
+  Duration: 32.74s
+

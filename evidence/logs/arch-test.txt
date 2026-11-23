@@ -1,0 +1,16 @@
+Scanned 310 module PHP files.
+WARN Platform/Demo/Services/DemoSeeder.php:167 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
+WARN Platform/Demo/Services/DemoSeeder.php:174 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
+WARN Platform/Features/FeatureFlagService.php:32 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
+WARN Platform/Features/FeatureFlagService.php:58 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:111 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:457 [Platform] Table leave_types has no documented owner; add it to the ownership map.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:528 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:555 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:560 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:567 [Platform] Table legal_entities has no documented owner; add it to the ownership map.
+WARN Platform/Retention/RetentionService.php:65 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
+WARN Platform/Retention/RetentionService.php:123 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
+WARN Platform/Retention/RetentionService.php:138 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
+Warnings (non-blocking): 13
+Module boundaries OK.

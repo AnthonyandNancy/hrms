@@ -1,0 +1,148 @@
++-------------------------------------------------+-------------------------------------------------+---------+
+| Route                                           | Capability                                      | Status  |
++-------------------------------------------------+-------------------------------------------------+---------+
+| POST v1/auth/break-glass                        | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/break-glass/{id}/revoke            | iam.session.manage,SELF                         | GUARDED |
+| GET v1/auth/events                              | iam.audit.read,LEGAL_ENTITY,legal_entity_id     | GUARDED |
+| POST v1/auth/login                              | -                                               | PUBLIC  |
+| POST v1/auth/logout                             | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/logout-all                         | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/mfa/step-up                        | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/mfa/totp/confirm                   | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/mfa/totp/enroll                    | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/password                           | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/webauthn/assert/options            | iam.session.manage,SELF                         | GUARDED |
+| POST v1/auth/webauthn/register/options          | iam.session.manage,SELF                         | GUARDED |
+| DELETE v1/bindings/{id}                         | iam.binding.manage,LEGAL_ENTITY,legal_entity_id | GUARDED |
+| GET v1/capabilities                             | iam.role.manage,LEGAL_ENTITY,legal_entity_id    | GUARDED |
+| GET v1/cases                                    | workflow.case.read                              | GUARDED |
+| POST v1/cases                                   | workflow.case.create                            | GUARDED |
+| POST v1/cases/{caseId}/decisions                | workflow.case.decide                            | GUARDED |
+| GET v1/cases/{id}                               | workflow.case.read                              | GUARDED |
+| POST v1/cases/{id}/submit                       | workflow.case.create                            | GUARDED |
+| GET v1/cases/{id}/timeline                      | workflow.case.read                              | GUARDED |
+| POST v1/cases/{id}/withdraw                     | workflow.case.create                            | GUARDED |
+| POST v1/delegations                             | workflow.case.decide                            | GUARDED |
+| DELETE v1/delegations/{id}                      | workflow.case.decide                            | GUARDED |
+| GET v1/documents/{document_id}/download         | people.document.download                        | GUARDED |
+| POST v1/effects/{id}/retry                      | workflow.case.admin                             | GUARDED |
+| GET v1/employees                                | people.employee.read                            | GUARDED |
+| GET v1/employees/{employment_id}                | people.employee.read                            | GUARDED |
+| POST v1/employments                             | people.employee.manage                          | GUARDED |
+| POST v1/employments/{employment_id}/assignments | people.assignment.manage                        | GUARDED |
+| POST v1/employments/{employment_id}/documents   | people.contract.manage                          | GUARDED |
+| POST v1/employments/{employment_id}/terms       | people.contract.manage                          | GUARDED |
+| GET v1/employments/{employment_id}/timeline     | people.employee.read                            | GUARDED |
+| POST v1/employments/{employment_id}/transfer    | people.employee.manage                          | GUARDED |
+| GET v1/health                                   | -                                               | PUBLIC  |
+| GET v1/health/live                              | -                                               | PUBLIC  |
+| GET v1/health/ready                             | -                                               | PUBLIC  |
+| GET v1/me                                       | iam.session.manage,SELF                         | GUARDED |
+| GET v1/me/capabilities                          | iam.session.manage,SELF                         | GUARDED |
+| GET v1/meta                                     | -                                               | PUBLIC  |
+| POST v1/org-units                               | org.unit.manage                                 | GUARDED |
+| GET v1/org-units/tree                           | org.tree.read                                   | GUARDED |
+| GET v1/org-units/{id}/impact                    | org.unit.manage                                 | GUARDED |
+| POST v1/org-units/{id}/move                     | org.unit.manage                                 | GUARDED |
+| POST v1/persons                                 | people.employee.manage                          | GUARDED |
+| GET v1/platform/features                        | platform.feature.manage                         | GUARDED |
+| PUT v1/platform/features/{flag}                 | platform.feature.manage                         | GUARDED |
+| GET v1/roles                                    | iam.role.manage,LEGAL_ENTITY,legal_entity_id    | GUARDED |
+| GET v1/tasks/my                                 | workflow.case.read                              | GUARDED |
+| GET v1/users                                    | iam.user.read,LEGAL_ENTITY,legal_entity_id      | GUARDED |
+| POST v1/users                                   | iam.user.manage,LEGAL_ENTITY,legal_entity_id    | GUARDED |
+| PATCH v1/users/{id}                             | iam.user.manage,LEGAL_ENTITY,legal_entity_id    | GUARDED |
+| GET v1/users/{id}/bindings                      | iam.binding.manage,LEGAL_ENTITY,legal_entity_id | GUARDED |
+| POST v1/users/{id}/bindings                     | iam.binding.manage,LEGAL_ENTITY,legal_entity_id | GUARDED |
+| POST v1/users/{id}/roles                        | iam.role.manage,LEGAL_ENTITY,legal_entity_id    | GUARDED |
+| GET v1/workflow/templates                       | workflow.case.read                              | GUARDED |
+| POST v1/workflow/templates                      | workflow.case.admin                             | GUARDED |
++-------------------------------------------------+-------------------------------------------------+---------+
+GUARDED POST v1/auth/break-glass iam.session.manage,SELF
+GUARDED POST v1/auth/break-glass/{id}/revoke iam.session.manage,SELF
+GUARDED GET v1/auth/events iam.audit.read,LEGAL_ENTITY,legal_entity_id
+PUBLIC POST v1/auth/login -
+GUARDED POST v1/auth/logout iam.session.manage,SELF
+GUARDED POST v1/auth/logout-all iam.session.manage,SELF
+GUARDED POST v1/auth/mfa/step-up iam.session.manage,SELF
+GUARDED POST v1/auth/mfa/totp/confirm iam.session.manage,SELF
+GUARDED POST v1/auth/mfa/totp/enroll iam.session.manage,SELF
+GUARDED POST v1/auth/password iam.session.manage,SELF
+GUARDED POST v1/auth/webauthn/assert/options iam.session.manage,SELF
+GUARDED POST v1/auth/webauthn/register/options iam.session.manage,SELF
+GUARDED DELETE v1/bindings/{id} iam.binding.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED GET v1/capabilities iam.role.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED GET v1/cases workflow.case.read
+GUARDED POST v1/cases workflow.case.create
+GUARDED POST v1/cases/{caseId}/decisions workflow.case.decide
+GUARDED GET v1/cases/{id} workflow.case.read
+GUARDED POST v1/cases/{id}/submit workflow.case.create
+GUARDED GET v1/cases/{id}/timeline workflow.case.read
+GUARDED POST v1/cases/{id}/withdraw workflow.case.create
+GUARDED POST v1/delegations workflow.case.decide
+GUARDED DELETE v1/delegations/{id} workflow.case.decide
+GUARDED GET v1/documents/{document_id}/download people.document.download
+GUARDED POST v1/effects/{id}/retry workflow.case.admin
+GUARDED GET v1/employees people.employee.read
+GUARDED GET v1/employees/{employment_id} people.employee.read
+GUARDED POST v1/employments people.employee.manage
+GUARDED POST v1/employments/{employment_id}/assignments people.assignment.manage
+GUARDED POST v1/employments/{employment_id}/documents people.contract.manage
+GUARDED POST v1/employments/{employment_id}/terms people.contract.manage
+GUARDED GET v1/employments/{employment_id}/timeline people.employee.read
+GUARDED POST v1/employments/{employment_id}/transfer people.employee.manage
+PUBLIC GET v1/health -
+PUBLIC GET v1/health/live -
+PUBLIC GET v1/health/ready -
+GUARDED GET v1/me iam.session.manage,SELF
+GUARDED GET v1/me/capabilities iam.session.manage,SELF
+PUBLIC GET v1/meta -
+GUARDED POST v1/org-units org.unit.manage
+GUARDED GET v1/org-units/tree org.tree.read
+GUARDED GET v1/org-units/{id}/impact org.unit.manage
+GUARDED POST v1/org-units/{id}/move org.unit.manage
+GUARDED POST v1/persons people.employee.manage
+GUARDED GET v1/platform/features platform.feature.manage
+GUARDED PUT v1/platform/features/{flag} platform.feature.manage
+GUARDED GET v1/roles iam.role.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED GET v1/tasks/my workflow.case.read
+GUARDED GET v1/users iam.user.read,LEGAL_ENTITY,legal_entity_id
+GUARDED POST v1/users iam.user.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED PATCH v1/users/{id} iam.user.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED GET v1/users/{id}/bindings iam.binding.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED POST v1/users/{id}/bindings iam.binding.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED POST v1/users/{id}/roles iam.role.manage,LEGAL_ENTITY,legal_entity_id
+GUARDED GET v1/workflow/templates workflow.case.read
+GUARDED POST v1/workflow/templates workflow.case.admin
+Public routes (explicit allowlist): 5
+Warnings: no negative-test manifest entry for 29 route(s).
+  - No negative-test manifest entry: GET /v1/cases
+  - No negative-test manifest entry: POST /v1/cases
+  - No negative-test manifest entry: POST /v1/cases/{caseId}/decisions
+  - No negative-test manifest entry: GET /v1/cases/{id}
+  - No negative-test manifest entry: POST /v1/cases/{id}/submit
+  - No negative-test manifest entry: GET /v1/cases/{id}/timeline
+  - No negative-test manifest entry: POST /v1/cases/{id}/withdraw
+  - No negative-test manifest entry: POST /v1/delegations
+  - No negative-test manifest entry: DELETE /v1/delegations/{id}
+  - No negative-test manifest entry: GET /v1/documents/{document_id}/download
+  - No negative-test manifest entry: POST /v1/effects/{id}/retry
+  - No negative-test manifest entry: GET /v1/employees
+  - No negative-test manifest entry: GET /v1/employees/{employment_id}
+  - No negative-test manifest entry: POST /v1/employments
+  - No negative-test manifest entry: POST /v1/employments/{employment_id}/assignments
+  - No negative-test manifest entry: POST /v1/employments/{employment_id}/documents
+  - No negative-test manifest entry: POST /v1/employments/{employment_id}/terms
+  - No negative-test manifest entry: GET /v1/employments/{employment_id}/timeline
+  - No negative-test manifest entry: POST /v1/employments/{employment_id}/transfer
+  - No negative-test manifest entry: POST /v1/org-units
+  - No negative-test manifest entry: GET /v1/org-units/tree
+  - No negative-test manifest entry: GET /v1/org-units/{id}/impact
+  - No negative-test manifest entry: POST /v1/org-units/{id}/move
+  - No negative-test manifest entry: POST /v1/persons
+  - No negative-test manifest entry: GET /v1/platform/features
+  - No negative-test manifest entry: PUT /v1/platform/features/{flag}
+  - No negative-test manifest entry: GET /v1/tasks/my
+  - No negative-test manifest entry: GET /v1/workflow/templates
+  - No negative-test manifest entry: POST /v1/workflow/templates
+Capability audit OK.
