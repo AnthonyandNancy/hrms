@@ -79,9 +79,15 @@ All codes are owned by `App\Modules\IAM\Authorization\CapabilityCatalog`.
 | `workflow.case.admin` | case | CASE, LEGAL_ENTITY | P2_SENSITIVE | critical |
 | `time.attendance.read` | attendance_day | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
 | `time.attendance.manage` | attendance_day | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
+| `time.punch.import` | punch_record | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
+| `time.attendance.correct.request` | attendance_correction | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
+| `time.calendar.read` | legal_entity_calendar | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | low |
+| `time.shift.read` | shift_template | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | low |
 | `time.leave.read` | leave_account | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
 | `time.leave.request` | leave_request | SELF | P0_PUBLIC | low |
 | `time.leave.admin` | leave_account | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
+| `time.leave.request.cancel` | leave_request | SELF | P0_PUBLIC | low |
+| `time.leave.ledger.read` | leave_ledger | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
 | `payroll.run.read` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | high |
 | `payroll.run.prepare` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
 | `payroll.run.review` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
