@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Services;
 
-use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Exceptions\CrossLegalEntityAssignmentException;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Employment;
@@ -24,6 +24,7 @@ final class AssignmentService
         private readonly Clock $clock,
         private readonly AuditService $audit,
         private readonly OutboxService $outbox,
+        private readonly OrganizationFacts $organization,
     ) {}
 
     /**
@@ -50,28 +51,21 @@ final class AssignmentService
                 throw new ValidationException(['valid_from' => ['Assignment must be within the employment validity window.']]);
             }
 
-            /** @var OrgUnit|null $orgUnit */
-            $orgUnit = OrgUnit::query()
-                ->where('tenant_id', $tenantId)
-                ->whereKey((int) $input['org_unit_id'])
-                ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $range->validFrom()->value()))
-                ->first();
+            $orgUnit = $this->organization->orgUnit($tenantId, (int) $input['org_unit_id']);
 
             if ($orgUnit === null) {
+                throw new ValidationException(['org_unit_id' => ['The organization unit does not exist in this tenant.']]);
+            }
+
+            if (! (new DateRange($orgUnit->validFrom, $orgUnit->validTo))->contains($range->validFrom())) {
                 throw new ValidationException(['org_unit_id' => ['The organization unit is not active on the assignment start date.']]);
             }
 
-            $orgActiveOnEnd = OrgUnit::query()
-                ->where('tenant_id', $tenantId)
-                ->whereKey((int) $orgUnit->id)
-                ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $range->validTo()->addDays(-1)->value()))
-                ->exists();
-
-            if (! $orgActiveOnEnd) {
+            if (! (new DateRange($orgUnit->validFrom, $orgUnit->validTo))->contains($range->validTo()->addDays(-1))) {
                 throw new ValidationException(['org_unit_id' => ['The organization unit must remain active for the assignment validity window.']]);
             }
 
-            if ((int) $orgUnit->legal_entity_id !== (int) $employment->legal_entity_id) {
+            if ($orgUnit->legalEntityId !== (int) $employment->legal_entity_id) {
                 throw new CrossLegalEntityAssignmentException;
             }
 

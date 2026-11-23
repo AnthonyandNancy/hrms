@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Services;
 
-use App\Modules\Organization\Models\LegalEntity;
-use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Contracts\EmploymentSnapshot;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\People\Models\Assignment;
@@ -14,22 +13,18 @@ use App\Modules\People\Models\EmploymentUserLink;
 use App\Shared\Time\AsOfQuery;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\TenantBusinessDate;
 
 final class PeopleDirectoryService implements PeopleDirectory
 {
-    public function __construct(private readonly Clock $clock) {}
+    public function __construct(
+        private readonly Clock $clock,
+        private readonly OrganizationFacts $organization,
+    ) {}
 
     public function employmentForUser(int $tenantId, int $userId): ?int
     {
-        $timezone = LegalEntity::query()
-            ->where('tenant_id', $tenantId)
-            ->orderBy('id')
-            ->value('timezone');
-
-        $on = BusinessDate::today(
-            is_string($timezone) ? $timezone : (string) config('hrms.default_timezone', 'Asia/Shanghai'),
-            $this->clock,
-        )->value();
+        $on = (new TenantBusinessDate($this->clock, $this->organization))->today($tenantId)->value();
 
         $employmentId = EmploymentUserLink::query()
             ->where('tenant_id', $tenantId)
@@ -123,18 +118,14 @@ final class PeopleDirectoryService implements PeopleDirectory
         }
 
         $orgUnit = $assignment !== null
-            ? OrgUnit::query()
-                ->where('tenant_id', $tenantId)
-                ->whereKey((int) $assignment->org_unit_id)
-                ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
-                ->first()
+            ? $this->organization->orgUnit($tenantId, (int) $assignment->org_unit_id)
             : null;
 
         return new EmploymentSnapshot(
             employmentId: (int) $employment->id,
             personId: (int) $employment->person_id,
             legalEntityId: (int) $employment->legal_entity_id,
-            orgUnitId: $orgUnit !== null ? (int) $orgUnit->id : ($assignment !== null ? (int) $assignment->org_unit_id : null),
+            orgUnitId: $orgUnit !== null ? $orgUnit->id : ($assignment !== null ? (int) $assignment->org_unit_id : null),
             positionId: $assignment?->position_id !== null ? (int) $assignment->position_id : null,
             managerEmploymentId: $managerEmploymentId !== null ? (int) $managerEmploymentId : null,
             status: (string) $employment->status,
@@ -142,7 +133,6 @@ final class PeopleDirectoryService implements PeopleDirectory
             assignmentId: $assignment !== null ? (int) $assignment->id : null,
             managerAssignmentId: $assignment?->manager_assignment_id !== null ? (int) $assignment->manager_assignment_id : null,
         );
-
     }
 
     public function employmentExistsInTenant(int $tenantId, int $employmentId): bool

@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Providers;
 
-use App\Modules\Organization\Commands\RebuildOrgClosureCommand;
-use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
-use App\Modules\Organization\Contracts\OrganizationDirectory;
-use App\Modules\Organization\Contracts\OrganizationFacts;
-use App\Modules\Organization\Services\DemoOrganizationSeederService;
-use App\Modules\Organization\Services\OrganizationDirectoryService;
-use App\Modules\Organization\Services\OrganizationFactsService;
 use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
@@ -24,8 +17,9 @@ use App\Shared\Time\SystemClock;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Registers the frozen directory contracts and shared time seam. IAM replaces
- * the fail-closed Authorizer binding when its capability engine is installed.
+ * Registers the People read contracts and the fail-closed authorization seam.
+ * Organization contracts are bound by OrganizationServiceProvider so this
+ * module never imports another module's concrete services.
  */
 final class PeopleServiceProvider extends ServiceProvider
 {
@@ -33,10 +27,7 @@ final class PeopleServiceProvider extends ServiceProvider
     {
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(PeopleDirectory::class, PeopleDirectoryService::class);
-        $this->app->bind(OrganizationDirectory::class, OrganizationDirectoryService::class);
-        $this->app->bind(OrganizationFacts::class, OrganizationFactsService::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
-        $this->app->bind(DemoOrganizationSeeder::class, DemoOrganizationSeederService::class);
         $this->app->singleton(Authorizer::class, DenyAllAuthorizer::class);
     }
 
@@ -45,7 +36,6 @@ final class PeopleServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SeedPeopleDemoCommand::class,
-                RebuildOrgClosureCommand::class,
                 PeopleAsOfCheckCommand::class,
             ]);
         }

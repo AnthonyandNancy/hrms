@@ -35,6 +35,18 @@ final class OrganizationFactsService implements OrganizationFacts
         );
     }
 
+    public function defaultTimezone(int $tenantId): string
+    {
+        $timezone = LegalEntity::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('id')
+            ->value('timezone');
+
+        return is_string($timezone) && $timezone !== ''
+            ? $timezone
+            : (string) config('hrms.default_timezone', 'Asia/Shanghai');
+    }
+
     public function orgUnit(int $tenantId, int $orgUnitId): ?OrgUnitInfo
     {
         $unit = OrgUnit::query()

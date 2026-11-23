@@ -13,4 +13,10 @@ interface OrganizationFacts
     public function legalEntity(int $tenantId, int $legalEntityId): ?LegalEntityInfo;
 
     public function orgUnit(int $tenantId, int $orgUnitId): ?OrgUnitInfo;
+
+    /**
+     * Default calendar timezone for the tenant, falling back to config when a
+     * tenant has no legal entity yet.
+     */
+    public function defaultTimezone(int $tenantId): string;
 }

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Services;
 
-use App\Modules\Organization\Models\LegalEntity;
-use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Exceptions\CrossLegalEntityAssignmentException;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Models\Person;
@@ -25,6 +24,7 @@ final class EmploymentService
         private readonly Clock $clock,
         private readonly AuditService $audit,
         private readonly OutboxService $outbox,
+        private readonly OrganizationFacts $organization,
     ) {}
 
     /**
@@ -34,7 +34,7 @@ final class EmploymentService
     {
         return DB::transaction(function () use ($tenantId, $input, $actorUserId): Employment {
             $person = Person::query()->where('tenant_id', $tenantId)->whereKey((int) $input['person_id'])->first();
-            $entity = LegalEntity::query()->where('tenant_id', $tenantId)->whereKey((int) $input['legal_entity_id'])->first();
+            $entity = $this->organization->legalEntity($tenantId, (int) $input['legal_entity_id']);
 
             if ($person === null) {
                 throw new ValidationException(['person_id' => ['The person does not exist in this tenant.']]);
@@ -55,7 +55,7 @@ final class EmploymentService
 
             $existing = Employment::query()
                 ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', (int) $entity->id)
+                ->where('legal_entity_id', $entity->id)
                 ->where('employee_no', (string) $input['employee_no'])
                 ->lockForUpdate()
                 ->exists();
@@ -71,7 +71,7 @@ final class EmploymentService
             $employment = Employment::query()->create([
                 'tenant_id' => $tenantId,
                 'person_id' => (int) $person->id,
-                'legal_entity_id' => (int) $entity->id,
+                'legal_entity_id' => $entity->id,
                 'employee_no' => (string) $input['employee_no'],
                 'employment_type' => (string) $input['employment_type'],
                 'status' => (string) ($input['status'] ?? 'ACTIVE'),
@@ -93,7 +93,7 @@ final class EmploymentService
                 after: [
                     'employment_id' => (int) $employment->id,
                     'person_id' => (int) $person->id,
-                    'legal_entity_id' => (int) $entity->id,
+                    'legal_entity_id' => $entity->id,
                     'employee_no' => (string) $employment->employee_no,
                     'valid_from' => (string) $employment->valid_from,
                 ],
@@ -108,7 +108,7 @@ final class EmploymentService
                 payload: [
                     'employment_id' => (int) $employment->id,
                     'person_id' => (int) $person->id,
-                    'legal_entity_id' => (int) $entity->id,
+                    'legal_entity_id' => $entity->id,
                     'valid_from' => (string) $employment->valid_from,
                 ],
             );
@@ -202,13 +202,15 @@ final class EmploymentService
      * Validate that an assignment's organization is inside the employment's
      * legal entity for the assignment's whole validity window.
      */
-    public function assertAssignmentWithinLegalEntity(Employment $employment, OrgUnit $orgUnit, DateRange $range): void
+    public function assertAssignmentWithinLegalEntity(Employment $employment, int $orgUnitId, DateRange $range): void
     {
-        if ((int) $orgUnit->legal_entity_id !== (int) $employment->legal_entity_id) {
+        $orgUnit = $this->organization->orgUnit((int) $employment->tenant_id, $orgUnitId);
+
+        if ($orgUnit === null || $orgUnit->legalEntityId !== (int) $employment->legal_entity_id) {
             throw new CrossLegalEntityAssignmentException;
         }
 
-        if (! (new DateRange((string) $orgUnit->valid_from, (string) $orgUnit->valid_to))->contains($range->validFrom())) {
+        if (! (new DateRange($orgUnit->validFrom, $orgUnit->validTo))->contains($range->validFrom())) {
             throw new ValidationException(['org_unit_id' => ['The organization unit is not active on the assignment start date.']]);
         }
     }

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Http\Controllers;
 
-use App\Modules\Organization\Services\TenantBusinessDate;
 use App\Modules\People\Services\PersonPrivacy;
 use App\Modules\People\Services\PersonService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Time\TenantBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
