@@ -97,19 +97,79 @@ final class MetricQueryBuilder
         }
 
         $this->builder->ensure($principal->tenantId(), $asOf);
+        $unavailable = $this->unavailableIfNeeded($principal, $metric, $definition, $asOf);
 
-        if ($metric === 'payroll_cost_by_entity' && ! $this->builder->payrollAvailable($principal->tenantId())) {
-            return $this->unavailable($metric, $definition, $asOf, $this->builder->payrollReason($principal->tenantId()));
+        if ($unavailable !== null) {
+            return $this->unavailable($metric, $definition, $asOf, $unavailable);
         }
 
-        if ($metric === 'recruitment_funnel' && ! $this->builder->recruitmentAvailable($principal->tenantId())) {
-            return $this->unavailable($metric, $definition, $asOf, $this->builder->recruitmentReason($principal->tenantId()));
+        $rows = $this->metricQuery($principal, $metric, $definition, $asOf, $filters)->orderBy('id')->get();
+        $items = $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row))->all();
+        $total = $metric === 'leave_liability'
+            ? (int) $rows->sum(static fn (ProjectionRow $row): int => (int) $row->numeric_value)
+            : count($items);
+
+        return [
+            'metric' => $metric,
+            'label' => $definition['label'],
+            'predicate' => $definition['predicate'],
+            'asOf' => $asOf,
+            'total' => $total,
+            'unit' => $definition['unit'],
+            'status' => 'AVAILABLE',
+            'reason' => null,
+            'columns' => $this->columns($metric),
+            'items' => $items,
+            'rows' => $items,
+        ];
+    }
+
+    /**
+     * Bounded preview using the exact same projection, as-of, filters and
+     * Authorizer::constrain() predicate as query(). Dashboard panels must not
+     * run a second count with a different scope.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array{status: string, reason: string|null, items: list<array<string, mixed>>}
+     */
+    public function preview(Principal $principal, string $metric, string $asOf, int $limit, array $filters = []): array
+    {
+        $definition = self::METRICS[$metric] ?? null;
+
+        if ($definition === null) {
+            throw new ValidationException(['metric' => ['Unknown dashboard metric.']], 'The given data was invalid.', ['reason' => 'UNKNOWN_METRIC']);
         }
 
-        if ($metric === 'turnover' && ! $this->builder->turnoverAvailable($principal->tenantId())) {
-            return $this->unavailable($metric, $definition, $asOf, $this->builder->turnoverReason($principal->tenantId()));
+        $this->builder->ensure($principal->tenantId(), $asOf);
+        $unavailable = $this->unavailableIfNeeded($principal, $metric, $definition, $asOf);
+
+        if ($unavailable !== null) {
+            return [
+                'status' => 'UNAVAILABLE',
+                'reason' => $unavailable,
+                'items' => [],
+            ];
         }
 
+        $rows = $this->metricQuery($principal, $metric, $definition, $asOf, $filters)
+            ->orderBy('id')
+            ->limit(max(1, min(20, $limit)))
+            ->get();
+
+        return [
+            'status' => 'AVAILABLE',
+            'reason' => null,
+            'items' => $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row))->all(),
+        ];
+    }
+
+    /**
+     * @param  array{label: string, source: string, metric: string, unit: string, predicate: string}  $definition
+     * @param  array<string, mixed>  $filters
+     * @return Builder<ProjectionRow>
+     */
+    private function metricQuery(Principal $principal, string $metric, array $definition, string $asOf, array $filters): Builder
+    {
         $query = $this->baseQuery($principal, $definition['source'], $asOf);
 
         if ($metric === 'contract_expiring') {
@@ -138,25 +198,30 @@ final class MetricQueryBuilder
             $query->where('status', (string) $filters['leave_type']);
         }
 
-        $rows = $query->orderBy('id')->get();
-        $items = $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row))->all();
-        $total = $metric === 'leave_liability'
-            ? (int) $rows->sum(static fn (ProjectionRow $row): int => (int) $row->numeric_value)
-            : count($items);
+        return $query;
+    }
 
-        return [
-            'metric' => $metric,
-            'label' => $definition['label'],
-            'predicate' => $definition['predicate'],
-            'asOf' => $asOf,
-            'total' => $total,
-            'unit' => $definition['unit'],
-            'status' => 'AVAILABLE',
-            'reason' => null,
-            'columns' => $this->columns($metric),
-            'items' => $items,
-            'rows' => $items,
-        ];
+    /**
+     * @param  array{label: string, source: string, metric: string, unit: string, predicate: string}  $definition
+     */
+    private function unavailableIfNeeded(Principal $principal, string $metric, array $definition, string $asOf): ?string
+    {
+        if ($metric === 'payroll_cost_by_entity' && ! $this->builder->payrollAvailable($principal->tenantId())) {
+            return $this->builder->payrollReason($principal->tenantId())
+                ?? 'This metric is unavailable on the current deployment.';
+        }
+
+        if ($metric === 'recruitment_funnel' && ! $this->builder->recruitmentAvailable($principal->tenantId())) {
+            return $this->builder->recruitmentReason($principal->tenantId())
+                ?? 'This metric is unavailable on the current deployment.';
+        }
+
+        if ($metric === 'turnover' && ! $this->builder->turnoverAvailable($principal->tenantId())) {
+            return $this->builder->turnoverReason($principal->tenantId())
+                ?? 'This metric is unavailable on the current deployment.';
+        }
+
+        return null;
     }
 
     /**

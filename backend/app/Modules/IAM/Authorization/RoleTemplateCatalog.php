@@ -145,6 +145,9 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'lifecycle.rehire.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'lifecycle.checklist.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'reporting.dashboard.read', $le, FieldProfile::P1_INTERNAL),
+                $grant('HR_ADMIN', 'engagement.notice.read', $le, FieldProfile::P1_INTERNAL),
+                $grant('HR_ADMIN', 'engagement.notice.manage', $le, FieldProfile::P1_INTERNAL),
+                $grant('HR_ADMIN', 'reporting.export', $le, FieldProfile::P2_SENSITIVE),
             ]),
             new RoleTemplate('HR_SPECIALIST', 'HR specialist', 'Day-to-day employee, assignment and contract maintenance.', [
                 $grant('HR_SPECIALIST', 'people.employee.read', $ou, FieldProfile::P2_SENSITIVE),

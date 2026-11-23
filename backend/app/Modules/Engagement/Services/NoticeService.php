@@ -7,7 +7,6 @@ namespace App\Modules\Engagement\Services;
 use App\Modules\Engagement\Models\Notice;
 use App\Modules\Engagement\Models\NoticeAcknowledgement;
 use App\Modules\IAM\Contracts\Principal;
-use App\Shared\Authorization\Authorizer;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -22,7 +21,6 @@ final class NoticeService
         private readonly NoticeAudienceService $audience,
         private readonly NoticeAccessPolicy $policy,
         private readonly NotificationService $notifications,
-        private readonly Authorizer $authorizer,
         private readonly TenantBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
@@ -106,7 +104,10 @@ final class NoticeService
             ->orderByDesc('publish_at')
             ->orderByDesc('id');
 
-        $this->authorizer->constrain($query, $principal, 'engagement.notice.read', $today);
+        // Route-level permits() already established feature access. Row scope
+        // is the audience policy below; constrain() would incorrectly narrow
+        // an ALL-audience notice to the caller's own employment row.
+        $query->where('tenant_id', $principal->tenantId());
 
         $acknowledgedIds = NoticeAcknowledgement::query()
             ->where('tenant_id', $principal->tenantId())

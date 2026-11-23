@@ -9,7 +9,6 @@ use App\Modules\People\Models\Document;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -57,7 +56,7 @@ final class EmployeeController
         $principal = $this->principals->resolve();
         $data = $request->validate(['as_of' => ['nullable', new BusinessDateRule]]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId());
-        $this->assertAllows($principal, 'people.employee.read', AnchorRef::self(), $asOf->value());
+        $this->assertPermits($principal, 'people.employee.read', $asOf->value());
 
         $asOfValue = $asOf->value();
         $employment = Employment::query()
@@ -127,7 +126,7 @@ final class EmployeeController
         ]);
         $this->businessDates->resolve($data['from'] ?? null, $principal->tenantId(), 'from');
         $this->businessDates->resolve($data['to'] ?? null, $principal->tenantId(), 'to');
-        $this->assertAllows($principal, 'people.employee.read', AnchorRef::self(), $this->businessDates->today($principal->tenantId())->value());
+        $this->assertPermits($principal, 'people.employee.read', $this->businessDates->today($principal->tenantId())->value());
 
         $employment = Employment::query()->where('tenant_id', $principal->tenantId())->whereKey($employmentId)->first();
 
@@ -159,9 +158,9 @@ final class EmployeeController
         return ApiResponse::ok(ApiResponse::list($events, 1, max(1, count($events)), count($events)));
     }
 
-    private function assertAllows(Principal $principal, string $capability, AnchorRef $anchor, string $on): void
+    private function assertPermits(Principal $principal, string $capability, string $on): void
     {
-        if (! $this->authorizer->allows($principal, $capability, $anchor, $on)) {
+        if (! $this->authorizer->permits($principal, $capability, $on)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

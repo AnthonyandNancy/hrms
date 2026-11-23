@@ -21,5 +21,8 @@ final readonly class EmploymentSnapshot
         public string $employeeNo,
         public ?int $assignmentId = null,
         public ?int $managerAssignmentId = null,
+        public ?string $personName = null,
+        public ?string $validFrom = null,
+        public ?string $employmentType = null,
     ) {}
 }

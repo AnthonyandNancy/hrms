@@ -7,7 +7,6 @@ namespace App\Modules\People\Http\Controllers;
 use App\Modules\People\Services\PersonPrivacy;
 use App\Modules\People\Services\PersonService;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Time\TenantBusinessDate;
@@ -30,7 +29,7 @@ final class PersonController
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
 
-        if (! $this->authorizer->allows($principal, 'people.employee.manage', AnchorRef::self(), $today->value())) {
+        if (! $this->authorizer->permits($principal, 'people.employee.manage', $today->value())) {
             throw new AuthorizationException('Forbidden.');
         }
 

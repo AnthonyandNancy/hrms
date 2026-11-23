@@ -22,6 +22,7 @@ final class LeaveBalanceService
      * @return array{
      *   leave_type_id: int,
      *   leave_type_code: string,
+     *   leave_type_name: string,
      *   unit: string,
      *   as_of: string,
      *   granted: int,
@@ -60,6 +61,7 @@ final class LeaveBalanceService
         return [
             'leave_type_id' => $leaveTypeId,
             'leave_type_code' => $type->code,
+            'leave_type_name' => $type->name,
             'unit' => $type->unit,
             'as_of' => $asOf,
             ...$summary,

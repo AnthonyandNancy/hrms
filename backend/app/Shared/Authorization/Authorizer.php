@@ -20,6 +20,14 @@ interface Authorizer
      */
     public function constrain(Builder $query, Principal $p, string $capability, string $businessDate): Builder;
 
+    /**
+     * Feature-level check: does the principal hold this capability under ANY
+     * effective anchor on the business date? Use it only for route gates whose
+     * actual row scope is applied separately with constrain() or a concrete
+     * resource anchor. It must never replace a resource-level allows() check.
+     */
+    public function permits(Principal $p, string $capability, string $businessDate): bool;
+
     public function allows(Principal $p, string $capability, AnchorRef $anchor, string $businessDate): bool;
 
     public function fields(Principal $p, string $capability, ResourceRef $row): FieldSet;

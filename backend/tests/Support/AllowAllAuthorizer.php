@@ -26,6 +26,11 @@ final class AllowAllAuthorizer implements Authorizer
         return in_array($capability, $this->deniedCapabilities, true) ? $query->whereRaw('1 = 0') : $query;
     }
 
+    public function permits(Principal $principal, string $capability, string $businessDate): bool
+    {
+        return $this->allows($principal, $capability, AnchorRef::self(), $businessDate);
+    }
+
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         $this->calls[] = ['capability' => $capability, 'anchor' => $anchor, 'on' => $businessDate];

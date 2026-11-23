@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Talent\Contracts;
 
 /**
- * Reporting port owned by Talent. The Talent vertical is not implemented on
- * this branch; the reference adapter returns an explicit unavailable status.
+ * Reporting port owned by Talent. Requisitions and candidates exist, but no
+ * Reporting funnel projection is published yet, so the reference adapter
+ * returns an explicit unavailable status.
  */
 interface RecruitmentFunnelDirectory
 {

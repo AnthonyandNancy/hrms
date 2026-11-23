@@ -287,7 +287,7 @@ final class LeaveController
 
         return [
             'leaveTypeCode' => (string) $balance['leave_type_code'],
-            'leaveTypeName' => (string) $balance['leave_type_code'],
+            'leaveTypeName' => (string) ($balance['leave_type_name'] ?? $balance['leave_type_code']),
             'unit' => (string) $balance['unit'],
             'granted' => (float) \App\Modules\Time\Services\QuantityUnit::toDisplayDays($granted, $standard),
             'used' => (float) \App\Modules\Time\Services\QuantityUnit::toDisplayDays($consumed, $standard),

@@ -7,8 +7,10 @@ namespace App\Modules\Organization\Services;
 use App\Modules\Organization\Contracts\LegalEntityInfo;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Organization\Contracts\OrgUnitInfo;
+use App\Modules\Organization\Contracts\PositionInfo;
 use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Models\Position;
 
 final class OrganizationFactsService implements OrganizationFacts
 {
@@ -69,6 +71,28 @@ final class OrganizationFactsService implements OrganizationFacts
             status: (string) $unit->status,
             validFrom: (string) $unit->valid_from,
             validTo: (string) $unit->valid_to,
+        );
+    }
+
+    public function position(int $tenantId, int $positionId): ?PositionInfo
+    {
+        $position = Position::query()
+            ->where('tenant_id', $tenantId)
+            ->whereKey($positionId)
+            ->first();
+
+        if ($position === null) {
+            return null;
+        }
+
+        return new PositionInfo(
+            id: (int) $position->id,
+            tenantId: (int) $position->tenant_id,
+            legalEntityId: (int) $position->legal_entity_id,
+            orgUnitId: $position->org_unit_id !== null ? (int) $position->org_unit_id : null,
+            code: (string) $position->code,
+            title: (string) $position->title,
+            grade: $position->grade !== null ? (string) $position->grade : null,
         );
     }
 }

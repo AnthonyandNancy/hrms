@@ -21,7 +21,10 @@ return [
     'login' => [
         'max_failures' => 10,
         'failure_window_minutes' => 15,
-        'rate_limit_per_minute' => 5,
+        // Transient per-username/IP login throttle. Automated end-to-end suites
+        // may raise this in their own environment; the persistent lockout below
+        // is independent and always applies.
+        'rate_limit_per_minute' => (int) env('IAM_LOGIN_RATE_LIMIT_PER_MINUTE', 5),
     ],
 
     'mfa' => [

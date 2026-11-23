@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Providers;
 
+use App\Modules\People\Authorization\EloquentEmploymentManagerDirectory;
 use App\Modules\People\Authorization\EloquentPersonEmploymentDirectory;
 use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
@@ -13,14 +14,17 @@ use App\Modules\People\Contracts\NoticeAudienceDirectory;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
+use App\Modules\People\Contracts\PeopleWorkspaceDirectory;
 use App\Modules\People\Contracts\WorkforceReportingDirectory;
 use App\Modules\People\Services\EloquentNoticeAudienceDirectory;
+use App\Modules\People\Services\EloquentPeopleWorkspaceDirectory;
 use App\Modules\People\Services\EloquentWorkforceReportingDirectory;
 use App\Modules\People\Services\EmploymentLifecycleDirectoryService;
 use App\Modules\People\Services\EmploymentTermsDirectoryService;
 use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\PeopleDirectoryService;
 use App\Modules\People\Services\PeopleEmploymentWriterService;
+use App\Shared\Authorization\Contracts\EmploymentManagerDirectory;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Time\Clock;
 use App\Shared\Time\SystemClock;
@@ -41,12 +45,15 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(EmploymentLifecycleDirectory::class, EmploymentLifecycleDirectoryService::class);
         $this->app->bind(PeopleEmploymentWriter::class, PeopleEmploymentWriterService::class);
         $this->app->bind(EmploymentTermsDirectory::class, EmploymentTermsDirectoryService::class);
+        $this->app->bind(PeopleWorkspaceDirectory::class, EloquentPeopleWorkspaceDirectory::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
         $this->app->bindIf(NoticeAudienceDirectory::class, EloquentNoticeAudienceDirectory::class);
         $this->app->bindIf(WorkforceReportingDirectory::class, EloquentWorkforceReportingDirectory::class);
         if (! $this->app->environment('testing')) {
             $this->app->bind(PersonEmploymentDirectory::class, EloquentPersonEmploymentDirectory::class);
         }
+
+        $this->app->bindIf(EmploymentManagerDirectory::class, EloquentEmploymentManagerDirectory::class);
 
     }
 

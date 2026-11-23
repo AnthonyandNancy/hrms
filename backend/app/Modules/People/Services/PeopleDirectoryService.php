@@ -132,6 +132,8 @@ final class PeopleDirectoryService implements PeopleDirectory
             employeeNo: (string) $employment->employee_no,
             assignmentId: $assignment !== null ? (int) $assignment->id : null,
             managerAssignmentId: $assignment?->manager_assignment_id !== null ? (int) $assignment->manager_assignment_id : null,
+            validFrom: (string) $employment->valid_from,
+            employmentType: (string) $employment->employment_type,
         );
     }
 

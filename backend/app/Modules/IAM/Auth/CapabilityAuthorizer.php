@@ -113,6 +113,22 @@ final class CapabilityAuthorizer implements Authorizer
         });
     }
 
+    public function permits(Principal $p, string $capability, string $businessDate): bool
+    {
+        $this->assertPrincipalIntegrity($p);
+        $this->assertLiveSubject($p);
+
+        if ($capability === 'iam.session.manage' && $p->sessionId() !== null) {
+            return true;
+        }
+
+        if ($p->breakGlassGrantId() !== null && $this->breakGlassAllows($p, $capability)) {
+            return true;
+        }
+
+        return $this->matchingBindings($p, $capability, $businessDate) !== [];
+    }
+
     public function allows(Principal $p, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         $this->assertLiveSubject($p);

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Contracts;
 
 /**
- * Reporting port owned by Payroll. This branch has the payroll calculation
- * core but no payroll-run tables, so the reference binding reports the metric
- * as unavailable rather than fabricating cost figures.
+ * Reporting port owned by Payroll. Finalized payroll runs exist, but this
+ * reference binding does not yet publish a cost-by-legal-entity projection,
+ * so it reports the metric as unavailable rather than fabricating cost.
  */
 interface PayrollCostDirectory
 {

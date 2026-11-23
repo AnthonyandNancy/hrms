@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Engagement\Providers;
 
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
+use App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory;
+use App\Modules\Engagement\Services\EloquentNoticeWorkspaceDirectory;
 use App\Modules\Engagement\Services\LogExternalNotificationChannel;
 use App\Modules\Engagement\Services\NoticeAccessPolicy;
 use App\Modules\Engagement\Services\NoticeAudienceService;
@@ -19,6 +21,7 @@ final class EngagementServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bindIf(ExternalNotificationChannel::class, LogExternalNotificationChannel::class);
+        $this->app->bind(NoticeWorkspaceDirectory::class, EloquentNoticeWorkspaceDirectory::class);
 
         $this->app->bind(NotificationService::class, fn ($app): NotificationService => new NotificationService(
             $app->make(ExternalNotificationChannel::class),
@@ -45,7 +48,6 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(NoticeAudienceService::class),
             $app->make(NoticeAccessPolicy::class),
             $app->make(NotificationService::class),
-            $app->make(\App\Shared\Authorization\Authorizer::class),
             $app->make(\App\Shared\Time\TenantBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));

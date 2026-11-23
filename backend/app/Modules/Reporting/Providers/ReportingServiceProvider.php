@@ -46,6 +46,8 @@ final class ReportingServiceProvider extends ServiceProvider
 
         $this->app->bind(DashboardService::class, fn ($app): DashboardService => new DashboardService(
             $app->make(MetricQueryBuilder::class),
+            $app->make(\App\Shared\Authorization\Authorizer::class),
+            $app->make(\App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
 

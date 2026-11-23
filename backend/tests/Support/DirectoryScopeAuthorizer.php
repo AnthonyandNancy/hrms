@@ -44,6 +44,11 @@ final class DirectoryScopeAuthorizer implements Authorizer
         return $query->whereIn('employments.id', $ids);
     }
 
+    public function permits(Principal $principal, string $capability, string $businessDate): bool
+    {
+        return $this->allows($principal, $capability, AnchorRef::self(), $businessDate);
+    }
+
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         return true;

@@ -26,6 +26,11 @@ final class TimeTestAuthorizer implements Authorizer
         return $query->where('tenant_id', $p->tenantId());
     }
 
+    public function permits(Principal $principal, string $capability, string $businessDate): bool
+    {
+        return $this->allows($principal, $capability, AnchorRef::self(), $businessDate);
+    }
+
     public function allows(Principal $p, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         $actor = $this->actors->resolve(app('request'));

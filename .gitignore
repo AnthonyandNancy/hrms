@@ -43,3 +43,7 @@ test-results/
 
 # Compose-local environment (may contain secrets)
 /deploy/compose/.env
+
+# Real-backend Playwright artifacts
+/frontend/playwright-report-real/
+/frontend/test-results/

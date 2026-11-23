@@ -25,9 +25,13 @@ final class ResolveLegalEntityContext
 
     public function handle(Request $request, Closure $next): Response
     {
-        $principal = $request->attributes->get('iam.principal');
+        // AuthenticateSession runs before this middleware and attaches the
+        // real principal. The IAM service-container binding is only a test
+        // seam; never prefer it over the request-scoped identity.
+        $principal = $request->attributes->get('iam.principal')
+            ?? $request->attributes->get('principal');
 
-        if (! $principal instanceof Principal && app()->bound(Principal::class)) {
+        if (! $principal instanceof Principal && app()->environment('testing') && app()->bound(Principal::class)) {
             $principal = app(Principal::class);
         }
 

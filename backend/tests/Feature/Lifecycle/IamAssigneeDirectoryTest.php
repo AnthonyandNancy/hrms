@@ -32,7 +32,7 @@ final class IamAssigneeDirectoryTest extends LifecycleTestCase
             'created_at' => '2026-01-01 00:00:00',
         ]);
 
-        $directory = new \App\Modules\IAM\Services\IamAssigneeDirectory;
+        $directory = $this->app->make(\App\Modules\IAM\Services\IamAssigneeDirectory::class);
         $users = $directory->userIdsWithRole(1, 'HR_ADMIN', '2026-11-23');
 
         $this->assertContains((int) $user->id, $users);

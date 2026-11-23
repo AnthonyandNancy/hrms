@@ -6,6 +6,7 @@ namespace App\Modules\IAM\Services;
 
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
+use App\Shared\Authorization\Contracts\EmploymentManagerDirectory;
 use Carbon\CarbonImmutable;
 
 /**
@@ -14,9 +15,17 @@ use Carbon\CarbonImmutable;
  */
 final class IamAssigneeDirectory implements AssigneeDirectory
 {
+    public function __construct(private readonly EmploymentManagerDirectory $managers) {}
+
     public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int
     {
-        return null;
+        // Only employment subjects have an approval line. Any other subject
+        // type stays unresolved so the case fails closed instead of guessing.
+        if ($subjectType !== 'employment' || $subjectId <= 0) {
+            return null;
+        }
+
+        return $this->managers->managerUserIdForEmployment($tenantId, $subjectId, $businessDate);
     }
 
     /**

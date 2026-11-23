@@ -16,7 +16,7 @@ final class UnavailablePayrollCostDirectory implements PayrollCostDirectory
 
     public function unavailableReason(int $tenantId): ?string
     {
-        $reason = $tenantId <= 0 ? null : 'Payroll lifecycle and payroll-run tables are not present on this branch; payroll cost by entity is unavailable.';
+        $reason = $tenantId <= 0 ? null : 'Payroll run tables exist, but no Payroll-owned Reporting projection publishes finalized cost by legal entity yet; payroll cost is unavailable rather than estimated from unfinalized runs.';
 
         return $reason;
     }

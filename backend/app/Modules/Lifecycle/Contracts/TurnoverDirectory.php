@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Lifecycle\Contracts;
 
 /**
- * Reporting port owned by Lifecycle. Lifecycle reporting tables are not on
- * this branch, so turnover is explicitly unavailable.
+ * Reporting port owned by Lifecycle. Termination facts exist, but no
+ * voluntary-turnover reporting projection is published yet, so turnover is
+ * explicitly unavailable.
  */
 interface TurnoverDirectory
 {

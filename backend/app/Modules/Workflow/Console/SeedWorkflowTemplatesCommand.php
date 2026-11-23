@@ -47,8 +47,12 @@ final class SeedWorkflowTemplatesCommand extends Command
      */
     private function definitions(): array
     {
+        // Keep this list aligned with CaseTemplateCatalog: every case type a
+        // business module can open must have a published template here, and an
+        // unmapped type must stay unresolvable rather than fall back.
         $codes = [
             'leave.request',
+            'attendance.correction',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',

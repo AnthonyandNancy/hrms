@@ -56,12 +56,20 @@ final class RequireCapability
         $anchorId = $this->anchorIdFor($request, $anchor, $anchorParameter);
 
         try {
-            $allowed = $this->authorizer->allows(
-                $principal,
-                $capability,
-                new AnchorRef($anchor, $anchorId),
-                $this->clock->now()->toDateString(),
-            );
+            $businessDate = $this->clock->now()->toDateString();
+
+            // Route gates answer the feature question; row scope is applied
+            // later by Authorizer::constrain() or by a controller assertion on
+            // the concrete resource. Asking only for SELF here would wrongly
+            // deny LEGAL_ENTITY/ORG_UNIT holders on entity-scoped reads.
+            $allowed = $anchor === AnchorType::SELF && $anchorParameter === null
+                ? $this->authorizer->permits($principal, $capability, $businessDate)
+                : $this->authorizer->allows(
+                    $principal,
+                    $capability,
+                    new AnchorRef($anchor, $anchorId),
+                    $businessDate,
+                );
         } catch (AuthenticationFailedException) {
             return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication is required.', 401, ['reason' => 'AUTH_VERSION_STALE']);
         } catch (NotFoundOrForbiddenException) {

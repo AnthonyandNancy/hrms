@@ -16,7 +16,7 @@ final class UnavailableRecruitmentFunnelDirectory implements RecruitmentFunnelDi
 
     public function unavailableReason(int $tenantId): ?string
     {
-        $reason = $tenantId <= 0 ? null : 'Talent recruitment projections are not present on this branch; recruitment funnel is unavailable.';
+        $reason = $tenantId <= 0 ? null : 'Talent requisition and candidate tables exist, but this reference binding does not yet publish a Reporting funnel projection; the recruitment funnel is unavailable rather than inferred from raw candidate rows.';
 
         return $reason;
     }

@@ -105,6 +105,36 @@ class OpenApiContractTest extends TestCase
         $this->assertSame('X-CSRF-Token', $spec['components']['securitySchemes']['csrfHeader']['name']);
     }
 
+    public function test_dashboard_response_documents_its_bounded_panels(): void
+    {
+        $spec = $this->parseSpec();
+        $schemas = $spec['components']['schemas'];
+
+        foreach (['DashboardData', 'DashboardMetric', 'DashboardPendingApproval', 'DashboardNotice', 'DashboardContractAlert'] as $schema) {
+            $this->assertArrayHasKey($schema, $schemas);
+        }
+
+        $this->assertSame(
+            ['asOf', 'freshness', 'greeting', 'metrics', 'pendingApprovals', 'recentNotices', 'contractAlerts'],
+            $schemas['DashboardData']['required'],
+        );
+        $this->assertSame(
+            ['id', 'caseNo', 'title', 'status', 'ageDays', 'dueAt'],
+            $schemas['DashboardPendingApproval']['required'],
+        );
+        $this->assertSame(
+            ['id', 'title', 'publishedAt', 'requiresAck', 'acknowledged', 'authorName'],
+            $schemas['DashboardNotice']['required'],
+        );
+        $this->assertSame(
+            ['employmentId', 'employeeName', 'employeeNo', 'orgName', 'endDate', 'daysRemaining'],
+            $schemas['DashboardContractAlert']['required'],
+        );
+        $this->assertSame(5, $schemas['DashboardData']['properties']['pendingApprovals']['maxItems']);
+        $this->assertSame(5, $schemas['DashboardData']['properties']['recentNotices']['maxItems']);
+        $this->assertSame(5, $schemas['DashboardData']['properties']['contractAlerts']['maxItems']);
+    }
+
     /**
      * @return list<string>
      */

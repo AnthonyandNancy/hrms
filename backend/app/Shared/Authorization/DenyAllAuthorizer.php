@@ -19,6 +19,11 @@ final class DenyAllAuthorizer implements Authorizer
         return $query->whereRaw('1 = 0');
     }
 
+    public function permits(Principal $principal, string $capability, string $businessDate): bool
+    {
+        return false;
+    }
+
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         return false;

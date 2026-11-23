@@ -7,6 +7,7 @@ namespace App\Modules\Time\Providers;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Time\Adapters\PeopleEmploymentDirectory;
 use App\Modules\Time\Adapters\WorkflowCaseAdapter;
+use App\Modules\Time\Contracts\AttendanceWorkspaceReader;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\LeaveBalanceReader;
 use App\Modules\Time\Contracts\LeaveLiabilityDirectory;
@@ -14,6 +15,7 @@ use App\Modules\Time\Contracts\LeaveRequestReader;
 use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
 use App\Modules\Time\Contracts\PayrollInputDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
+use App\Modules\Time\Services\AttendanceWorkspaceReaderService;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\EloquentLeaveLiabilityDirectory;
 use App\Modules\Time\Services\LeaveBalanceReaderService;
@@ -45,6 +47,7 @@ final class TimeServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->bind(AttendanceWorkspaceReader::class, AttendanceWorkspaceReaderService::class);
         $this->app->bind(LeaveBalanceReader::class, LeaveBalanceReaderService::class);
         $this->app->bind(LeaveRequestReader::class, LeaveRequestReaderService::class);
         $this->app->bind(PayrollInputDirectory::class, PayrollInputDirectoryService::class);

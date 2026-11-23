@@ -10,7 +10,6 @@ use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Services\OrgUnitService;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -34,8 +33,8 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->asOf($request, $principal->tenantId());
-        $this->assertAllows($principal, 'org.tree.read', AnchorRef::self(), $asOf->value());
-        $this->assertAllows($principal, 'org.unit.read', AnchorRef::self(), $asOf->value());
+        $this->assertPermits($principal, 'org.tree.read', $asOf->value());
+        $this->assertPermits($principal, 'org.unit.read', $asOf->value());
 
         $data = $request->validate([
             'as_of' => ['nullable', new BusinessDateRule],
@@ -60,7 +59,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $today = $this->today($principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $today->value());
+        $this->assertPermits($principal, 'org.unit.manage', $today->value());
 
         $data = $request->validate([
             'legal_entity_id' => ['required', 'integer', 'min:1'],
@@ -81,7 +80,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $today = $this->today($principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $today->value());
+        $this->assertPermits($principal, 'org.unit.manage', $today->value());
 
         $data = $request->validate([
             'new_parent_id' => ['present', 'nullable', 'integer', 'min:1'],
@@ -101,7 +100,7 @@ final class OrgUnitController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->asOf($request, $principal->tenantId());
-        $this->assertAllows($principal, 'org.unit.manage', AnchorRef::self(), $asOf->value());
+        $this->assertPermits($principal, 'org.unit.manage', $asOf->value());
 
         $data = $request->validate([
             'new_parent_id' => ['present', 'nullable', 'integer', 'min:1'],
@@ -138,9 +137,9 @@ final class OrgUnitController
         return BusinessDate::today(is_string($timezone) ? $timezone : 'UTC', $this->clock);
     }
 
-    private function assertAllows(Principal $principal, string $capability, AnchorRef $anchor, string $on): void
+    private function assertPermits(Principal $principal, string $capability, string $on): void
     {
-        if (! $this->authorizer->allows($principal, $capability, $anchor, $on)) {
+        if (! $this->authorizer->permits($principal, $capability, $on)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

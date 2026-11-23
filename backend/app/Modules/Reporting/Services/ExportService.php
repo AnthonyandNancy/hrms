@@ -7,7 +7,6 @@ namespace App\Modules\Reporting\Services;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Contracts\ExportDispatcher;
 use App\Modules\Reporting\Models\ExportJob;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -178,17 +177,11 @@ final class ExportService
      */
     private function assertExportAllowed(Principal $principal, array $definition, string $asOf): void
     {
-        $allowed = $this->authorizer->allows($principal, 'reporting.export', AnchorRef::self(), $asOf)
-            || $this->authorizer->allows($principal, 'reporting.export', AnchorRef::legalEntity($this->legalEntity($principal)), $asOf);
+        $allowed = $this->authorizer->permits($principal, 'reporting.export', $asOf);
 
         if (! $allowed) {
             throw new AuthorizationException('Forbidden.');
         }
-    }
-
-    private function legalEntity(Principal $principal): int
-    {
-        return (int) ($principal->employmentId() ?? 1);
     }
 
     private function projections(): ProjectionBuilder

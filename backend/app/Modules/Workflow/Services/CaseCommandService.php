@@ -31,9 +31,11 @@ final class CaseCommandService implements CaseCommandPort
         string $businessDate,
         bool $submit = true,
     ): array {
-        $template = WorkflowTemplate::query()
+        $templateCode = CaseTemplateCatalog::templateCodeFor($type);
+
+        $template = $templateCode === null ? null : WorkflowTemplate::query()
             ->where('tenant_id', $principal->tenantId)
-            ->where('code', $type)
+            ->where('code', $templateCode)
             ->where('status', 'PUBLISHED')
             ->orderByDesc('version')
             ->first();

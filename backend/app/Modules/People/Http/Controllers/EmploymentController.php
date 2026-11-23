@@ -13,7 +13,6 @@ use App\Modules\People\Services\DocumentService;
 use App\Modules\People\Services\EmploymentService;
 use App\Modules\People\Services\TermsService;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -172,7 +171,7 @@ final class EmploymentController
 
     private function assertAllows(Principal $principal, string $capability, string $on): void
     {
-        if (! $this->authorizer->allows($principal, $capability, AnchorRef::self(), $on)) {
+        if (! $this->authorizer->permits($principal, $capability, $on)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

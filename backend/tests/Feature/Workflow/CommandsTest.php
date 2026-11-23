@@ -16,15 +16,18 @@ class CommandsTest extends TestCase
     use RefreshDatabase;
     use WorkflowTestHelpers;
 
-    public function test_seed_templates_is_idempotent_and_creates_the_seven_document_flows(): void
+    public function test_seed_templates_is_idempotent_and_creates_the_document_flows(): void
     {
         $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
         $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
 
-        $this->assertSame(7, WorkflowTemplate::query()->count());
+        // Eight codes: the seven documented business flows plus
+        // attendance.correction, which Time opens as a Case.
+        $this->assertSame(8, WorkflowTemplate::query()->count());
 
         foreach ([
             'leave.request',
+            'attendance.correction',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',
