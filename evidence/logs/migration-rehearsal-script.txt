@@ -1,0 +1,21 @@
+[2026-11-23T15:58:15Z] rehearsal round=20261123155815 dataset=demo db=/d/code/ai/factoryHR/build/ops/rehearsal-20261123155815.sqlite
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+| Domain         | Wave | Validate  | Apply   | Read | Created | Updated | Skipped | Reconcile |
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+| organizations  | 1    | VALIDATED | APPLIED | 8    | 8       | 0       | 0       | PASS      |
+| people         | 1    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
+| assignments    | 1    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
+| terms          | 1    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
+| leave_openings | 2    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
+| payroll_ytd    | 3    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+Report written: D:/code/ai/factoryHR/build/ops/rehearsal-20261123155815.json
+PASS: migrate:rehearsal round=20261123155815 dataset=demo modes=SHADOW
+  organizations: status=APPLIED read=8 created=8 skipped=0 reconcile=PASS
+  people: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
+  assignments: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
+  terms: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
+  leave_openings: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
+  payroll_ytd: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
+  target=SHADOW domains=6
+PASS: migration_rehearsal round=20261123155815 domains=6 target=SHADOW report=/d/code/ai/factoryHR/build/ops/rehearsal-20261123155815.json sha256=2f2f7576fc0c817fa0f694a11e0a5e895307db9a8471ffc737510ca791cae844

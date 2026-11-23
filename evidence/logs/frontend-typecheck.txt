@@ -1,0 +1,4 @@
+
+> @hrms/frontend@0.1.0 typecheck D:\code\ai\factoryHR\frontend
+> vue-tsc -b
+

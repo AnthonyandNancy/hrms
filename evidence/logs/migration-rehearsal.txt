@@ -1,0 +1,12 @@
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+| Domain         | Wave | Validate  | Apply   | Read | Created | Updated | Skipped | Reconcile |
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+| organizations  | 1    | VALIDATED | APPLIED | 8    | 0       | 0       | 8       | PASS      |
+| people         | 1    | VALIDATED | APPLIED | 12   | 0       | 0       | 12      | PASS      |
+| assignments    | 1    | VALIDATED | APPLIED | 12   | 0       | 0       | 12      | PASS      |
+| terms          | 1    | VALIDATED | APPLIED | 12   | 0       | 0       | 12      | PASS      |
+| leave_openings | 2    | VALIDATED | APPLIED | 12   | 0       | 0       | 12      | PASS      |
+| payroll_ytd    | 3    | VALIDATED | APPLIED | 12   | 0       | 0       | 12      | PASS      |
++----------------+------+-----------+---------+------+---------+---------+---------+-----------+
+Report written: D:\code\ai\factoryHR\backend\storage\app/migration-rehearsals/round-1.json
+PASS: migrate:rehearsal round=1 dataset=demo modes=SHADOW

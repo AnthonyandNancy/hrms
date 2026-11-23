@@ -1,0 +1,15 @@
+
+Running 8 tests using 1 worker
+
+(node:33756) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [real-chromium] › tests\e2e\real\journeys.spec.ts:39:3 › @real real-backend journeys › HR logs in, lands on the workspace and sees real data (4.3s)
+  ok 2 [real-chromium] › tests\e2e\real\journeys.spec.ts:48:3 › @real real-backend journeys › unauthenticated visitor is redirected to login (1.2s)
+  ok 3 [real-chromium] › tests\e2e\real\journeys.spec.ts:53:3 › @real real-backend journeys › HR can list employees from the real directory (5.8s)
+  ok 4 [real-chromium] › tests\e2e\real\journeys.spec.ts:62:3 › @real real-backend journeys › employee role cannot read the HR directory (3.9s)
+  ok 5 [real-chromium] › tests\e2e\real\journeys.spec.ts:71:3 › @real real-backend journeys › session cookie is HttpOnly and the CSRF token is not in localStorage (3.4s)
+  ok 6 [real-chromium] › tests\e2e\real\journeys.spec.ts:89:3 › @real real-backend journeys › HR can open dashboard, org tree, leave, attendance, notices and reports (16.9s)
+  ok 7 [real-chromium] › tests\e2e\real\journeys.spec.ts:115:3 › @real real-backend journeys › dashboard notice panel is populated from a real published notice (1.1m)
+  ok 8 [real-chromium] › tests\e2e\real\journeys.spec.ts:154:3 › @real real-backend journeys › login page is accessible with no critical axe violations (867ms)
+
+  8 passed (1.8m)

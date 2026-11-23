@@ -1,0 +1,19 @@
+
+> @hrms/frontend@0.1.0 test:unit D:\code\ai\factoryHR\frontend
+> vitest run
+
+
+ RUN  v3.2.7 D:/code/ai/factoryHR/frontend
+
+ ✓ tests/unit/validation.spec.ts (6 tests) 8ms
+ ✓ tests/unit/navigation.spec.ts (5 tests) 5ms
+ ✓ tests/unit/format.spec.ts (7 tests) 22ms
+ ✓ tests/unit/status.spec.ts (5 tests) 24ms
+ ✓ tests/unit/masking.spec.ts (5 tests) 61ms
+ ✓ tests/unit/dashboard.spec.ts (2 tests) 2ms
+
+ Test Files  6 passed (6)
+      Tests  30 passed (30)
+   Start at  04:59:12
+   Duration  3.58s (transform 712ms, setup 0ms, collect 2.28s, tests 123ms, environment 11.14s, prepare 2.09s)
+

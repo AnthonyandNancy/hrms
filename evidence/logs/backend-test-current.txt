@@ -1,855 +1,1075 @@
 
-   PASS  Tests\Unit\AuditAppendOnlyTest
-  ✓ creating audit event persists json payloads                                                                  0.63s  
-  ✓ updating audit event throws                                                                                  0.03s  
-  ✓ deleting audit event throws                                                                                  0.03s  
-
-   PASS  Tests\Unit\Authorization\AnchorTypeTest
-  ✓ catalog exposes exactly the seven frozen anchors
-  ✓ custom anchor is rejected
-
-   PASS  Tests\Unit\Authorization\CapabilityCatalogTest
-  ✓ capability codes are unique and cover the frozen catalog
-  ✓ every definition uses known anchors and profiles
-  ✓ exactly ten role templates exist and are code owned
-
-   PASS  Tests\Unit\Authorization\FailClosedAuthorizerTest
-  ✓ default authorizer denies unknown capabilities                                                               0.04s  
-
-   PASS  Tests\Unit\Authorization\FieldProfileTest
-  ✓ profiles have strictly ordered ranks
-  ✓ field set derives visibility filtering and export flags
-  ✓ export capability unlocks p1 and p2 but never p3
-  ✓ mask keeps p0 masks p1 and p2 and never returns p3
-  ✓ filtering by p2 or p3 throws domain validation error
-
-   PASS  Tests\Unit\Authorization\SodConflictTest
-  ✓ payroll maker and approver are a conflict
-  ✓ governance and audit are a conflict
-  ✓ assert allowed throws a typed conflict
-  ✓ unrelated capabilities are allowed
-
-   PASS  Tests\Unit\ExampleTest
-  ✓ that true is true
-
-   PASS  Tests\Unit\IAM\IamCommandsTest
-  ✓ sync capabilities is idempotent and refuses referenced removal                                               0.12s  
-  ✓ seed demo requires password env and is idempotent                                                            0.45s  
-  ✓ reap sessions revokes only expired sessions                                                                  0.21s  
-  ✓ access review requires quarter and reports json                                                              0.05s  
-
-   PASS  Tests\Unit\IAM\TotpTest
-  ✓ rfc6238 sha1 test vectors
-  ✓ code uses six digits and thirty second step
-  ✓ verification accepts only plus or minus one window
-  ✓ invalid base32 or non numeric code is rejected
-  ✓ base32 round trip and constant time comparison
-
-   PASS  Tests\Unit\IAM\WebAuthnChallengeTest
-  ✓ challenge is random stored once and expires                                                                  0.05s  
-  ✓ client data with wrong challenge or origin is rejected                                                       0.04s  
-  ✓ challenge is single use                                                                                      0.04s  
-  ✓ assertion requires authentication type and challenge                                                         0.03s  
-
-   PASS  Tests\Unit\IdempotencyServiceTest
-  ✓ first call executes and replay returns stored response                                                       0.05s  
-  ✓ same key with different payload is a conflict                                                                0.04s  
-  ✓ failed key is released and can be reused                                                                     0.03s  
-  ✓ in progress key returns conflict instead of running twice                                                    0.03s  
-  ✓ unique index prevents duplicate reservations                                                                 0.03s  
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\CumulativeWithholdingTest
-  ✓ january progression starts from empty ytd                                                                    0.02s  
-  ✓ february uses cumulative tax minus january withholding
-  ✓ march changing deductions recompute the full year
-  ✓ negative difference withholds zero and carries forward
-  ✓ zero current taxable income never refunds prior withholding
-  ✓ year rollover starts a fresh cumulative tax year
-  ✓ prior year ytd snapshot is rejected
-  ✓ negative carry is not subtracted a second time in following month
-  ✓ correction delta is revised result minus original result
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\ManualAdjustmentAmountTest
-  ✓ negative adjustment absolute amount is exact and becomes deduction                                           0.01s  
-  ✓ php int min recovery is rejected because its absolute value is not representable
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\NegativeZeroTest
-  ✓ zero result has no negative zero anywhere
-  ✓ money and rounded decimals never serialize minus zero
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\NetPayTest
-  ✓ negative net is rejected unless explicitly allowed
-  ✓ negative net can be returned when explicitly allowed
-  ✓ exact zero net never emits negative zero
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\NoFloatTest
-  ✓ scanner detects each forbidden float pattern with data set "float type"
-  ✓ scanner detects each forbidden float pattern with data set "float literal"
-  ✓ scanner detects each forbidden float pattern with data set "float cast"
-  ✓ scanner detects each forbidden float pattern with data set "floatval call"
-  ✓ scanner detects each forbidden float pattern with data set "round call"
-  ✓ scanner detects each forbidden float pattern with data set "native abs call"
-  ✓ scanner allows integer arithmetic and comments about floating point
-  ✓ payroll and money sources contain no float arithmetic                                                        0.03s  
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationInputTest
-  ✓ rejects an input line in a different currency                                                                0.01s  
-  ✓ rejects an unexpected element type in a line collection
-  ✓ keeps the four payroll time axes separate
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationPropertyTest
-  ✓ five hundred seeded cases preserve all money invariants                                                      0.13s  
-  ✓ generated cases are deterministic for the same seed
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultInvariantTest
-  ✓ rejects a result with a positive tax carry
-  ✓ accepts a valid zero result
-  ✓ rejects deduction lines that do not equal deduction total
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultTest
-  ✓ rejects a component in a different currency
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollCorrectionDeltaTest
-  ✓ zero correction is zero
-  ✓ recovery can produce negative deltas
-  ✓ delta currencies must match
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollIntermediateOverflowTest
-  ✓ cumulative taxable addition is checked
-  ✓ other deduction summation is checked
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollOverflowTest
-  ✓ gross aggregation rejects native integer overflow
-  ✓ zero scheduled minutes with zero salary is zero not a division error
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollResultExtremeValueTest
-  ✓ result balance check never overflows on extreme component sums
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayrollValueObjectTest
-  ✓ period rejects invalid year and month
-  ✓ rounding config rejects unsupported money scale
-  ✓ context rejects invalid timezone
-  ✓ context rejects lowercase currency code
-  ✓ attendance rejects overlapping minutes
-  ✓ attendance accepts exact scheduled minutes
-  ✓ si and hf rules reject inverted bounds
-  ✓ tax bracket rejects zero width and negative rate data
-  ✓ tax bracket rejects negative lower bound
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PayslipLineSourceTest
-  ✓ every generated line has mandatory source and increasing sort order
-  ✓ totals equal the sum of their respective lines
-  ✓ duplicate sort orders cannot be emitted by calculator inputs
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\PercentageIntegrationTest
-  ✓ fractional percentage rate is applied as a ratio not as raw percent
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\ProrationRoundingTest
-  ✓ proration rounds only once at the salary line boundary
-  ✓ proration down mode truncates a fractional cent
-  ✓ proration up mode rounds a fractional cent to one cent
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\ProrationTest
-  ✓ full attendance pays the full monthly salary
-  ✓ mid month join deducts unworked days with annual divisor
-  ✓ mid month join uses fixed 21 75 divisor
-  ✓ paid leave remains paid
-  ✓ explicit unpaid leave reduces pay by the daily rate
-  ✓ overtime uses exact minutes and a parameterised multiplier
-  ✓ leap year february has 29 days and still pays full salary
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\SocialInsuranceBaseTest
-  ✓ base below minimum is clamped up for employee and employer
-  ✓ base within range uses gross
-  ✓ base above maximum is clamped down
-  ✓ rate change is parameter driven
-  ✓ housing fund has an independent base clamp
-  ✓ rounding mode changes contribution at the cent boundary
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\TaxTableTest
-  ✓ zero income has zero tax
-  ✓ bracket boundaries are contiguous and use quick deduction
-  ✓ bracket rounding uses requested mode at the cent
-  ✓ overlapping brackets are rejected
-  ✓ gap between brackets is rejected
-  ✓ table must start at zero and have an open top bracket
-  ✓ negative quick deduction is rejected
-
-   PASS  Tests\Unit\Modules\Payroll\Domain\UserProvidedMetadataTest
-  ✓ source rejects a null byte laden id                                                                          0.01s  
-  ✓ source rejects a null byte laden type
-  ✓ line rejects a category info with negative money
-  ✓ money rejects a malformed currency code
-
-   PASS  Tests\Unit\Organization\ClosureBuilderTest
-  ✓ it builds self and ancestor paths with depth
-  ✓ it detects a parent cycle
-
-   PASS  Tests\Unit\OutboxServiceTest
-  ✓ record persists event with json payload and ulid                                                             0.04s  
-  ✓ record rolls back with caller transaction                                                                    0.04s  
-  ✓ payload with prohibited sensitive keys is rejected                                                           0.03s  
-  ✓ dispatcher contract is bound                                                                                 0.03s  
-
-   PASS  Tests\Unit\People\AssignmentOverlapTest
-  ✓ two primary intervals may not overlap                                                                        0.01s  
-  ✓ touching half open intervals do not overlap
-  ✓ concurrent secondments and matrix assignments are allowed
-  ✓ primary flag and type are both authoritative
-
-   PASS  Tests\Unit\People\CrossLegalEntityTransferTest
-  ✓ transfer contract ends old and opens new employment for same person                                          0.05s  
-  ✓ transfer to same entity is rejected                                                                          0.04s  
-  ✓ transfer before current start is rejected                                                                    0.04s  
-  ✓ unknown employment is 404 domain exception                                                                   0.04s  
-
-   PASS  Tests\Unit\People\PersonPrivacyTest
-  ✓ identity hash is deterministic but plaintext independent                                                     0.03s  
-  ✓ mobile masking never returns full number                                                                     0.04s  
-  ✓ encryption uses application key                                                                              0.04s  
-
-   PASS  Tests\Unit\Shared\Money\DecimalScaleTest
-  ✓ negative tie and remainder modes exactly with data set "half up keeps sign on exact half"
-  ✓ negative tie and remainder modes exactly with data set "half even negative exact half to even"
-  ✓ negative tie and remainder modes exactly with data set "half even negative odd up to even"
-  ✓ negative tie and remainder modes exactly with data set "down never rounds away from zero on negative tie"
-  ✓ negative tie and remainder modes exactly with data set "up always rounds away from zero on negative remainder"
-  ✓ division into negative divisor preserves sign
-  ✓ zero divided by negative is positive zero
-  ✓ scale must be non negative
-  ✓ division scale must be non negative
-  ✓ scaled integer scale must be non negative
-  ✓ to scaled int rounds with requested mode
-
-   PASS  Tests\Unit\Shared\Money\DecimalTest
-  ✓ add and subtract are exact and preserve result scale                                                         0.01s  
-  ✓ multiply and divide are exact
-  ✓ division uses configured rounding mode and sticky remainder
-  ✓ compare is numeric not lexicographic
-  ✓ scaled integer round trip
-  ✓ rejects invalid or out of range input with data set "empty"
-  ✓ rejects invalid or out of range input with data set "letters"
-  ✓ rejects invalid or out of range input with data set "scientific notation"
-  ✓ rejects invalid or out of range input with data set "two decimal points"
-  ✓ rejects invalid or out of range input with data set "bare sign"
-  ✓ rejects invalid or out of range input with data set "bare decimal point"
-  ✓ rejects invalid or out of range input with data set "too many integer digits"
-  ✓ rejects invalid or out of range input with data set "too many integer digits with fraction"
-  ✓ rejects invalid or out of range input with data set "whitespace"
-  ✓ rejects division by zero
-  ✓ decimal string normalizes signed zero and leading zeroes
-  ✓ large supported value can be manipulated exactly
-
-   PASS  Tests\Unit\Shared\Money\MoneyTest
-  ✓ add and subtract keep integer minor units                                                                    0.01s  
-  ✓ addition rejects native integer overflow
-  ✓ subtraction rejects native integer overflow
-  ✓ absolute is exact and rejects unrepresentable int min
-  ✓ currency mismatch is rejected
-  ✓ allocation distributes every cent and stays deterministic
-  ✓ allocation requires positive part count
-  ✓ multiply by decimal ratio rounds once at the money boundary
-  ✓ money can be created from decimal string at stored scale
-  ✓ json has stable shape and decimal amount
-  ✓ zero has single representation
-
-   PASS  Tests\Unit\Shared\Money\PercentageTest
-  ✓ percent and ratio round trip at six decimals                                                                 0.01s  
-  ✓ percentage rejects negative inputs
-  ✓ one hundred percent is exactly one
-
-   PASS  Tests\Unit\Shared\Money\RoundingTest
-  ✓ rounds exactly at requested scale with data set "half-up positive tie"
-  ✓ rounds exactly at requested scale with data set "half-up negative tie rounds away from zero"
-  ✓ rounds exactly at requested scale with data set "half-up just below tie"
-  ✓ rounds exactly at requested scale with data set "half-up above tie"
-  ✓ rounds exactly at requested scale with data set "half-even positive down to even"
-  ✓ rounds exactly at requested scale with data set "half-even positive up to even"
-  ✓ rounds exactly at requested scale with data set "half-even negative down to even"
-  ✓ rounds exactly at requested scale with data set "half-even negative up to even"
-  ✓ rounds exactly at requested scale with data set "half-even above tie"
-  ✓ rounds exactly at requested scale with data set "down positive truncates"
-  ✓ rounds exactly at requested scale with data set "down negative truncates toward zero"
-  ✓ rounds exactly at requested scale with data set "up positive moves away from zero"
-  ✓ rounds exactly at requested scale with data set "up negative moves away from zero"
-  ✓ rounds exactly at requested scale with data set "up exact amount does not move"
-  ✓ rounds exactly at requested scale with data set "half-up one decimal place"
-  ✓ rounds exactly at requested scale with data set "half-even one decimal place"
-  ✓ rounding that produces zero never emits negative zero
-  ✓ rounding to a larger scale pads with zeroes
-
-   PASS  Tests\Unit\Time\AsOfQueryTest
-  ✓ where valid on is half open and grouped                                                                      0.04s  
-  ✓ where known at respects recorded and superseded timestamps                                                   0.04s  
-
-   PASS  Tests\Unit\Time\BusinessCalendarTest
-  ✓ workweek holiday and makeup override weekday rules                                                           0.06s  
-  ✓ public holiday and company holiday are non working                                                           0.04s  
-  ✓ makeup workday on a weekend is working                                                                       0.04s  
-  ✓ unknown timezone is rejected                                                                                 0.04s  
-  ✓ shift window maps overnight morning punch to start business date                                             0.03s  
-  ✓ day shift uses legal entity local date not utc date                                                          0.03s  
-
-   PASS  Tests\Unit\Time\BusinessDateTest
-  ✓ it accepts a real calendar date
-  ✓ it rejects impossible calendar dates
-  ✓ today is derived from the tenant timezone and injected clock
-  ✓ it compares dates as business dates
-  ✓ open end is the documented constant
-
-   PASS  Tests\Unit\Time\ClockTest
-  ✓ frozen clock returns utc and can advance
-  ✓ system clock returns utc
-
-   PASS  Tests\Unit\Time\DateRangeTest
-  ✓ half open range contains start but not end
-  ✓ open ended range contains all future business dates
-  ✓ overlap respects half open boundaries
-  ✓ a range must end after it starts
-  ✓ it can clip a range to a business date
-
-   PASS  Tests\Unit\Time\LeaveEquationTest
-  ✓ equation accounts for every ledger account                                                                   0.03s  
-  ✓ available excludes reserve and balance is total                                                              0.03s  
-  ✓ negative quantity is rejected                                                                                0.03s  
-  ✓ balance can be asserted exact                                                                                0.03s  
-  ✓ negative available without permission is rejected                                                            0.04s  
-
-   PASS  Tests\Unit\Time\QuantityUnitTest
-  ✓ day quantity is stored as integer minutes using standard day                                                 0.04s  
-  ✓ fraction below one minute is rejected not rounded                                                            0.03s  
-  ✓ display days round trip for quarter day                                                                      0.03s  
-  ✓ bad standard day is rejected                                                                                 0.03s  
-
-   PASS  Tests\Unit\Time\ShiftWindowTest
-  ✓ cross midnight elapsed minutes are real utc minutes                                                          0.03s  
-  ✓ fall back elapsed minutes include repeated hour once as real time                                            0.03s  
-  ✓ shift boundaries resolve dst wall clock correctly                                                            0.03s  
-  ✓ overnight window without midnight crossing rejects configuration                                             0.03s  
-
-   PASS  Tests\Unit\Time\StatutoryFloorTest
-  ✓ floors are five ten and fifteen days by cumulative service                                                   0.03s  
-  ✓ one day short of ten years still gets five days                                                              0.03s  
-  ✓ statutory entitlement below floor is rejected                                                                0.03s  
-  ✓ company leave may be set below statutory floor                                                               0.04s  
-  ✓ statutory entitlement at floor is accepted                                                                   0.03s  
-
-   PASS  Tests\Unit\Workflow\ConditionEvaluatorTest
-  ✓ supported leaf operators compare scalar payload fields                                                       0.01s  
-  ✓ all and any compose only declarative conditions
-  ✓ nested dotted payload fields are supported
-  ✓ missing or non scalar fields do not match
-  ✓ unknown or expression operators are rejected
-  ✓ arbitrary expression strings are rejected
-  ✓ in operator requires a non empty list of scalars
-  ✓ depth and node count are bounded
-
-   PASS  Tests\Unit\Workflow\EffectRegistryTest
-  ✓ resolves handler by supported effect type                                                                    0.01s  
-  ✓ unknown effect type is rejected at decision time
-  ✓ two handlers supporting the same type is a configuration error
-  ✓ effect types are known from registered handlers
-
-   PASS  Tests\Unit\Workflow\IdempotencyHashTest
-  ✓ key order does not change the hash
-  ✓ list order and scalar types are part of the hash
-  ✓ hash is stable sha256 hex
-
-   PASS  Tests\Unit\Workflow\WorkflowStateMachineTest
-  ✓ case transitions follow the application lifecycle
-  ✓ case transitions reject skipping approval or resurrecting closed cases
-  ✓ invalid case transition throws conflict with stable reason
-  ✓ instance transitions
-  ✓ task transitions
-  ✓ decision actions are allowed only while case is open
-
-   PASS  Tests\Feature\Authorization\AnchorScopeTest
-  ✓ self anchor                                                                                                  0.05s  
-  ✓ managed anchor                                                                                               0.03s  
-  ✓ org unit anchor                                                                                              0.04s  
-  ✓ org subtree anchor                                                                                           0.04s  
-  ✓ case anchor                                                                                                  0.04s  
-  ✓ payroll run anchor                                                                                           0.04s  
-  ✓ legal entity anchor and cross entity isolation                                                               0.04s  
-  ✓ cross tenant user never uses another tenants binding                                                         0.04s  
-  ✓ every binding carries a known anchor type                                                                    0.03s  
-
-   PASS  Tests\Feature\Authorization\AuthorizationScopeTest
-  ✓ self scope resolves only the principals employment                                                           0.14s  
-  ✓ managed scope resolves direct reports                                                                        0.04s  
-  ✓ org subtree scope resolves descendant org members                                                            0.05s  
-  ✓ legal entity scope is isolated                                                                               0.04s  
-  ✓ cross tenant detail is 404                                                                                   0.07s  
-  ✓ unauthenticated request is 401                                                                               0.04s  
-  ✓ missing capability is 403                                                                                    0.03s  
-
-   PASS  Tests\Feature\Authorization\AuthorizerEngineTest
-  ✓ default deny when no binding and no elevation                                                                0.04s  
-  ✓ self anchor allows only the callers employments                                                              0.04s  
-  ✓ managed anchor follows manager directory                                                                     0.04s  
-  ✓ expired and future bindings do not grant                                                                     0.03s  
-  ✓ tenant mismatch never grants                                                                                 0.03s  
-  ✓ sod conflict hard denies both capabilities                                                                   0.03s  
-  ✓ stale auth version is not granted                                                                            0.04s  
-  ✓ constrain pushes scope into sql before pagination                                                            0.04s  
-  ✓ cross module ports are fakes and nothing queries other tables                                                0.03s  
-
-   PASS  Tests\Feature\Authorization\BreakGlassTest
-  ✓ activation requires two distinct people                                                                      0.22s  
-  ✓ reason minimum and active approver are enforced                                                              0.20s  
-  ✓ activation creates thirty minute grant with audit and outbox                                                 0.21s  
-  ✓ expired grant no longer allows actions automatically                                                         0.21s  
-  ✓ either party can revoke and revocation is audited                                                            0.36s  
-  ✓ grant id header is bound to actions and unknown grant does not elevate                                       0.20s  
-  ✓ reason is never exposed in grant json                                                                        0.20s  
-
-   PASS  Tests\Feature\Authorization\ConcurrencyTest
-  ✓ parallel binding changes increment auth version monotonically without lost updates                           0.73s  
-
-   PASS  Tests\Feature\Authorization\CsrfTest
-  ✓ missing csrf header on mutation returns 419 envelope                                                         0.20s  
-  ✓ invalid csrf header on mutation returns 419                                                                  0.19s  
-  ✓ get request is not subject to csrf                                                                           0.20s  
-
-   PASS  Tests\Feature\Authorization\DenyByDefaultTest
-  ✓ unauthenticated request gets 401 envelope                                                                    0.03s  
-  ✓ authenticated user without capability gets 403                                                               0.20s  
-  ✓ capability catalog has no editable surface                                                                   0.03s  
-  ✓ all protected routes carry capability metadata                                                               0.04s  
-
-   PASS  Tests\Feature\Authorization\FieldDenialHttpTest
-  ✓ hidden field filter returns 422 and never queries it                                                         0.03s  
-  ✓ idor user cannot read another users bindings                                                                 0.22s  
-
-   PASS  Tests\Feature\Authorization\FieldProjectionTest
-  ✓ p0 visible and filterable p1 visible but masked p2 visible but masked p3 hidden                              0.04s  
-  ✓ p2 is not filterable and throws domain 422                                                                   0.04s  
-  ✓ caller without field coverage gets 404 not partial projection                                                0.04s  
-  ✓ export flag only applies to export capability and never unlocks p3                                           0.04s  
-  ✓ sensitive field access is audited without values                                                             0.04s  
-  ✓ p3 values never reach serialized output or logs                                                              0.04s  
-
-   PASS  Tests\Feature\Authorization\LoginSecurityTest
-  ✓ login sets hardened cookie and returns csrf once                                                             0.20s  
-  ✓ bad password is 401 and never issues session                                                                 0.19s  
-  ✓ login is rate limited after five attempts per minute                                                         0.83s  
-  ✓ account locks after ten failures in window                                                                   1.60s  
-  ✓ successful login records last login and audit event                                                          0.20s  
-
-   PASS  Tests\Feature\Authorization\MfaTest
-  ✓ privileged user without enrollment cannot use privileged capability                                          0.26s  
-  ✓ payroll role without mfa gets 403 but ordinary capability is unaffected                                      0.21s  
-  ✓ totp enrollment confirm returns otpauth uri and single use recovery codes                                    0.39s  
-  ✓ totp step up marks mfa verified and expires after 15 minutes                                                 0.21s  
-  ✓ sms and email are rejected as second factors                                                                 0.21s  
-  ✓ invalid totp is rejected and audited                                                                         0.20s  
-
-   PASS  Tests\Feature\Authorization\RoleAssignmentTest
-  ✓ role code rejects free text person or department name                                                        0.24s  
-  ✓ role assignment requires anchor ids for id bearing anchors                                                   0.24s  
-  ✓ role assignment expands to bindings with explicit anchor                                                     0.24s  
-  ✓ sod conflict blocks role assignment                                                                          0.24s  
-
-   PASS  Tests\Feature\Authorization\SessionRevocationTest
-  ✓ role change increments auth version and next request is 401                                                  0.19s  
-  ✓ binding change increments auth version and isolates session                                                  0.19s  
-  ✓ logout all increments auth version and revokes sessions                                                      0.20s  
-  ✓ password change revokes other sessions and requires reauth                                                   0.66s  
-  ✓ standard idle expiry is 30 minutes                                                                           0.19s  
-  ✓ privileged timeout is 15 minutes and 8 hours                                                                 0.20s  
-  ✓ absolute expiry wins even after activity                                                                     0.20s  
-  ✓ offboarding increments auth version and old session fails immediately                                        0.21s  
-
-   PASS  Tests\Feature\CapabilityGuardTest
-  ✓ unbound capability gate fails closed                                                                         0.04s  
-  ✓ client headers cannot assert capability                                                                      0.04s  
-  ✓ gate denial is audited via structured log not success audit                                                  0.04s  
-  ✓ capability middleware denies unknown principal and allows bound gate                                         0.04s  
-
-   PASS  Tests\Feature\DemoSeedTest
-  ✓ seed is idempotent and verify passes in honest shadow mode                                                   0.23s  
-  ✓ reset is refused in production                                                                               0.04s  
-  ✓ reset removes shadow staging and dataset rows                                                                0.12s  
-
-   PASS  Tests\Feature\ErrorEnvelopeTest
-  ✓ missing route returns stable not found envelope                                                              0.04s  
-  ✓ validation failure returns validation envelope                                                               0.04s  
-  ✓ method not allowed returns envelope                                                                          0.04s  
-  ✓ throttled request returns rate limited envelope                                                              0.04s  
-  ✓ debug mode does not leak internals                                                                           0.04s  
-
-   PASS  Tests\Feature\ExampleTest
-  ✓ the application returns a successful response                                                                0.06s  
-
-   PASS  Tests\Feature\FeatureFlagTest
-  ✓ risky domains default off and return 404 with stable code                                                    0.04s  
-  ✓ enabling flag allows route                                                                                   0.04s  
-  ✓ flag change is audited and idempotent override                                                               0.04s  
-  ✓ unknown flag is rejected                                                                                     0.03s  
-  ✓ flag route requires capability metadata                                                                      0.04s  
-
-   PASS  Tests\Feature\HealthProbeTest
-  ✓ liveness is ok without touching any dependency                                                               0.04s  
-  ✓ readiness returns 503 when database is down                                                                  0.04s  
-  ✓ readiness returns 503 when cache or storage is down                                                          0.04s  
-  ✓ legacy health remains degraded not unavailable for cache failure                                             0.03s  
-
-   PASS  Tests\Feature\HealthTest
-  ✓ health is public and reports all checks                                                                      0.07s  
-  ✓ cache or storage degradation is reported as degraded with http 200                                           0.05s  
-  ✓ database failure returns service unavailable envelope                                                        0.03s  
-
-   PASS  Tests\Feature\LogRedactionTest
-  ✓ context keys are redacted at every depth                                                                     0.03s  
-  ✓ identity numbers emails and mobiles are masked in free text                                                  0.03s  
-  ✓ real log channel redacts context and message                                                                 0.04s  
-  ✓ request log line contains correlation fields and no payload                                                  0.05s  
-
-   PASS  Tests\Feature\MetaTest
-  ✓ meta returns version environment time and api version                                                        0.06s  
-  ✓ root returns api meta instead of unused welcome page                                                         0.04s  
-
-   PASS  Tests\Feature\Migration\MigrationCommandsTest
-  ✓ validate command is read only and exits zero                                                                 0.05s  
-  ✓ validate command exits non zero for broken fixture                                                           0.06s  
-  ✓ apply without shadow fails closed when no database target is available                                       0.04s  
-  ✓ apply to shadow reconciles with positive exit                                                                0.06s  
-  ✓ rollback plan writes json and never executes destructive sql                                                 0.08s  
-  ✓ command rejects unknown domain                                                                               0.06s  
-
-   PASS  Tests\Feature\Migration\MigrationIdempotencyTest
-  ✓ applying the same domain twice does not duplicate target rows                                                0.07s  
-  ✓ dry run never writes target rows                                                                             0.05s  
-
-   PASS  Tests\Feature\Migration\MigrationReconciliationTest
-  ✓ leave opening reconciliation matches count and sum                                                           0.05s  
-  ✓ payroll ytd reconciliation covers all totals                                                                 0.05s  
-  ✓ injected target mismatch fails reconciliation                                                                0.05s  
-  ✓ injected sum mismatch fails reconciliation                                                                   0.05s  
-
-   PASS  Tests\Feature\Migration\MigrationRehearsalTest
-  ✓ rehearsal applies all domains to shadow and reconciles                                                       0.19s  
-  ✓ rehearsal requires positive round                                                                            0.06s  
-  ✓ rehearsal stops on missing dataset                                                                           0.04s  
-
-   PASS  Tests\Feature\Migration\MigrationValidateTest
-  ✓ known good fixture validates for every domain                                                                0.09s  
-  ✓ broken fixtures report expected codes and write no target rows                                               0.08s  
-  ✓ missing required header fails run without writing                                                            0.04s  
-
-   PASS  Tests\Feature\Organization\ClosureHistoryTest
-  ✓ move does not rewrite existing closure paths                                                                 0.07s  
-  ✓ a second move cannot predate the latest closure version                                                      0.05s  
-  ✓ union closures are derived from existing ancestor paths                                                      0.04s  
-
-   PASS  Tests\Feature\Organization\OrgTenantIsolationTest
-  ✓ move of other tenant org is 404                                                                              0.04s  
-  ✓ impact of other tenant org is 404                                                                            0.04s  
-  ✓ tree for other tenant legal entity is 404                                                                    0.04s  
-
-   PASS  Tests\Feature\Organization\OrgUnitWriteTest
-  ✓ create org unit builds closure and audits                                                                    0.04s  
-  ✓ impact preview counts employees managers and zero payroll cost centers                                       0.05s  
-  ✓ impact warns on cross entity parent                                                                          0.04s  
-  ✓ org type is validated                                                                                        0.04s  
-  ✓ org unit codes are unique within tenant                                                                      0.04s  
-  ✓ tenant cannot create org unit under another tenants entity                                                   0.04s  
-
-   PASS  Tests\Feature\People\AsOfQueryTest
-  ✓ t minus one t and t plus one for employment assignment and terms                                             0.05s  
-  ✓ terminated employee is absent after the termination date                                                     0.05s  
-  ✓ future hire is absent before hire date                                                                       0.04s  
-  ✓ invalid as of returns 422 and never scopes silently                                                          0.04s  
-  ✓ list and detail agree at the same as of                                                                      0.04s  
-
-   PASS  Tests\Feature\People\AssignmentTimelineTest
-  ✓ concurrent second assignment is allowed                                                                      0.05s  
-  ✓ two overlapping primary assignments are rejected                                                             0.04s  
-  ✓ future assignment does not change today                                                                      0.05s  
-  ✓ half open boundaries of assignments                                                                          0.05s  
-  ✓ manager chain is projected in snapshot                                                                       0.04s  
-
-   PASS  Tests\Feature\People\CrossLegalEntityTest
-  ✓ assignment to another legal entity is rejected with reason code                                              0.04s  
-  ✓ cross entity transfer ends old and creates new employment for same person                                    0.04s  
-  ✓ employee number is unique per legal entity only                                                              0.04s  
-
-   PASS  Tests\Feature\People\CrossTenantIsolationTest
-  ✓ person service never reads another tenants person                                                            0.04s  
-  ✓ person dedup is tenant scoped                                                                                0.04s  
-  ✓ assignment route 404s for other tenant employment                                                            0.04s  
-
-   PASS  Tests\Feature\People\EmploymentWriteTest
-  ✓ create employment validates hire inside validity                                                             0.04s  
-  ✓ create employment rejects unknown person or entity tenant safely                                             0.04s  
-  ✓ employment type and status enums are enforced                                                                0.04s  
-  ✓ assignment cannot outlive employment window                                                                  0.04s  
-  ✓ assignment to future org unit is rejected before activation                                                  0.04s  
-  ✓ terms cannot start before employment                                                                         0.04s  
-
-   PASS  Tests\Feature\People\FieldPrivacyTest
-  ✓ identity number never appears in profile or timeline responses                                               0.04s  
-  ✓ mobile is masked for p1 profile                                                                              0.03s  
-  ✓ document download requires capability                                                                        0.04s  
-  ✓ document metadata hides storage key and hash                                                                 0.04s  
-  ✓ sensitive access material is not persisted in plaintext                                                      0.04s  
-
-   PASS  Tests\Feature\People\FieldProfileProjectionTest
-  ✓ identity ciphertext and plaintext are absent from every profile with data set " p0"                          0.03s  
-  ✓ identity ciphertext and plaintext are absent from every profile with data set " p1"                          0.03s  
-  ✓ identity ciphertext and plaintext are absent from every profile with data set " p2"                          0.03s  
-  ✓ identity ciphertext and plaintext are absent from every profile with data set " p3"                          0.04s  
-
-   PASS  Tests\Feature\People\IdempotencyHttpTest
-  ✓ idempotency key replays the original command response without duplicate write                                0.05s  
-  ✓ same key with different payload is 409                                                                       0.05s  
-
-   PASS  Tests\Feature\Organization\OrgClosureTest
-  ✓ subtree as of before and after a move                                                                        0.05s  
-  ✓ move rejects a cycle                                                                                         0.04s  
-  ✓ tree reflects the requested business date                                                                    0.04s  
-  ✓ historical closure path is ended not rewritten                                                               0.04s  
-
-   PASS  Tests\Feature\Organization\OrgUnitAsOfBoundaryTest
-  ✓ org unit validity window is half open in directory                                                           0.04s  
-  ✓ invalid or blank as of defaults to tenant timezone today                                                     0.04s  
-  ✓ org tree requires legal entity id                                                                            0.04s  
-  ✓ org move requires effective from and rejects before current start                                            0.05s  
-
-   PASS  Tests\Feature\People\PaginationScopeTest
-  ✓ total counts are computed after row scope                                                                    0.06s  
-  ✓ last page returns remaining rows in stable order                                                             0.05s  
-
-   PASS  Tests\Feature\People\PersonDedupTest
-  ✓ same identity type and hash is rejected                                                                      0.05s  
-  ✓ identity type is normalized before deduplication                                                             0.04s  
-  ✓ different identity type is allowed                                                                           0.04s  
-  ✓ identity and mobile are encrypted at rest and never serialized                                               0.06s  
-  ✓ audit and outbox payloads never contain identity plaintext                                                   0.05s  
-
-   PASS  Tests\Feature\People\RequirementGapsTest
-  ✓ assignment outside org active window is rejected                                                             0.05s  
-  ✓ terms effective to is clipped to employment window                                                           0.04s  
-  ✓ manager assignment must exist and be valid                                                                   0.04s  
-  ✓ document requires same tenant file object                                                                    0.04s  
-  ✓ document versions increment per category                                                                     0.04s  
-  ✓ document download returns no storage key and requires both capabilities                                      0.04s  
-  ✓ legal entity timezone and currency are validated                                                             0.04s  
-  ✓ terms historical row is not overwritten when new version closes it                                           0.05s  
-
-   PASS  Tests\Feature\People\TermsVersionTest
-  ✓ versions increment and history is preserved                                                                  0.05s  
-  ✓ historical terms are returned as of the requested date                                                       0.05s  
-  ✓ terms are not edited in place                                                                                0.05s  
-  ✓ non monotonic effective date is a conflict                                                                   0.04s  
-
-   PASS  Tests\Feature\People\TimelineTest
-  ✓ timeline orders employment assignment terms and document facts                                               0.05s  
-  ✓ timeline filters by from and to half open                                                                    0.05s  
-  ✓ timeline rejects invalid dates and hides other tenants                                                       0.04s  
-
-   PASS  Tests\Feature\RequestIdTest
-  ✓ valid inbound request id is preserved                                                                        0.04s  
-  ✓ invalid inbound request id is replaced with ulid                                                             0.04s  
-  ✓ response header is present without inbound id                                                                0.04s  
-  ✓ error responses also carry request id                                                                        0.05s  
-
-   PASS  Tests\Feature\RetentionTest
-  ✓ preview reports candidates without deleting                                                                  0.04s  
-  ✓ legal hold blocks purge and is skipped                                                                       0.04s  
-  ✓ purge without confirm is a dry run                                                                           0.04s  
-  ✓ contract and accounting retention classes exist                                                              0.03s  
-  ✓ permanent classes are never purged                                                                           0.04s  
-
-   PASS  Tests\Feature\Time\AttendanceCorrectionTest
-  ✓ correction creates case and does not change raw punch                                                        0.06s  
-  ✓ recalculation is idempotent and reuses source hash                                                           0.04s  
-  ✓ corrected punches do not replace device punches                                                              0.04s  
-
-   PASS  Tests\Feature\Time\LeaveConcurrencyTest
-  ✓ two requests for the last day produce one success and no negative balance                                    0.06s  
-  ✓ ledger unique source prevents double reserve                                                                 0.04s  
-
-   PASS  Tests\Feature\Time\LeaveLedgerBalanceTest
-  ✓ all ledger accounts are reflected and equation holds exactly                                                 0.06s  
-  ✓ reserve reduces available and release restores                                                               0.05s  
-  ✓ no negative balance unless type allows it                                                                    0.04s  
-  ✓ negative balance is permitted when type allows it                                                            0.04s  
-  ✓ day display uses legal entity standard day                                                                   0.04s  
-  ✓ duplicate source append is idempotent                                                                        0.04s  
-
-   PASS  Tests\Feature\Time\OvernightShiftTest
-  ✓ morning punch after midnight maps to shift start business date                                               0.04s  
-  ✓ overnight shift across spring forward dst counts real minutes once                                           0.04s  
-  ✓ overnight shift across fall back counts repeated hour once                                                   0.04s  
-  ✓ asia shanghai has no dst shift minutes                                                                       0.04s  
-
-   PASS  Tests\Feature\Time\ReversalTest
-  ✓ consume then reverse restores balance once                                                                   0.05s  
-  ✓ reverse entry direction is opposite of target                                                                0.04s  
-
-   PASS  Tests\Feature\Workflow\ApprovedNotEffectiveTest
-  ✓ handler exception keeps decision and approved application status but marks effect failed                     0.10s  
-  ✓ retry of failed effect applies once and does not duplicate decision                                          0.07s  
-
-   PASS  Tests\Feature\Workflow\AuthorizationTest
-  ✓ unauthenticated request is 401                                                                               0.04s  
-  ✓ missing capability is 403                                                                                    0.04s  
-  ✓ requester sees own case and approver sees assigned case but unrelated user gets 404                          0.06s  
-  ✓ tasks my returns only current users pending tasks with sla                                                   0.05s  
-  ✓ admin override requires reason and is audited                                                                0.06s  
-  ✓ effect retry requires admin capability and reason                                                            0.06s  
-  ✓ list queries do not n plus one                                                                               0.06s  
-
-   PASS  Tests\Feature\Workflow\CommandsTest
-  ✓ seed templates is idempotent and creates the seven document flows                                            0.05s  
-  ✓ workflow check fails when an approved case has no effect rows                                                0.04s  
-  ✓ workflow check passes for completed approval with effect rows                                                0.06s  
-  ✓ workflow check does not fail for approved but pending scheduled effects                                      0.06s  
-
-   PASS  Tests\Feature\Workflow\ConcurrentApprovalTest
-  ✓ replaying same idempotency key returns the same decision and effect without duplicates                       0.06s  
-  ✓ second approval after case completed is a conflict and does not create another decision                      0.06s  
-  ✓ required count blocks completion until enough distinct approvers decide                                      0.07s  
-
-   PASS  Tests\Feature\Workflow\DecisionImmutabilityTest
-  ✓ updating or deleting a decision throws                                                                       0.05s  
-  ✓ template edit does not change live or historical case snapshot                                               0.05s  
-  ✓ actor snapshot is stored with decision                                                                       0.05s  
-  ✓ decisions are append only and keep action sequence                                                           0.06s  
-
-   PASS  Tests\Feature\Workflow\DelegationTest
-  ✓ proxy within range and scope can approve on behalf of assignee                                               0.06s  
-  ✓ expired delegation is rejected                                                                               0.05s  
-  ✓ delegation amount limit is enforced                                                                          0.05s  
-  ✓ delegation out of scope is rejected                                                                          0.05s  
-  ✓ revoked delegation cannot be used                                                                            0.05s  
-
-   PASS  Tests\Feature\Workflow\EffectIdempotencyTest
-  ✓ same effect applied twice only runs handler once                                                             0.06s  
-  ✓ unique constraint rejects duplicate effect sequence                                                          0.05s  
-  ✓ retry after failure works and max attempts is enforced                                                       0.08s  
-
-   PASS  Tests\Feature\Workflow\OutboxOnDecisionTest
-  ✓ external effect records outbox event with ids and versions only                                              0.05s  
-  ✓ external effect is not silently marked applied                                                               0.06s  
-
-   PASS  Tests\Feature\Workflow\ReassignTest
-  ✓ terminated assignee is replaced by next eligible manager with case event                                     0.05s  
-  ✓ eligible assignee is untouched and reassignment is idempotent                                                0.05s  
-  ✓ no eligible candidate is recorded as escalation without duplicate tasks                                      0.05s  
-
-   PASS  Tests\Feature\Workflow\ScheduledEffectTest
-  ✓ future effect is not applied today and applies once on due date                                              0.06s  
-  ✓ due scheduler only processes effects that are due                                                            0.09s  
-  ✓ due scheduler limit is respected                                                                             0.10s  
-
-   PASS  Tests\Feature\Workflow\StatusSeparationTest
-  ✓ case detail timeline and list never expose a combined completed status                                       0.06s  
-  ✓ decision response reports both statuses independently                                                        0.05s  
-
-   PASS  Tests\Feature\Workflow\TemplateVersionTest
-  ✓ version two does not retroactively change version one cases and new cases use latest explicit version        0.07s  
-  ✓ template creation is idempotent for same tenant code version                                                 0.03s  
-  ✓ template definition rejects unsupported node types and assignee rules                                        0.03s  
-  ✓ template http create is validated and capability guarded                                                     0.04s  
-
-   PASS  Tests\Feature\Workflow\WorkflowSchemaTest
-  ✓ workflow tables exist with separate application and effect columns on cases                                  0.04s  
-  ✓ decision uniqueness constraint is present                                                                    0.03s  
-  ✓ effect uniqueness constraint is present                                                                      0.04s  
-
-   PASS  Tests\Contract\IamOpenApiContractTest
-  ✓ iam fragment declares every route with security                                                              0.03s  
-  ✓ every iam route has capability metadata except public allowlist                                              0.03s  
-
-   PASS  Tests\Contract\IamRouteMatrixTest
-  ✓ every iam route appears in the denial matrix                                                                 0.03s  
-  ✓ high risk rows have at least eight denial classes                                                            0.03s  
-
-   PASS  Tests\Contract\OpenApiContractTest
-  ✓ every v1 route is documented in openapi                                                                      0.04s  
-  ✓ health and meta document success and error shapes                                                            0.04s  
-  ✓ openapi is 31 and declares auth schemes                                                                      0.04s  
-
-   PASS  Tests\Contract\OpenApiLintCliTest
-  ✓ lint accepts the repository spec                                                                             0.48s  
-  ✓ lint fails on malformed yaml                                                                                 0.44s  
-  ✓ lint fails when an operation lacks responses                                                                 0.43s  
-
-   PASS  Tests\Contract\PeopleDirectoryFrozenSignatureTest
-  ✓ people directory methods match the interface freeze                                                          0.05s  
-  ✓ organization directory methods match the interface freeze                                                    0.03s  
-
-   PASS  Tests\Contract\PeopleOrgApiContractTest
-  ✓ person creation envelope matches frozen shape                                                                0.04s  
-  ✓ employee list uses paginated data shape                                                                      0.04s  
-  ✓ org tree uses list envelope                                                                                  0.04s  
-  ✓ commands emit outbox events without pii                                                                      0.04s  
-  ✓ api errors keep stable codes                                                                                 0.04s  
-
-   PASS  Tests\Integration\AsOfConsistencyTest
-  ✓ employee list detail org tree and directory agree at same as of                                              0.05s  
-  ✓ org tree and as of subtree agree after move boundary                                                         0.05s  
-
-   PASS  Tests\Integration\BackupRestoreSmokeTest
-  ✓ script copies hashes restores and reports pass                                                               1.34s  
-  ✓ script fails for missing database                                                                            0.41s  
-
-   PASS  Tests\Integration\DirectoryContractTest
-  ✓ contracts are bound to real directory implementations                                                        0.05s  
-  ✓ employment for user and tenant isolation                                                                     0.04s  
-  ✓ employment for user uses tenant business date not utc date                                                   0.04s  
-  ✓ employment snapshot is as of and carries manager                                                             0.04s  
-  ✓ org directory tree and legal entity lookup                                                                   0.04s  
-  ✓ iam authorizer scope via real directories for manager and hr and self                                        0.04s  
-
-   PASS  Tests\Integration\ModuleContractBoundaryTest
-  ✓ organization facts contract is bound and tenant scoped                                                       0.04s  
-  ✓ people impact contract is used by org impact preview                                                         0.04s  
-  ✓ demo seeder contract is idempotent and org owned                                                             0.04s  
-
-   PASS  Tests\Architecture\ArchTestCommandTest
-  ✓ command passes for clean module tree                                                                         0.05s  
-  ✓ command fails and lists synthetic cross module violation                                                     0.06s  
-  ✓ default command passes for current application                                                               0.31s  
-
-   PASS  Tests\Architecture\ArchitectureBoundaryTest
-  ✓ organization does not reference people internal models                                                       0.06s  
-  ✓ organization does not reference people models or tables directly                                             0.04s  
-  ✓ controllers contain no sql or model writes                                                                   0.04s  
-  ✓ effective dated migrations do not add current department or position columns                                 0.03s  
-  ✓ business code does not use where date for business dates                                                     0.05s  
-
-   PASS  Tests\Architecture\CapabilityAuditCommandTest
-  ✓ audit passes for current public health and meta routes                                                       0.04s  
-  ✓ audit fails and lists synthetic unguarded route                                                              0.04s  
-  ✓ audit accepts capability middleware metadata                                                                 0.04s  
-  ✓ audit accepts capability route default                                                                       0.04s  
-  ✓ missing negative test manifest entry warns without failing                                                   0.04s  
-
-   PASS  Tests\Architecture\ModuleOwnershipTest
-  ✓ people never imports organization models or services                                                         0.05s  
-  ✓ organization never imports people models or services                                                         0.04s  
-  ✓ no controller runs sql or eloquent writes                                                                    0.04s  
-  ✓ effective dated tables have no current snapshot columns                                                      0.03s  
-  ✓ business modules do not use where date                                                                       0.05s  
-
-   PASS  Tests\Architecture\ModuleScannerTest
-  ✓ clean tree allows shared and other module contracts                                                          0.01s  
-  ✓ cross module use and fully qualified reference are violations                                                0.01s  
-  ✓ grouped use declarations are expanded and checked                                                            0.03s  
-  ✓ platform model import is not allowed by default                                                              0.02s  
-  ✓ platform may not depend on business module contracts                                                         0.02s  
-  ✓ db table uses owned table and flags cross module and unknown tables                                          0.02s  
-  ✓ schema usage in application modules is a violation                                                           0.01s  
-
-   PASS  Tests\Architecture\WorkflowArchitectureTest
-  ✓ workflow does not import iam people or organization models                                                   0.09s  
-  ✓ workflow controllers do not query other module tables                                                        0.04s  
-  ✓ workflow sources have strict types                                                                           0.07s  
-  ✓ decision and case event models block mutation                                                                0.04s  
-
-  Tests:    579 passed (33230 assertions)
-  Duration: 32.74s
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\AuditAppendOnlyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcreating audit event persists json payloads[39m[90m                                                                 [39m [90m0.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90mupdating audit event throws[39m[90m                                                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting audit event throws[39m[90m                                                                                 [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Authorization\AnchorTypeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcatalog exposes exactly the seven frozen anchors[39m[90m                                                            [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcustom anchor is rejected[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Authorization\CapabilityCatalogTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcapability codes are unique and cover the frozen catalog[39m
+  [32;1m✓[39;22m[90m [39m[90mevery definition uses known anchors and profiles[39m
+  [32;1m✓[39;22m[90m [39m[90mexactly ten role templates exist and are code owned[39m
+  [32;1m✓[39;22m[90m [39m[90mtime route capabilities are issued by role templates[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Authorization\FailClosedAuthorizerTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdefault authorizer denies unknown capabilities[39m[90m                                                              [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Authorization\FieldProfileTest[39m
+  [32;1m✓[39;22m[90m [39m[90mprofiles have strictly ordered ranks[39m
+  [32;1m✓[39;22m[90m [39m[90mfield set derives visibility filtering and export flags[39m
+  [32;1m✓[39;22m[90m [39m[90mexport capability unlocks p1 and p2 but never p3[39m
+  [32;1m✓[39;22m[90m [39m[90mmask keeps p0 masks p1 and p2 and never returns p3[39m
+  [32;1m✓[39;22m[90m [39m[90mfiltering by p2 or p3 throws domain validation error[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Authorization\SodConflictTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpayroll maker and approver are a conflict[39m
+  [32;1m✓[39;22m[90m [39m[90mgovernance and audit are a conflict[39m
+  [32;1m✓[39;22m[90m [39m[90massert allowed throws a typed conflict[39m
+  [32;1m✓[39;22m[90m [39m[90munrelated capabilities are allowed[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\ExampleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthat true is true[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\IamCommandsTest[39m
+  [32;1m✓[39;22m[90m [39m[90msync capabilities is idempotent and refuses referenced removal[39m[90m                                              [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseed demo requires password env and is idempotent[39m[90m                                                           [39m [90m0.54s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreap sessions revokes only expired sessions[39m[90m                                                                 [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccess review requires quarter and reports json[39m[90m                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\TotpTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrfc6238 sha1 test vectors[39m
+  [32;1m✓[39;22m[90m [39m[90mcode uses six digits and thirty second step[39m
+  [32;1m✓[39;22m[90m [39m[90mverification accepts only plus or minus one window[39m
+  [32;1m✓[39;22m[90m [39m[90minvalid base32 or non numeric code is rejected[39m
+  [32;1m✓[39;22m[90m [39m[90mbase32 round trip and constant time comparison[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\WebAuthnChallengeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mchallenge is random stored once and expires[39m[90m                                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclient data with wrong challenge or origin is rejected[39m[90m                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchallenge is single use[39m[90m                                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90massertion requires authentication type and challenge[39m[90m                                                        [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\IdempotencyServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfirst call executes and replay returns stored response[39m[90m                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame key with different payload is a conflict[39m[90m                                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailed key is released and can be reused[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90min progress key returns conflict instead of running twice[39m[90m                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munique index prevents duplicate reservations[39m[90m                                                                [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\ChecklistPolicyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrequired tasks must be done or waived with reason[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\OfferStateMachineTest[39m
+  [32;1m✓[39;22m[90m [39m[90monly an approved offer can be accepted once[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\PerformanceStateMachineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreview submission and appeal are monotonic[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\SeniorityRuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpreserve and rehire rules are explicit[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\CumulativeWithholdingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mjanuary progression starts from empty ytd[39m[90m                                                                   [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfebruary uses cumulative tax minus january withholding[39m
+  [32;1m✓[39;22m[90m [39m[90mmarch changing deductions recompute the full year[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative difference withholds zero and carries forward[39m
+  [32;1m✓[39;22m[90m [39m[90mzero current taxable income never refunds prior withholding[39m
+  [32;1m✓[39;22m[90m [39m[90myear rollover starts a fresh cumulative tax year[39m
+  [32;1m✓[39;22m[90m [39m[90mprior year ytd snapshot is rejected[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative carry is not subtracted a second time in following month[39m
+  [32;1m✓[39;22m[90m [39m[90mcorrection delta is revised result minus original result[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\ManualAdjustmentAmountTest[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative adjustment absolute amount is exact and becomes deduction[39m
+  [32;1m✓[39;22m[90m [39m[90mphp int min recovery is rejected because its absolute value is not representable[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\NegativeZeroTest[39m
+  [32;1m✓[39;22m[90m [39m[90mzero result has no negative zero anywhere[39m
+  [32;1m✓[39;22m[90m [39m[90mmoney and rounded decimals never serialize minus zero[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\NetPayTest[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative net is rejected unless explicitly allowed[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative net can be returned when explicitly allowed[39m
+  [32;1m✓[39;22m[90m [39m[90mexact zero net never emits negative zero[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\NoFloatTest[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "float type"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "float literal"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "float cast"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "floatval call"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "round call"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "native abs call"[39m
+  [32;1m✓[39;22m[90m [39m[90mscanner allows integer arithmetic and comments about floating point[39m
+  [32;1m✓[39;22m[90m [39m[90mpayroll and money sources contain no float arithmetic[39m[90m                                                       [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCalculationInputTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects an input line in a different currency[39m[90m                                                               [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejects an unexpected element type in a line collection[39m
+  [32;1m✓[39;22m[90m [39m[90mkeeps the four payroll time axes separate[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCalculationPropertyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfive hundred seeded cases preserve all money invariants[39m[90m                                                     [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgenerated cases are deterministic for the same seed[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultInvariantTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects a result with a positive tax carry[39m
+  [32;1m✓[39;22m[90m [39m[90maccepts a valid zero result[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects deduction lines that do not equal deduction total[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCalculationResultTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects a component in a different currency[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCorrectionDeltaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mzero correction is zero[39m
+  [32;1m✓[39;22m[90m [39m[90mrecovery can produce negative deltas[39m
+  [32;1m✓[39;22m[90m [39m[90mdelta currencies must match[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollIntermediateOverflowTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcumulative taxable addition is checked[39m
+  [32;1m✓[39;22m[90m [39m[90mother deduction summation is checked[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollOverflowTest[39m
+  [32;1m✓[39;22m[90m [39m[90mgross aggregation rejects native integer overflow[39m
+  [32;1m✓[39;22m[90m [39m[90mzero scheduled minutes with zero salary is zero not a division error[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollResultExtremeValueTest[39m
+  [32;1m✓[39;22m[90m [39m[90mresult balance check never overflows on extreme component sums[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollValueObjectTest[39m
+  [32;1m✓[39;22m[90m [39m[90mperiod rejects invalid year and month[39m
+  [32;1m✓[39;22m[90m [39m[90mrounding config rejects unsupported money scale[39m
+  [32;1m✓[39;22m[90m [39m[90mcontext rejects invalid timezone[39m
+  [32;1m✓[39;22m[90m [39m[90mcontext rejects lowercase currency code[39m
+  [32;1m✓[39;22m[90m [39m[90mattendance rejects overlapping minutes[39m
+  [32;1m✓[39;22m[90m [39m[90mattendance accepts exact scheduled minutes[39m
+  [32;1m✓[39;22m[90m [39m[90msi and hf rules reject inverted bounds[39m
+  [32;1m✓[39;22m[90m [39m[90mtax bracket rejects zero width and negative rate data[39m
+  [32;1m✓[39;22m[90m [39m[90mtax bracket rejects negative lower bound[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayslipLineSourceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mevery generated line has mandatory source and increasing sort order[39m
+  [32;1m✓[39;22m[90m [39m[90mtotals equal the sum of their respective lines[39m
+  [32;1m✓[39;22m[90m [39m[90mduplicate sort orders cannot be emitted by calculator inputs[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PercentageIntegrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfractional percentage rate is applied as a ratio not as raw percent[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\ProrationRoundingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mproration rounds only once at the salary line boundary[39m
+  [32;1m✓[39;22m[90m [39m[90mproration down mode truncates a fractional cent[39m
+  [32;1m✓[39;22m[90m [39m[90mproration up mode rounds a fractional cent to one cent[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\ProrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfull attendance pays the full monthly salary[39m
+  [32;1m✓[39;22m[90m [39m[90mmid month join deducts unworked days with annual divisor[39m
+  [32;1m✓[39;22m[90m [39m[90mmid month join uses fixed 21 75 divisor[39m
+  [32;1m✓[39;22m[90m [39m[90mpaid leave remains paid[39m
+  [32;1m✓[39;22m[90m [39m[90mexplicit unpaid leave reduces pay by the daily rate[39m
+  [32;1m✓[39;22m[90m [39m[90movertime uses exact minutes and a parameterised multiplier[39m
+  [32;1m✓[39;22m[90m [39m[90mleap year february has 29 days and still pays full salary[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\SocialInsuranceBaseTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbase below minimum is clamped up for employee and employer[39m
+  [32;1m✓[39;22m[90m [39m[90mbase within range uses gross[39m
+  [32;1m✓[39;22m[90m [39m[90mbase above maximum is clamped down[39m
+  [32;1m✓[39;22m[90m [39m[90mrate change is parameter driven[39m
+  [32;1m✓[39;22m[90m [39m[90mhousing fund has an independent base clamp[39m
+  [32;1m✓[39;22m[90m [39m[90mrounding mode changes contribution at the cent boundary[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\TaxTableTest[39m
+  [32;1m✓[39;22m[90m [39m[90mzero income has zero tax[39m
+  [32;1m✓[39;22m[90m [39m[90mbracket boundaries are contiguous and use quick deduction[39m
+  [32;1m✓[39;22m[90m [39m[90mbracket rounding uses requested mode at the cent[39m
+  [32;1m✓[39;22m[90m [39m[90moverlapping brackets are rejected[39m
+  [32;1m✓[39;22m[90m [39m[90mgap between brackets is rejected[39m
+  [32;1m✓[39;22m[90m [39m[90mtable must start at zero and have an open top bracket[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative quick deduction is rejected[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\UserProvidedMetadataTest[39m
+  [32;1m✓[39;22m[90m [39m[90msource rejects a null byte laden id[39m
+  [32;1m✓[39;22m[90m [39m[90msource rejects a null byte laden type[39m
+  [32;1m✓[39;22m[90m [39m[90mline rejects a category info with negative money[39m
+  [32;1m✓[39;22m[90m [39m[90mmoney rejects a malformed currency code[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Organization\ClosureBuilderTest[39m
+  [32;1m✓[39;22m[90m [39m[90mit builds self and ancestor paths with depth[39m
+  [32;1m✓[39;22m[90m [39m[90mit detects a parent cycle[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\OutboxServiceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrecord persists event with json payload and ulid[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecord rolls back with caller transaction[39m[90m                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayload with prohibited sensitive keys is rejected[39m[90m                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdispatcher contract is bound[39m[90m                                                                                [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\People\AssignmentOverlapTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtwo primary intervals may not overlap[39m[90m                                                                       [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtouching half open intervals do not overlap[39m
+  [32;1m✓[39;22m[90m [39m[90mconcurrent secondments and matrix assignments are allowed[39m
+  [32;1m✓[39;22m[90m [39m[90mprimary flag and type are both authoritative[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\People\CrossLegalEntityTransferTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtransfer contract ends old and opens new employment for same person[39m[90m                                         [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtransfer to same entity is rejected[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtransfer before current start is rejected[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown employment is 404 domain exception[39m[90m                                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\People\PersonPrivacyTest[39m
+  [32;1m✓[39;22m[90m [39m[90midentity hash is deterministic but plaintext independent[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile masking never returns full number[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mencryption uses application key[39m[90m                                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\DecimalScaleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative tie and remainder modes exactly with data set "half up keeps sign on exact half"[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative tie and remainder modes exactly with data set "half even negative exact half to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative tie and remainder modes exactly with data set "half even negative odd up to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative tie and remainder modes exactly with data set "down never rounds away from zero on negative tie"[39m
+  [32;1m✓[39;22m[90m [39m[90mnegative tie and remainder modes exactly with data set "up always rounds away from zero on negative remainder"[39m
+  [32;1m✓[39;22m[90m [39m[90mdivision into negative divisor preserves sign[39m
+  [32;1m✓[39;22m[90m [39m[90mzero divided by negative is positive zero[39m
+  [32;1m✓[39;22m[90m [39m[90mscale must be non negative[39m
+  [32;1m✓[39;22m[90m [39m[90mdivision scale must be non negative[39m
+  [32;1m✓[39;22m[90m [39m[90mscaled integer scale must be non negative[39m
+  [32;1m✓[39;22m[90m [39m[90mto scaled int rounds with requested mode[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\DecimalTest[39m
+  [32;1m✓[39;22m[90m [39m[90madd and subtract are exact and preserve result scale[39m[90m                                                        [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmultiply and divide are exact[39m
+  [32;1m✓[39;22m[90m [39m[90mdivision uses configured rounding mode and sticky remainder[39m
+  [32;1m✓[39;22m[90m [39m[90mcompare is numeric not lexicographic[39m
+  [32;1m✓[39;22m[90m [39m[90mscaled integer round trip[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "empty"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "letters"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "scientific notation"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "two decimal points"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "bare sign"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "bare decimal point"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "too many integer digits"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "too many integer digits with fraction"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects invalid or out of range input with data set "whitespace"[39m
+  [32;1m✓[39;22m[90m [39m[90mrejects division by zero[39m
+  [32;1m✓[39;22m[90m [39m[90mdecimal string normalizes signed zero and leading zeroes[39m
+  [32;1m✓[39;22m[90m [39m[90mlarge supported value can be manipulated exactly[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\MoneyTest[39m
+  [32;1m✓[39;22m[90m [39m[90madd and subtract keep integer minor units[39m[90m                                                                   [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90maddition rejects native integer overflow[39m
+  [32;1m✓[39;22m[90m [39m[90msubtraction rejects native integer overflow[39m
+  [32;1m✓[39;22m[90m [39m[90mabsolute is exact and rejects unrepresentable int min[39m
+  [32;1m✓[39;22m[90m [39m[90mcurrency mismatch is rejected[39m
+  [32;1m✓[39;22m[90m [39m[90mallocation distributes every cent and stays deterministic[39m
+  [32;1m✓[39;22m[90m [39m[90mallocation requires positive part count[39m
+  [32;1m✓[39;22m[90m [39m[90mmultiply by decimal ratio rounds once at the money boundary[39m
+  [32;1m✓[39;22m[90m [39m[90mmoney can be created from decimal string at stored scale[39m
+  [32;1m✓[39;22m[90m [39m[90mjson has stable shape and decimal amount[39m
+  [32;1m✓[39;22m[90m [39m[90mzero has single representation[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\PercentageTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpercent and ratio round trip at six decimals[39m
+  [32;1m✓[39;22m[90m [39m[90mpercentage rejects negative inputs[39m
+  [32;1m✓[39;22m[90m [39m[90mone hundred percent is exactly one[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\RoundingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-up positive tie"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-up negative tie rounds away from zero"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-up just below tie"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-up above tie"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even positive down to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even positive up to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even negative down to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even negative up to even"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even above tie"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "down positive truncates"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "down negative truncates toward zero"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "up positive moves away from zero"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "up negative moves away from zero"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "up exact amount does not move"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-up one decimal place"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounds exactly at requested scale with data set "half-even one decimal place"[39m
+  [32;1m✓[39;22m[90m [39m[90mrounding that produces zero never emits negative zero[39m
+  [32;1m✓[39;22m[90m [39m[90mrounding to a larger scale pads with zeroes[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\AsOfQueryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mwhere valid on is half open and grouped[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwhere known at respects recorded and superseded timestamps[39m[90m                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\BusinessCalendarTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkweek holiday and makeup override weekday rules[39m[90m                                                          [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublic holiday and company holiday are non working[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmakeup workday on a weekend is working[39m[90m                                                                      [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown timezone is rejected[39m[90m                                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshift window maps overnight morning punch to start business date[39m[90m                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mday shift uses legal entity local date not utc date[39m[90m                                                         [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\BusinessDateTest[39m
+  [32;1m✓[39;22m[90m [39m[90mit accepts a real calendar date[39m
+  [32;1m✓[39;22m[90m [39m[90mit rejects impossible calendar dates[39m
+  [32;1m✓[39;22m[90m [39m[90mtoday is derived from the tenant timezone and injected clock[39m
+  [32;1m✓[39;22m[90m [39m[90mit compares dates as business dates[39m
+  [32;1m✓[39;22m[90m [39m[90mopen end is the documented constant[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\ClockTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfrozen clock returns utc and can advance[39m
+  [32;1m✓[39;22m[90m [39m[90msystem clock returns utc[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\DateRangeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mhalf open range contains start but not end[39m
+  [32;1m✓[39;22m[90m [39m[90mopen ended range contains all future business dates[39m
+  [32;1m✓[39;22m[90m [39m[90moverlap respects half open boundaries[39m
+  [32;1m✓[39;22m[90m [39m[90ma range must end after it starts[39m
+  [32;1m✓[39;22m[90m [39m[90mit can clip a range to a business date[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\LeaveEquationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mequation accounts for every ledger account[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mavailable excludes reserve and balance is total[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnegative quantity is rejected[39m[90m                                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbalance can be asserted exact[39m[90m                                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnegative available without permission is rejected[39m[90m                                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\QuantityUnitTest[39m
+  [32;1m✓[39;22m[90m [39m[90mday quantity is stored as integer minutes using standard day[39m[90m                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfraction below one minute is rejected not rounded[39m[90m                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdisplay days round trip for quarter day[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbad standard day is rejected[39m[90m                                                                                [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\ShiftWindowTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcross midnight elapsed minutes are real utc minutes[39m[90m                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfall back elapsed minutes include repeated hour once as real time[39m[90m                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mshift boundaries resolve dst wall clock correctly[39m[90m                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90movernight window without midnight crossing rejects configuration[39m[90m                                            [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\StatutoryFloorTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfloors are five ten and fifteen days by cumulative service[39m[90m                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone day short of ten years still gets five days[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstatutory entitlement below floor is rejected[39m[90m                                                               [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompany leave may be set below statutory floor[39m[90m                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstatutory entitlement at floor is accepted[39m[90m                                                                  [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Workflow\ConditionEvaluatorTest[39m
+  [32;1m✓[39;22m[90m [39m[90msupported leaf operators compare scalar payload fields[39m[90m                                                      [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall and any compose only declarative conditions[39m
+  [32;1m✓[39;22m[90m [39m[90mnested dotted payload fields are supported[39m
+  [32;1m✓[39;22m[90m [39m[90mmissing or non scalar fields do not match[39m
+  [32;1m✓[39;22m[90m [39m[90munknown or expression operators are rejected[39m
+  [32;1m✓[39;22m[90m [39m[90marbitrary expression strings are rejected[39m
+  [32;1m✓[39;22m[90m [39m[90min operator requires a non empty list of scalars[39m
+  [32;1m✓[39;22m[90m [39m[90mdepth and node count are bounded[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Workflow\EffectRegistryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mresolves handler by supported effect type[39m[90m                                                                   [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown effect type is rejected at decision time[39m
+  [32;1m✓[39;22m[90m [39m[90mtwo handlers supporting the same type is a configuration error[39m
+  [32;1m✓[39;22m[90m [39m[90meffect types are known from registered handlers[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Workflow\IdempotencyHashTest[39m
+  [32;1m✓[39;22m[90m [39m[90mkey order does not change the hash[39m
+  [32;1m✓[39;22m[90m [39m[90mlist order and scalar types are part of the hash[39m
+  [32;1m✓[39;22m[90m [39m[90mhash is stable sha256 hex[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Workflow\WorkflowStateMachineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcase transitions follow the application lifecycle[39m[90m                                                           [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcase transitions reject skipping approval or resurrecting closed cases[39m
+  [32;1m✓[39;22m[90m [39m[90minvalid case transition throws conflict with stable reason[39m
+  [32;1m✓[39;22m[90m [39m[90minstance transitions[39m
+  [32;1m✓[39;22m[90m [39m[90mtask transitions[39m
+  [32;1m✓[39;22m[90m [39m[90mdecision actions are allowed only while case is open[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\AnchorScopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mself anchor[39m[90m                                                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanaged anchor[39m[90m                                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg unit anchor[39m[90m                                                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg subtree anchor[39m[90m                                                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcase anchor[39m[90m                                                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll run anchor[39m[90m                                                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegal entity anchor and cross entity isolation[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross tenant user never uses another tenants binding[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery binding carries a known anchor type[39m[90m                                                                   [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\AuthorizationScopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mself scope resolves only the principals employment[39m[90m                                                          [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanaged scope resolves direct reports[39m[90m                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg subtree scope resolves descendant org members[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegal entity scope is isolated[39m[90m                                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross tenant detail is 404[39m[90m                                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\AuthorizerEngineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdefault deny when no binding and no elevation[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mself anchor allows only the callers employments[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanaged anchor follows manager directory[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexpired and future bindings do not grant[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant mismatch never grants[39m[90m                                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90msod conflict hard denies both capabilities[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstale auth version is not granted[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconstrain pushes scope into sql before pagination[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross module ports are fakes and nothing queries other tables[39m[90m                                               [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\BreakGlassTest[39m
+  [32;1m✓[39;22m[90m [39m[90mactivation requires two distinct people[39m[90m                                                                     [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreason minimum and active approver are enforced[39m[90m                                                             [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mactivation creates thirty minute grant with audit and outbox[39m[90m                                                [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexpired grant no longer allows actions automatically[39m[90m                                                        [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90meither party can revoke and revocation is audited[39m[90m                                                           [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgrant id header is bound to actions and unknown grant does not elevate[39m[90m                                      [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreason is never exposed in grant json[39m[90m                                                                       [39m [90m0.22s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\ConcurrencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mparallel binding changes increment auth version monotonically without lost updates[39m[90m                          [39m [90m0.76s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\CsrfTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmissing csrf header on mutation returns 419 envelope[39m[90m                                                        [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid csrf header on mutation returns 419[39m[90m                                                                 [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mget request is not subject to csrf[39m[90m                                                                          [39m [90m0.20s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\DenyByDefaultTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request gets 401 envelope[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mauthenticated user without capability gets 403[39m[90m                                                              [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcapability catalog has no editable surface[39m[90m                                                                  [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall protected routes carry capability metadata[39m[90m                                                              [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\EmploymentScopeColumnTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlegal entity scope returns employments for the entity[39m[90m                                                       [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\FieldDenialHttpTest[39m
+  [32;1m✓[39;22m[90m [39m[90mhidden field filter returns 422 and never queries it[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90midor user cannot read another users bindings[39m[90m                                                                [39m [90m0.19s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\FieldProjectionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mp0 visible and filterable p1 visible but masked p2 visible but masked p3 hidden[39m[90m                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mp2 is not filterable and throws domain 422[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcaller without field coverage gets 404 not partial projection[39m[90m                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexport flag only applies to export capability and never unlocks p3[39m[90m                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90msensitive field access is audited without values[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mp3 values never reach serialized output or logs[39m[90m                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\LoginSecurityTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlogin sets hardened cookie and returns csrf once[39m[90m                                                            [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbad password is 401 and never issues session[39m[90m                                                                [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin is rate limited after five attempts per minute[39m[90m                                                        [39m [90m0.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccount locks after ten failures in window[39m[90m                                                                  [39m [90m1.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90msuccessful login records last login and audit event[39m[90m                                                         [39m [90m0.20s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\MfaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mprivileged user without enrollment cannot use privileged capability[39m[90m                                         [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll role without mfa gets 403 but ordinary capability is unaffected[39m[90m                                     [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtotp enrollment confirm returns otpauth uri and single use recovery codes[39m[90m                                   [39m [90m0.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtotp step up marks mfa verified and expires after 15 minutes[39m[90m                                                [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90msms and email are rejected as second factors[39m[90m                                                                [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid totp is rejected and audited[39m[90m                                                                        [39m [90m0.23s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\RoleAssignmentTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrole code rejects free text person or department name[39m[90m                                                       [39m [90m0.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole assignment requires anchor ids for id bearing anchors[39m[90m                                                  [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole assignment expands to bindings with explicit anchor[39m[90m                                                    [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90msod conflict blocks role assignment[39m[90m                                                                         [39m [90m0.28s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\SessionRevocationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrole change increments auth version and next request is 401[39m[90m                                                 [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbinding change increments auth version and isolates session[39m[90m                                                 [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout all increments auth version and revokes sessions[39m[90m                                                     [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpassword change revokes other sessions and requires reauth[39m[90m                                                  [39m [90m0.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstandard idle expiry is 30 minutes[39m[90m                                                                          [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprivileged timeout is 15 minutes and 8 hours[39m[90m                                                                [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mabsolute expiry wins even after activity[39m[90m                                                                    [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90moffboarding increments auth version and old session fails immediately[39m[90m                                       [39m [90m0.19s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\WorkspaceProjectionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkspace projects the callers own employment and terms[39m[90m                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkspace without an employment returns an empty but well formed projection[39m[90m                                 [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CapabilityGuardTest[39m
+  [32;1m✓[39;22m[90m [39m[90munbound capability gate fails closed[39m[90m                                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mclient headers cannot assert capability[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgate denial is audited via structured log not success audit[39m[90m                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcapability middleware denies unknown principal and allows bound gate[39m[90m                                        [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\CorsPreflightTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpreflight from configured origin allows credentials and csrf header[39m[90m                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpreflight from unlisted origin is not allowed[39m[90m                                                               [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Dashboard\DashboardPanelsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdashboard panels are bounded previews of the metric rows with a thirty day contract window[39m[90m                  [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard panels apply the same authorizer constraint as the metrics[39m[90m                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecent notices require notice read and are published and bounded[39m[90m                                            [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\DemoSeedTest[39m
+  [32;1m✓[39;22m[90m [39m[90mseed is idempotent and verify passes in honest shadow mode[39m[90m                                                  [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreset is refused in production[39m[90m                                                                              [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreset removes shadow staging and dataset rows[39m[90m                                                               [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Engagement\NoticeAudienceTest[39m
+  [32;1m✓[39;22m[90m [39m[90morg audience is resolved through organization contracts and is visible only to targets[39m[90m                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole audience and acknowledgement is idempotent[39m[90m                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mall audience reaches notifications created for target users without cross user leakage[39m[90m                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretraction hides notice from target but keeps acknowledgements[39m[90m                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross tenant notice detail is not found[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnotice routes reject unauthenticated and missing capability[39m[90m                                                 [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ErrorEnvelopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmissing route returns stable not found envelope[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidation failure returns validation envelope[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmethod not allowed returns envelope[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthrottled request returns rate limited envelope[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdebug mode does not leak internals[39m[90m                                                                          [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\ExampleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe application returns a successful response[39m[90m                                                               [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\FeatureFlagTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrisky domains default off and return 404 with stable code[39m[90m                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90menabling flag allows route[39m[90m                                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mflag change is audited and idempotent override[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown flag is rejected[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mflag route requires capability metadata[39m[90m                                                                     [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\HealthProbeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mliveness is ok without touching any dependency[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreadiness returns 503 when database is down[39m[90m                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreadiness returns 503 when cache or storage is down[39m[90m                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegacy health remains degraded not unavailable for cache failure[39m[90m                                            [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\HealthTest[39m
+  [32;1m✓[39;22m[90m [39m[90mhealth is public and reports all checks[39m[90m                                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcache or storage degradation is reported as degraded with http 200[39m[90m                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdatabase failure returns service unavailable envelope[39m[90m                                                       [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\ContractRenewalTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcontract renewal creates next terms and document version and keeps old as of[39m[90m                                [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\IamAssigneeDirectoryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkflow role assignees resolve from effective iam user roles[39m[90m                                               [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\LifecycleAuthorizationTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated and capability denied requests are rejected[39m[90m                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager cannot onboard into another legal entity[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mself capability does not grant lifecycle case read[39m[90m                                                          [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OffboardingChecklistTest[39m
+  [32;1m✓[39;22m[90m [39m[90moffboarding rejects unresolved required checklist at effect time[39m[90m                                            [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OffboardingOffboardTest[39m
+  [32;1m✓[39;22m[90m [39m[90moffboarding requires checklist resolution and revokes access in same effect[39m[90m                                 [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OfferIdempotencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90moffer creation and acceptance replays do not duplicate rows[39m[90m                                                 [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OnboardingDedupTest[39m
+  [32;1m✓[39;22m[90m [39m[90msame identity hash cannot create two persons via onboarding[39m[90m                                                 [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcandidate linked offer conversion is idempotent[39m[90m                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OnboardingEffectTest[39m
+  [32;1m✓[39;22m[90m [39m[90mapproved onboarding effect creates employment primary assignment terms and checklist[39m[90m                        [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrejected onboarding never creates domain rows[39m[90m                                                               [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\PerformanceAppealTest[39m
+  [32;1m✓[39;22m[90m [39m[90mappeal is a workflow case and duplicate appeal is rejected[39m[90m                                                  [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\PerformanceCycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcycle review submit and appeal create a case without rewriting review[39m[90m                                       [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\RecruitmentToHireTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrequisition offer acceptance creates exactly one onboarding draft[39m[90m                                           [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\RehireTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrehire creates new employment and preserves old terminated employment[39m[90m                                       [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\SalaryChangeHistoryTest[39m
+  [32;1m✓[39;22m[90m [39m[90msalary change appends terms and never rewrites history[39m[90m                                                      [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\TrainingCapacityConcurrencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcapacity is enforced when many workers race for one seat[39m[90m                                                    [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\TrainingEnrollmentTest[39m
+  [32;1m✓[39;22m[90m [39m[90menrollment capacity is enforced under repeated attempts[39m[90m                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcompletion records attendance and result[39m[90m                                                                    [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\TransferFutureEffectTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfuture transfer keeps todays view and preserves assignment history[39m[90m                                          [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross entity transfer creates new employment and leaves old terminated[39m[90m                                      [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\LogRedactionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcontext keys are redacted at every depth[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity numbers emails and mobiles are masked in free text[39m[90m                                                 [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreal log channel redacts context and message[39m[90m                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest log line contains correlation fields and no payload[39m[90m                                                 [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\MetaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmeta returns version environment time and api version[39m[90m                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mroot returns api meta instead of unused welcome page[39m[90m                                                        [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationCommandsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvalidate command is read only and exits zero[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mvalidate command exits non zero for broken fixture[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapply without shadow fails closed when no database target is available[39m[90m                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapply to shadow reconciles with positive exit[39m[90m                                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrollback plan writes json and never executes destructive sql[39m[90m                                                [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommand rejects unknown domain[39m[90m                                                                              [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationIdempotencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mapplying the same domain twice does not duplicate target rows[39m[90m                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdry run never writes target rows[39m[90m                                                                            [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationReconciliationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mleave opening reconciliation matches count and sum[39m[90m                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll ytd reconciliation covers all totals[39m[90m                                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minjected target mismatch fails reconciliation[39m[90m                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minjected sum mismatch fails reconciliation[39m[90m                                                                  [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationRehearsalTest[39m
+  [32;1m✓[39;22m[90m [39m[90mrehearsal applies all domains to shadow and reconciles[39m[90m                                                      [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrehearsal requires positive round[39m[90m                                                                           [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrehearsal stops on missing dataset[39m[90m                                                                          [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationValidateTest[39m
+  [32;1m✓[39;22m[90m [39m[90mknown good fixture validates for every domain[39m[90m                                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbroken fixtures report expected codes and write no target rows[39m[90m                                              [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing required header fails run without writing[39m[90m                                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\ClosureHistoryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmove does not rewrite existing closure paths[39m[90m                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma second move cannot predate the latest closure version[39m[90m                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90munion closures are derived from existing ancestor paths[39m[90m                                                     [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\OrgTenantIsolationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmove of other tenant org is 404[39m[90m                                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimpact of other tenant org is 404[39m[90m                                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtree for other tenant legal entity is 404[39m[90m                                                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\OrgUnitWriteTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcreate org unit builds closure and audits[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimpact preview counts employees managers and zero payroll cost centers[39m[90m                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mimpact warns on cross entity parent[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg type is validated[39m[90m                                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg unit codes are unique within tenant[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant cannot create org unit under another tenants entity[39m[90m                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\CorrectionRunTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcorrection is delta only and original plus correction reconciles[39m[90m                                            [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmultiple corrections chain correctly and ytd is adjusted[39m[90m                                                    [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcorrection requires a published original[39m[90m                                                                    [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\MarkPaidEvidenceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmark paid without reference or manual reason is rejected[39m[90m                                                    [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmark paid accepts manual confirmation reason[39m[90m                                                                [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollApprovalWorkflowAdapterTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkflow case decision and effect approve the run[39m[90m                                                           [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90mparallel check passes for matching export[39m[90m                                                                   [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel check fails for cent level difference[39m[90m                                                              [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel check missing file is exit two[39m[90m                                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel check headcount mismatch fails[39m[90m                                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreconciliation passes for clean run and fails on corruption[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseed parameters requires entity year and evidence actor[39m[90m                                                     [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollExportTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbank and tax csv have bom hash and no hidden pii[39m[90m                                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexports fail closed before approval[39m[90m                                                                         [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayslip lines are traceable and reconcile to totals[39m[90m                                                         [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollHttpLifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcreate lock calculate review publish flow over http[39m[90m                                                         [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mself payslip list is scoped and cross employee detail is 404[39m[90m                                                [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpre publish payslips are not visible to self service[39m[90m                                                        [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcapability denial is 403[39m[90m                                                                                    [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollReopenTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreopen changes hash and recalculation uses new snapshot[39m[90m                                                     [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreopen fails when nothing changed[39m[90m                                                                           [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparameter versions are effective dated and closed runs keep their version[39m[90m                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparameter versions require evidence[39m[90m                                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown effective parameter set fails closed[39m[90m                                                                [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollRunLifecycleTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfull lifecycle is legal and seals the run[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90millegal transitions are 409 conflicts[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublished payslip and lines are immutable[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90msealed run rejects financial updates at database level[39m[90m                                                      [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90msnapshots are append only at database level[39m[90m                                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpreparer cannot approve own run[39m[90m                                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreviewer cannot approve same run[39m[90m                                                                            [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollSnapshotTest[39m
+  [32;1m✓[39;22m[90m [39m[90msnapshot hash is stable across relocking and matches stored hash[39m[90m                                            [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mattendance change after lock does not affect calculated run[39m[90m                                                 [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreopen requires two distinct approvers and reason[39m[90m                                                           [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreopen rejects published runs[39m[90m                                                                               [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\WorkflowPayrollApprovalTest[39m
+  [32;1m✓[39;22m[90m [39m[90mapproval effect is idempotent and advances the run once[39m[90m                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapproval effect fails closed for unreviewed run[39m[90m                                                             [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\AsOfQueryTest[39m
+  [32;1m✓[39;22m[90m [39m[90mt minus one t and t plus one for employment assignment and terms[39m[90m                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterminated employee is absent after the termination date[39m[90m                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfuture hire is absent before hire date[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid as of returns 422 and never scopes silently[39m[90m                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlist and detail agree at the same as of[39m[90m                                                                     [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\AssignmentTimelineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mconcurrent second assignment is allowed[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo overlapping primary assignments are rejected[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfuture assignment does not change today[39m[90m                                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhalf open boundaries of assignments[39m[90m                                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager chain is projected in snapshot[39m[90m                                                                      [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\CrossLegalEntityTest[39m
+  [32;1m✓[39;22m[90m [39m[90massignment to another legal entity is rejected with reason code[39m[90m                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross entity transfer ends old and creates new employment for same person[39m[90m                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployee number is unique per legal entity only[39m[90m                                                             [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\CrossTenantIsolationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mperson service never reads another tenants person[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mperson dedup is tenant scoped[39m[90m                                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90massignment route 404s for other tenant employment[39m[90m                                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\EmploymentWriteTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcreate employment validates hire inside validity[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreate employment rejects unknown person or entity tenant safely[39m[90m                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployment type and status enums are enforced[39m[90m                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90massignment cannot outlive employment window[39m[90m                                                                 [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90massignment to future org unit is rejected before activation[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterms cannot start before employment[39m[90m                                                                        [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\FieldPrivacyTest[39m
+  [32;1m✓[39;22m[90m [39m[90midentity number never appears in profile or timeline responses[39m[90m                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile is masked for p1 profile[39m[90m                                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument download requires capability[39m[90m                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument metadata hides storage key and hash[39m[90m                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90msensitive access material is not persisted in plaintext[39m[90m                                                     [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\FieldProfileProjectionTest[39m
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p0"[39m[90m                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p1"[39m[90m                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p2"[39m[90m                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p3"[39m[90m                         [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\IdempotencyHttpTest[39m
+  [32;1m✓[39;22m[90m [39m[90midempotency key replays the original command response without duplicate write[39m[90m                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame key with different payload is 409[39m[90m                                                                      [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\OrgClosureTest[39m
+  [32;1m✓[39;22m[90m [39m[90msubtree as of before and after a move[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmove rejects a cycle[39m[90m                                                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtree reflects the requested business date[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhistorical closure path is ended not rewritten[39m[90m                                                              [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\OrgUnitAsOfBoundaryTest[39m
+  [32;1m✓[39;22m[90m [39m[90morg unit validity window is half open in directory[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid or blank as of defaults to tenant timezone today[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg tree requires legal entity id[39m[90m                                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg move requires effective from and rejects before current start[39m[90m                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\PaginationScopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtotal counts are computed after row scope[39m[90m                                                                   [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlast page returns remaining rows in stable order[39m[90m                                                            [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\PersonDedupTest[39m
+  [32;1m✓[39;22m[90m [39m[90msame identity type and hash is rejected[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity type is normalized before deduplication[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdifferent identity type is allowed[39m[90m                                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity and mobile are encrypted at rest and never serialized[39m[90m                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit and outbox payloads never contain identity plaintext[39m[90m                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\RequirementGapsTest[39m
+  [32;1m✓[39;22m[90m [39m[90massignment outside org active window is rejected[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterms effective to is clipped to employment window[39m[90m                                                          [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager assignment must exist and be valid[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument requires same tenant file object[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument versions increment per category[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument download returns no storage key and requires both capabilities[39m[90m                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegal entity timezone and currency are validated[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterms historical row is not overwritten when new version closes it[39m[90m                                          [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\TermsVersionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mversions increment and history is preserved[39m[90m                                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhistorical terms are returned as of the requested date[39m[90m                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterms are not edited in place[39m[90m                                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnon monotonic effective date is a conflict[39m[90m                                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\TimelineTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtimeline orders employment assignment terms and document facts[39m[90m                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtimeline filters by from and to half open[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtimeline rejects invalid dates and hides other tenants[39m[90m                                                      [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Reporting\DashboardConsistencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdashboard totals match the same metric drilldown as of and scope[39m[90m                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnarrowed scope reduces both paths and query filters cannot widen an org scope[39m[90m                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90munavailable metric keeps status and reason instead of becoming zero pass[39m[90m                                    [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Reporting\ExportScopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mexport rows match report run rows for the same principal filters and scope[39m[90m                                  [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnarrower authorized scope yields fewer export rows and matches the report page[39m[90m                              [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexport rejects disallowed purpose and fields outside the definition whitelist[39m[90m                               [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdownload is bound to the requesting principal job and token[39m[90m                                                 [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexport row cap is enforced before a job is created[39m[90m                                                         [39m [90m16.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdownload count and expiry are enforced[39m[90m                                                                      [39m [90m0.15s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RequestIdTest[39m
+  [32;1m✓[39;22m[90m [39m[90mvalid inbound request id is preserved[39m[90m                                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid inbound request id is replaced with ulid[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mresponse header is present without inbound id[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90merror responses also carry request id[39m[90m                                                                       [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\RetentionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpreview reports candidates without deleting[39m[90m                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegal hold blocks purge and is skipped[39m[90m                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpurge without confirm is a dry run[39m[90m                                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontract and accounting retention classes exist[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpermanent classes are never purged[39m[90m                                                                          [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\AttendanceCorrectionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcorrection creates case and does not change raw punch[39m[90m                                                       [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecalculation is idempotent and reuses source hash[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcorrected punches do not replace device punches[39m[90m                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\Console\LedgerReconcileCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90mclean projection exits zero and reports accounts[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcorrupted projection exits one without changing ledger[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid date exits two[39m[90m                                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid tenant exits two[39m[90m                                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrebuild repairs projection and rechecks clean[39m[90m                                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtenant option only reconciles that tenant[39m[90m                                                                   [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\Http\TimeEndpointsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpunch import is idempotent by payload hash[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mattendance month read returns frontend contract[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mattendance scoped read returns projection rows[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mattendance correction creates case and keeps raw punches[39m[90m                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave balances and preview use ledger projection[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave request reserves and cancel releases exactly once[39m[90m                                                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave ledger drilldown matches balance equation[39m[90m                                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcalendar and shift reads are tenant scoped[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbrief leave alias routes are tenant scoped[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mother tenant balance is not visible as 404[39m[90m                                                                  [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\Http\TimeHttpAuthorizationTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403 even if actor scope matches[39m[90m                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployee sees only self and other employment is 404[39m[90m                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager sees managed employment but not unrelated employment[39m[90m                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhr is limited to authorized legal entities[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross tenant employment is 404 without enumeration[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mself actor cannot import punches for another employment[39m[90m                                                     [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\LeaveConcurrencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtwo requests for the last day produce one success and no negative balance[39m[90m                                   [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mledger unique source prevents double reserve[39m[90m                                                                [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\LeaveLedgerBalanceTest[39m
+  [32;1m✓[39;22m[90m [39m[90mall ledger accounts are reflected and equation holds exactly[39m[90m                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreserve reduces available and release restores[39m[90m                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno negative balance unless type allows it[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnegative balance is permitted when type allows it[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mday display uses legal entity standard day[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mduplicate source append is idempotent[39m[90m                                                                       [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\OvernightShiftTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmorning punch after midnight maps to shift start business date[39m[90m                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90movernight shift across spring forward dst counts real minutes once[39m[90m                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90movernight shift across fall back counts repeated hour once[39m[90m                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90masia shanghai has no dst shift minutes[39m[90m                                                                      [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\ReversalTest[39m
+  [32;1m✓[39;22m[90m [39m[90mconsume then reverse restores balance once[39m[90m                                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreverse entry direction is opposite of target[39m[90m                                                               [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\TimeContainerResolutionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mtime contracts resolve to production adapters[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtime services and dependencies resolve from the container[39m[90m                                                   [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\TimeWorkflowIntegrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreal adapter open resolves a published template for a leave request case type[39m[90m                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreal adapter open resolves a published template for an attendance correction case type[39m[90m                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unmapped case type still fails closed[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtime submits a leave request through the real workflow adapter[39m[90m                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager approval resolves the subjects real manager[39m[90m                                                         [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ApprovedNotEffectiveTest[39m
+  [32;1m✓[39;22m[90m [39m[90mhandler exception keeps decision and approved application status but marks effect failed[39m[90m                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretry of failed effect applies once and does not duplicate decision[39m[90m                                         [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\AuthorizationTest[39m
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequester sees own case and approver sees assigned case but unrelated user gets 404[39m[90m                         [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtasks my returns only current users pending tasks with sla[39m[90m                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin override requires reason and is audited[39m[90m                                                               [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffect retry requires admin capability and reason[39m[90m                                                           [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlist queries do not n plus one[39m[90m                                                                              [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\CommandsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mseed templates is idempotent and creates the document flows[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow check fails when an approved case has no effect rows[39m[90m                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow check passes for completed approval with effect rows[39m[90m                                               [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow check does not fail for approved but pending scheduled effects[39m[90m                                     [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ConcurrentApprovalTest[39m
+  [32;1m✓[39;22m[90m [39m[90mreplaying same idempotency key returns the same decision and effect without duplicates[39m[90m                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90msecond approval after case completed is a conflict and does not create another decision[39m[90m                     [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequired count blocks completion until enough distinct approvers decide[39m[90m                                     [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\DecisionImmutabilityTest[39m
+  [32;1m✓[39;22m[90m [39m[90mupdating or deleting a decision throws[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtemplate edit does not change live or historical case snapshot[39m[90m                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mactor snapshot is stored with decision[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecisions are append only and keep action sequence[39m[90m                                                          [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\DelegationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mproxy within range and scope can approve on behalf of assignee[39m[90m                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexpired delegation is rejected[39m[90m                                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdelegation amount limit is enforced[39m[90m                                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdelegation out of scope is rejected[39m[90m                                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrevoked delegation cannot be used[39m[90m                                                                           [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\EffectIdempotencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90msame effect applied twice only runs handler once[39m[90m                                                            [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90munique constraint rejects duplicate effect sequence[39m[90m                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretry after failure works and max attempts is enforced[39m[90m                                                      [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\OutboxOnDecisionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mexternal effect records outbox event with ids and versions only[39m[90m                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexternal effect is not silently marked applied[39m[90m                                                              [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ReassignTest[39m
+  [32;1m✓[39;22m[90m [39m[90mterminated assignee is replaced by next eligible manager with case event[39m[90m                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90meligible assignee is untouched and reassignment is idempotent[39m[90m                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno eligible candidate is recorded as escalation without duplicate tasks[39m[90m                                     [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ScheduledEffectTest[39m
+  [32;1m✓[39;22m[90m [39m[90mfuture effect is not applied today and applies once on due date[39m[90m                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdue scheduler only processes effects that are due[39m[90m                                                           [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdue scheduler limit is respected[39m[90m                                                                            [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\StatusSeparationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcase detail timeline and list never expose a combined completed status[39m[90m                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecision response reports both statuses independently[39m[90m                                                       [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\TemplateVersionTest[39m
+  [32;1m✓[39;22m[90m [39m[90mversion two does not retroactively change version one cases and new cases use latest explicit version[39m[90m       [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtemplate creation is idempotent for same tenant code version[39m[90m                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtemplate definition rejects unsupported node types and assignee rules[39m[90m                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtemplate http create is validated and capability guarded[39m[90m                                                    [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\WorkflowSchemaTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkflow tables exist with separate application and effect columns on cases[39m[90m                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecision uniqueness constraint is present[39m[90m                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffect uniqueness constraint is present[39m[90m                                                                     [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\IamOpenApiContractTest[39m
+  [32;1m✓[39;22m[90m [39m[90miam fragment declares every route with security[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery iam route has capability metadata except public allowlist[39m[90m                                             [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\IamRouteMatrixTest[39m
+  [32;1m✓[39;22m[90m [39m[90mevery iam route appears in the denial matrix[39m[90m                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhigh risk rows have at least eight denial classes[39m[90m                                                           [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\OpenApiContractTest[39m
+  [32;1m✓[39;22m[90m [39m[90mevery v1 route is documented in openapi[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhealth and meta document success and error shapes[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mopenapi is 31 and declares auth schemes[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard response documents its bounded panels[39m[90m                                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\OpenApiLintCliTest[39m
+  [32;1m✓[39;22m[90m [39m[90mlint accepts the repository spec[39m[90m                                                                            [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlint fails on malformed yaml[39m[90m                                                                                [39m [90m0.45s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlint fails when an operation lacks responses[39m[90m                                                                [39m [90m0.43s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\PeopleDirectoryFrozenSignatureTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpeople directory methods match the interface freeze[39m[90m                                                         [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90morganization directory methods match the interface freeze[39m[90m                                                   [39m [90m0.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Contract\PeopleOrgApiContractTest[39m
+  [32;1m✓[39;22m[90m [39m[90mperson creation envelope matches frozen shape[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployee list uses paginated data shape[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg tree uses list envelope[39m[90m                                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommands emit outbox events without pii[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapi errors keep stable codes[39m[90m                                                                                [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\AsOfConsistencyTest[39m
+  [32;1m✓[39;22m[90m [39m[90memployee list detail org tree and directory agree at same as of[39m[90m                                             [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg tree and as of subtree agree after move boundary[39m[90m                                                        [39m [90m0.05s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\BackupRestoreSmokeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mscript copies hashes restores and reports pass[39m[90m                                                              [39m [90m1.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscript fails for missing database[39m[90m                                                                           [39m [90m0.42s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\DirectoryContractTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcontracts are bound to real directory implementations[39m[90m                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployment for user and tenant isolation[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployment for user uses tenant business date not utc date[39m[90m                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployment snapshot is as of and carries manager[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg directory tree and legal entity lookup[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90miam authorizer scope via real directories for manager and hr and self[39m[90m                                       [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\LifecycleToIamTest[39m
+  [32;1m✓[39;22m[90m [39m[90moffboarding revokes sessions and auth version via iam contract[39m[90m                                              [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\LifecycleToPeopleTest[39m
+  [32;1m✓[39;22m[90m [39m[90meffect rows satisfy people kernel invariants[39m[90m                                                                [39m [90m0.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\ModuleContractBoundaryTest[39m
+  [32;1m✓[39;22m[90m [39m[90morganization facts contract is bound and tenant scoped[39m[90m                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpeople impact contract is used by org impact preview[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdemo seeder contract is idempotent and org owned[39m[90m                                                            [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\Payroll\PeopleToPayrollIntegrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mas of terms excludes future raise[39m[90m                                                                           [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmid month termination prorates base salary[39m[90m                                                                  [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\Payroll\TimeToPayrollIntegrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90munpaid leave reduces gross and paid leave does not[39m[90m                                                          [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90movertime minutes add a traceable earning[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdirectory reports recorded attendance only when evidence exists[39m[90m                                             [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Integration\UatOnboardingToFirstPayrollPreparationTest[39m
+  [32;1m✓[39;22m[90m [39m[90monboarding produces payroll preparation inputs from contracts[39m[90m                                               [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ArchTestCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90mcommand passes for clean module tree[39m[90m                                                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommand fails and lists synthetic cross module violation[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault command passes for current application[39m[90m                                                              [39m [90m0.49s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ArchitectureBoundaryTest[39m
+  [32;1m✓[39;22m[90m [39m[90morganization does not reference people internal models[39m[90m                                                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90morganization does not reference people models or tables directly[39m[90m                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontrollers contain no sql or model writes[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffective dated migrations do not add current department or position columns[39m[90m                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbusiness code does not use where date for business dates[39m[90m                                                    [39m [90m0.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\CapabilityAuditCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90maudit passes for current public health and meta routes[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit fails and lists synthetic unguarded route[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit accepts capability middleware metadata[39m[90m                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit accepts capability route default[39m[90m                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing negative test manifest entry warns without failing[39m[90m                                                  [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ModuleOwnershipTest[39m
+  [32;1m✓[39;22m[90m [39m[90mpeople never imports organization models or services[39m[90m                                                        [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90morganization never imports people models or services[39m[90m                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno controller runs sql or eloquent writes[39m[90m                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffective dated tables have no current snapshot columns[39m[90m                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbusiness modules do not use where date[39m[90m                                                                      [39m [90m0.06s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ModuleScannerTest[39m
+  [32;1m✓[39;22m[90m [39m[90mclean tree allows shared and other module contracts[39m[90m                                                         [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross module use and fully qualified reference are violations[39m[90m                                               [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgrouped use declarations are expanded and checked[39m[90m                                                           [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mplatform model import is not allowed by default[39m[90m                                                             [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mplatform may not depend on business module contracts[39m[90m                                                        [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdb table uses owned table and flags cross module and unknown tables[39m[90m                                         [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mschema usage in application modules is a violation[39m[90m                                                          [39m [90m0.01s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Architecture\WorkflowArchitectureTest[39m
+  [32;1m✓[39;22m[90m [39m[90mworkflow does not import iam people or organization models[39m[90m                                                  [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow controllers do not query other module tables[39m[90m                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow sources have strict types[39m[90m                                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecision and case event models block mutation[39m[90m                                                               [39m [90m0.04s[39m  
+
+  [90mTests:[39m    [32;1m705 passed[39;22m[90m (35666 assertions)[39m
+  [90mDuration:[39m [39m58.44s[39m
 

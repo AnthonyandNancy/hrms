@@ -1,0 +1,4 @@
+
+> @hrms/frontend@0.1.0 lint D:\code\ai\factoryHR\frontend
+> eslint . --max-warnings=0
+

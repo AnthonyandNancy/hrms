@@ -1,0 +1,26 @@
+
+> @hrms/frontend@0.1.0 test:e2e D:\code\ai\factoryHR\frontend
+> playwright test
+
+[WebServer] (node:34052) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:28516) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:33304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [chromium] › tests\e2e\a11y.spec.ts:24:3 › @a11y mock-mode accessibility smoke › login page has no critical or serious axe violations (1.3s)
+  ok  2 [chromium] › tests\e2e\a11y.spec.ts:30:3 › @a11y mock-mode accessibility smoke › dashboard has no critical or serious axe violations (1.8s)
+  ok  3 [chromium] › tests\e2e\a11y.spec.ts:37:3 › @a11y mock-mode accessibility smoke › case detail has no critical or serious axe violations (1.9s)
+  ok  4 [chromium] › tests\e2e\a11y.spec.ts:44:3 › @a11y mock-mode accessibility smoke › payroll run detail has no critical or serious axe violations (1.9s)
+  ok  5 [chromium] › tests\e2e\smoke.spec.ts:13:3 › @smoke mock-mode critical journeys › login -> dashboard -> KPI drill-down with matching total (1.7s)
+  ok  6 [chromium] › tests\e2e\smoke.spec.ts:34:3 › @smoke mock-mode critical journeys › case center separates statuses and approves a pending case (2.5s)
+  ok  7 [chromium] › tests\e2e\smoke.spec.ts:56:3 › @smoke mock-mode critical journeys › failed effect is visible, retryable and never shown as a single completed status (1.6s)
+  ok  8 [chromium] › tests\e2e\smoke.spec.ts:66:3 › @smoke mock-mode critical journeys › payroll run -> payslip detail from my payslips (2.2s)
+  ok  9 [chromium] › tests\e2e\smoke.spec.ts:87:3 › @smoke mock-mode critical journeys › report export dialog requires purpose and acknowledges watermark (2.8s)
+  ok 10 [chromium] › tests\e2e\smoke.spec.ts:110:3 › @smoke mock-mode critical journeys › employee role sees self-service navigation without admin (906ms)
+  ok 11 [chromium] › tests\e2e\smoke.spec.ts:121:3 › @smoke mock-mode critical journeys › MFA step-up flow accepts a valid six digit code (1.0s)
+
+  11 passed (23.1s)

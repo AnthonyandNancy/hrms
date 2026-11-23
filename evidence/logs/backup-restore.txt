@@ -1,0 +1,4 @@
+Source: /d/code/ai/factoryHR/backend/database/database.sqlite
+sha256: 6871c79bae480c2f5f6b25a0b5549894f27a3407a1ba3596173435387f29d1bc
+restored sha256: 6871c79bae480c2f5f6b25a0b5549894f27a3407a1ba3596173435387f29d1bc
+PASS: backup/restore smoke check completed; hashes match

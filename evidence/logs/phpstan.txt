@@ -1,0 +1,4 @@
+Note: Using configuration file D:\code\ai\factoryHR\backend\phpstan.neon.
+
+ [OK] No errors                                                                                                        
+
