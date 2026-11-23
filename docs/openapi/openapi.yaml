@@ -2609,3 +2609,322 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+  /v1/engagement/notices:
+    get:
+      operationId: engagementNoticesIndex
+      tags:
+        - Engagement
+      summary: List notices visible to the caller
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum:
+              - all
+              - unread
+              - acknowledged
+              - managed
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: engagementNoticesStore
+      tags:
+        - Engagement
+      summary: Publish a notice to an org, role or all audience
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - body
+                - audience
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                body:
+                  type: string
+                audience:
+                  type: string
+                  enum:
+                    - ALL
+                    - ORG
+                    - ROLE
+                audienceLabel:
+                  type:
+                    - string
+                    - "null"
+                orgUnitIds:
+                  type: array
+                  items:
+                    type: integer
+                roleCodes:
+                  type: array
+                  items:
+                    type: string
+                publishAt:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                requiresAck:
+                  type: boolean
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/engagement/notices/{notice}:
+    get:
+      operationId: engagementNoticesShow
+      tags:
+        - Engagement
+      summary: Notice detail
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/engagement/notices/{notice}/acknowledge:
+    post:
+      operationId: engagementNoticesAcknowledge
+      tags:
+        - Engagement
+      summary: Idempotently acknowledge a notice
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/engagement/notices/{notice}/retract:
+    post:
+      operationId: engagementNoticesRetract
+      tags:
+        - Engagement
+      summary: Retract a published notice
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/engagement/notifications:
+    get:
+      operationId: engagementNotificationsIndex
+      tags:
+        - Engagement
+      summary: Current user in-app notifications
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/engagement/notifications/{notification}/read:
+    post:
+      operationId: engagementNotificationsRead
+      tags:
+        - Engagement
+      summary: Mark own notification read
+      parameters:
+        - name: notification
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/reporting/dashboard:
+    get:
+      operationId: reportingDashboard
+      tags:
+        - Reporting
+      summary: Dashboard metrics with as-of and source hash
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/reporting/dashboard/metrics/{metric}:
+    get:
+      operationId: reportingMetricDrilldown
+      tags:
+        - Reporting
+      summary: Drilldown list using the same predicate as the KPI
+      parameters:
+        - name: metric
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/reporting/definitions:
+    get:
+      operationId: reportingDefinitions
+      tags:
+        - Reporting
+      summary: Report definition catalog
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/reporting/run:
+    post:
+      operationId: reportingRun
+      tags:
+        - Reporting
+      summary: Run a report definition (synchronous, capped)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - definition_code
+              properties:
+                definition_code:
+                  type: string
+                filters:
+                  type: object
+                as_of:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/reporting/exports:
+    post:
+      operationId: reportingExportsStore
+      tags:
+        - Reporting
+      summary: Create an async export job with purpose and field whitelist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - definition_code
+                - purpose
+              properties:
+                definition_code:
+                  type: string
+                purpose:
+                  type: string
+                filters:
+                  type: object
+                fields:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "202":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/reporting/exports/{jobId}/download:
+    get:
+      operationId: reportingExportsDownload
+      tags:
+        - Reporting
+      summary: Download a completed export (token, expiry, download cap)
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: token
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: UTF-8 BOM CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: Export expired or download cap reached

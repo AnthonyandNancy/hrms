@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\Engagement\Http\Controllers\NoticeController;
+use App\Modules\Engagement\Http\Controllers\NotificationController;
 use App\Modules\IAM\Http\Controllers\AuthController;
 use App\Modules\IAM\Http\Controllers\AuthorizationAdminController;
 use App\Modules\IAM\Http\Controllers\BreakGlassController;
@@ -18,6 +20,8 @@ use App\Modules\Platform\Http\Controllers\LivenessController;
 use App\Modules\Platform\Http\Controllers\MetaController;
 use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
+use App\Modules\Reporting\Http\Controllers\DashboardController;
+use App\Modules\Reporting\Http\Controllers\ReportingController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
 use App\Modules\Workflow\Http\Controllers\DecisionController;
 use App\Modules\Workflow\Http\Controllers\DelegationController;
@@ -25,6 +29,7 @@ use App\Modules\Workflow\Http\Controllers\EffectController;
 use App\Modules\Workflow\Http\Controllers\TaskController;
 use App\Modules\Workflow\Http\Controllers\TemplateController;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
+use App\Shared\Authorization\ResolveLegalEntityContext;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -214,4 +219,65 @@ Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:workflow.case.decide')
         ->name('workflow.delegations.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Engagement: notices and in-app notifications
+|--------------------------------------------------------------------------
+*/
+Route::prefix('engagement')->middleware('auth.session')->group(function (): void {
+    Route::get('/notices', [NoticeController::class, 'index'])
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notices.index');
+    Route::get('/notices/{notice}', [NoticeController::class, 'show'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notices.show');
+    Route::post('/notices', [NoticeController::class, 'store'])
+        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('engagement.notices.store');
+    Route::post('/notices/{notice}/acknowledge', [NoticeController::class, 'acknowledge'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notices.acknowledge');
+    Route::post('/notices/{notice}/retract', [NoticeController::class, 'retract'])
+        ->whereNumber('notice')
+        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('engagement.notices.retract');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->middleware('capability:engagement.notification.read')
+        ->name('engagement.notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])
+        ->whereNumber('notification')
+        ->middleware('capability:engagement.notification.read')
+        ->name('engagement.notifications.read');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Reporting: dashboard, definitions, runs and async exports
+|--------------------------------------------------------------------------
+*/
+Route::prefix('reporting')->middleware('auth.session')->group(function (): void {
+    Route::get('/dashboard', [DashboardController::class, 'show'])
+        ->middleware('capability:reporting.dashboard.read')
+        ->name('reporting.dashboard.show');
+    Route::get('/dashboard/metrics/{metric}', [DashboardController::class, 'metric'])
+        ->middleware('capability:reporting.dashboard.read')
+        ->name('reporting.dashboard.metric');
+    Route::get('/definitions', [ReportingController::class, 'definitions'])
+        ->middleware('capability:reporting.dashboard.read')
+        ->name('reporting.definitions.index');
+    Route::post('/run', [ReportingController::class, 'run'])
+        ->middleware('capability:reporting.dashboard.read')
+        ->name('reporting.run');
+    Route::post('/exports', [ReportingController::class, 'createExport'])
+        ->middleware(['throttle:10,1', ResolveLegalEntityContext::class, 'capability:reporting.export,LEGAL_ENTITY,legal_entity_id'])
+        ->name('reporting.exports.store');
+    Route::get('/exports/{jobId}/download', [ReportingController::class, 'download'])
+        ->whereNumber('jobId')
+        ->middleware('capability:reporting.export')
+        ->name('reporting.exports.download');
 });
