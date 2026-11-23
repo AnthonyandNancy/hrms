@@ -41,7 +41,7 @@ final class ModuleBoundaryScanner
      * @var array<string, list<string>>
      */
     public const TABLE_OWNERS = [
-        'IAM' => ['users', 'sessions', 'capabilities', 'authority_bindings', 'auth_events', 'roles', 'role_capabilities'],
+        'IAM' => ['users', 'sessions', 'capabilities', 'authority_bindings', 'auth_events', 'roles', 'role_capabilities', 'user_roles'],
         'Organization' => ['org_units', 'org_unit_closure', 'positions'],
         'People' => ['persons', 'employments', 'assignments', 'employment_terms', 'documents', 'employment_user_links'],
         'Lifecycle' => ['cases', 'decisions', 'effects', 'lifecycle_tasks', 'lifecycle_intents', 'onboarding_checklist_templates', 'employment_contract_versions'],

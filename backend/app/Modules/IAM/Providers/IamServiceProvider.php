@@ -14,6 +14,8 @@ use App\Modules\IAM\Contracts\SessionRevoker;
 use App\Modules\IAM\Contracts\UserDirectory;
 use App\Modules\IAM\Services\EloquentUserDirectory;
 use App\Modules\IAM\Services\EmploymentSessionRevoker;
+use App\Modules\IAM\Services\IamAssigneeDirectory;
+use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\AccessSubjectStateDirectory;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
@@ -52,6 +54,7 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bind(Authorizer::class, CapabilityAuthorizer::class);
         $this->app->bind(SessionRevoker::class, EmploymentSessionRevoker::class);
         $this->app->bind(UserDirectory::class, EloquentUserDirectory::class);
+        $this->app->bind(AssigneeDirectory::class, IamAssigneeDirectory::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);

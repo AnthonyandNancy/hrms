@@ -81,9 +81,9 @@ final class LifecycleDemoCommand extends Command
             'rehire' => LifecycleCaseType::REHIRE,
         };
 
-        $created = $lifecycle->createCase($tenantId, $userId, $type, $payload, $businessDate, true);
+        $created = $lifecycle->createCase($tenantId, $userId, $type, $payload, $businessDate, false);
 
-        $this->info('Created '.$scenario.' case '.$created['case']->caseNo.' (id '.$created['case']->id.'); approve it through /v1/cases/{id}/decisions.');
+        $this->info('Created '.$scenario.' case '.$created['case']->caseNo.' (id '.$created['case']->id.'); submit it through /v1/cases/{id}/submit after assigning an HR_ADMIN approver.');
 
         return self::SUCCESS;
     }

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 final class OnboardingChecklistTemplate extends Model
 {
+    public const CREATED_AT = null;
+
     public const UPDATED_AT = null;
 
     protected $table = 'onboarding_checklist_templates';
