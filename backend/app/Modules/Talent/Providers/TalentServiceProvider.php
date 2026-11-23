@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Talent\Providers;
 
 use App\Modules\Talent\Contracts\OfferIntegrityReader;
+use App\Modules\Talent\Contracts\RecruitmentFunnelDirectory;
 use App\Modules\Talent\Services\OfferIntegrityReaderService;
+use App\Modules\Talent\Services\UnavailableRecruitmentFunnelDirectory;
 use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,8 +27,8 @@ final class TalentServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-
         $this->app->bind(OfferIntegrityReader::class, OfferIntegrityReaderService::class);
+        $this->app->bindIf(RecruitmentFunnelDirectory::class, UnavailableRecruitmentFunnelDirectory::class);
 
         /** @var list<string> $existing */
         $existing = (array) config('workflow.domain_effect_handlers', []);

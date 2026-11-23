@@ -9,10 +9,8 @@ use App\Modules\Platform\Retention\LegalHold;
 use App\Modules\Platform\Retention\RetentionClass;
 use App\Modules\Platform\Retention\RetentionService;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class RetentionTest extends TestCase
@@ -118,17 +116,9 @@ class RetentionTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Permanent records cannot be purged.');
 
-        Schema::create('report_runs', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('tenant_id');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        try {
-            app(RetentionService::class)->purge('annual_financial_reports', 1, confirm: true);
-        } finally {
-            Schema::dropIfExists('report_runs');
-        }
+        // Reporting now owns a real `report_runs` table via migration, so the
+        // permanent-class guard is asserted without creating a duplicate stub.
+        app(RetentionService::class)->purge('annual_financial_reports', 1, confirm: true);
     }
 
     private function seedPayslip(int $tenantId, string $publishedAt): int

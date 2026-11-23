@@ -8,6 +8,7 @@ use App\Modules\Payroll\Console\PayrollParallelCheckCommand;
 use App\Modules\Payroll\Console\PayrollReconciliationCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
 use App\Modules\Payroll\Contracts\PayrollApprovalEffectPort;
+use App\Modules\Payroll\Contracts\PayrollCostDirectory;
 use App\Modules\Payroll\Domain\PayrollCalculator;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
@@ -22,6 +23,7 @@ use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Modules\Payroll\Services\SnapshotService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
+use App\Modules\Payroll\Services\UnavailablePayrollCostDirectory;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -34,7 +36,7 @@ final class PayrollServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
-
+        $this->app->bindIf(PayrollCostDirectory::class, UnavailablePayrollCostDirectory::class);
         $this->app->singleton(PayrollCalculator::class);
         $this->app->singleton(TaxParameterResolver::class);
         $this->app->singleton(SnapshotService::class);

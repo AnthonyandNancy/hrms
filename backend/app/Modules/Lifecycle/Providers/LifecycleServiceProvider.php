@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace App\Modules\Lifecycle\Providers;
 
 use App\Modules\Lifecycle\Contracts\ExportTaskCanceller;
+use App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort;
+use App\Modules\Lifecycle\Contracts\TurnoverDirectory;
 use App\Modules\Lifecycle\Services\NullExportTaskCanceller;
+use App\Modules\Lifecycle\Services\TalentOnboardingDraftService;
+use App\Modules\Lifecycle\Services\UnavailableTurnoverDirectory;
 use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Registers lifecycle domain effect handlers through Workflow's contract-only
- * adapter, plus the optional export-cancellation port.
+ * adapter, plus the export-cancellation and reporting ports.
  */
 final class LifecycleServiceProvider extends ServiceProvider
 {
@@ -38,7 +42,8 @@ final class LifecycleServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ExportTaskCanceller::class, NullExportTaskCanceller::class);
-        $this->app->bind(\App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort::class, \App\Modules\Lifecycle\Services\TalentOnboardingDraftService::class);
+        $this->app->bind(TalentOnboardingDraftPort::class, TalentOnboardingDraftService::class);
+        $this->app->bindIf(TurnoverDirectory::class, UnavailableTurnoverDirectory::class);
 
         /** @var list<string> $existing */
         $existing = (array) config('workflow.domain_effect_handlers', []);

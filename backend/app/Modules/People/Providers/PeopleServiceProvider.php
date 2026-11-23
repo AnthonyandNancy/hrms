@@ -8,9 +8,13 @@ use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
 use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
 use App\Modules\People\Contracts\EmploymentTermsDirectory;
+use App\Modules\People\Contracts\NoticeAudienceDirectory;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
+use App\Modules\People\Contracts\WorkforceReportingDirectory;
+use App\Modules\People\Services\EloquentNoticeAudienceDirectory;
+use App\Modules\People\Services\EloquentWorkforceReportingDirectory;
 use App\Modules\People\Services\EmploymentLifecycleDirectoryService;
 use App\Modules\People\Services\EmploymentTermsDirectoryService;
 use App\Modules\People\Services\OrgAssignmentImpactService;
@@ -36,6 +40,8 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(PeopleEmploymentWriter::class, PeopleEmploymentWriterService::class);
         $this->app->bind(EmploymentTermsDirectory::class, EmploymentTermsDirectoryService::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
+        $this->app->bindIf(NoticeAudienceDirectory::class, EloquentNoticeAudienceDirectory::class);
+        $this->app->bindIf(WorkforceReportingDirectory::class, EloquentWorkforceReportingDirectory::class);
 
     }
 

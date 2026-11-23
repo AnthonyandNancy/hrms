@@ -1,0 +1,261 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Reporting\Services;
+
+use App\Modules\Lifecycle\Contracts\TurnoverDirectory;
+use App\Modules\Payroll\Contracts\PayrollCostDirectory;
+use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\People\Contracts\WorkforceReportingDirectory;
+use App\Modules\Reporting\Models\ProjectionRow;
+use App\Modules\Talent\Contracts\RecruitmentFunnelDirectory;
+use App\Modules\Time\Contracts\LeaveLiabilityDirectory;
+use App\Modules\Workflow\Contracts\PendingApprovalRow;
+use App\Modules\Workflow\Contracts\ReportingApprovalDirectory;
+use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Rebuilds Reporting's own projection table exclusively from module Contracts.
+ * The projection is disposable: dropping it and replaying this service for a
+ * tenant/as-of yields the same rows and source hashes.
+ */
+final class ProjectionBuilder
+{
+    public function __construct(
+        private readonly WorkforceReportingDirectory $workforce,
+        private readonly ReportingApprovalDirectory $approvals,
+        private readonly LeaveLiabilityDirectory $leave,
+        private readonly PayrollCostDirectory $payroll,
+        private readonly RecruitmentFunnelDirectory $recruitment,
+        private readonly TurnoverDirectory $turnover,
+        private readonly PeopleDirectory $people,
+        private readonly Clock $clock,
+    ) {}
+
+    /**
+     * Build the projection only when this tenant/as-of snapshot is absent.
+     * A dashboard snapshot is always rebuildable via rebuild().
+     */
+    public function ensure(int $tenantId, string $asOf): void
+    {
+        $exists = ProjectionRow::query()
+            ->where('tenant_id', $tenantId)
+            ->where('business_date', $asOf)
+            ->exists();
+
+        if (! $exists) {
+            $this->rebuild($tenantId, $asOf);
+        }
+    }
+
+    public function rebuild(int $tenantId, string $asOf): void
+    {
+        $workforce = $this->workforce->rows($tenantId, $asOf);
+        $approvals = $this->approvals->pendingApprovals($tenantId);
+        $leave = $this->leave->balances($tenantId, $asOf);
+        $now = $this->clock->now();
+
+        DB::transaction(function () use ($tenantId, $asOf, $workforce, $approvals, $leave, $now): void {
+            ProjectionRow::query()
+                ->where('tenant_id', $tenantId)
+                ->where('business_date', $asOf)
+                ->delete();
+
+            foreach ($workforce as $row) {
+                $employee = $row->displayName ?? $row->employeeNo;
+                $this->store($tenantId, $asOf, 'workforce', 'headcount', 'EMPLOYMENT', $row->employmentId, [
+                    'employment_id' => $row->employmentId,
+                    'org_unit_id' => $row->orgUnitId,
+                    'legal_entity_id' => $row->legalEntityId,
+                    'label' => $employee,
+                    'secondary_label' => trim(($row->orgName ?? '').' · '.$row->employeeNo, ' ·'),
+                    'status' => $row->status,
+                    'numeric_value' => 1,
+                    'attributes_json' => [
+                        'employee' => $employee,
+                        'employee_no' => $row->employeeNo,
+                        'org_path' => $row->orgName,
+                        'legal_entity' => $row->legalEntityName,
+                        'status' => $row->status,
+                        'probation_end_date' => $row->probationEndDate,
+                        'contract_end_date' => $row->contractEndDate,
+                    ],
+                ], $now);
+
+                if ($row->status === 'PROBATION') {
+                    $this->store($tenantId, $asOf, 'workforce', 'probation', 'EMPLOYMENT', $row->employmentId, [
+                        'employment_id' => $row->employmentId,
+                        'org_unit_id' => $row->orgUnitId,
+                        'legal_entity_id' => $row->legalEntityId,
+                        'label' => $employee,
+                        'secondary_label' => trim(($row->orgName ?? '').' · '.$row->employeeNo, ' ·'),
+                        'status' => 'PROBATION',
+                        'numeric_value' => 1,
+                        'attributes_json' => [
+                            'employee' => $employee,
+                            'employee_no' => $row->employeeNo,
+                            'org_path' => $row->orgName,
+                            'probation_end_date' => $row->probationEndDate,
+                            'hire_date' => null,
+                            'status' => 'PROBATION',
+                        ],
+                    ], $now);
+                }
+
+                if ($row->contractEndDate !== null && $row->contractEndDate >= $asOf) {
+                    $daysRemaining = (int) CarbonImmutable::parse($asOf, 'UTC')
+                        ->diffInDays(CarbonImmutable::parse($row->contractEndDate, 'UTC'), false);
+
+                    if ($daysRemaining >= 0 && $daysRemaining <= 90) {
+                        $this->store($tenantId, $asOf, 'workforce', 'contract_expiring', 'CONTRACT', $row->employmentId, [
+                            'employment_id' => $row->employmentId,
+                            'org_unit_id' => $row->orgUnitId,
+                            'legal_entity_id' => $row->legalEntityId,
+                            'label' => $employee,
+                            'secondary_label' => trim(($row->orgName ?? '').' · '.$row->employeeNo, ' ·'),
+                            'status' => 'EXPIRING',
+                            'numeric_value' => $daysRemaining,
+                            'attributes_json' => [
+                                'employee' => $employee,
+                                'org_path' => $row->orgName,
+                                'end_date' => $row->contractEndDate,
+                                'days_remaining' => $daysRemaining,
+                                'status' => 'EXPIRING',
+                            ],
+                        ], $now);
+                    }
+                }
+            }
+
+            foreach ($approvals as $approval) {
+                /** @var PendingApprovalRow $approval */
+                $age = max(0, (int) CarbonImmutable::parse($approval->businessDate, 'UTC')
+                    ->diffInDays(CarbonImmutable::parse($asOf, 'UTC'), false));
+                $orgId = null;
+
+                if ($approval->employmentId !== null) {
+                    $snapshot = $this->people->employmentSnapshot($tenantId, $approval->employmentId, $asOf);
+                    $orgId = $snapshot?->orgUnitId;
+                }
+
+                $this->store($tenantId, $asOf, 'pending_approvals', 'pending_approvals', 'CASE', $approval->caseId, [
+                    'employment_id' => $approval->employmentId,
+                    'org_unit_id' => $orgId,
+                    'legal_entity_id' => null,
+                    'label' => $approval->title,
+                    'secondary_label' => $approval->caseNo,
+                    'status' => $approval->taskStatus,
+                    'numeric_value' => $age,
+                    'attributes_json' => [
+                        'case_no' => $approval->caseNo,
+                        'title' => $approval->title,
+                        'status' => $approval->taskStatus,
+                        'age_days' => $age,
+                        'node_key' => $approval->nodeKey,
+                        'due_at' => $approval->dueAt,
+                    ],
+                ], $now);
+            }
+
+            foreach ($leave as $balance) {
+                $snapshot = $this->people->employmentSnapshot($tenantId, $balance->employmentId, $asOf);
+                $employeeNumber = $snapshot !== null ? $snapshot->employeeNo : (string) $balance->employmentId;
+
+                $this->store($tenantId, $asOf, 'leave_liability', 'leave_liability', 'LEAVE_BALANCE', $balance->employmentId.':'.$balance->leaveTypeId, [
+                    'employment_id' => $balance->employmentId,
+                    'org_unit_id' => $snapshot?->orgUnitId,
+                    'legal_entity_id' => $snapshot?->legalEntityId,
+                    'label' => $balance->leaveTypeName,
+                    'secondary_label' => $employeeNumber,
+                    'status' => $balance->leaveTypeCode,
+                    'numeric_value' => $balance->balanceMinutes,
+                    'attributes_json' => [
+                        'employee' => null,
+                        'employee_no' => $employeeNumber,
+                        'leave_type' => $balance->leaveTypeName,
+                        'leave_type_code' => $balance->leaveTypeCode,
+                        'balance_minutes' => $balance->balanceMinutes,
+                    ],
+                ], $now);
+            }
+        });
+    }
+
+    public function payrollAvailable(int $tenantId): bool
+    {
+        return $this->payroll->available($tenantId);
+    }
+
+    public function payrollReason(int $tenantId): ?string
+    {
+        return $this->payroll->unavailableReason($tenantId);
+    }
+
+    public function recruitmentAvailable(int $tenantId): bool
+    {
+        return $this->recruitment->available($tenantId);
+    }
+
+    public function recruitmentReason(int $tenantId): ?string
+    {
+        return $this->recruitment->unavailableReason($tenantId);
+    }
+
+    public function turnoverAvailable(int $tenantId): bool
+    {
+        return $this->turnover->available($tenantId);
+    }
+
+    public function turnoverReason(int $tenantId): ?string
+    {
+        return $this->turnover->unavailableReason($tenantId);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function store(
+        int $tenantId,
+        string $asOf,
+        string $source,
+        string $metric,
+        string $entityType,
+        int|string $entityId,
+        array $attributes,
+        CarbonImmutable $now,
+    ): void {
+        $payload = [
+            'label' => (string) ($attributes['label'] ?? ''),
+            'secondary_label' => $attributes['secondary_label'] ?? null,
+            'status' => $attributes['status'] ?? null,
+            'numeric_value' => (int) ($attributes['numeric_value'] ?? 0),
+            'attributes_json' => (array) ($attributes['attributes_json'] ?? []),
+        ];
+
+        ProjectionRow::query()->updateOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'source_projection' => $source,
+                'business_date' => $asOf,
+                'entity_type' => $entityType,
+                'entity_id' => (string) $entityId,
+            ],
+            [
+                'metric_code' => $metric,
+                'employment_id' => $attributes['employment_id'] ?? null,
+                'org_unit_id' => $attributes['org_unit_id'] ?? null,
+                'legal_entity_id' => $attributes['legal_entity_id'] ?? null,
+                'label' => $payload['label'],
+                'secondary_label' => $payload['secondary_label'],
+                'status' => $payload['status'],
+                'numeric_value' => $payload['numeric_value'],
+                'attributes_json' => $payload['attributes_json'],
+                'source_hash' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)),
+                'computed_at' => $now,
+            ],
+        );
+    }
+}
