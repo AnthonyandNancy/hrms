@@ -8,6 +8,7 @@ use App\Modules\IAM\Http\Controllers\BreakGlassController;
 use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
+use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmploymentController;
@@ -215,3 +216,51 @@ Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
         ->middleware('capability:workflow.case.decide')
         ->name('workflow.delegations.destroy');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Lifecycle command surface
+|--------------------------------------------------------------------------
+|
+| Every command creates or advances a Workflow Case; no controller writes a
+| People fact directly. Mutations require an Idempotency-Key and are tenant and
+| capability guarded.
+|
+*/
+Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): void {
+    Route::post('/onboarding', [LifecycleController::class, 'onboarding'])
+        ->middleware('capability:lifecycle.onboarding.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('lifecycle.onboarding.store');
+    Route::post('/probation-confirmations', [LifecycleController::class, 'probationConfirmation'])
+        ->middleware('capability:lifecycle.probation.manage')
+        ->name('lifecycle.probation.store');
+    Route::post('/transfers', [LifecycleController::class, 'transfer'])
+        ->middleware('capability:lifecycle.transfer.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('lifecycle.transfers.store');
+    Route::post('/salary-changes', [LifecycleController::class, 'salaryChange'])
+        ->middleware('capability:lifecycle.terms.manage')
+        ->name('lifecycle.salary-changes.store');
+    Route::post('/offboardings', [LifecycleController::class, 'offboarding'])
+        ->middleware('capability:lifecycle.offboard.manage')
+        ->name('lifecycle.offboardings.store');
+    Route::post('/contract-renewals', [LifecycleController::class, 'contractRenewal'])
+        ->middleware('capability:lifecycle.contract.manage')
+        ->name('lifecycle.contract-renewals.store');
+    Route::post('/rehires', [LifecycleController::class, 'rehire'])
+        ->middleware('capability:lifecycle.rehire.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('lifecycle.rehires.store');
+    Route::get('/cases/{caseId}', [LifecycleController::class, 'showCase'])
+        ->whereNumber('caseId')
+        ->middleware('capability:lifecycle.case.read')
+        ->name('lifecycle.cases.show');
+});
+
+Route::get('/employees/{employment_id}/onboarding-checklist', [LifecycleController::class, 'onboardingChecklist'])
+    ->whereNumber('employment_id')
+    ->middleware(['auth.session', 'capability:lifecycle.case.read'])
+    ->name('lifecycle.onboarding-checklist.index');
+
+Route::patch('/onboarding-tasks/{id}', [LifecycleController::class, 'updateChecklistTask'])
+    ->whereNumber('id')
+    ->middleware(['auth.session', 'capability:lifecycle.checklist.manage'])
+    ->name('lifecycle.onboarding-tasks.update');

@@ -10,6 +10,10 @@ use App\Modules\IAM\Authorization\EloquentAccessSubjectStateDirectory;
 use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
 use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
 use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
+use App\Modules\IAM\Contracts\SessionRevoker;
+use App\Modules\IAM\Contracts\UserDirectory;
+use App\Modules\IAM\Services\EloquentUserDirectory;
+use App\Modules\IAM\Services\EmploymentSessionRevoker;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\AccessSubjectStateDirectory;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
@@ -46,6 +50,8 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bind(ElevationGrantDirectory::class, EloquentElevationGrantDirectory::class);
         $this->app->bind(SensitiveAccessAuditor::class, PlatformSensitiveAccessAuditor::class);
         $this->app->bind(Authorizer::class, CapabilityAuthorizer::class);
+        $this->app->bind(SessionRevoker::class, EmploymentSessionRevoker::class);
+        $this->app->bind(UserDirectory::class, EloquentUserDirectory::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);
