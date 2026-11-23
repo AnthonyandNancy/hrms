@@ -7,6 +7,15 @@ namespace App\Modules\Payroll\Models;
 use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $parameter_set_id
+ * @property int $lower_bound_cents
+ * @property int|null $upper_bound_cents
+ * @property int $rate_bps
+ * @property int $quick_deduction_cents
+ */
 final class TaxBracket extends Model
 {
     use BelongsToTenant;

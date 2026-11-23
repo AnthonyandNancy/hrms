@@ -8,6 +8,17 @@ use App\Modules\Payroll\Enums\PayrollReceiptType;
 use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $run_id
+ * @property PayrollReceiptType $type
+ * @property string|null $file_hash
+ * @property string|null $external_reference
+ * @property \Carbon\CarbonImmutable $received_at
+ * @property \Carbon\CarbonImmutable|null $reconciled_at
+ * @property array<string, mixed>|null $metadata_json
+ */
 final class PayrollReceipt extends Model
 {
     use BelongsToTenant;

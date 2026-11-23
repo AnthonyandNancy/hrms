@@ -41,7 +41,7 @@ final class SnapshotService
      */
     public function lock(PayrollRun $run, int $actorUserId, ?callable $eligible = null): string
     {
-        return DB::transaction(function () use ($run, $actorUserId, $eligible): string {
+        return DB::transaction(function () use ($run, $eligible): string {
             $locked = PayrollRun::query()->whereKey($run->id)->lockForUpdate()->firstOrFail();
             $status = $locked->status instanceof PayrollRunStatus
                 ? $locked->status
@@ -187,7 +187,7 @@ final class SnapshotService
      */
     public function lockForEmploymentIds(PayrollRun $run, int $actorUserId, array $employmentIds): string
     {
-        return DB::transaction(function () use ($run, $actorUserId, $employmentIds): string {
+        return DB::transaction(function () use ($run, $employmentIds): string {
             $locked = PayrollRun::query()->whereKey($run->id)->lockForUpdate()->firstOrFail();
             $scheme = PayrollScheme::query()
                 ->where('tenant_id', $locked->tenant_id)
@@ -395,6 +395,10 @@ final class SnapshotService
     /**
      * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
      */
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
+     */
     public function attendanceValues(array $payload): array
     {
         $attendance = (array) ($payload['attendance'] ?? []);
@@ -409,6 +413,9 @@ final class SnapshotService
         ];
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     */
     public function attendanceSummary(array $payload): AttendanceSummary
     {
         $values = $this->attendanceValues($payload);

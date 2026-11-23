@@ -8,6 +8,22 @@ use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $legal_entity_id
+ * @property string $parameter_set
+ * @property string $code
+ * @property string|null $value_decimal
+ * @property int|null $value_int
+ * @property string $effective_from
+ * @property string $effective_to
+ * @property string $version
+ * @property int $approved_by
+ * @property \Carbon\CarbonImmutable $approved_at
+ * @property string $evidence_ref
+ * @property bool $is_demo
+ */
 final class StatutoryParameter extends Model
 {
     use BelongsToTenant;

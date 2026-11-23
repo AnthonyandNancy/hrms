@@ -7,6 +7,21 @@ namespace App\Modules\Payroll\Models;
 use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $scheme_id
+ * @property int|null $payroll_item_id
+ * @property string $item_code
+ * @property string $label
+ * @property string $category
+ * @property string $calculation
+ * @property int $amount_cents
+ * @property int|null $rate_scaled
+ * @property string $basis
+ * @property int $sort_order
+ * @property bool $taxable
+ */
 final class PayrollSchemeItem extends Model
 {
     use BelongsToTenant;

@@ -12,6 +12,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Published payslips and their lines are immutable. The guard is enforced at
  * the model layer, and SQLite/MySQL triggers provide the DB backstop.
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $run_id
+ * @property int $employment_id
+ * @property int $version
+ * @property int $gross_cents
+ * @property int $deductions_cents
+ * @property int $net_cents
+ * @property int $employer_cost_cents
+ * @property \Carbon\CarbonImmutable|null $published_at
+ * @property int|null $pdf_file_id
+ */
 final class Payslip extends Model
 {
     use BelongsToTenant;

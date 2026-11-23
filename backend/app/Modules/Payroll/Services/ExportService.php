@@ -49,7 +49,7 @@ final class ExportService
                     (string) $run->period,
                     (string) $this->currency($run),
                     (string) $payslip->net_cents,
-                    (string) $run->pay_date->format('Y-m-d'),
+                    (string) $run->pay_date,
                     'PAYROLL-'.$run->id.'-'.$payslip->employment_id,
                 ];
             }

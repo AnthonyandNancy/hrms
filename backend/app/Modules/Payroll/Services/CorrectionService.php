@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\DB;
 final class CorrectionService
 {
     public function __construct(
-        private readonly PayrollStateMachine $stateMachine,
         private readonly SnapshotService $snapshots,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
@@ -58,7 +57,6 @@ final class CorrectionService
                 ]);
             }
 
-            $scheme = app(CalculationService::class);
             $correctionPeriod = $this->periodDetails($period);
 
             $existing = PayrollRun::query()

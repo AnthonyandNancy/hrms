@@ -52,7 +52,6 @@ final class CalculationService
         private readonly TaxParameterResolver $parameters,
         private readonly OrganizationFacts $organization,
         private readonly PayrollStateMachine $stateMachine,
-        private readonly PayrollYtdService $ytd,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
     ) {}
@@ -195,7 +194,7 @@ final class CalculationService
         $attendance = $this->snapshots->attendanceSummary($payload);
         $period = PayrollPeriod::fromLabel((string) $run->period);
         $posting = PayrollPeriod::fromLabel((string) $run->posting_period);
-        $payDate = new DateTimeImmutable((string) $run->pay_date->format('Y-m-d').'T00:00:00', new DateTimeZone('UTC'));
+        $payDate = new DateTimeImmutable((string) $run->pay_date.'T00:00:00', new DateTimeZone('UTC'));
         $cutoff = new DateTimeImmutable((string) $run->cutoff_at->format('Y-m-d H:i:s'), new DateTimeZone('UTC'));
         $roundingMode = RoundingMode::from((string) $scheme->rounding_mode);
 

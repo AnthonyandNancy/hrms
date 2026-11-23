@@ -53,6 +53,7 @@ final class ApprovalService
                 $run,
                 PayrollRunStatus::APPROVED,
                 ['approved_by' => $actorUserId, 'approved_at' => $this->clock->now()],
+                ['comment_present' => trim($comment) !== ''],
             );
         });
     }

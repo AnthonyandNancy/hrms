@@ -75,7 +75,7 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
 
             $consumption[(int) $entry->leave_type_id] = [
                 'leave_type_id' => (int) $entry->leave_type_id,
-                'leave_type_code' => $type?->code ?? 'UNKNOWN',
+                'leave_type_code' => $type->code ?? 'UNKNOWN',
                 'paid' => $paid,
                 'minutes' => ($consumption[(int) $entry->leave_type_id]['minutes'] ?? 0) + $minutes,
             ];

@@ -14,6 +14,50 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Payroll run aggregate. State transitions are owned by PayrollStateMachine;
  * model hooks are the last line of defence against mutating sealed facts.
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $legal_entity_id
+ * @property int $scheme_id
+ * @property string $period
+ * @property string $earning_period_start
+ * @property string $earning_period_end
+ * @property string $posting_period
+ * @property string $pay_date
+ * @property \Carbon\CarbonImmutable $cutoff_at
+ * @property PayrollRunStatus $status
+ * @property PayrollRunType $run_type
+ * @property int|null $correction_of_run_id
+ * @property int $prepared_by
+ * @property int|null $reviewed_by
+ * @property int|null $approved_by
+ * @property int|null $published_by
+ * @property int|null $paid_by
+ * @property int $gross_cents
+ * @property int $deductions_cents
+ * @property int $net_cents
+ * @property int $employer_cost_cents
+ * @property string|null $input_hash
+ * @property string|null $rule_version
+ * @property int $snapshot_version
+ * @property int $reopen_count
+ * @property array<int, array<string, mixed>>|null $reopen_approvals_json
+ * @property \Carbon\CarbonImmutable|null $reopened_at
+ * @property int|null $approval_case_id
+ * @property string|null $approval_effect_status
+ * @property string|null $cancellation_reason
+ * @property string|null $bank_export_hash
+ * @property string|null $tax_export_hash
+ * @property \Carbon\CarbonImmutable|null $export_generated_at
+ * @property \Carbon\CarbonImmutable|null $calculated_at
+ * @property \Carbon\CarbonImmutable|null $reviewed_at
+ * @property \Carbon\CarbonImmutable|null $approved_at
+ * @property \Carbon\CarbonImmutable|null $published_at
+ * @property \Carbon\CarbonImmutable|null $paid_at
+ * @property \Carbon\CarbonImmutable|null $closed_at
+ * @property \Carbon\CarbonImmutable $created_at
+ * @property \Carbon\CarbonImmutable $updated_at
+ */
 final class PayrollRun extends Model
 {
     use BelongsToTenant;

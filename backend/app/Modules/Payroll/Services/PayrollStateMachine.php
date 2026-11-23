@@ -43,6 +43,9 @@ final class PayrollStateMachine
         return in_array($to, $this->allowedFrom($from), true);
     }
 
+    /**
+     * @param  array<string, mixed>  $details
+     */
     public function assertTransition(PayrollRunStatus $from, PayrollRunStatus $to, array $details = []): void
     {
         if ($this->canTransition($from, $to)) {
@@ -64,7 +67,8 @@ final class PayrollStateMachine
      * Apply one legal transition to a locked run. The caller owns the
      * surrounding DB transaction.
      *
-     * @param  array<string, scalar|null>  $columns
+     * @param  array<string, mixed>  $columns
+     * @param  array<string, mixed>  $details
      */
     public function transition(PayrollRun $run, PayrollRunStatus $to, array $columns = [], array $details = []): PayrollRun
     {

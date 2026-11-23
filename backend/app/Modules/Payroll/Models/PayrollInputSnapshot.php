@@ -10,6 +10,17 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Immutable, normalized input evidence. Append-only at model and DB level.
  */
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $run_id
+ * @property int $employment_id
+ * @property string $snapshot_type
+ * @property int $snapshot_version
+ * @property array<string, mixed> $payload_json
+ * @property string $source_hash
+ * @property \Carbon\CarbonImmutable $created_at
+ */
 final class PayrollInputSnapshot extends Model
 {
     use BelongsToTenant;

@@ -8,6 +8,25 @@ use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $legal_entity_id
+ * @property string $code
+ * @property string $name
+ * @property string $frequency
+ * @property string $currency
+ * @property int $version
+ * @property string $status
+ * @property string $valid_from
+ * @property string $valid_to
+ * @property string $proration_divisor
+ * @property string $rounding_mode
+ * @property string $overtime_multiplier
+ * @property bool $allow_negative_net
+ * @property int $base_salary_cents
+ * @property \Illuminate\Database\Eloquent\Collection<int, PayrollSchemeItem> $items
+ */
 final class PayrollScheme extends Model
 {
     use BelongsToTenant;
