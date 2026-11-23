@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Shared\Time;
 
-use Carbon\CarbonImmutable;
 use App\Shared\Exceptions\ValidationException;
+use Carbon\CarbonImmutable;
 
 /**
  * Half-open business date range [from, to). All date reasoning in time and

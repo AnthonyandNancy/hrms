@@ -6,7 +6,6 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Exceptions\LeaveBalanceException;
 use App\Modules\Time\Models\LeaveAccount;
-use App\Modules\Time\Models\LeaveBalance;
 use App\Modules\Time\Models\LeaveLedgerEntry;
 use App\Modules\Time\Models\LeaveType;
 use App\Shared\Exceptions\ConflictException;

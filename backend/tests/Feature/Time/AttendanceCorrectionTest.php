@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
-use App\Modules\Time\Models\AttendanceCorrection;
 use App\Modules\Time\Models\PunchRecord;
 use App\Modules\Time\Services\AttendanceCorrectionService;
-use App\Modules\Time\Services\AttendanceEffectHandler;
 use App\Modules\Time\Services\PunchService;
-use App\Modules\Time\Services\ShiftService;
 use Tests\Support\Time\TimeTestCase;
-use Tests\Support\Time\TimeTestFixtures;
 
 class AttendanceCorrectionTest extends TimeTestCase
 {

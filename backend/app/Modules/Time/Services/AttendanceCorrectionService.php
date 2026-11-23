@@ -127,7 +127,7 @@ final class AttendanceCorrectionService
                 return [
                     'applied' => true,
                     'business_date' => $correction->business_date->format('Y-m-d'),
-                    'attendance_status' => (string) ($day?->status ?? 'INCOMPLETE'),
+                    'attendance_status' => (string) ($day->status ?? 'INCOMPLETE'),
                     'replayed' => true,
                 ];
             }

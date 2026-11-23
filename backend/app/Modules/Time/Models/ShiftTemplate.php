@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $end_local_time
  * @property bool $crosses_midnight
  * @property int $break_minutes
+ * @property \Carbon\CarbonImmutable $valid_from
+ * @property \Carbon\CarbonImmutable $valid_to
  */
 final class ShiftTemplate extends Model
 {

@@ -80,7 +80,7 @@ final class BusinessCalendar
 
     public function standardDayMinutes(int $tenantId, int $legalEntityId): int
     {
-        return (int) ($this->calendar($tenantId, $legalEntityId)?->standard_day_minutes ?? 480);
+        return (int) ($this->calendar($tenantId, $legalEntityId)->standard_day_minutes ?? 480);
     }
 
     public function addHoliday(
@@ -165,6 +165,9 @@ final class BusinessCalendar
         return $utc->setTimezone($timezone)->startOfDay();
     }
 
+    /**
+     * @param  list<int>  $workweek
+     */
     private function assertWorkweek(array $workweek): void
     {
         if ($workweek === []) {

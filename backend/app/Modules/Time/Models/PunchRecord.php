@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $tenant_id
  * @property int $employment_id
- * @property string $punched_at_utc
+ * @property \Carbon\CarbonImmutable $punched_at_utc
  * @property string $source
  * @property string $raw_payload_hash
  */

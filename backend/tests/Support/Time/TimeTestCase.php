@@ -51,6 +51,9 @@ abstract class TimeTestCase extends TestCase
         $this->people->bindUser($this->tenantId, 10, 1);
     }
 
+    /**
+     * @param  list<int>  $workweek
+     */
     protected function calendar(
         int $tenantId = 1,
         int $legalEntityId = 1,
@@ -116,6 +119,9 @@ abstract class TimeTestCase extends TestCase
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
     protected function leaveType(
         array $overrides = [],
         int $tenantId = 1,

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $tenant_id
  * @property int $employment_id
- * @property string $business_date
+ * @property \Carbon\CarbonImmutable $business_date
  * @property int $case_id
  * @property array<string, mixed> $corrected_punches_json
  */

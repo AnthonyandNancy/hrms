@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $tenant_id
  * @property int $employment_id
- * @property string $business_date
+ * @property \Carbon\CarbonImmutable $business_date
  * @property string $status
  * @property string $rule_version
  */

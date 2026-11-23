@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace Tests\Support\Time;
 
 use App\Modules\Time\Contracts\EmploymentSnapshot;
-use App\Modules\Time\Contracts\WorkflowCasePort;
-use App\Modules\Time\Contracts\WorkflowCaseSnapshot;
 use App\Modules\Time\Contracts\TimeActor;
-use App\Modules\Time\Contracts\TimeActorResolver;
-use Illuminate\Http\Request;
 
 final class TimeTestFixtures
 {
@@ -36,6 +32,11 @@ final class TimeTestFixtures
         );
     }
 
+    /**
+     * @param  list<string>  $capabilities
+     * @param  list<int>  $managedEmploymentIds
+     * @param  list<int>  $legalEntityIds
+     */
     public static function actor(
         int $tenantId = 1,
         int $userId = 10,

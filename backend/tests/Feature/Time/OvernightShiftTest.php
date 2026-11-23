@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
-use App\Modules\Time\Models\AttendanceDay;
-use App\Modules\Time\Models\PunchRecord;
 use App\Modules\Time\Services\AttendanceCalculator;
 use App\Modules\Time\Services\PunchService;
-use App\Modules\Time\Services\ShiftService;
 use Tests\Support\Time\TimeTestCase;
 
 class OvernightShiftTest extends TimeTestCase
@@ -104,5 +101,4 @@ class OvernightShiftTest extends TimeTestCase
         $this->assertSame(480, $day->worked_minutes);
         $this->assertSame(480, $day->scheduled_minutes);
     }
-
 }

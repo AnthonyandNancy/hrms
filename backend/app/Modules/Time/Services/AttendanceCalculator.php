@@ -53,14 +53,14 @@ final class AttendanceCalculator
                 ->where('business_date', $businessDate)
                 ->first();
 
-            $ruleVersion = $existing?->rule_version ?? $this->ruleVersionFor($tenantId, $businessDate);
+            $ruleVersion = $existing->rule_version ?? $this->ruleVersionFor($tenantId, $businessDate);
             $config = $this->ruleConfig($tenantId, $ruleVersion);
 
             $isRest = ! $this->calendar->isWorkingDay($tenantId, $snapshot->legalEntityId, $businessDate);
             $holiday = $this->calendar->holiday($tenantId, $snapshot->legalEntityId, $businessDate);
             $punches = $this->effectivePunches($tenantId, $employmentId, $businessDate, $calendar, $shift);
             $scheduled = $this->scheduledMinutes($calendar, $shift, $businessDate);
-            $break = $shift?->break_minutes ?? 0;
+            $break = $shift->break_minutes ?? 0;
 
             $worked = 0;
             $late = 0;
@@ -78,7 +78,7 @@ final class AttendanceCalculator
                 if ($shift !== null) {
                     $worked = max(0, $worked - $break);
                     [$start, $end] = $this->windows->boundaries(
-                        $calendar?->timezone ?? 'UTC',
+                        $calendar->timezone ?? 'UTC',
                         $businessDate,
                         $shift->start_local_time,
                         $shift->end_local_time,
@@ -165,7 +165,7 @@ final class AttendanceCalculator
         ?LegalEntityCalendar $calendar,
         ?ShiftTemplate $shift,
     ): array {
-        $timezone = $calendar?->timezone ?? 'UTC';
+        $timezone = $calendar->timezone ?? 'UTC';
         $center = CarbonImmutable::parse($businessDate.' 12:00:00', $timezone);
         $from = $center->subDays(2)->utc();
         $to = $center->addDays(2)->utc();
@@ -237,7 +237,7 @@ final class AttendanceCalculator
             return 0;
         }
 
-        $timezone = $calendar?->timezone ?? 'UTC';
+        $timezone = $calendar->timezone ?? 'UTC';
         [$start, $end] = $this->windows->boundaries(
             $timezone,
             $businessDate,
@@ -280,7 +280,7 @@ final class AttendanceCalculator
             ->orderByDesc('id')
             ->first();
 
-        return $version?->version ?? self::DEFAULT_RULE_VERSION;
+        return $version->version ?? self::DEFAULT_RULE_VERSION;
     }
 
     /**

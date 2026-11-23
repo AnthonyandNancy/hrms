@@ -36,6 +36,9 @@ class LeaveBalanceException extends ConflictException
         );
     }
 
+    /**
+     * @param  array<string, mixed>  $details
+     */
     public static function invalidState(string $message, array $details = []): self
     {
         return new self($message, ['reason' => 'INVALID_LEAVE_STATE', ...$details]);

@@ -11,9 +11,13 @@ final class BusinessDate
 {
     public static function parse(string $date): CarbonImmutable
     {
-        $parsed = CarbonImmutable::createFromFormat('!Y-m-d', $date);
+        try {
+            $parsed = CarbonImmutable::createFromFormat('!Y-m-d', $date);
+        } catch (\Throwable) {
+            $parsed = null;
+        }
 
-        if ($parsed === false || $parsed->format('Y-m-d') !== $date) {
+        if (! $parsed instanceof CarbonImmutable || $parsed->format('Y-m-d') !== $date) {
             throw new ValidationException(['date' => ['Dates must use the YYYY-MM-DD format.']]);
         }
 
