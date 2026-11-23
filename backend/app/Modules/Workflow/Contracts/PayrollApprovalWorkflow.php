@@ -14,6 +14,7 @@ interface PayrollApprovalWorkflow
         int $tenantId,
         int $requesterUserId,
         int $runId,
+        int $assigneeUserId,
         string $businessDate,
     ): int;
 

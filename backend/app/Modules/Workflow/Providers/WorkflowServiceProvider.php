@@ -15,6 +15,7 @@ use App\Modules\Workflow\Services\DefaultAssigneeDirectory;
 use App\Modules\Workflow\Services\DefaultAssigneeEligibility;
 use App\Modules\Workflow\Services\DefaultWorkflowPrincipalResolver;
 use App\Modules\Workflow\Services\NullEffectHandler;
+use App\Modules\Workflow\Services\PayrollApprovalEffectHandler;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -28,6 +29,7 @@ final class WorkflowServiceProvider extends ServiceProvider
      */
     public const DEFAULT_EFFECT_HANDLERS = [
         NullEffectHandler::class,
+        PayrollApprovalEffectHandler::class,
     ];
 
     /**

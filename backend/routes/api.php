@@ -12,6 +12,10 @@ use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
+use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
+use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
+use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
+use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Platform\Http\Controllers\FeatureFlagController;
 use App\Modules\Platform\Http\Controllers\HealthController;
 use App\Modules\Platform\Http\Controllers\LivenessController;
@@ -215,3 +219,128 @@ Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
         ->middleware('capability:workflow.case.decide')
         ->name('workflow.delegations.destroy');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Payroll
+|--------------------------------------------------------------------------
+|
+| Every route is capability-guarded. Run-scoped mutations are anchored to the
+| run so a specialist cannot touch a run outside their membership. Payslip
+| self-read is anchored SELF; detail is scoped again in the controller and
+| returns 404 for another employee.
+|
+*/
+Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
+    Route::get('/items', [PayrollCatalogController::class, 'items'])
+        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.items.index');
+    Route::post('/items', [PayrollCatalogController::class, 'storeItem'])
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.items.store');
+    Route::get('/schemes', [PayrollCatalogController::class, 'schemes'])
+        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.schemes.index');
+    Route::post('/schemes', [PayrollCatalogController::class, 'storeScheme'])
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.schemes.store');
+
+    Route::get('/runs', [PayrollRunController::class, 'index'])
+        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.runs.index');
+    Route::post('/runs', [PayrollRunController::class, 'store'])
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.runs.store');
+    Route::get('/runs/{id}', [PayrollRunController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.read,PAYROLL_RUN')
+        ->name('payroll.runs.show');
+    Route::get('/runs/{id}/employees', [PayrollRunController::class, 'employees'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.read,PAYROLL_RUN')
+        ->name('payroll.runs.employees');
+    Route::get('/runs/{id}/reconciliation', [PayrollRunController::class, 'reconciliation'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.read,PAYROLL_RUN')
+        ->name('payroll.runs.reconciliation');
+
+    Route::post('/runs/{id}/lock-inputs', [PayrollRunController::class, 'lockInputs'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,PAYROLL_RUN')
+        ->name('payroll.runs.lock-inputs');
+    Route::post('/runs/{id}/calculate', [PayrollRunController::class, 'calculate'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,PAYROLL_RUN')
+        ->name('payroll.runs.calculate');
+    Route::post('/runs/{id}/review', [PayrollRunController::class, 'review'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.review,PAYROLL_RUN'])
+        ->name('payroll.runs.review');
+    Route::post('/runs/{id}/approve', [PayrollRunController::class, 'approve'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.approve,PAYROLL_RUN'])
+        ->name('payroll.runs.approve');
+    Route::post('/runs/{id}/publish', [PayrollRunController::class, 'publish'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.publish,PAYROLL_RUN'])
+        ->name('payroll.runs.publish');
+    Route::post('/runs/{id}/mark-paid', [PayrollRunController::class, 'markPaid'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.close,PAYROLL_RUN'])
+        ->name('payroll.runs.mark-paid');
+    Route::post('/runs/{id}/close', [PayrollRunController::class, 'close'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.close,PAYROLL_RUN'])
+        ->name('payroll.runs.close');
+    Route::post('/runs/{id}/cancel', [PayrollRunController::class, 'cancel'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,PAYROLL_RUN')
+        ->name('payroll.runs.cancel');
+    Route::post('/runs/{id}/reopen', [PayrollRunController::class, 'reopen'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.reopen,PAYROLL_RUN'])
+        ->name('payroll.runs.reopen');
+    Route::post('/runs/{id}/corrections', [PayrollRunController::class, 'correction'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.correct,PAYROLL_RUN'])
+        ->name('payroll.runs.corrections.store');
+
+    Route::get('/runs/{id}/exports/bank', [PayrollRunController::class, 'exportBank'])
+        ->whereNumber('id')
+        ->middleware(['mfa.step-up', 'capability:payroll.export,PAYROLL_RUN'])
+        ->name('payroll.runs.exports.bank');
+    Route::get('/runs/{id}/exports/tax', [PayrollRunController::class, 'exportTax'])
+        ->whereNumber('id')
+        ->middleware(['mfa.step-up', 'capability:payroll.export,PAYROLL_RUN'])
+        ->name('payroll.runs.exports.tax');
+
+    Route::get('/payslips', [PayrollPayslipController::class, 'mine'])
+        ->middleware('capability:payroll.payslip.read.self,SELF')
+        ->name('payroll.payslips.mine');
+    Route::get('/payslips/{id}', [PayrollPayslipController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.payslip.read.self,SELF')
+        ->name('payroll.payslips.show');
+
+    Route::get('/statutory-parameters', [PayrollStatutoryParameterController::class, 'index'])
+        ->middleware('capability:payroll.parameters.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.parameters.index');
+    Route::post('/statutory-parameters', [PayrollStatutoryParameterController::class, 'store'])
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.parameters.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('payroll.parameters.store');
+});
+

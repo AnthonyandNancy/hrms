@@ -10,7 +10,7 @@ namespace App\Modules\Payroll\Contracts;
  */
 interface PayrollApprovalPort
 {
-    public function open(int $tenantId, int $requesterUserId, int $runId, string $businessDate): int;
+    public function open(int $tenantId, int $requesterUserId, int $runId, int $assigneeUserId, string $businessDate): int;
 
     /**
      * @return array{case_id: int, application_status: string, effect_status: string}

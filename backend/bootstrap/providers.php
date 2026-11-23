@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\IAM\Providers\IamServiceProvider;
 use App\Modules\Organization\Providers\OrganizationServiceProvider;
+use App\Modules\Payroll\Providers\PayrollServiceProvider;
 use App\Modules\People\Providers\PeopleServiceProvider;
 use App\Modules\Platform\Providers\PlatformServiceProvider;
 use App\Modules\Workflow\Providers\WorkflowServiceProvider;
@@ -16,4 +17,5 @@ return [
     WorkflowServiceProvider::class,
     OrganizationServiceProvider::class,
     PeopleServiceProvider::class,
+    PayrollServiceProvider::class,
 ];

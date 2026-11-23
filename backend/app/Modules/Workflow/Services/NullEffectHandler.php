@@ -24,7 +24,6 @@ final class NullEffectHandler implements EffectHandler
             'workflow.assignment.activate',
             'workflow.leave.reserve',
             'workflow.contract.renew',
-            'workflow.payroll.publish',
         ], true);
     }
 

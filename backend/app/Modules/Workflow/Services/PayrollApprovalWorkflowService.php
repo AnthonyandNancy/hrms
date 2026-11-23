@@ -25,11 +25,12 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         private readonly CaseService $cases,
         private readonly DecisionService $decisions,
         private readonly CaseQueryService $queries,
+        private readonly TemplateService $templates,
     ) {}
 
-    public function open(int $tenantId, int $requesterUserId, int $runId, string $businessDate): int
+    public function open(int $tenantId, int $requesterUserId, int $runId, int $assigneeUserId, string $businessDate): int
     {
-        $template = $this->template($tenantId);
+        $template = $this->template($tenantId, $assigneeUserId);
         $principal = $this->principal($tenantId, $requesterUserId);
 
         $case = $this->cases->create(
@@ -86,7 +87,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         ];
     }
 
-    private function template(int $tenantId): WorkflowTemplate
+    private function template(int $tenantId, int $assigneeUserId): WorkflowTemplate
     {
         $template = WorkflowTemplate::query()
             ->where('tenant_id', $tenantId)
@@ -99,8 +100,34 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
             return $template;
         }
 
-        throw new ConflictException('The payroll.approval workflow template is not published for this tenant.', [
-            'reason' => 'PAYROLL_APPROVAL_TEMPLATE_MISSING',
+        // Payroll approval is a narrow built-in workflow. It is created on
+        // first use with a single USER task assigned to the approving actor.
+        // Review and SOD are enforced by the Payroll domain before a case is
+        // opened; the case is the durable Decision/Effect evidence.
+        return $this->templates->create($tenantId, 1, [
+            'code' => self::TEMPLATE_CODE,
+            'name' => 'Payroll run approval',
+            'version' => 1,
+            'status' => 'PUBLISHED',
+            'definition' => [
+                'nodes' => [
+                    ['key' => 'start', 'sequence' => 1, 'type' => 'START'],
+                    [
+                        'key' => 'approve',
+                        'sequence' => 2,
+                        'type' => 'APPROVAL',
+                        'assignee_rule' => ['type' => 'USER', 'user_id' => $assigneeUserId],
+                        'required_count' => 1,
+                    ],
+                    ['key' => 'end', 'sequence' => 3, 'type' => 'END'],
+                ],
+                'effects' => [[
+                    'type' => 'workflow.payroll.publish',
+                    'aggregate_type' => 'payroll_run',
+                    'aggregate_id_field' => 'subject_id',
+                    'execution' => 'LOCAL',
+                ]],
+            ],
         ]);
     }
 
