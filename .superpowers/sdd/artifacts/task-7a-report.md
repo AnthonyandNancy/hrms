@@ -17,6 +17,7 @@ Baseline: `b869706`
 | `fbd3e2e` | `feat(payroll)`: payroll value objects, tax/statutory rules, PayrollCalculator, and full unit/property suite |
 | `194d463` | `docs(payroll)`: `docs/07-business-rules.md` Payroll section |
 | `870dde3` | `feat(payroll)`: reconciling correction delta value object and carry-forward regression coverage |
+| `0ffdaf0` | `fix(payroll)`: checked intermediate aggregation and result invariants |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
@@ -69,8 +70,10 @@ No work was performed outside the worktree.
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollCalculationInputTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollCalculationPropertyTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollCalculationResultTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/PayrollCalculationResultInvariantTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollCorrectionDeltaTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollOverflowTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/PayrollIntermediateOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollTestFixtures.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollValueObjectTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayslipLineSourceTest.php`
@@ -91,13 +94,13 @@ to `PATH`.
 
 ```text
 php artisan test
-Tests: 155 passed (30413 assertions)
-Duration: 3.08s
+Tests: 160 passed (30418 assertions)
+Duration: 2.89s
 ```
 
 ```text
 vendor/bin/pint --test
-PASS 109 files
+PASS 111 files
 ```
 
 ```text
@@ -156,9 +159,11 @@ verification when the shared result-cache file was briefly locked.
     is then returned and flagged `NET_BELOW_ZERO`. It is never clamped or
     silently repaired.
 12. **Native-integer overflow is treated as an error.** Money arithmetic,
-    payroll aggregation, and result reconciliation use checked bcmath
-    comparisons against `PHP_INT_MIN`/`PHP_INT_MAX`; overflow cannot become a
-    float or a truncated integer.
+    payroll aggregation, taxable-income subtraction, cumulative-taxable
+    addition, cumulative-tax difference, other-deduction summation, and result
+    reconciliation use checked bcmath comparisons against
+    `PHP_INT_MIN`/`PHP_INT_MAX`; overflow cannot become a float or a truncated
+    integer.
 13. **No-float guard is token-based.** The guard analyzes PHP tokens in
     `app/Modules/Payroll` and `app/Shared/Money`, catches float literals,
     declarations, casts, `floatval`/`doubleval`/`is_float`/`is_double`, and
