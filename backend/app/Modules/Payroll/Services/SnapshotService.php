@@ -133,8 +133,8 @@ final class SnapshotService
      */
     private function employmentIds(PayrollRun $run, ?callable $eligible): array
     {
-        $from = (string) $run->earning_period_start;
-        $to = (string) $run->earning_period_end;
+        $from = $this->dateOnly($run->earning_period_start);
+        $to = $this->dateOnly($run->earning_period_end);
         $ids = [];
 
         $people = app(\App\Modules\People\Contracts\PeopleDirectory::class);
@@ -249,7 +249,7 @@ final class SnapshotService
     public function buildPayload(PayrollRun $run, PayrollScheme $scheme, int $employmentId, string $currency): array
     {
         $attendance = $this->time->attendanceForPeriod((int) $run->tenant_id, $employmentId, (string) $run->period);
-        $terms = $this->terms->termsAsOf((int) $run->tenant_id, $employmentId, (string) $run->earning_period_end);
+        $terms = $this->terms->termsAsOf((int) $run->tenant_id, $employmentId, $this->dateOnly($run->earning_period_end));
         $adjustments = PayrollAdjustment::query()
             ->where('tenant_id', $run->tenant_id)
             ->where(function ($query) use ($run): void {
@@ -291,10 +291,10 @@ final class SnapshotService
             'currency' => $currency,
             'employment_id' => $employmentId,
             'period' => (string) $run->period,
-            'earning_period_start' => (string) $run->earning_period_start,
-            'earning_period_end' => (string) $run->earning_period_end,
+            'earning_period_start' => $this->dateOnly($run->earning_period_start),
+            'earning_period_end' => $this->dateOnly($run->earning_period_end),
             'posting_period' => (string) $run->posting_period,
-            'pay_date' => (string) $run->pay_date,
+            'pay_date' => $this->dateOnly($run->pay_date),
             'cutoff_at' => (string) $run->cutoff_at,
             'attendance' => $attendanceSummary,
             'terms' => $terms === null ? null : [
@@ -351,6 +351,15 @@ final class SnapshotService
         ];
 
         return $payload;
+    }
+
+    private function dateOnly(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        return substr((string) $value, 0, 10);
     }
 
     /**

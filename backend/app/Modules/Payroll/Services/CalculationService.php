@@ -131,6 +131,7 @@ final class CalculationService
 
                     $calculated++;
                 } catch (\Throwable $exception) {
+                    report($exception);
                     $this->storeFailure($locked, $snapshot, $exception->getMessage());
                     $failed++;
                 }
@@ -194,8 +195,9 @@ final class CalculationService
         $attendance = $this->snapshots->attendanceSummary($payload);
         $period = PayrollPeriod::fromLabel((string) $run->period);
         $posting = PayrollPeriod::fromLabel((string) $run->posting_period);
-        $payDate = new DateTimeImmutable((string) $run->pay_date.'T00:00:00', new DateTimeZone('UTC'));
-        $cutoff = new DateTimeImmutable((string) $run->cutoff_at->format('Y-m-d H:i:s'), new DateTimeZone('UTC'));
+        $payDate = new DateTimeImmutable(substr((string) $run->pay_date, 0, 10).' 00:00:00', new DateTimeZone('UTC'));
+        $cutoffValue = $run->cutoff_at instanceof \DateTimeInterface ? $run->cutoff_at->format('Y-m-d H:i:s') : substr((string) $run->cutoff_at, 0, 19);
+        $cutoff = new DateTimeImmutable($cutoffValue, new DateTimeZone('UTC'));
         $roundingMode = RoundingMode::from((string) $scheme->rounding_mode);
 
         $context = new PayrollContext(

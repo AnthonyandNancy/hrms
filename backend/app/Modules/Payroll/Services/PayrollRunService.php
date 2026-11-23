@@ -203,8 +203,8 @@ final class PayrollRunService
         return [
             ...$this->runSummary($run),
             'scheme_id' => (int) $run->scheme_id,
-            'earning_period_start' => (string) $run->earning_period_start,
-            'earning_period_end' => (string) $run->earning_period_end,
+            'earning_period_start' => $this->dateOnly($run->earning_period_start),
+            'earning_period_end' => $this->dateOnly($run->earning_period_end),
             'posting_period' => (string) $run->posting_period,
             'cutoff_at' => $run->cutoff_at->toIso8601ZuluString(),
             'prepared_by' => (int) $run->prepared_by,
@@ -402,6 +402,15 @@ final class PayrollRunService
             ->all();
     }
 
+    private function dateOnly(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        return substr((string) $value, 0, 10);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -414,7 +423,7 @@ final class PayrollRunService
             'run_type' => $run->run_type->value,
             'status' => $run->status->value,
             'correction_of_run_id' => $run->correction_of_run_id,
-            'pay_date' => (string) $run->pay_date,
+            'pay_date' => $this->dateOnly($run->pay_date),
             'gross_cents' => (int) $run->gross_cents,
             'deductions_cents' => (int) $run->deductions_cents,
             'net_cents' => (int) $run->net_cents,

@@ -89,6 +89,8 @@ final class EmploymentController
             'work_location' => ['required', 'string', 'max:160'],
             'work_schedule' => ['required', 'string', 'max:80'],
             'salary_scheme_code' => ['nullable', 'string', 'max:64'],
+            'base_salary_cents' => ['nullable', 'integer', 'min:0'],
+            'salary_currency' => ['nullable', 'string', 'regex:/^[A-Z]{3}$/'],
             'notice_period_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'confidentiality' => ['nullable', 'boolean'],
             'non_compete' => ['nullable', 'boolean'],
