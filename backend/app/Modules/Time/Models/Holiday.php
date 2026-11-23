@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $tenant_id
  * @property int $legal_entity_id
- * @property string $date
+ * @property \Carbon\CarbonImmutable $date
  * @property string $type
  */
 final class Holiday extends Model

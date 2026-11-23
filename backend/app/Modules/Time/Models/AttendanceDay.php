@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\CarbonImmutable $business_date
  * @property string $status
  * @property string $rule_version
+ * @property \Carbon\CarbonImmutable|null $calculated_at
  */
 final class AttendanceDay extends Model
 {

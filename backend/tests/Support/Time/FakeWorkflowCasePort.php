@@ -35,6 +35,10 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
             effectStatus: 'NONE',
             payload: $payload,
             businessDate: $businessDate,
+            caseNo: 'CASE-'.$id,
+            title: (string) ($payload['title'] ?? $type),
+            currentNode: 'APPROVAL',
+            dueAt: null,
         );
 
         return $id;
@@ -66,6 +70,10 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
             effectStatus: 'SCHEDULED',
             payload: $case->payload,
             businessDate: $case->businessDate,
+            caseNo: $case->caseNo,
+            title: $case->title,
+            currentNode: $case->currentNode,
+            dueAt: $case->dueAt,
         );
     }
 

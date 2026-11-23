@@ -20,6 +20,10 @@ final readonly class WorkflowCaseSnapshot
         public string $effectStatus,
         public array $payload,
         public string $businessDate,
+        public string $caseNo = '',
+        public string $title = '',
+        public ?string $currentNode = null,
+        public ?string $dueAt = null,
     ) {}
 
     public function isApproved(): bool

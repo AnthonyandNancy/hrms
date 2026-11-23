@@ -30,12 +30,14 @@ final readonly class TimeActor
         return in_array($capability, $this->capabilities, true);
     }
 
-    public function canReadEmployment(int $employmentId): bool
+    public function canReadEmployment(int $employmentId, ?int $legalEntityId = null): bool
     {
         return match ($this->scope) {
             'SELF' => $this->employmentId === $employmentId,
             'MANAGED' => in_array($employmentId, $this->managedEmploymentIds, true),
-            'LEGAL_ENTITY', 'HR', 'ADMIN' => $this->employmentId !== null && $this->legalEntityIds !== [],
+            'LEGAL_ENTITY', 'HR', 'ADMIN' => $legalEntityId !== null
+                ? in_array($legalEntityId, $this->legalEntityIds, true)
+                : $this->employmentId !== null && $this->legalEntityIds !== [],
             default => $this->employmentId === $employmentId,
         };
     }

@@ -6,6 +6,10 @@ namespace App\Modules\Time\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property \Carbon\CarbonImmutable $from_date
+ * @property \Carbon\CarbonImmutable $to_date
+ */
 final class LeaveRequestProjection extends Model
 {
     protected $fillable = [

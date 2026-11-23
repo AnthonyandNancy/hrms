@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Workflow\Contracts;
+
+/**
+ * Narrow command port for business modules that create or withdraw cases.
+ * Callers never depend on Workflow models, CaseService or template internals.
+ */
+interface CaseCommandPort
+{
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{id: int, case_no: string, status: string, effect_status: string, template_id: int|null}
+     */
+    public function open(
+        WorkflowPrincipal $principal,
+        string $type,
+        string $subjectType,
+        ?int $subjectId,
+        string $title,
+        array $payload,
+        string $businessDate,
+        bool $submit = true,
+    ): array;
+
+    /**
+     * Withdraw a case owned by the same requester. Idempotent when the case is
+     * already withdrawn.
+     *
+     * @return array{id: int, case_no: string, status: string, effect_status: string}
+     */
+    public function withdraw(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+    ): array;
+
+    /**
+     * @return array{id: int, case_no: string, title: string, status: string, effect_status: string, requester_user_id: int, type: string, subject_type: string, subject_id: int|null, payload: array<string, mixed>, business_date: string, submitted_at: string|null, current_node: string|null, due_at: string|null}|null
+     */
+    public function find(int $tenantId, int $caseId): ?array;
+}

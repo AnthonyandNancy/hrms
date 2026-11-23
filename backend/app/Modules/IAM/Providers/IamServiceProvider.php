@@ -6,10 +6,16 @@ namespace App\Modules\IAM\Providers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Auth\CapabilityAuthorizer;
+use App\Modules\IAM\Auth\TimeActorBridge;
+use App\Modules\IAM\Auth\WorkflowPrincipalBridge;
 use App\Modules\IAM\Authorization\EloquentAccessSubjectStateDirectory;
 use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
 use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
+use App\Modules\IAM\Authorization\EloquentPrincipalAuthorityReader;
 use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
+use App\Modules\IAM\Contracts\PrincipalAuthorityReader;
+use App\Modules\Time\Contracts\TimeActorResolver;
+use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\AccessSubjectStateDirectory;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
@@ -46,6 +52,9 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bind(ElevationGrantDirectory::class, EloquentElevationGrantDirectory::class);
         $this->app->bind(SensitiveAccessAuditor::class, PlatformSensitiveAccessAuditor::class);
         $this->app->bind(Authorizer::class, CapabilityAuthorizer::class);
+        $this->app->bind(PrincipalAuthorityReader::class, EloquentPrincipalAuthorityReader::class);
+        $this->app->bind(WorkflowPrincipalResolver::class, WorkflowPrincipalBridge::class);
+        $this->app->bind(TimeActorResolver::class, TimeActorBridge::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);

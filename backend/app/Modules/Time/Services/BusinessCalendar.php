@@ -14,7 +14,7 @@ use Throwable;
  * Business calendar projection. A business date is always a date in the legal
  * entity's IANA timezone; DATE(punched_at) is never used.
  */
-final class BusinessCalendar
+final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityCalendarDirectory
 {
     public function __construct(
         private readonly \App\Shared\Time\Clock $clock,

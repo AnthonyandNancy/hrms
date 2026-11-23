@@ -186,3 +186,101 @@ tax or contribution numbers.
   without changing the gross-to-net order or cent/rounding invariants.
 - Tax filing, bank clearing, payslip PDF rendering, and parallel-run file
   comparison remain outside Task 7A.
+
+## Time, attendance and leave (Task 6)
+
+Status: implemented HTTP/operations slice. Authoritative domain code lives under
+`backend/app/Modules/Time`; OpenAPI is `docs/openapi/openapi.yaml`.
+
+### Business dates and immutable facts
+
+- Raw `punch_records` are append-only evidence. They are never updated or
+  deleted; a correction creates an `AttendanceCorrection` and a Workflow Case.
+  Recalculation writes a new `attendance_days` projection and records the
+  `rule_version` that produced it.
+- A business date is a date in the legal entity's IANA timezone. Shift windows
+  own overnight punches: a 22:00–06:00 shift's morning tail belongs to the
+  shift start business date. `DATE(punched_at)` is never used.
+- Persisted instants are UTC (`DATETIME(6)`); DATE columns carry business dates.
+  Time arithmetic uses `CarbonImmutable` and the shared `Clock`.
+
+### Canonical leave quantity
+
+The ledger stores **signed integer minutes for every leave type**. Day display
+is derived with the legal entity's standard day (default 480 minutes); it is
+never stored as a float. The account direction is:
+
+`GRANT +, RESERVE −, CONSUME −, RELEASE +, EXPIRE −, ADJUST ±, REVERSE ±`.
+
+`balance = sum(signed quantities)` and, because RESERVE is already negative,
+`available = balance` unless the leave type explicitly allows a negative
+balance. `LeaveEquation::summarize` is the only balance equation implementation;
+it returns per-account sums and `unexplained_difference`, which must be zero.
+
+### Request, cancel and approval lifecycle
+
+- Reserve-at-submit: `POST /v1/time/leave/requests` (and the brief alias
+  `POST /v1/leave/requests`) creates a `LEAVE_REQUEST` Workflow Case and appends a
+  `RESERVE` entry keyed by `(LEAVE_REQUEST, case_id)`.
+- `POST /v1/time/leave/requests/{caseId}/cancel` appends `RELEASE` once, asks
+  Workflow to withdraw the Case, and marks the local projection `CANCELLED`.
+  Replaying cancellation returns `replayed: true` and does not double-refund.
+- Overlapping submitted/approved requests for the same employment and leave type
+  are rejected with `409 LEAVE_REQUEST_OVERLAP`. Concurrent reservations lock the
+  open `leave_accounts` row and enforce the negative-balance policy inside the
+  same database transaction.
+- Approval/consume/reverse effects belong to Workflow; Time exposes
+  `LeaveLedgerService` operations and never stores an approval status of its own.
+  Workflow Cases are accessed only through `WorkflowCasePort`.
+
+### API surface (all capability-guarded, tenant-scoped, no public routes)
+
+Frontend-contract paths:
+
+- `GET /v1/time/attendance?month=YYYY-MM` — self attendance month projection.
+- `GET /v1/time/attendance/{employment_id}?from=&to=` — scoped attendance-day
+  projection read.
+- `POST /v1/time/punches/import` — idempotent raw punch batch import.
+- `POST /v1/time/attendance/corrections` — correction Case request.
+- `GET /v1/time/calendars/{legal_entity_id}?year=` and `GET /v1/time/shifts`.
+- `GET /v1/time/leave/balances?as_of=` — self balance projection derived from the
+  ledger.
+- `GET /v1/time/leave/requests` and
+  `POST /v1/time/leave/preview`.
+- `POST /v1/time/leave/requests` and
+  `POST /v1/time/leave/requests/{caseId}/cancel`.
+- `GET /v1/time/leave/ledger?leave_type=<code>&as_of=` — drill-down with entries,
+  ledger summary and running balance after each entry.
+
+Brief aliases share the same controllers and scope checks:
+`POST /v1/leave/requests`, `POST /v1/leave/requests/{caseId}/cancel`,
+`GET /v1/leave/balances/{employment_id}?as_of=`, and
+`GET /v1/leave/ledger/{employment_id}?leave_type_id=&as_of=`.
+
+Capability mapping: reads use `time.attendance.read` / `time.leave.read`;
+punch import uses `time.punch.import`; corrections use
+`time.attendance.correct.request`; leave submission uses `time.leave.request`;
+cancellation uses `time.leave.request.cancel`; ledger drill-down uses
+`time.leave.ledger.read`; calendar/shift reads use `time.calendar.read` /
+`time.shift.read`. A request without a matching capability is 403; an
+employment outside the actor's SELF/MANAGED/legal-entity scope is 404 so other
+tenants cannot be enumerated.
+
+### Reconciliation command
+
+```bash
+php artisan ledger:reconcile --as-of=2026-11-23 [--tenant=1] [--rebuild]
+```
+
+- Recomputes each open leave account from append-only ledger entries effective on
+  or before `--as-of`, using `LeaveEquation::summarize`, and compares it with the
+  stored `leave_balances` projection.
+- Prints accounts checked, ledger-entry count, projection mismatches, equation
+  differences and per-account `DIFF`/`EQUATION` rows.
+- Exit `0`: all projections and equations match. Exit `1`: any mismatch or
+  unexplained equation difference. Exit `2`: invalid `--as-of` or `--tenant`.
+- With `--rebuild`, mismatched projections are repaired through
+  `LeaveBalanceService::project` and re-checked; exit 0 only if the re-check is
+  clean. The command never updates or deletes ledger entries.
+- `--date` is accepted as a backwards-compatible alias for `--as-of`; omitted
+  `--as-of` defaults to the injected clock's today.

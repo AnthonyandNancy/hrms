@@ -9,4 +9,9 @@ interface LegalEntityCalendarDirectory
     public function timezone(int $tenantId, int $legalEntityId): ?string;
 
     public function standardDayMinutes(int $tenantId, int $legalEntityId): int;
+
+    /**
+     * @return list<int>
+     */
+    public function workweek(int $tenantId, int $legalEntityId): array;
 }
