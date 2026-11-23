@@ -106,7 +106,7 @@ to `PATH`.
 ```text
 php artisan test
 Tests: 169 passed (30435 assertions)
-Duration: 3.64s
+Duration: 3.72s
 ```
 
 ```text
@@ -189,6 +189,21 @@ verification when the shared result-cache file was briefly locked.
 15. **Four time axes are separate.** `PayrollCalculationInput` requires an
     earning period, posting period, pay date, and cutoff datetime as distinct
     fields; tests pin them independently.
+
+### Repository-wide gates requested by AGENTS.md
+
+`php artisan capability:audit` and `php artisan arch:test` were attempted
+after implementation. Both commands are absent at this baseline:
+
+```text
+ERROR  There are no commands defined in the "capability" namespace.
+ERROR  There are no commands defined in the "arch" namespace.
+```
+
+They belong to later platform/architecture slices and therefore cannot pass in
+Task 7A. This task adds no `/v1` routes, so no capability audit surface changed.
+The OpenAPI lint/validate commands are likewise not applicable because no
+OpenAPI file or endpoint was modified in this slice.
 
 ## Gaps and boundaries
 
