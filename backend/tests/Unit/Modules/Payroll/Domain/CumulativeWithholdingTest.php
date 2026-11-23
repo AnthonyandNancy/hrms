@@ -6,6 +6,7 @@ namespace Tests\Unit\Modules\Payroll\Domain;
 
 use App\Modules\Payroll\Domain\DeductionLine;
 use App\Modules\Payroll\Domain\PayrollCalculator;
+use App\Modules\Payroll\Domain\PayrollCorrectionDelta;
 use App\Modules\Payroll\Domain\PayrollLineSource;
 use App\Modules\Payroll\Domain\PayrollPeriod;
 use App\Modules\Payroll\Domain\YtdTaxSnapshot;
@@ -121,25 +122,50 @@ final class CumulativeWithholdingTest extends TestCase
         );
     }
 
+    public function test_negative_carry_is_not_subtracted_a_second_time_in_following_month(): void
+    {
+        // February creates a -10,000 carry: cumulative tax 19,000 minus
+        // 29,000 withheld. The YTD withheld stays 29,000, so March's current
+        // tax is simply 49,000 cumulative tax - 29,000 withheld = 20,000.
+        $march = $this->calculate(
+            grossCents: 1_000_000,
+            year: 2026,
+            month: 3,
+            specialDeductionsCents: 200_000,
+            ytd: new YtdTaxSnapshot(2026, 400_000, 29_000),
+        );
+
+        $this->assertSame(700_000, $march->cumulativeTax->cumulativeTaxableCents);
+        $this->assertSame(49_000, $march->cumulativeTax->cumulativeTaxCents);
+        $this->assertSame(20_000, $march->tax->minor());
+        $this->assertSame(0, $march->cumulativeTax->carryForwardCents);
+    }
+
     public function test_correction_delta_is_revised_result_minus_original_result(): void
     {
         $original = $this->calculate(1_000_000, 2026, 3, 0);
         $revised = $this->calculate(1_100_000, 2026, 3, 0);
 
-        // Full recalculation from the same opening YTD gives the revised
-        // liability; a correction pays only the difference.
-        $grossDelta = $revised->gross->minor() - $original->gross->minor();
-        $taxDelta = $revised->tax->minor() - $original->tax->minor();
-        $netDelta = $revised->net->minor() - $original->net->minor();
+        $delta = PayrollCorrectionDelta::between($original, $revised);
 
-        $this->assertSame(100_000, $grossDelta);
-        $this->assertGreaterThan(0, $taxDelta);
-        $this->assertSame($grossDelta - ($revised->employeeDeductions->minor() - $original->employeeDeductions->minor()), $netDelta);
+        $this->assertSame(100_000, $delta->gross->minor());
+        $this->assertGreaterThan(0, $delta->tax->minor());
         $this->assertSame(
-            $original->tax->minor() + $taxDelta,
-            $revised->tax->minor(),
-            'Original plus correction delta must exactly reconcile to the revised tax.',
+            $revised->employeeDeductions->minor() - $original->employeeDeductions->minor(),
+            $delta->employeeDeductions->minor(),
         );
+        $this->assertSame(
+            $revised->net->minor() - $original->net->minor(),
+            $delta->net->minor(),
+        );
+        $this->assertSame($revised->gross->minor(), $original->gross->add($delta->gross)->minor());
+        $this->assertSame($revised->tax->minor(), $original->tax->add($delta->tax)->minor());
+        $this->assertSame($revised->net->minor(), $original->net->add($delta->net)->minor());
+        $this->assertSame(
+            $revised->employerCost->minor(),
+            $original->employerCost->add($delta->employerCost)->minor(),
+        );
+        $this->assertFalse($delta->isZero());
     }
 
     private function calculate(
