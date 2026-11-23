@@ -28,6 +28,7 @@ final class NoFloatTest extends TestCase
         yield 'float cast' => ['<?php $value = (float) $other;', '(float)'];
         yield 'floatval call' => ['<?php $value = floatval($other);', 'floatval'];
         yield 'round call' => ['<?php $value = round($other);', 'round'];
+        yield 'native abs call' => ['<?php $value = abs($other);', 'abs'];
     }
 
     #[DataProvider('forbiddenSnippets')]
@@ -105,7 +106,7 @@ $total = $a + $b;'),
             $isFloatToken = $id === T_DNUMBER;
             $isFloatCast = $id === T_DOUBLE_CAST;
             $isFloatType = in_array($id, [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)
-                && in_array($normalized, ['float', 'double', 'floatval', 'doubleval', 'is_float', 'is_double'], true);
+                && in_array($normalized, ['float', 'double', 'floatval', 'doubleval', 'is_float', 'is_double', 'abs'], true);
             $isNativeRound = $id === T_STRING
                 && $normalized === 'round'
                 && ! $this->isMethodOrDeclarationCall($tokens, $index);

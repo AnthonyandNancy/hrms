@@ -48,7 +48,7 @@ final readonly class ManualAdjustment
 
     public function absoluteAmount(): Money
     {
-        return Money::fromMinor(abs($this->amount->minor()), $this->amount->currency());
+        return $this->amount->absolute();
     }
 
     public function toPayslipLine(?int $sortOrder = null): PayslipLineDraft

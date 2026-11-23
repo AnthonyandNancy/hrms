@@ -36,6 +36,15 @@ final class MoneyTest extends TestCase
         Money::fromMinor(PHP_INT_MIN)->subtract(Money::fromMinor(1));
     }
 
+    public function test_absolute_is_exact_and_rejects_unrepresentable_int_min(): void
+    {
+        $this->assertSame(12345, Money::fromMinor(-12345)->absolute()->minor());
+        $this->assertSame(0, Money::fromMinor(0)->absolute()->minor());
+
+        $this->expectException(InvalidArgumentException::class);
+        Money::fromMinor(PHP_INT_MIN)->absolute();
+    }
+
     public function test_currency_mismatch_is_rejected(): void
     {
         $this->expectException(InvalidArgumentException::class);

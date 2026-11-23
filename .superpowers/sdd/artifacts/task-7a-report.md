@@ -23,6 +23,11 @@ Baseline: `b869706`
 | `d5c055c` | `docs(payroll)`: initial Task 7A report |
 | `eb1a953` | `docs(payroll)`: final report verification/commit table |
 | `c4e1bca` | `docs(payroll)`: complete commit table in this report |
+| `e4d3730` | `docs(payroll)`: close commit manifest |
+| `5b018d8` | `fix(money)`: exact overflow-safe absolute-value handling and extreme-value tests |
+| `25dae8f` | `docs(payroll)`: record absolute-value hardening |
+| `5d5cad5` | `docs(payroll)`: document unavailable baseline audit gates |
+| `9a95c0a` | `docs(payroll)`: final commit manifest |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
@@ -80,6 +85,8 @@ No work was performed outside the worktree.
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollIntermediateOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PercentageIntegrationTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/ManualAdjustmentAmountTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/PayrollResultExtremeValueTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/ProrationRoundingTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollTestFixtures.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollValueObjectTest.php`
@@ -101,13 +108,13 @@ to `PATH`.
 
 ```text
 php artisan test
-Tests: 164 passed (30426 assertions)
-Duration: 3.38s
+Tests: 169 passed (30435 assertions)
+Duration: 3.72s
 ```
 
 ```text
 vendor/bin/pint --test
-PASS 113 files
+PASS 115 files
 ```
 
 ```text
@@ -173,8 +180,8 @@ verification when the shared result-cache file was briefly locked.
     integer.
 13. **No-float guard is token-based.** The guard analyzes PHP tokens in
     `app/Modules/Payroll` and `app/Shared/Money`, catches float literals,
-    declarations, casts, `floatval`/`doubleval`/`is_float`/`is_double`, and
-    native `round()` calls, while permitting Decimal's method named `round()`
+    declarations, casts, `floatval`/`doubleval`/`is_float`/`is_double`, native
+    `round()`/`abs()` calls, while permitting Decimal's method named `round()`
     and comments that mention floating point. Self-tests prove each prohibited
     pattern is detected.
 14. **Proration is unworked-time based.** Full attendance pays the full monthly
@@ -185,6 +192,21 @@ verification when the shared result-cache file was briefly locked.
 15. **Four time axes are separate.** `PayrollCalculationInput` requires an
     earning period, posting period, pay date, and cutoff datetime as distinct
     fields; tests pin them independently.
+
+### Repository-wide gates requested by AGENTS.md
+
+`php artisan capability:audit` and `php artisan arch:test` were attempted
+after implementation. Both commands are absent at this baseline:
+
+```text
+ERROR  There are no commands defined in the "capability" namespace.
+ERROR  There are no commands defined in the "arch" namespace.
+```
+
+They belong to later platform/architecture slices and therefore cannot pass in
+Task 7A. This task adds no `/v1` routes, so no capability audit surface changed.
+The OpenAPI lint/validate commands are likewise not applicable because no
+OpenAPI file or endpoint was modified in this slice.
 
 ## Gaps and boundaries
 
