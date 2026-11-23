@@ -95,6 +95,15 @@ final readonly class Money implements JsonSerializable
         return $allocated;
     }
 
+    public function absolute(): self
+    {
+        if ($this->minor >= 0) {
+            return $this;
+        }
+
+        return new self($this->checkedMinorSum(bcmul((string) $this->minor, '-1', 0)), $this->currency);
+    }
+
     public function isZero(): bool
     {
         return $this->minor === 0;
