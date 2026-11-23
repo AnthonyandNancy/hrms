@@ -6,10 +6,14 @@ namespace App\Modules\People\Providers;
 
 use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
+use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\People\Contracts\PeopleEmploymentWriter;
+use App\Modules\People\Services\EmploymentLifecycleDirectoryService;
 use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\PeopleDirectoryService;
+use App\Modules\People\Services\PeopleEmploymentWriterService;
 use App\Shared\Time\Clock;
 use App\Shared\Time\SystemClock;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +30,8 @@ final class PeopleServiceProvider extends ServiceProvider
     {
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(PeopleDirectory::class, PeopleDirectoryService::class);
+        $this->app->bind(EmploymentLifecycleDirectory::class, EmploymentLifecycleDirectoryService::class);
+        $this->app->bind(PeopleEmploymentWriter::class, PeopleEmploymentWriterService::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
 
     }

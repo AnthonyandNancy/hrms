@@ -851,7 +851,7 @@ components:
         month:
           type: string
           examples:
-            - "2026-11"
+            - 2026-11
         timezone:
           type: string
           examples:
@@ -2906,7 +2906,7 @@ paths:
             pattern: ^\d{4}-\d{2}$
           examples:
             month202611:
-              value: "2026-11"
+              value: 2026-11
       responses:
         "200":
           description: Attendance month
@@ -4119,3 +4119,495 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/onboarding:
+    post:
+      operationId: lifecycleOnboardingStore
+      tags:
+        - Lifecycle
+      summary: Create an onboarding Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/probation-confirmations:
+    post:
+      operationId: lifecycleProbationConfirmationStore
+      tags:
+        - Lifecycle
+      summary: Create a probation confirmation Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/transfers:
+    post:
+      operationId: lifecycleTransferStore
+      tags:
+        - Lifecycle
+      summary: Create an assignment change or transfer Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/salary-changes:
+    post:
+      operationId: lifecycleSalaryChangeStore
+      tags:
+        - Lifecycle
+      summary: Create a salary or terms change Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/offboardings:
+    post:
+      operationId: lifecycleOffboardingStore
+      tags:
+        - Lifecycle
+      summary: Create an offboarding Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/contract-renewals:
+    post:
+      operationId: lifecycleContractRenewalStore
+      tags:
+        - Lifecycle
+      summary: Create a contract renewal Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/rehires:
+    post:
+      operationId: lifecycleRehireStore
+      tags:
+        - Lifecycle
+      summary: Create a rehire Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/lifecycle/cases/{caseId}:
+    get:
+      operationId: lifecycleCaseShow
+      tags:
+        - Lifecycle
+      summary: Read a lifecycle case projection
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/employees/{employment_id}/onboarding-checklist:
+    get:
+      operationId: lifecycleOnboardingChecklist
+      tags:
+        - Lifecycle
+      summary: Read an employment onboarding checklist
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/onboarding-tasks/{id}:
+    patch:
+      operationId: lifecycleOnboardingTaskUpdate
+      tags:
+        - Lifecycle
+      summary: Complete or waive an onboarding task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/recruitment/requisitions:
+    get:
+      operationId: recruitmentRequisitionsIndex
+      tags:
+        - Talent
+      summary: List recruitment requisitions
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: recruitmentRequisitionsStore
+      tags:
+        - Talent
+      summary: Create a requisition approval Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/recruitment/candidates:
+    get:
+      operationId: recruitmentCandidatesIndex
+      tags:
+        - Talent
+      summary: List candidates
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: recruitmentCandidatesStore
+      tags:
+        - Talent
+      summary: Create a candidate
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/recruitment/candidates/{id}/interviews:
+    post:
+      operationId: recruitmentInterviewsStore
+      tags:
+        - Talent
+      summary: Schedule an interview
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/recruitment/offers:
+    post:
+      operationId: recruitmentOffersStore
+      tags:
+        - Talent
+      summary: Create an offer approval Case
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/recruitment/offers/{id}/accept:
+    post:
+      operationId: recruitmentOffersAccept
+      tags:
+        - Talent
+      summary: Accept an approved offer and create an onboarding draft
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/performance/cycles:
+    get:
+      operationId: performanceCyclesIndex
+      tags:
+        - Talent
+      summary: List performance cycles
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: performanceCyclesStore
+      tags:
+        - Talent
+      summary: Create a performance cycle
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/performance/reviews:
+    post:
+      operationId: performanceReviewsStore
+      tags:
+        - Talent
+      summary: Create a performance review
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/performance/reviews/{id}/submit:
+    post:
+      operationId: performanceReviewsSubmit
+      tags:
+        - Talent
+      summary: Submit a performance review
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/performance/reviews/{id}/appeals:
+    post:
+      operationId: performanceReviewsAppealsStore
+      tags:
+        - Talent
+      summary: Create a performance appeal Case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/training/programs:
+    get:
+      operationId: trainingProgramsIndex
+      tags:
+        - Talent
+      summary: List training programs
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: trainingProgramsStore
+      tags:
+        - Talent
+      summary: Create a training program
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/training/sessions:
+    post:
+      operationId: trainingSessionsStore
+      tags:
+        - Talent
+      summary: Create a training session
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/training/enrollments:
+    post:
+      operationId: trainingEnrollmentsStore
+      tags:
+        - Talent
+      summary: Enrol an employment in a training session
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/training/enrollments/{id}/complete:
+    post:
+      operationId: trainingEnrollmentsComplete
+      tags:
+        - Talent
+      summary: Record training completion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/training/report:
+    get:
+      operationId: trainingReportIndex
+      tags:
+        - Talent
+      summary: Read the training attendance report
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"

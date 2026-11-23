@@ -8,7 +8,10 @@ use App\Modules\Workflow\Contracts\ActorDirectory;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use App\Modules\Workflow\Contracts\AssigneeEligibility;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
+use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use App\Modules\Workflow\Contracts\EffectHandler;
+use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
+use App\Modules\Workflow\Contracts\WorkflowDelegationRevoker;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use App\Modules\Workflow\Domain\EffectRegistry;
 use App\Modules\Workflow\Services\CaseCommandService;
@@ -16,7 +19,10 @@ use App\Modules\Workflow\Services\DefaultActorDirectory;
 use App\Modules\Workflow\Services\DefaultAssigneeDirectory;
 use App\Modules\Workflow\Services\DefaultAssigneeEligibility;
 use App\Modules\Workflow\Services\DefaultWorkflowPrincipalResolver;
+use App\Modules\Workflow\Services\DomainEffectHandlerAdapter;
 use App\Modules\Workflow\Services\NullEffectHandler;
+use App\Modules\Workflow\Services\WorkflowCaseGatewayService;
+use App\Modules\Workflow\Services\WorkflowDelegationRevocationService;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +37,14 @@ final class WorkflowServiceProvider extends ServiceProvider
     public const DEFAULT_EFFECT_HANDLERS = [
         NullEffectHandler::class,
     ];
+
+    /**
+     * Contract-only handlers registered by domain modules. They are adapted
+     * inside Workflow so no domain module imports Workflow models.
+     *
+     * @var list<class-string<DomainEffectHandler>>
+     */
+    public const DEFAULT_DOMAIN_EFFECT_HANDLERS = [];
 
     /**
      * Explicit effect type catalog. Unknown types in a template are rejected
@@ -54,6 +68,8 @@ final class WorkflowServiceProvider extends ServiceProvider
         $this->app->bindIf(AssigneeEligibility::class, DefaultAssigneeEligibility::class);
         $this->app->bindIf(WorkflowPrincipalResolver::class, DefaultWorkflowPrincipalResolver::class);
         $this->app->bind(CaseCommandPort::class, CaseCommandService::class);
+        $this->app->bind(WorkflowCaseGateway::class, WorkflowCaseGatewayService::class);
+        $this->app->bind(WorkflowDelegationRevoker::class, WorkflowDelegationRevocationService::class);
 
         $this->app->singleton(EffectRegistry::class, function (Application $app): EffectRegistry {
             $handlers = [];
@@ -65,6 +81,12 @@ final class WorkflowServiceProvider extends ServiceProvider
             foreach ((array) config('workflow.effect_handlers', []) as $handlerClass) {
                 if (is_string($handlerClass) && ! in_array($handlerClass, self::DEFAULT_EFFECT_HANDLERS, true)) {
                     $handlers[] = $app->make($handlerClass);
+                }
+            }
+
+            foreach ((array) config('workflow.domain_effect_handlers', []) as $handlerClass) {
+                if (is_string($handlerClass)) {
+                    $handlers[] = new DomainEffectHandlerAdapter($app->make($handlerClass));
                 }
             }
 

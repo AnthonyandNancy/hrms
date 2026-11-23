@@ -8,9 +8,11 @@ use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Time\Adapters\PeopleEmploymentDirectory;
 use App\Modules\Time\Adapters\WorkflowCaseAdapter;
 use App\Modules\Time\Contracts\EmploymentDirectory;
+use App\Modules\Time\Contracts\LeaveBalanceReader;
 use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Services\BusinessCalendar;
+use App\Modules\Time\Services\LeaveBalanceReaderService;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use Illuminate\Contracts\Foundation\Application;
@@ -32,5 +34,7 @@ final class TimeServiceProvider extends ServiceProvider
                 $app->make(WorkflowPrincipalResolver::class),
             );
         });
+
+        $this->app->bind(LeaveBalanceReader::class, LeaveBalanceReaderService::class);
     }
 }

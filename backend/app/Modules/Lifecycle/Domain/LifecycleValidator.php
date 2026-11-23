@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Lifecycle\Domain;
+
+use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
+use App\Shared\Exceptions\ValidationException;
+use App\Shared\Time\BusinessDate;
+
+/**
+ * Deterministic pre-submit validation. It uses only contracts; the same rules
+ * are re-checked by effect handlers (defense in depth under a stale approval).
+ */
+final class LifecycleValidator
+{
+    public function __construct(
+        private readonly EmploymentLifecycleDirectory $employments,
+        private readonly OrganizationFacts $organization,
+    ) {}
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function assertOnboarding(int $tenantId, array $payload): void
+    {
+        $entity = $this->organization->legalEntity($tenantId, (int) $payload['legal_entity_id']);
+        $org = $this->organization->orgUnit($tenantId, (int) $payload['org_unit_id']);
+
+        if ($entity === null) {
+            throw new ValidationException(['legal_entity_id' => ['The legal entity does not exist in this tenant.']]);
+        }
+
+        if ($org === null) {
+            throw new ValidationException(['org_unit_id' => ['The organization unit does not exist in this tenant.']]);
+        }
+
+        if ($org->legalEntityId !== (int) $payload['legal_entity_id']) {
+            throw (new ValidationException(['org_unit_id' => ['The organization unit must belong to the selected legal entity.']]))
+                ->withReason('ORG_LEGAL_ENTITY_MISMATCH');
+        }
+
+        if ($this->employments->employeeNumberExists($tenantId, (int) $payload['legal_entity_id'], (string) $payload['employee_no'])) {
+            throw (new ValidationException(['employee_no' => ['Employee number already exists in this legal entity.']]))
+                ->withReason('EMPLOYEE_NO_DUPLICATE');
+        }
+
+        $candidatePersonId = isset($payload['person_id']) ? (int) $payload['person_id'] : null;
+
+        if ($candidatePersonId !== null && $this->employments->hasOverlappingEmployment(
+            $tenantId,
+            $candidatePersonId,
+            (int) $payload['legal_entity_id'],
+            (string) $payload['hire_date'],
+            BusinessDate::OPEN_END,
+        )) {
+            throw (new ValidationException(['person_id' => ['The person already has an overlapping active employment in this legal entity.']]))
+                ->withReason('OVERLAPPING_ACTIVE_EMPLOYMENT');
+        }
+
+        if (isset($payload['manager_assignment_id'])
+            && ! $this->employments->activeManagerAssignment($tenantId, (int) $payload['manager_assignment_id'], (string) $payload['hire_date'])) {
+            throw (new ValidationException(['manager_assignment_id' => ['The manager assignment must be active on the hire date.']]))
+                ->withReason('MANAGER_NOT_ACTIVE');
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function assertEmploymentInTenant(int $tenantId, array $payload): void
+    {
+        if ($this->employments->employment($tenantId, (int) $payload['employment_id']) === null) {
+            throw (new ValidationException(['employment_id' => ['The employment does not exist in this tenant.']]))
+                ->withReason('EMPLOYMENT_NOT_FOUND');
+        }
+    }
+}

@@ -284,3 +284,74 @@ php artisan ledger:reconcile --as-of=2026-11-23 [--tenant=1] [--rebuild]
   clean. The command never updates or deletes ledger entries.
 - `--date` is accepted as a backwards-compatible alias for `--as-of`; omitted
   `--as-of` defaults to the injected clock's today.
+
+## Lifecycle
+
+Status: Task 5B implementation. Lifecycle verticals are Case types whose
+approved effects are the only path that mutates People employment facts.
+
+### Case-owned state changes
+
+- ONBOARDING, PROBATION_CONFIRM, ASSIGNMENT_CHANGE/TRANSFER, TERMS_CHANGE,
+  OFFBOARD, CONTRACT_RENEW and REHIRE are closed effect handlers registered
+  under `workflow.effect_types`. A controller never writes employment,
+  assignment or terms rows directly.
+- Case application status and effect status are separate. Approval appends a
+  decision; the effect runs idempotently and records an EFFECTIVE intent. A
+  replayed approval/effect for the same case does not create a second person,
+  employment, assignment, terms version or checklist.
+- Every lifecycle POST requires `Idempotency-Key`. The key covers the command
+  payload and tenant/principal scope; a replay returns the original result.
+- Effective ranges are half-open `[valid_from, valid_to)` with `9999-12-31`
+  as the open end. Future-dated approvals may write the future row while
+  as-of reads before the effective date keep returning the prior fact.
+- Salary and terms changes append a new `employment_terms` version and end
+  the previous version; history is never rewritten. Money is stored as
+  integer minor units (`base_salary_minor`) with an ISO-4217 currency.
+- Cross-entity transfers end the source employment and open a new employment
+  for the same person in the target legal entity, preserving the configured
+  seniority rule. The old row remains queryable.
+- Probation confirmation requires the current status PROBATION and an
+  effective date within the configured confirmation windows; confirmation
+  moves the employment to ACTIVE.
+- Rehire always creates a new employment for the same person, requires the
+  previous employment to be terminated, and applies only the explicit
+  `PRESERVE_ORIGINAL` or `REHIRE_DATE` seniority rule (never inferred).
+
+### Offboarding and checklist
+
+- Offboarding requires all required checklist tasks to be DONE or WAIVED with
+  a non-blank reason; otherwise the effect fails with `CHECKLIST_INCOMPLETE`
+  and no employment rows change.
+- Employment and assignment termination, IAM session revocation and
+  auth_version increment, Workflow delegation revocation, leave-balance
+  capture, export cancellation and the EFFECTIVE intent commit in one
+  transaction. A partial termination is forbidden.
+- Leave balances are captured through the Time `LeaveBalanceReader` contract
+  and attached to the offboarding evidence; they are not recalculated later.
+
+### Talent thin slices
+
+- Recruitment requisition and offer approvals are Workflow Cases with
+  registered effect handlers. Offer acceptance is allowed only from APPROVED,
+  is idempotent, supersedes other open offers for the candidate, and creates
+  exactly one onboarding Case draft linked by offer_id.
+- Candidate email/mobile contact hashes are derived with the tenant PII HMAC
+  key; plaintext is encrypted at rest and excluded from audit payloads.
+- A performance review is immutable once submitted. An appeal creates a new
+  Workflow Case and records the original review values unchanged.
+- Training capacity is enforced under a session row lock plus a unique
+  (session, employment) constraint. Enrolment at or beyond capacity returns
+  conflict `TRAINING_CAPACITY_REACHED`; completion records attendance and a
+  result without changing capacity.
+
+### Explicit gaps for Task 5B
+
+- The no-op export task canceller is an integration seam until Reporting
+  exports are implemented. Offboarding records that cancellation was invoked
+  but cannot cancel a real export job yet.
+- Workflow assignee resolution for lifecycle templates depends on IAM role
+  membership; production seeds must create an HR_ADMIN assignee before
+  submitting a case.
+- Integrity checks are operator diagnostics using contracts and read-only
+  SQL; they are not an API.
