@@ -436,6 +436,8 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             // location here would fabricate a contract fact.
             'work_location' => $data['work_location'],
             'work_schedule' => $data['work_schedule'],
+            'base_salary_minor' => $data['base_salary_minor'] ?? null,
+            'salary_currency' => $data['salary_currency'] ?? 'CNY',
             'notice_period_days' => 0,
             'confidentiality' => 0,
             'non_compete' => 0,
@@ -445,18 +447,31 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         ];
 
         if ($existing instanceof stdClass) {
-            if ($this->sameAttributes($existing, $attributes, ['effective_from', 'effective_to', 'probation_end_date', 'salary_scheme_code'])) {
+            $compared = [
+                'effective_from',
+                'effective_to',
+                'probation_end_date',
+                'salary_scheme_code',
+                'work_location',
+                'work_schedule',
+                'base_salary_minor',
+                'salary_currency',
+            ];
+
+            if ($this->sameAttributes($existing, $attributes, $compared)) {
                 return new TargetWriteResult((int) $existing->id, TargetWriteResult::SKIPPED, true);
             }
 
-            DB::table('employment_terms')->where('id', $existing->id)->update([
-                'effective_from' => $data['effective_from'],
-                'effective_to' => $data['effective_to'],
-                'probation_end_date' => $data['probation_end_date'],
-                'salary_scheme_code' => $data['salary_scheme_code'],
-                'source_type' => 'MIGRATION',
-                'source_id' => $row->stgId,
-            ]);
+            // Update every compared field, otherwise a re-run could report
+            // UPDATED while silently leaving the changed value stale.
+            $updates = [];
+            foreach ($compared as $field) {
+                $updates[$field] = $attributes[$field];
+            }
+            $updates['source_type'] = 'MIGRATION';
+            $updates['source_id'] = $row->stgId;
+
+            DB::table('employment_terms')->where('id', $existing->id)->update($updates);
 
             return new TargetWriteResult((int) $existing->id, TargetWriteResult::UPDATED);
         }

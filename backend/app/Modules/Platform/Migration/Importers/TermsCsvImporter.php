@@ -23,7 +23,7 @@ final class TermsCsvImporter extends AbstractCsvImporter
      */
     public function requiredHeaders(): array
     {
-        return ['employment_no', 'version', 'start_date', 'end_date', 'salary_scheme_code', 'probation_end_date', 'work_location', 'work_schedule'];
+        return ['employment_no', 'version', 'start_date', 'end_date', 'salary_scheme_code', 'probation_end_date', 'work_location', 'work_schedule', 'base_salary_minor', 'salary_currency'];
     }
 
     protected function normalizeRow(
@@ -40,6 +40,12 @@ final class TermsCsvImporter extends AbstractCsvImporter
         // legacy extract must supply them rather than have the adapter guess.
         $this->validator->requireString($values, 'work_location', $sourceRow, $issues);
         $this->validator->requireString($values, 'work_schedule', $sourceRow, $issues);
+        $this->validator->requireString($values, 'salary_currency', $sourceRow, $issues);
+        $baseSalary = $this->validator->integer($values, 'base_salary_minor', $sourceRow, $issues);
+
+        if ($baseSalary !== null && $baseSalary < 0) {
+            $this->addIssue($sourceRow, $issues, IssueCode::INVALID_INTEGER, 'base_salary_minor cannot be negative.', 'base_salary_minor');
+        }
 
         $version = $this->validator->integer($values, 'version', $sourceRow, $issues);
         $start = $this->validator->date($values, 'start_date', $sourceRow, $issues);
@@ -78,6 +84,8 @@ final class TermsCsvImporter extends AbstractCsvImporter
             'probation_end_date' => $probationEnd,
             'work_location' => trim($values['work_location'] ?? ''),
             'work_schedule' => trim($values['work_schedule'] ?? ''),
+            'base_salary_minor' => $baseSalary,
+            'salary_currency' => trim($values['salary_currency'] ?? ''),
             'source_type' => 'MIGRATION',
         ];
     }

@@ -15,9 +15,11 @@ use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Modules\People\Contracts\PeopleWorkspaceDirectory;
+use App\Modules\People\Contracts\WorkforceIntegrityDirectory;
 use App\Modules\People\Contracts\WorkforceReportingDirectory;
 use App\Modules\People\Services\EloquentNoticeAudienceDirectory;
 use App\Modules\People\Services\EloquentPeopleWorkspaceDirectory;
+use App\Modules\People\Services\EloquentWorkforceIntegrityDirectory;
 use App\Modules\People\Services\EloquentWorkforceReportingDirectory;
 use App\Modules\People\Services\EmploymentLifecycleDirectoryService;
 use App\Modules\People\Services\EmploymentTermsDirectoryService;
@@ -49,6 +51,7 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
         $this->app->bindIf(NoticeAudienceDirectory::class, EloquentNoticeAudienceDirectory::class);
         $this->app->bindIf(WorkforceReportingDirectory::class, EloquentWorkforceReportingDirectory::class);
+        $this->app->bindIf(WorkforceIntegrityDirectory::class, EloquentWorkforceIntegrityDirectory::class);
         if (! $this->app->environment('testing')) {
             $this->app->bind(PersonEmploymentDirectory::class, EloquentPersonEmploymentDirectory::class);
         }

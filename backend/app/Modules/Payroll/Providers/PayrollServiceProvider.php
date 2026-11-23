@@ -7,6 +7,7 @@ namespace App\Modules\Payroll\Providers;
 use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
 use App\Modules\Payroll\Console\PayrollParallelCheckCommand;
 use App\Modules\Payroll\Console\PayrollReconciliationCommand;
+use App\Modules\Payroll\Console\SeedDemoPayrollRunCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
 use App\Modules\Payroll\Contracts\PayrollApprovalEffectPort;
 use App\Modules\Payroll\Contracts\PayrollCostDirectory;
@@ -65,6 +66,7 @@ final class PayrollServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SeedPayrollParametersCommand::class,
+                SeedDemoPayrollRunCommand::class,
                 PayrollReconciliationCommand::class,
                 PayrollParallelCheckCommand::class,
             ]);

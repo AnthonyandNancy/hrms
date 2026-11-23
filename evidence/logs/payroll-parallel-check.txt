@@ -1,1 +1,14 @@
---old-file is required and must exist.
+{
+    "period": "2026-11",
+    "headcount_new": 16,
+    "headcount_old": 16,
+    "headcount_match": true,
+    "gross_old_cents": 12420000,
+    "gross_new_cents": 12420000,
+    "net_old_cents": 10227120,
+    "net_new_cents": 10227120,
+    "differences": [],
+    "unexplained_count": 0,
+    "passed": true
+}
+Parallel check passed within 0.01 tolerance and matching headcount.

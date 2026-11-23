@@ -1,1 +1,24 @@
-No calculated payroll runs matched.
+Run 1 (2026-11) reconciled: 16 employees, net 10227120 cents.
+{
+    "runs": [
+        {
+            "run_id": 1,
+            "period": "2026-11",
+            "status": "CALCULATED",
+            "employee_count": 16,
+            "payslip_count": 12,
+            "gross_cents": 12420000,
+            "deductions_cents": 2192880,
+            "net_cents": 10227120,
+            "employer_cost_cents": 15276600,
+            "differences": [],
+            "chain": {
+                "original_run_id": null,
+                "correction_run_ids": [],
+                "passed": true
+            },
+            "passed": true
+        }
+    ],
+    "failed": 0
+}

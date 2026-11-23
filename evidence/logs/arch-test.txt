@@ -1,19 +1,7 @@
-Scanned 533 module PHP files.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:28 [Lifecycle] Table assignments as a has no documented owner; add it to the ownership map.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:46 [Lifecycle] Table assignments as a has no documented owner; add it to the ownership map.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:64 [Lifecycle] Table lifecycle_tasks as t has no documented owner; add it to the ownership map.
-WARN Platform/Demo/Services/DemoSeeder.php:166 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Demo/Services/DemoSeeder.php:173 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Features/FeatureFlagService.php:32 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Features/FeatureFlagService.php:58 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
+Scanned 536 module PHP files.
 WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:114 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:474 [Platform] Table leave_types has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:569 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:596 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:601 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:608 [Platform] Table legal_entities has no documented owner; add it to the ownership map.
 WARN Platform/Retention/RetentionService.php:65 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
 WARN Platform/Retention/RetentionService.php:123 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
 WARN Platform/Retention/RetentionService.php:138 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
-Warnings (non-blocking): 16
+Warnings (non-blocking): 4
 Module boundaries OK.
