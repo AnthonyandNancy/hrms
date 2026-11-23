@@ -8,6 +8,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\PasswordHasher;
+use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 
@@ -28,6 +29,15 @@ final class SeedDemoCommand extends Command
         }
 
         $hash = $passwords->hash($password);
+
+        // Anchor role grants to the seeded legal entity so LEGAL_ENTITY
+        // capabilities resolve against a real row. When the demo organization
+        // has not been seeded, grants stay null and remain fail-closed.
+        // iam:seed-demo may run before people:seed-demo. Provisioning the
+        // synthetic organization here keeps role anchors valid in either
+        // order; the seeder is idempotent.
+        $entityId = app(DemoOrganizationSeeder::class)->seedDemo()['legal_entity_id'];
+
         $users = [
             ['demo.admin', true, ['SYSTEM_ADMIN']],
             ['demo.hr', false, ['HR_ADMIN']],
@@ -49,26 +59,41 @@ final class SeedDemoCommand extends Command
 
             foreach ($roles as $roleCode) {
                 $grants = RoleCapability::query()->where('role_code', $roleCode)->get();
-                $version = (int) $user->auth_version;
 
                 foreach ($grants as $grant) {
+                    $isEntityAnchor = (string) $grant->anchor_type === 'LEGAL_ENTITY';
+                    $anchorId = $isEntityAnchor ? $entityId : null;
+                    $anchorKey = $isEntityAnchor ? (int) $entityId : 0;
+
                     AuthorityBinding::query()->firstOrCreate([
                         'principal_id' => (int) $user->id,
                         'capability_code' => (string) $grant->capability_code,
                         'anchor_type' => (string) $grant->anchor_type,
-                        'anchor_key' => 0,
+                        'anchor_key' => $anchorKey,
                         'valid_from' => $clock->now()->startOfDay(),
                     ], [
                         'tenant_id' => 1,
-                        'anchor_id' => null,
+                        'anchor_id' => $anchorId,
                         'field_profile' => (string) $grant->field_profile,
                         'purpose_code' => 'DEMO_'.$roleCode,
                         'valid_to' => $clock->now()->addYear()->startOfDay(),
                         'source_type' => 'DEMO',
                         'source_id' => null,
-                        'auth_version' => $version,
+                        'auth_version' => (int) $user->auth_version,
                         'created_at' => $clock->now(),
                     ]);
+
+                    // Repair stale DEMO rows created before anchors/versions
+                    // were propagated, so re-seeding is idempotent and correct.
+                    AuthorityBinding::query()
+                        ->where('principal_id', (int) $user->id)
+                        ->where('capability_code', (string) $grant->capability_code)
+                        ->where('source_type', 'DEMO')
+                        ->update([
+                            'anchor_id' => $anchorId,
+                            'anchor_key' => $anchorKey,
+                            'auth_version' => (int) $user->auth_version,
+                        ]);
                 }
             }
         }

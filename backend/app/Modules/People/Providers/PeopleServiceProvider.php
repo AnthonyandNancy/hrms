@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Providers;
 
+use App\Modules\People\Authorization\EloquentPersonEmploymentDirectory;
 use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
 use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
@@ -20,6 +21,7 @@ use App\Modules\People\Services\EmploymentTermsDirectoryService;
 use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\PeopleDirectoryService;
 use App\Modules\People\Services\PeopleEmploymentWriterService;
+use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Time\Clock;
 use App\Shared\Time\SystemClock;
 use Illuminate\Support\ServiceProvider;
@@ -42,6 +44,9 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
         $this->app->bindIf(NoticeAudienceDirectory::class, EloquentNoticeAudienceDirectory::class);
         $this->app->bindIf(WorkforceReportingDirectory::class, EloquentWorkforceReportingDirectory::class);
+        if (! $this->app->environment('testing')) {
+            $this->app->bind(PersonEmploymentDirectory::class, EloquentPersonEmploymentDirectory::class);
+        }
 
     }
 

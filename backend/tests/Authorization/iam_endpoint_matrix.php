@@ -30,6 +30,14 @@ return [
         ],
         [
             'method' => 'GET',
+            'path' => '/v1/me/workspace',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'low',
+            'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
+        ],
+        [
+            'method' => 'GET',
             'path' => '/v1/me/capabilities',
             'capability' => 'iam.session.manage',
             'anchor' => 'SELF',

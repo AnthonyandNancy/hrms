@@ -5522,3 +5522,16 @@ paths:
           $ref: "#/components/responses/NotFound"
         "410":
           description: Export expired or download cap reached
+  /v1/me/workspace:
+    get:
+      operationId: meWorkspace
+      tags:
+        - IAM Auth
+      summary: Self-service workspace projection composed from module contracts
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"

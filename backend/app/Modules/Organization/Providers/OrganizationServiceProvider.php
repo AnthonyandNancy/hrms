@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Providers;
 
+use App\Modules\Organization\Authorization\EloquentOrganizationScopeDirectory;
 use App\Modules\Organization\Commands\RebuildOrgClosureCommand;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Organization\Contracts\OrganizationDirectory;
@@ -11,6 +12,7 @@ use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Organization\Services\DemoOrganizationSeederService;
 use App\Modules\Organization\Services\OrganizationDirectoryService;
 use App\Modules\Organization\Services\OrganizationFactsService;
+use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -23,6 +25,9 @@ final class OrganizationServiceProvider extends ServiceProvider
     {
         $this->app->bind(OrganizationDirectory::class, OrganizationDirectoryService::class);
         $this->app->bind(OrganizationFacts::class, OrganizationFactsService::class);
+        if (! $this->app->environment('testing')) {
+            $this->app->bind(OrganizationScopeDirectory::class, EloquentOrganizationScopeDirectory::class);
+        }
         $this->app->bind(DemoOrganizationSeeder::class, DemoOrganizationSeederService::class);
     }
 

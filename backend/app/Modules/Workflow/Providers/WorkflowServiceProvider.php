@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Providers;
 
+use App\Modules\Workflow\Authorization\EloquentCaseMembershipDirectory;
 use App\Modules\Workflow\Contracts\ActorDirectory;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use App\Modules\Workflow\Contracts\AssigneeEligibility;
@@ -28,6 +29,7 @@ use App\Modules\Workflow\Services\PayrollApprovalWorkflowService;
 use App\Modules\Workflow\Services\ReportingApprovalDirectoryService;
 use App\Modules\Workflow\Services\WorkflowCaseGatewayService;
 use App\Modules\Workflow\Services\WorkflowDelegationRevocationService;
+use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -78,6 +80,9 @@ final class WorkflowServiceProvider extends ServiceProvider
         $this->app->bind(WorkflowDelegationRevoker::class, WorkflowDelegationRevocationService::class);
         $this->app->bind(PayrollApprovalWorkflow::class, PayrollApprovalWorkflowService::class);
         $this->app->bindIf(ReportingApprovalDirectory::class, ReportingApprovalDirectoryService::class);
+        if (! $this->app->environment('testing')) {
+            $this->app->bind(CaseMembershipDirectory::class, EloquentCaseMembershipDirectory::class);
+        }
 
         $this->app->singleton(EffectRegistry::class, function (Application $app): EffectRegistry {
             $handlers = [];

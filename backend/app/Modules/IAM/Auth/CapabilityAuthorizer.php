@@ -255,12 +255,12 @@ final class CapabilityAuthorizer implements Authorizer
         switch ($grant->anchorType) {
             case Anchor::SELF:
                 $employmentIds = $this->people->employmentIdsForUser($principal->tenantId(), $principal->userId());
-                $this->whereColumnIn($query, 'employment_id', $employmentIds);
+                $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
                 break;
 
             case Anchor::MANAGED:
                 $employmentIds = $this->people->managedEmploymentIds($principal->tenantId(), $principal->userId(), $businessDate);
-                $this->whereColumnIn($query, 'employment_id', $employmentIds);
+                $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
                 break;
 
             case Anchor::ORG_UNIT:
@@ -285,13 +285,19 @@ final class CapabilityAuthorizer implements Authorizer
 
             case Anchor::LEGAL_ENTITY:
                 $employmentIds = $this->employmentIdsForLegalEntity($principal->tenantId(), $grant->anchorId, $businessDate);
-                $this->whereColumnIn($query, 'employment_id', $employmentIds);
+                $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
                 break;
         }
     }
 
     /**
      * @param  list<int|null>  $ids
+     */
+    /**
+     * @param  Builder<TModel>  $query
+     * @param  list<int|null>  $ids
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
      */
     /**
      * @param  Builder<TModel>  $query
@@ -310,6 +316,25 @@ final class CapabilityAuthorizer implements Authorizer
         }
 
         $query->whereIn($column, $clean);
+    }
+
+    /**
+     * @param  Builder<TModel>  $query
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * Column that identifies the employment on the constrained model. Models
+     * built on `employments` are keyed by `id`; child tables use
+     * `employment_id`. Guessing `employment_id` everywhere silently produced
+     * zero-row scopes for the employee directory.
+     */
+    private function employmentColumn(Builder $query): string
+    {
+        $model = $query->getModel();
+        $table = $model->getTable();
+        $key = $model->getKeyName();
+
+        return $table === 'employments' ? $key : 'employment_id';
     }
 
     /**

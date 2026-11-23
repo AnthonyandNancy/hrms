@@ -10,6 +10,7 @@ use App\Modules\IAM\Http\Controllers\BreakGlassController;
 use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
+use App\Modules\IAM\Http\Controllers\WorkspaceController;
 use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
@@ -66,6 +67,7 @@ Route::get('/meta', MetaController::class)->name('meta');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('auth.login');
 
 Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
+    Route::get('/me/workspace', [WorkspaceController::class, 'show'])->middleware('capability:iam.session.manage,SELF')->name('me.workspace');
     Route::get('/me', [MeController::class, 'show'])->middleware('capability:iam.session.manage,SELF')->name('me.show');
     Route::get('/me/capabilities', [MeController::class, 'capabilities'])->middleware('capability:iam.session.manage,SELF')->name('me.capabilities');
 
@@ -98,11 +100,11 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
 
 Route::prefix('employees')->middleware('auth.session')->group(function (): void {
     Route::get('/', [EmployeeController::class, 'index'])
-        ->middleware('capability:people.employee.read')
+        ->middleware('capability:people.employee.read,LEGAL_ENTITY,legal_entity_id')
         ->name('employees.index');
     Route::get('/{employment_id}', [EmployeeController::class, 'show'])
         ->whereNumber('employment_id')
-        ->middleware('capability:people.employee.read')
+        ->middleware('capability:people.employee.read,LEGAL_ENTITY,legal_entity_id')
         ->name('employees.show');
 });
 

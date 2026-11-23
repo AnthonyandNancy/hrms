@@ -13,10 +13,12 @@ use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
 use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
 use App\Modules\IAM\Authorization\EloquentPrincipalAuthorityReader;
 use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
+use App\Modules\IAM\Contracts\DemoUserDirectory;
 use App\Modules\IAM\Contracts\PrincipalAuthorityReader;
 use App\Modules\IAM\Contracts\SessionRevoker;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\IAM\Contracts\UserDirectory;
+use App\Modules\IAM\Services\EloquentDemoUserDirectory;
 use App\Modules\IAM\Services\EloquentUserAudienceDirectory;
 use App\Modules\IAM\Services\EloquentUserDirectory;
 use App\Modules\IAM\Services\EmploymentSessionRevoker;
@@ -67,12 +69,17 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bind(UserDirectory::class, EloquentUserDirectory::class);
         $this->app->bind(AssigneeDirectory::class, IamAssigneeDirectory::class);
         $this->app->bindIf(UserAudienceDirectory::class, EloquentUserAudienceDirectory::class);
+        $this->app->bind(DemoUserDirectory::class, EloquentDemoUserDirectory::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);
             $this->app->singleton(OrganizationScopeDirectory::class, FakeOrganizationScopeDirectory::class);
             $this->app->singleton(CaseMembershipDirectory::class, FakeCaseMembershipDirectory::class);
             $this->app->singleton(PayrollRunMembershipDirectory::class, FakePayrollRunMembershipDirectory::class);
+        } else {
+            // Production adapters live in the module that owns the tables.
+            // IAM names only the Shared contracts; each owner provider binds
+            // the Eloquent implementation in the non-testing environment.
         }
     }
 }

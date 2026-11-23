@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Commands;
 
+use App\Modules\IAM\Contracts\DemoUserDirectory;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Models\EmploymentTerms;
+use App\Modules\People\Models\EmploymentUserLink;
 use App\Modules\People\Models\Person;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
@@ -56,10 +58,37 @@ final class SeedPeopleDemoCommand extends Command
             $this->assignment($transferEmployment, $platform->id, null, 'PRIMARY', true, $clock, '2026-01-01', '2026-12-01');
             $this->assignment($transferEmployment, $sales->id, null, 'PRIMARY', true, $clock, '2026-12-01', '9999-12-31');
 
+            // Link synthetic demo logins to synthetic employments so
+            // self-service, manager scope and payslip self-read have a real
+            // subject. Demo users are created by iam:seed-demo.
+            $this->linkDemoUser($manager, 'demo.manager', $clock);
+            $this->linkDemoUser($employee, 'demo.employee', $clock);
+            $this->linkDemoUser($manager, 'demo.hr', $clock);
+            $this->linkDemoUser($manager, 'demo.admin', $clock);
+
             $this->info('Demo people seeded with concurrency, secondment and future transfer.');
         });
 
         return self::SUCCESS;
+    }
+
+    private function linkDemoUser(Employment $employment, string $username, Clock $clock): void
+    {
+        $userId = (int) (app(DemoUserDirectory::class)
+            ->userIdForUsername(1, $username) ?? 0);
+
+        if ($userId === 0) {
+            return;
+        }
+
+        EmploymentUserLink::query()->firstOrCreate(
+            ['tenant_id' => 1, 'user_id' => $userId, 'employment_id' => (int) $employment->id, 'valid_from' => '2026-01-01'],
+            [
+                'valid_to' => '9999-12-31',
+                'recorded_at' => $clock->now(),
+                'source_type' => 'DEMO_SEED',
+            ],
+        );
     }
 
     private function person(string $key, string $name): Person

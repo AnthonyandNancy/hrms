@@ -10,12 +10,14 @@ use App\Modules\Time\Adapters\WorkflowCaseAdapter;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\LeaveBalanceReader;
 use App\Modules\Time\Contracts\LeaveLiabilityDirectory;
+use App\Modules\Time\Contracts\LeaveRequestReader;
 use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
 use App\Modules\Time\Contracts\PayrollInputDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\EloquentLeaveLiabilityDirectory;
 use App\Modules\Time\Services\LeaveBalanceReaderService;
+use App\Modules\Time\Services\LeaveRequestReaderService;
 use App\Modules\Time\Services\PayrollInputDirectoryService;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
@@ -44,6 +46,7 @@ final class TimeServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(LeaveBalanceReader::class, LeaveBalanceReaderService::class);
+        $this->app->bind(LeaveRequestReader::class, LeaveRequestReaderService::class);
         $this->app->bind(PayrollInputDirectory::class, PayrollInputDirectoryService::class);
         $this->app->bindIf(LeaveLiabilityDirectory::class, EloquentLeaveLiabilityDirectory::class);
     }

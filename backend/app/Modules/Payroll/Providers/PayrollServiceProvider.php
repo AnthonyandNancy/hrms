@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Providers;
 
+use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
 use App\Modules\Payroll\Console\PayrollParallelCheckCommand;
 use App\Modules\Payroll\Console\PayrollReconciliationCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
@@ -24,6 +25,7 @@ use App\Modules\Payroll\Services\ReopenService;
 use App\Modules\Payroll\Services\SnapshotService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
 use App\Modules\Payroll\Services\UnavailablePayrollCostDirectory;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -37,6 +39,9 @@ final class PayrollServiceProvider extends ServiceProvider
     {
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
         $this->app->bindIf(PayrollCostDirectory::class, UnavailablePayrollCostDirectory::class);
+        if (! $this->app->environment('testing')) {
+            $this->app->bind(PayrollRunMembershipDirectory::class, EloquentPayrollRunMembershipDirectory::class);
+        }
         $this->app->singleton(PayrollCalculator::class);
         $this->app->singleton(TaxParameterResolver::class);
         $this->app->singleton(SnapshotService::class);
