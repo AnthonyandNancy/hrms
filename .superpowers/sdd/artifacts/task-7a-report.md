@@ -23,6 +23,8 @@ Baseline: `b869706`
 | `d5c055c` | `docs(payroll)`: initial Task 7A report |
 | `eb1a953` | `docs(payroll)`: final report verification/commit table |
 | `c4e1bca` | `docs(payroll)`: complete commit table in this report |
+| `e4d3730` | `docs(payroll)`: close commit manifest |
+| `5b018d8` | `fix(money)`: exact overflow-safe absolute-value handling and extreme-value tests |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
@@ -80,6 +82,8 @@ No work was performed outside the worktree.
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollIntermediateOverflowTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PercentageIntegrationTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/ManualAdjustmentAmountTest.php`
+- `backend/tests/Unit/Modules/Payroll/Domain/PayrollResultExtremeValueTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/ProrationRoundingTest.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollTestFixtures.php`
 - `backend/tests/Unit/Modules/Payroll/Domain/PayrollValueObjectTest.php`
@@ -101,13 +105,13 @@ to `PATH`.
 
 ```text
 php artisan test
-Tests: 164 passed (30426 assertions)
-Duration: 3.38s
+Tests: 169 passed (30435 assertions)
+Duration: 3.64s
 ```
 
 ```text
 vendor/bin/pint --test
-PASS 113 files
+PASS 115 files
 ```
 
 ```text
@@ -173,8 +177,8 @@ verification when the shared result-cache file was briefly locked.
     integer.
 13. **No-float guard is token-based.** The guard analyzes PHP tokens in
     `app/Modules/Payroll` and `app/Shared/Money`, catches float literals,
-    declarations, casts, `floatval`/`doubleval`/`is_float`/`is_double`, and
-    native `round()` calls, while permitting Decimal's method named `round()`
+    declarations, casts, `floatval`/`doubleval`/`is_float`/`is_double`, native
+    `round()`/`abs()` calls, while permitting Decimal's method named `round()`
     and comments that mention floating point. Self-tests prove each prohibited
     pattern is detected.
 14. **Proration is unworked-time based.** Full attendance pays the full monthly
