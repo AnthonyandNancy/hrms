@@ -19,6 +19,9 @@ Baseline: `b869706`
 | `870dde3` | `feat(payroll)`: reconciling correction delta value object and carry-forward regression coverage |
 | `0ffdaf0` | `fix(payroll)`: checked intermediate aggregation and result invariants |
 | `31319b3` | `test(payroll)`: percentage-ratio integration and proration rounding boundaries |
+| `72af4e5` | `docs(payroll)`: interim report verification update |
+| `d5c055c` | `docs(payroll)`: initial Task 7A report |
+| `eb1a953` | `docs(payroll)`: final report verification/commit table |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
