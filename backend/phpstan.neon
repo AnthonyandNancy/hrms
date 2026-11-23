@@ -9,3 +9,5 @@ parameters:
         - tests
     level: 6
     treatPhpDocTypesAsCertain: false
+    parallel:
+        maximumNumberOfProcesses: 1
