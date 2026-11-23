@@ -25,6 +25,8 @@ Baseline: `b869706`
 | `c4e1bca` | `docs(payroll)`: complete commit table in this report |
 | `e4d3730` | `docs(payroll)`: close commit manifest |
 | `5b018d8` | `fix(money)`: exact overflow-safe absolute-value handling and extreme-value tests |
+| `25dae8f` | `docs(payroll)`: record absolute-value hardening |
+| `5d5cad5` | `docs(payroll)`: document unavailable baseline audit gates |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
