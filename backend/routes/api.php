@@ -19,6 +19,9 @@ use App\Modules\Platform\Http\Controllers\LivenessController;
 use App\Modules\Platform\Http\Controllers\MetaController;
 use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
+use App\Modules\Talent\Http\Controllers\PerformanceController;
+use App\Modules\Talent\Http\Controllers\RecruitmentController;
+use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
 use App\Modules\Workflow\Http\Controllers\DecisionController;
 use App\Modules\Workflow\Http\Controllers\DelegationController;
@@ -264,3 +267,80 @@ Route::patch('/onboarding-tasks/{id}', [LifecycleController::class, 'updateCheck
     ->whereNumber('id')
     ->middleware(['auth.session', 'capability:lifecycle.checklist.manage'])
     ->name('lifecycle.onboarding-tasks.update');
+
+/*
+|--------------------------------------------------------------------------
+| Talent thin slices: recruitment, performance, training
+|--------------------------------------------------------------------------
+|
+| Commands are capability-guarded and require Idempotency-Key. Offers and
+| appeals create Workflow Cases; no approval status is trusted from clients.
+|
+*/
+Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/requisitions', [RecruitmentController::class, 'requisitions'])
+        ->middleware('capability:recruitment.requisition.read')
+        ->name('recruitment.requisitions.index');
+    Route::post('/requisitions', [RecruitmentController::class, 'storeRequisition'])
+        ->middleware('capability:recruitment.requisition.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('recruitment.requisitions.store');
+    Route::get('/candidates', [RecruitmentController::class, 'candidates'])
+        ->middleware('capability:recruitment.candidate.read')
+        ->name('recruitment.candidates.index');
+    Route::post('/candidates', [RecruitmentController::class, 'storeCandidate'])
+        ->middleware('capability:recruitment.candidate.manage')
+        ->name('recruitment.candidates.store');
+    Route::post('/candidates/{id}/interviews', [RecruitmentController::class, 'storeInterview'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.interview.manage')
+        ->name('recruitment.interviews.store');
+    Route::post('/offers', [RecruitmentController::class, 'storeOffer'])
+        ->middleware('capability:recruitment.offer.manage')
+        ->name('recruitment.offers.store');
+    Route::post('/offers/{id}/accept', [RecruitmentController::class, 'acceptOffer'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.offer.accept')
+        ->name('recruitment.offers.accept');
+});
+
+Route::prefix('performance')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/cycles', [PerformanceController::class, 'cycles'])
+        ->middleware('capability:performance.cycle.read')
+        ->name('performance.cycles.index');
+    Route::post('/cycles', [PerformanceController::class, 'storeCycle'])
+        ->middleware('capability:performance.cycle.manage')
+        ->name('performance.cycles.store');
+    Route::post('/reviews', [PerformanceController::class, 'storeReview'])
+        ->middleware('capability:performance.review.manage')
+        ->name('performance.reviews.store');
+    Route::post('/reviews/{id}/submit', [PerformanceController::class, 'submitReview'])
+        ->whereNumber('id')
+        ->middleware('capability:performance.review.submit')
+        ->name('performance.reviews.submit');
+    Route::post('/reviews/{id}/appeals', [PerformanceController::class, 'storeAppeal'])
+        ->whereNumber('id')
+        ->middleware('capability:performance.appeal.manage')
+        ->name('performance.reviews.appeals.store');
+});
+
+Route::prefix('training')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/programs', [TrainingController::class, 'programs'])
+        ->middleware('capability:training.program.read')
+        ->name('training.programs.index');
+    Route::post('/programs', [TrainingController::class, 'storeProgram'])
+        ->middleware('capability:training.program.manage')
+        ->name('training.programs.store');
+    Route::post('/sessions', [TrainingController::class, 'storeSession'])
+        ->middleware('capability:training.session.manage')
+        ->name('training.sessions.store');
+    Route::post('/enrollments', [TrainingController::class, 'storeEnrollment'])
+        ->middleware('capability:training.enrollment.manage')
+        ->name('training.enrollments.store');
+    Route::post('/enrollments/{id}/complete', [TrainingController::class, 'completeEnrollment'])
+        ->whereNumber('id')
+        ->middleware('capability:training.completion.manage')
+        ->name('training.enrollments.complete');
+    Route::get('/report', [TrainingController::class, 'report'])
+        ->middleware('capability:training.report.read')
+        ->name('training.report.index');
+});

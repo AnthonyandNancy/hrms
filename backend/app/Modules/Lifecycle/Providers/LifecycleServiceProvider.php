@@ -50,8 +50,12 @@ final class LifecycleServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Effect types are merged into the Workflow-owned configuration in
-        // register(); the lifecycle module deliberately imports no Workflow
-        // internals.
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \App\Modules\Lifecycle\Console\SeedLifecycleTemplatesCommand::class,
+                \App\Modules\Lifecycle\Console\LifecycleDemoCommand::class,
+                \App\Modules\Lifecycle\Console\CheckLifecycleIntegrityCommand::class,
+            ]);
+        }
     }
 }
