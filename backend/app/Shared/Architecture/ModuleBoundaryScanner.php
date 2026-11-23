@@ -305,7 +305,7 @@ final class ModuleBoundaryScanner
             return null;
         }
 
-        if (isset(self::EXPLICIT_ALLOWLIST[$reference])) {
+        if (isset(self::EXPLICIT_ALLOWLIST[$reference])) { // @phpstan-ignore isset.offset
             return null;
         }
 
@@ -383,6 +383,7 @@ final class ModuleBoundaryScanner
 
     /**
      * @param  list<PhpToken>  $tokens
+     * @param  array<string, string>  $aliases
      */
     private function tableReceiver(array $tokens, int $tableIndex, array $aliases): ?string
     {

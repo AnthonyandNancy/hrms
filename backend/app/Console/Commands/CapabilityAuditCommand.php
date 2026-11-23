@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Routing\Route;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 /**
@@ -108,7 +109,13 @@ final class CapabilityAuditCommand extends Command
     {
         $routes = [];
 
-        foreach (RouteFacade::getRoutes() as $route) {
+        $registered = RouteFacade::getRoutes();
+
+        if (! $registered instanceof RouteCollection) {
+            return [];
+        }
+
+        foreach ($registered->getRoutes() as $route) {
             $uri = trim($route->uri(), '/');
 
             if (! str_starts_with($uri, 'v1/')) {
@@ -120,7 +127,7 @@ final class CapabilityAuditCommand extends Command
 
         usort(
             $routes,
-            static fn (Route $a, Route $b): int => [$a->uri(), $a->methods()] <=> [$b->uri(), $b->methods()],
+            static fn (Route $a, Route $b): int => strcmp($a->uri(), $b->uri()),
         );
 
         return $routes;
