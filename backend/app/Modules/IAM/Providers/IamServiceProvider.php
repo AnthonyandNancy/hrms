@@ -27,8 +27,18 @@ use Tests\Fakes\FakePersonEmploymentDirectory;
 
 final class IamServiceProvider extends ServiceProvider
 {
+    /** @var list<class-string> */
+    private const COMMANDS = [
+        \App\Modules\IAM\Console\Commands\SyncCapabilitiesCommand::class,
+        \App\Modules\IAM\Console\Commands\SeedDemoCommand::class,
+        \App\Modules\IAM\Console\Commands\ReapSessionsCommand::class,
+        \App\Modules\IAM\Console\Commands\AccessReviewCommand::class,
+    ];
+
     public function register(): void
     {
+        $this->commands(self::COMMANDS);
+
         $this->app->scoped(AuthenticationContext::class);
 
         $this->app->bind(AuthorityBindingRepository::class, EloquentAuthorityBindingRepository::class);
