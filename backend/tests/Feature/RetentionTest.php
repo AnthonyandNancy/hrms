@@ -1,0 +1,154 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Modules\Platform\Models\AuditEvent;
+use App\Modules\Platform\Retention\LegalHold;
+use App\Modules\Platform\Retention\RetentionClass;
+use App\Modules\Platform\Retention\RetentionService;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+class RetentionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Schema::create('payslips', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('tenant_id');
+            $table->timestamp('published_at')->nullable();
+        });
+
+        Schema::create('payroll_runs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('tenant_id');
+            $table->timestamp('closed_at')->nullable();
+        });
+    }
+
+    protected function tearDown(): void
+    {
+        Schema::dropIfExists('payslips');
+        Schema::dropIfExists('payroll_runs');
+
+        parent::tearDown();
+    }
+
+    public function test_preview_reports_candidates_without_deleting(): void
+    {
+        $this->seedPayslip(1, '2019-01-01');
+        $this->seedPayslip(1, '2025-01-01');
+        $this->seedPayslip(2, '2019-01-01');
+
+        $preview = app(RetentionService::class)->preview(
+            'payroll_payment_records',
+            1,
+            CarbonImmutable::parse('2026-11-23'),
+        );
+
+        $this->assertTrue($preview['available']);
+        $this->assertSame(1, $preview['candidates']);
+        $this->assertSame(1, $preview['purgeable']);
+        $this->assertSame(3, DB::table('payslips')->count());
+    }
+
+    public function test_legal_hold_blocks_purge_and_is_skipped(): void
+    {
+        $old = $this->seedPayslip(1, '2019-01-01');
+        $otherOld = $this->seedPayslip(1, '2019-02-01');
+        LegalHold::query()->create([
+            'tenant_id' => 1,
+            'retention_class' => 'payroll_payment_records',
+            'subject_type' => 'payslips',
+            'subject_id' => (string) $old,
+            'reason' => 'Demo litigation hold',
+            'starts_at' => CarbonImmutable::parse('2026-01-01'),
+            'ends_at' => null,
+        ]);
+
+        $result = app(RetentionService::class)->purge(
+            'payroll_payment_records',
+            1,
+            CarbonImmutable::parse('2026-11-23'),
+            confirm: true,
+            actorUserId: 7,
+        );
+
+        $this->assertTrue($result['executed']);
+        $this->assertSame(1, $result['preview']['held']);
+        $this->assertSame(1, $result['purged']);
+        $this->assertDatabaseHas('payslips', ['id' => $old]);
+        $this->assertDatabaseMissing('payslips', ['id' => $otherOld]);
+        $this->assertDatabaseHas('audit_events', [
+            'action' => 'retention.purged',
+            'aggregate_id' => 'payroll_payment_records',
+        ]);
+        $this->assertDatabaseHas('retention_purge_runs', [
+            'retention_class' => 'payroll_payment_records',
+            'purged' => 1,
+            'held' => 1,
+        ]);
+    }
+
+    public function test_purge_without_confirm_is_a_dry_run(): void
+    {
+        $this->seedPayslip(1, '2019-01-01');
+
+        $result = app(RetentionService::class)->purge(
+            'payroll_payment_records',
+            1,
+            CarbonImmutable::parse('2026-11-23'),
+            confirm: false,
+        );
+
+        $this->assertFalse($result['executed']);
+        $this->assertSame(0, $result['purged']);
+        $this->assertSame(1, DB::table('payslips')->count());
+        $this->assertSame(0, AuditEvent::query()->where('action', 'retention.purged')->count());
+    }
+
+    public function test_contract_and_accounting_retention_classes_exist(): void
+    {
+        $this->assertContains('employment_contracts', RetentionClass::names());
+        $this->assertContains('accounting_vouchers', RetentionClass::names());
+        $this->assertContains('payroll_payment_records', RetentionClass::names());
+        $this->assertSame(360, RetentionClass::get('accounting_vouchers')['period_months']);
+        $this->assertTrue(RetentionClass::get('annual_financial_reports')['permanent']);
+    }
+
+    public function test_permanent_classes_are_never_purged(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Permanent records cannot be purged.');
+
+        Schema::create('report_runs', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('tenant_id');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        try {
+            app(RetentionService::class)->purge('annual_financial_reports', 1, confirm: true);
+        } finally {
+            Schema::dropIfExists('report_runs');
+        }
+    }
+
+    private function seedPayslip(int $tenantId, string $publishedAt): int
+    {
+        return (int) DB::table('payslips')->insertGetId([
+            'tenant_id' => $tenantId,
+            'published_at' => $publishedAt.' 00:00:00',
+        ]);
+    }
+}

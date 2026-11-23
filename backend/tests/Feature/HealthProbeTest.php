@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Modules\Platform\Services\HealthService;
+use Mockery;
+use Tests\TestCase;
+
+class HealthProbeTest extends TestCase
+{
+    public function test_liveness_is_ok_without_touching_any_dependency(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldNotReceive('databaseHealthy');
+        $health->shouldNotReceive('cacheHealthy');
+        $health->shouldNotReceive('storageHealthy');
+        $this->app->instance(HealthService::class, $health);
+
+        $response = $this->getJson('/v1/health/live');
+
+        $response->assertOk()
+            ->assertJsonPath('code', 'OK')
+            ->assertJsonPath('data.status', 'ok')
+            ->assertJsonStructure(['code', 'message', 'data' => ['status', 'version', 'time'], 'request_id']);
+        $this->assertStringEndsWith('Z', $response->json('data.time'));
+    }
+
+    public function test_readiness_returns_503_when_database_is_down(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldReceive('databaseHealthy')->once()->andReturnFalse();
+        $health->shouldReceive('cacheHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $this->app->instance(HealthService::class, $health);
+
+        $this->getJson('/v1/health/ready')
+            ->assertStatus(503)
+            ->assertJsonPath('code', 'SERVICE_UNAVAILABLE')
+            ->assertJsonPath('data.status', 'not_ready')
+            ->assertJsonPath('data.checks.db', false);
+    }
+
+    public function test_readiness_returns_503_when_cache_or_storage_is_down(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('cacheHealthy')->once()->andReturnFalse();
+        $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $this->app->instance(HealthService::class, $health);
+
+        $this->getJson('/v1/health/ready')
+            ->assertStatus(503)
+            ->assertJsonPath('code', 'SERVICE_UNAVAILABLE')
+            ->assertJsonPath('data.status', 'not_ready')
+            ->assertJsonPath('data.checks.cache', false);
+    }
+
+    public function test_legacy_health_remains_degraded_not_unavailable_for_cache_failure(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('cacheHealthy')->once()->andReturnFalse();
+        $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $this->app->instance(HealthService::class, $health);
+
+        $this->getJson('/v1/health')
+            ->assertOk()
+            ->assertJsonPath('data.status', 'degraded');
+    }
+}

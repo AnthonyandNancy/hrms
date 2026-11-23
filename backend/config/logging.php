@@ -62,6 +62,7 @@ return [
 
         'single' => [
             'driver' => 'single',
+            'tap' => [App\Modules\Platform\Logging\RedactingLogTap::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
@@ -69,6 +70,7 @@ return [
 
         'daily' => [
             'driver' => 'daily',
+            'tap' => [App\Modules\Platform\Logging\RedactingLogTap::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'max_files' => env('LOG_DAILY_DAYS', 14),
@@ -106,6 +108,7 @@ return [
 
         'stderr' => [
             'driver' => 'monolog',
+            'tap' => [App\Modules\Platform\Logging\RedactingLogTap::class],
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
             'handler_with' => [
