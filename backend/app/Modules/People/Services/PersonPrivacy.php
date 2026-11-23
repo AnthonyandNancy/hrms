@@ -31,6 +31,10 @@ final class PersonPrivacy
         return Crypt::encryptString($mobile);
     }
 
+    /**
+     * P1 callers receive a masked mobile number. P2/P3 callers receive no
+     * additional plaintext from this projection.
+     */
     public function maskedMobile(?string $mobile): ?string
     {
         if ($mobile === null || $mobile === '') {
@@ -69,7 +73,11 @@ final class PersonPrivacy
             'mobile' => $this->maskedMobile(is_string($mobile) ? $mobile : null),
         ];
 
-        if ($profile === 'P2_SENSITIVE' || $profile === 'P3_RESTRICTED') {
+        if ($profile === 'P2_SENSITIVE') {
+            $row['mobile'] = $this->maskedMobile(is_string($mobile) ? $mobile : null);
+        }
+
+        if ($profile === 'P3_RESTRICTED') {
             $row['mobile'] = null;
         }
 

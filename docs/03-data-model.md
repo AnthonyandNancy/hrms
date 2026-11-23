@@ -80,6 +80,7 @@ constraints in production. Application code validates the same invariant before 
 7. **Org moves version closure.** Existing ancestor/descendant paths are ended at
    `effective_from`; new paths are appended. `org_units.id` is the stable identity; the
    historical parent is derived from closure depth 1 rows, so as-of tree queries are exact.
+   A later move must start strictly after the latest closure version.
 8. **Tenant isolation.** Every directory and HTTP read is scoped by `tenant_id`; cross-tenant
    detail returns 404 to prevent enumeration.
 
@@ -113,6 +114,16 @@ AND (superseded_at IS NULL OR :known_at < superseded_at)
 - P3: payroll/health — out of Task 3 scope.
 - Document download returns only a descriptor requiring a signed URL, never a storage key or
   raw hash, and requires both `people.contract.read` and `people.document.download`.
+
+## Known limitations
+
+- `positions` and `org_unit_closure` are modeled and queried, but this task exposes only the
+  tree/move/impact APIs; a dedicated position CRUD API is deferred.
+- `documents` stores metadata and a `file_object_id`; signed download URL issuance is modeled
+  as a descriptor and belongs to the Platform file-storage task.
+- Payroll cost-center impact is always `0` until Payroll (Task 7) exists.
+- HTTP capability enforcement requires IAM Task 2 middleware. Until it is merged, every route
+  carries `capability:<code>` metadata and the shared Authorizer is fail-closed.
 
 ## Migration and seeding
 
