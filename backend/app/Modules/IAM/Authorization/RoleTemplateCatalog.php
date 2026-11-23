@@ -24,6 +24,19 @@ final class RoleTemplateCatalog
         return self::$templates ??= self::build();
     }
 
+    private const ROLE_CODE_PATTERN = '/^[A-Z][A-Z0-9_]{2,63}$/';
+
+    public static function validateCode(string $code): bool
+    {
+        if (preg_match(self::ROLE_CODE_PATTERN, $code) !== 1) {
+            return false;
+        }
+
+        // Codes are structural role names. Person and department names are
+        // data, never role identifiers; the shape check rejects free text.
+        return ! str_contains($code, ' ');
+    }
+
     public static function find(string $code): ?RoleTemplate
     {
         foreach (self::templates() as $template) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
@@ -14,6 +15,7 @@ use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -146,7 +148,13 @@ final class UserAdminController
             'valid_from' => ['sometimes', 'date'],
             'valid_to' => ['sometimes', 'date', 'after:valid_from'],
             'reason' => ['required', 'string', 'min:3', 'max:255'],
+            'binding_anchors' => ['sometimes', 'array'],
+            'binding_anchors.*' => ['integer', 'min:1'],
         ]);
+
+        if (! RoleTemplateCatalog::validateCode((string) $validated['role_code'])) {
+            throw new ValidationException(['role_code' => ['Role codes must be structural uppercase identifiers, not person or department names.']]);
+        }
 
         /** @var User|null $target */
         $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
@@ -164,6 +172,7 @@ final class UserAdminController
         }
 
         $grants = RoleCapability::query()->where('role_code', $role->code)->get();
+        $anchors = $this->resolveRoleAnchors($request, $grants);
         /** @var list<string> $capabilities */
         $capabilities = $grants->pluck('capability_code')->map(static fn (mixed $code): string => (string) $code)->all();
         SodRules::assertAllowed(array_values(array_unique([...$capabilities, ...$this->currentCapabilityCodes((int) $target->id)])));
@@ -180,7 +189,7 @@ final class UserAdminController
             $to = $role->expires_at;
         }
 
-        DB::transaction(function () use ($target, $principal, $role, $grants, $validated, $from, $to, $request): void {
+        DB::transaction(function () use ($target, $principal, $role, $grants, $anchors, $validated, $from, $to, $request): void {
             $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $newVersion = (int) $user->auth_version + 1;
 
@@ -202,8 +211,8 @@ final class UserAdminController
                     'principal_id' => (int) $user->id,
                     'capability_code' => (string) $grant->capability_code,
                     'anchor_type' => (string) $grant->anchor_type,
-                    'anchor_id' => null,
-                    'anchor_key' => 0,
+                    'anchor_id' => $anchors[(string) $grant->anchor_type] ?? null,
+                    'anchor_key' => $anchors[(string) $grant->anchor_type] ?? 0,
                     'field_profile' => (string) $grant->field_profile,
                     'purpose_code' => 'ROLE_'.$role->code,
                     'valid_from' => $from,
@@ -225,6 +234,50 @@ final class UserAdminController
         });
 
         return ApiResponse::created(['user_id' => (int) $target->id, 'role_code' => $role->code]);
+    }
+
+    /**
+     * Role templates can span anchors. Every anchor that requires an id must
+     * be supplied explicitly, except LEGAL_ENTITY which may come from the
+     * route's legal entity header.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, RoleCapability>  $grants
+     * @return array<string, int>
+     */
+    private function resolveRoleAnchors(Request $request, $grants): array
+    {
+        $provided = $request->input('binding_anchors');
+        $provided = is_array($provided) ? $provided : [];
+        $legalEntity = $request->header('X-Legal-Entity-Id') ?? $request->input('legal_entity_id');
+        $resolved = [];
+
+        foreach ($grants as $grant) {
+            $anchor = AnchorType::tryFrom(strtoupper((string) $grant->anchor_type));
+
+            if ($anchor === null) {
+                throw new ValidationException(['binding_anchors' => ['A role contains an unknown anchor type.']]);
+            }
+
+            if (! $anchor->requiresAnchorId()) {
+                continue;
+            }
+
+            $value = $provided[$anchor->value] ?? null;
+
+            if ($value === null && $anchor === AnchorType::LEGAL_ENTITY && is_numeric($legalEntity)) {
+                $value = (int) $legalEntity;
+            }
+
+            if (! is_numeric($value) || (int) $value <= 0) {
+                throw new ValidationException([
+                    'binding_anchors.'.$anchor->value => ['This role requires an anchor id for '.$anchor->value.'.'],
+                ], 'The given data was invalid.', ['reason' => 'ROLE_ANCHOR_REQUIRED']);
+            }
+
+            $resolved[$anchor->value] = (int) $value;
+        }
+
+        return $resolved;
     }
 
     /**
