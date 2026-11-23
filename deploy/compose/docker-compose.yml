@@ -95,6 +95,8 @@ services:
       - --collation-server=utf8mb4_0900_ai_ci
       - --default-time-zone=+00:00
     environment:
+      # Placeholders only. Provide real values via the shell or an untracked
+      # deploy/compose/.env file; never commit production secrets.
       MYSQL_DATABASE: ${DB_DATABASE:-factoryhr}
       MYSQL_USER: ${DB_USERNAME:-factoryhr}
       MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
