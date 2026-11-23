@@ -30,7 +30,7 @@ const scopes = computed(() =>
   [
     { key: 'approvals' as const, label: '我的待办', count: 3 },
     { key: 'mine' as const, label: '我发起的', count: 2 },
-    { key: 'all' as const, label: '全部案例', count: 7, capability: 'workflow.case.view.all' },
+    { key: 'all' as const, label: '全部案例', count: 7, capability: 'workflow.case.read' },
   ].filter((item) => !item.capability || session.can(item.capability)),
 )
 

@@ -5,7 +5,6 @@ import { getApi } from '@/api'
 import type { DashboardData, DashboardMetric } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
-import StatusBadge from '@/components/StatusBadge.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import FreshnessNote from '@/components/FreshnessNote.vue'
@@ -93,12 +92,12 @@ onMounted(load)
                 <span class="dashboard-list__main">
                   <span class="dashboard-list__title">{{ item.title }}</span>
                   <span class="dashboard-list__meta">
-                    {{ item.applicantName }} · {{ item.applicantOrgName }} · {{ formatDateTimeInTimezone(item.appliedAt) }}
+                    {{ item.caseNo }} · 已等待 {{ item.ageDays }} 天
                   </span>
                 </span>
                 <span class="dashboard-list__status">
-                  <StatusBadge kind="application" :status="item.applicationStatus" size="sm" />
-                  <StatusBadge kind="effect" :status="item.effectStatus" size="sm" />
+                  <span class="plain-chip">{{ item.status }}</span>
+                  <span v-if="item.dueAt" class="small muted">承诺 {{ formatDateTimeInTimezone(item.dueAt) }}</span>
                 </span>
               </RouterLink>
             </li>
@@ -116,11 +115,11 @@ onMounted(load)
             </div>
             <RouterLink to="/dashboard/metric/contract_expiring" class="small">查看全部</RouterLink>
           </div>
-          <ul class="contract-list">
-            <li v-for="alert in data.contractAlerts" :key="alert.contractNo" class="contract-row">
+          <ul v-if="data.contractAlerts.length" class="contract-list">
+            <li v-for="alert in data.contractAlerts" :key="alert.employmentId" class="contract-row">
               <div>
                 <p class="contract-row__name">{{ alert.employeeName }}</p>
-                <p class="contract-row__meta">{{ alert.orgName }} · {{ alert.contractNo }}</p>
+                <p class="contract-row__meta">{{ alert.orgName }} · {{ alert.employeeNo }}</p>
               </div>
               <div class="contract-row__days">
                 <strong>{{ alert.daysRemaining }}</strong>
@@ -129,6 +128,9 @@ onMounted(load)
               </div>
             </li>
           </ul>
+          <div v-else class="panel__body">
+            <p class="empty-inline">未来 30 天内没有合同到期提醒。</p>
+          </div>
         </section>
 
         <section class="panel dashboard-notices">
@@ -139,15 +141,21 @@ onMounted(load)
             </div>
             <RouterLink to="/notices" class="small">全部公告</RouterLink>
           </div>
-          <ul class="notice-list" style="padding: 0 18px">
+          <ul v-if="data.recentNotices.length" class="notice-list" style="padding: 0 18px">
             <li v-for="notice in data.recentNotices" :key="notice.id" class="notice-list__item">
               <RouterLink :to="`/notices/${notice.id}`" class="notice-list__title">
                 {{ notice.title }}
                 <span v-if="notice.requiresAck && !notice.acknowledged" class="plain-chip">待确认</span>
               </RouterLink>
-              <p class="notice-list__meta">{{ notice.authorName }} · {{ formatDateTimeInTimezone(notice.publishedAt) }}</p>
+              <p class="notice-list__meta">
+                <template v-if="notice.authorName">{{ notice.authorName }} · </template>
+                {{ formatDateTimeInTimezone(notice.publishedAt) }}
+              </p>
             </li>
           </ul>
+          <div v-else class="panel__body">
+            <p class="empty-inline">当前没有可见的已发布公告。</p>
+          </div>
         </section>
 
         <section class="panel dashboard-context">

@@ -1,7 +1,10 @@
 import { z } from 'zod'
 
 export const loginSchema = z.object({
-  email: z.string().trim().min(1, '请输入邮箱').email('请输入有效的邮箱地址'),
+  // The backend authenticates by username; email addresses are accepted when
+  // they are the configured login name. Format validation therefore belongs
+  // to the backend, which is the single authority on account identifiers.
+  username: z.string().trim().min(1, '请输入账号').max(80, '账号不能超过 80 个字符'),
   password: z.string().min(8, '密码至少 8 位'),
 })
 

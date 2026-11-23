@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto('/login')
-  await page.getByLabel('邮箱').fill('admin@demo.example')
+  await page.getByLabel('账号').fill('admin@demo.example')
   await page.getByLabel('密码').fill('Demo!2026')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page).toHaveURL(/\/workspace/)
@@ -109,7 +109,7 @@ test.describe('@smoke mock-mode critical journeys', () => {
 
   test('employee role sees self-service navigation without admin', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel('邮箱').fill('jiahe.chen@demo.example')
+    await page.getByLabel('账号').fill('jiahe.chen@demo.example')
     await page.getByLabel('密码').fill('Demo!2026')
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await expect(page).toHaveURL(/\/workspace/)
@@ -120,7 +120,7 @@ test.describe('@smoke mock-mode critical journeys', () => {
 
   test('MFA step-up flow accepts a valid six digit code', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel('邮箱').fill('mfa@demo.example')
+    await page.getByLabel('账号').fill('mfa@demo.example')
     await page.getByLabel('密码').fill('Demo!2026')
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await expect(page.getByRole('heading', { name: '验证你的身份' })).toBeVisible()

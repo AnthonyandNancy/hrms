@@ -23,7 +23,7 @@ const bindingSubmitting = ref(false)
 const bindingForm = reactive({
   principalName: '',
   principalEmploymentNo: '',
-  capabilityCode: 'people.directory.view',
+  capabilityCode: 'people.employee.read',
   capabilityName: '查看员工目录',
   anchorType: 'ORG_UNIT',
   anchorName: '',
@@ -34,12 +34,12 @@ const bindingForm = reactive({
 })
 
 const tabs = computed(() => [
-  { key: 'users', label: '用户', capability: 'iam.user.view' },
-  { key: 'roles', label: '角色', capability: 'iam.role.view' },
-  { key: 'capabilities', label: '能力目录（只读）', capability: 'iam.capability.view' },
-  { key: 'bindings', label: '授权绑定', capability: 'iam.binding.view' },
-  { key: 'access-review', label: '访问复核', capability: 'iam.access_review.manage' },
-  { key: 'audit', label: '审计搜索', capability: 'platform.audit.view' },
+  { key: 'users', label: '用户', capability: 'iam.user.read' },
+  { key: 'roles', label: '角色', capability: 'iam.role.manage' },
+  { key: 'capabilities', label: '能力目录（只读）', capability: 'iam.user.read' },
+  { key: 'bindings', label: '授权绑定', capability: 'iam.binding.manage' },
+  { key: 'access-review', label: '访问复核', capability: 'iam.audit.read' },
+  { key: 'audit', label: '审计搜索', capability: 'iam.audit.read' },
 ].filter((item) => session.can(item.capability)))
 
 const userColumns: DataTableColumn[] = [
@@ -53,7 +53,7 @@ const userColumns: DataTableColumn[] = [
 ]
 
 const canManageBindings = computed(() => session.can('iam.binding.manage'))
-const canReview = computed(() => session.can('iam.access_review.manage'))
+const canReview = computed(() => session.can('iam.audit.read'))
 
 const filteredBindings = computed(() => {
   const list = snapshot.value?.bindings ?? []

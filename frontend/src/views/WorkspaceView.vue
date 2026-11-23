@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { WorkspaceProjection } from '@/api/contracts'
@@ -26,6 +26,14 @@ async function load(): Promise<void> {
   }
 }
 
+const annualBalance = computed(() => {
+  return (
+    data.value?.leaveBalances.find((balance) => balance.leaveTypeCode === 'ANNUAL') ??
+    data.value?.leaveBalances[0] ??
+    null
+  )
+})
+
 function go(path: string): void {
   void router.push(path)
 }
@@ -39,10 +47,13 @@ onMounted(load)
       <div class="workspace-hero__identity">
         <span class="workspace-hero__avatar" aria-hidden="true">{{ data?.profile.initials ?? '—' }}</span>
         <div>
-          <p class="workspace-hero__eyebrow">我的工作台 · {{ formatBusinessDate('2026-11-23') }}</p>
+          <p class="workspace-hero__eyebrow">
+            我的工作台 · {{ formatBusinessDate(data?.businessDate ?? '') }}
+          </p>
           <h1 class="workspace-hero__title">{{ data ? `${data.profile.name}，下午好` : '我的工作台' }}</h1>
           <p class="workspace-hero__meta">
-            {{ data?.profile.jobTitle }} · {{ data?.profile.orgName }} · 工号 {{ data?.profile.employeeNo }}
+            {{ data?.profile.jobTitle ?? '岗位待维护' }} · {{ data?.profile.orgName ?? '组织待维护' }} · 工号
+            {{ data?.profile.employeeNo || '—' }}
           </p>
         </div>
       </div>
@@ -60,23 +71,47 @@ onMounted(load)
 
     <template v-else-if="data">
       <div class="workspace-attention">
-        <button class="attention-card attention-card--warning" type="button" @click="go('/attendance')">
-          <span class="attention-card__kicker">待处理</span>
-          <strong>昨日下班打卡缺失</strong>
-          <span>考勤记录显示 11 月 23 日缺少下班打卡，请提交补正。</span>
+        <button
+          v-if="data.attendanceException"
+          class="attention-card attention-card--warning"
+          type="button"
+          @click="go('/attendance')"
+        >
+          <span class="attention-card__kicker">
+            待处理 · {{ formatBusinessDate(data.attendanceException.date) }}
+          </span>
+          <strong>{{ data.attendanceException.label }}</strong>
+          <span>考勤异常需要补正后才能进入工资计算。</span>
           <span class="attention-card__action">去补正 →</span>
+        </button>
+        <button v-else class="attention-card" type="button" @click="go('/attendance')">
+          <span class="attention-card__kicker">本月考勤</span>
+          <strong>暂无待处理异常</strong>
+          <span>
+            本月已记录出勤 {{ data.attendanceSummary.presentDays }} 天，异常以打卡与日历为准。
+          </span>
+          <span class="attention-card__action">查看考勤 →</span>
         </button>
         <button class="attention-card" type="button" @click="go('/notices')">
           <span class="attention-card__kicker">未读公告</span>
           <strong>{{ data.notices.filter((notice) => !notice.acknowledged).length }} 条需确认</strong>
-          <span>包含薪酬发放安排与个人信息保护培训通知。</span>
+          <span>需确认公告会进入待办；公告可见范围由受众规则决定。</span>
           <span class="attention-card__action">查看公告 →</span>
         </button>
-        <button class="attention-card" type="button" @click="go('/leave')">
-          <span class="attention-card__kicker">年假余额</span>
-          <strong>12 天可用</strong>
-          <span>本年度发放 15 天，已使用 3 天，待审批占用 2 天。</span>
+        <button v-if="annualBalance" class="attention-card" type="button" @click="go('/leave')">
+          <span class="attention-card__kicker">{{ annualBalance.leaveTypeName }}</span>
+          <strong>{{ annualBalance.available }} {{ annualBalance.unit === 'DAY' ? '天可用' : '小时可用' }}</strong>
+          <span>
+            发放 {{ annualBalance.granted }} · 已用 {{ annualBalance.used }} · 待占用
+            {{ annualBalance.pending }}
+          </span>
           <span class="attention-card__action">查看余额明细 →</span>
+        </button>
+        <button v-else class="attention-card" type="button" @click="go('/leave')">
+          <span class="attention-card__kicker">假期余额</span>
+          <strong>尚无假期账户</strong>
+          <span>假期余额来自不可变账本，需先开通账户并发放额度。</span>
+          <span class="attention-card__action">查看假期 →</span>
         </button>
       </div>
 
@@ -87,29 +122,36 @@ onMounted(load)
               <h2 class="panel__title">我的档案</h2>
               <p class="panel__subtitle">当前有效任职与合同摘要</p>
             </div>
-            <el-button text size="small" @click="go(`/employees?employee=5105`)">查看完整档案</el-button>
+            <el-button
+              v-if="data.profile.employmentId"
+              text
+              size="small"
+              @click="go(`/employees?employee=${data.profile.employmentId}`)"
+            >
+              查看完整档案
+            </el-button>
           </div>
           <div class="panel__body">
             <div class="detail-grid">
               <div class="detail-grid__item">
                 <span class="detail-grid__label">岗位</span>
-                <span class="detail-grid__value">{{ data.profile.jobTitle }}</span>
+                <span class="detail-grid__value">{{ data.profile.jobTitle ?? '—' }}</span>
               </div>
               <div class="detail-grid__item">
                 <span class="detail-grid__label">组织</span>
-                <span class="detail-grid__value">{{ data.profile.orgName }}</span>
+                <span class="detail-grid__value">{{ data.profile.orgName ?? '—' }}</span>
               </div>
               <div class="detail-grid__item">
                 <span class="detail-grid__label">直属经理</span>
-                <span class="detail-grid__value">{{ data.profile.managerName }}</span>
+                <span class="detail-grid__value">{{ data.profile.managerName ?? '—' }}</span>
               </div>
               <div class="detail-grid__item">
                 <span class="detail-grid__label">工作地点</span>
-                <span class="detail-grid__value">{{ data.profile.workLocation }}</span>
+                <span class="detail-grid__value">{{ data.profile.workLocation ?? '—' }}</span>
               </div>
               <div class="detail-grid__item">
                 <span class="detail-grid__label">工作邮箱</span>
-                <span class="detail-grid__value">{{ data.profile.email }}</span>
+                <span class="detail-grid__value">{{ data.profile.email ?? '—' }}</span>
               </div>
               <div class="detail-grid__item">
                 <span class="detail-grid__label">手机号</span>
@@ -117,9 +159,9 @@ onMounted(load)
               </div>
             </div>
           </div>
-          <div class="panel__footer workspace-contract">
+          <div v-if="data.contract" class="panel__footer workspace-contract">
             <div>
-              <span class="workspace-contract__label">当前合同</span>
+              <span class="workspace-contract__label">当前条款版本</span>
               <strong>{{ data.contract.contractNo }}</strong>
               <span class="muted"> · {{ data.contract.type }}</span>
             </div>
@@ -127,6 +169,13 @@ onMounted(load)
               {{ formatBusinessDate(data.contract.startDate) }} —
               {{ data.contract.endDate ? formatBusinessDate(data.contract.endDate) : '无固定期限' }}
             </span>
+          </div>
+          <div v-else class="panel__footer workspace-contract">
+            <div>
+              <span class="workspace-contract__label">当前条款版本</span>
+              <strong>尚无生效条款</strong>
+            </div>
+            <span class="muted small">联系 HR 补齐合同条款后，工资与合同预警才能复算。</span>
           </div>
         </section>
 
@@ -158,7 +207,7 @@ onMounted(load)
           </div>
           <div class="panel__footer">
             <span class="small muted">应出勤 {{ data.attendanceSummary.expectedDays }} 天 · 休息日不计入</span>
-            <StatusBadge kind="application" status="IN_APPROVAL" :show-label-prefix="false" size="sm" />
+            <span class="muted small">数据源：考勤投影</span>
           </div>
         </section>
 
@@ -197,17 +246,18 @@ onMounted(load)
             <el-button text size="small" @click="go('/cases')">全部申请</el-button>
           </div>
           <ul class="request-list">
-            <li v-for="request in data.myRequests" :key="request.id" class="request-list__item">
-              <button type="button" class="request-list__button" @click="go(`/cases/${request.id}`)">
+            <li v-for="request in data.myRequests" :key="request.case_id" class="request-list__item">
+              <button type="button" class="request-list__button" @click="go(`/cases/${request.case_id}`)">
                 <span class="request-list__main">
-                  <span class="request-list__title">{{ request.title }}</span>
+                  <span class="request-list__title">
+                    {{ request.state === 'APPROVED' ? '请假申请（已批准）' : '请假申请' }}
+                  </span>
                   <span class="request-list__meta">
-                    {{ request.caseNo }} · 提交于 {{ formatDateTimeInTimezone(request.appliedAt) }}
+                    {{ formatBusinessDate(request.from_date) }} — {{ formatBusinessDate(request.to_date) }}
                   </span>
                 </span>
                 <span class="status-pair">
-                  <StatusBadge kind="application" :status="request.applicationStatus" size="sm" />
-                  <StatusBadge kind="effect" :status="request.effectStatus" size="sm" />
+                  <StatusBadge kind="application" :status="request.state" size="sm" />
                 </span>
               </button>
             </li>
@@ -257,7 +307,7 @@ onMounted(load)
         </section>
       </div>
 
-      <FreshnessNote :timestamp="'2026-11-23T09:05:00Z'" />
+      <FreshnessNote :timestamp="data.freshness" />
     </template>
   </div>
 </template>

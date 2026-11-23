@@ -67,7 +67,7 @@ const flatOrgs = computed(() => {
   return result
 })
 
-const canRevealSensitive = computed(() => session.can('people.field.sensitive.reveal'))
+const canRevealSensitive = computed(() => session.can('people.employee.read'))
 const employeeIdFromQuery = computed(() => {
   const value = Number(route.query.employee)
   return Number.isInteger(value) && value > 0 ? value : null

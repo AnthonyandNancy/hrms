@@ -76,7 +76,8 @@ export type SessionBootstrap = {
 }
 
 export type LoginRequest = {
-  email: string
+  /** Backend login name: a username or an email address. */
+  username: string
   password: string
 }
 
@@ -98,8 +99,9 @@ export type MfaEnrollment = {
 export type DemoAccount = {
   role: 'admin' | 'hr' | 'employee' | 'mfa'
   label: string
-  email: string
+  username: string
   password: string
+  note: string
 }
 
 export type EmployeeStatus = 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'TERMINATED'
@@ -162,12 +164,14 @@ export type DirectoryQuery = {
 
 export type OrgNode = {
   id: number
+  parentId: number | null
   code: string
   name: string
-  type: 'COMPANY' | 'DIVISION' | 'DEPARTMENT' | 'TEAM'
-  managerName: string
-  headcount: number
-  directHeadcount: number
+  type: 'COMPANY' | 'DIVISION' | 'DEPARTMENT' | 'TEAM' | 'COST_CENTER' | 'SHARED_SERVICE'
+  legalEntityId: number
+  managerName: string | null
+  headcount: number | null
+  directHeadcount: number | null
   children: OrgNode[]
 }
 
@@ -333,6 +337,7 @@ export type AttendanceDay = {
   lastOut: string | null
   workedMinutes: number
   exceptionLabel: string | null
+  scheduledMinutes: number
 }
 
 export type AttendanceMonth = {
@@ -563,9 +568,40 @@ export type DashboardMetric = {
   label: string
   value: number
   unit: string
+  status: 'AVAILABLE' | 'UNAVAILABLE'
+  reason: string | null
   trend: string | null
   trendDirection: 'UP' | 'DOWN' | 'FLAT'
   drilldownLabel: string
+  sourceHash: string
+  computedAt: string
+}
+
+export type DashboardPendingApproval = {
+  id: number
+  caseNo: string
+  title: string
+  status: string
+  ageDays: number
+  dueAt: string | null
+}
+
+export type DashboardNotice = {
+  id: number
+  title: string
+  publishedAt: string | null
+  requiresAck: boolean
+  acknowledged: boolean
+  authorName: string | null
+}
+
+export type DashboardContractAlert = {
+  employmentId: number
+  employeeName: string
+  employeeNo: string
+  orgName: string
+  endDate: string
+  daysRemaining: number
 }
 
 export type DashboardData = {
@@ -573,16 +609,12 @@ export type DashboardData = {
   freshness: string
   greeting: string
   metrics: DashboardMetric[]
-  pendingApprovals: CaseSummary[]
-  recentNotices: Notice[]
-  contractAlerts: Array<{
-    employeeName: string
-    orgName: string
-    contractNo: string
-    endDate: string
-    daysRemaining: number
-  }>
+  pendingApprovals: DashboardPendingApproval[]
+  recentNotices: DashboardNotice[]
+  contractAlerts: DashboardContractAlert[]
 }
+
+export type BackendDashboardData = DashboardData
 
 export type DrilldownRow = {
   id: string
@@ -669,25 +701,72 @@ export type AuthApi = {
   demoAccounts(): DemoAccount[]
 }
 
+export type WorkspaceContractSummary = {
+  contractNo: string
+  type: string
+  startDate: string
+  endDate: string | null
+  daysToExpiry: number | null
+  status: 'ACTIVE' | 'EXPIRING' | 'RENEWAL_PENDING'
+}
+
+export type WorkspacePayslip = {
+  id: number
+  period: string
+  payDate: string | null
+  netCents: number
+  state: 'PUBLISHED' | 'PAID' | 'CORRECTION'
+}
+
+export type WorkspaceRequest = {
+  case_id: number
+  leave_type_id: number
+  from_date: string
+  to_date: string
+  minutes: number
+  state: ApplicationStatus
+}
+
+export type WorkspaceNotice = {
+  id: number
+  title: string
+  publishedAt: string | null
+  requiresAck: boolean
+  acknowledged: boolean
+  authorName: string | null
+}
+
+export type WorkspaceAttendanceSummary = {
+  expectedDays: number
+  presentDays: number
+  lateCount: number
+  absentCount: number
+  leaveDays: number
+  remoteDays: number
+}
+
 export type WorkspaceProjection = {
   profile: {
+    employmentId: number | null
     name: string
     initials: string
     employeeNo: string
-    jobTitle: string
-    orgName: string
-    managerName: string
-    workLocation: string
-    email: string
+    jobTitle: string | null
+    orgName: string | null
+    managerName: string | null
+    workLocation: string | null
+    email: string | null
     phone: MaskedFieldValue
   }
-  contract: EmployeeContractSummary
-  attendanceSummary: AttendanceMonth['summary']
+  contract: WorkspaceContractSummary | null
+  businessDate: string
+  attendanceSummary: WorkspaceAttendanceSummary
   attendanceMonth: string
+  attendanceException: { date: string; label: string } | null
   leaveBalances: LeaveBalance[]
-  myRequests: CaseSummary[]
-  payslips: Payslip[]
-  notices: Notice[]
+  myRequests: WorkspaceRequest[]
+  payslips: WorkspacePayslip[]
+  notices: WorkspaceNotice[]
   freshness: string
 }
 

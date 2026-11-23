@@ -42,36 +42,36 @@ const TODAY = '2026-11-23'
 const TENANT_TIMEZONE = 'Asia/Shanghai'
 
 const CAPABILITIES = [
-  'people.directory.view',
-  'people.employee.view',
-  'people.field.sensitive.reveal',
-  'organization.view',
-  'organization.move',
-  'workflow.case.view.mine',
-  'workflow.case.view.all',
+  'people.employee.read',
+  'people.employee.manage',
+  'people.employee.read',
+  'org.tree.read',
+  'org.unit.manage',
+  'workflow.case.read',
+  'workflow.case.read',
   'workflow.case.decide',
-  'workflow.effect.retry',
+  'workflow.case.admin',
   'time.leave.request',
-  'time.leave.view',
-  'time.leave.ledger',
-  'time.attendance.view.mine',
+  'time.leave.read',
+  'time.leave.ledger.read',
+  'time.attendance.read',
   'time.attendance.correct.request',
-  'payroll.run.view',
-  'payroll.run.manage',
-  'payroll.payslip.view.mine',
-  'payroll.payslip.view.run',
-  'reporting.report.view',
+  'payroll.run.read',
+  'payroll.run.prepare',
+  'payroll.payslip.read.self',
+  'payroll.payslip.read',
   'reporting.export',
-  'engagement.notice.view',
+  'reporting.export',
+  'engagement.notice.read',
   'engagement.notice.manage',
-  'iam.user.view',
-  'iam.role.view',
-  'iam.capability.view',
-  'iam.binding.view',
+  'iam.user.read',
+  'iam.role.manage',
+  'iam.user.read',
   'iam.binding.manage',
-  'iam.access_review.manage',
-  'platform.audit.view',
-  'reporting.dashboard.view',
+  'iam.binding.manage',
+  'iam.audit.read',
+  'iam.audit.read',
+  'reporting.dashboard.read',
 ] as const
 
 
@@ -92,15 +92,15 @@ const PRINCIPAL: Principal = {
 }
 
 const DEMO_EMPLOYEE_CAPABILITIES = [
-  'workflow.case.view.mine',
+  'workflow.case.read',
   'time.leave.request',
-  'time.leave.view',
-  'time.leave.ledger',
-  'time.attendance.view.mine',
+  'time.leave.read',
+  'time.leave.ledger.read',
+  'time.attendance.read',
   'time.attendance.correct.request',
-  'payroll.payslip.view.mine',
-  'engagement.notice.view',
-  'reporting.dashboard.view',
+  'payroll.payslip.read.self',
+  'engagement.notice.read',
+  'reporting.dashboard.read',
 ] as const
 
 
@@ -1233,6 +1233,7 @@ function attendanceFor(month = '2026-11'): AttendanceMonth {
       firstIn: present ? (status === 'LATE' ? '09:27' : '08:56') : null,
       lastOut: present ? (date === '2026-11-23' ? null : '18:24') : null,
       workedMinutes: present ? (status === 'LATE' ? 477 : 508) : 0,
+      scheduledMinutes: isWeekend ? 0 : 480,
       exceptionLabel:
         status === 'LATE'
           ? '迟到 27 分钟'
@@ -1580,7 +1581,7 @@ const roles = [
 
 const capabilities = [
   {
-    code: 'people.directory.view',
+    code: 'people.employee.read',
     name: '查看员工目录',
     description: '按组织与 as-of 日期查看授权范围内员工',
     anchorTypes: ['ORG_UNIT', 'SELF'],
@@ -1589,7 +1590,7 @@ const capabilities = [
     separationRule: null,
   },
   {
-    code: 'people.field.sensitive.reveal',
+    code: 'people.employee.read',
     name: '查看敏感身份字段',
     description: '逐字段查看身份证号、银行卡等 P2 字段并记录审计',
     anchorTypes: ['SELF', 'ORG_UNIT'],
@@ -1607,7 +1608,7 @@ const capabilities = [
     separationRule: '不得审批本人发起的案例',
   },
   {
-    code: 'workflow.effect.retry',
+    code: 'workflow.case.admin',
     name: '重试生效任务',
     description: '对 FAILED 状态 Effect 发起幂等重试',
     anchorTypes: ['TENANT', 'ORG_UNIT'],
@@ -1616,7 +1617,7 @@ const capabilities = [
     separationRule: '需与审批决定人分离',
   },
   {
-    code: 'organization.move',
+    code: 'org.unit.manage',
     name: '移动组织节点',
     description: '发起组织移动并查看影响预览',
     anchorTypes: ['ORG_UNIT'],
@@ -1625,7 +1626,7 @@ const capabilities = [
     separationRule: '影响超过 50 人需双人复核',
   },
   {
-    code: 'payroll.run.manage',
+    code: 'payroll.run.prepare',
     name: '管理工资批次',
     description: '锁定输入、计算、复核、审批与发布工资批次',
     anchorTypes: ['LEGAL_ENTITY', 'PAYROLL_RUN'],
@@ -1634,7 +1635,7 @@ const capabilities = [
     separationRule: '制单、复核与发布不可为同一人',
   },
   {
-    code: 'payroll.payslip.view.mine',
+    code: 'payroll.payslip.read.self',
     name: '查看本人工资条',
     description: '读取当前主体本人已发布工资条',
     anchorTypes: ['SELF'],
@@ -1661,7 +1662,7 @@ const capabilities = [
     separationRule: '授权人与审计人分离',
   },
   {
-    code: 'platform.audit.view',
+    code: 'iam.audit.read',
     name: '查看审计日志',
     description: '检索授权、导出、敏感字段访问与决策事件',
     anchorTypes: ['TENANT'],
@@ -1677,7 +1678,7 @@ function bindings(): AuthorityBinding[] {
       id: 1,
       principalName: '林若桐',
       principalEmploymentNo: 'DEMO-0101',
-      capabilityCode: 'people.field.sensitive.reveal',
+      capabilityCode: 'people.employee.read',
       capabilityName: '查看敏感身份字段',
       anchorType: 'ORG_UNIT',
       anchorName: '人力资源部',
@@ -1692,7 +1693,7 @@ function bindings(): AuthorityBinding[] {
       id: 2,
       principalName: '唐见微',
       principalEmploymentNo: 'DEMO-0236',
-      capabilityCode: 'payroll.run.manage',
+      capabilityCode: 'payroll.run.prepare',
       capabilityName: '管理工资批次',
       anchorType: 'LEGAL_ENTITY',
       anchorName: '澄明科技（上海）有限公司',
@@ -1722,7 +1723,7 @@ function bindings(): AuthorityBinding[] {
       id: 4,
       principalName: '宋一澄',
       principalEmploymentNo: 'DEMO-0221',
-      capabilityCode: 'people.directory.view',
+      capabilityCode: 'people.employee.read',
       capabilityName: '查看员工目录',
       anchorType: 'ORG_UNIT',
       anchorName: '研发中心',
@@ -1737,7 +1738,7 @@ function bindings(): AuthorityBinding[] {
       id: 5,
       principalName: '沈知遥',
       principalEmploymentNo: 'DEMO-0251',
-      capabilityCode: 'people.directory.view',
+      capabilityCode: 'people.employee.read',
       capabilityName: '查看员工目录',
       anchorType: 'ORG_UNIT',
       anchorName: '研发中心',
@@ -1994,6 +1995,8 @@ function orgTree(): OrgNode[] {
       code: ORG.company.code,
       name: ORG.company.name,
       type: 'COMPANY',
+      parentId: null,
+      legalEntityId: 1,
       managerName: ORG.company.manager,
       headcount: 86,
       directHeadcount: 8,
@@ -2003,6 +2006,8 @@ function orgTree(): OrgNode[] {
           code: ORG.engineering.code,
           name: ORG.engineering.name,
           type: 'DIVISION',
+          parentId: ORG.company.id,
+          legalEntityId: 1,
           managerName: ORG.engineering.manager,
           headcount: 38,
           directHeadcount: 2,
@@ -2012,6 +2017,8 @@ function orgTree(): OrgNode[] {
               code: 'ENG-PLATFORM',
               name: '平台工程组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '贺兰舟',
               headcount: 14,
               directHeadcount: 14,
@@ -2022,6 +2029,8 @@ function orgTree(): OrgNode[] {
               code: 'ENG-PRODUCT',
               name: '产品研发组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '宋一澄',
               headcount: 13,
               directHeadcount: 13,
@@ -2032,6 +2041,8 @@ function orgTree(): OrgNode[] {
               code: 'ENG-QA',
               name: '质量保障组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '沈知遥',
               headcount: 9,
               directHeadcount: 9,
@@ -2044,6 +2055,8 @@ function orgTree(): OrgNode[] {
           code: ORG.product.code,
           name: ORG.product.name,
           type: 'DIVISION',
+          parentId: ORG.company.id,
+          legalEntityId: 1,
           managerName: ORG.product.manager,
           headcount: 24,
           directHeadcount: 3,
@@ -2053,6 +2066,8 @@ function orgTree(): OrgNode[] {
               code: 'DP-GROWTH',
               name: '增长产品组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '邵清越',
               headcount: 11,
               directHeadcount: 11,
@@ -2063,6 +2078,8 @@ function orgTree(): OrgNode[] {
               code: 'DP-OPS',
               name: '产品运营组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '陈嘉禾',
               headcount: 8,
               directHeadcount: 8,
@@ -2073,6 +2090,8 @@ function orgTree(): OrgNode[] {
               code: 'DP-RESEARCH',
               name: '用户研究组',
               type: 'TEAM',
+              parentId: null,
+              legalEntityId: 1,
               managerName: '顾南乔',
               headcount: 2,
               directHeadcount: 2,
@@ -2085,6 +2104,8 @@ function orgTree(): OrgNode[] {
           code: ORG.hr.code,
           name: ORG.hr.name,
           type: 'DEPARTMENT',
+          parentId: null,
+          legalEntityId: 1,
           managerName: ORG.hr.manager,
           headcount: 9,
           directHeadcount: 9,
@@ -2095,6 +2116,8 @@ function orgTree(): OrgNode[] {
           code: ORG.finance.code,
           name: ORG.finance.name,
           type: 'DEPARTMENT',
+          parentId: null,
+          legalEntityId: 1,
           managerName: ORG.finance.manager,
           headcount: 7,
           directHeadcount: 7,
@@ -2140,6 +2163,10 @@ function dashboard(): DashboardData {
     metrics: [
       {
         code: 'headcount',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '在职人数',
         value: 86,
         unit: '人',
@@ -2149,6 +2176,10 @@ function dashboard(): DashboardData {
       },
       {
         code: 'probation',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '试用期人数',
         value: 7,
         unit: '人',
@@ -2158,6 +2189,10 @@ function dashboard(): DashboardData {
       },
       {
         code: 'turnover',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '年度主动离职率',
         value: 6.4,
         unit: '%',
@@ -2167,6 +2202,10 @@ function dashboard(): DashboardData {
       },
       {
         code: 'pending_approvals',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '待我审批',
         value: 3,
         unit: '件',
@@ -2176,6 +2215,10 @@ function dashboard(): DashboardData {
       },
       {
         code: 'contract_expiring',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '合同 30 天内到期',
         value: 2,
         unit: '份',
@@ -2185,6 +2228,10 @@ function dashboard(): DashboardData {
       },
       {
         code: 'recruitment_funnel',
+        status: 'AVAILABLE' as const,
+        reason: null,
+        sourceHash: 'mock',
+        computedAt: MOCK_NOW,
         label: '招聘漏斗在途',
         value: 18,
         unit: '人',
@@ -2193,20 +2240,42 @@ function dashboard(): DashboardData {
         drilldownLabel: '查看招聘漏斗',
       },
     ],
-    pendingApprovals: caseDetails.filter((item) => item.isAwaitingMe),
-    recentNotices: notices.filter((notice) => notice.status === 'PUBLISHED').slice(0, 3),
+    pendingApprovals: caseDetails
+      .filter((item) => item.isAwaitingMe)
+      .slice(0, 5)
+      .map((item) => ({
+        id: item.id,
+        caseNo: item.caseNo,
+        title: item.title,
+        status: item.applicationStatus,
+        ageDays: 1,
+        dueAt: item.dueAt,
+      })),
+    recentNotices: notices
+      .filter((notice) => notice.status === 'PUBLISHED')
+      .slice(0, 5)
+      .map((notice) => ({
+        id: notice.id,
+        title: notice.title,
+        publishedAt: notice.publishedAt,
+        requiresAck: notice.requiresAck,
+        acknowledged: notice.acknowledged,
+        authorName: notice.authorName,
+      })),
     contractAlerts: [
       {
+        employmentId: 5107,
         employeeName: '顾南乔',
+        employeeNo: 'DEMO-0230',
         orgName: '数字产品部 / 用户研究组',
-        contractNo: 'CT-DEMO-2023-0230',
         endDate: '2026-11-30',
         daysRemaining: 7,
       },
       {
+        employmentId: 5112,
         employeeName: '贺兰舟',
+        employeeNo: 'DEMO-0275',
         orgName: '研发中心 / 平台工程组',
-        contractNo: 'CT-DEMO-2023-0275',
         endDate: '2026-12-15',
         daysRemaining: 22,
       },
@@ -2282,12 +2351,12 @@ function metricDrilldown(metric: DashboardMetricCode): MetricDrilldown {
       label: '合同 30 天内到期',
       predicate: 'contract.end_date ≤ as_of + 30 ∧ contract.status = ACTIVE ∧ org ∈ 授权组织',
       rows: dashboard().contractAlerts.map((item) => ({
-        id: item.contractNo,
+        id: String(item.employmentId),
         primary: item.employeeName,
-        secondary: `${item.orgName} · ${item.contractNo}`,
+        secondary: `${item.orgName} · ${item.employeeNo}`,
         status: 'EXPIRING',
         detail: `${item.endDate} 到期（${item.daysRemaining} 天）`,
-        link: `/employees`,
+        link: `/employees?employee=${item.employmentId}`,
       })),
     },
     recruitment_funnel: {
@@ -2334,6 +2403,7 @@ function workspace(principal: Principal): WorkspaceProjection {
   const employee = employeeSeed.find((item) => item.employeeNo === principal.employmentNo) ?? employeeSeed[0]!
   return {
     profile: {
+      employmentId: 5105,
       name: principal.displayName,
       initials: principal.initials,
       employeeNo: principal.employmentNo,
@@ -2345,21 +2415,43 @@ function workspace(principal: Principal): WorkspaceProjection {
       phone: employee.phone,
     },
     contract: employee.contract,
+    businessDate: '2026-11-23',
     attendanceSummary: attendanceFor().summary,
     attendanceMonth: '2026-11',
+    attendanceException: { date: '2026-11-23', label: '下班打卡缺失' },
     leaveBalances: leaves,
     myRequests: caseDetails
       .filter((item) => item.isMine)
       .slice(0, 4)
       .map((item) => ({
-        ...item,
-        applicantName: principal.displayName,
-        applicantEmploymentNo: principal.employmentNo,
-        applicantOrgName: principal.orgName,
+        case_id: item.id,
+        leave_type_id: 1,
+        from_date: item.appliedAt.slice(0, 10),
+        to_date: item.appliedAt.slice(0, 10),
+        minutes: 480,
+        state: item.applicationStatus,
       })),
-    payslips: payslipsFor(principal).slice(0, 3),
-    notices: notices.filter((notice) => notice.status === 'PUBLISHED').slice(0, 3),
-    freshness: '投影更新于 2026-11-23 17:05（Asia/Shanghai）',
+    payslips: payslipsFor(principal)
+      .slice(0, 3)
+      .map((slip) => ({
+        id: slip.id,
+        period: slip.period,
+        payDate: slip.payDate,
+        netCents: slip.netCents,
+        state: slip.state,
+      })),
+    notices: notices
+      .filter((notice) => notice.status === 'PUBLISHED')
+      .slice(0, 3)
+      .map((notice) => ({
+        id: notice.id,
+        title: notice.title,
+        publishedAt: notice.publishedAt,
+        requiresAck: notice.requiresAck,
+        acknowledged: notice.acknowledged,
+        authorName: notice.authorName,
+      })),
+    freshness: '2026-11-23T09:05:00Z',
   }
 }
 
@@ -2521,11 +2613,12 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
         }
         return current(currentSession)
       },
-      login: async ({ email, password }) => {
+      login: async ({ username, password }) => {
+        const loginName = username.trim().toLowerCase()
         if (password !== 'Demo!2026') {
-          throw new ApiError('UNAUTHENTICATED', '邮箱或密码不正确')
+          throw new ApiError('UNAUTHENTICATED', '账号或密码不正确')
         }
-        if (email.startsWith('mfa@') || email.startsWith('mfa.')) {
+        if (loginName.startsWith('mfa@') || loginName.startsWith('mfa.')) {
           return wait(
             {
               status: 'MFA_REQUIRED' as const,
@@ -2535,7 +2628,11 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
             latency,
           )
         }
-        role = email.startsWith('jiahe.') ? 'employee' : email.startsWith('hr.') ? 'hr' : 'admin'
+        role = loginName.includes('employee') || loginName.startsWith('jiahe.')
+          ? 'employee'
+          : loginName.includes('hr') || loginName.startsWith('hr.')
+            ? 'hr'
+            : 'admin'
         writeMockRole(role)
         currentSession = sessionForRole(role)
         return wait(
@@ -2576,10 +2673,10 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
         return current({ enabled: true })
       },
       demoAccounts: () => [
-        { role: 'admin', label: '超级管理员', email: 'admin@demo.example', password: 'Demo!2026' },
-        { role: 'hr', label: 'HR 管理员', email: 'hr@demo.example', password: 'Demo!2026' },
-        { role: 'employee', label: '普通员工', email: 'jiahe.chen@demo.example', password: 'Demo!2026' },
-        { role: 'mfa', label: '特权账号（MFA 验证）', email: 'mfa@demo.example', password: 'Demo!2026' },
+        { role: 'admin', label: '超级管理员', username: 'demo.admin', password: 'Demo!2026', note: '完整治理与薪酬权限' },
+        { role: 'hr', label: 'HR 管理员', username: 'demo.hr', password: 'Demo!2026', note: '人员、审批、考勤与薪酬批次' },
+        { role: 'employee', label: '普通员工', username: 'demo.employee', password: 'Demo!2026', note: '自助与本人数据' },
+        { role: 'mfa', label: 'MFA 演示账号', username: 'mfa@demo.example', password: 'Demo!2026', note: '触发动态口令第二步' },
       ],
     },
     employees: {
@@ -2618,7 +2715,7 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
        * calls a server endpoint that enforces the field profile + purpose.
        */
       revealField: async (id, field, purpose) => {
-        if (!CAPABILITIES.includes('people.field.sensitive.reveal')) {
+        if (!CAPABILITIES.includes('people.employee.read')) {
           throw new ApiError('FORBIDDEN', '缺少敏感字段查看能力')
         }
         if (purpose.trim().length < 3) {
@@ -2679,7 +2776,7 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
           fieldAccessNote:
             employee.id === 5105
               ? '这是你的本人档案，可查看全部字段；敏感字段查看会记录审计。'
-              : '当前以 HR 管理员范围查看。P2 字段保持遮罩，单独查看需要 people.field.sensitive.reveal 绑定与填写目的。',
+              : '当前以 HR 管理员范围查看。P2 字段保持遮罩，单独查看需要 people.employee.read 绑定与填写目的。',
         }
         return current(detail)
       },

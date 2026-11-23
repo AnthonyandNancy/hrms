@@ -23,7 +23,7 @@ const data = ref<PayrollRunDetail | null>(null)
 const actionLoading = ref('')
 const activeTab = ref<'results' | 'reconciliation' | 'history'>('results')
 
-const canManage = computed(() => session.can('payroll.run.manage'))
+const canManage = computed(() => session.can('payroll.run.prepare'))
 
 const ACTION_LABEL: Record<PayrollRunDetail['availableActions'][number], string> = {
   LOCK_INPUT: '锁定输入',
@@ -171,7 +171,7 @@ onMounted(load)
             </el-button>
           </template>
           <p v-else class="small muted">
-            你拥有批次查看能力，但没有 payroll.run.manage 能力。若需操作，请在权限治理中提交带时限的绑定申请。
+            你拥有批次查看能力，但没有 payroll.run.prepare 能力。若需操作，请在权限治理中提交带时限的绑定申请。
           </p>
         </div>
       </section>

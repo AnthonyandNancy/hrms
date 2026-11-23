@@ -3,7 +3,7 @@ import { can, firstAllowedPath, visibleCaseActions, visibleNavigation } from '@/
 
 describe('capability-driven navigation', () => {
   it('hides pages for which the server did not grant the capability', () => {
-    const paths = visibleNavigation(['workflow.case.view.mine']).map((item) => item.path)
+    const paths = visibleNavigation(['workflow.case.read']).map((item) => item.path)
     expect(paths).toContain('/workspace')
     expect(paths).toContain('/cases')
     expect(paths).not.toContain('/employees')
@@ -12,23 +12,23 @@ describe('capability-driven navigation', () => {
   })
 
   it('shows the admin governance entry only with iam.user.view', () => {
-    expect(visibleNavigation(['iam.user.view']).some((item) => item.key === 'admin')).toBe(true)
-    expect(visibleNavigation(['iam.role.view']).some((item) => item.key === 'admin')).toBe(false)
+    expect(visibleNavigation(['iam.user.read']).some((item) => item.key === 'admin')).toBe(true)
+    expect(visibleNavigation(['iam.role.manage']).some((item) => item.key === 'admin')).toBe(false)
   })
 
   it('keeps navigation order stable across capability sets', () => {
     const full = visibleNavigation([
-      'workflow.case.view.mine',
-      'people.directory.view',
-      'organization.view',
-      'time.leave.view',
-      'time.attendance.view.mine',
-      'payroll.run.view',
-      'payroll.payslip.view.mine',
-      'reporting.dashboard.view',
-      'reporting.report.view',
-      'engagement.notice.view',
-      'iam.user.view',
+      'workflow.case.read',
+      'people.employee.read',
+      'org.tree.read',
+      'time.leave.read',
+      'time.attendance.read',
+      'payroll.run.read',
+      'payroll.payslip.read.self',
+      'reporting.dashboard.read',
+      'reporting.export',
+      'engagement.notice.read',
+      'iam.user.read',
     ]).map((item) => item.key)
     expect(full[0]).toBe('workspace')
     expect(full.indexOf('directory')).toBeLessThan(full.indexOf('leave'))
@@ -41,13 +41,13 @@ describe('capability-driven navigation', () => {
       'APPROVE',
       'REJECT',
     ])
-    expect(visibleCaseActions(['workflow.effect.retry'], ['APPROVE', 'RETRY_EFFECT'])).toEqual(['RETRY_EFFECT'])
+    expect(visibleCaseActions(['workflow.case.admin'], ['APPROVE', 'RETRY_EFFECT'])).toEqual(['RETRY_EFFECT'])
   })
 
   it('provides deterministic fallback paths and capability checks', () => {
     expect(firstAllowedPath([])).toBe('/workspace')
-    expect(firstAllowedPath(['people.directory.view'])).toBe('/workspace')
+    expect(firstAllowedPath(['people.employee.read'])).toBe('/workspace')
     expect(can([], undefined)).toBe(true)
-    expect(can([], 'people.directory.view')).toBe(false)
+    expect(can([], 'people.employee.read')).toBe(false)
   })
 })

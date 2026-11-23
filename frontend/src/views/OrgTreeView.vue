@@ -27,7 +27,7 @@ const impact = ref<MoveImpact | null>(null)
 const impactError = ref('')
 const committing = ref(false)
 
-const canMove = computed(() => session.can('organization.move'))
+const canMove = computed(() => session.can('org.unit.manage'))
 
 type FlatNode = { node: OrgNode; depth: number }
 const flatNodes = computed(() => {
@@ -256,7 +256,7 @@ onMounted(load)
             </el-button>
           </div>
           <div v-else class="panel__footer">
-            <p class="small muted">你没有 organization.move 能力，只能查看组织。移动需在权限治理中申请授权。</p>
+            <p class="small muted">你没有 org.unit.manage 能力，只能查看组织。移动需在权限治理中申请授权。</p>
           </div>
         </section>
 

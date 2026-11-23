@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto('/login')
-  await page.getByLabel('邮箱').fill('admin@demo.example')
+  await page.getByLabel('账号').fill('admin@demo.example')
   await page.getByLabel('密码').fill('Demo!2026')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page).toHaveURL(/\/workspace/)

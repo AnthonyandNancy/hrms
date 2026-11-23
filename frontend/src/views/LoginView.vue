@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, Lock, Key, Setting } from '@element-plus/icons-vue'
 import { useSessionStore } from '@/stores/session'
+import { getApi } from '@/api'
 import { loginSchema, totpSchema, validate } from '@/utils/validation'
 import { errorCopy } from '@/api/errors'
 import MfaEnrollmentDialog from '@/components/MfaEnrollmentDialog.vue'
@@ -13,8 +14,8 @@ const route = useRoute()
 const session = useSessionStore()
 
 const form = reactive({
-  email: 'admin@demo.example',
-  password: 'Demo!2026',
+  username: 'demo.hr',
+  password: 'Demo!2026Synthetic',
 })
 const totpCode = ref('')
 const errors = reactive<Record<string, string>>({})
@@ -25,12 +26,7 @@ const showDemo = ref(true)
 const expiredVisible = ref(route.query.expired === '1')
 const enrollmentOpen = ref(false)
 
-const demoAccounts = computed(() => session.principal?.email ? [] : [
-  { role: 'admin', label: '超级管理员', email: 'admin@demo.example', password: 'Demo!2026', note: '完整治理与薪酬权限' },
-  { role: 'hr', label: 'HR 管理员', email: 'hr@demo.example', password: 'Demo!2026', note: '人员、审批、考勤与薪酬批次' },
-  { role: 'employee', label: '普通员工', email: 'jiahe.chen@demo.example', password: 'Demo!2026', note: '自助与本人数据' },
-  { role: 'mfa', label: 'MFA 演示账号', email: 'mfa@demo.example', password: 'Demo!2026', note: '触发动态口令第二步' },
-])
+const demoAccounts = computed(() => (session.principal ? [] : getApi().auth.demoAccounts()))
 
 const mfaRequired = computed(() => session.status === 'mfa_required')
 
@@ -39,8 +35,8 @@ function clearErrors(): void {
   totpError.value = ''
 }
 
-function fillDemo(email: string, password: string): void {
-  form.email = email
+function fillDemo(username: string, password: string): void {
+  form.username = username
   form.password = password
   clearErrors()
 }
@@ -171,19 +167,19 @@ onMounted(() => {
           />
 
           <form class="login-form" novalidate @submit.prevent="submitLogin">
-            <label class="field-label" for="login-email">邮箱</label>
+            <label class="field-label" for="login-username">账号</label>
             <el-input
-              id="login-email"
-              v-model="form.email"
+              id="login-username"
+              v-model="form.username"
               autocomplete="username"
               size="large"
-              placeholder="name@company.example"
-              :class="{ 'input-invalid': errors.email }"
-              :aria-invalid="Boolean(errors.email)"
-              aria-describedby="login-email-error"
+              placeholder="登录账号或邮箱"
+              :class="{ 'input-invalid': errors.username }"
+              :aria-invalid="Boolean(errors.username)"
+              aria-describedby="login-username-error"
               @keyup.enter="submitLogin"
             />
-            <p v-if="errors.email" id="login-email-error" class="field-error">{{ errors.email }}</p>
+            <p v-if="errors.username" id="login-username-error" class="field-error">{{ errors.username }}</p>
 
             <div class="label-row">
               <label class="field-label" for="login-password">密码</label>
@@ -231,18 +227,18 @@ onMounted(() => {
               @click="showDemo = !showDemo"
             >
               <span>演示账号</span>
-              <span class="demo-accounts__hint">点击填入 · 仅 mock 模式</span>
+              <span class="demo-accounts__hint">点击填入</span>
             </button>
-            <div v-if="showDemo" id="demo-accounts-list" class="demo-accounts__grid">
+            <div v-if="showDemo && demoAccounts.length > 0" id="demo-accounts-list" class="demo-accounts__grid">
               <button
                 v-for="account in demoAccounts"
                 :key="account.role"
                 type="button"
                 class="demo-account"
-                @click="fillDemo(account.email, account.password)"
+                @click="fillDemo(account.username, account.password)"
               >
                 <span class="demo-account__label">{{ account.label }}</span>
-                <span class="demo-account__email">{{ account.email }}</span>
+                <span class="demo-account__email">{{ account.username }}</span>
                 <span class="demo-account__note">{{ account.note }}</span>
               </button>
             </div>

@@ -105,6 +105,183 @@ components:
           type: string
           examples:
             - 01M83YXN5D1504BQSXJ36VQPGF
+    DashboardMetric:
+      type: object
+      required:
+        - code
+        - label
+        - value
+        - unit
+        - status
+        - reason
+        - trend
+        - trendDirection
+        - drilldownLabel
+        - sourceHash
+        - computedAt
+      properties:
+        code:
+          type: string
+          enum:
+            - headcount
+            - probation
+            - turnover
+            - pending_approvals
+            - contract_expiring
+            - leave_liability
+            - payroll_cost_by_entity
+            - recruitment_funnel
+        label:
+          type: string
+        value:
+          type: integer
+        unit:
+          type: string
+        status:
+          type: string
+          enum:
+            - AVAILABLE
+            - UNAVAILABLE
+        reason:
+          type:
+            - string
+            - "null"
+        trend:
+          type:
+            - string
+            - "null"
+        trendDirection:
+          type: string
+          enum:
+            - UP
+            - DOWN
+            - FLAT
+        drilldownLabel:
+          type: string
+        sourceHash:
+          type: string
+        computedAt:
+          type: string
+          format: date-time
+    DashboardPendingApproval:
+      type: object
+      description: Bounded preview of the pending_approvals projection under the same caller scope.
+      required:
+        - id
+        - caseNo
+        - title
+        - status
+        - ageDays
+        - dueAt
+      properties:
+        id:
+          type: integer
+        caseNo:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        ageDays:
+          type: integer
+          minimum: 0
+        dueAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+    DashboardNotice:
+      type: object
+      description: Bounded published notice preview from the notice workspace seam.
+      required:
+        - id
+        - title
+        - publishedAt
+        - requiresAck
+        - acknowledged
+        - authorName
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        publishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        requiresAck:
+          type: boolean
+        acknowledged:
+          type: boolean
+        authorName:
+          type:
+            - string
+            - "null"
+    DashboardContractAlert:
+      type: object
+      description: Bounded preview of contract_expiring rows in the panel's 30-day window.
+      required:
+        - employmentId
+        - employeeName
+        - employeeNo
+        - orgName
+        - endDate
+        - daysRemaining
+      properties:
+        employmentId:
+          type: integer
+        employeeName:
+          type: string
+        employeeNo:
+          type: string
+        orgName:
+          type: string
+        endDate:
+          type: string
+          format: date
+        daysRemaining:
+          type: integer
+          minimum: 0
+          maximum: 30
+    DashboardData:
+      type: object
+      required:
+        - asOf
+        - freshness
+        - greeting
+        - metrics
+        - pendingApprovals
+        - recentNotices
+        - contractAlerts
+      properties:
+        asOf:
+          type: string
+          format: date
+        freshness:
+          type: string
+          format: date-time
+        greeting:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardMetric"
+        pendingApprovals:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/DashboardPendingApproval"
+        recentNotices:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/DashboardNotice"
+        contractAlerts:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/DashboardContractAlert"
     Pagination:
       type: object
       required:
@@ -5383,10 +5560,21 @@ paths:
       operationId: reportingDashboard
       tags:
         - Reporting
-      summary: Dashboard metrics with as-of and source hash
+      summary: Dashboard metrics with as-of, source hash and bounded authorized panels
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Authorized dashboard projection with bounded drilldown previews
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DashboardData"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":

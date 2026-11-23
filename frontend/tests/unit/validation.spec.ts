@@ -10,11 +10,12 @@ import {
 } from '@/utils/validation'
 
 describe('form validation', () => {
-  it('validates login email and minimum password length', () => {
-    expect(validate(loginSchema, { email: 'admin@demo.example', password: 'Demo!2026' }).success).toBe(true)
-    const invalid = validate(loginSchema, { email: 'not-an-email', password: 'short' })
+  it('validates the login identifier and minimum password length', () => {
+    expect(validate(loginSchema, { username: 'demo.hr', password: 'Demo!2026' }).success).toBe(true)
+    expect(validate(loginSchema, { username: 'hr@demo.example', password: 'Demo!2026' }).success).toBe(true)
+    const invalid = validate(loginSchema, { username: '   ', password: 'short' })
     expect(invalid.success).toBe(false)
-    expect(invalid.issues.map((issue) => issue.path)).toEqual(['email', 'password'])
+    expect(invalid.issues.map((issue) => issue.path)).toEqual(['username', 'password'])
   })
 
   it('rejects reversed and half-day leave ranges', () => {

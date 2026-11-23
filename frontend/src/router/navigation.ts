@@ -23,7 +23,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '审批中心',
     path: '/cases',
     icon: 'Stamp',
-    capability: 'workflow.case.view.mine',
+    capability: 'workflow.case.read',
     group: 'work',
     badge: 'approvals',
   },
@@ -32,7 +32,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '员工目录',
     path: '/employees',
     icon: 'User',
-    capability: 'people.directory.view',
+    capability: 'people.employee.read',
     group: 'people',
   },
   {
@@ -40,7 +40,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '组织架构',
     path: '/organization',
     icon: 'Share',
-    capability: 'organization.view',
+    capability: 'org.tree.read',
     group: 'people',
   },
   {
@@ -48,7 +48,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '假期与余额',
     path: '/leave',
     icon: 'Calendar',
-    capability: 'time.leave.view',
+    capability: 'time.leave.read',
     group: 'time',
   },
   {
@@ -56,7 +56,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '考勤日历',
     path: '/attendance',
     icon: 'Clock',
-    capability: 'time.attendance.view.mine',
+    capability: 'time.attendance.read',
     group: 'time',
   },
   {
@@ -64,7 +64,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '工资批次',
     path: '/payroll',
     icon: 'Money',
-    capability: 'payroll.run.view',
+    capability: 'payroll.run.read',
     group: 'pay',
   },
   {
@@ -72,7 +72,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '我的工资条',
     path: '/payroll/my-payslips',
     icon: 'Wallet',
-    capability: 'payroll.payslip.view.mine',
+    capability: 'payroll.payslip.read.self',
     group: 'pay',
   },
   {
@@ -80,7 +80,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '人力仪表盘',
     path: '/dashboard',
     icon: 'DataAnalysis',
-    capability: 'reporting.dashboard.view',
+    capability: 'reporting.dashboard.read',
     group: 'insight',
   },
   {
@@ -88,7 +88,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '报表中心',
     path: '/reports',
     icon: 'Document',
-    capability: 'reporting.report.view',
+    capability: 'reporting.export',
     group: 'insight',
   },
   {
@@ -96,7 +96,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '公告与通知',
     path: '/notices',
     icon: 'Bell',
-    capability: 'engagement.notice.view',
+    capability: 'engagement.notice.read',
     group: 'work',
     badge: 'notices',
   },
@@ -105,7 +105,7 @@ export const NAVIGATION: NavigationItem[] = [
     label: '权限治理',
     path: '/admin',
     icon: 'Lock',
-    capability: 'iam.user.view',
+    capability: 'iam.user.read',
     group: 'admin',
   },
 ]
@@ -133,7 +133,7 @@ const CASE_ACTION_CAPABILITY: Record<CaseAction, string> = {
   APPROVE: 'workflow.case.decide',
   REJECT: 'workflow.case.decide',
   RETURN: 'workflow.case.decide',
-  RETRY_EFFECT: 'workflow.effect.retry',
+  RETRY_EFFECT: 'workflow.case.admin',
 }
 
 export function visibleCaseActions(

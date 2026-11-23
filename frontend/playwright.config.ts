@@ -1,12 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * Task 8A smoke suite. Uses the bundled mock adapter so E2E has no backend
- * dependency. Real-backend journeys are explicitly deferred to the integration
- * task (see docs/09-test-acceptance.md and the task report).
+ * Mock suite: proves the UI shell, navigation, status separation and
+ * accessibility without a backend. Real-backend journeys live in
+ * playwright.real.config.ts.
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  testIgnore: ['**/real/**'],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
