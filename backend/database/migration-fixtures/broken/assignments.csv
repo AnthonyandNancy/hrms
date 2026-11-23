@@ -1,0 +1,4 @@
+employment_no,org_code,position_code,manager_employee_no,valid_from,valid_to,is_primary
+E001,ORG-HQ,POS-HEAD,MISSING-MGR,2020-01-01,9999-12-31,true
+E001,ORG-HR,POS-HR-LEAD,,2021-01-01,9999-12-31,true
+E002,ORG-UNKNOWN,POS-HR,E001,2020-02-01,9999-12-31,true
