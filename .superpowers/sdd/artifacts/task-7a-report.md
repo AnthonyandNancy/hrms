@@ -22,6 +22,7 @@ Baseline: `b869706`
 | `72af4e5` | `docs(payroll)`: interim report verification update |
 | `d5c055c` | `docs(payroll)`: initial Task 7A report |
 | `eb1a953` | `docs(payroll)`: final report verification/commit table |
+| `c4e1bca` | `docs(payroll)`: complete commit table in this report |
 
 All commits are on `feat/task-7a-payroll-calculator` and based on `b869706`.
 No work was performed outside the worktree.
