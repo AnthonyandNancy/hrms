@@ -125,6 +125,7 @@
 | 回滚演练 | 脚本证明快照/恢复/完整性/时限；MySQL PITR、feature-flag 回退、路由切换以 `NOT_EXECUTED` 明示 | 生产回滚演练仍为 GATE |
 | 架构警告 | `arch:test` 16 条非阻断警告（`RetentionService` 动态表名、`feature_flags` 等未登记 owner） | 不阻断，但已登记为 ADR-0015 复审触发条件 |
 | SAST | CodeQL 仅在 GitHub Actions 运行 | 本地证据不包含 SAST 结果 |
+| 演示口令的残留历史 | 该口令曾出现在提交 `600c30c`/`a565a04` 的文件内容中，已在 `a565a04` 从工作树移除、并在 `388f6f1` 从审计文档中脱敏；因仓库无 remote 且存在 12 个 worktree 与 15+ 分支，未做历史重写 | 对该值视为**已泄露并应轮换**：任何按本仓库部署的环境都必须使用全新的 `DEMO_SEED_PASSWORD`，不得复用该值。若将来添加 remote，须在首次推送前重写历史或强制轮换 |
 
 ## 8. 组织门禁（GATE，不得标记通过）
 

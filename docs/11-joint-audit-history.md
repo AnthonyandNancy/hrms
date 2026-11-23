@@ -95,6 +95,10 @@
   README 说明口令来源。后端始终只认 `DEMO_SEED_PASSWORD`，无硬编码口令。
 - **验证**：重新构建后 `grep 'Demo!<redacted>' frontend/dist/assets/*.js` = 0 命中；
   重新执行 30 unit / 11 mock E2E / 8 real E2E 全绿。
+- **残留风险（如实记录）**：该口令仍存在于提交 `600c30c` 与 `a565a04` 的文件内容里。
+  本次未做历史重写（仓库无 remote，且存在 12 个 worktree、15+ 分支，重写会破坏这些
+  引用）。处置：把它当作**已泄露**，任何部署必须使用新的 `DEMO_SEED_PASSWORD`；
+  若日后添加 remote，须在首次推送前重写历史或强制轮换。
 
 ### 4. 回归与门禁
 
