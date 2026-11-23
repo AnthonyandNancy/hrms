@@ -1,9 +1,9 @@
-# ADR-0003: Case-owned lifecycle effects and talent thin slices
+# ADR-0005: Case–Decision–Effect with domain-owned lifecycle effects
 
-- **Status:** Accepted — 2026-11-23
+- **Status:** Accepted — 2026-11-24 (amended 2026-11-24: closed case-type → template mapping)
 - **Decision IDs:** D-05 (Case/Decision/Effect), D-07 (contracts), D-16 (effective dating); supports D-08/D-25
 - **Supersedes:** none
-- **Review trigger:** an effect needs to mutate another module's tables directly, a lifecycle command cannot be expressed as an idempotent Case effect, or a talent approval bypasses Workflow
+- **Review trigger:** an effect needs to mutate another module's tables directly, a lifecycle command cannot be expressed as an idempotent Case effect, a talent approval bypasses Workflow, or a new business module needs to open a case type that has no published template
 
 ## Context and trigger
 
@@ -48,6 +48,25 @@ registry and domain modules without exposing Workflow models.
    capability manifest entry, and mutating commands require an
    `Idempotency-Key`.
 
+8. **Case types map to published templates through a closed catalog.**
+   Business modules own their case-type vocabulary (`LEAVE_REQUEST`,
+   `ATTENDANCE_CORRECTION`), while the published template catalog uses dotted
+   flow codes (`leave.request`, `attendance.correction`). `CaseTemplateCatalog`
+   is the single explicit mapping used by `CaseCommandService::open()`; an
+   unmapped type resolves to no template and fails closed with a 422 rather
+   than falling back to a generic template or case-folding the string. This was
+   added after integration showed that Time's real leave and attendance
+   correction submissions failed in every non-test environment while the Time
+   suite passed against an in-memory workflow fake
+   (`tests/Feature/Time/TimeWorkflowIntegrationTest.php` now covers the real
+   adapter and real seeded templates).
+9. **Approval assignees resolve through owner-module contracts.**
+   `MANAGER_OF_SUBJECT` is resolved by the IAM assignee directory, which
+   delegates to the People-owned `EmploymentManagerDirectory` contract rather
+   than querying People tables. An unresolvable assignee fails the submit with
+   "Approval node has no eligible assignee" instead of creating a case with no
+   approver.
+
 ## Alternatives considered
 
 | Alternative | Why rejected |
@@ -91,8 +110,14 @@ does not depend on a later job.
 - `vendor/bin/pint --test`, `vendor/bin/phpstan analyse`.
 - `php artisan capability:audit`, `php artisan arch:test`.
 - `node deploy/scripts/openapi-lint.mjs`, `pnpm openapi:validate`.
+- `php artisan test --filter=TimeWorkflowIntegrationTest` — the real Time →
+  Workflow path resolves a published template for `LEAVE_REQUEST` and
+  `ATTENDANCE_CORRECTION`, an unmapped type still fails closed, and
+  `MANAGER_OF_SUBJECT` resolves the subject's real manager.
+- `php artisan test --filter=CommandsTest` — the seeded template catalog is
+  idempotent and publishes every code the case-type catalog requires.
 
-Evidence lives in `.superpowers/sdd/artifacts/task-5-report.md`.
+Evidence lives in `evidence/logs/backend-test-current.txt`.
 
 ## Rollback and review
 

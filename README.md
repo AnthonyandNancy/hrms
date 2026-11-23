@@ -97,24 +97,79 @@ scripts/                 Root workspace helpers
 - [Solution: first-principles reconstruction](docs/HRMS_V1.0_解决方案_第一性原理重构.md)
 - [30-week implementation plan](docs/HRMS_V1.0_实施计划_30周路线图.md)
 - [Architecture overview](docs/01-architecture.md)
-- [ADR-0001: Modular monolith](docs/adr/0001-modular-monolith.md)
-- [ADR-0002: Platform baseline](docs/adr/0002-platform-baseline.md)
+- [Permissions model](docs/02-permissions.md)
+- [Data model](docs/03-data-model.md)
+- [UI guidelines](docs/05-ui-guidelines.md)
+- [Business rules](docs/07-business-rules.md)
+- [Joint audit and acceptance plan](docs/10-joint-audit-acceptance.md)
+- [Acceptance report (evidence)](evidence/acceptance-report.md)
 - [OpenAPI contract](docs/openapi/openapi.yaml)
+- [Cutover runbook](docs/runbooks/cutover.md)
+- [Rollback runbook](docs/runbooks/rollback.md)
+- [Hypercare runbook](docs/runbooks/hypercare.md)
+
+### Architecture decision records
+
+The approved plan (section 15) mandates ADR-0001–ADR-0015. All fifteen are Accepted:
+
+| ADR | Topic |
+| --- | --- |
+| [ADR-0001](docs/adr/0001-modular-monolith.md) | Modular monolith with enforced module boundaries |
+| [ADR-0002](docs/adr/0002-person-employment-assignment.md) | Person–Employment–Assignment and the legal-entity employer boundary |
+| [ADR-0003](docs/adr/0003-time-semantics-and-business-calendar.md) | Four timelines, half-open validity, legal-entity business dates |
+| [ADR-0004](docs/adr/0004-capability-anchor-authorization.md) | Capability × Anchor authorization with field profiles |
+| [ADR-0005](docs/adr/0005-case-decision-effect.md) | Case–Decision–Effect with domain-owned lifecycle effects |
+| [ADR-0006](docs/adr/0006-leave-ledger-and-close.md) | Append-only leave ledger in signed integer minutes |
+| [ADR-0007](docs/adr/0007-payroll-run-correction-boundaries.md) | Payroll run states, immutable finalization and corrections |
+| [ADR-0008](docs/adr/0008-outbox-idempotency-events.md) | Transactional outbox, idempotency keys and event contracts |
+| [ADR-0009](docs/adr/0009-files-sensitive-data-privacy.md) | Files, sensitive data, export scope and privacy |
+| [ADR-0010](docs/adr/0010-migration-and-cutover.md) | Migration order, shadow rehearsal and cutover |
+| [ADR-0011](docs/adr/0011-deployment-observability.md) | Deployment, backup and observability baseline |
+| [ADR-0012](docs/adr/0012-configuration-and-feature-release.md) | Configuration boundary and feature/capability release |
+| [ADR-0013](docs/adr/0013-identity-session-mfa-breakglass.md) | Identity, sessions, MFA, SSO and break-glass |
+| [ADR-0014](docs/adr/0014-payroll-calculation-rounding-statutory.md) | Payroll calculation, rounding and statutory parameters |
+| [ADR-0015](docs/adr/0015-retention-deletion-legal-hold.md) | Retention, deletion and legal hold |
 
 The approved solution and plan are authoritative; this README does not replace their governance and sign-off requirements.
 
 ## Demo credentials
 
-_Demo credentials are not published in this reference repository._ Local seed data is synthetic. When the IAM task lands, demo accounts will be documented here with a warning that they are local-only and must never be enabled in a deployed environment.
+Demo accounts are **local-only** and must never be enabled in a deployed
+environment. They are seeded with an operator-supplied password
+(`DEMO_SEED_PASSWORD`, at least 12 characters) and are not published here:
+
+```bash
+cd backend
+php artisan iam:seed-demo      # demo.admin, demo.hr, demo.manager, demo.employee
+php artisan people:seed-demo   # synthetic org, people, assignments and terms
+php artisan workflow:seed-templates
+php artisan talent:seed-demo
+```
+
+The demo dataset is synthetic. `demo:seed` runs in **SHADOW** mode: domains owned
+by parallel modules are rehearsed and reconciled but not merged into live
+business tables, and `demo:verify` reports that honestly.
 
 ## Honest scope status
+
+This repository is a **reference implementation** of the approved V1.0
+architecture, not a completed 30-week production cutover. Code evidence and
+organizational gates are reported separately in
+`evidence/acceptance-report.md`.
 
 | Area | Status |
 | --- | --- |
 | Platform envelope, request id, errors, health/meta | Implemented and tested |
-| Audit, outbox, idempotency, file metadata | Core services implemented; HTTP surfaces pending |
-| Module boundary and capability gates | Implemented and enforced |
-| OpenAPI contract | Health/meta documented; every new route must extend it |
-| IAM / Organization / People / Workflow / Time / Payroll / Talent / Engagement / Reporting | Not implemented in this baseline |
-| Frontend | Not scaffolded |
-| Production HA, IdP, KMS, MySQL PITR, pen-test | Organizational gates, not fabricated here |
+| Audit, outbox, idempotency, file metadata | Audit and outbox HTTP query surfaces implemented; file metadata read-only |
+| Module boundary and capability gates | Implemented and enforced (`arch:test`, `capability:audit`) |
+| OpenAPI contract | 125 paths / 139 operations; lint and Redocly validation green |
+| IAM (sessions, MFA, break-glass, access review) | Implemented and tested |
+| Organization, People, terms, assignments | Implemented and tested, as-of reads |
+| Workflow Case–Decision–Effect | Implemented and tested, closed case-type → template mapping |
+| Time, attendance, leave ledger | Implemented and tested; ledger reconciled |
+| Payroll runs, corrections, payslips | Implemented and tested; bank/tax CSV adapters only |
+| Recruitment / performance / training thin slices | Implemented and tested |
+| Engagement notices, reporting, exports | Implemented and tested |
+| Frontend (Vue 3 + TS strict) | Implemented; 28 unit tests, mock and real-backend E2E |
+| Payroll parallel run against a real legacy export | **Not executed** — no legacy file; command exits 2 by design |
+| Real IdP/OIDC, bank/tax filing, payslip PDF, HA, KMS, MySQL PITR, pen-test, S-01–S-08 sign-offs | Organizational/external gates, not fabricated here |

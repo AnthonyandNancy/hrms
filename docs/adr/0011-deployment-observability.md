@@ -1,9 +1,9 @@
-# ADR-0002: Platform engineering baseline
+# ADR-0011: Deployment, backup and observability baseline
 
 - **Status:** Accepted — 2026-11-23
-- **Decision IDs:** D-07 (evidence/contracts), D-25 (deployment baseline); supports D-05/D-08
+- **Decision IDs:** D-07 (evidence/contracts), D-25 (deployment baseline); supports D-05/D-07/D-08
 - **Supersedes:** none
-- **Review trigger:** production incident tracing cannot follow a request end-to-end, outbox volume requires a broker adapter, or session/cookie requirements change under ADR-0013
+- **Review trigger:** production incident tracing cannot follow a request end-to-end, outbox volume requires a broker adapter, or session/cookie requirements change under ADR-0013 or the outbox needs a broker per ADR-0008
 
 ## Context and trigger
 
