@@ -40,6 +40,7 @@ From the repository root:
 ```bash
 pnpm install --frozen-lockfile
 pnpm openapi:lint
+pnpm openapi:validate
 ```
 
 The Compose stack validates with placeholder values and needs no committed secrets:
@@ -64,6 +65,7 @@ php artisan capability:audit
 php artisan arch:test
 cd ..
 pnpm openapi:lint
+pnpm openapi:validate
 ```
 
 `composer test` runs the Laravel suite after clearing cached config.

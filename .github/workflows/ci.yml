@@ -81,8 +81,11 @@ jobs:
       - name: Install root dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: OpenAPI lint
+      - name: OpenAPI structural lint
         run: pnpm openapi:lint
+
+      - name: OpenAPI Redocly validation
+        run: pnpm openapi:validate
 
       - name: Frontend gates (conditional)
         id: frontend

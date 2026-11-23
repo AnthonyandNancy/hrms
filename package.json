@@ -13,7 +13,8 @@
     "test:unit": "node scripts/frontend-workspace.mjs test:unit",
     "test:e2e": "node scripts/frontend-workspace.mjs test:e2e",
     "openapi:lint": "node deploy/scripts/openapi-lint.mjs",
-    "openapi:generate": "node scripts/frontend-workspace.mjs openapi:generate"
+    "openapi:generate": "node scripts/frontend-workspace.mjs openapi:generate",
+    "openapi:validate": "redocly lint --config .redocly.yaml docs/openapi/openapi.yaml"
   },
   "devDependencies": {
     "@redocly/cli": "2.82.0",

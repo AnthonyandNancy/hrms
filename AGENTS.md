@@ -21,6 +21,7 @@ php artisan capability:audit
 php artisan arch:test
 cd ..
 node deploy/scripts/openapi-lint.mjs
+pnpm openapi:validate
 ```
 
 10. **UTC storage, explicit business time.** Timestamps are stored in UTC. Business dates are computed from the legal entity's timezone and calendar through the shared clock/calendar contracts.

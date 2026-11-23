@@ -1,0 +1,13 @@
+# Redocly validates the OpenAPI document in addition to the dependency-light
+# structural gate in deploy/scripts/openapi-lint.mjs. These two rules are off
+# for deliberate, documented reasons.
+extends:
+  - recommended
+
+rules:
+  # Common 401/403/404/409/422/429 responses are declared up front for the
+  # protected business endpoints that follow this Platform baseline. The two
+  # public endpoints do not reference them yet.
+  no-unused-components: off
+  # A localhost server is intentional for this reference implementation.
+  no-server-example.com: off
