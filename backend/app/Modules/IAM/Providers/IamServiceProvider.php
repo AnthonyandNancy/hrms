@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\IAM\Providers;
+
+use App\Modules\IAM\Auth\CapabilityAuthorizer;
+use App\Modules\IAM\Authorization\EloquentAccessSubjectStateDirectory;
+use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
+use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
+use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
+use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\Contracts\AccessSubjectStateDirectory;
+use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
+use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
+use App\Shared\Authorization\Contracts\ElevationGrantDirectory;
+use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
+use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
+use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
+use Illuminate\Support\ServiceProvider;
+use Tests\Fakes\FakeCaseMembershipDirectory;
+use Tests\Fakes\FakeOrganizationScopeDirectory;
+use Tests\Fakes\FakePayrollRunMembershipDirectory;
+use Tests\Fakes\FakePersonEmploymentDirectory;
+
+final class IamServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->scoped(AuthenticationContext::class);
+
+        $this->app->bind(AuthorityBindingRepository::class, EloquentAuthorityBindingRepository::class);
+        $this->app->bind(AccessSubjectStateDirectory::class, EloquentAccessSubjectStateDirectory::class);
+        $this->app->bind(ElevationGrantDirectory::class, EloquentElevationGrantDirectory::class);
+        $this->app->bind(SensitiveAccessAuditor::class, PlatformSensitiveAccessAuditor::class);
+        $this->app->bind(Authorizer::class, CapabilityAuthorizer::class);
+
+        if ($this->app->environment('testing')) {
+            $this->app->bind(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);
+            $this->app->bind(OrganizationScopeDirectory::class, FakeOrganizationScopeDirectory::class);
+            $this->app->bind(CaseMembershipDirectory::class, FakeCaseMembershipDirectory::class);
+            $this->app->bind(PayrollRunMembershipDirectory::class, FakePayrollRunMembershipDirectory::class);
+        }
+    }
+}
