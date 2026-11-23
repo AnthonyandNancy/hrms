@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Services;
 
+use App\Modules\Payroll\Enums\PayrollEmployeeStatus;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
@@ -41,8 +42,24 @@ final class PayrollParallelCheckService
         }
 
         $newRows = [];
+        $failedRows = [];
+
         foreach ($runs as $run) {
             foreach (PayrollRunEmployee::query()->where('run_id', $run->id)->orderBy('employment_id')->get() as $employee) {
+                // A failed employee row is not a zero-value calculation. Folding
+                // it into the headcount would let an unresolved payroll error
+                // read as a one-cent difference, or hide entirely if the legacy
+                // export also has no row. Report it as an explicit blocker.
+                if ($employee->status === PayrollEmployeeStatus::FAILED) {
+                    $failedRows[] = [
+                        'employment_id' => (int) $employee->employment_id,
+                        'reason' => 'CALCULATION_FAILED',
+                        'detail' => (string) ($employee->failure_reason ?? ''),
+                    ];
+
+                    continue;
+                }
+
                 $key = (string) $employee->employment_id;
                 $newRows[$key] ??= ['gross' => 0, 'net' => 0, 'headcount' => 0];
                 $newRows[$key]['gross'] += (int) $employee->gross_cents;
@@ -51,7 +68,7 @@ final class PayrollParallelCheckService
             }
         }
 
-        $differences = [];
+        $differences = $failedRows;
         $keys = array_values(array_unique([...array_keys($newRows), ...array_keys($old['rows'])]));
         sort($keys, SORT_NUMERIC);
         $unexplained = 0;
@@ -108,8 +125,9 @@ final class PayrollParallelCheckService
             'net_old_cents' => $old['net'],
             'net_new_cents' => array_sum(array_column($newRows, 'net')),
             'differences' => $differences,
-            'unexplained_count' => $unexplained,
-            'passed' => $unexplained === 0 && $headcountNew === $headcountOld,
+            'failed_employee_count' => count($failedRows),
+            'unexplained_count' => $unexplained + count($failedRows),
+            'passed' => $unexplained === 0 && $failedRows === [] && $headcountNew === $headcountOld,
         ];
     }
 

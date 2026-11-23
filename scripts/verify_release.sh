@@ -83,6 +83,38 @@ for script in deploy/scripts/backup_restore_smoke.sh deploy/scripts/migration_re
   fi
 done
 
+section "Payroll correctness (E-11, needs real calculated runs)"
+# Reuses the demo database. Skipped honestly when no calculated run exists, so a
+# clean checkout never reports a fabricated pass.
+if [ -f "$ROOT/backend/artisan" ]; then
+  cd "$ROOT/backend" || exit 1
+  # status is cast to a PHP enum, so compare in PHP after loading rather than
+  # relying on a SQL whereIn over raw strings.
+  has_run=$(php artisan tinker --execute="
+    echo \App\Modules\Payroll\Models\PayrollRun::query()->get()->contains(fn(\$r) => in_array(\$r->status->value, ['CALCULATED','REVIEWED','APPROVED','PUBLISHED','PAID','CLOSED'], true)) ? 'yes' : 'no';
+  " 2>/dev/null | tail -1 | tr -d '[:space:]')
+  if [ "$has_run" = "yes" ]; then
+    run_gate "payroll reconciliation" php artisan payroll:reconciliation
+    period=$(php -r '
+      require "vendor/autoload.php";
+      $app = require "bootstrap/app.php";
+      $app->make("Illuminate\Contracts\Console\Kernel")->bootstrap();
+      echo App\Modules\Payroll\Models\PayrollRun::query()->orderBy("id")->value("period");
+    ' 2>/dev/null)
+    if [ -n "$period" ]; then
+      run_gate "payroll old-system export" php "$ROOT/scripts/payroll_old_export.php" --period="$period"
+      php "$ROOT/scripts/payroll_old_export.php" --period="$period" > /tmp/hrms-payroll-old.csv 2>/dev/null
+      run_gate "payroll parallel check" php artisan payroll:parallel-check --period="$period" --old-file=/tmp/hrms-payroll-old.csv
+    else
+      skip_gate "payroll correctness" "could not determine a calculated payroll period"
+    fi
+  else
+    skip_gate "payroll correctness" "no calculated payroll run in the demo database"
+  fi
+else
+  skip_gate "payroll correctness" "backend/artisan missing"
+fi
+
 section "Summary"
 printf 'PASS=%d FAIL=%d SKIP=%d\n' "$PASS" "$FAIL" "$SKIP" | tee -a "$LOG"
 if [ "$FAIL" -gt 0 ]; then

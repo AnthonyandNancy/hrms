@@ -31,6 +31,52 @@ final class PayrollCommandTest extends PayrollTestCase
         }
     }
 
+    public function test_parallel_check_reports_failed_employee_rows_as_blockers(): void
+    {
+        $run = $this->run;
+
+        // A failed employee row is not a zero-value calculation. It must be
+        // reported explicitly and fail the check even when the legacy export
+        // has no row for it either.
+        \App\Modules\Payroll\Models\PayrollRunEmployee::query()->create([
+            'tenant_id' => $this->tenantId,
+            'run_id' => (int) $run->id,
+            'employment_id' => 999_001,
+            'status' => \App\Modules\Payroll\Enums\PayrollEmployeeStatus::FAILED,
+            'gross_cents' => 0,
+            'taxable_cents' => 0,
+            'deductions_cents' => 0,
+            'net_cents' => 0,
+            'employer_cost_cents' => 0,
+            'employee_si_cents' => 0,
+            'employee_hf_cents' => 0,
+            'employer_si_cents' => 0,
+            'employer_hf_cents' => 0,
+            'tax_cents' => 0,
+            'ytd_taxable_opening_cents' => 0,
+            'ytd_tax_withheld_opening_cents' => 0,
+            'ytd_applied' => false,
+            'failure_reason' => 'Synthetic failure for the parallel-run blocker test.',
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'payroll-parallel-');
+        $this->assertIsString($path);
+        file_put_contents($path, implode('
+', [
+            'employment_id,gross_cents,net_cents',
+            $this->employmentId.','.$run->gross_cents.','.$run->net_cents,
+        ]));
+
+        try {
+            $this->artisan('payroll:parallel-check', [
+                '--period' => '2026-01',
+                '--old-file' => $path,
+            ])->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_parallel_check_fails_for_cent_level_difference(): void
     {
         $run = $this->run;

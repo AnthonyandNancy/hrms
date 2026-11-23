@@ -42,21 +42,24 @@ final class SeedPeopleDemoCommand extends Command
             $managerPerson = $this->person('DEMO-MANAGER', 'Demo Manager');
             $manager = $this->employment($managerPerson, $entity->id, 'DEMO-0001', $clock);
             $managerAssignment = $this->assignment($manager, $platform->id, null, 'PRIMARY', true, $clock);
+            $this->terms($manager, $clock, baseSalaryMinor: 1_800_000);
 
             $employeePerson = $this->person('DEMO-EMPLOYEE', 'Demo Employee');
             $employee = $this->employment($employeePerson, $entity->id, 'DEMO-0002', $clock);
             $this->assignment($employee, $platform->id, (int) $managerAssignment->id, 'PRIMARY', true, $clock);
-            $this->terms($employee, $clock);
+            $this->terms($employee, $clock, baseSalaryMinor: 900_000);
 
             $secondmentPerson = $this->person('DEMO-SECOND', 'Demo Secondment');
             $secondment = $this->employment($secondmentPerson, $entity->id, 'DEMO-0003', $clock);
             $this->assignment($secondment, $platform->id, (int) $managerAssignment->id, 'PRIMARY', true, $clock);
             $this->assignment($secondment, $sales->id, null, 'SECONDMENT', false, $clock, '2026-02-01', '2026-03-01');
+            $this->terms($secondment, $clock, baseSalaryMinor: 1_100_000);
 
             $transferPerson = $this->person('DEMO-TRANSFER', 'Demo Transfer');
             $transferEmployment = $this->employment($transferPerson, $entity->id, 'DEMO-0004', $clock);
             $this->assignment($transferEmployment, $platform->id, null, 'PRIMARY', true, $clock, '2026-01-01', '2026-12-01');
             $this->assignment($transferEmployment, $sales->id, null, 'PRIMARY', true, $clock, '2026-12-01', '9999-12-31');
+            $this->terms($transferEmployment, $clock, baseSalaryMinor: 1_200_000);
 
             // Link synthetic demo logins to synthetic employments so
             // self-service, manager scope and payslip self-read have a real
@@ -165,7 +168,11 @@ final class SeedPeopleDemoCommand extends Command
         ]);
     }
 
-    private function terms(Employment $employment, Clock $clock): void
+    /**
+     * Demo terms carry a synthetic salary so payroll can actually calculate.
+     * The amount is obviously fake and exists only to exercise the pipeline.
+     */
+    private function terms(Employment $employment, Clock $clock, int $baseSalaryMinor = 1_000_000): void
     {
         EmploymentTerms::query()->firstOrCreate(
             ['employment_id' => (int) $employment->id, 'version' => 1],
@@ -177,6 +184,8 @@ final class SeedPeopleDemoCommand extends Command
                 'work_location' => 'Shanghai',
                 'work_schedule' => 'STANDARD',
                 'salary_scheme_code' => 'DEMO-SCHEME',
+                'base_salary_minor' => $baseSalaryMinor,
+                'salary_currency' => 'CNY',
                 'notice_period_days' => 30,
                 'confidentiality' => true,
                 'non_compete' => false,

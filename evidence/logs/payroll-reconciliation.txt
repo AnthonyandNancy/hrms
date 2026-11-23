@@ -1,16 +1,16 @@
-Run 1 (2026-11) reconciled: 16 employees, net 10227120 cents.
+Run 1 (2026-11) reconciled: 4 employees, net 4180400 cents.
 {
     "runs": [
         {
             "run_id": 1,
             "period": "2026-11",
             "status": "CALCULATED",
-            "employee_count": 16,
-            "payslip_count": 12,
-            "gross_cents": 12420000,
-            "deductions_cents": 2192880,
-            "net_cents": 10227120,
-            "employer_cost_cents": 15276600,
+            "employee_count": 4,
+            "payslip_count": 4,
+            "gross_cents": 5000000,
+            "deductions_cents": 819600,
+            "net_cents": 4180400,
+            "employer_cost_cents": 6150000,
             "differences": [],
             "chain": {
                 "original_run_id": null,

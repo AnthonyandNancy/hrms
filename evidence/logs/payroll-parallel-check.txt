@@ -1,13 +1,14 @@
 {
     "period": "2026-11",
-    "headcount_new": 16,
-    "headcount_old": 16,
+    "headcount_new": 4,
+    "headcount_old": 4,
     "headcount_match": true,
-    "gross_old_cents": 12420000,
-    "gross_new_cents": 12420000,
-    "net_old_cents": 10227120,
-    "net_new_cents": 10227120,
+    "gross_old_cents": 5000000,
+    "gross_new_cents": 5000000,
+    "net_old_cents": 4180400,
+    "net_new_cents": 4180400,
     "differences": [],
+    "failed_employee_count": 0,
     "unexplained_count": 0,
     "passed": true
 }

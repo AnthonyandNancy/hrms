@@ -3,19 +3,19 @@
 +-----------------------------+--------+--------------------------------------+
 | demo dataset exists         | PASS   | Dataset registered.                  |
 | mode is declared honestly   | PASS   | Dataset mode is LIVE.                |
-| organizations applied       | PASS   | run 72, staged rows 8.               |
+| organizations applied       | PASS   | run 1, staged rows 8.                |
 | organizations reconciles    | PASS   | Counts and sums match.               |
-| people applied              | PASS   | run 73, staged rows 12.              |
+| people applied              | PASS   | run 2, staged rows 12.               |
 | people reconciles           | PASS   | Counts and sums match.               |
-| assignments applied         | PASS   | run 74, staged rows 12.              |
+| assignments applied         | PASS   | run 3, staged rows 12.               |
 | assignments reconciles      | PASS   | Counts and sums match.               |
-| terms applied               | PASS   | run 75, staged rows 12.              |
+| terms applied               | PASS   | run 4, staged rows 12.               |
 | terms reconciles            | PASS   | Counts and sums match.               |
-| leave_openings applied      | PASS   | run 76, staged rows 12.              |
+| leave_openings applied      | PASS   | run 5, staged rows 12.               |
 | leave_openings reconciles   | PASS   | Counts and sums match.               |
-| payroll_ytd applied         | PASS   | run 77, staged rows 12.              |
+| payroll_ytd applied         | PASS   | run 6, staged rows 12.               |
 | payroll_ytd reconciles      | PASS   | Counts and sums match.               |
-| payroll YTD opening present | PASS   | 9 payroll YTD run(s).                |
+| payroll YTD opening present | PASS   | 1 payroll YTD run(s).                |
 | all six domains reported    | PASS   | 6 domain(s) in the dataset manifest. |
 +-----------------------------+--------+--------------------------------------+
 Walkthrough:

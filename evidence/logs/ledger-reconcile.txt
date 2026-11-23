@@ -1,6 +1,19 @@
 As of: 2026-12-31
 Accounts checked: 12
 Ledger entries: 11
-Projection mismatches: 0
+Projection mismatches: 12
 Ledger equation differences: 0
+DIFF tenant=1 employment=1001 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1002 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1003 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1004 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1005 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1006 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1007 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1008 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1009 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1010 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1011 leave_type=1 stored=missing expected=4800 difference=n/a
+DIFF tenant=1 employment=1012 leave_type=1 stored=missing expected=0 difference=n/a
+Rebuilt projections: 12
 Differences: 0
