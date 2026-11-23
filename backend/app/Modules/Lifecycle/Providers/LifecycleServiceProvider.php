@@ -38,6 +38,7 @@ final class LifecycleServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ExportTaskCanceller::class, NullExportTaskCanceller::class);
+        $this->app->bind(\App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort::class, \App\Modules\Lifecycle\Services\TalentOnboardingDraftService::class);
 
         /** @var list<string> $existing */
         $existing = (array) config('workflow.domain_effect_handlers', []);

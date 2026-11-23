@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Talent\Providers;
 
-use App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort;
-use App\Modules\Lifecycle\Services\TalentOnboardingDraftService;
+use App\Modules\Talent\Contracts\OfferIntegrityReader;
+use App\Modules\Talent\Services\OfferIntegrityReaderService;
 use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,7 +25,8 @@ final class TalentServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->bind(TalentOnboardingDraftPort::class, TalentOnboardingDraftService::class);
+
+        $this->app->bind(OfferIntegrityReader::class, OfferIntegrityReaderService::class);
 
         /** @var list<string> $existing */
         $existing = (array) config('workflow.domain_effect_handlers', []);

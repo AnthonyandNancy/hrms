@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Lifecycle\Console;
 
+use App\Modules\Talent\Contracts\OfferIntegrityReader;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ final class CheckLifecycleIntegrityCommand extends Command
 
     protected $description = 'Detect overlapping primary assignments, active assignments on terminated employments, duplicate accepted offers and incomplete checklists.';
 
-    public function handle(): int
+    public function handle(OfferIntegrityReader $offers): int
     {
         $tenant = $this->option('tenant');
         $tenantFilter = is_numeric($tenant) ? (int) $tenant : null;
@@ -56,16 +57,8 @@ final class CheckLifecycleIntegrityCommand extends Command
             $findings[] = "TERMINATED_EMPLOYMENT_ACTIVE_ASSIGNMENT employment={$row->employment_id} assignment={$row->assignment_id}";
         }
 
-        $accepted = DB::table('offers')
-            ->when($tenantFilter !== null, fn ($query) => $query->where('tenant_id', $tenantFilter))
-            ->where('status', 'ACCEPTED')
-            ->groupBy('tenant_id', 'candidate_id')
-            ->havingRaw('COUNT(*) > 1')
-            ->selectRaw('tenant_id, candidate_id, COUNT(*) as accepted_count')
-            ->get();
-
-        foreach ($accepted as $row) {
-            $findings[] = "MULTIPLE_ACCEPTED_OFFERS tenant={$row->tenant_id} candidate={$row->candidate_id} count={$row->accepted_count}";
+        foreach ($offers->candidatesWithMultipleAcceptedOffers($tenantFilter) as $row) {
+            $findings[] = "MULTIPLE_ACCEPTED_OFFERS tenant={$row['tenant_id']} candidate={$row['candidate_id']} count={$row['accepted_count']}";
         }
 
         $incomplete = DB::table('lifecycle_tasks as t')
