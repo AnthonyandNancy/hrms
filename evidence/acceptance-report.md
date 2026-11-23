@@ -10,6 +10,7 @@
 | 环境 | Windows + git-bash；PHP 8.4.28；Laravel 13；SQLite（本地/测试）；MySQL 8.4 仅限 Compose 目标 |
 | 审计对象 | 参考实现（reference implementation），非 30 周生产切换完成态 |
 | 复现入口 | `bash scripts/verify_release.sh` → `evidence/logs/verify-release.txt` |
+| 基线说明 | 基线指向**被验证的代码提交**。其后仅修改文档/证据的提交不会使门禁结果失效；若代码再次变更，须重新执行 `scripts/verify_release.sh` 并更新此表 |
 
 ## 1. 结论
 
