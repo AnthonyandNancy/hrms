@@ -38,6 +38,18 @@ final class AuthController
         $username = mb_strtolower(trim((string) $validated['username']));
         $ip = (string) $request->ip();
 
+        $failures = LoginAttempt::query()
+            ->where('username', $username)
+            ->where('succeeded', false)
+            ->where('attempted_at', '>=', $this->clock->now()->subMinutes((int) config('iam.login.failure_window_minutes', 15)))
+            ->count();
+
+        if ($failures >= (int) config('iam.login.max_failures', 10)) {
+            $this->events->record(0, null, 'login.failure', 'FAILURE', ['reason' => 'LOCKED'], $request);
+
+            return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication failed.', 401, ['reason' => 'ACCOUNT_LOCKED']);
+        }
+
         // Fixed-window throttle: 5 attempts/min per username+IP.
         $recent = LoginAttempt::query()
             ->where('username', $username)
@@ -49,18 +61,6 @@ final class AuthController
             $this->events->record(0, null, 'login.failure', 'FAILURE', ['reason' => 'RATE_LIMITED'], $request);
 
             return ApiResponse::error(ErrorCode::RATE_LIMITED->value, ErrorCode::RATE_LIMITED->defaultMessage(), 429, ['reason' => 'LOGIN_RATE_LIMITED']);
-        }
-
-        $failures = LoginAttempt::query()
-            ->where('username', $username)
-            ->where('succeeded', false)
-            ->where('attempted_at', '>=', $this->clock->now()->subMinutes((int) config('iam.login.failure_window_minutes', 15)))
-            ->count();
-
-        if ($failures >= (int) config('iam.login.max_failures', 10)) {
-            $this->events->record(0, null, 'login.failure', 'FAILURE', ['reason' => 'LOCKED'], $request);
-
-            return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication failed.', 401, ['reason' => 'ACCOUNT_LOCKED']);
         }
 
         $user = User::query()->where('username', $username)->first();

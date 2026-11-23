@@ -170,7 +170,7 @@ return [
             'capability' => 'iam.session.manage',
             'anchor' => 'SELF',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'csrf_missing'],
+            'denials' => ['unauthenticated', 'no_capability', 'csrf_missing'],
         ],
         [
             'method' => 'POST',
@@ -178,7 +178,7 @@ return [
             'capability' => 'iam.session.manage',
             'anchor' => 'SELF',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'csrf_missing'],
+            'denials' => ['unauthenticated', 'no_capability', 'csrf_missing'],
         ],
         [
             'method' => 'POST',
