@@ -7,7 +7,6 @@ namespace App\Modules\Payroll\Console;
 use App\Modules\Payroll\Models\StatutoryParameter;
 use App\Modules\Payroll\Services\TaxParameterResolver;
 use App\Shared\Exceptions\DomainException;
-use App\Shared\Exceptions\ValidationException;
 use Illuminate\Console\Command;
 
 /**

@@ -6,7 +6,6 @@ namespace Tests\Feature\Payroll;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
-use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Modules\Payroll\Services\ApprovalService;

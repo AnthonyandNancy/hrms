@@ -9,7 +9,6 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
-use App\Shared\Exceptions\ConflictException;
 
 /**
  * Read-only reconciliation invariants:
@@ -54,6 +53,7 @@ final class ReconciliationService
                     'code' => 'PAYSLIP_WITHOUT_EMPLOYEE',
                     'employment_id' => (int) $payslip->employment_id,
                 ];
+
                 continue;
             }
 

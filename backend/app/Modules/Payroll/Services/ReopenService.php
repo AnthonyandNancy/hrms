@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
-use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;

@@ -9,13 +9,13 @@ use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
+use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
+use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
+use App\Modules\Payroll\Http\Controllers\PayrollRunController;
+use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
-use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
-use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
-use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
-use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Platform\Http\Controllers\FeatureFlagController;
 use App\Modules\Platform\Http\Controllers\HealthController;
 use App\Modules\Platform\Http\Controllers\LivenessController;
@@ -343,4 +343,3 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->middleware(['mfa.step-up', 'capability:payroll.parameters.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('payroll.parameters.store');
 });
-

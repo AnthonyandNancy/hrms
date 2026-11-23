@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Support;
 
 use App\Modules\IAM\Contracts\Principal;
-use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Services\TaxParameterResolver;
 use App\Shared\Authorization\Authorizer;

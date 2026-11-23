@@ -6,11 +6,11 @@ namespace App\Modules\People\Providers;
 
 use App\Modules\People\Commands\PeopleAsOfCheckCommand;
 use App\Modules\People\Commands\SeedPeopleDemoCommand;
-use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\EmploymentTermsDirectory;
+use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
-use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\EmploymentTermsDirectoryService;
+use App\Modules\People\Services\OrgAssignmentImpactService;
 use App\Modules\People\Services\PeopleDirectoryService;
 use App\Shared\Time\Clock;
 use App\Shared\Time\SystemClock;

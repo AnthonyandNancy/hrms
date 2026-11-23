@@ -7,7 +7,6 @@ namespace App\Modules\Payroll\Services;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\Payslip;
-use App\Modules\Payroll\Models\PayslipLine;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;

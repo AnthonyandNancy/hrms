@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Services;
 
+use App\Modules\Payroll\Domain\TaxBracket as TaxBracketDto;
+use App\Modules\Payroll\Domain\TaxTable;
 use App\Modules\Payroll\Enums\PayrollParameterSet;
 use App\Modules\Payroll\Models\StatutoryParameter;
 use App\Modules\Payroll\Models\TaxBracket;
-use App\Modules\Payroll\Domain\TaxBracket as TaxBracketDto;
-use App\Modules\Payroll\Domain\TaxTable;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Money\Percentage;
-use App\Shared\Time\Clock;
 use App\Shared\Time\BusinessDate;
+use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
 /**

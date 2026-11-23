@@ -10,7 +10,6 @@ use App\Modules\Workflow\Enums\CaseStatus;
 use App\Modules\Workflow\Enums\DecisionAction;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\WorkflowTemplate;
-use App\Shared\Exceptions\ConflictException;
 
 /**
  * Deterministic payroll.approval workflow adapter. A dedicated template is

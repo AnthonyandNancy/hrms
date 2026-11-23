@@ -89,9 +89,14 @@ final class CalculationService
                 ->where('tenant_id', $locked->tenant_id)
                 ->where('run_id', $locked->id)
                 ->where('snapshot_type', 'INPUT')
-                ->where('snapshot_version', (int) $locked->snapshot_version)
+                // Reopening creates a new snapshot version. Historical
+                // versions remain append-only evidence.
+                ->where('snapshot_version', '<=', (int) $locked->snapshot_version)
                 ->orderBy('employment_id')
-                ->get();
+                ->orderBy('snapshot_version')
+                ->get()
+                ->unique('employment_id')
+                ->values();
 
             if ($snapshots->isEmpty()) {
                 throw new ConflictException('No locked input snapshots exist for this run.', [

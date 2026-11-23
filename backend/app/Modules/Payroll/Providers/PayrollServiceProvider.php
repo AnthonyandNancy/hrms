@@ -23,12 +23,13 @@ use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Modules\Payroll\Services\SnapshotService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
+use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Payroll's composition root. It wires Payroll services plus the narrow
- * Time/People/Workflow read adapters Payroll consumes. No Payroll model is
- * exported outside this module.
+ * Payroll's composition root. Time, People and Workflow bind their own
+ * adapters for the Payroll-owned ports; Payroll only imports other modules'
+ * Contracts here.
  */
 final class PayrollServiceProvider extends ServiceProvider
 {
