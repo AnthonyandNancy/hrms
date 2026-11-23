@@ -37,6 +37,8 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Reporting | `report_definitions`, `export_jobs`, `projections` | Read-only projections/Contracts, Shared |
 | Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `dictionaries`, `parameters` | Shared only; **no business module** |
 
+The machine-readable ownership list lives in `App\Shared\Architecture\ModuleBoundaryScanner::TABLE_OWNERS`. Add a table there in the same migration commit that introduces it; an unowned table referenced through `DB::table()` is reported as a warning.
+
 Rules:
 
 - Every table has exactly one writing module. Others read through `Contracts` or projections.

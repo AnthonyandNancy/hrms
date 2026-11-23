@@ -20,6 +20,8 @@ Business domains (IAM authorization, person/employment, workflow, time, payroll,
 - Node.js 24 and pnpm 10
 - SQLite for local development; MySQL 8.4 for production parity
 - Redis 7 and an S3-compatible object store (MinIO locally) for the full stack
+- Bash and `sha256sum` for the backup/restore smoke script
+- Docker with Compose v2 for the optional container stack; the PHP test suite does not require Docker
 
 ## Setup
 
@@ -36,8 +38,16 @@ Local development uses SQLite (`DB_CONNECTION=sqlite`, `backend/database/databas
 From the repository root:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm openapi:lint
+```
+
+The Compose stack validates with placeholder values and needs no committed secrets:
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml config --quiet
+cd deploy/compose
+cp .env.example .env   # optional local overrides; ignored by git
 ```
 
 Frontend commands (`typecheck`, `lint`, `test:unit`, `test:e2e`, `openapi:generate`) intentionally exit non-zero until `frontend/` is scaffolded; they never silently pass.
