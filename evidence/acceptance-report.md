@@ -6,7 +6,7 @@
 |---|---|
 | 代码基线 | `ef4418ed4a346dc7ea696cafd1646bd3459fdc6a` |
 | 集成提交 | `321a5d0`（后端）、`600c30c`（前端与契约）、`93d2fd8`（ADR 与运维文档）、`f5c5313`（审计报告）、`a565a04`+`388f6f1`+`4955756`（凭据修复与残留风险记录）、`5f7db28`（迁移与假勤实数化）、`ef4418e`（工资实数证据与边界修复） |
-| 审计时间（UTC） | 2026-11-23T23:08Z（第二轮实数化后复审） |
+| 审计时间（UTC） | 2026-11-23T23:33Z（第三轮：工资门禁可复现化后复审） |
 | 环境 | Windows + git-bash；PHP 8.4.28；Laravel 13；SQLite（本地/测试）；MySQL 8.4 仅限 Compose 目标 |
 | 审计对象 | 参考实现（reference implementation），非 30 周生产切换完成态 |
 | 复现入口 | `bash scripts/verify_release.sh` → `evidence/logs/verify-release.txt` |
@@ -16,7 +16,7 @@
 
 **`ACCEPTED_WITH_GATES`**
 
-- 全部 16 项可执行发布门禁通过（`PASS=16 FAIL=0 SKIP=0`），无 Sev1、无未关闭 Sev2。
+- 全部 **19** 项可执行发布门禁通过（`PASS=19 FAIL=0 SKIP=0`），无 Sev1、无未关闭 Sev2。
 - 联合审计期间发现并修复 5 类真实缺陷（2 个 Sev2、2 个体验/正确性缺陷、1 个合规缺陷）。其中 Sev2 均有失败测试先行复现并由回归测试锁定；合规缺陷以构建产物检索确认修复。
 - 组织签认（S-01–S-08）、真实身份源、银行/税务申报、工资条 PDF、HA、渗透测试与真实迁移平行运行仍为 **GATE**，本仓库不伪造其通过。
 
@@ -44,8 +44,14 @@
 | 14 | 备份恢复 | `bash deploy/scripts/backup_restore_smoke.sh` | PASS |
 | 15 | 迁移彩排 | `bash deploy/scripts/migration_rehearsal.sh` | PASS |
 | 16 | 回滚演练 | `bash deploy/scripts/rollback_drill.sh` | PASS |
+| 17 | 工资对账 | `php artisan payroll:reconciliation` | PASS |
+| 18 | 合成旧系统导出 | `php scripts/payroll_old_export.php` | PASS |
+| 19 | 工资平行检查 | `php artisan payroll:parallel-check` | PASS |
 
-汇总行：`PASS=16 FAIL=0 SKIP=0`。
+汇总行：`PASS=19 FAIL=0 SKIP=0`。
+
+> 门禁 17–19 仅在演示库存在 `CALCULATED` 及以上批次时执行，否则显式 SKIP 并说明原因；
+> 干净检出不会伪造工资通过。
 
 ## 3. 证据矩阵 E-01–E-17
 
@@ -53,7 +59,7 @@
 |---|---|---|---|
 | E-01 | 架构边界报告 | **PASS** | `evidence/logs/arch-test.txt`：`Module boundaries OK`，16 条非阻断 ownership 警告（见 §6 已知限制） |
 | E-02 | 能力覆盖报告 | **PASS** | `evidence/logs/capability-audit.txt`：`Capability audit OK`，受保护路由全部有 capability，公共路由仅 5 条显式白名单 |
-| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**721 passed / 35,726 assertions / 0 failure / 0 error / 0 skipped** |
+| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**722 passed / 35,728 assertions / 0 failure / 0 error / 0 skipped** |
 | E-04 | 静态分析与风格 | **PASS** | `evidence/logs/pint.txt`（891 文件 PASS）、`evidence/logs/phpstan.txt`（`[OK] No errors`，level 6） |
 | E-05 | 契约校验 | **PASS** | `evidence/logs/openapi-lint.txt`（125 paths / 139 operations / 3.1.0）、`evidence/logs/openapi-validate.txt`（Redocly valid，3 条非阻断 warning）、契约测试 PASS |
 | E-06 | 前端质量 | **PASS** | `frontend-typecheck.txt`、`frontend-lint.txt`、`frontend-unit.txt`（30 passed）、`frontend-build.txt` |
@@ -61,7 +67,7 @@
 | E-08 | 权限负测矩阵 | **PASS** | `backend/tests/Authorization/endpoint_matrix.php` 覆盖 **134** 条受保护端点，`capability:audit` 无缺失告警；负测见 §4 |
 | E-09 | 时间旅行报告 | **PASS** | 半开区间 `AsOfQueryTest`/`DateRangeTest`；T-1/T/T+1 `AsOfConsistencyTest`；DST 与跨夜 `ShiftWindowTest`、`OvernightShiftTest` |
 | E-10 | 假勤账本对账 | **PASS（实数）** | `evidence/logs/ledger-reconcile.txt`：12 个账户、11 条分录、`Projection mismatches: 0`、`Differences: 0`（as-of 2026-12-31）。数据来自 LIVE 迁移的 12 条期初余额 |
-| E-11 | 工资计算与平行报告 | **PASS（实数）** | 12 名员工实际计算（gross 12,420,000 / net 10,227,120 分）；`payroll-reconciliation.txt` `failed: 0`；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、人数一致。旧系统导出为**合成对照文件**（由同一计算生成），因此它证明的是对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
+| E-11 | 工资计算与平行报告 | **PASS（实数，机制层）** | 4 名员工实际计算（gross 5,000,000 / net 4,180,400 分，`failed: 0`）；`payroll-reconciliation.txt` 通过；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、`failed_employee_count: 0`、人数一致。⚠ 旧系统导出为**合成对照文件**（`scripts/payroll_old_export.php` 由同一计算生成并打印警告），故它证明对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
 | E-12 | 迁移彩排与对账 | **PASS（SHADOW）** | `migration-rehearsal.txt`、`migration-rehearsal-script.txt`：6 域 `APPLIED`/`reconcile=PASS`，target=SHADOW |
 | E-13 | 备份恢复与回滚演练 | **PASS（本地范围）** | `backup-restore.txt`（sha256 一致）、`verify-release.txt` 中 rollback drill PASS（2.3s / 3600s 预算）。MySQL PITR、feature-flag 回退、路由切换为 NOT_EXECUTED |
 | E-14 | 安全扫描 | **PASS（本地）+ GATE（SAST）** | `composer-audit.txt`：无已知漏洞；`gitleaks.txt`：106 commits，`no leaks found`；SAST 由 `.github/workflows/codeql.yml` 在 GitHub 执行，本地无法证明 |
