@@ -8,6 +8,7 @@ use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
 use App\Modules\Workflow\Enums\CaseStatus;
 use App\Modules\Workflow\Enums\DecisionAction;
+use App\Modules\Workflow\Models\CaseMember;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\WorkflowTemplate;
 
@@ -29,7 +30,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
 
     public function open(int $tenantId, int $requesterUserId, int $runId, int $assigneeUserId, string $businessDate): int
     {
-        $template = $this->template($tenantId, $assigneeUserId);
+        $template = $this->template($tenantId);
         $principal = $this->principal($tenantId, $requesterUserId);
 
         $case = $this->cases->create(
@@ -41,10 +42,19 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
             payload: ['payroll_run_id' => $runId],
             templateId: (int) $template->id,
             businessDate: $businessDate,
-            submit: true,
+            submit: false,
         );
 
-        return (int) $case->id;
+        // The approving actor is a case member; this keeps one reusable
+        // template per tenant while still assigning the task to the right user.
+        CaseMember::query()->firstOrCreate(
+            ['case_id' => $case->id, 'user_id' => $assigneeUserId, 'role' => 'APPROVER'],
+            ['tenant_id' => $tenantId, 'created_at' => now()],
+        );
+
+        $submitted = $this->cases->submit($principal, $case);
+
+        return (int) $submitted->id;
     }
 
     public function approve(int $tenantId, int $caseId, int $actorUserId, string $comment, string $businessDate): array
@@ -86,7 +96,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         ];
     }
 
-    private function template(int $tenantId, int $assigneeUserId): WorkflowTemplate
+    private function template(int $tenantId): WorkflowTemplate
     {
         $template = WorkflowTemplate::query()
             ->where('tenant_id', $tenantId)
@@ -100,7 +110,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         }
 
         // Payroll approval is a narrow built-in workflow. It is created on
-        // first use with a single USER task assigned to the approving actor.
+        // first use; each case names its approver as an APPROVER case member.
         // Review and SOD are enforced by the Payroll domain before a case is
         // opened; the case is the durable Decision/Effect evidence.
         return $this->templates->create($tenantId, 1, [
@@ -115,7 +125,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
                         'key' => 'approve',
                         'sequence' => 2,
                         'type' => 'APPROVAL',
-                        'assignee_rule' => ['type' => 'USER', 'user_id' => $assigneeUserId],
+                        'assignee_rule' => ['type' => 'CASE_MEMBER', 'role' => 'APPROVER'],
                         'required_count' => 1,
                     ],
                     ['key' => 'end', 'sequence' => 3, 'type' => 'END'],

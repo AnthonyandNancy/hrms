@@ -7,6 +7,7 @@ namespace App\Modules\Payroll\Services;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
@@ -25,6 +26,7 @@ final class ApprovalService
         private readonly PayrollYtdService $ytd,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly PayrollApprovalWorkflow $approvalWorkflow,
     ) {}
 
     public function review(int $tenantId, int $runId, int $actorUserId, string $comment = ''): PayrollRun
@@ -42,18 +44,50 @@ final class ApprovalService
         });
     }
 
+    /**
+     * Approval is not a bare status write. It opens a Workflow case, records
+     * the Decision and runs the payroll approval effect, then verifies that
+     * the effect actually advanced the run.
+     */
     public function approve(int $tenantId, int $runId, int $actorUserId, string $comment = ''): PayrollRun
     {
         return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $comment): PayrollRun {
             $run = $this->stateMachine->lockRun($tenantId, $runId);
             $this->assertSod($run, $actorUserId, 'approve');
 
-            return $this->stateMachine->transition(
-                $run,
-                PayrollRunStatus::APPROVED,
-                ['approved_by' => $actorUserId, 'approved_at' => $this->clock->now()],
-                ['comment_present' => trim($comment) !== ''],
-            );
+            $status = $run->status instanceof PayrollRunStatus
+                ? $run->status
+                : PayrollRunStatus::from((string) $run->status);
+
+            if ($status !== PayrollRunStatus::REVIEWED) {
+                throw new ConflictException('Only a reviewed payroll run can be approved.', [
+                    'reason' => 'RUN_NOT_APPROVABLE',
+                    'status' => $status->value,
+                ]);
+            }
+
+            $businessDate = $this->clock->now()->toDateString();
+            $caseId = $this->approvalWorkflow->open($tenantId, $actorUserId, $runId, $actorUserId, $businessDate);
+
+            $run->forceFill([
+                'approval_case_id' => $caseId,
+                'approval_effect_status' => 'PENDING',
+            ])->save();
+
+            $result = $this->approvalWorkflow->approve($tenantId, $caseId, $actorUserId, $comment, $businessDate);
+            $run->forceFill(['approval_effect_status' => $result['effect_status']])->save();
+            $run->refresh();
+
+            if ($run->status !== PayrollRunStatus::APPROVED) {
+                throw new ConflictException('The payroll approval effect did not approve the run.', [
+                    'reason' => 'APPROVAL_EFFECT_NOT_APPLIED',
+                    'case_id' => $caseId,
+                    'application_status' => $result['application_status'],
+                    'effect_status' => $result['effect_status'],
+                ]);
+            }
+
+            return $run;
         });
     }
 
