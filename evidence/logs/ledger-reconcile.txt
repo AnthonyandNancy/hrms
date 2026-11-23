@@ -1,7 +1,6 @@
-As of: 2026-11-23
-Accounts checked: 0
-Ledger entries: 0
+As of: 2026-12-31
+Accounts checked: 12
+Ledger entries: 11
 Projection mismatches: 0
 Ledger equation differences: 0
-Rebuilt projections: 0
 Differences: 0

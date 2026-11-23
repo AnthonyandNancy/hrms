@@ -15,7 +15,7 @@ class DemoSeedCommand extends Command
         {--live : Write live business tables when every target adapter is available}
         {--json : Print JSON}';
 
-    protected $description = 'Seed the synthetic demo tenant (honestly reports shadow-only domains)';
+    protected $description = 'Seed the synthetic demo tenant (LIVE business tables, or SHADOW rehearsal target)';
 
     public function handle(DemoSeeder $seeder): int
     {
@@ -50,7 +50,7 @@ class DemoSeedCommand extends Command
             );
 
             if ($result['deferred'] !== []) {
-                $this->warn('SHADOW MODE: business tables owned by parallel modules are not merged; these domains are rehearsal-only and must not be described as live data.');
+                $this->warn('SHADOW MODE: these domains were rehearsed in the shadow target only, not written to business tables. Re-run with --live to import into real tables.');
             }
         }
 

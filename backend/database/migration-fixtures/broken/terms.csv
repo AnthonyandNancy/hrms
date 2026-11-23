@@ -1,5 +1,5 @@
-employment_no,version,start_date,end_date,salary_scheme_code,probation_end_date
-E001,1,2020-01-01,9999-12-31,SAL-EXEC,
-E001,1,2021-01-01,9999-12-31,SAL-EXEC,
-E002,2,2020-02-01,2020-12-31,SAL-PROF,
-E003,1,2020-03-01,9999-12-31,SAL-PROF,2021-09-01
+employment_no,version,start_date,end_date,salary_scheme_code,probation_end_date,work_location,work_schedule
+E001,1,2020-01-01,9999-12-31,SAL-EXEC,,Shanghai,STANDARD
+E001,1,2021-01-01,9999-12-31,SAL-EXEC,,Shanghai,STANDARD
+E002,2,2020-02-01,2020-12-31,SAL-PROF,,Shanghai,STANDARD
+E003,1,2020-03-01,9999-12-31,SAL-PROF,2021-09-01,Shanghai,STANDARD

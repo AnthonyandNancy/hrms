@@ -7,6 +7,7 @@ namespace App\Modules\Time\Providers;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Time\Adapters\PeopleEmploymentDirectory;
 use App\Modules\Time\Adapters\WorkflowCaseAdapter;
+use App\Modules\Time\Console\SeedLeaveTypesCommand;
 use App\Modules\Time\Contracts\AttendanceWorkspaceReader;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\LeaveBalanceReader;
@@ -52,5 +53,14 @@ final class TimeServiceProvider extends ServiceProvider
         $this->app->bind(LeaveRequestReader::class, LeaveRequestReaderService::class);
         $this->app->bind(PayrollInputDirectory::class, PayrollInputDirectoryService::class);
         $this->app->bindIf(LeaveLiabilityDirectory::class, EloquentLeaveLiabilityDirectory::class);
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                SeedLeaveTypesCommand::class,
+            ]);
+        }
     }
 }

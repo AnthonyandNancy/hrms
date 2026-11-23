@@ -23,7 +23,7 @@ final class TermsCsvImporter extends AbstractCsvImporter
      */
     public function requiredHeaders(): array
     {
-        return ['employment_no', 'version', 'start_date', 'end_date', 'salary_scheme_code', 'probation_end_date'];
+        return ['employment_no', 'version', 'start_date', 'end_date', 'salary_scheme_code', 'probation_end_date', 'work_location', 'work_schedule'];
     }
 
     protected function normalizeRow(
@@ -36,6 +36,10 @@ final class TermsCsvImporter extends AbstractCsvImporter
     ): array {
         $this->validator->requireString($values, 'employment_no', $sourceRow, $issues);
         $this->validator->requireString($values, 'salary_scheme_code', $sourceRow, $issues);
+        // Both are NOT NULL contract facts in People's frozen schema; the
+        // legacy extract must supply them rather than have the adapter guess.
+        $this->validator->requireString($values, 'work_location', $sourceRow, $issues);
+        $this->validator->requireString($values, 'work_schedule', $sourceRow, $issues);
 
         $version = $this->validator->integer($values, 'version', $sourceRow, $issues);
         $start = $this->validator->date($values, 'start_date', $sourceRow, $issues);
@@ -72,6 +76,8 @@ final class TermsCsvImporter extends AbstractCsvImporter
             'effective_to' => $end,
             'salary_scheme_code' => trim($values['salary_scheme_code'] ?? ''),
             'probation_end_date' => $probationEnd,
+            'work_location' => trim($values['work_location'] ?? ''),
+            'work_schedule' => trim($values['work_schedule'] ?? ''),
             'source_type' => 'MIGRATION',
         ];
     }

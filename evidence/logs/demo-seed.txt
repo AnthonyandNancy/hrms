@@ -1,12 +1,11 @@
-+----------------+--------+---------+------+---------+---------+---------+
-| Domain         | Mode   | Status  | Read | Created | Updated | Skipped |
-+----------------+--------+---------+------+---------+---------+---------+
-| organizations  | SHADOW | APPLIED | 8    | 8       | 0       | 0       |
-| people         | SHADOW | APPLIED | 12   | 12      | 0       | 0       |
-| assignments    | SHADOW | APPLIED | 12   | 12      | 0       | 0       |
-| terms          | SHADOW | APPLIED | 12   | 12      | 0       | 0       |
-| leave_openings | SHADOW | APPLIED | 12   | 12      | 0       | 0       |
-| payroll_ytd    | SHADOW | APPLIED | 12   | 12      | 0       | 0       |
-+----------------+--------+---------+------+---------+---------+---------+
-SHADOW MODE: business tables owned by parallel modules are not merged; these domains are rehearsal-only and must not be described as live data.
-PASS: demo:seed dataset=demo mode=SHADOW domains=6
++----------------+------+---------+------+---------+---------+---------+
+| Domain         | Mode | Status  | Read | Created | Updated | Skipped |
++----------------+------+---------+------+---------+---------+---------+
+| organizations  | LIVE | APPLIED | 8    | 0       | 0       | 8       |
+| people         | LIVE | APPLIED | 12   | 0       | 0       | 12      |
+| assignments    | LIVE | APPLIED | 12   | 0       | 0       | 12      |
+| terms          | LIVE | APPLIED | 12   | 0       | 0       | 12      |
+| leave_openings | LIVE | APPLIED | 12   | 0       | 0       | 12      |
+| payroll_ytd    | LIVE | APPLIED | 12   | 0       | 0       | 12      |
++----------------+------+---------+------+---------+---------+---------+
+PASS: demo:seed dataset=demo mode=LIVE domains=6

@@ -108,22 +108,32 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             MigrationDomain::LEAVE_OPENINGS => 'leave_ledger_entries',
             MigrationDomain::PAYROLL_YTD => 'payroll_ytd',
         };
+        // Reconciliation must compare the rows this migration is responsible
+        // for, not every row the tenant happens to own: a reused or
+        // demo-seeded tenant would otherwise never reconcile.
         $query = DB::table($table)->where('tenant_id', $tenantId);
-        $sums = [];
 
         if ($this->domain === MigrationDomain::LEAVE_OPENINGS) {
+            // Opening balances use their own source_type marker.
             $query->where('source_type', 'MIGRATION_OPENING')->where('account', 'GRANT');
-            $sums['quantity_minutes'] = (int) $query->sum('quantity_units');
-        }
-
-        if ($this->domain === MigrationDomain::PAYROLL_YTD) {
+        } else {
             $query->where('source_type', 'MIGRATION');
-            foreach ($this->domain->reconciliationSums() as $field) {
-                $sums[$field] = (int) $query->sum($field);
-            }
         }
 
-        return new TargetMetrics(count: (int) $query->count(), sums: $sums);
+        // Reconciliation field names are the source/fixture vocabulary; the
+        // payroll_ytd table uses the longer domain column names.
+        $columns = [
+            'taxable_cents' => 'taxable_income_cents',
+            'si_cents' => 'social_insurance_cents',
+            'hf_cents' => 'housing_fund_cents',
+        ];
+        $sums = [];
+
+        foreach ($this->domain->reconciliationSums() as $field) {
+            $sums[$field] = (int) (clone $query)->sum($columns[$field] ?? $field);
+        }
+
+        return new TargetMetrics(count: (int) (clone $query)->count(), sums: $sums);
     }
 
     /**
@@ -179,7 +189,7 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
                 'employments' => ['id', 'tenant_id', 'employee_no'],
                 'leave_types' => ['id', 'tenant_id', 'code'],
                 'leave_accounts' => ['id', 'tenant_id', 'employment_id', 'leave_type_id', 'opened_on', 'closed_on'],
-                'leave_ledger_entries' => ['id', 'tenant_id', 'employment_id', 'leave_type_id', 'account', 'quantity_units', 'business_date', 'effective_on', 'source_type', 'source_id'],
+                'leave_ledger_entries' => ['id', 'tenant_id', 'employment_id', 'leave_type_id', 'account', 'quantity_minutes', 'business_date', 'effective_on', 'source_type', 'source_id'],
             ],
             MigrationDomain::PAYROLL_YTD => [
                 'employments' => ['id', 'tenant_id', 'employee_no'],
@@ -303,6 +313,10 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             'valid_from' => $data['valid_from'],
             'valid_to' => $data['valid_to'],
             'hire_date' => $data['hire_date'],
+            // seniority_start_date is NOT NULL and is the legal basis for
+            // statutory annual-leave floors (ADR-0003). Legacy data has no
+            // separate seniority date, so hire date is the correct default.
+            'seniority_start_date' => $data['seniority_start_date'] ?? $data['hire_date'],
             'termination_date' => $data['termination_date'],
             'recorded_at' => $now,
             'superseded_at' => null,
@@ -417,8 +431,11 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             'effective_to' => $data['effective_to'],
             'probation_end_date' => $data['probation_end_date'],
             'salary_scheme_code' => $data['salary_scheme_code'],
-            'work_location' => null,
-            'work_schedule' => null,
+            // Both columns are NOT NULL in People's frozen schema. The legacy
+            // extract must say where and how the person works; inventing a
+            // location here would fabricate a contract fact.
+            'work_location' => $data['work_location'],
+            'work_schedule' => $data['work_schedule'],
             'notice_period_days' => 0,
             'confidentiality' => 0,
             'non_compete' => 0,
@@ -482,13 +499,17 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             ]);
         }
 
+        // Idempotency uses the domain's natural source key
+        // (employment_no|leave_type|expiry_date), never the amount and never
+        // the staging row id: a re-run of the same file must be a no-op, while
+        // two genuinely different openings must both survive.
         $existing = DB::table('leave_ledger_entries')
             ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->where('account', 'GRANT')
-            ->where('quantity_units', $data['quantity_minutes'])
             ->where('business_date', $data['business_date'])
+            ->where('effective_on', $data['effective_on'])
             ->where('source_type', 'MIGRATION_OPENING')
             ->first();
 
@@ -496,16 +517,36 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             return new TargetWriteResult((int) $existing->id, TargetWriteResult::SKIPPED, true);
         }
 
+        $quantityMinutes = (int) $data['quantity_minutes'];
+        $businessDate = (string) $data['business_date'];
+        $effectiveOn = (string) $data['effective_on'];
+
+        // The ledger's entry_hash is NOT NULL and is the canonical
+        // tamper-evidence digest; compute it with the same recipe the Time
+        // ledger service uses instead of inserting a default.
+        $entryHash = hash('sha256', implode('|', [
+            $tenantId,
+            $employmentId,
+            $leaveTypeId,
+            'GRANT',
+            $quantityMinutes,
+            $businessDate,
+            $effectiveOn,
+            'MIGRATION_OPENING',
+            $row->stgId,
+        ]));
+
         $id = (int) DB::table('leave_ledger_entries')->insertGetId([
             'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'account' => 'GRANT',
-            'quantity_units' => $data['quantity_minutes'],
-            'business_date' => $data['business_date'],
-            'effective_on' => $data['effective_on'],
+            'quantity_minutes' => $quantityMinutes,
+            'business_date' => $businessDate,
+            'effective_on' => $effectiveOn,
             'source_type' => 'MIGRATION_OPENING',
             'source_id' => $row->stgId,
+            'entry_hash' => $entryHash,
             'case_id' => null,
             'reason' => 'Opening balance imported from legacy system',
             'recorded_at' => $now,
@@ -641,9 +682,13 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
                         'valid_from' => $unit->valid_from,
                     ],
                     [
+                        'tenant_id' => $tenantId,
                         'depth' => $depth,
                         'valid_to' => $unit->valid_to,
-                        'created_at' => $now,
+                        // org_unit_closure has no created_at column; it records
+                        // transaction time via recorded_at (NOT NULL).
+                        'recorded_at' => $now,
+                        'source_type' => 'MIGRATION',
                     ],
                 );
 

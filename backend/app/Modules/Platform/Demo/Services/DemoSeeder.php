@@ -19,12 +19,11 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * The demo command is honest about phased delivery. In this branch the business
- * modules are still parallel work; therefore the coherent 12-person dataset is
- * imported into the rehearsal shadow target and platform-owned demo tables, NOT
- * presented as live People/Payroll/Time records. Once those modules merge,
- * their database target tables become available and `demo:seed --live` can
- * populate them through the same importer ports.
+ * The demo command is honest about which target it wrote to. Every business
+ * module is now merged, so `--live` imports the coherent 12-person dataset into
+ * the real People/Payroll/Time tables through the same importer ports. Without
+ * `--live` (or when a target is unavailable) the run stays in SHADOW mode: the
+ * rows are rehearsed in the shadow target only and the report says so.
  */
 final class DemoSeeder
 {
@@ -89,7 +88,7 @@ final class DemoSeeder
             ];
 
             if (! $useLive) {
-                $deferred[$domainValue] = 'Business tables for this module are not merged in this build; data is rehearsal shadow only.';
+                $deferred[$domainValue] = 'SHADOW run requested or a live target was unavailable; data is rehearsal shadow only and not in business tables.';
             }
 
             if (! $run->status->isSuccessful()) {
