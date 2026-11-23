@@ -391,7 +391,20 @@ final class CapabilityAuthorizer implements Authorizer
 
     private function breakGlassAllows(Principal $principal, string $capability): bool
     {
-        return $principal->breakGlassGrantId() !== null;
+        $grantId = $principal->breakGlassGrantId();
+
+        if ($grantId === null) {
+            return false;
+        }
+
+        $scope = app(\App\Shared\Authorization\Contracts\ElevationGrantDirectory::class)
+            ->activeCapabilities($principal->tenantId(), $principal->userId(), $grantId);
+
+        if ($scope === null) {
+            return false;
+        }
+
+        return in_array('*', $scope, true) || in_array($capability, $scope, true);
     }
 
     private function today(): string

@@ -19,7 +19,7 @@ final class EloquentElevationGrantDirectory implements ElevationGrantDirectory
                     ->orWhere('approver_user_id', $userId);
             })
             ->whereNull('revoked_at')
-            ->where('expires_at', '>', now()->utc())
+            ->where('expires_at', '>', app(\App\Shared\Time\Clock::class)->now())
             ->first();
 
         if ($grant === null) {
