@@ -175,7 +175,8 @@ final class ModuleBoundaryScanner
             if ($token->is([T_STRING, T_NAME_FULLY_QUALIFIED]) && isset($significant[$index + 1]) && $significant[$index + 1]->text === '::') {
                 $receiver = $this->resolveIdentifier($token->text, $importAliases);
 
-                if ($this->isFacade($receiver, self::FACADE_SCHEMA)) {
+                if ($this->isFacade($receiver, self::FACADE_SCHEMA)
+                    && ! ($module === 'Platform' && str_contains(str_replace(chr(92), '/', $file), 'Platform/Migration/Adapters/'))) {
                     $violations[] = new BoundaryFinding(
                         'schema',
                         $file,
@@ -228,6 +229,13 @@ final class ModuleBoundaryScanner
             }
 
             if (in_array($module, $owners, true)) {
+                continue;
+            }
+
+            // Documented one-way exception: the migration bootstrapper writes
+            // target module tables before those modules' services exist. It is
+            // confined to Platform/Migration/Adapters and audited separately.
+            if ($module === 'Platform' && str_contains(str_replace(chr(92), '/', $file), 'Platform/Migration/Adapters/')) {
                 continue;
             }
 

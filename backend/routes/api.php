@@ -6,8 +6,11 @@ use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
+use App\Modules\Platform\Http\Controllers\FeatureFlagController;
 use App\Modules\Platform\Http\Controllers\HealthController;
+use App\Modules\Platform\Http\Controllers\LivenessController;
 use App\Modules\Platform\Http\Controllers\MetaController;
+use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
 use Illuminate\Support\Facades\Route;
 
@@ -22,9 +25,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 Route::get('/health', HealthController::class)->name('health');
+Route::get('/health/live', LivenessController::class)->name('health.live');
+Route::get('/health/ready', ReadinessController::class)->name('health.ready');
 Route::get('/meta', MetaController::class)->name('meta');
 
-Route::prefix('employees')->group(function (): void {
+Route::prefix('employees')->middleware('auth.session')->group(function (): void {
     Route::get('/', [EmployeeController::class, 'index'])
         ->middleware('capability:people.employee.read')
         ->name('employees.index');
@@ -34,7 +39,7 @@ Route::prefix('employees')->group(function (): void {
         ->name('employees.show');
 });
 
-Route::prefix('employments')->group(function (): void {
+Route::prefix('employments')->middleware('auth.session')->group(function (): void {
     Route::post('/', [EmploymentController::class, 'store'])
         ->middleware(IdempotentCommand::class)
         ->middleware('capability:people.employee.manage')
@@ -75,7 +80,7 @@ Route::get('/documents/{document_id}/download', [EmploymentController::class, 'd
     ->middleware('capability:people.document.download')
     ->name('documents.download');
 
-Route::prefix('org-units')->group(function (): void {
+Route::prefix('org-units')->middleware('auth.session')->group(function (): void {
     Route::get('/tree', [OrgUnitController::class, 'tree'])
         ->middleware(['capability:org.tree.read', 'capability:org.unit.read'])
         ->name('org-units.tree');
@@ -92,4 +97,9 @@ Route::prefix('org-units')->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:org.unit.manage')
         ->name('org-units.impact');
+});
+
+Route::middleware('capability:platform.feature.manage')->group(function (): void {
+    Route::get('/platform/features', [FeatureFlagController::class, 'index'])->name('platform.features.index');
+    Route::put('/platform/features/{flag}', [FeatureFlagController::class, 'update'])->name('platform.features.update');
 });

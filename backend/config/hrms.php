@@ -25,6 +25,14 @@ return [
     | New legal-entity timezones must be added here and documented before use.
     |
     */
+    'feature_flags' => [
+        'payroll_enabled' => env('HRMS_FEATURE_PAYROLL', false),
+        'time_enabled' => env('HRMS_FEATURE_TIME', false),
+        'self_service_enabled' => env('HRMS_FEATURE_SELF_SERVICE', false),
+        'recruitment_enabled' => env('HRMS_FEATURE_RECRUITMENT', false),
+        'export_enabled' => env('HRMS_FEATURE_EXPORT', false),
+    ],
+
     'supported_timezones' => [
         'UTC',
         'Asia/Shanghai',

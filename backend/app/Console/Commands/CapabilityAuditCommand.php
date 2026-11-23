@@ -27,6 +27,8 @@ final class CapabilityAuditCommand extends Command
      */
     public const PUBLIC_ALLOWLIST = [
         'v1/health',
+        'v1/health/live',
+        'v1/health/ready',
         'v1/meta',
     ];
 

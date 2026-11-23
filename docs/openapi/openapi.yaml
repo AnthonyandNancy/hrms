@@ -893,6 +893,91 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+  /v1/health/live:
+    get:
+      operationId: getHealthLive
+      summary: Process liveness probe
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Process is alive; no dependency is checked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+  /v1/health/ready:
+    get:
+      operationId: getHealthReady
+      summary: Dependency readiness probe
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Database, cache and storage are ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEnvelope'
+        '503':
+          description: A required dependency is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthUnavailableEnvelope'
+  /v1/platform/features:
+    get:
+      operationId: listFeatureFlags
+      summary: List operational feature flags
+      tags: [Platform]
+      responses:
+        '200':
+          description: Current flags for the caller's tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/platform/features/{flag}:
+    put:
+      operationId: updateFeatureFlag
+      summary: Enable or disable one operational feature flag
+      tags: [Platform]
+      parameters:
+        - name: flag
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled, reason]
+              properties:
+                enabled: {type: boolean}
+                reason: {type: string, minLength: 8, maxLength: 255}
+      responses:
+        '200':
+          description: Updated flag.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
   /v1/employments/{employment_id}/transfer:
     post:
       operationId: transferEmploymentLegalEntity

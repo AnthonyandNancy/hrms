@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Modules\Platform\Features\EnsureFeatureEnabled;
+use App\Modules\Platform\Logging\RequestLogMiddleware;
+use App\Shared\Authorization\EnsureCapability;
 use App\Shared\Exceptions\ExceptionRenderer;
 use App\Shared\RequestId;
 use Illuminate\Foundation\Application;
@@ -19,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RequestId::class);
+        $middleware->append(RequestLogMiddleware::class);
+        $middleware->alias([
+            'feature' => EnsureFeatureEnabled::class,
+            'capability' => EnsureCapability::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

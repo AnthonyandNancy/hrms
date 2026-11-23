@@ -1,0 +1,5 @@
+employment_no,leave_type,quantity_minutes,expiry_date
+E001,ANNUAL,-480,2026-12-31
+E002,ANNUAL,4800,2026-12-31
+E003,UNKNOWN_TYPE,4800,2026-12-31
+E004,ANNUAL,4800,2026-13-99
