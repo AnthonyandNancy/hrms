@@ -43,6 +43,10 @@ abstract class PayrollTestCase extends TestCase
         $this->clock = new FrozenClock('2026-11-23T01:00:00Z');
         $this->app->instance(Clock::class, $this->clock);
 
+        // Mutating HTTP requests pass the real CSRF middleware in production;
+        // the test harness supplies a fixed header token.
+        $this->withHeader('X-CSRF-Token', 'test-csrf-token');
+
         $this->app->instance(Authorizer::class, new AllowAllAuthorizer);
 
         $this->scenario = new PayrollScenario($this->tenantId, $this->clock);
