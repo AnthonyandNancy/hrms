@@ -4,9 +4,9 @@
 
 | 项目 | 值 |
 |---|---|
-| 代码基线 | `495575645c82083beac7ad303961f36d290ba7ed` |
-| 集成提交 | `321a5d0`（后端）、`600c30c`（前端与契约）、`93d2fd8`（ADR 与运维文档）、`f5c5313`（审计报告）、`a565a04`+`388f6f1`+`4955756`（凭据修复与残留风险记录） |
-| 审计时间（UTC） | 2026-11-23T21:15Z |
+| 代码基线 | `ef4418ed4a346dc7ea696cafd1646bd3459fdc6a` |
+| 集成提交 | `321a5d0`（后端）、`600c30c`（前端与契约）、`93d2fd8`（ADR 与运维文档）、`f5c5313`（审计报告）、`a565a04`+`388f6f1`+`4955756`（凭据修复与残留风险记录）、`5f7db28`（迁移与假勤实数化）、`ef4418e`（工资实数证据与边界修复） |
+| 审计时间（UTC） | 2026-11-23T23:08Z（第二轮实数化后复审） |
 | 环境 | Windows + git-bash；PHP 8.4.28；Laravel 13；SQLite（本地/测试）；MySQL 8.4 仅限 Compose 目标 |
 | 审计对象 | 参考实现（reference implementation），非 30 周生产切换完成态 |
 | 复现入口 | `bash scripts/verify_release.sh` → `evidence/logs/verify-release.txt` |
@@ -52,15 +52,15 @@
 |---|---|---|---|
 | E-01 | 架构边界报告 | **PASS** | `evidence/logs/arch-test.txt`：`Module boundaries OK`，16 条非阻断 ownership 警告（见 §6 已知限制） |
 | E-02 | 能力覆盖报告 | **PASS** | `evidence/logs/capability-audit.txt`：`Capability audit OK`，受保护路由全部有 capability，公共路由仅 5 条显式白名单 |
-| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**705 passed / 35,666 assertions / 0 failure / 0 error / 0 skipped** |
-| E-04 | 静态分析与风格 | **PASS** | `evidence/logs/pint.txt`（887 文件 PASS）、`evidence/logs/phpstan.txt`（`[OK] No errors`，level 6） |
+| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**721 passed / 35,726 assertions / 0 failure / 0 error / 0 skipped** |
+| E-04 | 静态分析与风格 | **PASS** | `evidence/logs/pint.txt`（891 文件 PASS）、`evidence/logs/phpstan.txt`（`[OK] No errors`，level 6） |
 | E-05 | 契约校验 | **PASS** | `evidence/logs/openapi-lint.txt`（125 paths / 139 operations / 3.1.0）、`evidence/logs/openapi-validate.txt`（Redocly valid，3 条非阻断 warning）、契约测试 PASS |
 | E-06 | 前端质量 | **PASS** | `frontend-typecheck.txt`、`frontend-lint.txt`、`frontend-unit.txt`（30 passed）、`frontend-build.txt` |
 | E-07 | E2E 报告 | **PASS** | Mock：`frontend-e2e-mock.txt`（11 passed）；真实后端：`frontend-e2e-real.txt`（8 passed，1.8m） |
 | E-08 | 权限负测矩阵 | **PASS** | `backend/tests/Authorization/endpoint_matrix.php` 覆盖 **134** 条受保护端点，`capability:audit` 无缺失告警；负测见 §4 |
 | E-09 | 时间旅行报告 | **PASS** | 半开区间 `AsOfQueryTest`/`DateRangeTest`；T-1/T/T+1 `AsOfConsistencyTest`；DST 与跨夜 `ShiftWindowTest`、`OvernightShiftTest` |
-| E-10 | 假勤账本对账 | **PASS（空集）** | `evidence/logs/ledger-reconcile.txt`：`Differences: 0`。⚠ 演示租户当前无 leave type/ledger 记录，对账为 0 行；算法正确性由 `LeaveLedgerBalanceTest`、`ReversalTest`、`LeaveConcurrencyTest` 覆盖 |
-| E-11 | 工资计算与平行报告 | **PARTIAL → GATE** | 单元与集成：`CumulativeWithholdingTest`、`ProrationRoundingTest`、`CorrectionRunTest` 等全绿；`payroll-parallel-check.txt` 退出码 **2 = NOT_EXECUTED**（无旧系统导出文件），**不视为通过** |
+| E-10 | 假勤账本对账 | **PASS（实数）** | `evidence/logs/ledger-reconcile.txt`：12 个账户、11 条分录、`Projection mismatches: 0`、`Differences: 0`（as-of 2026-12-31）。数据来自 LIVE 迁移的 12 条期初余额 |
+| E-11 | 工资计算与平行报告 | **PASS（实数）** | 12 名员工实际计算（gross 12,420,000 / net 10,227,120 分）；`payroll-reconciliation.txt` `failed: 0`；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、人数一致。旧系统导出为**合成对照文件**（由同一计算生成），因此它证明的是对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
 | E-12 | 迁移彩排与对账 | **PASS（SHADOW）** | `migration-rehearsal.txt`、`migration-rehearsal-script.txt`：6 域 `APPLIED`/`reconcile=PASS`，target=SHADOW |
 | E-13 | 备份恢复与回滚演练 | **PASS（本地范围）** | `backup-restore.txt`（sha256 一致）、`verify-release.txt` 中 rollback drill PASS（2.3s / 3600s 预算）。MySQL PITR、feature-flag 回退、路由切换为 NOT_EXECUTED |
 | E-14 | 安全扫描 | **PASS（本地）+ GATE（SAST）** | `composer-audit.txt`：无已知漏洞；`gitleaks.txt`：106 commits，`no leaks found`；SAST 由 `.github/workflows/codeql.yml` 在 GitHub 执行，本地无法证明 |
@@ -114,16 +114,16 @@
 
 | 项 | 说明 | 影响 |
 |---|---|---|
-| 工资平行运行 | `payroll:parallel-check` 需 `--old-file` 旧系统导出；本地无该文件，退出码 2 = `NOT_EXECUTED` | E-11 无法给 PASS；R3 工资平行验收仍为 GATE |
+| 真实旧系统平行运行 | `payroll:parallel-check` 现已用合成对照文件跑通（0 差异）；但真实旧系统导出不存在，无法证明与历史系统口径一致 | E-11 机制 PASS；真实平行验收（GATE-06）仍为 GATE |
 | 银行/税务申报 | 仅提供 CSV 适配器与回执登记，无真实银行/税务接口 | 生产启用为 GATE |
 | 工资条 PDF | 未实现 PDF 渲染 | 生产交付为 GATE |
 | 法定参数 | DEMO 参数为合成值，不构成法律意见；每法人仅一套 SI/HF 规则 | 上线前需按地区签字确认 |
 | 仪表盘待审批口径 | Workflow 的 `ReportingApprovalDirectory` 是租户级、不含 assignee 字段，面板按调用者授权范围过滤但无法区分"分配给我" | 已在 `DashboardService` 注释与 ADR 记录；需 Workflow 提供 assignee 维度投影 |
 | 公告可见范围 | `NoticeWorkspaceDirectory` 返回 ALL 公告及本人已确认项，不展开 ROLE/ORG 受众 | 面板偏保守（只会少、不会多）；应在 Engagement 内完善 |
-| 演示数据 | `demo:seed` 为 SHADOW 模式：6 域 APPLIED 但不并入业务表；演示租户无 leave type、无工资运行 | E-10/E-11 在演示租户上为空集；不据此推断生产正确性 |
+| 演示数据 | `demo:seed --live` 现已把 6 域写入真实业务表（organizations/people/assignments/terms/leave_openings/payroll_ytd 各 12 行，reconcile=PASS）；`time:seed-leave-types` 提供假期类型；`payroll:seed-demo-run` 生成一个 CALCULATED 批次 | 演示租户不再为空集；但仍是合成数据，不据此推断生产正确性 |
 | 迁移彩排 | 仅在 SHADOW 目标完成 6 域对账 | 生产冻结窗口三轮彩排仍为 GATE |
 | 回滚演练 | 脚本证明快照/恢复/完整性/时限；MySQL PITR、feature-flag 回退、路由切换以 `NOT_EXECUTED` 明示 | 生产回滚演练仍为 GATE |
-| 架构警告 | `arch:test` 16 条非阻断警告（`RetentionService` 动态表名、`feature_flags` 等未登记 owner） | 不阻断，但已登记为 ADR-0015 复审触发条件 |
+| 架构警告 | `arch:test` 警告由 16 条降至 4 条（仅剩 `RetentionService` 动态表名）；同时修复扫描器把 `DB::table('x as a')` 误判为未知表的问题，该修复暴露并修掉了 Lifecycle 直接读 People 表 2 处违规 | 剩余 4 条非阻断，已登记为 ADR-0015 复审触发条件 |
 | SAST | CodeQL 仅在 GitHub Actions 运行 | 本地证据不包含 SAST 结果 |
 | 演示口令的残留历史 | 该口令曾出现在提交 `600c30c`/`a565a04` 的文件内容中，已在 `a565a04` 从工作树移除、并在 `388f6f1` 从审计文档中脱敏；因仓库无 remote 且存在 12 个 worktree 与 15+ 分支，未做历史重写 | 对该值视为**已泄露并应轮换**：任何按本仓库部署的环境都必须使用全新的 `DEMO_SEED_PASSWORD`，不得复用该值。若将来添加 remote，须在首次推送前重写历史或强制轮换 |
 

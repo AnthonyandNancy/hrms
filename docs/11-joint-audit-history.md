@@ -126,6 +126,37 @@
 | 16 条架构 ownership 警告 | `RetentionService` 动态表名等 | 非阻断，登记为 ADR-0015 复审触发 |
 | SAST | CodeQL 仅 GitHub 运行 | 记为 GATE |
 
+### 7. 第二轮：把"空集证据"变成实数证据
+
+审计第一轮留下的最大问题是 E-10/E-11 在演示租户上是空集：没有假期类型、没有工资运行，
+所以"对账 0 差异"并不能证明任何事。第二轮针对性地补齐，并在这个过程中又发现 8 个缺陷。
+
+| # | 缺陷 | 严重度 | 影响 |
+|---|---|---|---|
+| 7 | 迁移适配器引用不存在的 `leave_ledger_entries.quantity_units`，且从不写 NOT NULL 的 `entry_hash`；idempotency 用 staging id 而非自然键 | Sev2 | 期初假期余额无法导入，重跑会重复插入 |
+| 8 | `org_unit_closure` 写入不存在的 `created_at`；`employments` 漏写 NOT NULL 的 `seniority_start_date` | Sev2 | org / people 域迁移直接失败 |
+| 9 | 合同条款 `work_location`/`work_schedule` 以 NULL 插入 NOT NULL 列 | Sev2 | terms 域迁移失败 |
+| 10 | 工资对账用源字段名（`taxable_cents`/`si_cents`/`hf_cents`）直接查 `payroll_ytd`，而真实列名是 `taxable_income_cents`/`social_insurance_cents`/`housing_fund_cents` | Sev2 | 工资 YTD 对账恒失败 |
+| 11 | 迁移对账统计**整个租户**而非本次迁移写入的行 | Sev2 | 复用/演示租户永远无法对平 |
+| 12 | 合同条款的 update 路径只写部分字段，可能报 UPDATED 却留下旧值 | Sev3 | 数据静默不一致 |
+| 13 | `time:seed-leave-types` 缺失：租户无法创建假期类型，也就无法开账户或迁移期初 | Sev2 | 假勤模块在全新租户上不可用 |
+| 14 | `ModuleBoundaryScanner` 把 `DB::table('assignments as a')` 当成表名 "assignments as a"，真实越界被降级为 warning | **Sev2（架构门禁失效）** | 修好后立刻暴露 Lifecycle 直接读 People 表 2 处违规，已改为经 `WorkforceIntegrityDirectory` 契约 |
+
+同时新增 `payroll:seed-demo-run`（停在 CALCULATED，绝不自动审批），使 E-11 第一次拥有真实计算行。
+
+**结果**
+
+| 项 | 第一轮 | 第二轮 |
+|---|---|---|
+| 后端测试 | 705 / 35,666 | **721 / 35,726** |
+| E-10 账本对账 | 0 账户（空集） | **12 账户 / 11 分录 / 0 差异** |
+| E-11 工资 | exit 2 NOT_EXECUTED | **reconciliation failed:0；parallel-check exit 0，0 差异** |
+| `demo:seed --live` | 失败（5 处 schema 缺陷） | **6 域全部 LIVE + reconcile PASS** |
+| `arch:test` 警告 | 16 | **4**（仅剩 RetentionService 动态表名） |
+
+诚实边界：E-11 的"旧系统导出"是**合成对照文件**，由同一计算生成，证明的是对账机制与
+人数/金额一致性，**不替代**真实旧系统的平行运行（仍为 GATE-06）。
+
 ## 结论
 
 **`ACCEPTED_WITH_GATES`**：代码证据全绿、无 Sev1/Sev2 遗留；组织签认（S-01–S-08）、

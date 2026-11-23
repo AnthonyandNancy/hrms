@@ -149,6 +149,7 @@ No syntax errors detected in app/Modules/Organization/Services/TenantBusinessDat
 No syntax errors detected in app/Modules/Payroll/Authorization/EloquentPayrollRunMembershipDirectory.php
 No syntax errors detected in app/Modules/Payroll/Console/PayrollParallelCheckCommand.php
 No syntax errors detected in app/Modules/Payroll/Console/PayrollReconciliationCommand.php
+No syntax errors detected in app/Modules/Payroll/Console/SeedDemoPayrollRunCommand.php
 No syntax errors detected in app/Modules/Payroll/Console/SeedPayrollParametersCommand.php
 No syntax errors detected in app/Modules/Payroll/Contracts/PayrollApprovalEffectPort.php
 No syntax errors detected in app/Modules/Payroll/Contracts/PayrollCostDirectory.php
@@ -234,6 +235,7 @@ No syntax errors detected in app/Modules/People/Contracts/PeopleDirectory.php
 No syntax errors detected in app/Modules/People/Contracts/PeopleEmploymentWriter.php
 No syntax errors detected in app/Modules/People/Contracts/PeopleWorkspaceDirectory.php
 No syntax errors detected in app/Modules/People/Contracts/PeopleWorkspaceProfile.php
+No syntax errors detected in app/Modules/People/Contracts/WorkforceIntegrityDirectory.php
 No syntax errors detected in app/Modules/People/Contracts/WorkforceReportingDirectory.php
 No syntax errors detected in app/Modules/People/Contracts/WorkforceReportingRow.php
 No syntax errors detected in app/Modules/People/Exceptions/CrossLegalEntityAssignmentException.php
@@ -254,6 +256,7 @@ No syntax errors detected in app/Modules/People/Services/AssignmentTimeline.php
 No syntax errors detected in app/Modules/People/Services/DocumentService.php
 No syntax errors detected in app/Modules/People/Services/EloquentNoticeAudienceDirectory.php
 No syntax errors detected in app/Modules/People/Services/EloquentPeopleWorkspaceDirectory.php
+No syntax errors detected in app/Modules/People/Services/EloquentWorkforceIntegrityDirectory.php
 No syntax errors detected in app/Modules/People/Services/EloquentWorkforceReportingDirectory.php
 No syntax errors detected in app/Modules/People/Services/EmploymentLifecycleDirectoryService.php
 No syntax errors detected in app/Modules/People/Services/EmploymentService.php
@@ -419,6 +422,7 @@ No syntax errors detected in app/Modules/Talent/Services/UnavailableRecruitmentF
 No syntax errors detected in app/Modules/Time/Adapters/PeopleEmploymentDirectory.php
 No syntax errors detected in app/Modules/Time/Adapters/WorkflowCaseAdapter.php
 No syntax errors detected in app/Modules/Time/Console/LedgerReconcileCommand.php
+No syntax errors detected in app/Modules/Time/Console/SeedLeaveTypesCommand.php
 No syntax errors detected in app/Modules/Time/Contracts/AttendanceWorkspaceReader.php
 No syntax errors detected in app/Modules/Time/Contracts/EmploymentDirectory.php
 No syntax errors detected in app/Modules/Time/Contracts/EmploymentSnapshot.php
@@ -706,8 +710,10 @@ No syntax errors detected in tests/Feature/Lifecycle/TrainingEnrollmentTest.php
 No syntax errors detected in tests/Feature/Lifecycle/TransferFutureEffectTest.php
 No syntax errors detected in tests/Feature/LogRedactionTest.php
 No syntax errors detected in tests/Feature/MetaTest.php
+No syntax errors detected in tests/Feature/Migration/LeaveOpeningMigrationTest.php
 No syntax errors detected in tests/Feature/Migration/MigrationCommandsTest.php
 No syntax errors detected in tests/Feature/Migration/MigrationIdempotencyTest.php
+No syntax errors detected in tests/Feature/Migration/MigrationMetricsScopeTest.php
 No syntax errors detected in tests/Feature/Migration/MigrationReconciliationTest.php
 No syntax errors detected in tests/Feature/Migration/MigrationRehearsalTest.php
 No syntax errors detected in tests/Feature/Migration/MigrationValidateTest.php
@@ -723,6 +729,7 @@ No syntax errors detected in tests/Feature/Payroll/PayrollHttpLifecycleTest.php
 No syntax errors detected in tests/Feature/Payroll/PayrollReopenTest.php
 No syntax errors detected in tests/Feature/Payroll/PayrollRunLifecycleTest.php
 No syntax errors detected in tests/Feature/Payroll/PayrollSnapshotTest.php
+No syntax errors detected in tests/Feature/Payroll/SeedDemoPayrollRunCommandTest.php
 No syntax errors detected in tests/Feature/Payroll/WorkflowPayrollApprovalTest.php
 No syntax errors detected in tests/Feature/People/AsOfQueryTest.php
 No syntax errors detected in tests/Feature/People/AssignmentTimelineTest.php
@@ -752,6 +759,7 @@ No syntax errors detected in tests/Feature/Time/LeaveConcurrencyTest.php
 No syntax errors detected in tests/Feature/Time/LeaveLedgerBalanceTest.php
 No syntax errors detected in tests/Feature/Time/OvernightShiftTest.php
 No syntax errors detected in tests/Feature/Time/ReversalTest.php
+No syntax errors detected in tests/Feature/Time/SeedLeaveTypesCommandTest.php
 No syntax errors detected in tests/Feature/Time/TimeContainerResolutionTest.php
 No syntax errors detected in tests/Feature/Time/TimeWorkflowIntegrationTest.php
 No syntax errors detected in tests/Feature/Workflow/ApprovedNotEffectiveTest.php
@@ -876,7 +884,7 @@ RESULT: PASS - php syntax
 $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\AuditAppendOnlyTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcreating audit event persists json payloads[39m[90m                                                                 [39m [90m0.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreating audit event persists json payloads[39m[90m                                                                 [39m [90m0.71s[39m  
   [32;1m✓[39;22m[90m [39m[90mupdating audit event throws[39m[90m                                                                                 [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mdeleting audit event throws[39m[90m                                                                                 [39m [90m0.04s[39m  
 
@@ -911,9 +919,9 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\IamCommandsTest[39m
   [32;1m✓[39;22m[90m [39m[90msync capabilities is idempotent and refuses referenced removal[39m[90m                                              [39m [90m0.16s[39m  
-  [32;1m✓[39;22m[90m [39m[90mseed demo requires password env and is idempotent[39m[90m                                                           [39m [90m0.54s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreap sessions revokes only expired sessions[39m[90m                                                                 [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90maccess review requires quarter and reports json[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseed demo requires password env and is idempotent[39m[90m                                                           [39m [90m0.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreap sessions revokes only expired sessions[39m[90m                                                                 [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccess review requires quarter and reports json[39m[90m                                                             [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\TotpTest[39m
   [32;1m✓[39;22m[90m [39m[90mrfc6238 sha1 test vectors[39m[90m                                                                                   [39m [90m0.01s[39m  
@@ -923,20 +931,20 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mbase32 round trip and constant time comparison[39m
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\IAM\WebAuthnChallengeTest[39m
-  [32;1m✓[39;22m[90m [39m[90mchallenge is random stored once and expires[39m[90m                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchallenge is random stored once and expires[39m[90m                                                                 [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mclient data with wrong challenge or origin is rejected[39m[90m                                                      [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mchallenge is single use[39m[90m                                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchallenge is single use[39m[90m                                                                                     [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90massertion requires authentication type and challenge[39m[90m                                                        [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\IdempotencyServiceTest[39m
   [32;1m✓[39;22m[90m [39m[90mfirst call executes and replay returns stored response[39m[90m                                                      [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90msame key with different payload is a conflict[39m[90m                                                               [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mfailed key is released and can be reused[39m[90m                                                                    [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90min progress key returns conflict instead of running twice[39m[90m                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfailed key is released and can be reused[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90min progress key returns conflict instead of running twice[39m[90m                                                   [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90munique index prevents duplicate reservations[39m[90m                                                                [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\ChecklistPolicyTest[39m
-  [32;1m✓[39;22m[90m [39m[90mrequired tasks must be done or waived with reason[39m
+  [32;1m✓[39;22m[90m [39m[90mrequired tasks must be done or waived with reason[39m[90m                                                           [39m [90m0.01s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Lifecycle\OfferStateMachineTest[39m
   [32;1m✓[39;22m[90m [39m[90monly an approved offer can be accepted once[39m
@@ -959,7 +967,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mcorrection delta is revised result minus original result[39m
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\ManualAdjustmentAmountTest[39m
-  [32;1m✓[39;22m[90m [39m[90mnegative adjustment absolute amount is exact and becomes deduction[39m[90m                                          [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnegative adjustment absolute amount is exact and becomes deduction[39m
   [32;1m✓[39;22m[90m [39m[90mphp int min recovery is rejected because its absolute value is not representable[39m
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\NegativeZeroTest[39m
@@ -979,7 +987,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "round call"[39m
   [32;1m✓[39;22m[90m [39m[90mscanner detects each forbidden float pattern with data set "native abs call"[39m
   [32;1m✓[39;22m[90m [39m[90mscanner allows integer arithmetic and comments about floating point[39m
-  [32;1m✓[39;22m[90m [39m[90mpayroll and money sources contain no float arithmetic[39m[90m                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll and money sources contain no float arithmetic[39m[90m                                                       [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Modules\Payroll\Domain\PayrollCalculationInputTest[39m
   [32;1m✓[39;22m[90m [39m[90mrejects an input line in a different currency[39m
@@ -1071,13 +1079,13 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mmoney rejects a malformed currency code[39m
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Organization\ClosureBuilderTest[39m
-  [32;1m✓[39;22m[90m [39m[90mit builds self and ancestor paths with depth[39m[90m                                                                [39m [90m0.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit builds self and ancestor paths with depth[39m
   [32;1m✓[39;22m[90m [39m[90mit detects a parent cycle[39m
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\OutboxServiceTest[39m
   [32;1m✓[39;22m[90m [39m[90mrecord persists event with json payload and ulid[39m[90m                                                            [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrecord rolls back with caller transaction[39m[90m                                                                   [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpayload with prohibited sensitive keys is rejected[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecord rolls back with caller transaction[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayload with prohibited sensitive keys is rejected[39m[90m                                                          [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mdispatcher contract is bound[39m[90m                                                                                [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\People\AssignmentOverlapTest[39m
@@ -1093,8 +1101,8 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90munknown employment is 404 domain exception[39m[90m                                                                  [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\People\PersonPrivacyTest[39m
-  [32;1m✓[39;22m[90m [39m[90midentity hash is deterministic but plaintext independent[39m[90m                                                    [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmobile masking never returns full number[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity hash is deterministic but plaintext independent[39m[90m                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile masking never returns full number[39m[90m                                                                    [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mencryption uses application key[39m[90m                                                                             [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Shared\Money\DecimalScaleTest[39m
@@ -1172,10 +1180,10 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mwhere known at respects recorded and superseded timestamps[39m[90m                                                  [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\BusinessCalendarTest[39m
-  [32;1m✓[39;22m[90m [39m[90mworkweek holiday and makeup override weekday rules[39m[90m                                                          [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkweek holiday and makeup override weekday rules[39m[90m                                                          [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mpublic holiday and company holiday are non working[39m[90m                                                          [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mmakeup workday on a weekend is working[39m[90m                                                                      [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90munknown timezone is rejected[39m[90m                                                                                [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown timezone is rejected[39m[90m                                                                                [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mshift window maps overnight morning punch to start business date[39m[90m                                            [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mday shift uses legal entity local date not utc date[39m[90m                                                         [39m [90m0.03s[39m  
 
@@ -1202,7 +1210,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mavailable excludes reserve and balance is total[39m[90m                                                             [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mnegative quantity is rejected[39m[90m                                                                               [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mbalance can be asserted exact[39m[90m                                                                               [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mnegative available without permission is rejected[39m[90m                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnegative available without permission is rejected[39m[90m                                                           [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\QuantityUnitTest[39m
   [32;1m✓[39;22m[90m [39m[90mday quantity is stored as integer minutes using standard day[39m[90m                                                [39m [90m0.04s[39m  
@@ -1211,20 +1219,20 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mbad standard day is rejected[39m[90m                                                                                [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\ShiftWindowTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcross midnight elapsed minutes are real utc minutes[39m[90m                                                         [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross midnight elapsed minutes are real utc minutes[39m[90m                                                         [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mfall back elapsed minutes include repeated hour once as real time[39m[90m                                           [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mshift boundaries resolve dst wall clock correctly[39m[90m                                                           [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90movernight window without midnight crossing rejects configuration[39m[90m                                            [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Time\StatutoryFloorTest[39m
   [32;1m✓[39;22m[90m [39m[90mfloors are five ten and fifteen days by cumulative service[39m[90m                                                  [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mone day short of ten years still gets five days[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone day short of ten years still gets five days[39m[90m                                                             [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mstatutory entitlement below floor is rejected[39m[90m                                                               [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mcompany leave may be set below statutory floor[39m[90m                                                              [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mstatutory entitlement at floor is accepted[39m[90m                                                                  [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Unit\Workflow\ConditionEvaluatorTest[39m
-  [32;1m✓[39;22m[90m [39m[90msupported leaf operators compare scalar payload fields[39m
+  [32;1m✓[39;22m[90m [39m[90msupported leaf operators compare scalar payload fields[39m[90m                                                      [39m [90m0.01s[39m  
   [32;1m✓[39;22m[90m [39m[90mall and any compose only declarative conditions[39m
   [32;1m✓[39;22m[90m [39m[90mnested dotted payload fields are supported[39m
   [32;1m✓[39;22m[90m [39m[90mmissing or non scalar fields do not match[39m
@@ -1258,7 +1266,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90morg unit anchor[39m[90m                                                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90morg subtree anchor[39m[90m                                                                                          [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mcase anchor[39m[90m                                                                                                 [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpayroll run anchor[39m[90m                                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll run anchor[39m[90m                                                                                          [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mlegal entity anchor and cross entity isolation[39m[90m                                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mcross tenant user never uses another tenants binding[39m[90m                                                        [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mevery binding carries a known anchor type[39m[90m                                                                   [39m [90m0.03s[39m  
@@ -1269,40 +1277,40 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90morg subtree scope resolves descendant org members[39m[90m                                                           [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mlegal entity scope is isolated[39m[90m                                                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mcross tenant detail is 404[39m[90m                                                                                  [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\AuthorizerEngineTest[39m
   [32;1m✓[39;22m[90m [39m[90mdefault deny when no binding and no elevation[39m[90m                                                               [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mself anchor allows only the callers employments[39m[90m                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mmanaged anchor follows manager directory[39m[90m                                                                    [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mexpired and future bindings do not grant[39m[90m                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexpired and future bindings do not grant[39m[90m                                                                    [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mtenant mismatch never grants[39m[90m                                                                                [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90msod conflict hard denies both capabilities[39m[90m                                                                  [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mstale auth version is not granted[39m[90m                                                                           [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstale auth version is not granted[39m[90m                                                                           [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mconstrain pushes scope into sql before pagination[39m[90m                                                           [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mcross module ports are fakes and nothing queries other tables[39m[90m                                               [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\BreakGlassTest[39m
-  [32;1m✓[39;22m[90m [39m[90mactivation requires two distinct people[39m[90m                                                                     [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mactivation requires two distinct people[39m[90m                                                                     [39m [90m0.24s[39m  
   [32;1m✓[39;22m[90m [39m[90mreason minimum and active approver are enforced[39m[90m                                                             [39m [90m0.21s[39m  
-  [32;1m✓[39;22m[90m [39m[90mactivation creates thirty minute grant with audit and outbox[39m[90m                                                [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mactivation creates thirty minute grant with audit and outbox[39m[90m                                                [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90mexpired grant no longer allows actions automatically[39m[90m                                                        [39m [90m0.21s[39m  
-  [32;1m✓[39;22m[90m [39m[90meither party can revoke and revocation is audited[39m[90m                                                           [39m [90m0.37s[39m  
-  [32;1m✓[39;22m[90m [39m[90mgrant id header is bound to actions and unknown grant does not elevate[39m[90m                                      [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90meither party can revoke and revocation is audited[39m[90m                                                           [39m [90m0.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgrant id header is bound to actions and unknown grant does not elevate[39m[90m                                      [39m [90m0.21s[39m  
   [32;1m✓[39;22m[90m [39m[90mreason is never exposed in grant json[39m[90m                                                                       [39m [90m0.21s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\ConcurrencyTest[39m
-  [32;1m✓[39;22m[90m [39m[90mparallel binding changes increment auth version monotonically without lost updates[39m[90m                          [39m [90m0.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel binding changes increment auth version monotonically without lost updates[39m[90m                          [39m [90m0.76s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\CsrfTest[39m
   [32;1m✓[39;22m[90m [39m[90mmissing csrf header on mutation returns 419 envelope[39m[90m                                                        [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90minvalid csrf header on mutation returns 419[39m[90m                                                                 [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mget request is not subject to csrf[39m[90m                                                                          [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mget request is not subject to csrf[39m[90m                                                                          [39m [90m0.20s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\DenyByDefaultTest[39m
   [32;1m✓[39;22m[90m [39m[90munauthenticated request gets 401 envelope[39m[90m                                                                   [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mauthenticated user without capability gets 403[39m[90m                                                              [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mauthenticated user without capability gets 403[39m[90m                                                              [39m [90m0.23s[39m  
   [32;1m✓[39;22m[90m [39m[90mcapability catalog has no editable surface[39m[90m                                                                  [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mall protected routes carry capability metadata[39m[90m                                                              [39m [90m0.05s[39m  
 
@@ -1311,49 +1319,49 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\FieldDenialHttpTest[39m
   [32;1m✓[39;22m[90m [39m[90mhidden field filter returns 422 and never queries it[39m[90m                                                        [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90midor user cannot read another users bindings[39m[90m                                                                [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90midor user cannot read another users bindings[39m[90m                                                                [39m [90m0.23s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\FieldProjectionTest[39m
-  [32;1m✓[39;22m[90m [39m[90mp0 visible and filterable p1 visible but masked p2 visible but masked p3 hidden[39m[90m                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mp0 visible and filterable p1 visible but masked p2 visible but masked p3 hidden[39m[90m                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mp2 is not filterable and throws domain 422[39m[90m                                                                  [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mcaller without field coverage gets 404 not partial projection[39m[90m                                               [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mexport flag only applies to export capability and never unlocks p3[39m[90m                                          [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90msensitive field access is audited without values[39m[90m                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90msensitive field access is audited without values[39m[90m                                                            [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mp3 values never reach serialized output or logs[39m[90m                                                             [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\LoginSecurityTest[39m
-  [32;1m✓[39;22m[90m [39m[90mlogin sets hardened cookie and returns csrf once[39m[90m                                                            [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mbad password is 401 and never issues session[39m[90m                                                                [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin sets hardened cookie and returns csrf once[39m[90m                                                            [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbad password is 401 and never issues session[39m[90m                                                                [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90mlogin is rate limited after five attempts per minute[39m[90m                                                        [39m [90m0.81s[39m  
-  [32;1m✓[39;22m[90m [39m[90maccount locks after ten failures in window[39m[90m                                                                  [39m [90m1.57s[39m  
-  [32;1m✓[39;22m[90m [39m[90msuccessful login records last login and audit event[39m[90m                                                         [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90maccount locks after ten failures in window[39m[90m                                                                  [39m [90m1.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90msuccessful login records last login and audit event[39m[90m                                                         [39m [90m0.20s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\MfaTest[39m
   [32;1m✓[39;22m[90m [39m[90mprivileged user without enrollment cannot use privileged capability[39m[90m                                         [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90mpayroll role without mfa gets 403 but ordinary capability is unaffected[39m[90m                                     [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtotp enrollment confirm returns otpauth uri and single use recovery codes[39m[90m                                   [39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtotp enrollment confirm returns otpauth uri and single use recovery codes[39m[90m                                   [39m [90m0.38s[39m  
   [32;1m✓[39;22m[90m [39m[90mtotp step up marks mfa verified and expires after 15 minutes[39m[90m                                                [39m [90m0.21s[39m  
-  [32;1m✓[39;22m[90m [39m[90msms and email are rejected as second factors[39m[90m                                                                [39m [90m0.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90msms and email are rejected as second factors[39m[90m                                                                [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90minvalid totp is rejected and audited[39m[90m                                                                        [39m [90m0.20s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\RoleAssignmentTest[39m
-  [32;1m✓[39;22m[90m [39m[90mrole code rejects free text person or department name[39m[90m                                                       [39m [90m0.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole code rejects free text person or department name[39m[90m                                                       [39m [90m0.31s[39m  
   [32;1m✓[39;22m[90m [39m[90mrole assignment requires anchor ids for id bearing anchors[39m[90m                                                  [39m [90m0.26s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrole assignment expands to bindings with explicit anchor[39m[90m                                                    [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrole assignment expands to bindings with explicit anchor[39m[90m                                                    [39m [90m0.27s[39m  
   [32;1m✓[39;22m[90m [39m[90msod conflict blocks role assignment[39m[90m                                                                         [39m [90m0.26s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\SessionRevocationTest[39m
   [32;1m✓[39;22m[90m [39m[90mrole change increments auth version and next request is 401[39m[90m                                                 [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mbinding change increments auth version and isolates session[39m[90m                                                 [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbinding change increments auth version and isolates session[39m[90m                                                 [39m [90m0.19s[39m  
   [32;1m✓[39;22m[90m [39m[90mlogout all increments auth version and revokes sessions[39m[90m                                                     [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpassword change revokes other sessions and requires reauth[39m[90m                                                  [39m [90m0.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpassword change revokes other sessions and requires reauth[39m[90m                                                  [39m [90m0.67s[39m  
   [32;1m✓[39;22m[90m [39m[90mstandard idle expiry is 30 minutes[39m[90m                                                                          [39m [90m0.20s[39m  
-  [32;1m✓[39;22m[90m [39m[90mprivileged timeout is 15 minutes and 8 hours[39m[90m                                                                [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprivileged timeout is 15 minutes and 8 hours[39m[90m                                                                [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90mabsolute expiry wins even after activity[39m[90m                                                                    [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90moffboarding increments auth version and old session fails immediately[39m[90m                                       [39m [90m0.20s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Authorization\WorkspaceProjectionTest[39m
-  [32;1m✓[39;22m[90m [39m[90mworkspace projects the callers own employment and terms[39m[90m                                                     [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkspace projects the callers own employment and terms[39m[90m                                                     [39m [90m0.08s[39m  
   [32;1m✓[39;22m[90m [39m[90mworkspace without an employment returns an empty but well formed projection[39m[90m                                 [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\CapabilityGuardTest[39m
@@ -1364,15 +1372,15 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\CorsPreflightTest[39m
   [32;1m✓[39;22m[90m [39m[90mpreflight from configured origin allows credentials and csrf header[39m[90m                                         [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpreflight from unlisted origin is not allowed[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpreflight from unlisted origin is not allowed[39m[90m                                                               [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Dashboard\DashboardPanelsTest[39m
   [32;1m✓[39;22m[90m [39m[90mdashboard panels are bounded previews of the metric rows with a thirty day contract window[39m[90m                  [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdashboard panels apply the same authorizer constraint as the metrics[39m[90m                                        [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrecent notices require notice read and are published and bounded[39m[90m                                            [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdashboard panels apply the same authorizer constraint as the metrics[39m[90m                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecent notices require notice read and are published and bounded[39m[90m                                            [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\DemoSeedTest[39m
-  [32;1m✓[39;22m[90m [39m[90mseed is idempotent and verify passes in honest shadow mode[39m[90m                                                  [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseed is idempotent and verify passes in honest shadow mode[39m[90m                                                  [39m [90m0.20s[39m  
   [32;1m✓[39;22m[90m [39m[90mreset is refused in production[39m[90m                                                                              [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mreset removes shadow staging and dataset rows[39m[90m                                                               [39m [90m0.10s[39m  
 
@@ -1380,15 +1388,15 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90morg audience is resolved through organization contracts and is visible only to targets[39m[90m                      [39m [90m0.07s[39m  
   [32;1m✓[39;22m[90m [39m[90mrole audience and acknowledgement is idempotent[39m[90m                                                             [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mall audience reaches notifications created for target users without cross user leakage[39m[90m                      [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mretraction hides notice from target but keeps acknowledgements[39m[90m                                              [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mcross tenant notice detail is not found[39m[90m                                                                     [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mnotice routes reject unauthenticated and missing capability[39m[90m                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretraction hides notice from target but keeps acknowledgements[39m[90m                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcross tenant notice detail is not found[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnotice routes reject unauthenticated and missing capability[39m[90m                                                 [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\ErrorEnvelopeTest[39m
   [32;1m✓[39;22m[90m [39m[90mmissing route returns stable not found envelope[39m[90m                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mvalidation failure returns validation envelope[39m[90m                                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mmethod not allowed returns envelope[39m[90m                                                                         [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mthrottled request returns rate limited envelope[39m[90m                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthrottled request returns rate limited envelope[39m[90m                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mdebug mode does not leak internals[39m[90m                                                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\ExampleTest[39m
@@ -1397,31 +1405,31 @@ $ php artisan test
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\FeatureFlagTest[39m
   [32;1m✓[39;22m[90m [39m[90mrisky domains default off and return 404 with stable code[39m[90m                                                   [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90menabling flag allows route[39m[90m                                                                                  [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mflag change is audited and idempotent override[39m[90m                                                              [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90munknown flag is rejected[39m[90m                                                                                    [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mflag route requires capability metadata[39m[90m                                                                     [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mflag change is audited and idempotent override[39m[90m                                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90munknown flag is rejected[39m[90m                                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mflag route requires capability metadata[39m[90m                                                                     [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\HealthProbeTest[39m
-  [32;1m✓[39;22m[90m [39m[90mliveness is ok without touching any dependency[39m[90m                                                              [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mliveness is ok without touching any dependency[39m[90m                                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mreadiness returns 503 when database is down[39m[90m                                                                 [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreadiness returns 503 when cache or storage is down[39m[90m                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreadiness returns 503 when cache or storage is down[39m[90m                                                         [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mlegacy health remains degraded not unavailable for cache failure[39m[90m                                            [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\HealthTest[39m
   [32;1m✓[39;22m[90m [39m[90mhealth is public and reports all checks[39m[90m                                                                     [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mcache or storage degradation is reported as degraded with http 200[39m[90m                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcache or storage degradation is reported as degraded with http 200[39m[90m                                          [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mdatabase failure returns service unavailable envelope[39m[90m                                                       [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\ContractRenewalTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcontract renewal creates next terms and document version and keeps old as of[39m[90m                                [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontract renewal creates next terms and document version and keeps old as of[39m[90m                                [39m [90m0.15s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\IamAssigneeDirectoryTest[39m
-  [32;1m✓[39;22m[90m [39m[90mworkflow role assignees resolve from effective iam user roles[39m[90m                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mworkflow role assignees resolve from effective iam user roles[39m[90m                                               [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\LifecycleAuthorizationTest[39m
   [32;1m✓[39;22m[90m [39m[90munauthenticated and capability denied requests are rejected[39m[90m                                                 [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mmanager cannot onboard into another legal entity[39m[90m                                                            [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mself capability does not grant lifecycle case read[39m[90m                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mself capability does not grant lifecycle case read[39m[90m                                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OffboardingChecklistTest[39m
   [32;1m✓[39;22m[90m [39m[90moffboarding rejects unresolved required checklist at effect time[39m[90m                                            [39m [90m0.07s[39m  
@@ -1430,10 +1438,10 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90moffboarding requires checklist resolution and revokes access in same effect[39m[90m                                 [39m [90m0.09s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OfferIdempotencyTest[39m
-  [32;1m✓[39;22m[90m [39m[90moffer creation and acceptance replays do not duplicate rows[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90moffer creation and acceptance replays do not duplicate rows[39m[90m                                                 [39m [90m0.10s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OnboardingDedupTest[39m
-  [32;1m✓[39;22m[90m [39m[90msame identity hash cannot create two persons via onboarding[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame identity hash cannot create two persons via onboarding[39m[90m                                                 [39m [90m0.10s[39m  
   [32;1m✓[39;22m[90m [39m[90mcandidate linked offer conversion is idempotent[39m[90m                                                             [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\OnboardingEffectTest[39m
@@ -1459,34 +1467,45 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mcapacity is enforced when many workers race for one seat[39m[90m                                                    [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\TrainingEnrollmentTest[39m
-  [32;1m✓[39;22m[90m [39m[90menrollment capacity is enforced under repeated attempts[39m[90m                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90menrollment capacity is enforced under repeated attempts[39m[90m                                                     [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mcompletion records attendance and result[39m[90m                                                                    [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Lifecycle\TransferFutureEffectTest[39m
-  [32;1m✓[39;22m[90m [39m[90mfuture transfer keeps todays view and preserves assignment history[39m[90m                                          [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfuture transfer keeps todays view and preserves assignment history[39m[90m                                          [39m [90m0.07s[39m  
   [32;1m✓[39;22m[90m [39m[90mcross entity transfer creates new employment and leaves old terminated[39m[90m                                      [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\LogRedactionTest[39m
   [32;1m✓[39;22m[90m [39m[90mcontext keys are redacted at every depth[39m[90m                                                                    [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90midentity numbers emails and mobiles are masked in free text[39m[90m                                                 [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mreal log channel redacts context and message[39m[90m                                                                [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrequest log line contains correlation fields and no payload[39m[90m                                                 [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequest log line contains correlation fields and no payload[39m[90m                                                 [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\MetaTest[39m
-  [32;1m✓[39;22m[90m [39m[90mmeta returns version environment time and api version[39m[90m                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmeta returns version environment time and api version[39m[90m                                                       [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mroot returns api meta instead of unused welcome page[39m[90m                                                        [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\LeaveOpeningMigrationTest[39m
+  [32;1m✓[39;22m[90m [39m[90mleave opening target is available and writes integer minutes[39m[90m                                                [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreplaying the same opening is idempotent[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo openings with different expiry dates are both kept[39m[90m                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmetrics sum integer minutes for migration openings[39m[90m                                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationCommandsTest[39m
   [32;1m✓[39;22m[90m [39m[90mvalidate command is read only and exits zero[39m[90m                                                                [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mvalidate command exits non zero for broken fixture[39m[90m                                                          [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mapply without shadow fails closed when no database target is available[39m[90m                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapply without shadow fails closed when no database target is available[39m[90m                                      [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mapply to shadow reconciles with positive exit[39m[90m                                                               [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mrollback plan writes json and never executes destructive sql[39m[90m                                                [39m [90m0.08s[39m  
   [32;1m✓[39;22m[90m [39m[90mcommand rejects unknown domain[39m[90m                                                                              [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationIdempotencyTest[39m
   [32;1m✓[39;22m[90m [39m[90mapplying the same domain twice does not duplicate target rows[39m[90m                                               [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdry run never writes target rows[39m[90m                                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdry run never writes target rows[39m[90m                                                                            [39m [90m0.04s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationMetricsScopeTest[39m
+  [32;1m✓[39;22m[90m [39m[90mmetrics ignore rows not written by the migration[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpayroll ytd sums use the real column names[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave opening metrics count only migration openings[39m[90m                                                         [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationReconciliationTest[39m
   [32;1m✓[39;22m[90m [39m[90mleave opening reconciliation matches count and sum[39m[90m                                                          [39m [90m0.05s[39m  
@@ -1495,18 +1514,18 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90minjected sum mismatch fails reconciliation[39m[90m                                                                  [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationRehearsalTest[39m
-  [32;1m✓[39;22m[90m [39m[90mrehearsal applies all domains to shadow and reconciles[39m[90m                                                      [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrehearsal applies all domains to shadow and reconciles[39m[90m                                                      [39m [90m0.19s[39m  
   [32;1m✓[39;22m[90m [39m[90mrehearsal requires positive round[39m[90m                                                                           [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mrehearsal stops on missing dataset[39m[90m                                                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Migration\MigrationValidateTest[39m
-  [32;1m✓[39;22m[90m [39m[90mknown good fixture validates for every domain[39m[90m                                                               [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90mbroken fixtures report expected codes and write no target rows[39m[90m                                              [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mknown good fixture validates for every domain[39m[90m                                                               [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbroken fixtures report expected codes and write no target rows[39m[90m                                              [39m [90m0.08s[39m  
   [32;1m✓[39;22m[90m [39m[90mmissing required header fails run without writing[39m[90m                                                           [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\ClosureHistoryTest[39m
-  [32;1m✓[39;22m[90m [39m[90mmove does not rewrite existing closure paths[39m[90m                                                                [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90ma second move cannot predate the latest closure version[39m[90m                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmove does not rewrite existing closure paths[39m[90m                                                                [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma second move cannot predate the latest closure version[39m[90m                                                     [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90munion closures are derived from existing ancestor paths[39m[90m                                                     [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Organization\OrgTenantIsolationTest[39m
@@ -1518,8 +1537,8 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mcreate org unit builds closure and audits[39m[90m                                                                   [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mimpact preview counts employees managers and zero payroll cost centers[39m[90m                                      [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mimpact warns on cross entity parent[39m[90m                                                                         [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90morg type is validated[39m[90m                                                                                       [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90morg unit codes are unique within tenant[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg type is validated[39m[90m                                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg unit codes are unique within tenant[39m[90m                                                                     [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mtenant cannot create org unit under another tenants entity[39m[90m                                                  [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\CorrectionRunTest[39m
@@ -1528,7 +1547,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mcorrection requires a published original[39m[90m                                                                    [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\MarkPaidEvidenceTest[39m
-  [32;1m✓[39;22m[90m [39m[90mmark paid without reference or manual reason is rejected[39m[90m                                                    [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmark paid without reference or manual reason is rejected[39m[90m                                                    [39m [90m0.09s[39m  
   [32;1m✓[39;22m[90m [39m[90mmark paid accepts manual confirmation reason[39m[90m                                                                [39m [90m0.09s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollApprovalWorkflowAdapterTest[39m
@@ -1536,15 +1555,15 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollCommandTest[39m
   [32;1m✓[39;22m[90m [39m[90mparallel check passes for matching export[39m[90m                                                                   [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mparallel check fails for cent level difference[39m[90m                                                              [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel check fails for cent level difference[39m[90m                                                              [39m [90m0.08s[39m  
   [32;1m✓[39;22m[90m [39m[90mparallel check missing file is exit two[39m[90m                                                                     [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90mparallel check headcount mismatch fails[39m[90m                                                                     [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreconciliation passes for clean run and fails on corruption[39m[90m                                                 [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90mseed parameters requires entity year and evidence actor[39m[90m                                                     [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparallel check headcount mismatch fails[39m[90m                                                                     [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreconciliation passes for clean run and fails on corruption[39m[90m                                                 [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseed parameters requires entity year and evidence actor[39m[90m                                                     [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollExportTest[39m
-  [32;1m✓[39;22m[90m [39m[90mbank and tax csv have bom hash and no hidden pii[39m[90m                                                            [39m [90m0.09s[39m  
-  [32;1m✓[39;22m[90m [39m[90mexports fail closed before approval[39m[90m                                                                         [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbank and tax csv have bom hash and no hidden pii[39m[90m                                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexports fail closed before approval[39m[90m                                                                         [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mpayslip lines are traceable and reconcile to totals[39m[90m                                                         [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollHttpLifecycleTest[39m
@@ -1557,50 +1576,57 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mreopen changes hash and recalculation uses new snapshot[39m[90m                                                     [39m [90m0.09s[39m  
   [32;1m✓[39;22m[90m [39m[90mreopen fails when nothing changed[39m[90m                                                                           [39m [90m0.07s[39m  
   [32;1m✓[39;22m[90m [39m[90mparameter versions are effective dated and closed runs keep their version[39m[90m                                   [39m [90m0.09s[39m  
-  [32;1m✓[39;22m[90m [39m[90mparameter versions require evidence[39m[90m                                                                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mparameter versions require evidence[39m[90m                                                                         [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90munknown effective parameter set fails closed[39m[90m                                                                [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollRunLifecycleTest[39m
-  [32;1m✓[39;22m[90m [39m[90mfull lifecycle is legal and seals the run[39m[90m                                                                   [39m [90m0.09s[39m  
-  [32;1m✓[39;22m[90m [39m[90millegal transitions are 409 conflicts[39m[90m                                                                       [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpublished payslip and lines are immutable[39m[90m                                                                   [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90msealed run rejects financial updates at database level[39m[90m                                                      [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfull lifecycle is legal and seals the run[39m[90m                                                                   [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90millegal transitions are 409 conflicts[39m[90m                                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpublished payslip and lines are immutable[39m[90m                                                                   [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90msealed run rejects financial updates at database level[39m[90m                                                      [39m [90m0.09s[39m  
   [32;1m✓[39;22m[90m [39m[90msnapshots are append only at database level[39m[90m                                                                 [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpreparer cannot approve own run[39m[90m                                                                             [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreviewer cannot approve same run[39m[90m                                                                            [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpreparer cannot approve own run[39m[90m                                                                             [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreviewer cannot approve same run[39m[90m                                                                            [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\PayrollSnapshotTest[39m
-  [32;1m✓[39;22m[90m [39m[90msnapshot hash is stable across relocking and matches stored hash[39m[90m                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90msnapshot hash is stable across relocking and matches stored hash[39m[90m                                            [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mattendance change after lock does not affect calculated run[39m[90m                                                 [39m [90m0.07s[39m  
   [32;1m✓[39;22m[90m [39m[90mreopen requires two distinct approvers and reason[39m[90m                                                           [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreopen rejects published runs[39m[90m                                                                               [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreopen rejects published runs[39m[90m                                                                               [39m [90m0.09s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\SeedDemoPayrollRunCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90mit refuses without statutory parameters[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit refuses without a salaried employment[39m[90m                                                                    [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit rejects a malformed period[39m[90m                                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit creates a calculated run and never auto approves[39m[90m                                                         [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mre running is idempotent[39m[90m                                                                                    [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Payroll\WorkflowPayrollApprovalTest[39m
   [32;1m✓[39;22m[90m [39m[90mapproval effect is idempotent and advances the run once[39m[90m                                                     [39m [90m0.07s[39m  
-  [32;1m✓[39;22m[90m [39m[90mapproval effect fails closed for unreviewed run[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mapproval effect fails closed for unreviewed run[39m[90m                                                             [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\AsOfQueryTest[39m
   [32;1m✓[39;22m[90m [39m[90mt minus one t and t plus one for employment assignment and terms[39m[90m                                            [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mterminated employee is absent after the termination date[39m[90m                                                    [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mfuture hire is absent before hire date[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfuture hire is absent before hire date[39m[90m                                                                      [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90minvalid as of returns 422 and never scopes silently[39m[90m                                                         [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mlist and detail agree at the same as of[39m[90m                                                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlist and detail agree at the same as of[39m[90m                                                                     [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\AssignmentTimelineTest[39m
   [32;1m✓[39;22m[90m [39m[90mconcurrent second assignment is allowed[39m[90m                                                                     [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtwo overlapping primary assignments are rejected[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo overlapping primary assignments are rejected[39m[90m                                                            [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mfuture assignment does not change today[39m[90m                                                                     [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mhalf open boundaries of assignments[39m[90m                                                                         [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmanager chain is projected in snapshot[39m[90m                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmanager chain is projected in snapshot[39m[90m                                                                      [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\CrossLegalEntityTest[39m
-  [32;1m✓[39;22m[90m [39m[90massignment to another legal entity is rejected with reason code[39m[90m                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90massignment to another legal entity is rejected with reason code[39m[90m                                             [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcross entity transfer ends old and creates new employment for same person[39m[90m                                   [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90memployee number is unique per legal entity only[39m[90m                                                             [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\CrossTenantIsolationTest[39m
-  [32;1m✓[39;22m[90m [39m[90mperson service never reads another tenants person[39m[90m                                                           [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mperson dedup is tenant scoped[39m[90m                                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mperson service never reads another tenants person[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mperson dedup is tenant scoped[39m[90m                                                                               [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90massignment route 404s for other tenant employment[39m[90m                                                           [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\EmploymentWriteTest[39m
@@ -1613,16 +1639,16 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\FieldPrivacyTest[39m
   [32;1m✓[39;22m[90m [39m[90midentity number never appears in profile or timeline responses[39m[90m                                              [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmobile is masked for p1 profile[39m[90m                                                                             [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmobile is masked for p1 profile[39m[90m                                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mdocument download requires capability[39m[90m                                                                       [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdocument metadata hides storage key and hash[39m[90m                                                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument metadata hides storage key and hash[39m[90m                                                                [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90msensitive access material is not persisted in plaintext[39m[90m                                                     [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\FieldProfileProjectionTest[39m
   [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p0"[39m[90m                         [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p1"[39m[90m                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p1"[39m[90m                         [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p2"[39m[90m                         [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p3"[39m[90m                         [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity ciphertext and plaintext are absent from every profile with data set " p3"[39m[90m                         [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\IdempotencyHttpTest[39m
   [32;1m✓[39;22m[90m [39m[90midempotency key replays the original command response without duplicate write[39m[90m                               [39m [90m0.05s[39m  
@@ -1638,27 +1664,27 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90morg unit validity window is half open in directory[39m[90m                                                          [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90minvalid or blank as of defaults to tenant timezone today[39m[90m                                                    [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90morg tree requires legal entity id[39m[90m                                                                           [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90morg move requires effective from and rejects before current start[39m[90m                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morg move requires effective from and rejects before current start[39m[90m                                           [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\PaginationScopeTest[39m
   [32;1m✓[39;22m[90m [39m[90mtotal counts are computed after row scope[39m[90m                                                                   [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mlast page returns remaining rows in stable order[39m[90m                                                            [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\PersonDedupTest[39m
-  [32;1m✓[39;22m[90m [39m[90msame identity type and hash is rejected[39m[90m                                                                     [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90midentity type is normalized before deduplication[39m[90m                                                            [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdifferent identity type is allowed[39m[90m                                                                          [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame identity type and hash is rejected[39m[90m                                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90midentity type is normalized before deduplication[39m[90m                                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdifferent identity type is allowed[39m[90m                                                                          [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90midentity and mobile are encrypted at rest and never serialized[39m[90m                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90maudit and outbox payloads never contain identity plaintext[39m[90m                                                  [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\RequirementGapsTest[39m
   [32;1m✓[39;22m[90m [39m[90massignment outside org active window is rejected[39m[90m                                                            [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mterms effective to is clipped to employment window[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mterms effective to is clipped to employment window[39m[90m                                                          [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mmanager assignment must exist and be valid[39m[90m                                                                  [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mdocument requires same tenant file object[39m[90m                                                                   [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdocument versions increment per category[39m[90m                                                                    [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdocument download returns no storage key and requires both capabilities[39m[90m                                     [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mlegal entity timezone and currency are validated[39m[90m                                                            [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument versions increment per category[39m[90m                                                                    [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdocument download returns no storage key and requires both capabilities[39m[90m                                     [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlegal entity timezone and currency are validated[39m[90m                                                            [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mterms historical row is not overwritten when new version closes it[39m[90m                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\TermsVersionTest[39m
@@ -1668,8 +1694,8 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mnon monotonic effective date is a conflict[39m[90m                                                                  [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\People\TimelineTest[39m
-  [32;1m✓[39;22m[90m [39m[90mtimeline orders employment assignment terms and document facts[39m[90m                                              [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtimeline filters by from and to half open[39m[90m                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtimeline orders employment assignment terms and document facts[39m[90m                                              [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtimeline filters by from and to half open[39m[90m                                                                   [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mtimeline rejects invalid dates and hides other tenants[39m[90m                                                      [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Reporting\DashboardConsistencyTest[39m
@@ -1678,12 +1704,12 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90munavailable metric keeps status and reason instead of becoming zero pass[39m[90m                                    [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Reporting\ExportScopeTest[39m
-  [32;1m✓[39;22m[90m [39m[90mexport rows match report run rows for the same principal filters and scope[39m[90m                                  [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexport rows match report run rows for the same principal filters and scope[39m[90m                                  [39m [90m0.16s[39m  
   [32;1m✓[39;22m[90m [39m[90mnarrower authorized scope yields fewer export rows and matches the report page[39m[90m                              [39m [90m0.15s[39m  
   [32;1m✓[39;22m[90m [39m[90mexport rejects disallowed purpose and fields outside the definition whitelist[39m[90m                               [39m [90m0.15s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdownload is bound to the requesting principal job and token[39m[90m                                                 [39m [90m0.14s[39m  
-  [32;1m✓[39;22m[90m [39m[90mexport row cap is enforced before a job is created[39m[90m                                                         [39m [90m16.21s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdownload count and expiry are enforced[39m[90m                                                                      [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdownload is bound to the requesting principal job and token[39m[90m                                                 [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexport row cap is enforced before a job is created[39m[90m                                                         [39m [90m16.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdownload count and expiry are enforced[39m[90m                                                                      [39m [90m0.15s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\RequestIdTest[39m
   [32;1m✓[39;22m[90m [39m[90mvalid inbound request id is preserved[39m[90m                                                                       [39m [90m0.04s[39m  
@@ -1696,18 +1722,18 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mlegal hold blocks purge and is skipped[39m[90m                                                                      [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mpurge without confirm is a dry run[39m[90m                                                                          [39m [90m0.03s[39m  
   [32;1m✓[39;22m[90m [39m[90mcontract and accounting retention classes exist[39m[90m                                                             [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mpermanent classes are never purged[39m[90m                                                                          [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpermanent classes are never purged[39m[90m                                                                          [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\AttendanceCorrectionTest[39m
   [32;1m✓[39;22m[90m [39m[90mcorrection creates case and does not change raw punch[39m[90m                                                       [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrecalculation is idempotent and reuses source hash[39m[90m                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrecalculation is idempotent and reuses source hash[39m[90m                                                          [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcorrected punches do not replace device punches[39m[90m                                                             [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\Console\LedgerReconcileCommandTest[39m
   [32;1m✓[39;22m[90m [39m[90mclean projection exits zero and reports accounts[39m[90m                                                            [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcorrupted projection exits one without changing ledger[39m[90m                                                      [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90minvalid date exits two[39m[90m                                                                                      [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90minvalid tenant exits two[39m[90m                                                                                    [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid date exits two[39m[90m                                                                                      [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90minvalid tenant exits two[39m[90m                                                                                    [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mrebuild repairs projection and rechecks clean[39m[90m                                                               [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mtenant option only reconciles that tenant[39m[90m                                                                   [39m [90m0.04s[39m  
 
@@ -1716,16 +1742,16 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mattendance month read returns frontend contract[39m[90m                                                             [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mattendance scoped read returns projection rows[39m[90m                                                              [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mattendance correction creates case and keeps raw punches[39m[90m                                                    [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mleave balances and preview use ledger projection[39m[90m                                                            [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mleave request reserves and cancel releases exactly once[39m[90m                                                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave balances and preview use ledger projection[39m[90m                                                            [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave request reserves and cancel releases exactly once[39m[90m                                                     [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mleave ledger drilldown matches balance equation[39m[90m                                                             [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcalendar and shift reads are tenant scoped[39m[90m                                                                  [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mbrief leave alias routes are tenant scoped[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbrief leave alias routes are tenant scoped[39m[90m                                                                  [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mother tenant balance is not visible as 404[39m[90m                                                                  [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\Http\TimeHttpAuthorizationTest[39m
   [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403 even if actor scope matches[39m[90m                                                       [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403 even if actor scope matches[39m[90m                                                       [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90memployee sees only self and other employment is 404[39m[90m                                                         [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mmanager sees managed employment but not unrelated employment[39m[90m                                                [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mhr is limited to authorized legal entities[39m[90m                                                                  [39m [90m0.04s[39m  
@@ -1733,7 +1759,7 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mself actor cannot import punches for another employment[39m[90m                                                     [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\LeaveConcurrencyTest[39m
-  [32;1m✓[39;22m[90m [39m[90mtwo requests for the last day produce one success and no negative balance[39m[90m                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo requests for the last day produce one success and no negative balance[39m[90m                                   [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mledger unique source prevents double reserve[39m[90m                                                                [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\LeaveLedgerBalanceTest[39m
@@ -1745,35 +1771,41 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mduplicate source append is idempotent[39m[90m                                                                       [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\OvernightShiftTest[39m
-  [32;1m✓[39;22m[90m [39m[90mmorning punch after midnight maps to shift start business date[39m[90m                                              [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90movernight shift across spring forward dst counts real minutes once[39m[90m                                          [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90movernight shift across fall back counts repeated hour once[39m[90m                                                  [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90masia shanghai has no dst shift minutes[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmorning punch after midnight maps to shift start business date[39m[90m                                              [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90movernight shift across spring forward dst counts real minutes once[39m[90m                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90movernight shift across fall back counts repeated hour once[39m[90m                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90masia shanghai has no dst shift minutes[39m[90m                                                                      [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\ReversalTest[39m
-  [32;1m✓[39;22m[90m [39m[90mconsume then reverse restores balance once[39m[90m                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mconsume then reverse restores balance once[39m[90m                                                                  [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mreverse entry direction is opposite of target[39m[90m                                                               [39m [90m0.04s[39m  
 
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\SeedLeaveTypesCommandTest[39m
+  [32;1m✓[39;22m[90m [39m[90mit seeds the reference catalog idempotently[39m[90m                                                                 [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit does not invent a statutory entitlement[39m[90m                                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit rejects a malformed entitlement[39m[90m                                                                          [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mit keeps tenants isolated[39m[90m                                                                                   [39m [90m0.04s[39m  
+
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\TimeContainerResolutionTest[39m
-  [32;1m✓[39;22m[90m [39m[90mtime contracts resolve to production adapters[39m[90m                                                               [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtime services and dependencies resolve from the container[39m[90m                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtime contracts resolve to production adapters[39m[90m                                                               [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtime services and dependencies resolve from the container[39m[90m                                                   [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Time\TimeWorkflowIntegrationTest[39m
   [32;1m✓[39;22m[90m [39m[90mreal adapter open resolves a published template for a leave request case type[39m[90m                               [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mreal adapter open resolves a published template for an attendance correction case type[39m[90m                      [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90man unmapped case type still fails closed[39m[90m                                                                    [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtime submits a leave request through the real workflow adapter[39m[90m                                              [39m [90m0.08s[39m  
+  [32;1m✓[39;22m[90m [39m[90mreal adapter open resolves a published template for an attendance correction case type[39m[90m                      [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unmapped case type still fails closed[39m[90m                                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtime submits a leave request through the real workflow adapter[39m[90m                                              [39m [90m0.07s[39m  
   [32;1m✓[39;22m[90m [39m[90mmanager approval resolves the subjects real manager[39m[90m                                                         [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ApprovedNotEffectiveTest[39m
-  [32;1m✓[39;22m[90m [39m[90mhandler exception keeps decision and approved application status but marks effect failed[39m[90m                    [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhandler exception keeps decision and approved application status but marks effect failed[39m[90m                    [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mretry of failed effect applies once and does not duplicate decision[39m[90m                                         [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\AuthorizationTest[39m
   [32;1m✓[39;22m[90m [39m[90munauthenticated request is 401[39m[90m                                                                              [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrequester sees own case and approver sees assigned case but unrelated user gets 404[39m[90m                         [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mtasks my returns only current users pending tasks with sla[39m[90m                                                  [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing capability is 403[39m[90m                                                                                   [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrequester sees own case and approver sees assigned case but unrelated user gets 404[39m[90m                         [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtasks my returns only current users pending tasks with sla[39m[90m                                                  [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90madmin override requires reason and is audited[39m[90m                                                               [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90meffect retry requires admin capability and reason[39m[90m                                                           [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mlist queries do not n plus one[39m[90m                                                                              [39m [90m0.06s[39m  
@@ -1786,11 +1818,11 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ConcurrentApprovalTest[39m
   [32;1m✓[39;22m[90m [39m[90mreplaying same idempotency key returns the same decision and effect without duplicates[39m[90m                      [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90msecond approval after case completed is a conflict and does not create another decision[39m[90m                     [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90msecond approval after case completed is a conflict and does not create another decision[39m[90m                     [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mrequired count blocks completion until enough distinct approvers decide[39m[90m                                     [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\DecisionImmutabilityTest[39m
-  [32;1m✓[39;22m[90m [39m[90mupdating or deleting a decision throws[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mupdating or deleting a decision throws[39m[90m                                                                      [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mtemplate edit does not change live or historical case snapshot[39m[90m                                              [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mactor snapshot is stored with decision[39m[90m                                                                      [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mdecisions are append only and keep action sequence[39m[90m                                                          [39m [90m0.06s[39m  
@@ -1800,30 +1832,30 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mexpired delegation is rejected[39m[90m                                                                              [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mdelegation amount limit is enforced[39m[90m                                                                         [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mdelegation out of scope is rejected[39m[90m                                                                         [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90mrevoked delegation cannot be used[39m[90m                                                                           [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrevoked delegation cannot be used[39m[90m                                                                           [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\EffectIdempotencyTest[39m
-  [32;1m✓[39;22m[90m [39m[90msame effect applied twice only runs handler once[39m[90m                                                            [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90munique constraint rejects duplicate effect sequence[39m[90m                                                         [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90msame effect applied twice only runs handler once[39m[90m                                                            [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90munique constraint rejects duplicate effect sequence[39m[90m                                                         [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mretry after failure works and max attempts is enforced[39m[90m                                                      [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\OutboxOnDecisionTest[39m
-  [32;1m✓[39;22m[90m [39m[90mexternal effect records outbox event with ids and versions only[39m[90m                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexternal effect records outbox event with ids and versions only[39m[90m                                             [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mexternal effect is not silently marked applied[39m[90m                                                              [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ReassignTest[39m
   [32;1m✓[39;22m[90m [39m[90mterminated assignee is replaced by next eligible manager with case event[39m[90m                                    [39m [90m0.05s[39m  
-  [32;1m✓[39;22m[90m [39m[90meligible assignee is untouched and reassignment is idempotent[39m[90m                                               [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90meligible assignee is untouched and reassignment is idempotent[39m[90m                                               [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90mno eligible candidate is recorded as escalation without duplicate tasks[39m[90m                                     [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\ScheduledEffectTest[39m
-  [32;1m✓[39;22m[90m [39m[90mfuture effect is not applied today and applies once on due date[39m[90m                                             [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdue scheduler only processes effects that are due[39m[90m                                                           [39m [90m0.09s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdue scheduler limit is respected[39m[90m                                                                            [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfuture effect is not applied today and applies once on due date[39m[90m                                             [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdue scheduler only processes effects that are due[39m[90m                                                           [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdue scheduler limit is respected[39m[90m                                                                            [39m [90m0.09s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\StatusSeparationTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcase detail timeline and list never expose a combined completed status[39m[90m                                      [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdecision response reports both statuses independently[39m[90m                                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcase detail timeline and list never expose a combined completed status[39m[90m                                      [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecision response reports both statuses independently[39m[90m                                                       [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\TemplateVersionTest[39m
   [32;1m✓[39;22m[90m [39m[90mversion two does not retroactively change version one cases and new cases use latest explicit version[39m[90m       [39m [90m0.07s[39m  
@@ -1833,12 +1865,12 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Feature\Workflow\WorkflowSchemaTest[39m
   [32;1m✓[39;22m[90m [39m[90mworkflow tables exist with separate application and effect columns on cases[39m[90m                                 [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdecision uniqueness constraint is present[39m[90m                                                                   [39m [90m0.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdecision uniqueness constraint is present[39m[90m                                                                   [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90meffect uniqueness constraint is present[39m[90m                                                                     [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\IamOpenApiContractTest[39m
-  [32;1m✓[39;22m[90m [39m[90miam fragment declares every route with security[39m[90m                                                             [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mevery iam route has capability metadata except public allowlist[39m[90m                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90miam fragment declares every route with security[39m[90m                                                             [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery iam route has capability metadata except public allowlist[39m[90m                                             [39m [90m0.03s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\IamRouteMatrixTest[39m
   [32;1m✓[39;22m[90m [39m[90mevery iam route appears in the denial matrix[39m[90m                                                                [39m [90m0.03s[39m  
@@ -1846,14 +1878,14 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\OpenApiContractTest[39m
   [32;1m✓[39;22m[90m [39m[90mevery v1 route is documented in openapi[39m[90m                                                                     [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mhealth and meta document success and error shapes[39m[90m                                                           [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhealth and meta document success and error shapes[39m[90m                                                           [39m [90m0.08s[39m  
   [32;1m✓[39;22m[90m [39m[90mopenapi is 31 and declares auth schemes[39m[90m                                                                     [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mdashboard response documents its bounded panels[39m[90m                                                             [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\OpenApiLintCliTest[39m
-  [32;1m✓[39;22m[90m [39m[90mlint accepts the repository spec[39m[90m                                                                            [39m [90m0.49s[39m  
-  [32;1m✓[39;22m[90m [39m[90mlint fails on malformed yaml[39m[90m                                                                                [39m [90m0.42s[39m  
-  [32;1m✓[39;22m[90m [39m[90mlint fails when an operation lacks responses[39m[90m                                                                [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlint accepts the repository spec[39m[90m                                                                            [39m [90m0.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlint fails on malformed yaml[39m[90m                                                                                [39m [90m0.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlint fails when an operation lacks responses[39m[90m                                                                [39m [90m0.42s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\PeopleDirectoryFrozenSignatureTest[39m
   [32;1m✓[39;22m[90m [39m[90mpeople directory methods match the interface freeze[39m[90m                                                         [39m [90m0.05s[39m  
@@ -1867,26 +1899,26 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mapi errors keep stable codes[39m[90m                                                                                [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\AsOfConsistencyTest[39m
-  [32;1m✓[39;22m[90m [39m[90memployee list detail org tree and directory agree at same as of[39m[90m                                             [39m [90m0.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90memployee list detail org tree and directory agree at same as of[39m[90m                                             [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90morg tree and as of subtree agree after move boundary[39m[90m                                                        [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\BackupRestoreSmokeTest[39m
-  [32;1m✓[39;22m[90m [39m[90mscript copies hashes restores and reports pass[39m[90m                                                              [39m [90m1.26s[39m  
-  [32;1m✓[39;22m[90m [39m[90mscript fails for missing database[39m[90m                                                                           [39m [90m0.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscript copies hashes restores and reports pass[39m[90m                                                              [39m [90m1.28s[39m  
+  [32;1m✓[39;22m[90m [39m[90mscript fails for missing database[39m[90m                                                                           [39m [90m0.42s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\DirectoryContractTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcontracts are bound to real directory implementations[39m[90m                                                       [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcontracts are bound to real directory implementations[39m[90m                                                       [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90memployment for user and tenant isolation[39m[90m                                                                    [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90memployment for user uses tenant business date not utc date[39m[90m                                                  [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90memployment snapshot is as of and carries manager[39m[90m                                                            [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90morg directory tree and legal entity lookup[39m[90m                                                                  [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90miam authorizer scope via real directories for manager and hr and self[39m[90m                                       [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90miam authorizer scope via real directories for manager and hr and self[39m[90m                                       [39m [90m0.04s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\LifecycleToIamTest[39m
   [32;1m✓[39;22m[90m [39m[90moffboarding revokes sessions and auth version via iam contract[39m[90m                                              [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\LifecycleToPeopleTest[39m
-  [32;1m✓[39;22m[90m [39m[90meffect rows satisfy people kernel invariants[39m[90m                                                                [39m [90m0.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffect rows satisfy people kernel invariants[39m[90m                                                                [39m [90m0.08s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\ModuleContractBoundaryTest[39m
   [32;1m✓[39;22m[90m [39m[90morganization facts contract is bound and tenant scoped[39m[90m                                                      [39m [90m0.04s[39m  
@@ -1895,7 +1927,7 @@ $ php artisan test
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\Payroll\PeopleToPayrollIntegrationTest[39m
   [32;1m✓[39;22m[90m [39m[90mas of terms excludes future raise[39m[90m                                                                           [39m [90m0.08s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmid month termination prorates base salary[39m[90m                                                                  [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmid month termination prorates base salary[39m[90m                                                                  [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Integration\Payroll\TimeToPayrollIntegrationTest[39m
   [32;1m✓[39;22m[90m [39m[90munpaid leave reduces gross and paid leave does not[39m[90m                                                          [39m [90m0.08s[39m  
@@ -1906,26 +1938,26 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90monboarding produces payroll preparation inputs from contracts[39m[90m                                               [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ArchTestCommandTest[39m
-  [32;1m✓[39;22m[90m [39m[90mcommand passes for clean module tree[39m[90m                                                                        [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcommand passes for clean module tree[39m[90m                                                                        [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcommand fails and lists synthetic cross module violation[39m[90m                                                    [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90mdefault command passes for current application[39m[90m                                                              [39m [90m0.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdefault command passes for current application[39m[90m                                                              [39m [90m0.51s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ArchitectureBoundaryTest[39m
   [32;1m✓[39;22m[90m [39m[90morganization does not reference people internal models[39m[90m                                                      [39m [90m0.06s[39m  
-  [32;1m✓[39;22m[90m [39m[90morganization does not reference people models or tables directly[39m[90m                                            [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90morganization does not reference people models or tables directly[39m[90m                                            [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mcontrollers contain no sql or model writes[39m[90m                                                                  [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90meffective dated migrations do not add current department or position columns[39m[90m                                [39m [90m0.03s[39m  
-  [32;1m✓[39;22m[90m [39m[90mbusiness code does not use where date for business dates[39m[90m                                                    [39m [90m0.06s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffective dated migrations do not add current department or position columns[39m[90m                                [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbusiness code does not use where date for business dates[39m[90m                                                    [39m [90m0.07s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Architecture\CapabilityAuditCommandTest[39m
   [32;1m✓[39;22m[90m [39m[90maudit passes for current public health and meta routes[39m[90m                                                      [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90maudit fails and lists synthetic unguarded route[39m[90m                                                             [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90maudit accepts capability middleware metadata[39m[90m                                                                [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90maudit accepts capability route default[39m[90m                                                                      [39m [90m0.04s[39m  
-  [32;1m✓[39;22m[90m [39m[90mmissing negative test manifest entry warns without failing[39m[90m                                                  [39m [90m0.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90maudit accepts capability route default[39m[90m                                                                      [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmissing negative test manifest entry warns without failing[39m[90m                                                  [39m [90m0.05s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Architecture\ModuleOwnershipTest[39m
-  [32;1m✓[39;22m[90m [39m[90mpeople never imports organization models or services[39m[90m                                                        [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpeople never imports organization models or services[39m[90m                                                        [39m [90m0.06s[39m  
   [32;1m✓[39;22m[90m [39m[90morganization never imports people models or services[39m[90m                                                        [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90mno controller runs sql or eloquent writes[39m[90m                                                                   [39m [90m0.04s[39m  
   [32;1m✓[39;22m[90m [39m[90meffective dated tables have no current snapshot columns[39m[90m                                                     [39m [90m0.03s[39m  
@@ -1946,8 +1978,8 @@ $ php artisan test
   [32;1m✓[39;22m[90m [39m[90mworkflow sources have strict types[39m[90m                                                                          [39m [90m0.05s[39m  
   [32;1m✓[39;22m[90m [39m[90mdecision and case event models block mutation[39m[90m                                                               [39m [90m0.03s[39m  
 
-  [90mTests:[39m    [32;1m705 passed[39;22m[90m (35666 assertions)[39m
-  [90mDuration:[39m [39m56.89s[39m
+  [90mTests:[39m    [32;1m721 passed[39;22m[90m (35726 assertions)[39m
+  [90mDuration:[39m [39m58.68s[39m
 
 RESULT: PASS - backend tests
 
@@ -1961,10 +1993,10 @@ $ vendor/bin/pint --test
   ....................................................................................................................
   ....................................................................................................................
   ....................................................................................................................
-  ...........................................................................
+  ...................................................................................
 
   ──────────────────────────────────────────────────────────────────────────────────────────────────────────── Laravel  
-    PASS   ................................................................................................. 887 files  
+    PASS   ................................................................................................. 895 files  
 
 RESULT: PASS - pint
 
@@ -2266,24 +2298,12 @@ RESULT: PASS - capability audit
 
 ===== GATE: arch test =====
 $ php artisan arch:test
-Scanned 532 module PHP files.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:28 [Lifecycle] Table assignments as a has no documented owner; add it to the ownership map.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:46 [Lifecycle] Table assignments as a has no documented owner; add it to the ownership map.
-WARN Lifecycle/Console/CheckLifecycleIntegrityCommand.php:64 [Lifecycle] Table lifecycle_tasks as t has no documented owner; add it to the ownership map.
-WARN Platform/Demo/Services/DemoSeeder.php:167 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Demo/Services/DemoSeeder.php:174 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Features/FeatureFlagService.php:32 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Features/FeatureFlagService.php:58 [Platform] Table feature_flags has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:111 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:457 [Platform] Table leave_types has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:528 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:555 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:560 [Platform] Table payroll_ytd has no documented owner; add it to the ownership map.
-WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:567 [Platform] Table legal_entities has no documented owner; add it to the ownership map.
+Scanned 536 module PHP files.
+WARN Platform/Migration/Adapters/DatabaseMigrationTarget.php:114 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
 WARN Platform/Retention/RetentionService.php:65 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
 WARN Platform/Retention/RetentionService.php:123 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
 WARN Platform/Retention/RetentionService.php:138 [Platform] Cannot resolve dynamic table name to an owning module; review manually.
-Warnings (non-blocking): 16
+Warnings (non-blocking): 4
 Module boundaries OK.
 RESULT: PASS - arch test
 
@@ -2291,8 +2311,8 @@ RESULT: PASS - arch test
 $ bash -c [ -f tests/Contract/OpenApiContractTest.php ] && php artisan test --filter=OpenApiContractTest || exit 2
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\IamOpenApiContractTest[39m
-  [32;1m✓[39;22m[90m [39m[90miam fragment declares every route with security[39m[90m                                                             [39m [90m0.39s[39m  
-  [32;1m✓[39;22m[90m [39m[90mevery iam route has capability metadata except public allowlist[39m[90m                                             [39m [90m0.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90miam fragment declares every route with security[39m[90m                                                             [39m [90m0.37s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery iam route has capability metadata except public allowlist[39m[90m                                             [39m [90m0.06s[39m  
 
   [30;42;1m PASS [39;49;22m[39m Tests\Contract\OpenApiContractTest[39m
   [32;1m✓[39;22m[90m [39m[90mevery v1 route is documented in openapi[39m[90m                                                                     [39m [90m0.05s[39m  
@@ -2301,7 +2321,7 @@ $ bash -c [ -f tests/Contract/OpenApiContractTest.php ] && php artisan test --fi
   [32;1m✓[39;22m[90m [39m[90mdashboard response documents its bounded panels[39m[90m                                                             [39m [90m0.04s[39m  
 
   [90mTests:[39m    [32;1m6 passed[39;22m[90m (1989 assertions)[39m
-  [90mDuration:[39m [39m1.79s[39m
+  [90mDuration:[39m [39m1.87s[39m
 
 RESULT: PASS - openapi contract
 
@@ -2332,17 +2352,17 @@ $ pnpm test:unit -- --run
 
  RUN  v3.2.7 D:/code/ai/factoryHR/frontend
 
- ✓ tests/unit/navigation.spec.ts (5 tests) 5ms
- ✓ tests/unit/format.spec.ts (7 tests) 24ms
- ✓ tests/unit/validation.spec.ts (6 tests) 9ms
- ✓ tests/unit/status.spec.ts (5 tests) 28ms
- ✓ tests/unit/masking.spec.ts (5 tests) 58ms
- ✓ tests/unit/dashboard.spec.ts (2 tests) 3ms
+ ✓ tests/unit/navigation.spec.ts (5 tests) 4ms
+ ✓ tests/unit/validation.spec.ts (6 tests) 7ms
+ ✓ tests/unit/format.spec.ts (7 tests) 21ms
+ ✓ tests/unit/dashboard.spec.ts (2 tests) 4ms
+ ✓ tests/unit/status.spec.ts (5 tests) 27ms
+ ✓ tests/unit/masking.spec.ts (5 tests) 55ms
 
  Test Files  6 passed (6)
       Tests  30 passed (30)
-   Start at  05:19:24
-   Duration  3.67s (transform 525ms, setup 0ms, collect 2.19s, tests 126ms, environment 10.96s, prepare 1.87s)
+   Start at  07:12:38
+   Duration  3.66s (transform 628ms, setup 0ms, collect 1.80s, tests 118ms, environment 11.67s, prepare 2.06s)
 
 RESULT: PASS - frontend unit
 
@@ -2411,7 +2431,7 @@ dist/assets/AdminView-Bq3G8f0i.js                                              1
 dist/assets/validation-usQt-8GJ.js                                             55.69 kB │ gzip:  13.56 kB │ map:   230.99 kB
 dist/assets/ReportsView-FEsxb4Nd.js                                           465.98 kB │ gzip: 156.70 kB │ map: 2,615.55 kB
 dist/assets/index-EgQehmXm.js                                               1,142.20 kB │ gzip: 375.74 kB │ map: 6,203.02 kB
-✓ built in 10.12s
+✓ built in 10.64s
 RESULT: PASS - frontend build
 
 ===== GATE: frontend e2e mock =====
@@ -2420,28 +2440,28 @@ $ pnpm test:e2e
 > @hrms/frontend@0.1.0 test:e2e D:\code\ai\factoryHR\frontend
 > playwright test
 
-[WebServer] (node:9880) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:24404) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:47072) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:46832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 
 Running 11 tests using 1 worker
 
-(node:7928) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(node:41216) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
   ok  1 [chromium] › tests\e2e\a11y.spec.ts:24:3 › @a11y mock-mode accessibility smoke › login page has no critical or serious axe violations (1.3s)
   ok  2 [chromium] › tests\e2e\a11y.spec.ts:30:3 › @a11y mock-mode accessibility smoke › dashboard has no critical or serious axe violations (1.8s)
   ok  3 [chromium] › tests\e2e\a11y.spec.ts:37:3 › @a11y mock-mode accessibility smoke › case detail has no critical or serious axe violations (1.9s)
   ok  4 [chromium] › tests\e2e\a11y.spec.ts:44:3 › @a11y mock-mode accessibility smoke › payroll run detail has no critical or serious axe violations (1.9s)
   ok  5 [chromium] › tests\e2e\smoke.spec.ts:13:3 › @smoke mock-mode critical journeys › login -> dashboard -> KPI drill-down with matching total (1.7s)
-  ok  6 [chromium] › tests\e2e\smoke.spec.ts:34:3 › @smoke mock-mode critical journeys › case center separates statuses and approves a pending case (2.5s)
-  ok  7 [chromium] › tests\e2e\smoke.spec.ts:56:3 › @smoke mock-mode critical journeys › failed effect is visible, retryable and never shown as a single completed status (1.7s)
+  ok  6 [chromium] › tests\e2e\smoke.spec.ts:34:3 › @smoke mock-mode critical journeys › case center separates statuses and approves a pending case (2.6s)
+  ok  7 [chromium] › tests\e2e\smoke.spec.ts:56:3 › @smoke mock-mode critical journeys › failed effect is visible, retryable and never shown as a single completed status (1.6s)
   ok  8 [chromium] › tests\e2e\smoke.spec.ts:66:3 › @smoke mock-mode critical journeys › payroll run -> payslip detail from my payslips (2.3s)
-  ok  9 [chromium] › tests\e2e\smoke.spec.ts:87:3 › @smoke mock-mode critical journeys › report export dialog requires purpose and acknowledges watermark (3.6s)
-  ok 10 [chromium] › tests\e2e\smoke.spec.ts:110:3 › @smoke mock-mode critical journeys › employee role sees self-service navigation without admin (884ms)
-  ok 11 [chromium] › tests\e2e\smoke.spec.ts:121:3 › @smoke mock-mode critical journeys › MFA step-up flow accepts a valid six digit code (988ms)
+  ok  9 [chromium] › tests\e2e\smoke.spec.ts:87:3 › @smoke mock-mode critical journeys › report export dialog requires purpose and acknowledges watermark (2.9s)
+  ok 10 [chromium] › tests\e2e\smoke.spec.ts:110:3 › @smoke mock-mode critical journeys › employee role sees self-service navigation without admin (874ms)
+  ok 11 [chromium] › tests\e2e\smoke.spec.ts:121:3 › @smoke mock-mode critical journeys › MFA step-up flow accepts a valid six digit code (985ms)
 
-  11 passed (24.1s)
+  11 passed (23.2s)
 RESULT: PASS - frontend e2e mock
 
 ######## Contract ########
@@ -2456,14 +2476,14 @@ RESULT: PASS - openapi lint
 ===== GATE: backup_restore_smoke.sh =====
 $ bash /d/code/ai/factoryHR/deploy/scripts/backup_restore_smoke.sh
 Source: /d/code/ai/factoryHR/backend/database/database.sqlite
-sha256: 4db46c8962c277fd70a105573959c3512f68fd20fc652b04046b487a5be7cae3
-restored sha256: 4db46c8962c277fd70a105573959c3512f68fd20fc652b04046b487a5be7cae3
+sha256: 66bf394114387b2ea0a6193811b926af7afcdf36dccf89380d7b4606a9b12e2e
+restored sha256: 66bf394114387b2ea0a6193811b926af7afcdf36dccf89380d7b4606a9b12e2e
 PASS: backup/restore smoke check completed; hashes match
 RESULT: PASS - backup_restore_smoke.sh
 
 ===== GATE: migration_rehearsal.sh =====
 $ bash /d/code/ai/factoryHR/deploy/scripts/migration_rehearsal.sh
-[2026-11-23T21:20:17Z] rehearsal round=20261123212017 dataset=demo db=/d/code/ai/factoryHR/build/ops/rehearsal-20261123212017.sqlite
+[2026-11-23T23:13:31Z] rehearsal round=20261123231331 dataset=demo db=/d/code/ai/factoryHR/build/ops/rehearsal-20261123231331.sqlite
 +----------------+------+-----------+---------+------+---------+---------+---------+-----------+
 | Domain         | Wave | Validate  | Apply   | Read | Created | Updated | Skipped | Reconcile |
 +----------------+------+-----------+---------+------+---------+---------+---------+-----------+
@@ -2474,8 +2494,8 @@ $ bash /d/code/ai/factoryHR/deploy/scripts/migration_rehearsal.sh
 | leave_openings | 2    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
 | payroll_ytd    | 3    | VALIDATED | APPLIED | 12   | 12      | 0       | 0       | PASS      |
 +----------------+------+-----------+---------+------+---------+---------+---------+-----------+
-Report written: D:/code/ai/factoryHR/build/ops/rehearsal-20261123212017.json
-PASS: migrate:rehearsal round=20261123212017 dataset=demo modes=SHADOW
+Report written: D:/code/ai/factoryHR/build/ops/rehearsal-20261123231331.json
+PASS: migrate:rehearsal round=20261123231331 dataset=demo modes=SHADOW
   organizations: status=APPLIED read=8 created=8 skipped=0 reconcile=PASS
   people: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
   assignments: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
@@ -2483,7 +2503,7 @@ PASS: migrate:rehearsal round=20261123212017 dataset=demo modes=SHADOW
   leave_openings: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
   payroll_ytd: status=APPLIED read=12 created=12 skipped=0 reconcile=PASS
   target=SHADOW domains=6
-PASS: migration_rehearsal round=20261123212017 domains=6 target=SHADOW report=/d/code/ai/factoryHR/build/ops/rehearsal-20261123212017.json sha256=36ca03562b27299626f510dedf5e400e864625f39996730a933c03faa81a8544
+PASS: migration_rehearsal round=20261123231331 domains=6 target=SHADOW report=/d/code/ai/factoryHR/build/ops/rehearsal-20261123231331.json sha256=9f143c06a57a48510a8dc5fc54c9a7e55e4f029de2b5cf1f81277fdc2fe092d2
 RESULT: PASS - migration_rehearsal.sh
 
 ===== GATE: rollback_drill.sh =====
@@ -2494,10 +2514,10 @@ Budget: 3600 s
 Snapshot helper: PHP SQLite3 online backup, source read-only
 Source access:   opened with SQLITE3_OPEN_READONLY + PRAGMA query_only=ON
 
-Source sha256 (before):   4db46c8962c277fd70a105573959c3512f68fd20fc652b04046b487a5be7cae3
+Source sha256 (before):   66bf394114387b2ea0a6193811b926af7afcdf36dccf89380d7b4606a9b12e2e
 Snapshot created with SQLite online backup (source opened read-only).
-Snapshot sha256:          af5cc6c64c2cdff670ec3d3da0be8ddff53a6e98fa4e0589147fa22030db126b
-Restored sha256:          af5cc6c64c2cdff670ec3d3da0be8ddff53a6e98fa4e0589147fa22030db126b
+Snapshot sha256:          17708aae9a5bb612533479d61ebbf7adc07bf1b790c04f6c3991b97ee2a28f16
+Restored sha256:          17708aae9a5bb612533479d61ebbf7adc07bf1b790c04f6c3991b97ee2a28f16
 Hash equality:            PASS (snapshot == restored)
 
 Verifying restored copy only (read-only connection):
@@ -2505,14 +2525,14 @@ integrity_check: ok
 foreign_key_violations: 0
 table:migrations               count=25
 table:users                    count=4
-table:audit_events             count=0
+table:audit_events             count=3
 table:feature_flags            count=5
-table:org_units                count=4
-table:employments              count=4
-table:employment_terms         count=1
-table:leave_ledger_entries     count=0
-table:payroll_runs             count=0
-table:payslips                 count=0
+table:org_units                count=12
+table:employments              count=16
+table:employment_terms         count=13
+table:leave_ledger_entries     count=12
+table:payroll_runs             count=1
+table:payslips                 count=12
 table_count: 107
 Restored database passed read-only integrity and schema checks.
 Restored copy unchanged after checks: PASS
@@ -2522,9 +2542,9 @@ NOT_EXECUTED: MySQL PITR - restore the full backup plus binlogs to an isolated M
 NOT_EXECUTED: feature-flag rollback - php artisan feature:set <flag> off --tenant=<id> --reason="<reason>" then verify the audit row and route; this changes state and is not run locally.
 NOT_EXECUTED: route switch - move traffic back to the legacy system at the load balancer/DNS and verify user-facing smoke tests; this requires the real cutover environment.
 
-Elapsed: 1.835 s
+Elapsed: 1.847 s
 Budget:  3600 s
-PASS: rollback drill completed within budget; restored database passed integrity and schema checks (elapsed=1.835s budget=3600s)
+PASS: rollback drill completed within budget; restored database passed integrity and schema checks (elapsed=1.847s budget=3600s)
 RESULT: PASS - rollback_drill.sh
 
 ######## Summary ########
