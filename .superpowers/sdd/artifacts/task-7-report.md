@@ -33,6 +33,8 @@ Baseline read for the task: `062c68d` (Task 7A payroll calculator merge).
 | `096c704` | `test(payroll)`: Time and People contract integration coverage |
 | `b62b779` | `feat(payroll)`: mark-paid evidence / manual confirmation requirement |
 | `adfff03` | `test(payroll)`: reconciliation, parallel-check and demo-seed commands |
+| `83b0dde` | `docs(payroll)`: Task 7B lifecycle report |
+| `25fc335` | `feat(payroll)`: approval routed through Workflow Case/Decision/Effect |
 
 All commits are on `feat/task-7b-payroll` in the task worktree. No work was
 performed in the main checkout.
@@ -93,7 +95,6 @@ performed in the main checkout.
 - `backend/app/Modules/Payroll/Services/PayrollRunService.php`
 - `backend/app/Modules/Payroll/Services/PayrollParallelCheckService.php`
 - `backend/app/Modules/Payroll/Services/PayrollApprovalEffectService.php`
-- `backend/app/Modules/Payroll/Contracts/PayrollApprovalPort.php`
 - `backend/app/Modules/Payroll/Contracts/PayrollApprovalEffectPort.php`
 - `backend/app/Modules/Payroll/Providers/PayrollServiceProvider.php`
 
@@ -145,6 +146,7 @@ performed in the main checkout.
 - `backend/tests/Feature/Payroll/CorrectionRunTest.php`
 - `backend/tests/Feature/Payroll/PayrollReopenTest.php`
 - `backend/tests/Feature/Payroll/WorkflowPayrollApprovalTest.php`
+- `backend/tests/Feature/Payroll/PayrollApprovalWorkflowAdapterTest.php`
 - `backend/tests/Feature/Payroll/PayrollHttpLifecycleTest.php`
 - `backend/tests/Feature/Payroll/PayrollExportTest.php`
 - `backend/tests/Feature/Payroll/MarkPaidEvidenceTest.php`
@@ -246,8 +248,8 @@ All commands run from
 
 ```text
 php artisan test --colors=never
-Tests:    620 passed (33620 assertions)
-Duration: 35.15s
+Tests:    621 passed (33622 assertions)
+Duration: 35.71s
 ```
 
 ```text
@@ -296,8 +298,7 @@ Payroll-only suite (feature + integration + unit):
 
 ```text
 php artisan test tests/Feature/Payroll tests/Integration/Payroll tests/Unit/Modules/Payroll
-Tests:    122 passed (30353 assertions)
-Duration: 5.05s
+Tests:    123 passed (30355 assertions)
 ```
 
 Command smoke checks:
