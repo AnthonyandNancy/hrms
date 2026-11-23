@@ -64,7 +64,7 @@ final class ShiftService
             'valid_to' => $validTo,
             'source_type' => (string) ($data['source_type'] ?? 'MANUAL'),
             'source_id' => isset($data['source_id']) ? (string) $data['source_id'] : null,
-            'recorded_at' => $this->clock->nowUtc(),
+            'recorded_at' => $this->clock->now(),
         ]);
     }
 
@@ -96,7 +96,7 @@ final class ShiftService
             'valid_from' => $validFrom,
             'valid_to' => $validTo,
             'source' => $source,
-            'created_at' => $this->clock->nowUtc(),
+            'created_at' => $this->clock->now(),
         ]);
     }
 

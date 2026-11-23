@@ -42,6 +42,492 @@ tags:
 security:
   - sessionCookie: []
     csrfHeader: []
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: hrms_session
+      description: HttpOnly server-side session cookie.
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Required on state-changing requests.
+  headers:
+    XRequestId:
+      description: Correlation id echoed from the request or generated as a ULID.
+      schema:
+        type: string
+  parameters:
+    AsOf:
+      name: as_of
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+      description: Business date. Defaults to today in the legal entity timezone.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+    IfMatchOptional:
+      name: If-Match
+      in: header
+      required: false
+      schema:
+        type: string
+  schemas:
+    Envelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+        request_id:
+          type: string
+    Pagination:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    Paginated:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+    EmploymentSnapshot:
+      type: object
+      required: [employment_id, person_id, legal_entity_id, employee_no, status, current_assignment, manager_employment_id]
+      properties:
+        employment_id:
+          type: integer
+        person_id:
+          type: integer
+        person_name:
+          type: [string, "null"]
+        employee_no:
+          type: string
+        legal_entity_id:
+          type: integer
+        status:
+          type: string
+          enum: [PROBATION, ACTIVE, LEAVE, SUSPENDED, TERMINATED]
+        employment_type:
+          type: string
+          enum: [FULL_TIME, PART_TIME, FIXED_TERM, INTERN, CONTRACTOR]
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+        current_assignment:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/Assignment'
+        manager_employment_id:
+          type: [integer, "null"]
+    Assignment:
+      type: object
+      required: [id, employment_id, org_unit_id, assignment_type, is_primary, valid_from, valid_to]
+      properties:
+        id:
+          type: integer
+        employment_id:
+          type: integer
+        org_unit_id:
+          type: integer
+        position_id:
+          type: [integer, "null"]
+        manager_assignment_id:
+          type: [integer, "null"]
+        assignment_type:
+          type: string
+          enum: [PRIMARY, SECONDMENT, MATRIX, PROJECT]
+        is_primary:
+          type: boolean
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+    Terms:
+      type: object
+      properties:
+        id:
+          type: integer
+        employment_id:
+          type: integer
+        version:
+          type: integer
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type: string
+          format: date
+        work_location:
+          type: string
+        work_schedule:
+          type: string
+        salary_scheme_code:
+          type: [string, "null"]
+        notice_period_days:
+          type: integer
+        confidentiality:
+          type: boolean
+        non_compete:
+          type: boolean
+        probation_end_date:
+          type: [string, "null"]
+          format: date
+    Person:
+      type: object
+      required: [id, legal_name]
+      properties:
+        id:
+          type: integer
+        legal_name:
+          type: string
+        preferred_name:
+          type: [string, "null"]
+        birth_date:
+          type: [string, "null"]
+          format: date
+        gender:
+          type: [string, "null"]
+        nationality:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+        mobile:
+          type: [string, "null"]
+          description: Masked for P1 callers. Identity numbers are never serialized.
+    OrgUnit:
+      type: object
+      required: [id, legal_entity_id, code, name, type]
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        parent_id:
+          type: [integer, "null"]
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [COMPANY, DIVISION, DEPARTMENT, TEAM, COST_CENTER, SHARED_SERVICE]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+    PersonCreate:
+      type: object
+      required: [legal_name]
+      properties:
+        legal_name:
+          type: string
+          maxLength: 120
+        preferred_name:
+          type: [string, "null"]
+          maxLength: 120
+        id_type:
+          type: [string, "null"]
+          maxLength: 32
+        id_number:
+          type: [string, "null"]
+          maxLength: 128
+          writeOnly: true
+        birth_date:
+          type: [string, "null"]
+          format: date
+        gender:
+          type: [string, "null"]
+        nationality:
+          type: [string, "null"]
+          minLength: 2
+          maxLength: 2
+        mobile:
+          type: [string, "null"]
+          writeOnly: true
+        email:
+          type: [string, "null"]
+          format: email
+    EmploymentCreate:
+      type: object
+      required: [person_id, legal_entity_id, employee_no, employment_type, valid_from, hire_date]
+      properties:
+        person_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        employee_no:
+          type: string
+          maxLength: 64
+        employment_type:
+          type: string
+          enum: [FULL_TIME, PART_TIME, FIXED_TERM, INTERN, CONTRACTOR]
+        status:
+          type: string
+          enum: [PROBATION, ACTIVE, LEAVE, SUSPENDED, TERMINATED]
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+        hire_date:
+          type: string
+          format: date
+        termination_date:
+          type: [string, "null"]
+          format: date
+        seniority_start_date:
+          type: [string, "null"]
+          format: date
+    AssignmentCreate:
+      type: object
+      required: [org_unit_id, assignment_type, valid_from]
+      properties:
+        org_unit_id:
+          type: integer
+        position_id:
+          type: [integer, "null"]
+        manager_assignment_id:
+          type: [integer, "null"]
+        assignment_type:
+          type: string
+          enum: [PRIMARY, SECONDMENT, MATRIX, PROJECT]
+        is_primary:
+          type: boolean
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+    TermsCreate:
+      type: object
+      required: [effective_from, work_location, work_schedule]
+      properties:
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type: string
+          format: date
+        probation_end_date:
+          type: [string, "null"]
+          format: date
+        work_location:
+          type: string
+        work_schedule:
+          type: string
+        salary_scheme_code:
+          type: [string, "null"]
+        notice_period_days:
+          type: integer
+          minimum: 0
+        confidentiality:
+          type: boolean
+        non_compete:
+          type: boolean
+        signed_at:
+          type: [string, "null"]
+          format: date-time
+    DocumentCreate:
+      type: object
+      required: [file_object_id, category, retention_class]
+      properties:
+        file_object_id:
+          type: integer
+        category:
+          type: string
+          enum: [CONTRACT, ID, EDUCATION, CERTIFICATE, OTHER]
+        signed_at:
+          type: [string, "null"]
+          format: date-time
+        expires_at:
+          type: [string, "null"]
+          format: date
+        retention_class:
+          type: string
+          maxLength: 32
+        legal_hold:
+          type: boolean
+    OrgUnitCreate:
+      type: object
+      required: [legal_entity_id, code, name, type]
+      properties:
+        legal_entity_id:
+          type: integer
+        parent_id:
+          type: [integer, "null"]
+        code:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 160
+        type:
+          type: string
+          enum: [COMPANY, DIVISION, DEPARTMENT, TEAM, COST_CENTER, SHARED_SERVICE]
+        valid_from:
+          type: [string, "null"]
+          format: date
+        valid_to:
+          type: [string, "null"]
+          format: date
+    ErrorEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code:
+          type: string
+          enum: [UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, CONFLICT, VALIDATION_FAILED, RATE_LIMITED, INTERNAL, SERVICE_UNAVAILABLE]
+        message:
+          type: string
+        data:
+          type: object
+        request_id:
+          type: string
+    HealthData:
+      type: object
+      required: [status, version, checks, time]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        version:
+          type: string
+        checks:
+          type: object
+          required: [db, cache, storage]
+          properties:
+            db: {type: boolean}
+            cache: {type: boolean}
+            storage: {type: boolean}
+        time:
+          type: string
+          format: date-time
+    HealthEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthData'
+    HealthUnavailableEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ErrorEnvelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthData'
+    MetaData:
+      type: object
+      required: [version, environment, server_time, supported_timezones, api_version]
+      properties:
+        version: {type: string}
+        environment: {type: string}
+        server_time: {type: string, format: date-time}
+        api_version: {type: string}
+        supported_timezones:
+          type: array
+          items: {type: string}
+    MetaEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MetaData'
+  responses:
+    Unauthenticated:
+      description: Missing or invalid session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Capability or anchor denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Missing or out of scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: State or idempotency conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationFailed:
+      description: Invalid payload or as-of date
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimited:
+      description: Request rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Unexpected server failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
 paths:
   /v1/health:
     get:
@@ -100,205 +586,524 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
-components:
-  securitySchemes:
-    sessionCookie:
-      type: apiKey
-      in: cookie
-      name: hrms_session
-      description: HttpOnly server-side session cookie. Secure and SameSite=Lax in production.
-    csrfHeader:
-      type: apiKey
-      in: header
-      name: X-CSRF-Token
-      description: CSRF token paired with the session cookie for state-changing requests.
-  headers:
-    XRequestId:
-      description: Correlation id echoed from the request or generated as a ULID.
-      schema:
-        type: string
-        minLength: 1
-        maxLength: 64
-  responses:
-    Unauthenticated:
-      description: Missing or expired authentication.
-      content:
-        application/json:
+  /v1/employees:
+    get:
+      tags: [People]
+      operationId: listEmployees
+      summary: Paginated as-of employee projection
+      description: Requires capability `people.employee.read`. Rows are constrained before pagination.
+      parameters:
+        - $ref: '#/components/parameters/AsOf'
+        - name: org_unit_id
+          in: query
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    Forbidden:
-      description: Authenticated principal lacks the required capability.
-      content:
-        application/json:
+            type: integer
+        - name: q
+          in: query
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    NotFound:
-      description: Missing or out-of-scope resource (deliberately indistinguishable).
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    Conflict:
-      description: State or idempotency conflict.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    ValidationFailed:
-      description: Request validation failed.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    RateLimited:
-      description: Request throttled.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-    InternalError:
-      description: Unexpected server error; internals are never leaked.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
-  schemas:
-    Envelope:
-      type: object
-      additionalProperties: false
-      required: [code, message, data, request_id]
-      properties:
-        code:
-          type: string
-          description: Stable machine-readable code. `OK` for success.
-          examples: [OK]
-        message:
-          type: string
-          description: Human-readable message; never contains internals.
-        data:
-          description: Endpoint-specific payload.
-        request_id:
-          type: string
-          description: Correlation id matching the X-Request-Id response header.
-    ErrorEnvelope:
-      type: object
-      additionalProperties: false
-      required: [code, message, data, request_id]
-      properties:
-        code:
-          type: string
-          enum:
-            - UNAUTHENTICATED
-            - FORBIDDEN
-            - NOT_FOUND
-            - METHOD_NOT_ALLOWED
-            - CONFLICT
-            - VALIDATION_FAILED
-            - RATE_LIMITED
-            - INTERNAL
-            - SERVICE_UNAVAILABLE
-          description: Stable error code from `App\Shared\ErrorCode`.
-        message:
-          type: string
-          description: Stable, non-leaking message.
-        data:
-          type: object
-          description: Error details (empty object unless the error carries context).
-        request_id:
-          type: string
-    HealthData:
-      type: object
-      additionalProperties: false
-      required: [status, version, checks, time]
-      properties:
-        status:
-          type: string
-          enum: [ok, degraded, unavailable]
-        version:
-          type: string
-        checks:
-          type: object
-          additionalProperties: false
-          required: [db, cache, storage]
-          properties:
-            db:
-              type: boolean
-            cache:
-              type: boolean
-            storage:
-              type: boolean
-        time:
-          type: string
-          format: date-time
-          description: UTC ISO-8601 timestamp ending in Z.
-    HealthEnvelope:
-      allOf:
-        - $ref: '#/components/schemas/Envelope'
-        - type: object
-          required: [code, data]
-          properties:
-            code:
-              const: OK
-            data:
-              $ref: '#/components/schemas/HealthData'
-    HealthUnavailableEnvelope:
-      allOf:
-        - $ref: '#/components/schemas/ErrorEnvelope'
-        - type: object
-          required: [code, data]
-          properties:
-            code:
-              const: SERVICE_UNAVAILABLE
-            data:
-              $ref: '#/components/schemas/HealthData'
-    MetaData:
-      type: object
-      additionalProperties: false
-      required: [version, environment, server_time, supported_timezones, api_version]
-      properties:
-        version:
-          type: string
-        environment:
-          type: string
-        server_time:
-          type: string
-          format: date-time
-          description: UTC ISO-8601 timestamp ending in Z.
-        supported_timezones:
-          type: array
-          minItems: 1
-          items:
             type: string
-          examples:
-            - [UTC, Asia/Shanghai, Asia/Singapore]
-        api_version:
-          type: string
-          const: v1
-    MetaEnvelope:
-      allOf:
-        - $ref: '#/components/schemas/Envelope'
-        - type: object
-          required: [code, data]
-          properties:
-            code:
-              const: OK
-            data:
-              $ref: '#/components/schemas/MetaData'
-    Pagination:
-      type: object
-      additionalProperties: false
-      required: [items, page, page_size, total]
-      properties:
-        items:
-          type: array
-          items: {}
-        page:
-          type: integer
-          minimum: 1
-        page_size:
-          type: integer
-          minimum: 1
-          maximum: 100
-        total:
-          type: integer
-          minimum: 0
+            maxLength: 120
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Employee page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Paginated'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employees/{employment_id}:
+    get:
+      tags: [People]
+      operationId: getEmployee
+      summary: Employment profile, current assignment, manager, terms and contracts
+      description: Requires capability `people.employee.read`. Out-of-scope rows return 404.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/AsOf'
+      responses:
+        '200':
+          description: Employment detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/EmploymentSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/persons:
+    post:
+      tags: [People]
+      operationId: createPerson
+      summary: Create a natural person (identity hashed + encrypted)
+      description: Requires capability `people.employee.manage`. Identity plaintext is never returned or audited.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+      responses:
+        '201':
+          description: Person created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Person'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments:
+    post:
+      tags: [People]
+      operationId: createEmployment
+      summary: Create an employment (employee number unique per tenant+legal entity)
+      description: Requires capability `people.employee.manage`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmploymentCreate'
+      responses:
+        '201':
+          description: Employment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments/{employment_id}/assignments:
+    post:
+      tags: [People]
+      operationId: createAssignment
+      summary: Append an assignment; PRIMARY overlap and legal-entity boundary enforced
+      description: Requires capability `people.assignment.manage`.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentCreate'
+      responses:
+        '201':
+          description: Assignment appended
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Assignment'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments/{employment_id}/terms:
+    post:
+      tags: [People]
+      operationId: appendTerms
+      summary: Append a new terms version; previous open version is ended
+      description: Requires capability `people.contract.manage`.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermsCreate'
+      responses:
+        '201':
+          description: Terms version appended
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Terms'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments/{employment_id}/documents:
+    post:
+      tags: [People]
+      operationId: attachDocument
+      summary: Attach document metadata to an employment
+      description: Requires capability `people.contract.manage`.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreate'
+      responses:
+        '201':
+          description: Document metadata attached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments/{employment_id}/timeline:
+    get:
+      tags: [People]
+      operationId: getEmploymentTimeline
+      summary: Employment, assignment, terms and document facts in effective-date order
+      description: Requires capability `people.employee.read`.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Timeline page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Paginated'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/employments/{employment_id}/transfer:
+    post:
+      operationId: transferEmploymentLegalEntity
+      summary: Transfer an employment to another legal entity
+      description: Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
+      tags: [People]
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [legal_entity_id, employee_no, valid_from]
+              properties:
+                legal_entity_id: {type: integer}
+                employee_no: {type: string, maxLength: 64}
+                valid_from: {type: string, format: date}
+                org_unit_id: {type: integer}
+                position_id:
+                  type: [integer, "null"]
+                reason: {type: string, maxLength: 500}
+      responses:
+        '200':
+          description: New employment created and old employment ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /v1/org-units/tree:
+    get:
+      tags: [Organization]
+      operationId: getOrgTree
+      summary: As-of organization tree for one legal entity
+      description: Requires capabilities `org.tree.read` and `org.unit.read`.
+      parameters:
+        - $ref: '#/components/parameters/AsOf'
+        - name: legal_entity_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Org tree page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Paginated'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/org-units:
+    post:
+      tags: [Organization]
+      operationId: createOrgUnit
+      summary: Create an organization unit and its closure paths
+      description: Requires capability `org.unit.manage`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgUnitCreate'
+      responses:
+        '201':
+          description: Organization unit created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrgUnit'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/org-units/{id}/move:
+    post:
+      tags: [Organization]
+      operationId: moveOrgUnit
+      summary: Move an org unit by appending a closure version
+      description: Requires capability `org.unit.manage`. Historical closure rows are ended, never rewritten.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatchOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_parent_id, effective_from]
+              properties:
+                new_parent_id:
+                  type: [integer, "null"]
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Org unit moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/org-units/{id}/impact:
+    get:
+      tags: [Organization]
+      operationId: previewOrgUnitImpact
+      summary: Preview affected employees/managers and cross-entity warning
+      description: Requires capability `org.unit.manage`. Payroll cost-center count is 0 until Task 7.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: new_parent_id
+          in: query
+          required: true
+          schema:
+            type: [integer, "null"]
+        - $ref: '#/components/parameters/AsOf'
+      responses:
+        '200':
+          description: Impact preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+  /v1/documents/{document_id}/download:
+    get:
+      tags: [People]
+      operationId: downloadDocument
+      summary: Request an authorized short-lived document download
+      description: Requires `people.contract.read` and `people.document.download`; never returns storage keys.
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Download descriptor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'

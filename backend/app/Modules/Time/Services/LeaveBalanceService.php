@@ -128,7 +128,7 @@ final class LeaveBalanceService
                 'adjusted' => $summary['adjusted'],
                 'reversed' => $summary['reversed'],
                 'balance' => $summary['balance'],
-                'updated_at' => $this->clock->nowUtc(),
+                'updated_at' => $this->clock->now(),
             ],
         );
     }

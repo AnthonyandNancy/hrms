@@ -8,31 +8,43 @@ use App\Shared\Exceptions\ValidationException;
 use Carbon\CarbonImmutable;
 
 /**
- * Half-open business date range [from, to). All date reasoning in time and
- * leave code uses this helper rather than SQL DATE() expressions.
+ * Half-open business date range [from, to). Business code uses this helper
+ * rather than SQL DATE() expressions; open end is 9999-12-31.
  */
 final readonly class DateRange
 {
-    public CarbonImmutable $from;
+    private BusinessDate $from;
 
-    public CarbonImmutable $to;
+    private BusinessDate $to;
 
-    public function __construct(CarbonImmutable $from, CarbonImmutable $to)
+    public function __construct(BusinessDate|string $validFrom, BusinessDate|string $validTo)
     {
-        if ($from->greaterThanOrEqualTo($to)) {
-            throw new ValidationException(['to' => ['The end date must be after the start date.']]);
-        }
+        $this->from = $validFrom instanceof BusinessDate ? $validFrom : BusinessDate::from($validFrom);
+        $this->to = $validTo instanceof BusinessDate ? $validTo : BusinessDate::from($validTo);
 
-        $this->from = $from->startOfDay();
-        $this->to = $to->startOfDay();
+        if (! $this->from->isBefore($this->to)) {
+            throw new ValidationException(['to' => ['The end date must be after the start date (half-open range).']]);
+        }
     }
 
     public static function fromInclusiveDates(string $from, string $to): self
     {
-        $start = BusinessDate::parse($from);
-        $end = BusinessDate::parse($to)->addDay();
+        return new self(BusinessDate::from($from), BusinessDate::from($to)->addDays(1));
+    }
 
-        return new self($start, $end);
+    public static function openEnded(BusinessDate|string $validFrom): self
+    {
+        return new self($validFrom, BusinessDate::OPEN_END);
+    }
+
+    public function validFrom(): BusinessDate
+    {
+        return $this->from;
+    }
+
+    public function validTo(): BusinessDate
+    {
+        return $this->to;
     }
 
     /**
@@ -41,9 +53,10 @@ final readonly class DateRange
     public function days(): array
     {
         $days = [];
-        $cursor = $this->from;
+        $cursor = BusinessDate::parse($this->from->value());
+        $end = BusinessDate::parse($this->to->value());
 
-        while ($cursor->lessThan($this->to)) {
+        while ($cursor->lessThan($end)) {
             $days[] = $cursor;
             $cursor = $cursor->addDay();
         }
@@ -51,10 +64,33 @@ final readonly class DateRange
         return $days;
     }
 
-    public function contains(CarbonImmutable|string $date): bool
+    public function contains(BusinessDate|string $on): bool
     {
-        $day = is_string($date) ? BusinessDate::parse($date) : $date->startOfDay();
+        $date = $on instanceof BusinessDate ? $on : BusinessDate::from($on);
 
-        return $day->greaterThanOrEqualTo($this->from) && $day->lessThan($this->to);
+        return $date->compareTo($this->from) >= 0 && $date->isBefore($this->to);
+    }
+
+    public function overlaps(self $other): bool
+    {
+        return $this->from->isBefore($other->to) && $other->from->isBefore($this->to);
+    }
+
+    public function isOpenEnded(): bool
+    {
+        return $this->to->isOpenEnd();
+    }
+
+    public function endingAt(BusinessDate|string $validTo): self
+    {
+        return new self($this->from, $validTo);
+    }
+
+    /**
+     * @return array{valid_from: string, valid_to: string}
+     */
+    public function toArray(): array
+    {
+        return ['valid_from' => $this->from->value(), 'valid_to' => $this->to->value()];
     }
 }

@@ -86,7 +86,7 @@ final class AttendanceCorrectionService
                 'reason' => $reason,
                 'corrected_punches_json' => $correctedPunches,
                 'case_id' => $caseId,
-                'created_at' => $this->clock->nowUtc(),
+                'created_at' => $this->clock->now(),
             ]);
         });
     }
@@ -132,7 +132,7 @@ final class AttendanceCorrectionService
                 ];
             }
 
-            $correction->forceFill(['applied_at' => $this->clock->nowUtc()])->save();
+            $correction->forceFill(['applied_at' => $this->clock->now()])->save();
             $day = $this->calculator->recalculate(
                 $tenantId,
                 $correction->employment_id,

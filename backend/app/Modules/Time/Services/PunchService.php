@@ -55,7 +55,7 @@ final class PunchService
                 'source_local_offset' => $sourceLocalOffset,
                 'source' => $source,
                 'raw_payload_hash' => $rawPayloadHash,
-                'created_at' => $this->clock->nowUtc(),
+                'created_at' => $this->clock->now(),
             ]);
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             return PunchRecord::query()

@@ -148,7 +148,7 @@ final class AttendanceCalculator
                 'status' => $status,
                 'rule_version' => $ruleVersion,
                 'source_hash' => $hash,
-                'calculated_at' => $this->clock->nowUtc(),
+                'calculated_at' => $this->clock->now(),
             ])->save();
 
             return $day->refresh();
@@ -309,7 +309,7 @@ final class AttendanceCalculator
                 'config_json' => $config,
                 'effective_from' => $effectiveFrom,
                 'checksum' => hash('sha256', json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
-                'created_at' => $this->clock->nowUtc(),
+                'created_at' => $this->clock->now(),
             ],
         );
     }

@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 
 final class SystemClock implements Clock
 {
-    public function nowUtc(): CarbonImmutable
+    public function now(): CarbonImmutable
     {
         return CarbonImmutable::now('UTC');
     }

@@ -321,8 +321,8 @@ final class LeaveLedgerService
                     $sourceType,
                     $sourceId,
                 ])),
-                'recorded_at' => $this->clock->nowUtc(),
-                'created_at' => $this->clock->nowUtc(),
+                'recorded_at' => $this->clock->now(),
+                'created_at' => $this->clock->now(),
             ]);
 
             try {

@@ -66,7 +66,7 @@ abstract class TimeTestCase extends TestCase
             'timezone' => $timezone,
             'workweek_json' => $workweek,
             'standard_day_minutes' => 480,
-            'created_at' => $this->clock->nowUtc(),
+            'created_at' => $this->clock->now(),
         ]);
     }
 
@@ -138,7 +138,7 @@ abstract class TimeTestCase extends TestCase
             'allow_negative' => false,
             'expiry_rule_json' => null,
             'legal_basis' => 'State Council Order 514',
-            'created_at' => $this->clock->nowUtc(),
+            'created_at' => $this->clock->now(),
         ], $overrides));
     }
 

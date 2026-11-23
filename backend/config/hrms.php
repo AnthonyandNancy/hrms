@@ -3,6 +3,19 @@
 declare(strict_types=1);
 
 return [
+    'default_timezone' => env('HRMS_DEFAULT_TIMEZONE', 'Asia/Shanghai'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Person PII hashing
+    |--------------------------------------------------------------------------
+    |
+    | HMAC key for identity dedupe hashes. Set HRMS_PII_HMAC_KEY in every
+    | environment; tests override it with a deterministic synthetic value.
+    |
+    */
+    'pii_hmac_key' => env('HRMS_PII_HMAC_KEY', 'reference-implementation-change-me'),
+
     /*
     |--------------------------------------------------------------------------
     | Public API metadata

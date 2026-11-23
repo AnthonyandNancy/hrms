@@ -49,8 +49,8 @@ final class BusinessCalendar
                 'workweek_json' => array_values(array_map('intval', $workweek)),
                 'standard_day_minutes' => $standardDayMinutes,
                 'version' => 1,
-                'updated_at' => $this->clock->nowUtc(),
-                'created_at' => $this->clock->nowUtc(),
+                'updated_at' => $this->clock->now(),
+                'created_at' => $this->clock->now(),
             ],
         );
     }
@@ -112,7 +112,7 @@ final class BusinessCalendar
                 'type' => $type,
                 'source' => $source,
                 'version' => 1,
-                'created_at' => $this->clock->nowUtc(),
+                'created_at' => $this->clock->now(),
             ],
         );
     }

@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Organization\Providers;
+
+use App\Modules\Organization\Commands\RebuildOrgClosureCommand;
+use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
+use App\Modules\Organization\Contracts\OrganizationDirectory;
+use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Services\DemoOrganizationSeederService;
+use App\Modules\Organization\Services\OrganizationDirectoryService;
+use App\Modules\Organization\Services\OrganizationFactsService;
+use Illuminate\Support\ServiceProvider;
+
+/**
+ * Owns the Organization read contracts. People consumes OrganizationFacts and
+ * OrganizationDirectory; it never imports Organization models.
+ */
+final class OrganizationServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->bind(OrganizationDirectory::class, OrganizationDirectoryService::class);
+        $this->app->bind(OrganizationFacts::class, OrganizationFactsService::class);
+        $this->app->bind(DemoOrganizationSeeder::class, DemoOrganizationSeederService::class);
+    }
+
+    public function boot(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                RebuildOrgClosureCommand::class,
+            ]);
+        }
+    }
+}

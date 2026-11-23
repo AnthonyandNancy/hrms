@@ -41,7 +41,7 @@ final class LeaveAccountService
         $entitlement = (string) ($data['annual_entitlement_days'] ?? '0.00');
 
         if ($isStatutory && $isAnnual) {
-            $asOf = (string) ($data['as_of'] ?? $this->clock->nowUtc()->format('Y-m-d'));
+            $asOf = (string) ($data['as_of'] ?? $this->clock->now()->format('Y-m-d'));
             $seniority = (string) ($data['seniority_start_date'] ?? $asOf);
             $this->floors->assertEntitlementAtLeastFloor($isStatutory, $entitlement, $seniority, $asOf);
         }
@@ -59,8 +59,8 @@ final class LeaveAccountService
             'expiry_rule_json' => $data['expiry_rule_json'] ?? null,
             'legal_basis' => isset($data['legal_basis']) ? (string) $data['legal_basis'] : null,
             'version' => 1,
-            'created_at' => $this->clock->nowUtc(),
-            'updated_at' => $this->clock->nowUtc(),
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
         ]);
     }
 
@@ -70,7 +70,7 @@ final class LeaveAccountService
         int $leaveTypeId,
         ?string $openedOn = null,
     ): LeaveAccount {
-        $openedOn ??= $this->clock->nowUtc()->format('Y-m-d');
+        $openedOn ??= $this->clock->now()->format('Y-m-d');
         BusinessDate::parse($openedOn);
 
         $type = LeaveType::query()->where('tenant_id', $tenantId)->whereKey($leaveTypeId)->first();
@@ -95,14 +95,14 @@ final class LeaveAccountService
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'opened_on' => $openedOn,
-            'created_at' => $this->clock->nowUtc(),
-            'updated_at' => $this->clock->nowUtc(),
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
         ]);
     }
 
     public function standardDayMinutes(int $tenantId, int $employmentId, ?string $businessDate = null): int
     {
-        $businessDate ??= $this->clock->nowUtc()->format('Y-m-d');
+        $businessDate ??= $this->clock->now()->format('Y-m-d');
         $snapshot = app(\App\Modules\Time\Contracts\EmploymentDirectory::class)
             ->snapshot($tenantId, $employmentId, $businessDate);
 
