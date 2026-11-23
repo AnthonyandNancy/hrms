@@ -1,0 +1,11 @@
+# Repository secret-scan policy. Extend allowlists only with a narrow path and
+# a written justification; never add a blanket exemption for .env files.
+title = "FactoryHR gitleaks policy"
+
+[allowlist]
+description = "Framework/vendor fixtures and generated documentation"
+paths = [
+  '''backend/vendor/''',
+  '''node_modules/''',
+  '''pnpm-lock.yaml''',
+]

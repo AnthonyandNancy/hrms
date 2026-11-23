@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'chore/**', 'feat/**', 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, intl, mbstring, pdo_mysql, pdo_sqlite, opcache, pcntl
+          coverage: none
+          tools: composer:v2
+        env:
+          COMPOSER_ALLOW_SUPERUSER: '1'
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: PHPUnit
+        run: php artisan test
+
+      - name: Capability audit
+        run: php artisan capability:audit
+
+      - name: Architecture test
+        run: php artisan arch:test
+
+  contract:
+    name: OpenAPI and root workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: OpenAPI lint
+        run: pnpm openapi:lint
+
+      - name: Frontend gates (conditional)
+        id: frontend
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm lint
+          pnpm test:unit
+
+      - name: Frontend not scaffolded
+        if: ${{ hashFiles('frontend/package.json') == '' }}
+        run: echo "frontend/package.json absent; frontend gates skipped and explicitly recorded."
+
+  compose:
+    name: Compose syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose file
+        run: docker compose -f deploy/compose/docker-compose.yml config --quiet
