@@ -125,21 +125,35 @@ final class PayrollCalculator
         // special deductions apply to the current period, while cumulative
         // taxable income comes from the YTD snapshot.
         $specialDeductionCents = $this->sumDeductions($input->specialDeductions);
-        $periodTaxable = max(
-            0,
-            $grossCents
-                - $employeeSi
-                - $employeeHf
-                - $specialDeductionCents
-                - $input->taxTable->thresholdCents,
+        $taxableBeforeThreshold = $this->checkedAdd(
+            $this->checkedAdd(
+                $employeeSi,
+                $employeeHf,
+                'taxable income deductions',
+            ),
+            $this->checkedAdd(
+                $specialDeductionCents,
+                $input->taxTable->thresholdCents,
+                'taxable income deductions',
+            ),
+            'taxable income deductions',
         );
+        $periodTaxable = max(0, $this->checkedDifference($grossCents, $taxableBeforeThreshold, 'taxable income'));
 
         // 9: resident cumulative withholding. Lower cumulative liability than
         // the amount already withheld yields zero current tax and a negative
         // carry-forward; there is no in-year refund.
-        $cumulativeTaxable = $input->ytd->cumulativeTaxableCents + $periodTaxable;
+        $cumulativeTaxable = $this->checkedAdd(
+            $input->ytd->cumulativeTaxableCents,
+            $periodTaxable,
+            'cumulative taxable income',
+        );
         $cumulativeTax = $input->taxTable->taxOn($cumulativeTaxable, $rounding->mode);
-        $difference = $cumulativeTax - $input->ytd->taxWithheldCents;
+        $difference = $this->checkedDifference(
+            $cumulativeTax,
+            $input->ytd->taxWithheldCents,
+            'cumulative tax difference',
+        );
         $currentTax = max(0, $difference);
         $carryForward = min(0, $difference);
 
@@ -246,7 +260,11 @@ final class PayrollCalculator
         }
 
         $negativeManualAdjustments = $this->negativeManualAdjustmentCents($input);
-        $otherDeductionCents = $this->sumDeductions($input->otherDeductions) + $negativeManualAdjustments;
+        $otherDeductionCents = $this->checkedAdd(
+            $this->sumDeductions($input->otherDeductions),
+            $negativeManualAdjustments,
+            'other deductions',
+        );
         $employeeDeductions = $this->checkedAdd(
             $this->checkedAdd($employeeSi, $employeeHf, 'employee deductions'),
             $this->checkedAdd($currentTax, $otherDeductionCents, 'employee deductions'),
