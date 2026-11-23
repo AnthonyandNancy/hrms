@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Services;
 
+use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Modules\Platform\Contracts\IdempotentResult;
 use App\Modules\Platform\Models\IdempotencyKey;
 use App\Shared\Exceptions\ConflictException;
@@ -17,7 +18,7 @@ use Throwable;
  * stored HTTP result for the same key+payload, and frees failed reservations.
  * Module services must call this within the same transaction as their write.
  */
-final class IdempotencyService
+final class IdempotencyService implements IdempotencyRunner
 {
     private const TTL_SECONDS = 86400;
 

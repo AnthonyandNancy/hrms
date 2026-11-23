@@ -18,6 +18,13 @@ use App\Modules\Platform\Http\Controllers\LivenessController;
 use App\Modules\Platform\Http\Controllers\MetaController;
 use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
+use App\Modules\Workflow\Http\Controllers\CaseController;
+use App\Modules\Workflow\Http\Controllers\DecisionController;
+use App\Modules\Workflow\Http\Controllers\DelegationController;
+use App\Modules\Workflow\Http\Controllers\EffectController;
+use App\Modules\Workflow\Http\Controllers\TaskController;
+use App\Modules\Workflow\Http\Controllers\TemplateController;
+use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -148,4 +155,63 @@ Route::prefix('org-units')->middleware('auth.session')->group(function (): void 
 Route::middleware(['auth.session', 'capability:platform.feature.manage'])->group(function (): void {
     Route::get('/platform/features', [FeatureFlagController::class, 'index'])->name('platform.features.index');
     Route::put('/platform/features/{flag}', [FeatureFlagController::class, 'update'])->name('platform.features.update');
+});
+
+Route::middleware(WorkflowPrincipalContext::class)->prefix('cases')->group(function (): void {
+    Route::get('/', [CaseController::class, 'index'])
+        ->middleware('capability:workflow.case.read')
+        ->name('workflow.cases.index');
+    Route::post('/', [CaseController::class, 'store'])
+        ->middleware('capability:workflow.case.create')
+        ->name('workflow.cases.store');
+    Route::get('/{id}', [CaseController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.read')
+        ->name('workflow.cases.show');
+    Route::get('/{id}/timeline', [CaseController::class, 'timeline'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.read')
+        ->name('workflow.cases.timeline');
+    Route::post('/{id}/submit', [CaseController::class, 'submit'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.create')
+        ->name('workflow.cases.submit');
+    Route::post('/{id}/withdraw', [CaseController::class, 'withdraw'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.create')
+        ->name('workflow.cases.withdraw');
+    Route::post('/{caseId}/decisions', [DecisionController::class, 'store'])
+        ->whereNumber('caseId')
+        ->middleware('capability:workflow.case.decide')
+        ->name('workflow.cases.decide');
+});
+
+Route::prefix('effects')->middleware(WorkflowPrincipalContext::class)->group(function (): void {
+    Route::post('/{id}/retry', [EffectController::class, 'retry'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.admin')
+        ->name('workflow.effects.retry');
+});
+
+Route::get('/tasks/my', [TaskController::class, 'my'])
+    ->middleware([WorkflowPrincipalContext::class, 'capability:workflow.case.read'])
+    ->name('workflow.tasks.my');
+
+Route::prefix('workflow/templates')->middleware(WorkflowPrincipalContext::class)->group(function (): void {
+    Route::get('/', [TemplateController::class, 'index'])
+        ->middleware('capability:workflow.case.read')
+        ->name('workflow.templates.index');
+    Route::post('/', [TemplateController::class, 'store'])
+        ->middleware('capability:workflow.case.admin')
+        ->name('workflow.templates.store');
+});
+
+Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
+    Route::post('/delegations', [DelegationController::class, 'store'])
+        ->middleware('capability:workflow.case.decide')
+        ->name('workflow.delegations.store');
+    Route::delete('/delegations/{id}', [DelegationController::class, 'destroy'])
+        ->whereNumber('id')
+        ->middleware('capability:workflow.case.decide')
+        ->name('workflow.delegations.destroy');
 });

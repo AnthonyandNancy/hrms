@@ -2242,3 +2242,370 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/cases:
+    get:
+      operationId: workflowCasesIndex
+      tags:
+        - Workflow
+      summary: List cases visible to the caller
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: workflowCasesStore
+      tags:
+        - Workflow
+      summary: Create a case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - subject_type
+                - title
+                - template_id
+                - business_date
+              properties:
+                type:
+                  type: string
+                subject_type:
+                  type: string
+                subject_id:
+                  type:
+                    - integer
+                    - "null"
+                title:
+                  type: string
+                template_id:
+                  type: integer
+                business_date:
+                  type: string
+                  format: date
+                payload:
+                  type: object
+                submit:
+                  type: boolean
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/cases/{id}:
+    get:
+      operationId: workflowCasesShow
+      tags:
+        - Workflow
+      summary: Case detail with independent application and effect status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/cases/{id}/timeline:
+    get:
+      operationId: workflowCasesTimeline
+      tags:
+        - Workflow
+      summary: Append-only case timeline
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/cases/{id}/submit:
+    post:
+      operationId: workflowCasesSubmit
+      tags:
+        - Workflow
+      summary: Submit a draft case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/cases/{id}/withdraw:
+    post:
+      operationId: workflowCasesWithdraw
+      tags:
+        - Workflow
+      summary: Withdraw a submitted case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/cases/{caseId}/decisions:
+    post:
+      operationId: workflowDecisionsStore
+      tags:
+        - Workflow
+      summary: Append an immutable decision
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                comment:
+                  type: string
+                target_user_id:
+                  type:
+                    - integer
+                    - "null"
+                reason:
+                  type:
+                    - string
+                    - "null"
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/delegations:
+    post:
+      operationId: workflowDelegationsStore
+      tags:
+        - Workflow
+      summary: Create a scoped, time-bounded delegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - delegate_user_id
+                - capability
+                - from
+                - to
+              properties:
+                delegate_user_id:
+                  type: integer
+                capability:
+                  type: string
+                from:
+                  type: string
+                  format: date-time
+                to:
+                  type: string
+                  format: date-time
+                max_amount_minor:
+                  type:
+                    - integer
+                    - "null"
+                scope:
+                  type: object
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/delegations/{id}:
+    delete:
+      operationId: workflowDelegationsDestroy
+      tags:
+        - Workflow
+      summary: Revoke a delegation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/effects/{id}/retry:
+    post:
+      operationId: workflowEffectsRetry
+      tags:
+        - Workflow
+      summary: Retry a failed effect with reason and audit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 3
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/tasks/my:
+    get:
+      operationId: workflowTasksMine
+      tags:
+        - Workflow
+      summary: Current user pending tasks with SLA state
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/workflow/templates:
+    get:
+      operationId: workflowTemplatesIndex
+      tags:
+        - Workflow
+      summary: List workflow templates
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: workflowTemplatesStore
+      tags:
+        - Workflow
+      summary: Create a workflow template version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - definition
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                version:
+                  type: integer
+                status:
+                  type: string
+                definition:
+                  type: object
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
