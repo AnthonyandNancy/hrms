@@ -10,6 +10,7 @@ use App\Modules\Workflow\Contracts\AssigneeEligibility;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use App\Modules\Workflow\Contracts\EffectHandler;
+use App\Modules\Workflow\Contracts\PayrollApprovalWorkflow;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
 use App\Modules\Workflow\Contracts\WorkflowDelegationRevoker;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
@@ -21,6 +22,8 @@ use App\Modules\Workflow\Services\DefaultAssigneeEligibility;
 use App\Modules\Workflow\Services\DefaultWorkflowPrincipalResolver;
 use App\Modules\Workflow\Services\DomainEffectHandlerAdapter;
 use App\Modules\Workflow\Services\NullEffectHandler;
+use App\Modules\Workflow\Services\PayrollApprovalEffectHandler;
+use App\Modules\Workflow\Services\PayrollApprovalWorkflowService;
 use App\Modules\Workflow\Services\WorkflowCaseGatewayService;
 use App\Modules\Workflow\Services\WorkflowDelegationRevocationService;
 use Illuminate\Contracts\Foundation\Application;
@@ -36,6 +39,7 @@ final class WorkflowServiceProvider extends ServiceProvider
      */
     public const DEFAULT_EFFECT_HANDLERS = [
         NullEffectHandler::class,
+        PayrollApprovalEffectHandler::class,
     ];
 
     /**
@@ -70,6 +74,7 @@ final class WorkflowServiceProvider extends ServiceProvider
         $this->app->bind(CaseCommandPort::class, CaseCommandService::class);
         $this->app->bind(WorkflowCaseGateway::class, WorkflowCaseGatewayService::class);
         $this->app->bind(WorkflowDelegationRevoker::class, WorkflowDelegationRevocationService::class);
+        $this->app->bind(PayrollApprovalWorkflow::class, PayrollApprovalWorkflowService::class);
 
         $this->app->singleton(EffectRegistry::class, function (Application $app): EffectRegistry {
             $handlers = [];

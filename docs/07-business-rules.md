@@ -10,11 +10,10 @@ they must not silently alter another module's rules.
 
 ## Payroll
 
-Status: Task 7A pure calculation core. This section describes gross-to-net,
-statutory deductions, withholding, corrections, and the DEMO parameter
-boundary. Lifecycle, approval, publication, and bank/tax export rules are
-implemented by the payroll run lifecycle (Task 7B) and do not change the
-arithmetic below.
+Status: Task 7A pure calculation core plus Task 7B run lifecycle. This
+section describes gross-to-net, statutory deductions, withholding,
+corrections, the lifecycle/approval/export controls, and the DEMO parameter
+boundary. Task 7B does not change the arithmetic order documented below.
 
 ### Money, rates, and rounding
 
@@ -174,13 +173,110 @@ set with legal-entity/locality scope and finance/legal approval evidence. The
 calculator accepts only injected parameter objects; it owns no jurisdiction's
 tax or contribution numbers.
 
-### Explicit gaps for Task 7A
+### Run lifecycle and controls (Task 7B)
 
-- No HTTP, database, migrations, lifecycle state machine, or receipt
-  reconciliation is implemented in this slice.
-- The calculator does not fetch employment terms, attendance, approval
-  evidence, or YTD; Task 7B supplies immutable snapshots.
-- Multi-locality insurance combinations (for example separate pension, medical,
+Statuses are `DRAFT`, `INPUT_LOCKED`, `CALCULATED`, `REVIEWED`, `APPROVED`,
+`PUBLISHED`, `PAID`, `CLOSED`, and `CANCELLED`. Only `PayrollStateMachine`
+writes `payroll_runs.status`; an illegal transition returns HTTP 409 with
+reason `INVALID_RUN_TRANSITION` rather than silently coercing state.
+
+- `DRAFT -> INPUT_LOCKED` freezes a per-employment input snapshot and a stable
+  run-level `input_hash`. Snapshots are append-only at model and database
+  level. A refrozen input-locked run is idempotent and does not rewrite bytes.
+- `INPUT_LOCKED -> CALCULATED` is the only calculation entry point. It reuses
+  the Task 7A `PayrollCalculator`; failures are stored per employee with a
+  bounded `failure_reason`, and a batch where every employee fails is a
+  conflict.
+- `CALCULATED -> REVIEWED -> APPROVED -> PUBLISHED` requires three distinct
+  actors: the preparer may not review or approve, the reviewer may not approve,
+  and publish/mark-paid use the same separation. A service-level check and the
+  IAM SOD capability rules both fail closed.
+- `PUBLISHED -> PAID -> CLOSED`. `PAID` is a recorded payment state, not a bank
+  clearing instruction. `CLOSED` is immutable; financial columns, currency,
+  input hash, period, scheme, cutoff, and correction linkage cannot change.
+- `CANCELLED` is terminal and allowed only before publication. Published runs
+  are corrected, never deleted or reopened.
+- `DRAFT..APPROVED` can be reopened only with two distinct approvers, a reason
+  of at least 10 characters, and an audit record. Reopen increments
+  `snapshot_version`, re-snapshots inputs, and refuses when the input hash did
+  not change.
+
+### Approval evidence (Workflow Case/Decision/Effect)
+
+Payroll approval is represented by a Workflow `payroll.approval` case. The
+template is code-owned and created on demand for the tenant; it has one
+approval node and a local `workflow.payroll.publish` effect. Payroll consumes
+only `App\Modules\Workflow\Contracts\PayrollApprovalWorkflow`; Workflow
+applies the run transition through `PayrollApprovalEffectPort`. The effect is
+idempotent: applying it to an already `APPROVED` run is a no-op, while
+unreviewed runs fail closed. `payroll_runs.approval_case_id` and
+`approval_effect_status` retain the case/effect linkage in addition to the
+Workflow decision and effect records.
+
+### Snapshots and as-of inputs
+
+A snapshot payload contains the employment id, earning/posting/pay date and
+cutoff, normalized attendance/leave minutes, as-of employment-terms version
+and salary, scheme version/items, manual adjustments, YTD opening, and the
+effective TAX/SI/HF parameter versions. Values are integers or decimal strings;
+the canonical JSON hash sorts keys recursively and SHA-256 hashes the result.
+Changing Time or People facts after the lock does not change an existing run;
+a new run or a controlled reopen observes the new facts.
+
+### Correction runs
+
+Corrections are delta-only. A correction references the original published,
+paid, or closed run and reuses the original employment population; it does not
+pick up employees who joined after the original. The baseline is the original
+payslip and employee totals. Prior correction rows remain separate payable
+rows and are not folded into the baseline, so repeated corrections do not
+double-count the same adjustment. Original plus all published corrections must
+equal the chain's payslip totals exactly. Each published correction is folded
+into `payroll_ytd` once.
+
+### Exports and receipts
+
+Bank and tax outputs are CSV adapters with a UTF-8 BOM, an explicit
+"adapter only / not a filing or bank file" header, a whitelisted column set,
+the SHA-256 of the exact generated bytes, and an audit event. They contain no
+national id, mobile number, bank account, address, or other hidden personal
+field. `payroll_receipts` can store an external receipt hash and reconciliation
+time; no bank clearing or tax filing is performed. Exports are available only
+after approval.
+
+### Statutory parameter versions
+
+TAX, SOCIAL_INSURANCE, and HOUSING_FUND rows are effective-dated and versioned
+per tenant and legal entity. A version requires non-empty approval evidence
+and an approving user. Versions are append-only; a closed run keeps the
+parameter versions recorded in its snapshot. A missing effective version
+fails closed with `STATUTORY_PARAMETERS_MISSING` instead of inventing a rate.
+The HTTP create path requires `payroll.parameters.manage`; the
+`payroll:seed-parameters` command writes explicitly DEMO-labelled synthetic
+values.
+
+### Reconciliation and parallel run
+
+`payroll:reconciliation` verifies run totals against employee totals, employee
+totals against payslips, payslip totals against their lines, and correction
+chains against original plus correction payslips. It exits non-zero on any
+mismatch. `payroll:parallel-check --period=YYYY-MM --old-file=PATH` compares
+per-employee gross/net integer cents with the old export; missing files exit 2,
+headcount mismatch or a difference greater than one cent exits 1, and a clean
+comparison exits 0.
+
+### Explicit gaps
+
+- No tax filing, bank clearing, or legal certification. Values seeded by
+  `payroll:seed-parameters` are synthetic DEMO data and must not be used for
+  real payroll in any jurisdiction.
+- Payslip PDF rendering is not implemented; the payslip endpoint returns
+  structured header and line data.
+- Time integration consumes `attendance_days` and `CONSUME` leave-ledger
+  entries. If no Time evidence exists for a period, payroll treats the month
+  as fully worked; this is documented behavior for the reference build, not a
+  production default.
+- Multi-locality insurance combinations (separate pension, medical,
   unemployment, injury, and maternity rules) are modeled as one injected SI
   rule in this slice. A later statutory-parameter expansion may split codes
   without changing the gross-to-net order or cent/rounding invariants.
@@ -355,3 +451,17 @@ approved effects are the only path that mutates People employment facts.
   submitting a case.
 - Integrity checks are operator diagnostics using contracts and read-only
   SQL; they are not an API.
+
+- Splitting insurance codes later must not change the gross-to-net order or
+  cent/rounding invariants.
+- Reopen approvers are recorded as supplied user ids with dual-approval
+  evidence; there is no separate Workflow case for each reopen in this slice.
+- The parallel-check old-file format is a documented CSV
+  (`employment_id,gross_cents,net_cents`) and is not an automatic adapter for
+  any vendor's export.
+
+- Tax filing, bank clearing, payslip PDF rendering and receipt reconciliation
+  endpoints remain outside this slice; CSV adapters with stored hashes are the
+  delivered integration surface.
+- Statutory demo parameters are synthetic and never authoritative for any
+  jurisdiction.

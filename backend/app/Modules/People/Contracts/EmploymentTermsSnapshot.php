@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Contracts;
 
+/**
+ * Immutable employment-terms projection. Lifecycle and Payroll never read the
+ * People-owned employment_terms table; they resolve the terms version
+ * effective on a business date through a People contract.
+ *
+ * Salary is integer minor units. `baseSalaryMinor` is the canonical storage
+ * name; payroll names the same amount `baseSalaryCents` in its own domain.
+ */
 final readonly class EmploymentTermsSnapshot
 {
     public function __construct(

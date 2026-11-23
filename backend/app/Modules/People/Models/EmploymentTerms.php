@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $version
  * @property string $effective_from
  * @property string $effective_to
+ * @property int|null $base_salary_cents
+ * @property string|null $salary_currency
  */
 final class EmploymentTerms extends Model
 {

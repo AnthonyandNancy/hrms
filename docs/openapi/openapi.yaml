@@ -4611,3 +4611,595 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/payroll/items:
+    get:
+      operationId: payrollv1_payroll_items_get
+      summary: Payroll endpoint /v1/payroll/items
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: payrollv1_payroll_items_post
+      summary: Payroll endpoint /v1/payroll/items
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/schemes:
+    get:
+      operationId: payrollv1_payroll_schemes_get
+      summary: Payroll endpoint /v1/payroll/schemes
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: payrollv1_payroll_schemes_post
+      summary: Payroll endpoint /v1/payroll/schemes
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs:
+    get:
+      operationId: payrollv1_payroll_runs_get
+      summary: Payroll endpoint /v1/payroll/runs
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: payrollv1_payroll_runs_post
+      summary: Payroll endpoint /v1/payroll/runs
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}:
+    get:
+      operationId: payrollv1_payroll_runs_id_get
+      summary: Payroll endpoint /v1/payroll/runs/{id}
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/employees:
+    get:
+      operationId: payrollv1_payroll_runs_id_employees_get
+      summary: Payroll endpoint /v1/payroll/runs/{id}/employees
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/reconciliation:
+    get:
+      operationId: payrollv1_payroll_runs_id_reconciliation_get
+      summary: Payroll endpoint /v1/payroll/runs/{id}/reconciliation
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/lock-inputs:
+    post:
+      operationId: payrollv1_payroll_runs_id_lock_inputs_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/lock-inputs
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/calculate:
+    post:
+      operationId: payrollv1_payroll_runs_id_calculate_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/calculate
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/review:
+    post:
+      operationId: payrollv1_payroll_runs_id_review_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/review
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/approve:
+    post:
+      operationId: payrollv1_payroll_runs_id_approve_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/approve
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/publish:
+    post:
+      operationId: payrollv1_payroll_runs_id_publish_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/publish
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/mark-paid:
+    post:
+      operationId: payrollv1_payroll_runs_id_mark_paid_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/mark-paid
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/close:
+    post:
+      operationId: payrollv1_payroll_runs_id_close_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/close
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/cancel:
+    post:
+      operationId: payrollv1_payroll_runs_id_cancel_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/cancel
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/reopen:
+    post:
+      operationId: payrollv1_payroll_runs_id_reopen_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/reopen
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/corrections:
+    post:
+      operationId: payrollv1_payroll_runs_id_corrections_post
+      summary: Payroll endpoint /v1/payroll/runs/{id}/corrections
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/exports/bank:
+    get:
+      operationId: payrollv1_payroll_runs_id_exports_bank_get
+      summary: Payroll endpoint /v1/payroll/runs/{id}/exports/bank
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/runs/{id}/exports/tax:
+    get:
+      operationId: payrollv1_payroll_runs_id_exports_tax_get
+      summary: Payroll endpoint /v1/payroll/runs/{id}/exports/tax
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/payslips:
+    get:
+      operationId: payrollv1_payroll_payslips_get
+      summary: Payroll endpoint /v1/payroll/payslips
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/payslips/{id}:
+    get:
+      operationId: payrollv1_payroll_payslips_id_get
+      summary: Payroll endpoint /v1/payroll/payslips/{id}
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/payroll/statutory-parameters:
+    get:
+      operationId: payrollv1_payroll_statutory_parameters_get
+      summary: Payroll endpoint /v1/payroll/statutory-parameters
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: payrollv1_payroll_statutory_parameters_post
+      summary: Payroll endpoint /v1/payroll/statutory-parameters
+      tags:
+        - Payroll
+      parameters: []
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"

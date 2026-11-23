@@ -23,6 +23,15 @@ final readonly class PayrollPeriod
         }
     }
 
+    public static function fromLabel(string $label): self
+    {
+        if (preg_match('/^(\d{4})-(\d{2})$/D', $label, $matches) !== 1) {
+            throw new InvalidArgumentException('Payroll period must use YYYY-MM.');
+        }
+
+        return new self((int) $matches[1], (int) $matches[2]);
+    }
+
     public function start(): DateTimeImmutable
     {
         return new DateTimeImmutable(
