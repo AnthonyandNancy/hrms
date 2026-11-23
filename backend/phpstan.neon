@@ -2,6 +2,8 @@ includes:
     - vendor/larastan/larastan/extension.neon
 
 parameters:
+    bootstrapFiles:
+        - phpstan-bootstrap.php
     paths:
         - app
         - routes
@@ -9,3 +11,5 @@ parameters:
         - tests
     level: 6
     treatPhpDocTypesAsCertain: false
+    parallel:
+        maximumNumberOfProcesses: 1

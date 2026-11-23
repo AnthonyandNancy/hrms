@@ -40,3 +40,6 @@ test-results/
 /database/*.sqlite
 /backend/database/*.sqlite
 *.sqlite-journal
+
+# Compose-local environment (may contain secrets)
+/deploy/compose/.env
