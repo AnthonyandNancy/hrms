@@ -67,7 +67,7 @@ final class OrgClosureTest extends PeopleTestCase
             ->assertJsonPath('data.items.0.code', 'ROOT');
     }
 
-    public function test_historical_org_unit_row_is_ended_not_rewritten(): void
+    public function test_historical_closure_path_is_ended_not_rewritten(): void
     {
         $scenario = $this->scenario();
         $entity = $scenario->legalEntity();

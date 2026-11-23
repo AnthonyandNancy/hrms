@@ -43,6 +43,26 @@ final class ClosureHistoryTest extends PeopleTestCase
         ]);
     }
 
+    public function test_a_second_move_cannot_predate_the_latest_closure_version(): void
+    {
+        $scenario = $this->scenario();
+        $entity = $scenario->legalEntity();
+        $a = $scenario->orgUnit($entity, 'SEQ-A', null, 'A', 'DIVISION');
+        $b = $scenario->orgUnit($entity, 'SEQ-B', null, 'B', 'DIVISION');
+        $c = $scenario->orgUnit($entity, 'SEQ-C', null, 'C', 'DIVISION');
+        $team = $scenario->orgUnit($entity, 'SEQ-TEAM', $a);
+
+        $this->postJson("/v1/org-units/{$team->id}/move", [
+            'new_parent_id' => $b->id,
+            'effective_from' => '2026-12-01',
+        ])->assertOk();
+
+        $this->postJson("/v1/org-units/{$team->id}/move", [
+            'new_parent_id' => $c->id,
+            'effective_from' => '2026-11-01',
+        ])->assertUnprocessable();
+    }
+
     public function test_union_closures_are_derived_from_existing_ancestor_paths(): void
     {
         $scenario = $this->scenario();

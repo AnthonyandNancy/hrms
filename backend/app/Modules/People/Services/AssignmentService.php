@@ -61,12 +61,18 @@ final class AssignmentService
                 throw new ValidationException(['org_unit_id' => ['The organization unit is not active on the assignment start date.']]);
             }
 
-            if ((int) $orgUnit->legal_entity_id !== (int) $employment->legal_entity_id) {
-                throw new CrossLegalEntityAssignmentException;
+            $orgActiveOnEnd = OrgUnit::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey((int) $orgUnit->id)
+                ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $range->validTo()->addDays(-1)->value()))
+                ->exists();
+
+            if (! $orgActiveOnEnd) {
+                throw new ValidationException(['org_unit_id' => ['The organization unit must remain active for the assignment validity window.']]);
             }
 
-            if ($orgUnit->valid_to !== null && BusinessDate::from((string) $orgUnit->valid_to)->isBefore($range->validTo())) {
-                throw new ValidationException(['org_unit_id' => ['The organization unit ends before the assignment ends.']]);
+            if ((int) $orgUnit->legal_entity_id !== (int) $employment->legal_entity_id) {
+                throw new CrossLegalEntityAssignmentException;
             }
 
             $managerAssignmentId = $input['manager_assignment_id'] ?? null;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Services;
 
+use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\People\Contracts\EmploymentSnapshot;
 use App\Modules\People\Contracts\PeopleDirectory;
@@ -20,7 +21,15 @@ final class PeopleDirectoryService implements PeopleDirectory
 
     public function employmentForUser(int $tenantId, int $userId): ?int
     {
-        $on = BusinessDate::today('UTC', $this->clock)->value();
+        $timezone = LegalEntity::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('id')
+            ->value('timezone');
+
+        $on = BusinessDate::today(
+            is_string($timezone) ? $timezone : (string) config('hrms.default_timezone', 'Asia/Shanghai'),
+            $this->clock,
+        )->value();
 
         $employmentId = EmploymentUserLink::query()
             ->where('tenant_id', $tenantId)

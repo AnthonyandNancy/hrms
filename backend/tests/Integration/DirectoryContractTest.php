@@ -37,6 +37,21 @@ final class DirectoryContractTest extends PeopleTestCase
         $this->assertSame([], $directory->legalEntityIdsForEmployment(2, $employment->id));
     }
 
+    public function test_employment_for_user_uses_tenant_business_date_not_utc_date(): void
+    {
+        $scenario = $this->scenario();
+        $entity = $scenario->legalEntity();
+        $employment = $scenario->employment($scenario->person(), $entity, 'DIR-TZ');
+        $scenario->userLink(502, $employment, validFrom: '2026-11-24');
+
+        $this->clock->set('2026-11-23T16:30:00Z');
+
+        $this->assertSame(
+            $employment->id,
+            app(PeopleDirectory::class)->employmentForUser(1, 502),
+        );
+    }
+
     public function test_employment_snapshot_is_as_of_and_carries_manager(): void
     {
         $scenario = $this->scenario();
