@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Workflow\Providers;
 
 use App\Modules\Workflow\Contracts\ActorDirectory;
-use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use App\Modules\Workflow\Contracts\AssigneeEligibility;
+use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\EffectHandler;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use App\Modules\Workflow\Domain\EffectRegistry;

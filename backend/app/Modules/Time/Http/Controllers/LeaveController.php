@@ -13,8 +13,6 @@ use App\Modules\Time\Services\LeaveRequestService;
 use App\Shared\ApiResponse;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\BusinessDate;
-use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,7 +23,6 @@ final class LeaveController
         private readonly LeaveBalanceService $balances,
         private readonly LeaveRequestService $requests,
         private readonly WorkflowCasePort $workflow,
-        private readonly Clock $clock,
     ) {}
 
     public function balances(Request $request, ?int $employmentId = null): JsonResponse
@@ -243,9 +240,9 @@ final class LeaveController
             $balanceAfter[] = $running;
             $payload[] = [
                 'id' => (string) $entry->id,
-                'occurredAt' => $entry->recorded_at?->toIso8601ZuluString(),
-                'businessDate' => $entry->business_date->format('Y-m-d'),
-                'effectiveOn' => $entry->effective_on->format('Y-m-d'),
+                'occurredAt' => (string) $entry->recorded_at,
+                'businessDate' => \Carbon\CarbonImmutable::parse((string) $entry->business_date)->format('Y-m-d'),
+                'effectiveOn' => \Carbon\CarbonImmutable::parse((string) $entry->effective_on)->format('Y-m-d'),
                 'entryType' => (string) $entry->account,
                 'account' => (string) $entry->account,
                 'quantity' => (int) $entry->quantity_minutes,

@@ -6,11 +6,9 @@ namespace Tests\Support\Time;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Time\Contracts\TimeActor;
-use App\Shared\Authorization\Authorizer;
 use App\Shared\Auth\AuthenticatedPrincipal;
+use App\Shared\Authorization\Authorizer;
 use Tests\Support\AllowAllAuthorizer;
-use Tests\Support\Time\TimeTestAuthorizer;
-use Tests\Support\Time\TimeTestCase;
 use Tests\Support\TestPrincipal;
 
 abstract class TimeHttpTestCase extends TimeTestCase

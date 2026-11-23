@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $case_id
  * @property string $reason
  * @property string $entry_hash
+ * @property \Carbon\CarbonImmutable|null $recorded_at
  */
 final class LeaveLedgerEntry extends Model
 {

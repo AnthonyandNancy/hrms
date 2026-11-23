@@ -48,7 +48,7 @@ final class TimeCatalogController
             ->orderBy('date')
             ->get()
             ->map(static fn (Holiday $holiday): array => [
-                'date' => $holiday->date->format('Y-m-d'),
+                'date' => \Carbon\CarbonImmutable::parse((string) $holiday->date)->format('Y-m-d'),
                 'name' => (string) $holiday->name,
                 'type' => (string) $holiday->type,
                 'source' => $holiday->source,

@@ -63,7 +63,8 @@ final class TimeEndpointsTest extends TimeHttpTestCase
             ->assertJsonPath('data.days.0.date', '2026-11-01');
 
         $this->assertIsArray($response->json('data.summary'));
-        $this->assertSame(1, collect($response->json('data.days'))->where('status', 'LATE')->count());
+        $days = (array) $response->json('data.days');
+        $this->assertSame(1, count(array_filter($days, static fn (array $day): bool => $day['status'] === 'LATE')));
     }
 
     public function test_attendance_scoped_read_returns_projection_rows(): void

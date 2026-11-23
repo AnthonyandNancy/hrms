@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Time\Http;
 
 use App\Modules\Time\Models\LeaveAccount;
-use App\Modules\Time\Models\LeaveLedgerEntry;
-use App\Modules\Time\Models\LeaveType;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 

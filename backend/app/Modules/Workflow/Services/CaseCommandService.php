@@ -8,7 +8,6 @@ use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\WorkflowTemplate;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 
@@ -20,7 +19,6 @@ final class CaseCommandService implements CaseCommandPort
 {
     public function __construct(
         private readonly CaseService $cases,
-        private readonly CaseQueryService $queries,
     ) {}
 
     public function open(

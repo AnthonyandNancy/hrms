@@ -116,9 +116,9 @@ final class AttendanceController
                 'scheduledEnd' => null,
                 'firstIn' => null,
                 'lastOut' => null,
-                'workedMinutes' => (int) ($row?->worked_minutes ?? 0),
+                'workedMinutes' => (int) ($row->worked_minutes ?? 0),
                 'exceptionLabel' => $row !== null && $row->late_minutes > 0 ? 'Late' : null,
-                'scheduled_minutes' => (int) ($row?->scheduled_minutes ?? 0),
+                'scheduled_minutes' => (int) ($row->scheduled_minutes ?? 0),
             ];
         }
 
@@ -145,29 +145,30 @@ final class AttendanceController
         $this->scope->employment($actor, $employmentId, $from);
         $toExclusive = CarbonImmutable::parse($to, 'UTC')->addDay()->format('Y-m-d');
 
-        $items = AttendanceDay::query()
+        $rows = AttendanceDay::query()
             ->where('tenant_id', $actor->tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '>=', $from)
             ->where('business_date', '<', $toExclusive)
             ->orderBy('business_date')
             ->get()
-            ->map(static fn (AttendanceDay $day): array => [
-                'id' => (int) $day->id,
-                'employment_id' => (int) $day->employment_id,
-                'business_date' => $day->business_date->format('Y-m-d'),
-                'shift_template_id' => $day->shift_template_id,
-                'scheduled_minutes' => (int) $day->scheduled_minutes,
-                'worked_minutes' => (int) $day->worked_minutes,
-                'overtime_minutes' => (int) $day->overtime_minutes,
-                'late_minutes' => (int) $day->late_minutes,
-                'early_leave_minutes' => (int) $day->early_leave_minutes,
-                'absence_minutes' => (int) $day->absence_minutes,
-                'status' => (string) $day->status,
-                'rule_version' => (string) $day->rule_version,
-                'calculated_at' => $day->calculated_at?->toIso8601ZuluString(),
-            ])
             ->all();
+
+        $items = array_map(static fn (AttendanceDay $day): array => [
+            'id' => (int) $day->id,
+            'employment_id' => (int) $day->employment_id,
+            'business_date' => $day->business_date->format('Y-m-d'),
+            'shift_template_id' => $day->shift_template_id,
+            'scheduled_minutes' => (int) $day->scheduled_minutes,
+            'worked_minutes' => (int) $day->worked_minutes,
+            'overtime_minutes' => (int) $day->overtime_minutes,
+            'late_minutes' => (int) $day->late_minutes,
+            'early_leave_minutes' => (int) $day->early_leave_minutes,
+            'absence_minutes' => (int) $day->absence_minutes,
+            'status' => (string) $day->status,
+            'rule_version' => (string) $day->rule_version,
+            'calculated_at' => $day->calculated_at !== null ? $day->calculated_at->toIso8601ZuluString() : null,
+        ], $rows);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, count($items), count($items)));
     }
@@ -229,7 +230,7 @@ final class AttendanceController
 
         $date = CarbonImmutable::createFromFormat('!Y-m-d', $month.'-01', 'UTC');
 
-        if ($date === false || $date->format('Y-m') !== $month) {
+        if ($date->format('Y-m') !== $month) {
             throw new ValidationException(['month' => ['The month must be a real calendar month.']]);
         }
 

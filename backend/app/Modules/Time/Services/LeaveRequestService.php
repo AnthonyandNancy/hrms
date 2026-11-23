@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
-use App\Modules\Time\Exceptions\LeaveBalanceException;
+use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Models\LeaveRequestProjection;
 use App\Modules\Time\Models\LeaveType;
-use App\Modules\Time\Contracts\EmploymentDirectory;
-use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
@@ -29,7 +27,6 @@ final class LeaveRequestService
         private readonly LeaveLedgerService $ledger,
         private readonly LeaveBalanceService $balances,
         private readonly LeaveAccountService $accounts,
-        private readonly EmploymentDirectory $employments,
     ) {}
 
     /**
@@ -191,8 +188,8 @@ final class LeaveRequestService
             return [
                 'case_id' => $caseId,
                 'case_no' => $case !== null ? 'CASE-'.$caseId : 'CASE-'.$caseId,
-                'application_status' => $case?->status ?? 'SUBMITTED',
-                'effect_status' => $case?->effectStatus ?? 'NONE',
+                'application_status' => $case->status ?? 'SUBMITTED',
+                'effect_status' => $case->effectStatus ?? 'NONE',
                 'leave_type_id' => (int) $type->id,
                 'requested_minutes' => $minutes,
                 'replayed' => false,
@@ -274,8 +271,8 @@ final class LeaveRequestService
             ->map(fn (LeaveRequestProjection $projection): array => [
                 'case_id' => (int) $projection->case_id,
                 'leave_type_id' => (int) $projection->leave_type_id,
-                'from_date' => $projection->from_date->format('Y-m-d'),
-                'to_date' => $projection->to_date->format('Y-m-d'),
+                'from_date' => CarbonImmutable::parse((string) $projection->from_date)->format('Y-m-d'),
+                'to_date' => CarbonImmutable::parse((string) $projection->to_date)->format('Y-m-d'),
                 'minutes' => (int) $projection->minutes,
                 'state' => (string) $projection->state,
             ])
