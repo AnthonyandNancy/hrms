@@ -1,0 +1,759 @@
+[Heading 1] 企业级人事管理系统（HRMS）V1.0
+[Heading 2] 完整设计与开发实施书
+[First Paragraph] 文档性质： 产品需求规格 + 系统架构 + 权限模型 + 数据模型 + 接口契约 + 开发落地与验收规范
+编制日期： 2026-11-23
+适用对象： 产品负责人、UI/UX 设计师、Vue3 前端工程师、PHP 后端工程师、测试工程师、DevOps、AI Coding Agent
+设计基准： 用户提供的《人事管理系统·专业版》仪表盘截图；参考 BambooHR、Zoho People 等 HRMS 功能体系及成熟后台权限实践
+目标交付： 一次性完成 V1.0 约定范围内的业务闭环，允许按技术依赖分批开发与测试，但不能把已承诺功能当成未定“二期”遗留。
+[Block Text] 重要边界： 截图仅能证明已有的导航设计及仪表盘展示方向，不能证明原 HTML 已具备真实的后台、数据库、权限、流程或工资算法。本实施书是根据截图与公开资料提出的建设方案，不视为对截图源码或既有项目代码的审计。
+[Heading 1] 01. 项目定位与调研结论
+[Heading 2] 1.1 建设定位
+[First Paragraph] 建设一套面向企业内部管理的、可长期维护与二次开发的通用型 HRMS：以“员工档案”为数据主线，以“组织与岗位”为结构主线，以“权限与审批”为安全主线，连接招聘、入职、转正、调岗、合同、考勤、假勤、薪酬、绩效、培训、离职和分析报表。
+[Body Text] 与“静态页面集合”不同，所有页面必须接入实际 API、数据表、权限规则、状态流转和审计日志；严禁仅为了演示效果在生产业务代码中硬编码假数据。
+[Heading 2] 1.2 截图现有信息梳理
+
+===== TABLE 1 (9x3) =====
+截图分区 | 已明确的界面/导航元素 | V1.0 处理
+概览 | 仪表盘、报表中心 | 保留；改造为按权限和数据范围实时聚合
+组织与人事 | 员工档案、部门管理、岗位管理、员工异动、劳动合同 | 完整建设
+考勤与假期 | 考勤打卡、请假管理、加班管理、出差管理 | 完整建设，增加规则、班次、审批与异常
+薪酬与绩效 | 薪资管理、绩效考核 | 完整建设，工资规则可配置
+招聘与培训 | 招聘需求、候选人、培训管理 | 完整建设
+行政与系统 | 公告通知 | 完整建设，并补充系统管理、权限、审批中心、员工自助
+首页指标 | 员工总数、在职员工、试用期、部门/岗位、待审批、合同到期 | 使用真实 SQL 统计且按授权过滤
+首页图表 | 部门人数分布、员工性别构成、最近入职、工作提醒、招聘进展 | 保留视觉语言，新增查询与跳转交互
+===== END TABLE =====
+
+[Body Text] 新增且必须纳入建设范围的基础能力： 账号登录、用户管理、角色管理、菜单/页面管理、按钮操作权限、数据范围权限、敏感字段权限、审批引擎、字典配置、参数配置、附件管理、操作日志、消息通知、导入导出、员工自助、基础报表与系统运维。
+[Heading 2] 1.3 行业功能参照
+[First Paragraph] BambooHR 的公开功能体系包括员工信息、招聘与入职、工资福利、时间与考勤、绩效、分析与合规；Zoho People 包括核心人事、考勤休假、绩效、招聘、薪资集成、报表以及移动端服务。这说明企业级 HRMS 的常规范围已经超出基础“员工 CRUD”。
+[Body Text] 技术设计上，NIST 的 RBAC 参考模型支持围绕角色组织权限；OWASP 明确要求默认拒绝、最小权限以及每次请求的服务端权限验证。因此，前端显示控制只是体验层，不能代替后端授权。
+[Heading 2] 1.4 建设原则
+[Compact] 一个人员主档案： 员工唯一 ID 永不复用；入转调离写履历，不反复覆盖历史。
+[Compact] 一个权限中心： 所有模块共用同一用户、角色、资源、数据范围及字段权限模型。
+[Compact] 审批与业务解耦： 请假、加班、出差、合同等模块调用同一审批服务，但保留业务实体及状态机。
+[Compact] 配置优先： 假期类型、班次、工资项目、绩效模板、审批流程使用配置而非硬编码。
+[Compact] 安全默认拒绝： 未授权不可见、不可访问、不可查询、不可导出。
+[Compact] 历史可追溯： 员工所属部门、岗位、合同、薪资单、审批单、绩效记录均可追踪变更。
+[Compact] 既可单公司运行，又能扩展集团： 初次部署以单企业为目标，数据库预留 company_id，跨公司访问必须再次授权。
+[Compact] 一次性范围完整交付： 可按模块顺序开发，但全部 V1.0 的业务闭环都须验收后才能上线。
+[Heading 1] 02. 使用者、组织与业务边界
+[Heading 2] 2.1 角色分类与典型诉求
+
+===== TABLE 2 (11x3) =====
+使用者 | 日常工作 | 应有边界
+超级管理员 | 首次初始化、系统救援、核心配置 | 受严格 MFA、日志和应急管理约束，不是日常操作账号
+系统管理员 | 管理账号、菜单、字典、系统参数 | 默认不能读取工资和完整身份证信息
+HR 管理员 | 员工档案、组织人事、合同、人事流程 | 在获授公司/部门数据范围内操作
+人事专员 | 维护员工基础资料、入转调离 | 不自动获得工资及敏感字段权限
+招聘专员 | 招聘需求、候选人、面试与录用 | 不能直接浏览正式员工完整薪酬档案
+薪酬专员 | 工资项目、薪资核算、工资发放确认 | 不自动获得系统账号和任意员工资料修改权
+考勤专员 | 班次、打卡、异常、考勤统计 | 不得替代审批人越权审批
+部门经理 | 本部门及授权下级部门人员、审批和报表 | 默认看不到跨部门员工及个人工资
+普通员工 | 自助资料、打卡、请假、工资条、公告 | 仅访问本人数据和授权的公共内容
+审计员 | 查看授权范围内的操作日志和审批链 | 只读，不能自行改变日志或授权
+===== END TABLE =====
+
+[Block Text] 一个用户可以关联多个角色；“职务/岗位”是人事业务数据，“系统角色”是授权数据，二者不能简单画等号。部门经理可根据岗位自动建议分配角色，但仍需经过授权流程。
+[Heading 2] 2.2 组织模型
+[Compact] 公司（Company）→ 部门（Department，支持树形与有效期）→ 岗位（Position）→ 员工（Employee）。
+[Compact] 用户账号（User）与员工（Employee）为 1:0..1 关联，候选人尚未成为员工时不强制创建账号。
+[Compact] 员工的任职信息独立于自然人档案，支持同员工转岗、借调、跨公司调动和历史追溯。
+[Compact] 组织负责人、部门主管、直属上级需要明确的员工 ID 与有效时间；不允许仅依赖“名字”关联。
+[Compact] 每个组织单元可配置是否参与人事统计、是否为虚拟部门、是否启用及排序。
+[Heading 2] 2.3 V1.0 内含与可选外部系统
+[First Paragraph] 内含： PC 管理端 + 响应式员工自助端、所有本书列出的核心业务模块、完整权限体系、基础审批、导入导出、通知、日志与 Docker 部署。
+[Body Text] 适配接口但不强制接入： 企业微信单点登录/通知、钉钉、飞书、门禁/指纹/人脸打卡设备、税务申报、银行代发、电子签章、ERP/财务系统。第三方实际接入必须获得对方 API 文档、凭据与授权，不能用模拟调用冒充集成成功。
+[Body Text] 不建议在本版自行开发： 国家/地区税务申报平台、银行清算系统、人脸识别算法、完整通用 BPMN 设计器、对外多租户 SaaS 计费；但设计扩展点，保证未来可集成。
+[Heading 1] 03. 系统功能目录与菜单信息架构
+[Heading 2] 3.1 统一导航结构
+[Source Code] 工作台
+├─ 仪表盘
+├─ 我的待办 / 我的已办
+├─ 消息通知
+└─ 报表中心
+
+组织与人事
+├─ 员工档案
+├─ 入职办理 / 转正管理 / 离职办理
+├─ 员工异动（调岗、调薪、调部门、借调）
+├─ 部门管理
+├─ 岗位管理
+├─ 劳动合同
+└─ 员工附件 / 证照管理
+
+考勤与假期
+├─ 打卡记录
+├─ 班次与排班
+├─ 考勤异常
+├─ 请假管理 / 假期余额
+├─ 加班管理
+├─ 出差管理
+└─ 考勤报表
+
+薪酬与绩效
+├─ 薪资项目与方案
+├─ 薪资核算 / 工资批次 / 工资条
+├─ 绩效模板 / 考核周期 / 考核结果
+└─ 薪酬与绩效统计
+
+招聘与培训
+├─ 招聘需求 / 招聘岗位
+├─ 候选人 / 面试安排 / 录用管理
+├─ 培训计划 / 培训记录
+└─ 培训效果评估
+
+员工自助
+├─ 我的档案 / 我的合同
+├─ 我的考勤 / 假期 / 申请
+├─ 我的工资条 / 我的绩效
+└─ 我的培训 / 公告
+
+行政与系统
+├─ 公告通知
+├─ 审批流程配置
+├─ 用户管理 / 角色管理 / 权限资源
+├─ 数据权限策略 / 敏感字段策略
+├─ 登录安全 / 系统设置 / 字典参数
+├─ 导入导出任务 / 附件中心
+└─ 登录日志 / 操作审计 / 系统监控
+[First Paragraph] 动态菜单约束： 菜单由服务端返回已授权树，前端根据 route_name 加载注册组件。不能将数据库返回的任意组件路径用作可执行代码导入；必须映射到前端受控组件注册表。
+[Heading 2] 3.2 功能清单与业务验收点
+
+===== TABLE 3 (16x3) =====
+领域 | 必备业务能力 | 验收重点
+仪表盘 | 组织人数、在职率、试用期、合同预警、审批待办、招聘漏斗、部门分布 | 同账号权限下统计值与列表一致；数字可下钻
+员工档案 | 新增、编辑、入职、批量导入、附件、履历、状态、离职归档 | 自动工号可配置，敏感字段受控，历史不被覆盖
+组织岗位 | 公司、部门树、岗位编制、负责人、直属上级、部门迁移 | 防止循环树，删除前检查引用，组织变动可追溯
+入转调离 | 入职清单、试用期、转正、调岗调部门、调薪、离职交接 | 审批通过后才生效，保留生效日期与旧值
+合同 | 签订、续签、变更、到期提醒、归档、附件 | 合同版本不覆盖，60/30/7 天预警可配置
+考勤 | 打卡、补卡、班次、排班、迟到早退、统计 | 跨日班次、重复打卡、时区、节假日处理正确
+请假/加班/出差 | 申请、余额、审批、撤销、冲突检测、结算关联 | 审批状态一致，不能负余额（按政策允许例外）
+薪资 | 计薪周期、薪资项、计算规则、锁定、复核、发放确认、工资条 | 公式可审计、历史批次不可被新规则改写
+绩效 | 周期、目标、评分、校准、申诉、汇总 | 状态受控且配置化，评分操作留痕
+招聘 | 需求审批、候选人、面试、Offer、转入入职 | 候选人到员工数据转换有授权和映射检查
+培训 | 培训计划、报名、签到、结果、附件、统计 | 可按部门、人员和周期查询
+公告 | 发布、撤回、定向可见、已读确认 | 员工只能读目标范围内的公告
+报表 | 预置报表、筛选、图表、导出、定时任务 | 查询/聚合/导出都按相同授权数据范围
+员工自助 | 个人信息、申请、待办、工资条、绩效、公告 | 不能通过修改 employee_id 查看他人
+系统管理 | 用户、角色、菜单、权限、参数、审计 | 可以可视化赋权；即时生效；可追溯
+===== END TABLE =====
+
+[Heading 2] 3.3 典型关键字段
+[First Paragraph] 员工档案： 员工编号、姓名、工号、姓名拼音（可选）、手机/邮箱、入职日期、出生日期、在职状态、性别（可选/统计用途需必要性评估）、身份证件种类与编号（仅必要场景）、所属公司/部门/岗位、直属上级、用工类型、转正日期、紧急联系人（受限）、合同关联、银行卡信息（仅薪资需要且额外保护）。
+[Body Text] 合同： 合同号、版本、员工、签订日期、起止日期、合同类型、试用约定、续签关联、文件与签署状态、预警状态。
+[Body Text] 考勤： 员工、打卡来源、设备流水号、原始时间、标准化时间、地点（仅确有必要时）、班次、考勤日、异常标志、修正记录。
+[Body Text] 工资： 员工、月份、批次、项目明细、应发/扣减/实发、币种、计算规则版本、核算状态、审批人、锁定时间、发放确认时间。不要在日志里保存工资明文。
+[Heading 1] 04. 权限体系：最高优先级需求
+[Heading 2] 4.1 权限模型
+[First Paragraph] 推荐 RBAC + Resource/Action + Scoped Grant + Field Policy + Ownership：
+[Source Code] 用户 User
+  └─ 用户角色 UserRole (company_id, 生效期)
+       └─ 角色 Role
+            └─ 授权项 RoleGrant
+                 ├─ 权限资源 Permission：菜单 / 页面 / 操作 / API能力
+                 ├─ 数据范围 DataScope：本人 / 本部门 / 本部门及下级 / 指定部门 / 本公司 / 自定义
+                 └─ 条件 Condition：仅在职 / 仅本人发起 / 有效期等
+
+读取/导出敏感字段还需独立 FieldPolicy 检查。
+[First Paragraph] 不要把“员工任职岗位 ID”作为权限角色，也不要仅在前端写 if(role==='admin')。权限标识按资源与动作稳定命名：hr.employee.read、hr.employee.create、hr.employee.update、hr.employee.export、payroll.payslip.read、system.role.assign。
+[Heading 2] 4.2 五类权限及生效位置
+
+===== TABLE 4 (6x4) =====
+层级 | 例子 | 前端职责 | 后端强制职责
+菜单 | 可见“薪资管理” | 过滤左侧菜单树 | 返回菜单前确认授权；接口另行授权
+页面 | 可访问 /hr/employees | 路由守卫，直接地址拦截 | hr.employee.read 校验
+按钮/操作 | 新建、编辑、删除、导出、审批、发工资 | 按权限控制显示/禁用 | 每一写操作或导出接口重新检查
+数据范围 | 仅本部门、本人、指定部门 | 用于提示当前视图范围 | 服务端 Query Scope、详情归属校验、批量写入逐项校验
+字段 | 工资、证件号、银行卡、联系电话 | 脱敏展示 | API 序列化、筛选/排序/导出/附件下载均验证
+===== END TABLE =====
+
+[Body Text] 禁止用前端隐藏代替权限控制。 任何通过 curl、浏览器开发者工具、直接输入 URL 访问的未经授权请求，都必须被服务端拒绝。
+[Heading 2] 4.3 权限资源编码和模型
+[First Paragraph] 建议 permissions 统一表：id, code, name, resource_type(menu/page/action/api), parent_id, route_name, route_path, component_key, icon, sort, visible, status, risk_level。
+[Body Text] 示例：
+[Source Code] {
+  "code": "hr.employee.export",
+  "name": "导出员工档案",
+  "resource_type": "action",
+  "parent_code": "hr.employee.read",
+  "risk_level": "high",
+  "status": "enabled"
+}
+[First Paragraph] 前端权限标识与后端权限标识同源；菜单目录的显示可以随子页面授权自然展开，但父菜单授权不等于自动授权子页面或按钮。默认不使用模糊通配符；超级管理员特权在服务端受控处理，且不得越过公司/租户隔离和强制安全策略。
+[Heading 2] 4.4 用户、角色与授权规则
+[Compact] 一个用户多个角色。 允许“部门经理 + 考勤审批人”，角色可按公司绑定并可设置有效期。
+[Compact] 一个角色多个权限。 权限应按页面、按钮、API 一一对应，不能将“可编辑”自动推断为“可导出”。
+[Compact] 权限与数据范围成对授权。 role_grants 保存 (role_id, permission_id, data_scope_id, condition_json)，不能把角色 A 的“查看工资”动作与角色 B 的“全公司员工范围”拼成新的隐式越权授权。
+[Compact] 多角色求值。 对同一操作，找到每个拥有该操作的有效 grant，分别计算其允许的数据集合，最后求并集；敏感字段还必须额外通过字段权限校验；强制禁用状态优先。
+[Compact] 组织边界优先。 company_id 是强制前置过滤，不因角色并集而跨公司访问。
+[Compact] 本人权限独立。 通过当前登录用户安全映射的 employee_id 判断 SELF，不信任前端传入的本人 ID。
+[Compact] 权限立即失效。 更新用户角色/授权后递增 auth_version，刷新缓存并使老版权限上下文在下次请求时失效；重要撤权必须立即阻止 API 访问。
+[Compact] 高危操作二次确认。 授权系统管理、工资导出、工资批次发布、大批量导出等要求强认证或复核；授予本人高危权限必须采用独立审批/双人控制。
+[Compact] 超级管理员保护。 仅通过受控初始化创建，至少保留一个应急管理账户，禁止随意删除或从自身剥离最后的救援权限。
+[Compact] 未列出的动作默认拒绝。 不默认给新菜单开放权限，不允许未知资源被自动允许。
+[Heading 2] 4.5 数据范围枚举
+
+===== TABLE 5 (8x3) =====
+范围代码 | 含义 | 注意
+SELF | 仅本人 | 依赖 user.employee_id
+DEPT | 当前负责或所属部门 | 经理使用“负责部门”定义，普通员工使用“所在部门”定义
+DEPT_TREE | 已授权部门与其有效下级部门 | 部门树以查询时点/业务时点核算
+DEPT_SET | 特定部门集合 | 由管理员勾选部门 ID
+COMPANY | 本公司全部 | 不等于跨集团全部
+CUSTOM | 特定员工/项目/其他业务条件 | 必须白名单条件模板，不允许任意 SQL
+NONE | 不允许访问任何业务数据 | 默认值
+===== END TABLE =====
+
+[Body Text] 读写双重校验： 列表的 WHERE 条件、单条详情、更新、删除、导出、报表聚合、附件下载都必须执行相应范围约束；修改部门/公司归属的操作还要检查“变更前对象可管理”与“变更后目标范围可操作”。
+[Body Text] 历史口径： 员工调部门后，“当前员工列表”按当前部门过滤，“历史考勤、工资和部门编制报表”按记录保存的 department_id_snapshot 与业务日期归属过滤，避免历史统计随今天调岗而漂移。跨公司调动应以旧公司历史记录不可被新公司默认读取为原则。
+[Heading 2] 4.6 字段级权限与数据脱敏
+
+===== TABLE 6 (8x3) =====
+字段类别 | 默认策略 | 有权使用时
+姓名、工号、部门、岗位 | 按员工数据范围展示 | 正常返回
+手机号、邮箱、地址 | 依业务必要性按角色遮罩或限量显示 | 记录读取与导出审计
+身份证/护照号 | 默认部分遮罩，非必要不查询原文 | 受授权解密、限业务场景与访问留痕
+银行卡号 | 默认遮罩及隔离存储 | 只有工资发放相关授权可读取必要信息
+工资项/实发金额 | 员工只看本人工资条；工资岗位限公司/指定范围 | 读取、报表、导出分别授权
+健康/特殊人员信息 | 原则上不采集；确有合法必要才纳入 | 独立保护、最小保留和审计
+附件、劳动合同 | 下载链接短效、鉴权后签发 | 严禁使用公开永久 URL
+===== END TABLE =====
+
+[Body Text] 特别注意： 隐藏字段不能只发生在浏览器。分页 API、详情 API、搜索建议、导出 CSV/XLSX、报表聚合、文件元数据、错误信息和审计日志都要遵守字段规则；禁止通过“用不可读字段做筛选或排序”间接推断敏感信息。
+[Heading 2] 4.7 推荐的权限配置界面
+[First Paragraph] 系统管理 → 角色管理 → 新建/编辑角色：
+[Compact] 基本信息：角色名称、编码、说明、适用公司、生效状态、有效期。
+[Compact] 菜单与页面权限：左侧树选择业务菜单，父子节点分别控制；展示“已选页面 x 个”。
+[Compact] 操作按钮权限：选中页面后列出“查看 / 新建 / 编辑 / 删除 / 审批 / 导入 / 导出”等原子能力；默认不全选。
+[Compact] 数据权限：按每组动作选择本人、本部门、本部门及下级、指定部门、本公司、自定义；指定部门提供部门树多选。
+[Compact] 敏感字段权限：身份证、银行卡、薪资、联系方式等单独配置“隐藏/脱敏/明文/允许导出”。
+[Compact] 用户分配：选择账号、适用公司、授权开始与结束日期。
+[Compact] 权限预览：选择某个用户，显示有效角色、可见页面、操作能力、具体数据范围与字段级结果；支持“模拟访问指定员工”。
+[Compact] 变更提交：展示差异预览、高危授权二次审核、操作人/时间/审批单号。
+[Heading 2] 4.8 预置角色权限矩阵（初始化模板，最终可配置）
+
+===== TABLE 7 (9x6) =====
+功能 | 系统管理员 | HR 管理员 | 部门经理 | 薪酬专员 | 普通员工
+用户/角色/菜单 | 管理 | 无 | 无 | 无 | 无
+员工基础档案 | 无或脱敏只读 | 授权范围内增改查 | 本部门只读 | 必要字段只读 | 本人只读/申请修改
+员工调动/离职 | 无 | 发起/办理 | 按流程审批 | 无 | 本人办理步骤
+考勤与请假 | 无 | 按授权范围查看 | 本部门审批/查看 | 读取结算需要的汇总 | 本人申请和查看
+工资批次 | 无 | 默认无 | 默认无 | 授权范围核算/复核 | 无
+工资条 | 无 | 默认无 | 默认无 | 授权范围发布 | 仅本人查看
+角色授权 | 管理（高危复核） | 无 | 无 | 无 | 无
+报表导出 | 系统审计报表 | 授权业务报表 | 本部门非敏感报表 | 授权工资报表 | 仅本人允许范围
+===== END TABLE =====
+
+[Block Text] 这是建议的角色预置模板，而不是将角色名称写死在代码中。除超级管理员应急机制外，所有业务角色均应通过权限资源和作用域配置实现。
+[Heading 2] 4.9 权限判定伪代码
+[Source Code] public function authorizeRecord(User $user, string $permission, Model $record): void
+{
+    // 1. 验证账号、所属公司、会话、MFA/高风险条件。
+    // 2. 按 user_id + company_id 取有效 role_grants。
+    // 3. 按“具备本 permission 的每个 grant”独立计算数据范围。
+    // 4. 若对象不属于任何有效 grant 的允许集合，拒绝。
+    // 5. 对薪资/证件/合同下载再执行字段或文件策略。
+    // 6. 高危操作验证独立复核、状态与幂等要求。
+    // 7. 记录授权拒绝/敏感访问审计（不记录敏感明文）。
+}
+[First Paragraph] 在 Laravel 实现中，建议使用统一的 AuthorizationService、Policies/Gates、DataScopeBuilder、FieldMasker、PermissionCache，并通过 Feature Tests 对每个模块进行负面越权测试。
+[Heading 1] 05. 核心业务流程与状态机
+[Heading 2] 5.1 员工入职闭环
+[Source Code] 招聘候选人/手工入职登记
+  -> 录入基础信息与入职资料
+  -> 入职审批（可配置）
+  -> 审批通过后创建/激活 employee 与 employment 记录
+  -> 分配部门、岗位、负责人、工号
+  -> 按策略创建并绑定系统账号（可选）
+  -> 创建入职任务清单 / 合同待签 / 试用期提醒
+  -> 仪表盘及报表更新
+[First Paragraph] 规则：同一身份不应重复建档；招聘候选人转员工要经过数据核对；审批失败不得提前正式入职；入职日期、状态及部门有效期需要统一时点处理。
+[Heading 2] 5.2 转正、调岗、调部门、调薪
+[Compact] 由 HR 或有权限经理发起 employee_changes 异动申请，记录旧值、目标值、生效日、原因、附件。
+[Compact] 提交审批后进入 PENDING，完成审批生成不可变履历，按照 effective_at 生效。
+[Compact] 对未来生效异动可由计划任务执行；执行必须幂等。
+[Compact] 调部门后更新组织归属、直属上级与动态数据权限所用的部门关系；原审批单和历史工资归属保持旧快照。
+[Compact] 调薪改的是新生效期的薪资方案，不回写历史已确认工资批次。
+[Heading 2] 5.3 离职闭环
+[First Paragraph] 申请 → 审批 → 交接任务（物品、账号、合同、薪资、考勤）→ 确认离职 → 解除/冻结账号 → 撤销在职授权与通知 → 档案按规则保留。离职不是删除员工资料。冻结账号和敏感权限撤销需要有明确时效约束，避免离职后继续访问。
+[Heading 2] 5.4 假勤审批闭环
+[Source Code] 草稿 DRAFT
+ -> 已提交 SUBMITTED
+ -> 审批中 IN_REVIEW
+ -> 通过 APPROVED / 驳回 REJECTED
+ -> 已撤销 CANCELLED（依规则）
+ -> 已结算 SETTLED（考勤/工资侧）
+[First Paragraph] 假期余额使用 leave_ledger 记账（获得、占用、扣减、退还、调整），不是只维护一个可直接修改的“剩余天数”。请假、加班、出差要检查日期冲突、排班/节假日、撤销后的结算逆向调整；已结算记录不能直接改写，应走冲正或更正流程。
+[Heading 2] 5.5 工资闭环
+[First Paragraph] 薪资规则配置 → 锁定考勤/假勤输入快照 → 创建计薪批次 → 计算并留痕规则版本 → 薪资专员复核 → 授权审批 → 发布工资条 → 发放确认 → 批次封存。批次发布后应不可任意重算；如需修改，产生更正批次/冲正记录。工资项、个税及社保口径由公司实际所在地、有效政策和已批准方案配置，不在代码中固化未经核对的法定费率。
+[Heading 2] 5.6 通用审批引擎
+[First Paragraph] V1.0 采用数据库驱动的有限状态机和可配置节点规则，不引入重量级 BPMN 引擎；可支持：
+[Compact] 模板：类型、版本、启用期、公司、条件规则、节点顺序。
+[Compact] 节点：指定用户、直属上级、部门负责人、角色用户、多人会签/或签。
+[Compact] 动作：提交、撤回、同意、驳回、转交（若流程允许）、抄送。
+[Compact] 操作合法性：审批人必须是当前活动节点候选，不能自我冒充或跳节点。
+[Compact] 流程实例应固定模板版本及节点快照；修改模板不影响历史单。
+[Compact] 支持节点超时提醒、代理审批设置、幂等与完整审批轨迹。
+[Compact] 审批通过后的“业务生效”通过 Outbox + 队列实现，失败可重试，不允许重复扣假/重复建档。
+[Heading 1] 06. 总体技术架构与代码组织
+[Heading 2] 6.1 技术选型
+
+===== TABLE 8 (12x3) =====
+层 | 推荐技术 | 选择依据
+前端 | Vue 3 + TypeScript + Vite | 组件化、快速构建，与既有偏好一致
+UI | Element Plus + CSS Variables | 企业后台成熟组件，方便与截图保持统一
+状态/路由 | Pinia + Vue Router | 权限菜单/用户状态可维护
+请求 | Axios 封装 + OpenAPI 生成类型 | 统一鉴权、异常、超时与接口契约
+后端 | PHP 8.3+ + Laravel 13.x | 当前官方主版本，Policies、队列、迁移、验证方便
+数据库 | MySQL 8.4 LTS（或已验证兼容的 MySQL 8.x） | 与 PHP 后端生态匹配、团队易维护
+缓存/队列 | Redis | 权限版本、验证码限流、异步通知与导出
+附件 | S3 兼容对象存储（MinIO 可选） | 私有文件、签名下载、版本和生命周期
+登录 | 服务端会话或受控短令牌 + Refresh；MFA | 可撤销、可审计，支持单点登录扩展
+部署 | Docker Compose + Nginx + PHP-FPM + Queue Worker + Scheduler | 单公司部署和运维简单
+可观测 | 结构化日志 + 指标/告警 + 链路 ID | 排障与安全审计
+===== END TABLE =====
+
+[Body Text] 注意： Laravel 13.x 要求 PHP 至少 8.3；实施时应锁定具体稳定小版本、镜像摘要和依赖锁文件。Spatie Laravel Permission 可用于基础角色与权限关联，但无法替代本系统的数据范围、字段遮罩和审批隔离策略，这些必须自行封装并测试。
+[Heading 2] 6.2 架构模式
+[First Paragraph] 采用“模块化单体 + 清晰领域边界”，而不是一开始就拆微服务：
+[Source Code] Web / H5
+  └─ Vue3 前端（路由/页面/按钮权限）
+         │ HTTPS / REST + OpenAPI
+         ▼
+    Nginx / API Gateway
+         ▼
+    Laravel Application
+         ├─ Auth & Security
+         ├─ IAM / Permission / Scope / Masking
+         ├─ Organization & Employees
+         ├─ Lifecycle & Contracts
+         ├─ Attendance & Leave
+         ├─ Payroll & Performance
+         ├─ Recruitment & Training
+         ├─ Workflow / Notification
+         ├─ Reports & Export
+         └─ Audit & System
+         ▼
+    MySQL  +  Redis  +  Private Object Storage
+                    └─ Queue Workers / Scheduler
+[Heading 2] 6.3 后端约束及目录建议
+[Source Code] backend/app/
+  Modules/
+    IAM/             Controllers, Requests, Services, Policies, Repositories, DTOs
+    Organization/
+    Employee/
+    Lifecycle/
+    Contracts/
+    Attendance/
+    Leave/
+    Payroll/
+    Performance/
+    Recruitment/
+    Training/
+    Workflow/
+    Notice/
+    Reporting/
+    Audit/
+  Shared/
+    Auth, ApiResponse, DataScope, FieldSecurity, Transactions,
+    Outbox, FileSecurity, Exceptions, Clock, Idempotency
+backend/database/migrations/
+backend/database/seeders/
+backend/tests/{Unit,Feature,Integration}/
+backend/routes/api.php
+[Compact] Controller 只做入参、授权与响应编排；业务逻辑在 Service/Domain；数据库查询在 Repository/Query 对象；不要写超大 Controller。
+[Compact] 所有关键变更使用事务，跨队列动作采用 Outbox 避免“数据库已提交但任务丢失”。
+[Compact] 对外暴露的 API 有统一版本：/api/v1；接口变更遵守向后兼容约束。
+[Compact] 金额一律以 Decimal/整数最小单位存储，禁止 PHP 浮点表示财务金额。
+[Compact] 日期、业务时区、员工所属公司的日历必须明确；数据库统一存 UTC 时间戳，考勤日按公司业务时区计算。date 类型字段保留当地业务日期而非强制转 UTC。
+[Compact] 状态枚举、操作许可、字段校验集中定义，不能让前端和后端分别维护相互冲突的规则。
+[Heading 2] 6.4 前端目录建议
+[Source Code] frontend/src/
+  app/            bootstrap, router, guards, store
+  layouts/        SidebarLayout, Topbar, Breadcrumb, Tabs
+  modules/
+    dashboard/    pages, components, api, types
+    employee/
+    organization/
+    attendance/
+    leave/
+    payroll/
+    performance/
+    recruitment/
+    training/
+    workflow/
+    system/
+    self-service/
+  shared/
+    components/    PermissionGate, DataTable, SmartForm, DeptTree, AuditTimeline
+    composables/   usePermission, useDataScope, usePagination
+    api/           client, interceptors, generated
+    constants/     permission codes, route registry
+    utils/         date, money, export, validation
+  styles/          tokens.css, base.css
+[First Paragraph] 禁止： 在页面中散布多份菜单静态数组、逐页面重复权限判断逻辑、以角色中文名称判断是否渲染按钮、绕过统一 Axios 客户端、跨模块直接写另一模块数据库表的业务逻辑。
+[Heading 1] 07. 核心数据库模型
+[Heading 2] 7.1 数据设计通则
+[Compact] 主键优先 BIGINT/有序唯一 ID；业务编号独立唯一索引（按 company_id 约束）。
+[Compact] 所有组织相关主表包含 company_id；启用审计列 created_at, updated_at, created_by, updated_by。
+[Compact] 高频列表加 company_id + status + department_id + date 复合索引；不得“为方便”对身份证、银行卡等明文建索引。
+[Compact] 删除基础字典与引用业务对象采用软删除/禁用；财务与审批事件使用不可变版本或冲正。
+[Compact] 个人隐私字段在应用层封装加密、密钥定期轮换，密钥不写进数据库或仓库。
+[Compact] 数据库唯一性、外键约束、状态流转一致性与权限验证互为补充。
+[Heading 2] 7.2 表分组（建议初始最小集合）
+
+===== TABLE 9 (17x3) =====
+领域 | 关键表 | 核心说明
+IAM | users, roles, permissions, user_roles, role_grants | 用户、角色、资源、带范围授权
+IAM | data_scopes, data_scope_departments, field_policies, user_sessions, auth_events | 部门范围、字段策略、会话、登录历史
+组织 | companies, departments, department_paths, positions, position_headcounts | 公司、树形部门、岗位、编制
+人事 | employees, employments, employee_profiles, employee_contacts, employee_documents | 员工身份、任职关系、资料与文件
+人事 | employee_changes, onboarding_tasks, offboarding_tasks, probation_reviews | 异动历史、入离职任务、转正
+合同 | contracts, contract_versions, contract_alerts | 合同生命周期、版本、预警
+考勤 | shifts, shift_assignments, punch_records, attendance_days, attendance_corrections | 排班、原始打卡、日统计、纠正
+假勤 | leave_types, leave_policies, leave_ledger, leave_requests, overtime_requests, trip_requests | 假期政策、账本、业务申请
+薪资 | salary_schemes, salary_items, payroll_periods, payroll_batches, payslips, payslip_lines | 工资配置、批次、工资条明细
+绩效 | performance_templates, performance_cycles, performance_reviews, performance_scores | 模板、周期、考核分项及结果
+招聘 | recruitment_requisitions, candidates, interviews, offers | 招聘需求、候选人、面试与录用
+培训 | training_programs, training_sessions, training_enrollments, training_results | 课程、场次、报名、结果
+审批 | workflow_definitions, workflow_versions, workflow_instances, workflow_tasks, workflow_actions | 模板、实例、待办、动作
+公告 | notices, notice_audiences, notice_reads, notifications | 受众、已读、通知
+文件 | file_objects, file_access_logs, import_jobs, export_jobs | 私有文件、临时访问和任务
+审计 | audit_logs, business_events, outbox_events, system_settings, dictionaries | 操作追踪、业务事件、事件出站、配置
+===== END TABLE =====
+
+[Heading 2] 7.3 核心关系示例
+[Source Code] companies 1 ─ N departments
+companies 1 ─ N employments
+employees 1 ─ N employments
+users 0..1 ─ 1 employees（employee.user_id 可空且唯一）
+departments 1 ─ N employments（按有效期）
+roles N ─ N users（通过 user_roles，含公司与有效期）
+roles 1 ─ N role_grants
+permissions 1 ─ N role_grants
+employments 1 ─ N employee_changes
+employees 1 ─ N contracts
+employees 1 ─ N punch_records
+employees 1 ─ N leave_ledger
+payroll_batches 1 ─ N payslips
+workflow_instances 1 ─ N workflow_tasks
+[First Paragraph] 需要明确： 员工与任职关系可为一对多，工资、考勤、合同等应关联当时的 employment_id 或归属快照，不应简单用“员工当前部门”代表历史归属。
+[Heading 2] 7.4 最重要的数据表字段建议
+[Source Code] -- 仅为结构示意，迁移文件中需补齐索引、约束、引用与审计字段
+CREATE TABLE roles (
+  id BIGINT PRIMARY KEY,
+  company_id BIGINT NOT NULL,
+  code VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  status VARCHAR(20) NOT NULL,
+  UNIQUE KEY uk_roles_company_code (company_id, code)
+);
+
+CREATE TABLE role_grants (
+  id BIGINT PRIMARY KEY,
+  role_id BIGINT NOT NULL,
+  permission_id BIGINT NOT NULL,
+  data_scope_id BIGINT NOT NULL,
+  condition_json JSON NULL,
+  valid_from DATETIME NULL,
+  valid_until DATETIME NULL
+);
+
+CREATE TABLE employee_changes (
+  id BIGINT PRIMARY KEY,
+  company_id BIGINT NOT NULL,
+  employee_id BIGINT NOT NULL,
+  employment_id BIGINT NOT NULL,
+  change_type VARCHAR(40) NOT NULL,
+  before_json JSON NOT NULL,
+  after_json JSON NOT NULL,
+  effective_on DATE NOT NULL,
+  workflow_instance_id BIGINT NULL,
+  status VARCHAR(24) NOT NULL
+);
+[First Paragraph] 严禁将 JSON 作为所有核心业务字段的唯一存储方式；审批变更快照可以用 JSON，员工、部门、工资等高频查询字段必须保持关系型结构。
+[Heading 1] 08. API 设计与权限校验契约
+[Heading 2] 8.1 通用约定
+[Compact] API 路径：/api/v1/...；JSON UTF-8；日期 ISO 8601；金额以字符串 Decimal 传输。
+[Compact] 响应：{ "code": "OK", "message": "success", "data": {}, "request_id": "..." }；列表包含 items, page, page_size, total。
+[Compact] 失败使用 HTTP 401（未认证）、403（无权限）、404（不可发现资源）、409（冲突）、422（校验失败）、429（限流）；不得全部返回 HTTP 200。
+[Compact] 更新接口使用乐观锁版本号或 updated_at 条件，避免多人覆盖。
+[Compact] 创建/提交/审批/工资发布等关键命令支持幂等键 Idempotency-Key。
+[Compact] 所有下载、批量导入/导出采用后端任务+结果查询+短期签名下载，需二次授权。
+[Compact] OpenAPI 为接口契约唯一事实源，前端类型尽可能由其生成。
+[Heading 2] 8.2 权限与系统管理 API
+
+===== TABLE 10 (15x3) =====
+请求 | 作用 | 权限代码
+POST /auth/login | 账号登录 | 限流+MFA，无业务许可
+POST /auth/logout | 注销/撤销会话 | 已认证
+GET /me | 当前用户身份 | 已认证
+GET /me/permissions | 当前有效菜单/动作/字段能力 | 已认证，缓存按版本
+GET /system/users | 用户列表 | system.user.read
+POST /system/users | 创建用户 | system.user.create
+PUT /system/users/{id} | 编辑用户 | system.user.update
+GET /system/roles | 角色列表 | system.role.read
+POST /system/roles | 创建角色 | system.role.create
+PUT /system/roles/{id}/grants | 修改角色资源、数据范围 | system.role.assign + 高危复核
+POST /system/users/{id}/roles | 分配/撤销角色 | system.user.assign_role + 高危复核
+GET /system/permissions/tree | 权限资源树 | system.permission.read
+POST /system/permissions/evaluate | 权限模拟器 | system.permission.simulate，审计
+GET /system/audit-logs | 审计记录 | system.audit.read
+===== END TABLE =====
+
+[Heading 2] 8.3 业务 API 样例
+
+===== TABLE 11 (16x3) =====
+请求 | 业务 | 主要校验
+GET/POST /employees | 员工列表/新增 | hr.employee.read/create，范围与字段策略
+GET/PUT /employees/{id} | 员工详情/编辑 | 单员工范围 + 字段写策略 + 版本
+POST /employees/import | 导入员工 | 导入权限、预校验、任务日志
+POST /employees/export | 导出员工 | 独立 hr.employee.export + 字段范围
+GET/POST /departments | 组织树/创建 | org.department.read/create
+POST /employee-changes | 发起异动 | hr.change.create，源目标公司/部门授权
+GET/POST /contracts | 查询/新增合同 | hr.contract.read/create + 文件策略
+GET/POST /attendance/punches | 查询/打卡 | attendance.punch.read/create + 本人绑定
+POST /leave-requests | 发起请假 | leave.request.create、余额与冲突校验
+POST /workflows/tasks/{id}/approve | 审批 | 节点处理人资格、状态和幂等
+POST /payroll/batches | 建立计薪批次 | payroll.batch.create + 操作范围
+POST /payroll/batches/{id}/publish | 发布工资条 | payroll.batch.publish + 审批与二次确认
+GET /my/payslips | 本人工资条 | 强制仅当前用户绑定员工
+GET/POST /recruitment/candidates | 候选人 | 招聘数据范围 + 隐私策略
+GET /reports/{code} | 权限报表 | 报表许可、记录级与字段级再过滤
+===== END TABLE =====
+
+[Heading 2] 8.4 当前用户权限返回示例
+[Source Code] {
+  "user": {"id": "u100", "employee_id": "e100", "company_id": "c1"},
+  "auth_version": 24,
+  "menus": [
+    {"code": "dashboard.read", "route_name": "Dashboard", "children": []},
+    {"code": "hr.employee.read", "route_name": "EmployeeList", "children": []}
+  ],
+  "actions": ["hr.employee.read", "hr.employee.create"],
+  "field_capabilities": {"employee.id_number": "MASKED", "payroll.net_pay": "HIDDEN"},
+  "scope_labels": {"hr.employee.read": ["DEPT_TREE"]}
+}
+[First Paragraph] 安全约束： scope_labels 是界面提示，不是授权真相。前端即使伪造 actions 或参数，服务端仍从会话与数据库执行真正授权。API 不应返回原始可拼 SQL 的动态数据范围表达式。
+[Heading 1] 09. UI/UX 实施规范：保持截图风格但达到生产可用
+[Heading 2] 9.1 设计基线
+[Compact] 保留截图的浅灰背景、白色卡片、柔和阴影/边框、紫蓝主色、侧栏 200–240px 宽度的专业后台风格。
+[Compact] 顶部保留页面标题、面包屑、公司切换（有权时）、当前账号/通知/个人设置；不应依赖手工输入固定日期。
+[Compact] PC 优先，兼容主流 1366px 与 1920px 屏幕；低宽度折叠侧栏；员工自助在手机端可操作。
+[Compact] 统一设计令牌：色彩、间距、字号、圆角、卡片投影、表格行高、表单宽度、状态色；颜色只是可视化辅助手段，错误状态必须有文字标注。
+[Compact] 表格提供筛选、排序、列设置、分页、批量选择、空状态、加载骨架、错误重试、权限不足提示。
+[Compact] 查看/编辑面板拆分为可复用表单和详情组件；针对工资、证件、合同文件等字段设置显式敏感信息说明。
+[Heading 2] 9.2 页面交互规范
+
+===== TABLE 12 (8x3) =====
+页面 | 必备结构 | 特别要求
+仪表盘 | 六个 KPI 卡、人员分布、员工构成、最近入职、工作提醒、招聘进度 | 用户权限决定卡片是否显示；统计按范围过滤
+员工档案 | 顶部筛选、导入导出、表格、员工详情抽屉 | 头像/工号/姓名、在职状态、入职/合同/履历分栏
+部门管理 | 左侧部门树、右侧详情和员工列表 | 移动节点必须预览影响范围；禁止循环部门
+角色管理 | 基础信息 + 资源树 + 操作矩阵 + 数据范围 + 字段权限 + 用户 | 授权预览、高危差异标注、保存日志
+审批中心 | 待办、已办、我发起、抄送、流程轨迹 | 表单快照不可随业务记录后改而改变
+薪资管理 | 计薪周期、规则、批次、计算明细、审核、发布 | 操作分离、金额脱敏、导出高危操作记录
+报表中心 | 日期、组织筛选、指标卡、趋势图、表格、导出 | 统计和导出统一 Query Scope
+===== END TABLE =====
+
+[Heading 2] 9.3 权限驱动 UI 规则
+[Compact] route.meta.permission 控制页面访问；<PermissionGate code="hr.employee.create"> 控制新建按钮。
+[Compact] 菜单和路由均来自“后端授权资源 + 本地受控路由注册表”交集。
+[Compact] 按钮不可见时不要留不可操作的空工具栏；只读时展示“权限不足”而非假装操作成功。
+[Compact] 若 API 返回 403，必须给出可理解提示，并允许用户返回安全页面；不能因为前端缓存误判而吞掉错误。
+[Compact] 员工切换公司/任职上下文时清空旧公司的表单缓存、列表、导出任务可见状态。
+[Heading 1] 10. 报表、搜索、导入导出与任务
+[Heading 2] 10.1 仪表盘口径
+
+===== TABLE 13 (7x3) =====
+指标 | 推荐计算规则 | 注意事项
+员工总数 | 指定统计日的有效员工/任职数据（可配置含离职与否） | 页面需标注统计口径
+在职员工 | employment.status=ACTIVE 且统计日生效 | 不可把待入职算在职
+试用期 | 有效任职处于 PROBATION 且试用结束日未到 | 试用中转正审批需处理边界
+部门/岗位 | 用户可见范围内有效部门与岗位 | “6/6”之类展示需说明含义
+待审批 | 当前登录用户在活动节点的待办任务数量 | 不可读取其他人的待办
+到期合同 | 授权范围内 60 天内到期且待续签合同数 | 规则可配置并去重
+===== END TABLE =====
+
+[Body Text] 所有数字必须通过可测试的报表服务返回，并定义与其对应的明细查询。不得用全公司总数再在前端过滤员工表，否则可能泄露公司规模或越权统计。
+[Heading 2] 10.2 导入要求
+[First Paragraph] 模板版本化 → 下载模板 → 文件上传至私有临时区 → 异步预检（格式、必填、唯一性、部门岗位映射、字段许可）→ 展示错误行 → 用户确认 → 事务分批导入 → 结果报告与审计。禁止导入覆盖未获权限的部门员工，禁止“存在则默认覆盖”未告知用户。
+[Heading 2] 10.3 导出要求
+[First Paragraph] 仅对授权查询快照执行导出；服务端字段白名单、文件水印/审计字段（如适用）、导出任务过期控制、短效下载地址；敏感字段明文导出需独立授权。分页接口不能“只过滤当前页”导致总数、搜索结果或 Excel 泄露。
+[Heading 2] 10.4 搜索要求
+[Compact] 组织、姓名、工号、合同、招聘状态等可筛选；手机号/身份证等只能按明确权限支持适度查询，避免枚举。
+[Compact] 搜索请求使用白名单字段及安全参数绑定；后端统一数据范围过滤；限制 page_size。
+[Compact] 模糊搜索对敏感信息实施频率限制、最低必要长度和审计；普通员工不能通过枚举工号发现其他员工。
+[Heading 1] 11. 安全、隐私及合规
+[Heading 2] 11.1 安全基线
+[Compact] HTTPS、HSTS、合理 CSP、Cookie 安全属性、CSRF/XSS/SQL 注入防护；使用参数化查询与严格输入验证。
+[Compact] 密码使用现代强哈希算法；登录限流、异常登录提醒、会话管理、MFA（高权限账号强制）。
+[Compact] 默认拒绝 + 每请求授权 + 资源归属核验（尤其 /employees/{id}、下载、导出）。
+[Compact] 高危动作双人复核/强确认；不得允许审核人审批自己的工资批次或权限升级（按职责分离规则）。
+[Compact] 薪资、证件号、银行账号加密存储；脱敏返回；密钥独立管理与轮换。
+[Compact] 私有附件访问通过鉴权下载；病毒扫描、后缀/MIME 校验和最大文件限制；禁止可执行文件直接公开访问。
+[Compact] 审计保留账号、请求 ID、动作、业务对象、字段名称、变化摘要、成功失败、时间/IP（合法必要范围）；不要记录密码、令牌和敏感明文。
+[Compact] 数据库最小账户权限；备份加密和恢复演练；环境变量和 Secret 管理；生产禁止调试端点与演示账号。
+[Compact] 员工离职、调部门、撤权、密码重置都要确保缓存或会话立即失效。
+[Compact] 安全测试应覆盖 IDOR/水平越权、垂直提权、批量越权、恶意导入、任意文件下载、敏感字段旁路、并发双审批。
+[Heading 2] 11.2 中国境内部署的个人信息保护注意事项
+[First Paragraph] 《中华人民共和国个人信息保护法》对个人信息处理的合法性、必要性、告知、敏感个人信息、权限控制等提出要求。人力资源管理所必需的处理可能具有相应法定处理基础，但不能据此认为所有敏感信息均可无限采集、无限查看或任意跨境传输。应基于真实业务、依法制定的劳动规章制度、适用法规和公司管理要求，对字段、告知、留存、访问、共享、删除及跨境作合规评估。
+[Compact] 采集前建立“字段—使用目的—处理基础—可访问角色—保留期”清单。
+[Compact] 具备必要个人信息处理告知；对敏感个人信息按照适用法律实施特别保护，评估单独同意等要求是否适用。
+[Compact] 实施个人信息查询、更正与权限申诉机制；离职档案留存须有法定/业务必要性依据与删除流程。
+[Compact] 薪酬、身份、健康等敏感信息的导出、对外共享、备份与跨境接入需专项评估。
+[Compact] 本实施书仅为工程合规基线，不替代公司法务根据实际地区、用工及数据流的专业审查。
+[Heading 1] 12. 可执行开发任务分解（一次完整交付）
+[Block Text] 工作包依赖顺序是开发排序，不是把 V1.0 任意拆为未来多个商业版本。所有工作包完成后才整体上线。
+
+===== TABLE 14 (12x3) =====
+包 | 建设任务 | 完成定义
+W01 | 仓库、Docker、代码规范、CI、环境配置、数据库迁移、OpenAPI | 可在本地一键启动；CI 全绿
+W02 | 登录、账号、角色、菜单、页面/按钮权限、数据范围、字段策略、权限预览 | 权限 UI 与服务端一致，越权负测通过
+W03 | 公司/部门/岗位/编制、员工主档案和任职关系、附件 | 完整 CRUD 与历史有效期
+W04 | 入职/转正/调岗/调薪/离职、合同与预警 | 审批驱动的状态变化可追溯
+W05 | 审批引擎、待办中心、通知、公告 | 可配置节点、任务跟踪、幂等生效
+W06 | 班次排班、打卡、考勤汇总、异常补卡 | 跨日/节假日/重复记录测试通过
+W07 | 请假、余额账本、加班、出差 | 审批、额度与冲突检查闭环
+W08 | 薪资规则、计薪批次、复核、发布、工资条 | 权限隔离、计算留痕、批次不可变
+W09 | 绩效模板/周期/考核、招聘/面试/录用、培训 | 各自实体与状态流程闭环
+W10 | 仪表盘、报表中心、导入导出、员工自助端 | 统计/导出/自助均遵守权限
+W11 | 安全、审计、备份、告警、性能与全链路测试、灰度数据迁移 | 有演练报告、操作手册与验收记录
+===== END TABLE =====
+
+[Heading 2] 12.1 每个工作包统一“完成定义”
+[Compact] 代码：前端页面 + API + 数据表迁移 + Service + Policy + 测试，不得只有页面。
+[Compact] 权限：菜单、页面、按钮、数据范围、字段敏感性均标注并测试。
+[Compact] 数据：正常、空状态、错误、并发、跨公司、历史有效期均验证。
+[Compact] 文档：OpenAPI、数据库变更、权限资源清单、业务状态机、上线变更记录。
+[Compact] 审查：模块代码必须通过格式、静态检查、单元/集成/E2E 测试和代码评审。
+[Heading 2] 12.2 对 AI Coding Agent 的强制实施约束
+[Compact] 开始编码前读取 docs/00-product.md、docs/01-architecture.md、docs/02-permissions.md、docs/03-data-model.md、docs/04-api-contracts.md、docs/05-ui-guidelines.md 和根目录 AGENTS.md。
+[Compact] 遇到某页面需求，先沿着“页面 → 权限码 → API → Policy → Service → 表/事件 → 测试”完整追踪，不允许只改 Vue 组件。
+[Compact] 权限逻辑统一封装；在业务代码中禁止直接写 role_id == 1 或把数据权限限制放在前端。
+[Compact] 为每个新 API 先写成功与拒绝用例：未认证、无菜单但直调 API、越部门、越公司、越字段、导出、恶意 ID。
+[Compact] 如需改变权限编码、核心字段或状态机，须更新规范、迁移和测试并记录兼容性。
+[Compact] 不得伪造接口联调成功，不得把 mock 作为生产回退，不得使用假数据通过验收。
+[Compact] 涉及工资、审批、角色授权、异动生效必须使用事务/幂等及审计记录。
+[Compact] 每完成一个工作包自动生成模块说明与验收报告，最终输出部署文档与账号初始化流程。
+[Heading 1] 13. 关键验收场景（必须全部执行）
+[Heading 2] 13.1 权限测试矩阵
+
+===== TABLE 15 (15x3) =====
+ID | 场景 | 预期
+IAM-01 | 普通员工登录 | 菜单只显示本人可用模块，后端 /me/permissions 同步
+IAM-02 | 普通员工手工访问 /system/roles | 前端拦截；直接调用角色 API 返回 403
+IAM-03 | 部门经理查询本部门员工列表 | 仅授权部门及配置允许下级部门
+IAM-04 | 部门经理把 employee_id 改为其他部门 | 服务端拒绝，不能读详情或导出
+IAM-05 | 薪酬专员查询工资条 | 只在其工资权限 grant 对应范围内通过
+IAM-06 | 系统管理员请求工资条 | 无薪资授权时返回拒绝，不因管理账号权限而绕过
+IAM-07 | HR 可以看员工姓名但无身份证明文权限 | API 返回脱敏或隐藏；导出亦脱敏
+IAM-08 | 用户同时具有多个角色 | 仅对同一操作在各自 scope 内并集，不跨角色拼接高权限
+IAM-09 | 管理员撤销角色后旧标签页继续调用 API | 立即拒绝，缓存及授权版本正确更新
+IAM-10 | 角色只配置菜单、不配置“导出” | 页面可看（若有查看权限），导出按钮不显示且 API 403
+IAM-11 | 切换公司后沿用旧公司记录 ID | 旧公司接口不可访问
+IAM-12 | 普通员工批量请求他人工资条 | 全部拒绝，不能通过批量接口越权
+IAM-13 | 用户试图给自己分配超级管理员权限 | 被审批/职责分离策略拦截
+IAM-14 | 历史导出任务链接被转发给无权用户 | 无有效授权不能下载
+===== END TABLE =====
+
+[Heading 2] 13.2 业务闭环测试矩阵
+
+===== TABLE 16 (12x3) =====
+ID | 场景 | 预期
+HR-01 | 招聘候选人通过 Offer → 入职 | 生成唯一员工档案、任职关系与任务清单
+HR-02 | 调岗设置未来生效日期 | 到期前保持旧岗位，生效后更新当前岗位并保留历史
+HR-03 | 合同续签 | 新版本生效，旧合同仍可审计，提醒不重复
+HR-04 | 同一审批节点并发点击两次通过 | 仅一次有效动作，不重复生效
+AT-01 | 跨夜班次两次打卡 | 正确归属考勤日
+LV-01 | 请假占用余额、撤销并退款 | 余额账本一致且无重复退款
+LV-02 | 请假与出差重叠 | 根据配置阻止或明确提示冲突
+PAY-01 | 工资发布后更换计算规则 | 历史工资不变，修正走更正批次
+PAY-02 | 工资专员操作他人不在数据范围的工资条 | API 和批量任务拒绝
+REP-01 | 仪表盘统计与点击下钻列表 | 口径和数据范围一致
+SEC-01 | 离职员工账号在离职生效时被冻结 | 不可访问自助系统及历史 token
+===== END TABLE =====
+
+[Heading 2] 13.3 非功能指标（验收目标，可按公司规模调整）
+[Compact] 参考规模：初始 1,000–10,000 员工、50–300 并发在线用户；超出时做专项容量测试，不将目标写成未经证明的承诺。
+[Compact] 常规分页业务查询在符合参考负载下 P95 目标 < 500ms（服务端耗时，不含外网延迟）；大导出走异步队列。
+[Compact] 权限调整后的拒绝效果对新的 API 请求立即生效（必要的版本缓存与会话策略设计）。
+[Compact] 重要业务操作可审计；可按请求 ID 追踪；批处理失败可重试且幂等。
+[Compact] 定期自动备份、异地/独立备份副本与恢复演练；RPO/RTO 由公司根据实际业务明确并在上线前验收。
+[Compact] 无高危未修复权限缺陷、默认口令、公开敏感附件；生产配置与演示配置隔离。
+[Compact] 主流浏览器兼容 Chrome、Edge 的当前企业受支持版本；移动自助支持主流微信内置浏览器（如需）。
+[Heading 1] 14. 上线、迁移和运维实施
+[Heading 2] 14.1 Docker 部署参考
+[Source Code] nginx             (反向代理 / TLS)
+php-app           (Laravel API)
+php-worker        (Redis 队列消费)
+php-scheduler     (定时任务)
+mysql             (建议正式环境独立数据卷/托管服务)
+redis             (权限/缓存/队列)
+minio             (私有文件存储，可替换)
+monitoring        (指标/日志，按现有运维平台接入)
+[First Paragraph] 生产环境需要独立密钥、存储持久化、健康检查、重启策略、备份、访问控制、出站访问白名单与审计；不能将 MySQL、Redis、MinIO 管理端口直接公开公网。
+[Heading 2] 14.2 迁移策略
+[Compact] 整理现有 Excel/旧 HR 数据字典：员工唯一键、部门、岗位、入职日期、状态、合同、工资历史。
+[Compact] 数据清洗、去重与映射；旧部门与新部门一一比对。
+[Compact] 先迁移组织和用户，再迁移员工主档及任职历史，最后迁移合同、假勤、工资历史。
+[Compact] 在测试环境运行“导入预检—结果核对—回滚演练”；正式迁移期间冻结旧系统写入或建立明确的增量同步窗口。
+[Compact] 迁移后对人数、在职数、各部门分布、合同到期数、工资总额按授权抽样核对。
+[Compact] 上线前完成管理员账号/MFA 初始化、角色模板审核、审计和备份策略验证。
+[Heading 2] 14.3 交付物清单
+[Compact] 可运行的 frontend/、backend/、deploy/ 源码仓库，带依赖锁文件。
+[Compact] 数据库 Migration/Seeder、示例字典与权限资源 Seed（不含真实个人数据）。
+[Compact] OpenAPI 3.x 契约、接口错误码、操作权限对照表。
+[Compact] AGENTS.md + 需求规格、领域设计、权限说明、数据模型、审批状态机、UI 设计规范。
+[Compact] PC 管理端与移动响应式自助端完整页面。
+[Compact] 自动化测试（Unit/Feature/Integration/E2E）、越权安全测试与验收用例。
+[Compact] Docker Compose、环境示例、安装升级、备份恢复、故障排查手册。
+[Compact] 管理员权限分配手册、HR 业务操作手册、上线回滚方案。
+[Heading 1] 15. 项目关键决策及风险
+
+===== TABLE 17 (10x2) =====
+决策/风险 | 建议处置
+截图静态 HTML 是否已有可用代码 | 先审计源码；若只是演示 HTML，按新项目建设，不误认为已有后端
+权限模型容易“仅前端生效” | 把后端 Policy 与拒绝用例作为开发阻断条件
+组织/部门随时间变化 | 生效期、历史任职、部门快照明确分开
+薪资政策及税费因地区变化 | 规则配置与人工复核，不默认硬编码未经核验税率
+审批与业务状态不一致 | 数据库事务、Outbox、幂等消费、不可变审批轨迹
+证件号/银行卡、薪资泄露 | 最小采集、加密、脱敏、授权、敏感访问审计
+外部打卡/微信集成不能及时取得凭证 | 系统内先提供适配接口与手工/CSV 输入，外部联调单独验收
+项目一次性范围过大 | 用 W01–W11 依赖顺序推进、持续集成、每包有完成定义，不降低最终交付范围
+多公司数据隔离 | 从设计一开始纳入 company_id 强制作用域，跨公司迁移要有审批
+===== END TABLE =====
+
+[Heading 1] 16. 建议的项目规范文件目录
+[Source Code] project-root/
+├─ AGENTS.md                         # Agent 必读：架构边界、权限、安全、测试规范
+├─ README.md
+├─ docs/
+│  ├─ 00-product.md                  # 产品范围与页面功能
+│  ├─ 01-architecture.md             # 分层、模块、依赖、部署
+│  ├─ 02-permissions.md              # RBAC/数据范围/字段权限/验收矩阵
+│  ├─ 03-data-model.md               # ERD、索引、有效期、敏感信息策略
+│  ├─ 04-api-contracts.md            # API 约定、错误码、OpenAPI 路径
+│  ├─ 05-ui-guidelines.md            # 截图风格设计令牌、组件规范
+│  ├─ 06-workflows.md                # 审批引擎与业务状态机
+│  ├─ 07-business-rules.md           # 员工、考勤、薪资规则
+│  ├─ 08-security-compliance.md      # 隐私合规、审计、备份
+│  ├─ 09-test-acceptance.md          # 测试矩阵与验收报告
+│  └─ plans/                         # 各工作包的执行计划与完成记录
+├─ frontend/
+├─ backend/
+├─ deploy/
+└─ .github/workflows/ 或等价 CI 配置
+[First Paragraph] 重要： 本实施书是项目“总体权威需求”。生成具体工作包计划时，需引用并补全此规范，而不是重新解释后丢弃已批准的权限和业务边界。
+[Heading 1] 17. 公开参考与核验来源
+[First Paragraph] 以下用于确认行业常见功能范围、RBAC 基础、授权最佳实践、技术版本与法律原文。引用内容不构成对具体商用系统源码的复制。
+[Compact] BambooHR 官方平台功能：https://www.bamboohr.com/platform/
+[Compact] Zoho People 官方功能：https://www.zoho.com/people/features.html
+[Compact] NIST Role Based Access Control：https://csrc.nist.gov/projects/role-based-access-control
+[Compact] OWASP Authorization Cheat Sheet：https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
+[Compact] RuoYi-Vue3 公开仓库（菜单/按钮授权实践参考，不作为本方案 PHP 后端直接复用）：https://github.com/yangzongzhuan/RuoYi-Vue3
+[Compact] Laravel 13.x Release Notes：https://laravel.com/framework/docs/13.x/releases
+[Compact] Spatie Laravel Permission：https://github.com/spatie/laravel-permission
+[Compact] 《中华人民共和国个人信息保护法》——国家网信办公开文本：https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm
+[First Paragraph] 最终结论： 一套“通用、成熟、可二次开发”的 HRMS，基础不是更多展示页面，而是：统一员工与任职模型 + 可配置业务流程 + 正确的权限/数据边界 + 历史与审计 + 可运维的工程架构。本书建议将权限中心当作最优先完成的工程基础，再实现所有人事模块，最终按统一验收矩阵一次性交付。
