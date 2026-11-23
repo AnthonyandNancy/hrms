@@ -1,0 +1,22 @@
+{
+  "name": "factoryhr",
+  "version": "1.0.0-reference",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "typecheck": "node scripts/frontend-workspace.mjs typecheck",
+    "lint": "node scripts/frontend-workspace.mjs lint",
+    "test:unit": "node scripts/frontend-workspace.mjs test:unit",
+    "test:e2e": "node scripts/frontend-workspace.mjs test:e2e",
+    "openapi:lint": "node deploy/scripts/openapi-lint.mjs",
+    "openapi:generate": "node scripts/frontend-workspace.mjs openapi:generate"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.82.0",
+    "yaml": "2.9.1"
+  }
+}

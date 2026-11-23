@@ -1,0 +1,299 @@
+openapi: 3.1.0
+info:
+  title: HRMS V1.0 API
+  version: 1.0.0-reference
+  description: |
+    Reference implementation of the approved HRMS V1.0 architecture.
+    Task 1 exposes only public liveness and metadata endpoints. Every other
+    `/v1` route must be capability-guarded and documented here before merge.
+  contact:
+    name: HRMS Engineering
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://hrms.example.invalid
+    description: Reference production origin (not deployed)
+tags:
+  - name: System
+    description: Public liveness and API metadata.
+  - name: IAM
+    description: Identity, session and capability endpoints.
+  - name: Organization
+    description: Organization structure and positions.
+  - name: People
+    description: Person, employment and assignment facts.
+  - name: Lifecycle
+    description: Onboarding, transfer, offboarding and contracts.
+  - name: Workflow
+    description: Cases, decisions, effects and approvals.
+  - name: Time
+    description: Attendance, schedules and leave ledgers.
+  - name: Payroll
+    description: Payroll runs, payslips and corrections.
+  - name: Talent
+    description: Recruitment, performance and training.
+  - name: Engagement
+    description: Notices, notifications and self-service.
+  - name: Reporting
+    description: Projections, reports and exports.
+security:
+  - sessionCookie: []
+    csrfHeader: []
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      summary: Liveness and dependency health
+      description: |
+        Public endpoint. Returns 200 when the database is reachable; cache or
+        storage failure downgrades status to `degraded` but remains 200. A
+        database failure returns 503 with the same data shape in the error
+        envelope.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy or degraded.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEnvelope'
+        '503':
+          description: Database check failed; service unavailable.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthUnavailableEnvelope'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/meta:
+    get:
+      operationId: getMeta
+      summary: Public API metadata
+      description: Public endpoint returning build, environment and timezone metadata.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: API metadata.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaEnvelope'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: hrms_session
+      description: HttpOnly server-side session cookie. Secure and SameSite=Lax in production.
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF token paired with the session cookie for state-changing requests.
+  headers:
+    XRequestId:
+      description: Correlation id echoed from the request or generated as a ULID.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+  responses:
+    Unauthenticated:
+      description: Missing or expired authentication.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Authenticated principal lacks the required capability.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Missing or out-of-scope resource (deliberately indistinguishable).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: State or idempotency conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationFailed:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimited:
+      description: Request throttled.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Unexpected server error; internals are never leaked.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    Envelope:
+      type: object
+      additionalProperties: false
+      required: [code, message, data, request_id]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable code. `OK` for success.
+          examples: [OK]
+        message:
+          type: string
+          description: Human-readable message; never contains internals.
+        data:
+          description: Endpoint-specific payload.
+        request_id:
+          type: string
+          description: Correlation id matching the X-Request-Id response header.
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, message, data, request_id]
+      properties:
+        code:
+          type: string
+          enum:
+            - UNAUTHENTICATED
+            - FORBIDDEN
+            - NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - CONFLICT
+            - VALIDATION_FAILED
+            - RATE_LIMITED
+            - INTERNAL
+            - SERVICE_UNAVAILABLE
+          description: Stable error code from `App\Shared\ErrorCode`.
+        message:
+          type: string
+          description: Stable, non-leaking message.
+        data:
+          type: object
+          description: Error details (empty object unless the error carries context).
+        request_id:
+          type: string
+    HealthData:
+      type: object
+      additionalProperties: false
+      required: [status, version, checks, time]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        version:
+          type: string
+        checks:
+          type: object
+          additionalProperties: false
+          required: [db, cache, storage]
+          properties:
+            db:
+              type: boolean
+            cache:
+              type: boolean
+            storage:
+              type: boolean
+        time:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 timestamp ending in Z.
+    HealthEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [code, data]
+          properties:
+            code:
+              const: OK
+            data:
+              $ref: '#/components/schemas/HealthData'
+    HealthUnavailableEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ErrorEnvelope'
+        - type: object
+          required: [code, data]
+          properties:
+            code:
+              const: SERVICE_UNAVAILABLE
+            data:
+              $ref: '#/components/schemas/HealthData'
+    MetaData:
+      type: object
+      additionalProperties: false
+      required: [version, environment, server_time, supported_timezones, api_version]
+      properties:
+        version:
+          type: string
+        environment:
+          type: string
+        server_time:
+          type: string
+          format: date-time
+          description: UTC ISO-8601 timestamp ending in Z.
+        supported_timezones:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          examples:
+            - [UTC, Asia/Shanghai, Asia/Singapore]
+        api_version:
+          type: string
+          const: v1
+    MetaEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [code, data]
+          properties:
+            code:
+              const: OK
+            data:
+              $ref: '#/components/schemas/MetaData'
+    Pagination:
+      type: object
+      additionalProperties: false
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
