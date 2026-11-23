@@ -12,6 +12,9 @@ use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
+use App\Modules\Time\Http\Controllers\AttendanceController;
+use App\Modules\Time\Http\Controllers\LeaveController;
+use App\Modules\Time\Http\Controllers\TimeCatalogController;
 use App\Modules\Platform\Http\Controllers\FeatureFlagController;
 use App\Modules\Platform\Http\Controllers\HealthController;
 use App\Modules\Platform\Http\Controllers\LivenessController;
@@ -214,4 +217,89 @@ Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:workflow.case.decide')
         ->name('workflow.delegations.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Time, attendance and leave
+|--------------------------------------------------------------------------
+|
+| Every route requires authentication, a capability and an employment or
+| legal-entity scope resolved from the IAM-backed TimeActor. The frontend
+| contract (`/v1/time/...`) and the brief aliases (`/v1/leave/...`) share the
+| same controllers so there is one implementation and one negative-test matrix.
+|
+*/
+Route::prefix('time')->middleware('auth.session')->group(function (): void {
+    Route::post('/punches/import', [AttendanceController::class, 'importPunches'])
+        ->middleware('capability:time.attendance.manage')
+        ->name('time.punches.import');
+
+    Route::get('/attendance', [AttendanceController::class, 'month'])
+        ->middleware('capability:time.attendance.read')
+        ->name('time.attendance.month');
+
+    Route::get('/attendance/{employment_id}', [AttendanceController::class, 'days'])
+        ->whereNumber('employment_id')
+        ->middleware('capability:time.attendance.read')
+        ->name('time.attendance.days');
+
+    Route::post('/attendance/corrections', [AttendanceController::class, 'correct'])
+        ->middleware('capability:time.attendance.manage')
+        ->name('time.attendance.corrections.store');
+
+    Route::get('/calendars/{legal_entity_id}', [TimeCatalogController::class, 'calendar'])
+        ->whereNumber('legal_entity_id')
+        ->middleware('capability:time.attendance.read')
+        ->name('time.calendars.show');
+
+    Route::get('/shifts', [TimeCatalogController::class, 'shifts'])
+        ->middleware('capability:time.attendance.read')
+        ->name('time.shifts.index');
+
+    Route::get('/leave/balances', [LeaveController::class, 'balances'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.balances');
+
+    Route::get('/leave/requests', [LeaveController::class, 'requests'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.requests.index');
+
+    Route::post('/leave/preview', [LeaveController::class, 'preview'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.preview');
+
+    Route::post('/leave/requests', [LeaveController::class, 'request'])
+        ->middleware('capability:time.leave.request')
+        ->name('time.leave.requests.store');
+
+    Route::post('/leave/requests/{caseId}/cancel', [LeaveController::class, 'cancel'])
+        ->whereNumber('caseId')
+        ->middleware('capability:time.leave.request')
+        ->name('time.leave.requests.cancel');
+
+    Route::get('/leave/ledger', [LeaveController::class, 'ledger'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.ledger');
+});
+
+Route::prefix('leave')->middleware('auth.session')->group(function (): void {
+    Route::post('/requests', [LeaveController::class, 'request'])
+        ->middleware('capability:time.leave.request')
+        ->name('leave.requests.store');
+
+    Route::post('/requests/{caseId}/cancel', [LeaveController::class, 'cancel'])
+        ->whereNumber('caseId')
+        ->middleware('capability:time.leave.request')
+        ->name('leave.requests.cancel');
+
+    Route::get('/balances/{employment_id}', [LeaveController::class, 'balances'])
+        ->whereNumber('employment_id')
+        ->middleware('capability:time.leave.read')
+        ->name('leave.balances.show');
+
+    Route::get('/ledger/{employment_id}', [LeaveController::class, 'ledger'])
+        ->whereNumber('employment_id')
+        ->middleware('capability:time.leave.read')
+        ->name('leave.ledger.show');
 });
