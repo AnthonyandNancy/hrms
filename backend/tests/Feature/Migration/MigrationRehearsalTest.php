@@ -34,6 +34,12 @@ class MigrationRehearsalTest extends TestCase
         $this->assertTrue($report['passed']);
         $this->assertSame('SHADOW', $report['target']);
         $this->assertCount(6, $report['domains']);
+        $this->assertSame(6, MigrationRun::query()->where('mode', 'VALIDATE')->where('status', 'VALIDATED')->count());
+
+        foreach ($report['domains'] as $domain) {
+            $this->assertNotNull($domain['validation_run_id']);
+            $this->assertSame('VALIDATE', MigrationRun::query()->findOrFail($domain['validation_run_id'])->mode->value);
+        }
         $this->assertSame(0, \App\Modules\Platform\Migration\Models\MigrationShadowRow::query()
             ->where('domain', 'not like', 'SHADOW:%')->count());
     }

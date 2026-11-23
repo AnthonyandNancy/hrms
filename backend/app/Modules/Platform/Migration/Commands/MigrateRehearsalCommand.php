@@ -78,17 +78,27 @@ class MigrateRehearsalCommand extends Command
             $mappingPaths = $mapping === '' ? [] : [$mapping];
 
             try {
-                $run = $runner->apply(
-                    $domain,
-                    $tenantId,
-                    $file,
-                    $mappingPaths,
-                    MigrationRunMode::APPLY,
-                    true,
-                );
-                $report = $run->status->isSuccessful() ? $reconciler->reconcile($run) : null;
-                $domainPassed = $run->status->isSuccessful() && $report !== null && $report->passed;
+                $validationRun = $runner->validate($domain, $tenantId, $file, $mappingPaths);
+                $run = null;
+                $report = null;
+                $domainPassed = false;
+
+                if (! $validationRun->status->isSuccessful()) {
+                    $domainPassed = false;
+                } else {
+                    $run = $runner->apply(
+                        $domain,
+                        $tenantId,
+                        $file,
+                        $mappingPaths,
+                        MigrationRunMode::APPLY,
+                        true,
+                    );
+                    $report = $run->status->isSuccessful() ? $reconciler->reconcile($run) : null;
+                    $domainPassed = $run->status->isSuccessful() && $report !== null && $report->passed;
+                }
             } catch (Throwable $exception) {
+                $validationRun = null;
                 $run = null;
                 $report = null;
                 $domainPassed = false;
@@ -96,7 +106,10 @@ class MigrateRehearsalCommand extends Command
             }
 
             $domains[$domain->value] = [
+                'domain' => $domain->value,
                 'wave' => $domain->cutoverWave(),
+                'validation_run_id' => $validationRun?->id,
+                'validation_status' => $validationRun?->status->value ?? 'EXCEPTION',
                 'run_id' => $run?->id,
                 'status' => $run?->status->value ?? 'EXCEPTION',
                 'rows_read' => $run === null ? 0 : $run->rows_read,
@@ -108,8 +121,8 @@ class MigrateRehearsalCommand extends Command
                 'reconciliation' => $report?->toArray(),
                 'passed' => $domainPassed,
                 'error' => $error ?? null,
-                'error_count' => $run === null ? null : MigrationIssue::query()
-                    ->where('run_id', $run->id)
+                'error_count' => ($run ?? $validationRun) === null ? null : MigrationIssue::query()
+                    ->where('run_id', ($run ?? $validationRun)->id)
                     ->where('severity', 'ERROR')
                     ->count(),
             ];
@@ -147,10 +160,11 @@ class MigrateRehearsalCommand extends Command
             $this->line(json_encode($body, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
         } else {
             $this->table(
-                ['Domain', 'Wave', 'Status', 'Read', 'Created', 'Updated', 'Skipped', 'Reconcile'],
+                ['Domain', 'Wave', 'Validate', 'Apply', 'Read', 'Created', 'Updated', 'Skipped', 'Reconcile'],
                 array_map(static fn (array $row): array => [
-                    $row['status'],
+                    $row['domain'] ?? '?',
                     $row['wave'],
+                    $row['validation_status'],
                     $row['status'],
                     $row['rows_read'],
                     $row['rows_created'],

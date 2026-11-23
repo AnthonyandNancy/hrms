@@ -34,9 +34,13 @@ class RetentionPreviewCommand extends Command
         $asOf = null;
 
         if ($this->option('as-of') !== null) {
-            $parsed = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d', (string) $this->option('as-of'));
+            try {
+                $parsed = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d', (string) $this->option('as-of'));
+            } catch (\Throwable) {
+                $parsed = null;
+            }
 
-            if ($parsed === false) {
+            if (! $parsed instanceof \Carbon\CarbonImmutable) {
                 $this->error('PASS/FAIL: FAIL - invalid --as-of date');
 
                 return self::INVALID;

@@ -34,9 +34,13 @@ class RetentionPurgeCommand extends Command
         $asOf = null;
 
         if ($this->option('as-of') !== null) {
-            $parsed = CarbonImmutable::createFromFormat('!Y-m-d', (string) $this->option('as-of'));
+            try {
+                $parsed = CarbonImmutable::createFromFormat('!Y-m-d', (string) $this->option('as-of'));
+            } catch (Throwable) {
+                $parsed = null;
+            }
 
-            if ($parsed === false) {
+            if (! $parsed instanceof CarbonImmutable) {
                 $this->error('PASS/FAIL: FAIL - invalid --as-of date');
 
                 return self::INVALID;
