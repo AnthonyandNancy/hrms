@@ -113,7 +113,6 @@ final class SnapshotService
                 'scheme_id' => (int) $locked->scheme_id,
                 'scheme_version' => (int) $scheme->version,
                 'rule_version' => (string) $locked->rule_version,
-                'snapshot_version' => $version,
                 'employees' => $hashes,
             ]));
 
@@ -229,7 +228,6 @@ final class SnapshotService
                 'scheme_id' => (int) $locked->scheme_id,
                 'scheme_version' => (int) $scheme->version,
                 'rule_version' => (string) $locked->rule_version,
-                'snapshot_version' => $version,
                 'employees' => $hashes,
                 'correction_of_run_id' => $locked->correction_of_run_id !== null ? (int) $locked->correction_of_run_id : null,
             ]));

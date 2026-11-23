@@ -93,7 +93,7 @@ final class CalculationService
                 // versions remain append-only evidence.
                 ->where('snapshot_version', '<=', (int) $locked->snapshot_version)
                 ->orderBy('employment_id')
-                ->orderBy('snapshot_version')
+                ->orderByDesc('snapshot_version')
                 ->get()
                 ->unique('employment_id')
                 ->values();
