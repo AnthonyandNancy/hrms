@@ -744,6 +744,196 @@ components:
                     absolute_expires_at:
                       type: string
                       format: date-time
+    LeaveBalance:
+      type: object
+      properties:
+        leaveTypeCode:
+          type: string
+        leaveTypeName:
+          type: string
+        unit:
+          type: string
+          enum:
+            - DAY
+            - HOUR
+        granted:
+          type: number
+        used:
+          type: number
+        pending:
+          type: number
+        available:
+          type: number
+        expiresOn:
+          type:
+            - string
+            - "null"
+          format: date
+        leaveTypeId:
+          type: integer
+        asOf:
+          type: string
+          format: date
+        grantedMinutes:
+          type: integer
+        reservedMinutes:
+          type: integer
+        consumedMinutes:
+          type: integer
+        releasedMinutes:
+          type: integer
+        expiredMinutes:
+          type: integer
+        adjustedMinutes:
+          type: integer
+        reversedMinutes:
+          type: integer
+        availableMinutes:
+          type: integer
+        balanceMinutes:
+          type: integer
+        balanceDays:
+          type: string
+        standardDayMinutes:
+          type: integer
+        unexplainedDifference:
+          type: integer
+    LeaveLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        occurredAt:
+          type:
+            - string
+            - "null"
+        businessDate:
+          type: string
+          format: date
+        effectiveOn:
+          type: string
+          format: date
+        entryType:
+          type: string
+          enum:
+            - GRANT
+            - RESERVE
+            - CONSUME
+            - RELEASE
+            - EXPIRE
+            - ADJUST
+            - REVERSE
+        account:
+          type: string
+        quantity:
+          type: integer
+        quantityMinutes:
+          type: integer
+        balanceAfter:
+          type: integer
+        reason:
+          type: string
+        sourceType:
+          type: string
+        sourceId:
+          type: string
+        sourceCaseNo:
+          type:
+            - string
+            - "null"
+        caseId:
+          type:
+            - integer
+            - "null"
+    AttendanceMonth:
+      type: object
+      properties:
+        month:
+          type: string
+          examples:
+            - "2026-11"
+        timezone:
+          type: string
+          examples:
+            - Asia/Shanghai
+        employeeName:
+          type: string
+          examples:
+            - E0001
+        days:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              weekday:
+                type: string
+              status:
+                type: string
+                examples:
+                  - PRESENT
+                  - LATE
+                  - ABSENT
+                  - LEAVE
+                  - REST
+                  - HOLIDAY
+                  - EARLY
+                  - INCOMPLETE
+              scheduledStart:
+                type:
+                  - string
+                  - "null"
+              scheduledEnd:
+                type:
+                  - string
+                  - "null"
+              firstIn:
+                type:
+                  - string
+                  - "null"
+              lastOut:
+                type:
+                  - string
+                  - "null"
+              workedMinutes:
+                type: integer
+              exceptionLabel:
+                type:
+                  - string
+                  - "null"
+              scheduled_minutes:
+                type: integer
+        summary:
+          type: object
+          properties:
+            expectedDays:
+              type: integer
+            presentDays:
+              type: integer
+            lateCount:
+              type: integer
+            absentCount:
+              type: integer
+            leaveDays:
+              type: integer
+            remoteDays:
+              type: integer
+        exceptions:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              status:
+                type: string
+              exceptionLabel:
+                type:
+                  - string
+                  - "null"
   responses:
     Unauthenticated:
       description: Missing, expired, revoked or stale-auth-version session
@@ -881,7 +1071,8 @@ paths:
         - People
       operationId: listEmployees
       summary: Paginated as-of employee projection
-      description: Requires capability `people.employee.read`. Rows are constrained before pagination.
+      description: Requires capability `people.employee.read`. Rows are constrained
+        before pagination.
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: org_unit_id
@@ -964,7 +1155,8 @@ paths:
         - People
       operationId: createPerson
       summary: Create a natural person (identity hashed + encrypted)
-      description: Requires capability `people.employee.manage`. Identity plaintext is never returned or audited.
+      description: Requires capability `people.employee.manage`. Identity plaintext is
+        never returned or audited.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/IfMatchOptional"
@@ -1288,7 +1480,8 @@ paths:
     post:
       operationId: transferEmploymentLegalEntity
       summary: Transfer an employment to another legal entity
-      description: Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
+      description: Ends the source employment and creates a new employment for the
+        same person. Requires `people.employment.manage`.
       tags:
         - People
       parameters:
@@ -1419,7 +1612,8 @@ paths:
         - Organization
       operationId: moveOrgUnit
       summary: Move an org unit by appending a closure version
-      description: Requires capability `org.unit.manage`. Historical closure rows are ended, never rewritten.
+      description: Requires capability `org.unit.manage`. Historical closure rows are
+        ended, never rewritten.
       parameters:
         - name: id
           in: path
@@ -1466,7 +1660,8 @@ paths:
         - Organization
       operationId: previewOrgUnitImpact
       summary: Preview affected employees/managers and cross-entity warning
-      description: Requires capability `org.unit.manage`. Payroll cost-center count is 0 until Task 7.
+      description: Requires capability `org.unit.manage`. Payroll cost-center count is
+        0 until Task 7.
       parameters:
         - name: id
           in: path
@@ -1502,7 +1697,8 @@ paths:
         - People
       operationId: downloadDocument
       summary: Request an authorized short-lived document download
-      description: Requires `people.contract.read` and `people.document.download`; never returns storage keys.
+      description: Requires `people.contract.read` and `people.document.download`;
+        never returns storage keys.
       parameters:
         - name: document_id
           in: path
@@ -2607,5 +2803,1332 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/punches/import:
+    post:
+      operationId: timePunchesImport
+      tags:
+        - Time
+      summary: Idempotently import raw punches for one employment
+      description: Requires capability `time.punch.import`. Punches are immutable;
+        duplicate payload hashes are no-ops.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employment_id:
+                  type: integer
+                punches:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      punched_at_utc:
+                        type: string
+                        format: date-time
+                      source:
+                        type: string
+                        enum:
+                          - DEVICE
+                          - MANUAL
+                          - IMPORT
+                      device_id:
+                        type:
+                          - string
+                          - "null"
+                      source_local_offset:
+                        type:
+                          - string
+                          - "null"
+                      raw_payload_hash:
+                        type:
+                          - string
+                          - "null"
+              required:
+                - employment_id
+                - punches
+      responses:
+        "200":
+          description: Import result; repeated hashes are counted as replayed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          employment_id:
+                            type: integer
+                          total:
+                            type: integer
+                          created:
+                            type: integer
+                          replayed:
+                            type: integer
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                punched_at_utc:
+                                  type: string
+                                device_id:
+                                  type:
+                                    - string
+                                    - "null"
+                                source:
+                                  type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/attendance:
+    get:
+      operationId: timeAttendanceMonth
+      tags:
+        - Time
+      summary: Self attendance month projection for the frontend calendar
+      description: Requires capability `time.attendance.read`. Dates are business
+        dates in the legal entity timezone.
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^\d{4}-\d{2}$
+          examples:
+            month202611:
+              value: "2026-11"
+      responses:
+        "200":
+          description: Attendance month
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          month:
+                            type: string
+                            examples:
+                              - 2026-11
+                          timezone:
+                            type: string
+                            examples:
+                              - Asia/Shanghai
+                          employeeName:
+                            type: string
+                            examples:
+                              - E0001
+                          days:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                  format: date
+                                weekday:
+                                  type: string
+                                status:
+                                  type: string
+                                  examples:
+                                    - PRESENT
+                                    - LATE
+                                    - ABSENT
+                                    - LEAVE
+                                    - REST
+                                    - HOLIDAY
+                                    - EARLY
+                                    - INCOMPLETE
+                                scheduledStart:
+                                  type:
+                                    - string
+                                    - "null"
+                                scheduledEnd:
+                                  type:
+                                    - string
+                                    - "null"
+                                firstIn:
+                                  type:
+                                    - string
+                                    - "null"
+                                lastOut:
+                                  type:
+                                    - string
+                                    - "null"
+                                workedMinutes:
+                                  type: integer
+                                exceptionLabel:
+                                  type:
+                                    - string
+                                    - "null"
+                                scheduled_minutes:
+                                  type: integer
+                          summary:
+                            type: object
+                            properties:
+                              expectedDays:
+                                type: integer
+                              presentDays:
+                                type: integer
+                              lateCount:
+                                type: integer
+                              absentCount:
+                                type: integer
+                              leaveDays:
+                                type: integer
+                              remoteDays:
+                                type: integer
+                          exceptions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                  format: date
+                                status:
+                                  type: string
+                                exceptionLabel:
+                                  type:
+                                    - string
+                                    - "null"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/attendance/{employment_id}:
+    get:
+      operationId: timeAttendanceDays
+      tags:
+        - Time
+      summary: Scoped attendance-day projection read
+      description: Requires capability `time.attendance.read`. Other tenant or
+        out-of-scope employment returns 404.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Attendance day rows
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                employment_id:
+                                  type: integer
+                                business_date:
+                                  type: string
+                                  format: date
+                                status:
+                                  type: string
+                                scheduled_minutes:
+                                  type: integer
+                                worked_minutes:
+                                  type: integer
+                                overtime_minutes:
+                                  type: integer
+                                late_minutes:
+                                  type: integer
+                                early_leave_minutes:
+                                  type: integer
+                                absence_minutes:
+                                  type: integer
+                                rule_version:
+                                  type: string
+                          page:
+                            type: integer
+                          page_size:
+                            type: integer
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/attendance/corrections:
+    post:
+      operationId: timeAttendanceCorrectionsStore
+      tags:
+        - Time
+      summary: Request an attendance correction Case
+      description: Requires capability `time.attendance.correct.request`. Raw punches
+        are never edited.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+                correctionType:
+                  type: string
+                  enum:
+                    - MISSING_PUNCH
+                    - WRONG_TIME
+                    - WRONG_STATUS
+                firstIn:
+                  type: string
+                  examples:
+                    - 09:00
+                lastOut:
+                  type: string
+                  examples:
+                    - 18:00
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+                employment_id:
+                  type: integer
+              required:
+                - date
+                - reason
+      responses:
+        "200":
+          description: Correction Case
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accepted:
+                            type: boolean
+                          requestNo:
+                            type: string
+                            examples:
+                              - COR-001234
+                          caseId:
+                            type: integer
+                          correctionId:
+                            type: integer
+                          businessDate:
+                            type: string
+                            format: date
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/calendars/{legal_entity_id}:
+    get:
+      operationId: timeCalendarShow
+      tags:
+        - Time
+      summary: Legal entity calendar, workweek and holidays for one year
+      description: Requires capability `time.calendar.read`.
+      parameters:
+        - name: legal_entity_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+          examples:
+            year2026:
+              value: 2026
+      responses:
+        "200":
+          description: Calendar
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          legal_entity_id:
+                            type: integer
+                          year:
+                            type: integer
+                          timezone:
+                            type: string
+                            examples:
+                              - Asia/Shanghai
+                          workweek:
+                            type: array
+                            items:
+                              type: integer
+                          standard_day_minutes:
+                            type: integer
+                          version:
+                            type: integer
+                          holidays:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                  format: date
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                  examples:
+                                    - PUBLIC
+                                    - COMPANY
+                                    - MAKEUP
+                                source:
+                                  type:
+                                    - string
+                                    - "null"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/shifts:
+    get:
+      operationId: timeShiftsIndex
+      tags:
+        - Time
+      summary: Shift templates visible to the actor
+      description: Requires capability `time.shift.read`.
+      responses:
+        "200":
+          description: Shift templates
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                legal_entity_id:
+                                  type: integer
+                                code:
+                                  type: string
+                                name:
+                                  type: string
+                                start_local_time:
+                                  type: string
+                                end_local_time:
+                                  type: string
+                                crosses_midnight:
+                                  type: boolean
+                                break_minutes:
+                                  type: integer
+                                late_grace_minutes:
+                                  type: integer
+                                early_grace_minutes:
+                                  type: integer
+                                version:
+                                  type: integer
+                                valid_from:
+                                  type: string
+                                  format: date
+                                valid_to:
+                                  type: string
+                                  format: date
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/leave/balances:
+    get:
+      operationId: timeLeaveBalances
+      tags:
+        - Time
+      summary: Self leave balances derived from the append-only ledger
+      description: Requires capability `time.leave.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Balance list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            leaveTypeCode:
+                              type: string
+                            leaveTypeName:
+                              type: string
+                            unit:
+                              type: string
+                              enum:
+                                - DAY
+                                - HOUR
+                            granted:
+                              type: number
+                            used:
+                              type: number
+                            pending:
+                              type: number
+                            available:
+                              type: number
+                            expiresOn:
+                              type:
+                                - string
+                                - "null"
+                              format: date
+                            leaveTypeId:
+                              type: integer
+                            asOf:
+                              type: string
+                              format: date
+                            grantedMinutes:
+                              type: integer
+                            reservedMinutes:
+                              type: integer
+                            consumedMinutes:
+                              type: integer
+                            releasedMinutes:
+                              type: integer
+                            expiredMinutes:
+                              type: integer
+                            adjustedMinutes:
+                              type: integer
+                            reversedMinutes:
+                              type: integer
+                            availableMinutes:
+                              type: integer
+                            balanceMinutes:
+                              type: integer
+                            balanceDays:
+                              type: string
+                            standardDayMinutes:
+                              type: integer
+                            unexplainedDifference:
+                              type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/leave/requests:
+    get:
+      operationId: timeLeaveRequestsIndex
+      tags:
+        - Time
+      summary: Self leave request projections linked to Workflow cases
+      description: Requires capability `time.leave.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Leave request list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                caseId:
+                                  type: integer
+                                caseNo:
+                                  type: string
+                                applicationStatus:
+                                  type: string
+                                effectStatus:
+                                  type:
+                                    - string
+                                    - "null"
+                                fromDate:
+                                  type: string
+                                  format: date
+                                toDate:
+                                  type: string
+                                  format: date
+                                minutes:
+                                  type: integer
+                                state:
+                                  type: string
+                          total:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: timeLeaveRequestsStore
+      tags:
+        - Time
+      summary: Reserve leave and create a Workflow Case
+      description: Requires capability `time.leave.request`. A RESERVE ledger entry is
+        written at submit.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                leaveTypeCode:
+                  type: string
+                  examples:
+                    - ANNUAL
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                halfDay:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                employment_id:
+                  type: integer
+              required:
+                - leaveTypeCode
+                - startDate
+                - endDate
+                - reason
+      responses:
+        "200":
+          description: Leave request Case
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          caseId:
+                            type: integer
+                          caseNo:
+                            type: string
+                            examples:
+                              - CASE-20261123-000001
+                          applicationStatus:
+                            type: string
+                            examples:
+                              - SUBMITTED
+                          effectStatus:
+                            type:
+                              - string
+                              - "null"
+                          leaveTypeId:
+                            type: integer
+                          requestedMinutes:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/leave/preview:
+    post:
+      operationId: timeLeavePreview
+      tags:
+        - Time
+      summary: Preview requested minutes, availability and conflicts
+      description: Requires capability `time.leave.read`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                leaveTypeCode:
+                  type: string
+                  examples:
+                    - ANNUAL
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                halfDay:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                employment_id:
+                  type: integer
+              required:
+                - leaveTypeCode
+                - startDate
+                - endDate
+                - reason
+      responses:
+        "200":
+          description: Leave preview
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          workingDays:
+                            type: integer
+                          requestedDays:
+                            type: number
+                          availableBefore:
+                            type: number
+                          availableAfter:
+                            type: number
+                          unit:
+                            type: string
+                            examples:
+                              - DAY
+                              - HOUR
+                          conflicts:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                code:
+                                  type: string
+                                severity:
+                                  type: string
+                                message:
+                                  type: string
+                          note:
+                            type: string
+                          leaveTypeCode:
+                            type: string
+                          requestedMinutes:
+                            type: integer
+                          availableBeforeMinutes:
+                            type: integer
+                          availableAfterMinutes:
+                            type: integer
+                          standardDayMinutes:
+                            type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/leave/requests/{caseId}/cancel:
+    post:
+      operationId: timeLeaveRequestsCancel
+      tags:
+        - Time
+      summary: Release a leave reservation and cancel the Case exactly once
+      description: Requires capability `time.leave.request.cancel`. Replay is a no-op.
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        "200":
+          description: Cancellation result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          caseId:
+                            type: integer
+                          state:
+                            type: string
+                            examples:
+                              - CANCELLED
+                          releasedMinutes:
+                            type: integer
+                          replayed:
+                            type: boolean
+                          applicationStatus:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/time/leave/ledger:
+    get:
+      operationId: timeLeaveLedger
+      tags:
+        - Time
+      summary: Append-only leave ledger drill-down for the signed-in employee
+      description: Requires capability `time.leave.ledger.read`. Entries and summary
+        explain the balance.
+      parameters:
+        - name: leave_type
+          in: query
+          required: true
+          schema:
+            type: string
+          examples:
+            annual:
+              value: ANNUAL
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Ledger drill-down
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          leave_type_id:
+                            type: integer
+                          leave_type_code:
+                            type: string
+                            examples:
+                              - ANNUAL
+                          leave_type_name:
+                            type: string
+                          unit:
+                            type: string
+                            examples:
+                              - DAY
+                              - HOUR
+                          employment_id:
+                            type: integer
+                          as_of:
+                            type: string
+                            format: date
+                          opening_minutes:
+                            type: integer
+                          closing_minutes:
+                            type: integer
+                          summary:
+                            type: object
+                            properties:
+                              granted:
+                                type: integer
+                              reserved:
+                                type: integer
+                              consumed:
+                                type: integer
+                              released:
+                                type: integer
+                              expired:
+                                type: integer
+                              adjusted:
+                                type: integer
+                              reversed:
+                                type: integer
+                              balance:
+                                type: integer
+                              available:
+                                type: integer
+                              unexplained_difference:
+                                type: integer
+                          entries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                occurredAt:
+                                  type:
+                                    - string
+                                    - "null"
+                                businessDate:
+                                  type: string
+                                  format: date
+                                effectiveOn:
+                                  type: string
+                                  format: date
+                                entryType:
+                                  type: string
+                                  enum:
+                                    - GRANT
+                                    - RESERVE
+                                    - CONSUME
+                                    - RELEASE
+                                    - EXPIRE
+                                    - ADJUST
+                                    - REVERSE
+                                account:
+                                  type: string
+                                quantity:
+                                  type: integer
+                                quantityMinutes:
+                                  type: integer
+                                balanceAfter:
+                                  type: integer
+                                reason:
+                                  type: string
+                                sourceType:
+                                  type: string
+                                sourceId:
+                                  type: string
+                                sourceCaseNo:
+                                  type:
+                                    - string
+                                    - "null"
+                                caseId:
+                                  type:
+                                    - integer
+                                    - "null"
+                          balance_after:
+                            type: array
+                            items:
+                              type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/leave/requests:
+    post:
+      operationId: leaveRequestsStoreAlias
+      tags:
+        - Time
+      summary: Brief-compatible alias for POST /v1/time/leave/requests
+      description: Requires capability `time.leave.request`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                leaveTypeCode:
+                  type: string
+                  examples:
+                    - ANNUAL
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                halfDay:
+                  type: boolean
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                employment_id:
+                  type: integer
+              required:
+                - leaveTypeCode
+                - startDate
+                - endDate
+                - reason
+      responses:
+        "200":
+          description: Leave request Case
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          caseId:
+                            type: integer
+                          caseNo:
+                            type: string
+                          applicationStatus:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/leave/requests/{caseId}/cancel:
+    post:
+      operationId: leaveRequestsCancelAlias
+      tags:
+        - Time
+      summary: Brief-compatible alias for POST /v1/time/leave/requests/{caseId}/cancel
+      description: Requires capability `time.leave.request.cancel`.
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancellation result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          caseId:
+                            type: integer
+                          state:
+                            type: string
+                          releasedMinutes:
+                            type: integer
+                          replayed:
+                            type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/leave/balances/{employment_id}:
+    get:
+      operationId: leaveBalancesShowAlias
+      tags:
+        - Time
+      summary: Brief-compatible scoped leave balance list
+      description: Requires capability `time.leave.read`. Out-of-scope employment
+        returns 404.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Balance list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            leaveTypeCode:
+                              type: string
+                            leaveTypeName:
+                              type: string
+                            unit:
+                              type: string
+                              enum:
+                                - DAY
+                                - HOUR
+                            granted:
+                              type: number
+                            used:
+                              type: number
+                            pending:
+                              type: number
+                            available:
+                              type: number
+                            expiresOn:
+                              type:
+                                - string
+                                - "null"
+                              format: date
+                            leaveTypeId:
+                              type: integer
+                            asOf:
+                              type: string
+                              format: date
+                            grantedMinutes:
+                              type: integer
+                            reservedMinutes:
+                              type: integer
+                            consumedMinutes:
+                              type: integer
+                            releasedMinutes:
+                              type: integer
+                            expiredMinutes:
+                              type: integer
+                            adjustedMinutes:
+                              type: integer
+                            reversedMinutes:
+                              type: integer
+                            availableMinutes:
+                              type: integer
+                            balanceMinutes:
+                              type: integer
+                            balanceDays:
+                              type: string
+                            standardDayMinutes:
+                              type: integer
+                            unexplainedDifference:
+                              type: integer
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/leave/ledger/{employment_id}:
+    get:
+      operationId: leaveLedgerShowAlias
+      tags:
+        - Time
+      summary: Brief-compatible scoped ledger drill-down
+      description: Requires capability `time.leave.ledger.read`.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: leave_type_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Ledger drill-down
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          leave_type_id:
+                            type: integer
+                          leave_type_code:
+                            type: string
+                          summary:
+                            type: object
+                            properties:
+                              balance:
+                                type: integer
+                          entries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                occurredAt:
+                                  type:
+                                    - string
+                                    - "null"
+                                businessDate:
+                                  type: string
+                                  format: date
+                                effectiveOn:
+                                  type: string
+                                  format: date
+                                entryType:
+                                  type: string
+                                  enum:
+                                    - GRANT
+                                    - RESERVE
+                                    - CONSUME
+                                    - RELEASE
+                                    - EXPIRE
+                                    - ADJUST
+                                    - REVERSE
+                                account:
+                                  type: string
+                                quantity:
+                                  type: integer
+                                quantityMinutes:
+                                  type: integer
+                                balanceAfter:
+                                  type: integer
+                                reason:
+                                  type: string
+                                sourceType:
+                                  type: string
+                                sourceId:
+                                  type: string
+                                sourceCaseNo:
+                                  type:
+                                    - string
+                                    - "null"
+                                caseId:
+                                  type:
+                                    - integer
+                                    - "null"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
