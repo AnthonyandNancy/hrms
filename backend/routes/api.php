@@ -41,17 +41,17 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout-all');
     Route::post('/auth/password', [AuthController::class, 'changePassword'])->middleware('capability:iam.session.manage,SELF')->name('auth.password');
 
-    Route::get('/users', [UserAdminController::class, 'index'])->middleware('capability:iam.user.read,LEGAL_ENTITY')->name('users.index');
-    Route::post('/users', [UserAdminController::class, 'store'])->middleware('capability:iam.user.manage,LEGAL_ENTITY')->name('users.store');
-    Route::patch('/users/{id}', [UserAdminController::class, 'update'])->middleware('capability:iam.user.manage,LEGAL_ENTITY,id')->name('users.update');
-    Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware('capability:iam.role.manage,LEGAL_ENTITY,id')->name('users.roles.store');
+    Route::get('/users', [UserAdminController::class, 'index'])->middleware('capability:iam.user.read,LEGAL_ENTITY,legal_entity_id')->name('users.index');
+    Route::post('/users', [UserAdminController::class, 'store'])->middleware('capability:iam.user.manage,LEGAL_ENTITY,legal_entity_id')->name('users.store');
+    Route::patch('/users/{id}', [UserAdminController::class, 'update'])->middleware('capability:iam.user.manage,LEGAL_ENTITY,legal_entity_id')->name('users.update');
+    Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware('capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id')->name('users.roles.store');
 
-    Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware('capability:iam.role.manage,LEGAL_ENTITY')->name('roles.index');
-    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware('capability:iam.role.manage,LEGAL_ENTITY')->name('capabilities.index');
+    Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware('capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id')->name('roles.index');
+    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware('capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id')->name('capabilities.index');
 
-    Route::get('/users/{id}/bindings', [AuthorizationAdminController::class, 'bindings'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,id')->name('bindings.index');
-    Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,id')->name('bindings.store');
-    Route::delete('/bindings/{id}', [AuthorizationAdminController::class, 'destroyBinding'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,id')->name('bindings.destroy');
+    Route::get('/users/{id}/bindings', [AuthorizationAdminController::class, 'bindings'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id')->name('bindings.index');
+    Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id')->name('bindings.store');
+    Route::delete('/bindings/{id}', [AuthorizationAdminController::class, 'destroyBinding'])->middleware('capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id')->name('bindings.destroy');
 
-    Route::get('/auth/events', [AuthorizationAdminController::class, 'authEvents'])->middleware('capability:iam.audit.read,LEGAL_ENTITY')->name('auth.events');
+    Route::get('/auth/events', [AuthorizationAdminController::class, 'authEvents'])->middleware('capability:iam.audit.read,LEGAL_ENTITY,legal_entity_id')->name('auth.events');
 });

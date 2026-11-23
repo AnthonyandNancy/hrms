@@ -8,9 +8,12 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
+use Tests\Support\AuthenticatesRequests;
 
 final class FieldDenialHttpTest extends AuthorizationTestSupport
 {
+    use AuthenticatesRequests;
+
     public function test_hidden_field_filter_returns_422_and_never_queries_it(): void
     {
         $user = User::factory()->create();
@@ -44,18 +47,13 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
             ->anchor(AnchorType::LEGAL_ENTITY, 1)
             ->create(['capability_code' => 'iam.binding.manage']);
 
-        $response = $this->getJson('/v1/users/'.$other->id.'/bindings', $this->headersFor($caller));
+        $this->people->employmentByUser[(int) $caller->id] = [1];
+        $auth = $this->loginAs($caller);
 
-        // The caller may manage bindings in this tenant, but the target is
-        // outside the caller's self anchor, so route capability fails 403.
+        $response = $this->withHeader('X-CSRF-Token', $auth['csrf'])
+            ->getJson('/v1/users/'.$other->id.'/bindings', ['X-Legal-Entity-Id' => '1']);
+
         $response->assertStatus(403)->assertJsonPath('code', 'FORBIDDEN');
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function headersFor(User $user): array
-    {
-        return [];
-    }
 }

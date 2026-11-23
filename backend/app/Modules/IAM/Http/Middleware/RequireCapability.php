@@ -73,7 +73,7 @@ final class RequireCapability
     private function anchorIdFor(Request $request, AnchorType $anchor, ?string $parameter): ?int
     {
         if ($parameter !== null && $parameter !== '') {
-            $value = $request->route($parameter);
+            $value = $request->route($parameter) ?? $request->input($parameter) ?? $request->header('X-Legal-Entity-Id');
 
             return is_numeric($value) ? (int) $value : null;
         }
