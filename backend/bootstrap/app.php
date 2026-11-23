@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Modules\IAM\Http\Middleware\AuthenticateSession;
+use App\Modules\IAM\Http\Middleware\RequireCapability;
+use App\Modules\IAM\Http\Middleware\VerifyCsrfHeader;
 use App\Shared\Exceptions\ExceptionRenderer;
 use App\Shared\RequestId;
 use Illuminate\Foundation\Application;
@@ -19,6 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RequestId::class);
+
+        $middleware->alias([
+            'auth.session' => AuthenticateSession::class,
+            'csrf.header' => VerifyCsrfHeader::class,
+            'capability' => RequireCapability::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

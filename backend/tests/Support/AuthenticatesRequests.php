@@ -6,16 +6,16 @@ namespace Tests\Support;
 
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
-use App\Modules\IAM\Services\SessionManager;
+use Illuminate\Testing\TestResponse;
 
 /**
- * Authenticates a test request through the real login endpoint and returns
- * the session cookie value plus CSRF token for subsequent calls.
+ * Authenticates test requests through the real login endpoint, preserving the
+ * session cookie and CSRF token for subsequent JSON calls.
  */
 trait AuthenticatesRequests
 {
     /**
-     * @return array{cookie: string, csrf: string, session: Session}
+     * @return array{cookie: string, csrf: string, session: Session, response: TestResponse}
      */
     protected function loginAs(User $user, string $password = 'Correct-Horse-9!'): array
     {
@@ -26,16 +26,25 @@ trait AuthenticatesRequests
 
         $response->assertOk();
 
-        $cookie = $response->getCookie(config('iam.session_cookie'));
+        $cookie = $response->getCookie((string) config('iam.session.cookie'), false);
 
         if ($cookie === null) {
             $this->fail('Login did not issue a session cookie.');
         }
 
+        $this->withCredentials()->withUnencryptedCookie(
+            (string) config('iam.session.cookie'),
+            (string) $cookie->getValue(),
+        );
+
+        $csrf = (string) $response->json('data.csrf_token');
+        $this->withHeader('X-CSRF-Token', $csrf);
+
         return [
             'cookie' => (string) $cookie->getValue(),
-            'csrf' => (string) $response->json('data.csrf_token'),
+            'csrf' => $csrf,
             'session' => Session::query()->latest('created_at')->firstOrFail(),
+            'response' => $response,
         ];
     }
 

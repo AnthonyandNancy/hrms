@@ -105,6 +105,10 @@ final class CapabilityAuthorizer implements Authorizer
     {
         $this->assertLiveSubject($p);
 
+        if ($capability === 'iam.session.manage' && $p->sessionId() !== null) {
+            return true;
+        }
+
         if ($p->breakGlassGrantId() !== null && $this->breakGlassAllows($p, $capability)) {
             return true;
         }

@@ -6,7 +6,7 @@ namespace Database\Factories;
 
 use App\Modules\IAM\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
+use App\Modules\IAM\Services\PasswordHasher;
 
 /**
  * @extends Factory<User>
@@ -23,7 +23,7 @@ class UserFactory extends Factory
             'tenant_id' => 1,
             'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
-            'password_hash' => self::$passwordHash ??= Hash::make('Correct-Horse-9!'),
+            'password_hash' => self::$passwordHash ??= app(PasswordHasher::class)->hash('Correct-Horse-9!'),
             'status' => User::STATUS_ACTIVE,
             'auth_version' => 1,
             'is_privileged' => false,

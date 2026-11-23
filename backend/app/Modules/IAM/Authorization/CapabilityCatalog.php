@@ -61,6 +61,7 @@ final class CapabilityCatalog
             new CapabilityDefinition('iam.user.manage', 'user', ['create', 'update'], [AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'critical', 'identity_governance', 'Create and update user accounts.'),
             new CapabilityDefinition('iam.role.manage', 'role', ['read', 'create', 'update'], [AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'critical', 'identity_governance', 'Manage role assignments and templates.'),
             new CapabilityDefinition('iam.binding.manage', 'authority_binding', ['read', 'create', 'delete'], [AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'critical', 'identity_governance', 'Manage authority bindings.'),
+            new CapabilityDefinition('iam.session.manage', 'session', ['read', 'revoke'], [AnchorType::SELF], FieldProfile::P0_PUBLIC, 'low', null, 'Intrinsic self-service access to the caller own session; cannot be delegated.'),
             new CapabilityDefinition('iam.audit.read', 'auth_event', ['read', 'export'], [AnchorType::LEGAL_ENTITY], FieldProfile::P2_SENSITIVE, 'high', 'identity_audit', 'Read authentication and authorization audit evidence.'),
 
             new CapabilityDefinition('org.unit.read', 'org_unit', ['read'], [AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'medium', null, 'Read organization units.'),

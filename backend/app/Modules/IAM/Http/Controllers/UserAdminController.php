@@ -1,0 +1,242 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\IAM\Http\Controllers;
+
+use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Models\AuthorityBinding;
+use App\Modules\IAM\Models\Role;
+use App\Modules\IAM\Models\RoleCapability;
+use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Models\UserRole;
+use App\Modules\IAM\Services\PasswordHasher;
+use App\Modules\IAM\Services\SecurityEventService;
+use App\Modules\IAM\Services\SessionManager;
+use App\Shared\ApiResponse;
+use App\Shared\Authorization\SodRules;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Exceptions\ValidationException;
+use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+final class UserAdminController
+{
+    public function __construct(
+        private readonly AuthenticationContext $context,
+        private readonly PasswordHasher $passwords,
+        private readonly SecurityEventService $events,
+        private readonly SessionManager $sessions,
+        private readonly Clock $clock,
+    ) {}
+
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        $page = (int) ($validated['page'] ?? 1);
+        $pageSize = (int) ($validated['page_size'] ?? 20);
+        $principal = $this->context->requirePrincipal();
+
+        $query = User::query()->where('tenant_id', $principal->tenantId())->orderBy('id');
+        $total = (int) (clone $query)->count();
+        $items = $query->forPage($page, $pageSize)->get()->map(fn (User $user): array => [
+            'id' => (int) $user->id,
+            'username' => $user->username,
+            'email' => $user->email,
+            'status' => $user->status,
+            'is_privileged' => (bool) $user->is_privileged,
+            'mfa_enrolled' => $user->hasConfirmedMfa(),
+            'auth_version' => (int) $user->auth_version,
+        ])->all();
+
+        return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $validated = $request->validate([
+            'username' => ['required', 'string', 'max:80', 'regex:/^[a-zA-Z0-9._-]+$/'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:12', 'max:1024'],
+            'is_privileged' => ['sometimes', 'boolean'],
+        ]);
+
+        $username = mb_strtolower((string) $validated['username']);
+
+        if (User::query()->where('tenant_id', $principal->tenantId())->where('username', $username)->exists()) {
+            throw new ValidationException(['username' => ['The username has already been taken.']]);
+        }
+
+        $user = DB::transaction(function () use ($validated, $username, $principal, $request): User {
+            /** @var User $created */
+            $created = User::query()->create([
+                'tenant_id' => $principal->tenantId(),
+                'username' => $username,
+                'email' => $validated['email'] ?? null,
+                'password_hash' => $this->passwords->hash((string) $validated['password']),
+                'status' => User::STATUS_ACTIVE,
+                'auth_version' => 1,
+                'is_privileged' => (bool) ($validated['is_privileged'] ?? false),
+            ]);
+
+            $this->events->record($principal->tenantId(), $principal->userId(), 'user.created', 'SUCCESS', [
+                'target_user_id' => (int) $created->id,
+            ], $request);
+
+            return $created;
+        });
+
+        return ApiResponse::created([
+            'id' => (int) $user->id,
+            'username' => $user->username,
+            'status' => $user->status,
+        ]);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(User::STATUS_ACTIVE, User::STATUS_LOCKED, User::STATUS_DISABLED)],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        /** @var User|null $user */
+        $user = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+
+        if ($user === null) {
+            throw new NotFoundOrForbiddenException();
+        }
+
+        DB::transaction(function () use ($user, $validated, $principal, $request): void {
+            $old = $user->status;
+            $user->forceFill([
+                'status' => (string) $validated['status'],
+                'auth_version' => (int) $user->auth_version + 1,
+            ])->save();
+
+            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
+            $this->events->record((int) $user->tenant_id, $principal->userId(), 'user.status.changed', 'SUCCESS', [
+                'target_user_id' => (int) $user->id,
+                'reason' => (string) $validated['reason'],
+                'role_code' => $old.'->'.$user->status,
+            ], $request);
+        });
+
+        return ApiResponse::ok([
+            'id' => (int) $user->id,
+            'status' => $user->status,
+            'auth_version' => (int) $user->auth_version,
+        ]);
+    }
+
+    public function assignRole(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $validated = $request->validate([
+            'role_code' => ['required', 'string', 'max:64'],
+            'valid_from' => ['sometimes', 'date'],
+            'valid_to' => ['sometimes', 'date', 'after:valid_from'],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        /** @var User|null $target */
+        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        /** @var Role|null $role */
+        $role = Role::query()->whereKey((string) $validated['role_code'])->first();
+
+        if ($target === null || $role === null) {
+            throw new NotFoundOrForbiddenException();
+        }
+
+        if (! $role->is_template) {
+            if ($role->owner === null || $role->purpose === '' || $role->expires_at === null) {
+                throw new ValidationException(['role_code' => ['Exception roles require owner, purpose and expiry.']]);
+            }
+        }
+
+        $grants = RoleCapability::query()->where('role_code', $role->code)->get();
+        /** @var list<string> $capabilities */
+        $capabilities = $grants->pluck('capability_code')->map(static fn (mixed $code): string => (string) $code)->all();
+        SodRules::assertAllowed(array_values(array_unique([...$capabilities, ...$this->currentCapabilityCodes((int) $target->id)])));
+
+        $now = $this->clock->now();
+        $from = isset($validated['valid_from'])
+            ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC')
+            : $now;
+        $to = isset($validated['valid_to'])
+            ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC')
+            : $now->addYear();
+
+        if ($role->expires_at !== null && $role->expires_at->lessThan($to)) {
+            $to = $role->expires_at;
+        }
+
+        DB::transaction(function () use ($target, $principal, $role, $grants, $validated, $from, $to, $request): void {
+            $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
+            $newVersion = (int) $user->auth_version + 1;
+
+            UserRole::query()->create([
+                'tenant_id' => (int) $user->tenant_id,
+                'user_id' => (int) $user->id,
+                'role_code' => (string) $role->code,
+                'valid_from' => $from,
+                'valid_to' => $to,
+                'granted_by' => $principal->userId(),
+                'reason' => (string) $validated['reason'],
+                'auth_version' => $newVersion,
+                'created_at' => $this->clock->now(),
+            ]);
+
+            foreach ($grants as $grant) {
+                AuthorityBinding::query()->create([
+                    'tenant_id' => (int) $user->tenant_id,
+                    'principal_id' => (int) $user->id,
+                    'capability_code' => (string) $grant->capability_code,
+                    'anchor_type' => (string) $grant->anchor_type,
+                    'anchor_id' => null,
+                    'anchor_key' => 0,
+                    'field_profile' => (string) $grant->field_profile,
+                    'purpose_code' => 'ROLE_'.$role->code,
+                    'valid_from' => $from,
+                    'valid_to' => $to,
+                    'source_type' => 'ROLE',
+                    'source_id' => null,
+                    'auth_version' => $newVersion,
+                    'created_at' => $this->clock->now(),
+                ]);
+            }
+
+            $user->forceFill(['auth_version' => $newVersion])->save();
+            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
+            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.assigned', 'SUCCESS', [
+                'target_user_id' => (int) $user->id,
+                'role_code' => (string) $role->code,
+                'reason' => (string) $validated['reason'],
+            ], $request);
+        });
+
+        return ApiResponse::created(['user_id' => (int) $target->id, 'role_code' => $role->code]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function currentCapabilityCodes(int $userId): array
+    {
+        return AuthorityBinding::query()
+            ->where('principal_id', $userId)
+            ->where('valid_to', '>', $this->clock->now())
+            ->pluck('capability_code')
+            ->map(static fn (mixed $code): string => (string) $code)
+            ->all();
+    }
+}
