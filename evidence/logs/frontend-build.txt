@@ -26,39 +26,39 @@ dist/assets/PayrollRunDetailView-Dx_JDNv1.css                                   
 dist/assets/AttendanceView-DtI3gfri.css                                         4.57 kB │ gzip:   1.18 kB
 dist/assets/WorkspaceView-CAV2crQu.css                                          5.26 kB │ gzip:   1.31 kB
 dist/assets/LeaveView-1nBa0Lnz.css                                              5.46 kB │ gzip:   1.27 kB
-dist/assets/LoginView-C-6ejakl.css                                              7.43 kB │ gzip:   1.96 kB
+dist/assets/LoginView-CJSyVQPW.css                                              7.43 kB │ gzip:   1.96 kB
 dist/assets/index-DeJ25ega.css                                                383.67 kB │ gzip:  52.87 kB
 dist/assets/_plugin-vue_export-helper-CLt0XScP.js                               0.15 kB │ gzip:   0.16 kB │ map:     0.12 kB
-dist/assets/FreshnessNote.vue_vue_type_script_setup_true_lang-LcIy3j6Q.js       0.68 kB │ gzip:   0.48 kB │ map:     1.45 kB
-dist/assets/MoneyText.vue_vue_type_script_setup_true_lang-DERtDFiR.js           0.74 kB │ gzip:   0.46 kB │ map:     1.65 kB
-dist/assets/NotFoundView-IIdrEzES.js                                            0.80 kB │ gzip:   0.61 kB │ map:     2.01 kB
-dist/assets/EmptyState.vue_vue_type_script_setup_true_lang-CtHTCtph.js          0.90 kB │ gzip:   0.60 kB │ map:     1.52 kB
-dist/assets/ForbiddenView-CAg81WVK.js                                           1.29 kB │ gzip:   0.90 kB │ map:     2.39 kB
-dist/assets/AsOfDatePicker.vue_vue_type_script_setup_true_lang-CVHO5Kvx.js      1.34 kB │ gzip:   0.77 kB │ map:     2.97 kB
-dist/assets/Timeline.vue_vue_type_script_setup_true_lang-CdQcEuUs.js            1.40 kB │ gzip:   0.83 kB │ map:     3.23 kB
-dist/assets/StatusBadge.vue_vue_type_script_setup_true_lang-CNoXRGAM.js         1.43 kB │ gzip:   0.68 kB │ map:     3.06 kB
-dist/assets/LoadingState.vue_vue_type_script_setup_true_lang-CH8P9GQ_.js        1.56 kB │ gzip:   0.94 kB │ map:     2.92 kB
+dist/assets/FreshnessNote.vue_vue_type_script_setup_true_lang-BjFZRlZ-.js       0.68 kB │ gzip:   0.47 kB │ map:     1.45 kB
+dist/assets/MoneyText.vue_vue_type_script_setup_true_lang-dZ5XEV21.js           0.74 kB │ gzip:   0.46 kB │ map:     1.65 kB
+dist/assets/NotFoundView-Dwc_-SPU.js                                            0.80 kB │ gzip:   0.61 kB │ map:     2.01 kB
+dist/assets/EmptyState.vue_vue_type_script_setup_true_lang-DF2IoI-J.js          0.90 kB │ gzip:   0.60 kB │ map:     1.52 kB
+dist/assets/ForbiddenView-7B9H8SIR.js                                           1.29 kB │ gzip:   0.90 kB │ map:     2.39 kB
+dist/assets/AsOfDatePicker.vue_vue_type_script_setup_true_lang-CgG1N_BY.js      1.34 kB │ gzip:   0.76 kB │ map:     2.97 kB
+dist/assets/Timeline.vue_vue_type_script_setup_true_lang-BsdVbsSu.js            1.40 kB │ gzip:   0.83 kB │ map:     3.23 kB
+dist/assets/StatusBadge.vue_vue_type_script_setup_true_lang-rcy8xK7C.js         1.43 kB │ gzip:   0.68 kB │ map:     3.06 kB
+dist/assets/LoadingState.vue_vue_type_script_setup_true_lang-CX0GBzEg.js        1.56 kB │ gzip:   0.94 kB │ map:     2.92 kB
 dist/assets/status-T3FBReFT.js                                                  1.82 kB │ gzip:   0.77 kB │ map:     5.38 kB
-dist/assets/NoticeDetailView-RZbuI0OM.js                                        2.72 kB │ gzip:   1.47 kB │ map:     7.60 kB
-dist/assets/PayslipsView-C1xPYg9l.js                                            3.28 kB │ gzip:   1.69 kB │ map:     8.91 kB
-dist/assets/DataTable.vue_vue_type_script_setup_true_lang-Bx1xbQQc.js           3.67 kB │ gzip:   1.80 kB │ map:     9.06 kB
-dist/assets/MetricDrilldownView-BdiFwpNS.js                                     3.71 kB │ gzip:   1.89 kB │ map:     9.72 kB
-dist/assets/PayslipDetailView-3mBHbtE9.js                                       4.43 kB │ gzip:   2.00 kB │ map:    12.15 kB
-dist/assets/PayrollRunsView-BcATAMKd.js                                         5.32 kB │ gzip:   2.55 kB │ map:    14.79 kB
-dist/assets/DashboardView-B8OQuj7D.js                                           6.68 kB │ gzip:   2.95 kB │ map:    16.59 kB
-dist/assets/AppShell-DYpfXkls.js                                                7.04 kB │ gzip:   3.17 kB │ map:    19.22 kB
-dist/assets/CaseDetailView-GBbRLKi5.js                                          8.53 kB │ gzip:   3.46 kB │ map:    22.78 kB
-dist/assets/NoticesView-CLporNgw.js                                             8.56 kB │ gzip:   3.61 kB │ map:    22.50 kB
-dist/assets/PayrollRunDetailView-B4s2NCry.js                                    8.96 kB │ gzip:   3.86 kB │ map:    26.35 kB
-dist/assets/OrgTreeView-CN7jhPVk.js                                            10.49 kB │ gzip:   4.36 kB │ map:    28.55 kB
-dist/assets/AttendanceView-SUq89OKK.js                                         11.00 kB │ gzip:   4.37 kB │ map:    31.15 kB
-dist/assets/CaseCenterView-DffULfFY.js                                         11.91 kB │ gzip:   4.88 kB │ map:    33.39 kB
-dist/assets/WorkspaceView-HD7VXzgw.js                                          12.38 kB │ gzip:   4.20 kB │ map:    33.38 kB
-dist/assets/LoginView-BwZxZDP9.js                                              12.45 kB │ gzip:   5.06 kB │ map:    36.41 kB
-dist/assets/LeaveView-CFnkO1JE.js                                              12.57 kB │ gzip:   5.20 kB │ map:    36.99 kB
-dist/assets/EmployeeDirectoryView-VdimufSn.js                                  14.03 kB │ gzip:   5.55 kB │ map:    38.29 kB
-dist/assets/AdminView-C_qGit07.js                                              17.28 kB │ gzip:   6.06 kB │ map:    45.16 kB
+dist/assets/NoticeDetailView-vlneeSuD.js                                        2.72 kB │ gzip:   1.47 kB │ map:     7.60 kB
+dist/assets/PayslipsView-DnugXgFc.js                                            3.28 kB │ gzip:   1.69 kB │ map:     8.91 kB
+dist/assets/DataTable.vue_vue_type_script_setup_true_lang-g3AAzE2r.js           3.67 kB │ gzip:   1.80 kB │ map:     9.06 kB
+dist/assets/MetricDrilldownView-BLXHG9YT.js                                     3.71 kB │ gzip:   1.89 kB │ map:     9.72 kB
+dist/assets/PayslipDetailView-DA9nBfJa.js                                       4.43 kB │ gzip:   2.00 kB │ map:    12.15 kB
+dist/assets/PayrollRunsView-DBVDCWqG.js                                         5.32 kB │ gzip:   2.56 kB │ map:    14.79 kB
+dist/assets/DashboardView-pFOYx2wd.js                                           6.68 kB │ gzip:   2.95 kB │ map:    16.59 kB
+dist/assets/AppShell-CmItWA8p.js                                                7.04 kB │ gzip:   3.17 kB │ map:    19.22 kB
+dist/assets/CaseDetailView-4udyYKii.js                                          8.53 kB │ gzip:   3.46 kB │ map:    22.78 kB
+dist/assets/NoticesView-BCPBCs8z.js                                             8.56 kB │ gzip:   3.61 kB │ map:    22.50 kB
+dist/assets/PayrollRunDetailView-Cd1CiUwu.js                                    8.96 kB │ gzip:   3.86 kB │ map:    26.35 kB
+dist/assets/OrgTreeView-DF-YwV2-.js                                            10.49 kB │ gzip:   4.36 kB │ map:    28.55 kB
+dist/assets/AttendanceView-C8fjSrEm.js                                         11.00 kB │ gzip:   4.37 kB │ map:    31.15 kB
+dist/assets/CaseCenterView-ByVsi-98.js                                         11.91 kB │ gzip:   4.88 kB │ map:    33.39 kB
+dist/assets/WorkspaceView-8vxxKYIh.js                                          12.38 kB │ gzip:   4.20 kB │ map:    33.38 kB
+dist/assets/LoginView-638WIISP.js                                              12.43 kB │ gzip:   5.04 kB │ map:    35.15 kB
+dist/assets/LeaveView-Czaqdvmy.js                                              12.57 kB │ gzip:   5.19 kB │ map:    36.99 kB
+dist/assets/EmployeeDirectoryView-8bX5j8jj.js                                  14.03 kB │ gzip:   5.55 kB │ map:    38.29 kB
+dist/assets/AdminView-Bq3G8f0i.js                                              17.28 kB │ gzip:   6.06 kB │ map:    45.16 kB
 dist/assets/validation-usQt-8GJ.js                                             55.69 kB │ gzip:  13.56 kB │ map:   230.99 kB
-dist/assets/ReportsView-D92S_rOZ.js                                           465.98 kB │ gzip: 156.70 kB │ map: 2,615.55 kB
-dist/assets/index-BSl9UhvI.js                                               1,142.20 kB │ gzip: 375.74 kB │ map: 6,203.02 kB
-✓ built in 10.37s
+dist/assets/ReportsView-FEsxb4Nd.js                                           465.98 kB │ gzip: 156.70 kB │ map: 2,615.55 kB
+dist/assets/index-EgQehmXm.js                                               1,142.20 kB │ gzip: 375.74 kB │ map: 6,203.02 kB
+✓ built in 10.22s

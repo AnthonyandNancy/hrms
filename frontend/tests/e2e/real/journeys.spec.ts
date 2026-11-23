@@ -6,7 +6,18 @@ import { expect, test, type Page, type Response } from '@playwright/test'
  * middleware. They are the evidence that the UI is wired to the real contract,
  * not only to the mock adapter.
  */
-const PASSWORD = process.env.HRMS_DEMO_PASSWORD ?? 'Demo!2026Synthetic'
+// The seeded demo password is never committed. The operator exports
+// HRMS_DEMO_PASSWORD (the same value passed to DEMO_SEED_PASSWORD) before
+// running this suite; without it the suite skips with an explicit reason.
+const PASSWORD = process.env.HRMS_DEMO_PASSWORD ?? ''
+const MISSING_PASSWORD = PASSWORD === ''
+
+test.beforeEach(() => {
+  test.skip(
+    MISSING_PASSWORD,
+    'HRMS_DEMO_PASSWORD is not set; export the password used to seed the demo tenant (DEMO_SEED_PASSWORD).',
+  )
+})
 
 async function login(page: Page, username: string): Promise<Response> {
   for (let attempt = 0; attempt < 2; attempt += 1) {

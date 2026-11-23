@@ -6,7 +6,7 @@
 |---|---|
 | 代码基线 | `93d2fd861b0bed161292138550114e06fc25caff` |
 | 集成提交 | `321a5d0`（后端）、`600c30c`（前端与契约）、`93d2fd8`（ADR 与运维文档） |
-| 审计时间（UTC） | 2026-11-23T21:01Z |
+| 审计时间（UTC） | 2026-11-23T21:15Z |
 | 环境 | Windows + git-bash；PHP 8.4.28；Laravel 13；SQLite（本地/测试）；MySQL 8.4 仅限 Compose 目标 |
 | 审计对象 | 参考实现（reference implementation），非 30 周生产切换完成态 |
 | 复现入口 | `bash scripts/verify_release.sh` → `evidence/logs/verify-release.txt` |
@@ -16,7 +16,7 @@
 **`ACCEPTED_WITH_GATES`**
 
 - 全部 16 项可执行发布门禁通过（`PASS=16 FAIL=0 SKIP=0`），无 Sev1、无未关闭 Sev2。
-- 联合审计期间发现并修复 3 个真实缺陷（1 个 Sev2、2 个体验/正确性缺陷），修复前均有失败测试复现，修复后由测试锁定。
+- 联合审计期间发现并修复 5 类真实缺陷（2 个 Sev2、2 个体验/正确性缺陷、1 个合规缺陷）。其中 Sev2 均有失败测试先行复现并由回归测试锁定；合规缺陷以构建产物检索确认修复。
 - 组织签认（S-01–S-08）、真实身份源、银行/税务申报、工资条 PDF、HA、渗透测试与真实迁移平行运行仍为 **GATE**，本仓库不伪造其通过。
 
 结论规则来自 `docs/10-joint-audit-acceptance.md` §5：所有阻断证据通过但组织/外部门禁未完成 → `ACCEPTED_WITH_GATES`。
@@ -108,6 +108,7 @@
 | 2 | `MANAGER_OF_SUBJECT` 审批人解析在生产环境恒为 `null`，导致所有经理审批 Case 无法提交（"Approval node has no eligible assignee."） | **Sev2** | 同上测试中的 manager 用例（修复前失败） | 新增 People 拥有的 `EmploymentManagerDirectory` 契约与 Eloquent 实现，IAM 审批人目录改为委派该契约，不跨模块读表 | 同上，断言 `workflow_tasks.assignee_user_id = 20` |
 | 3 | 仪表盘"待我审批 / 合同到期 / 最近公告"三个面板在真实模式恒为空（前端硬编码空数组）；且 payroll/recruitment 的不可用原因文字声称"表不存在"，与事实不符 | Sev3 | 真实后端 HTTP 探测；`DashboardPanelsTest` | 后端从与指标同一授权投影生成三个有界面板；更正不可用原因文案 | `DashboardPanelsTest` 3 passed；真实 E2E notice 面板断言 |
 | 4 | HR 角色缺少 `engagement.notice.read/manage` 与 `reporting.export`，公告与报表页 403 | Sev3 | 真实 API 探测 | 补授能力；payroll run 能力**仍不给 HR**（职责分离） | `capability:audit` 0 缺失；E2E HR 页面全通 |
+| 5 | 前端登录页与构建产物内置可用演示口令，真实 E2E 以其为兜底默认值（违反 AGENTS.md 规则 8） | **合规缺陷** | `grep -rn 'Demo!2026Synthetic' frontend/src frontend/dist` 命中 | 登录页密码留空；真实 E2E 要求 `HRMS_DEMO_PASSWORD`，缺失则 skip；README 说明来源 | 重建后构建产物 0 命中；30 unit / 11 mock E2E / 8 real E2E 全绿 |
 
 ## 7. 已知限制（如实记录，不视为通过）
 
@@ -179,6 +180,10 @@ IAM_LOGIN_RATE_LIMIT_PER_MINUTE=100 php artisan serve --host=127.0.0.1 --port=80
 ```
 
 > 登录节流 5 次/分钟是**产品行为**，由 `LoginSecurityTest` 锁定；仅在本地真实 E2E 运行时通过环境变量临时提高，未修改生产默认值。
+>
+> 演示口令不入库、不写入前端包：`DEMO_SEED_PASSWORD` 由操作者提供，登录页不预填密码；
+> 真实后端 E2E 需 `export HRMS_DEMO_PASSWORD=...`，未设置时整套用例以明确原因 skip
+> （日志会记录 skip，不会伪装成 pass）。
 
 ## 10. 审计签署
 

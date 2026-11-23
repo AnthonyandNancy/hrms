@@ -146,6 +146,15 @@ php artisan workflow:seed-templates
 php artisan talent:seed-demo
 ```
 
+The password is the value you passed as `DEMO_SEED_PASSWORD`; it is never
+committed and the login form does not prefill it. For the real-backend E2E
+suite export the same value:
+
+```bash
+export HRMS_DEMO_PASSWORD='<the password you seeded>'
+cd frontend && pnpm exec playwright test --config playwright.real.config.ts
+```
+
 The demo dataset is synthetic. `demo:seed` runs in **SHADOW** mode: domains owned
 by parallel modules are rehearsed and reconciled but not merged into live
 business tables, and `demo:verify` reports that honestly.

@@ -13,9 +13,12 @@ const router = useRouter()
 const route = useRoute()
 const session = useSessionStore()
 
+// Never ship a working credential in the bundle. The username is a harmless
+// convenience prefill; the password must be typed by the human operating the
+// local demo (see README "Demo credentials").
 const form = reactive({
   username: 'demo.hr',
-  password: 'Demo!2026Synthetic',
+  password: '',
 })
 const totpCode = ref('')
 const errors = reactive<Record<string, string>>({})

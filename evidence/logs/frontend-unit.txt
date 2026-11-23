@@ -5,15 +5,15 @@
 
  RUN  v3.2.7 D:/code/ai/factoryHR/frontend
 
- ✓ tests/unit/validation.spec.ts (6 tests) 8ms
  ✓ tests/unit/navigation.spec.ts (5 tests) 5ms
- ✓ tests/unit/format.spec.ts (7 tests) 22ms
- ✓ tests/unit/status.spec.ts (5 tests) 24ms
- ✓ tests/unit/masking.spec.ts (5 tests) 61ms
- ✓ tests/unit/dashboard.spec.ts (2 tests) 2ms
+ ✓ tests/unit/format.spec.ts (7 tests) 21ms
+ ✓ tests/unit/validation.spec.ts (6 tests) 8ms
+ ✓ tests/unit/status.spec.ts (5 tests) 23ms
+ ✓ tests/unit/masking.spec.ts (5 tests) 49ms
+ ✓ tests/unit/dashboard.spec.ts (2 tests) 3ms
 
  Test Files  6 passed (6)
       Tests  30 passed (30)
-   Start at  04:59:12
-   Duration  3.58s (transform 712ms, setup 0ms, collect 2.28s, tests 123ms, environment 11.14s, prepare 2.09s)
+   Start at  05:12:16
+   Duration  3.51s (transform 576ms, setup 0ms, collect 2.22s, tests 108ms, environment 10.50s, prepare 2.15s)
 
