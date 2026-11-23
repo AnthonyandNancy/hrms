@@ -115,9 +115,13 @@ final class ApprovalService
         });
     }
 
-    public function markPaid(int $tenantId, int $runId, int $actorUserId, string $reference = ''): PayrollRun
+    public function markPaid(int $tenantId, int $runId, int $actorUserId, string $reference = '', string $manualConfirmationReason = ''): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $reference): PayrollRun {
+        if (trim($reference) === '' && mb_strlen(trim($manualConfirmationReason)) < 10) {
+            throw new ValidationException(['reference' => ['Mark-paid requires a reconciliation/receipt reference or a manual confirmation reason of at least 10 characters.']]);
+        }
+
+        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $reference, $manualConfirmationReason): PayrollRun {
             $run = $this->stateMachine->lockRun($tenantId, $runId);
 
             $status = $run->status instanceof PayrollRunStatus
@@ -141,6 +145,7 @@ final class ApprovalService
                 after: [
                     'status' => PayrollRunStatus::PAID->value,
                     'reference_present' => trim($reference) !== '',
+                    'manual_confirmation_present' => mb_strlen(trim($manualConfirmationReason)) >= 10,
                 ],
             );
 

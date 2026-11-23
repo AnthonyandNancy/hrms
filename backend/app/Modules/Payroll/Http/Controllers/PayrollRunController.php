@@ -137,7 +137,13 @@ final class PayrollRunController
             'reference' => ['nullable', 'string', 'max:255'],
             'manual_confirmation_reason' => ['nullable', 'string', 'min:10', 'max:1000'],
         ]);
-        $run = $this->approval->markPaid($principal->tenantId(), $id, $principal->userId(), (string) ($data['reference'] ?? ''));
+        $run = $this->approval->markPaid(
+            $principal->tenantId(),
+            $id,
+            $principal->userId(),
+            (string) ($data['reference'] ?? ''),
+            (string) ($data['manual_confirmation_reason'] ?? ''),
+        );
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
