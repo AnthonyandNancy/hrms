@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Workflow\Http\Middleware\RequireWorkflowCapability;
 use App\Shared\Exceptions\ExceptionRenderer;
 use App\Shared\RequestId;
 use Illuminate\Foundation\Application;
@@ -10,6 +11,12 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
+    ->withCommands([
+        App\Modules\Workflow\Console\RunDueEffectsCommand::class,
+        App\Modules\Workflow\Console\ReassignWorkflowTasksCommand::class,
+        App\Modules\Workflow\Console\CheckWorkflowCommand::class,
+        App\Modules\Workflow\Console\SeedWorkflowTemplatesCommand::class,
+    ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
@@ -19,6 +26,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(RequestId::class);
+        // Every module route declares capability:<code> metadata. IAM's
+        // integration replaces this alias with the full Authorizer engine; the
+        // reference binding still fails closed and preserves the same metadata.
+        $middleware->alias([
+            'capability' => RequireWorkflowCapability::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Workflow\Providers;
+
+use App\Modules\Workflow\Contracts\ActorDirectory;
+use App\Modules\Workflow\Contracts\AssigneeDirectory;
+use App\Modules\Workflow\Contracts\AssigneeEligibility;
+use App\Modules\Workflow\Contracts\EffectHandler;
+use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
+use App\Modules\Workflow\Domain\EffectRegistry;
+use App\Modules\Workflow\Services\DefaultActorDirectory;
+use App\Modules\Workflow\Services\DefaultAssigneeDirectory;
+use App\Modules\Workflow\Services\DefaultAssigneeEligibility;
+use App\Modules\Workflow\Services\DefaultWorkflowPrincipalResolver;
+use App\Modules\Workflow\Services\NullEffectHandler;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\ServiceProvider;
+
+final class WorkflowServiceProvider extends ServiceProvider
+{
+    /**
+     * Effect handlers are registered here so the catalog is code-owned. Task 5+
+     * replaces or extends these bindings with domain-specific handlers.
+     *
+     * @var list<class-string<EffectHandler>>
+     */
+    public const DEFAULT_EFFECT_HANDLERS = [
+        NullEffectHandler::class,
+    ];
+
+    /**
+     * Explicit effect type catalog. Unknown types in a template are rejected
+     * before a Decision is committed.
+     *
+     * @var list<string>
+     */
+    public const DEFAULT_EFFECT_TYPES = [
+        'workflow.noop',
+        'workflow.notify.external',
+        'workflow.assignment.activate',
+        'workflow.leave.reserve',
+        'workflow.contract.renew',
+        'workflow.payroll.publish',
+    ];
+
+    public function register(): void
+    {
+        $this->app->bindIf(ActorDirectory::class, DefaultActorDirectory::class);
+        $this->app->bindIf(AssigneeDirectory::class, DefaultAssigneeDirectory::class);
+        $this->app->bindIf(AssigneeEligibility::class, DefaultAssigneeEligibility::class);
+        $this->app->bindIf(WorkflowPrincipalResolver::class, DefaultWorkflowPrincipalResolver::class);
+
+        $this->app->singleton(EffectRegistry::class, function (Application $app): EffectRegistry {
+            $handlers = [];
+
+            foreach (self::DEFAULT_EFFECT_HANDLERS as $handlerClass) {
+                $handlers[] = $app->make($handlerClass);
+            }
+
+            foreach ((array) config('workflow.effect_handlers', []) as $handlerClass) {
+                if (is_string($handlerClass) && ! in_array($handlerClass, self::DEFAULT_EFFECT_HANDLERS, true)) {
+                    $handlers[] = $app->make($handlerClass);
+                }
+            }
+
+            $types = array_values(array_unique([
+                ...self::DEFAULT_EFFECT_TYPES,
+                ...(array) config('workflow.effect_types', []),
+            ]));
+
+            return new EffectRegistry($handlers, $types);
+        });
+    }
+}
