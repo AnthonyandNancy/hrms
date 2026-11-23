@@ -232,7 +232,7 @@ Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
 */
 Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::post('/punches/import', [AttendanceController::class, 'importPunches'])
-        ->middleware('capability:time.attendance.manage')
+        ->middleware('capability:time.punch.import')
         ->name('time.punches.import');
 
     Route::get('/attendance', [AttendanceController::class, 'month'])
@@ -245,16 +245,16 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->name('time.attendance.days');
 
     Route::post('/attendance/corrections', [AttendanceController::class, 'correct'])
-        ->middleware('capability:time.attendance.manage')
+        ->middleware('capability:time.attendance.correct.request')
         ->name('time.attendance.corrections.store');
 
     Route::get('/calendars/{legal_entity_id}', [TimeCatalogController::class, 'calendar'])
         ->whereNumber('legal_entity_id')
-        ->middleware('capability:time.attendance.read')
+        ->middleware('capability:time.calendar.read')
         ->name('time.calendars.show');
 
     Route::get('/shifts', [TimeCatalogController::class, 'shifts'])
-        ->middleware('capability:time.attendance.read')
+        ->middleware('capability:time.shift.read')
         ->name('time.shifts.index');
 
     Route::get('/leave/balances', [LeaveController::class, 'balances'])
@@ -275,11 +275,11 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
 
     Route::post('/leave/requests/{caseId}/cancel', [LeaveController::class, 'cancel'])
         ->whereNumber('caseId')
-        ->middleware('capability:time.leave.request')
+        ->middleware('capability:time.leave.request.cancel')
         ->name('time.leave.requests.cancel');
 
     Route::get('/leave/ledger', [LeaveController::class, 'ledger'])
-        ->middleware('capability:time.leave.read')
+        ->middleware('capability:time.leave.ledger.read')
         ->name('time.leave.ledger');
 });
 
@@ -290,7 +290,7 @@ Route::prefix('leave')->middleware('auth.session')->group(function (): void {
 
     Route::post('/requests/{caseId}/cancel', [LeaveController::class, 'cancel'])
         ->whereNumber('caseId')
-        ->middleware('capability:time.leave.request')
+        ->middleware('capability:time.leave.request.cancel')
         ->name('leave.requests.cancel');
 
     Route::get('/balances/{employment_id}', [LeaveController::class, 'balances'])
@@ -300,6 +300,6 @@ Route::prefix('leave')->middleware('auth.session')->group(function (): void {
 
     Route::get('/ledger/{employment_id}', [LeaveController::class, 'ledger'])
         ->whereNumber('employment_id')
-        ->middleware('capability:time.leave.read')
+        ->middleware('capability:time.leave.ledger.read')
         ->name('leave.ledger.show');
 });

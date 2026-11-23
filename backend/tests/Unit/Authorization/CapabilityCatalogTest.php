@@ -44,6 +44,12 @@ class CapabilityCatalogTest extends TestCase
             'time.leave.read',
             'time.leave.request',
             'time.leave.admin',
+            'time.attendance.correct.request',
+            'time.punch.import',
+            'time.calendar.read',
+            'time.shift.read',
+            'time.leave.request.cancel',
+            'time.leave.ledger.read',
             'payroll.run.read',
             'payroll.run.prepare',
             'payroll.run.review',
@@ -93,5 +99,18 @@ class CapabilityCatalogTest extends TestCase
             'EMPLOYEE',
             'AUDITOR',
         ], array_map(static fn ($template): string => $template->code, $templates));
+    }
+
+    public function test_time_route_capabilities_are_issued_by_role_templates(): void
+    {
+        $codes = [];
+
+        foreach (RoleTemplateCatalog::templates() as $template) {
+            $codes = [...$codes, ...$template->capabilityCodes()];
+        }
+
+        foreach (['time.punch.import', 'time.attendance.correct.request', 'time.calendar.read', 'time.shift.read', 'time.leave.request.cancel', 'time.leave.ledger.read'] as $code) {
+            $this->assertContains($code, $codes, "No role template issues {$code}.");
+        }
     }
 }

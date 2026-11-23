@@ -107,7 +107,7 @@ final class TimeHttpAuthorizationTest extends TimeHttpTestCase
         $this->actAsHttp(TimeTestFixtures::actor(
             employmentId: 1,
             scope: 'SELF',
-            capabilities: ['time.attendance.manage', 'time.attendance.read'],
+            capabilities: ['time.punch.import', 'time.attendance.read'],
         ));
 
         $this->postJson('/v1/time/punches/import', [

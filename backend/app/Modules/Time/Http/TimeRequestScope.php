@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http;
 
-use App\Modules\IAM\Http\Middleware\AuthenticateSession;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\EmploymentSnapshot;
 use App\Modules\Time\Contracts\TimeActor;
