@@ -6,7 +6,6 @@ namespace App\Modules\IAM\Services;
 
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
-use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 
 /**
@@ -15,8 +14,6 @@ use Carbon\CarbonImmutable;
  */
 final class IamAssigneeDirectory implements AssigneeDirectory
 {
-    public function __construct(private readonly Clock $clock) {}
-
     public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int
     {
         return null;

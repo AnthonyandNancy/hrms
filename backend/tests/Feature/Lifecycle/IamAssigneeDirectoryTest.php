@@ -7,7 +7,6 @@ namespace Tests\Feature\Lifecycle;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
-use App\Modules\Workflow\Contracts\AssigneeDirectory;
 use Tests\Support\LifecycleTestCase;
 
 final class IamAssigneeDirectoryTest extends LifecycleTestCase
@@ -33,7 +32,7 @@ final class IamAssigneeDirectoryTest extends LifecycleTestCase
             'created_at' => '2026-01-01 00:00:00',
         ]);
 
-        $directory = new \App\Modules\IAM\Services\IamAssigneeDirectory($this->clock);
+        $directory = new \App\Modules\IAM\Services\IamAssigneeDirectory;
         $users = $directory->userIdsWithRole(1, 'HR_ADMIN', '2026-11-23');
 
         $this->assertContains((int) $user->id, $users);
