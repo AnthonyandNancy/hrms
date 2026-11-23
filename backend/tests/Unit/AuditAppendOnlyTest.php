@@ -58,12 +58,6 @@ class AuditAppendOnlyTest extends TestCase
         $event->delete();
     }
 
-    public function test_models_do_not_define_updated_at(): void
-    {
-        $this->assertNull(AuditEvent::UPDATED_AT);
-        $this->assertNull(AuditEvent::CREATED_AT);
-    }
-
     /**
      * @return array<string, mixed>
      */

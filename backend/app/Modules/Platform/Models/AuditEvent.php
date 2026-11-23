@@ -43,11 +43,11 @@ final class AuditEvent extends Model
 
     protected static function booted(): void
     {
-        static::updating(function (): never {
+        self::updating(function (): never {
             throw new \DomainException('Audit events are append-only.');
         });
 
-        static::deleting(function (): never {
+        self::deleting(function (): never {
             throw new \DomainException('Audit events are append-only.');
         });
     }

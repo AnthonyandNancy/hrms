@@ -8,7 +8,6 @@ use App\Modules\Platform\Models\IdempotencyKey;
 use App\Modules\Platform\Services\IdempotencyService;
 use App\Shared\Exceptions\ConflictException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class IdempotencyServiceTest extends TestCase
