@@ -139,7 +139,7 @@ final class SessionManager
     {
         return (bool) $session->mfa_verified
             && $session->mfa_verified_until !== null
-            && $session->mfa_verified_until->isFuture();
+            && $session->mfa_verified_until->greaterThan($this->clock->now());
     }
 
     public function csrfMatches(Session $session, ?string $token): bool

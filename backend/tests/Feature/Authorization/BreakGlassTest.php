@@ -23,6 +23,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $this->freeze();
         $requester = $this->breakGlassRequester();
         $this->loginAs($requester);
+        $this->stepUp();
 
         $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => (int) $requester->id,
@@ -36,6 +37,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $requester = $this->breakGlassRequester();
         $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now()]);
         $this->loginAs($requester);
+        $this->stepUp();
 
         $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => (int) $approver->id,
@@ -54,6 +56,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $requester = $this->breakGlassRequester();
         $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now()]);
         $this->loginAs($requester);
+        $this->stepUp();
 
         $response = $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => (int) $approver->id,
@@ -77,6 +80,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $this->freeze();
         $requester = $this->breakGlassRequester();
         $this->loginAs($requester);
+        $this->stepUp();
 
         $response = $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => 1,
@@ -107,6 +111,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $requester = $this->breakGlassRequester();
         $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now(), 'password_hash' => app(\App\Modules\IAM\Services\PasswordHasher::class)->hash('Correct-Horse-9!')]);
         $this->loginAs($requester);
+        $this->stepUp();
 
         $response = $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => (int) $approver->id,
@@ -127,6 +132,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $requester = $this->breakGlassRequester();
         $this->people->employmentByUser[(int) $requester->id] = [1];
         $this->loginAs($requester);
+        $this->stepUp();
 
         $this->withHeader('X-Break-Glass-Grant', '999999');
         $this->getJson('/v1/me')->assertOk();
@@ -141,6 +147,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $requester = $this->breakGlassRequester();
         $approver = User::factory()->create(['tenant_id' => 1]);
         $this->loginAs($requester);
+        $this->stepUp();
 
         $response = $this->postJson('/v1/auth/break-glass', [
             'approver_user_id' => (int) $approver->id,
@@ -153,7 +160,8 @@ final class BreakGlassTest extends AuthorizationTestSupport
 
     private function breakGlassRequester(): User
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now()]);
+        $user = User::factory()->create(['tenant_id' => 1]);
+        $this->enableMfa($user);
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\IAM\Http\Middleware\AuthenticateSession;
 use App\Modules\IAM\Http\Middleware\RequireCapability;
 use App\Modules\IAM\Http\Middleware\RequireMfaEnrollment;
+use App\Modules\IAM\Http\Middleware\RequireMfaStepUp;
 use App\Modules\IAM\Http\Middleware\VerifyCsrfHeader;
 use App\Shared\Exceptions\ExceptionRenderer;
 use App\Shared\RequestId;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'csrf.header' => VerifyCsrfHeader::class,
             'capability' => RequireCapability::class,
             'mfa.enrolled' => RequireMfaEnrollment::class,
+            'mfa.step-up' => RequireMfaStepUp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

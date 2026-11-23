@@ -25,7 +25,9 @@ final class ConcurrencyTest extends AuthorizationTestSupport
         $this->grant($admin, 'iam.binding.manage', AnchorType::LEGAL_ENTITY, 1);
         $this->organization->knownLegalEntities = [1];
         $target = User::factory()->create();
+        $this->enableMfa($admin);
         $auth = $this->loginAs($admin);
+        $this->stepUp($auth['session']);
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
         $versions = [];
@@ -44,6 +46,7 @@ final class ConcurrencyTest extends AuthorizationTestSupport
             // Re-login is required after each binding grant because the admin
             // auth_version changed; this mirrors a real operator refreshing.
             $auth = $this->loginAs($admin);
+            $this->stepUp($auth['session']);
         }
 
         $this->assertSame([2, 3, 4], $versions);

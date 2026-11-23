@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Services\TotpService;
+use App\Shared\Time\Clock;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * Authenticates test requests through the real login endpoint, preserving the
@@ -42,7 +46,7 @@ trait AuthenticatesRequests
         return [
             'cookie' => (string) $cookie->getValue(),
             'csrf' => $csrf,
-            'session' => Session::query()->latest('created_at')->firstOrFail(),
+            'session' => Session::query()->latest('id')->firstOrFail(),
         ];
     }
 
@@ -52,5 +56,53 @@ trait AuthenticatesRequests
     protected function authHeaders(string $csrf): array
     {
         return ['X-CSRF-Token' => $csrf];
+    }
+
+    /**
+     * Create a confirmed TOTP factor for a test user. Call before loginAs().
+     */
+    protected function enableMfa(User $user): void
+    {
+        $now = app(Clock::class)->now();
+
+        MfaFactor::query()->create([
+            'tenant_id' => (int) $user->tenant_id,
+            'user_id' => (int) $user->id,
+            'type' => MfaFactor::TYPE_TOTP,
+            'secret_ciphertext' => Crypt::encryptString(app(TotpService::class)->generateSecret()),
+            'label' => 'test',
+            'confirmed_at' => $now,
+        ]);
+
+        $user->forceFill(['mfa_enrolled_at' => $now])->save();
+    }
+
+    /**
+     * Mark the current test session MFA-verified through the real step-up
+     * endpoint so middleware ordering remains under test.
+     */
+    protected function stepUp(?Session $session = null): void
+    {
+        $session ??= Session::query()->latest('id')->firstOrFail();
+        $user = User::query()->findOrFail($session->user_id);
+        $factor = MfaFactor::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('confirmed_at')
+            ->latest('id')
+            ->first();
+
+        if ($factor === null) {
+            $this->fail('No confirmed MFA factor exists for the authenticated test user.');
+        }
+
+        $secret = Crypt::decryptString((string) $factor->secret_ciphertext);
+        $code = app(TotpService::class)->code($secret, app(Clock::class)->now()->getTimestamp());
+
+        $response = $this->postJson('/v1/auth/mfa/step-up', [
+            'factor_type' => 'TOTP',
+            'code' => $code,
+        ]);
+
+        $response->assertOk();
     }
 }

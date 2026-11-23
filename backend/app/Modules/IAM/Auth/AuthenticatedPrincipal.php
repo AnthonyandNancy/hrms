@@ -25,7 +25,7 @@ final class AuthenticatedPrincipal implements Principal
         private readonly ?int $breakGlassGrantId = null,
     ) {}
 
-    public static function fromSession(User $user, Session $session, ?int $employmentId = null, ?int $grantId = null): self
+    public static function fromSession(User $user, Session $session, ?int $employmentId = null, ?int $grantId = null, ?bool $mfa = null): self
     {
         return new self(
             userId: (int) $user->id,
@@ -33,7 +33,7 @@ final class AuthenticatedPrincipal implements Principal
             employmentId: $employmentId,
             authVersion: (int) $session->auth_version,
             privileged: (bool) $user->is_privileged,
-            mfa: (bool) $session->mfa_verified && ($session->mfa_verified_until === null || $session->mfa_verified_until->isFuture()),
+            mfa: $mfa ?? (bool) $session->mfa_verified,
             sessionId: (string) $session->id,
             breakGlassGrantId: $grantId,
         );

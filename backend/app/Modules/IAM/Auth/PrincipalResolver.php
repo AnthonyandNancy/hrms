@@ -54,7 +54,7 @@ final class PrincipalResolver
             $grantId = (int) $rawGrant;
         }
 
-        $principal = AuthenticatedPrincipal::fromSession($user, $session, $employmentId, $grantId);
+        $principal = AuthenticatedPrincipal::fromSession($user, $session, $employmentId, $grantId, $this->sessions->hasFreshMfa($session));
 
         return [$principal, $session, $user];
     }
