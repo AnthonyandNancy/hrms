@@ -15,7 +15,7 @@ use Illuminate\Support\ServiceProvider;
 
 /**
  * Owns the Organization read contracts. People consumes OrganizationFacts and
- * OrganizationDirectory; it never imports Organization models.
+ * OrganizationDirectory; it never imports Organization models or services.
  */
 final class OrganizationServiceProvider extends ServiceProvider
 {

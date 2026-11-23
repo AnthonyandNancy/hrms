@@ -13,6 +13,7 @@ use App\Modules\People\Models\EmploymentUserLink;
 use App\Shared\Time\AsOfQuery;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\TenantBusinessDate;
 
 final class PeopleDirectoryService implements PeopleDirectory
 {
@@ -23,7 +24,7 @@ final class PeopleDirectoryService implements PeopleDirectory
 
     public function employmentForUser(int $tenantId, int $userId): ?int
     {
-        $on = BusinessDate::today('UTC', $this->clock)->value();
+        $on = (new TenantBusinessDate($this->clock, $this->organization))->today($tenantId)->value();
 
         $employmentId = EmploymentUserLink::query()
             ->where('tenant_id', $tenantId)
@@ -132,7 +133,6 @@ final class PeopleDirectoryService implements PeopleDirectory
             assignmentId: $assignment !== null ? (int) $assignment->id : null,
             managerAssignmentId: $assignment?->manager_assignment_id !== null ? (int) $assignment->manager_assignment_id : null,
         );
-
     }
 
     public function employmentExistsInTenant(int $tenantId, int $employmentId): bool

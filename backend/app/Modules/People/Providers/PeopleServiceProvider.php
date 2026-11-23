@@ -16,7 +16,9 @@ use Illuminate\Support\ServiceProvider;
 
 /**
  * Registers the People read contracts and the fail-closed authorization seam.
- * IAM later rebinds Authorizer to the capability engine.
+ * Organization contracts are bound by OrganizationServiceProvider so this
+ * module never imports another module's concrete services. IAM binds the
+ * Authorizer engine; People never rebinds it.
  */
 final class PeopleServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,7 @@ final class PeopleServiceProvider extends ServiceProvider
         $this->app->bind(Clock::class, SystemClock::class);
         $this->app->bind(PeopleDirectory::class, PeopleDirectoryService::class);
         $this->app->bind(OrgAssignmentImpactDirectory::class, OrgAssignmentImpactService::class);
+
     }
 
     public function boot(): void

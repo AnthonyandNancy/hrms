@@ -8,8 +8,8 @@ use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\Exceptions\ValidationException;
 
 /**
- * Resolves a tenant's default business date through the Organization contract.
- * Shared code may use the contract; it never reads Organization tables.
+ * Resolves a tenant's business date through the Organization contract. Shared
+ * code may consume a module contract; it never reads module tables.
  */
 final class TenantBusinessDate
 {
@@ -20,9 +20,7 @@ final class TenantBusinessDate
 
     public function today(int $tenantId): BusinessDate
     {
-        $timezone = $this->organization->defaultTimezone($tenantId);
-
-        return BusinessDate::today($timezone, $this->clock);
+        return BusinessDate::today($this->organization->defaultTimezone($tenantId), $this->clock);
     }
 
     public function resolve(?string $value, int $tenantId, string $field = 'as_of'): BusinessDate

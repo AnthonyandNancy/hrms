@@ -113,8 +113,9 @@ final class OrgUnitService
     }
 
     /**
-     * A move closes the old org row and old closure paths at effective_from,
-     * then appends a new org row and closure paths. History is never rewritten.
+     * A move ends the current closure paths at effective_from and appends new
+     * paths. org_units.id stays stable so assignments and external references
+     * never churn; the hierarchy fact lives in the versioned closure.
      *
      * @param  array<string, mixed>  $input
      * @return array{org_unit: OrgUnit, moved: bool, old_id: int}
@@ -166,6 +167,17 @@ final class OrgUnitService
                 if (in_array($orgUnitId, $this->ancestorIds($tenantId, $newParentId, $effectiveFrom->value()), true)) {
                     throw new ValidationException(['new_parent_id' => ['The move would create an organization cycle.']]);
                 }
+            }
+
+            $latestClosureFrom = OrgUnitClosure::query()
+                ->where('tenant_id', $tenantId)
+                ->where(function ($query) use ($unit): void {
+                    $query->where('ancestor_id', $unit->id)->orWhere('descendant_id', $unit->id);
+                })
+                ->max('valid_from');
+
+            if (is_string($latestClosureFrom) && ! $effectiveFrom->isAfter(BusinessDate::from($latestClosureFrom))) {
+                throw new ValidationException(['effective_from' => ['A new organization move must start after the latest closure version.']]);
             }
 
             $origParentId = $unit->parent_id !== null ? (int) $unit->parent_id : null;

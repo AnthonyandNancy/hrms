@@ -55,7 +55,7 @@ final class EmploymentService
 
             $existing = Employment::query()
                 ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', (int) $entity->id)
+                ->where('legal_entity_id', $entity->id)
                 ->where('employee_no', (string) $input['employee_no'])
                 ->lockForUpdate()
                 ->exists();
@@ -71,7 +71,7 @@ final class EmploymentService
             $employment = Employment::query()->create([
                 'tenant_id' => $tenantId,
                 'person_id' => (int) $person->id,
-                'legal_entity_id' => (int) $entity->id,
+                'legal_entity_id' => $entity->id,
                 'employee_no' => (string) $input['employee_no'],
                 'employment_type' => (string) $input['employment_type'],
                 'status' => (string) ($input['status'] ?? 'ACTIVE'),
@@ -93,7 +93,7 @@ final class EmploymentService
                 after: [
                     'employment_id' => (int) $employment->id,
                     'person_id' => (int) $person->id,
-                    'legal_entity_id' => (int) $entity->id,
+                    'legal_entity_id' => $entity->id,
                     'employee_no' => (string) $employment->employee_no,
                     'valid_from' => (string) $employment->valid_from,
                 ],
@@ -108,7 +108,7 @@ final class EmploymentService
                 payload: [
                     'employment_id' => (int) $employment->id,
                     'person_id' => (int) $person->id,
-                    'legal_entity_id' => (int) $entity->id,
+                    'legal_entity_id' => $entity->id,
                     'valid_from' => (string) $employment->valid_from,
                 ],
             );

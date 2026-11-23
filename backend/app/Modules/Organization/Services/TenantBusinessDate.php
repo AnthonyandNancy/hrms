@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Services;
 
-use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\Time\BusinessDate;
-use App\Shared\Time\Clock;
 use App\Shared\Time\TenantBusinessDate as SharedTenantBusinessDate;
 
 /**
@@ -14,12 +12,7 @@ use App\Shared\Time\TenantBusinessDate as SharedTenantBusinessDate;
  */
 final class TenantBusinessDate
 {
-    private SharedTenantBusinessDate $inner;
-
-    public function __construct(Clock $clock, OrganizationFacts $organization)
-    {
-        $this->inner = new SharedTenantBusinessDate($clock, $organization);
-    }
+    public function __construct(private readonly SharedTenantBusinessDate $inner) {}
 
     public function today(int $tenantId): BusinessDate
     {

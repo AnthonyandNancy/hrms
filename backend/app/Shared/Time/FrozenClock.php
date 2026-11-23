@@ -33,9 +33,11 @@ final class FrozenClock implements Clock
         return $this->now->setTimezone($timezone)->startOfDay();
     }
 
-    public function set(CarbonImmutable $now): void
+    public function set(string|DateTimeInterface|CarbonImmutable $now): void
     {
-        $this->now = $now->utc();
+        $this->now = $now instanceof DateTimeInterface
+            ? CarbonImmutable::instance($now)->setTimezone('UTC')
+            : CarbonImmutable::parse($now, 'UTC')->utc();
     }
 
     public function setNow(string|DateTimeInterface $now): void
