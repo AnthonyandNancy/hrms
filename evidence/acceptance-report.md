@@ -108,7 +108,7 @@
 | 2 | `MANAGER_OF_SUBJECT` 审批人解析在生产环境恒为 `null`，导致所有经理审批 Case 无法提交（"Approval node has no eligible assignee."） | **Sev2** | 同上测试中的 manager 用例（修复前失败） | 新增 People 拥有的 `EmploymentManagerDirectory` 契约与 Eloquent 实现，IAM 审批人目录改为委派该契约，不跨模块读表 | 同上，断言 `workflow_tasks.assignee_user_id = 20` |
 | 3 | 仪表盘"待我审批 / 合同到期 / 最近公告"三个面板在真实模式恒为空（前端硬编码空数组）；且 payroll/recruitment 的不可用原因文字声称"表不存在"，与事实不符 | Sev3 | 真实后端 HTTP 探测；`DashboardPanelsTest` | 后端从与指标同一授权投影生成三个有界面板；更正不可用原因文案 | `DashboardPanelsTest` 3 passed；真实 E2E notice 面板断言 |
 | 4 | HR 角色缺少 `engagement.notice.read/manage` 与 `reporting.export`，公告与报表页 403 | Sev3 | 真实 API 探测 | 补授能力；payroll run 能力**仍不给 HR**（职责分离） | `capability:audit` 0 缺失；E2E HR 页面全通 |
-| 5 | 前端登录页与构建产物内置可用演示口令，真实 E2E 以其为兜底默认值（违反 AGENTS.md 规则 8） | **合规缺陷** | `grep -rn 'Demo!2026Synthetic' frontend/src frontend/dist` 命中 | 登录页密码留空；真实 E2E 要求 `HRMS_DEMO_PASSWORD`，缺失则 skip；README 说明来源 | 重建后构建产物 0 命中；30 unit / 11 mock E2E / 8 real E2E 全绿 |
+| 5 | 前端登录页与构建产物内置可用演示口令，真实 E2E 以其为兜底默认值（违反 AGENTS.md 规则 8） | **合规缺陷** | `grep -rn 'Demo!<redacted>' frontend/src frontend/dist` 命中 | 登录页密码留空；真实 E2E 要求 `HRMS_DEMO_PASSWORD`，缺失则 skip；README 说明来源 | 重建后构建产物 0 命中；30 unit / 11 mock E2E / 8 real E2E 全绿 |
 
 ## 7. 已知限制（如实记录，不视为通过）
 

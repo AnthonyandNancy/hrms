@@ -86,14 +86,14 @@
 
 #### 缺陷 6（合规）前端包内置可用口令
 
-- **现象**：`LoginView.vue` 直接以 `Demo!2026Synthetic` 预填密码，真实后端 E2E 也把它
+- **现象**：`LoginView.vue` 直接以 `Demo!<redacted>` 预填密码，真实后端 E2E 也把它
   作为兜底默认值。AGENTS.md 规则 8 明确禁止提交凭据；该口令与 `iam:seed-demo`
   实际写入的密码一致，属于真实可用凭据而非占位符。
-- **复现**：`grep -rn 'Demo!2026Synthetic' frontend/src frontend/dist` 命中登录页与构建产物。
+- **复现**：`grep -rn 'Demo!<redacted>' frontend/src frontend/dist` 命中登录页与构建产物。
 - **修复**：登录页只预填用户名、密码留空；真实 E2E 改为必须由操作者
   `export HRMS_DEMO_PASSWORD=...`，未设置时以明确原因 **skip**（不伪装 pass）；
   README 说明口令来源。后端始终只认 `DEMO_SEED_PASSWORD`，无硬编码口令。
-- **验证**：重新构建后 `grep 'Demo!2026Synthetic' frontend/dist/assets/*.js` = 0 命中；
+- **验证**：重新构建后 `grep 'Demo!<redacted>' frontend/dist/assets/*.js` = 0 命中；
   重新执行 30 unit / 11 mock E2E / 8 real E2E 全绿。
 
 ### 4. 回归与门禁
