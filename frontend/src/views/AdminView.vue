@@ -79,7 +79,20 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    snapshot.value = await getApi().admin.getAdminSnapshot(tab.value)
+    const next = await getApi().admin.getAdminSnapshot(tab.value)
+
+    // Bindings are per user; load them on demand for the first visible user
+    // instead of pretending the tenant has no grants.
+    if (tab.value === 'bindings' && next.users.items.length > 0) {
+      const firstUser = next.users.items[0]
+
+      if (firstUser) {
+        const bindings = await getApi().admin.loadUserBindings(firstUser.id)
+        next.bindings = Array.isArray(bindings) ? (bindings as AdminSnapshot['bindings']) : []
+      }
+    }
+
+    snapshot.value = next
   } catch (reason) {
     error.value = errorCopy(reason)
   } finally {
@@ -198,11 +211,6 @@ onMounted(load)
             <p class="panel__subtitle">账户、角色与 MFA 状态。撤权与离职会提升 auth_version，使旧会话下一次请求失效。</p>
           </div>
         </div>
-        <p class="small muted" style="margin: 0 0 12px">
-          账户列表端点尚未在 OpenAPI 契约中发布。这里不使用 <code>/me/capabilities</code>
-          之类的替代数据充数——那描述的是当前登录人，不是本租户的账户清单。
-          「0 个账户」会是一句不真实的断言，因此显示为不可用。
-        </p>
         <DataTable
           :columns="userColumns"
           :rows="snapshot.users.items as unknown as Array<Record<string, unknown>>"
@@ -210,7 +218,7 @@ onMounted(load)
           :page="snapshot.users.page"
           :page-size="snapshot.users.page_size"
           row-key="id"
-          empty-title="账户投影尚未发布"
+          empty-title="本租户暂无账户"
         >
           <template #cell-roles="{ row }">
             <span class="chip-row">

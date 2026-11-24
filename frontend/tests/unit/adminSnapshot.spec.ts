@@ -34,6 +34,7 @@ describe('getAdminSnapshot', () => {
     const snapshot = await createHttpAdapter().admin.getAdminSnapshot('users')
 
     expect(snapshot.users.items).toHaveLength(1)
+    expect(snapshot.users.items[0]).toMatchObject({ id: 7, name: 'real.user', status: 'ACTIVE' })
     expect(snapshot.users.total).toBe(1)
   })
 })

@@ -71,7 +71,10 @@ final class SeedDemoCommand extends Command
                 $user->refresh();
             }
 
-            if ($privileged && ! MfaFactor::query()
+            // Every demo user whose role grants P2/P3 (including self-service
+            // payslip reads) now needs a real second factor at login. Enrol
+            // all demo users so none is locked out by the MFA policy.
+            if (! MfaFactor::query()
                 ->where('user_id', (int) $user->id)
                 ->whereNotNull('confirmed_at')
                 ->whereNull('disabled_at')

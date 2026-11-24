@@ -71,6 +71,17 @@ final class InstallCommand extends Command
             return self::FAILURE;
         }
 
+        // Reference data is not optional in a production birth path: an ANNUAL
+        // leave type without an entitlement/legal basis is not a usable
+        // baseline, and silently inventing either is a legal decision.
+        foreach (['--annual-days' => (string) $this->option('annual-days'), '--legal-basis' => (string) $this->option('legal-basis')] as $option => $value) {
+            if (trim($value) === '') {
+                $this->error("{$option} is required for the reference baseline. Nothing was created.");
+
+                return self::FAILURE;
+            }
+        }
+
         $tenantId = 1;
         $admin = null;
 
@@ -160,22 +171,29 @@ final class InstallCommand extends Command
                 action: 'install.completed',
                 aggregateType: 'tenant',
                 aggregateId: (string) $tenantId,
-                metadata: ['steps' => array_map(static fn (InstallStep $step): array => ['name' => $step->name, 'status' => $step->status], $report->steps())],
+                metadata: ['steps' => array_map(static fn (InstallStep $step): array => ['name' => $step->name, 'status' => $step->status, 'detail' => $step->detail], $report->steps())],
             );
         } catch (\Throwable $exception) {
             $this->error('Install failed: '.$exception->getMessage());
+            $this->printReport($report);
+            $this->error('Install did not complete. Existing rows are preserved; fix the cause and rerun.');
 
             return self::FAILURE;
         }
 
-        $this->table(['Step', 'Status', 'Detail'], array_map(
-            static fn (InstallStep $step): array => [$step->name, $step->status, $step->detail],
-            $report->steps(),
-        ));
+        $this->printReport($report);
 
         $this->info('Install complete. Sign in as '.$username.' and enrol the printed TOTP secret.');
 
         return self::SUCCESS;
+    }
+
+    private function printReport(InstallReport $report): void
+    {
+        $this->table(['Step', 'Status', 'Detail'], array_map(
+            static fn (InstallStep $step): array => [$step->name, $step->status, $step->detail],
+            $report->steps(),
+        ));
     }
 
     /**

@@ -176,6 +176,80 @@ function normaliseEmployeeDetail(row: Record<string, unknown>): EmployeeDetail {
   }
 }
 
+
+type BackendUserRow = {
+  id: number
+  username: string
+  email?: string | null
+  status: string
+  is_privileged?: boolean
+  mfa_enrolled?: boolean
+  auth_version?: number
+}
+
+function normaliseAdminUser(row: BackendUserRow): AdminSnapshot['users']['items'][number] {
+  return {
+    id: Number(row.id),
+    name: String(row.username),
+    email: String(row.email ?? ''),
+    employmentNo: '',
+    orgName: '',
+    roles: row.is_privileged ? ['SYSTEM_ADMIN'] : [],
+    status: (['ACTIVE', 'SUSPENDED', 'LOCKED'].includes(String(row.status)) ? String(row.status) : 'ACTIVE') as 'ACTIVE' | 'SUSPENDED' | 'LOCKED',
+    mfaEnabled: Boolean(row.mfa_enrolled),
+    lastLoginAt: null,
+  }
+}
+
+function normaliseCapability(row: Record<string, unknown>): AdminSnapshot['capabilities'][number] {
+  const risk = String(row.risk ?? 'low').toUpperCase()
+
+  return {
+    code: String(row.code ?? ''),
+    name: String(row.code ?? ''),
+    description: String(row.description ?? ''),
+    anchorTypes: Array.isArray(row.anchor_types) ? (row.anchor_types as string[]) : [],
+    maxFieldProfile: String(row.field_profile_max ?? 'P0_PUBLIC') as AdminSnapshot['capabilities'][number]['maxFieldProfile'],
+    riskLevel: (['LOW', 'MEDIUM', 'HIGH'].includes(risk) ? risk : 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH',
+    separationRule: row.sod_group === null || row.sod_group === undefined ? null : String(row.sod_group),
+  }
+}
+
+function normaliseRole(row: Record<string, unknown>): AdminSnapshot['roles'][number] {
+  const capabilities = Array.isArray(row.capabilities) ? row.capabilities : []
+
+  return {
+    id: Number(row.id ?? 0),
+    code: String(row.code ?? ''),
+    name: String(row.name ?? row.code ?? ''),
+    template: Boolean(row.is_template),
+    memberCount: 0,
+    capabilityCount: capabilities.length,
+    riskLevel: 'LOW',
+    owner: row.owner === null || row.owner === undefined ? null : String(row.owner),
+    purpose: String(row.purpose ?? ''),
+    expiresOn: row.expires_at === null || row.expires_at === undefined ? null : String(row.expires_at),
+  }
+}
+
+function normaliseAccessReview(row: Record<string, unknown>): AdminSnapshot['accessReview'][number] {
+  const capabilities = Array.isArray(row.capabilities) ? row.capabilities.map(String) : []
+  const kind = String(row.kind ?? '')
+
+  return {
+    id: Number(row.principal_id ?? 0),
+    principalName: `user ${String(row.principal_id ?? '')}`,
+    employmentNo: '',
+    roleName: capabilities.join(' + '),
+    scope: kind,
+    riskLevel: kind === 'OBJECT_LEVEL' ? 'HIGH' : 'MEDIUM',
+    reason: kind === 'OBJECT_LEVEL' ? 'Object-level separation of duties' : 'Cumulative separation-of-duties risk',
+    lastUsedAt: null,
+    dueOn: '',
+    status: 'PENDING',
+  }
+}
+
 export function createHttpAdapter(): ApiAdapter {
   const client: AxiosInstance = axios.create({
     baseURL: resolveBaseUrl(),
@@ -565,15 +639,15 @@ export function createHttpAdapter(): ApiAdapter {
 
         return {
           users: {
-            items: asItems<AdminSnapshot['users']['items'][number]>(users),
+            items: asItems<BackendUserRow>(users).map(normaliseAdminUser),
             page: usersData?.page ?? 1,
             page_size: usersData?.page_size ?? 20,
             total: usersData?.total ?? 0,
           },
-          roles: asItems<AdminSnapshot['roles'][number]>(roles),
-          capabilities: asItems<AdminSnapshot['capabilities'][number]>(capabilities),
+          roles: asItems<Record<string, unknown>>(roles).map(normaliseRole),
+          capabilities: asItems<Record<string, unknown>>(capabilities).map(normaliseCapability),
           bindings: [],
-          accessReview: asItems<AdminSnapshot['accessReview'][number]>(accessReviewData?.sod_risks),
+          accessReview: asItems<Record<string, unknown>>(accessReviewData?.sod_risks).map(normaliseAccessReview),
           audit: {
             items: auditItems,
             page: 1,

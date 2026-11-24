@@ -86,6 +86,73 @@ components:
       schema:
         type: string
   schemas:
+    MyCapabilitiesEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          type: object
+          required: [capabilities, wildcard, mfa_required, mfa_verified]
+          properties:
+            capabilities:
+              type: array
+              items:
+                type: object
+                required: [capability, anchor_type, field_profile]
+                properties:
+                  capability: { type: string }
+                  anchor_type: { type: string }
+                  anchor_id: { type: [integer, 'null'] }
+                  field_profile: { type: string }
+                  purpose_code: { type: string }
+                  valid_from: { type: [string, 'null'], format: date-time }
+                  valid_to: { type: [string, 'null'], format: date-time }
+                  wildcard:
+                    type: boolean
+                    description: Present and true only on rows synthesized from a wildcard grant.
+            wildcard:
+              type: boolean
+              description: True when the caller holds `*`; capabilities are then the expanded catalog.
+            mfa_required: { type: boolean }
+            mfa_verified: { type: boolean }
+        request_id: { type: string }
+    AccessReviewEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          type: object
+          required: [generated_at, unused_high_risk_bindings, sod_risks]
+          properties:
+            generated_at: { type: string, format: date-time }
+            unused_high_risk_bindings:
+              type: array
+              items:
+                type: object
+                properties:
+                  binding_id: { type: integer }
+                  principal_id: { type: integer }
+                  capability_code: { type: string }
+                  risk: { type: [string, 'null'] }
+                  created_at: { type: [string, 'null'], format: date-time }
+            sod_risks:
+              type: array
+              items:
+                type: object
+                required: [principal_id, capabilities, kind]
+                properties:
+                  principal_id: { type: integer }
+                  capabilities:
+                    type: array
+                    minItems: 2
+                    maxItems: 2
+                    items: { type: string }
+                  kind: { type: string, enum: [CUMULATIVE, OBJECT_LEVEL] }
+        request_id: { type: string }
     MfaChallengeEnvelope:
       type: object
       required:
@@ -2096,10 +2163,14 @@ paths:
       operationId: getMyCapabilities
       tags:
         - IAM Me
-      summary: Effective bindings for the current auth_version
+      summary: Effective bindings for the current auth_version, wildcard expanded
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Expanded capability rows plus the wildcard flag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyCapabilitiesEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
   /v1/auth/mfa/totp/enroll:
@@ -2676,7 +2747,11 @@ paths:
             minimum: 1
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Unused high-risk bindings and cumulative/object-level SoD risks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessReviewEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":

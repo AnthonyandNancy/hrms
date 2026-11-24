@@ -104,4 +104,29 @@ final class InstallCommandTest extends TestCase
             '--legal-basis' => 'Company policy appendix A',
         ];
     }
+
+    public function test_it_requires_annual_days_and_legal_basis(): void
+    {
+        $options = $this->installOptions();
+        unset($options['--annual-days'], $options['--legal-basis']);
+
+        $this->artisan('hrms:install', $options)->assertExitCode(1);
+        $this->assertSame(0, User::query()->count());
+    }
+
+    public function test_a_failed_step_prints_the_partial_report(): void
+    {
+        $options = $this->installOptions();
+        // Force the capability step to fail by pre-creating an unknown binding
+        // that sync refuses to remove.
+        \App\Modules\IAM\Models\AuthorityBinding::factory()->create([
+            'capability_code' => 'definitely.unknown.code',
+            'valid_from' => '2026-01-01 00:00:00',
+            'valid_to' => '2027-01-01 00:00:00',
+        ]);
+
+        $this->artisan('hrms:install', $options)
+            ->expectsOutputToContain('legal_entity')
+            ->assertExitCode(1);
+    }
 }
