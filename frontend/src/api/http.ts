@@ -68,10 +68,13 @@ type BackendMe = {
   mfa_verified: boolean
   auth_version: number
   roles: string[]
+  tenant_name?: string
+  legal_entity_name?: string
 }
 
 type BackendCapabilities = {
   capabilities: Array<{ capability: string }>
+  wildcard?: boolean
   mfa_required: boolean
   mfa_verified: boolean
 }
@@ -269,6 +272,8 @@ export function createHttpAdapter(): ApiAdapter {
         hasMfa: me.mfa_verified,
         authVersion: me.auth_version,
         tenantTimezone: 'Asia/Shanghai',
+        tenantName: me.tenant_name,
+        legalEntityName: me.legal_entity_name,
       },
       capabilities,
       csrfToken,
@@ -508,17 +513,20 @@ export function createHttpAdapter(): ApiAdapter {
       // do exist and report the rest as unavailable rather than inventing data.
       // `/me/capabilities` describes the *caller*, so it must never be presented
       // as the tenant capability catalogue.
-      getAdminSnapshot: async () => {
+      getAdminSnapshot: async (tab?: string) => {
         const params = { legal_entity_id: legalEntityId() }
-        // Only request what the caller is entitled to. The events endpoint
-        // requires `iam.audit.read`, which SYSTEM_ADMIN deliberately lacks
-        // (separation of duties), and an unentitled request shows up as a
-        // console 403 that looks like a bug rather than a policy decision.
-        const [roles, capabilities, audit] = await Promise.all([
-          unwrap(client.get('/roles', { params })).catch(() => null),
-          unwrap(client.get('/capabilities', { params })).catch(() => null),
-          Promise.resolve(null),
+        const headers = { 'X-Legal-Entity-Id': String(legalEntityId()) }
+
+        const [users, roles, capabilities, accessReview] = await Promise.all([
+          unwrap(client.get('/users', { params: { ...params, page: 1, page_size: 20 }, headers })).catch(() => null),
+          unwrap(client.get('/roles', { params, headers })).catch(() => null),
+          unwrap(client.get('/capabilities', { params, headers })).catch(() => null),
+          unwrap(client.get('/access-review', { params, headers })).catch(() => null),
         ])
+
+        const audit = tab === 'audit'
+          ? await unwrap(client.get('/auth/events', { params: { ...params, page: 1, page_size: 50 }, headers })).catch(() => null)
+          : null
 
         const asItems = <T,>(value: unknown): T[] =>
           Array.isArray(value)
@@ -528,24 +536,33 @@ export function createHttpAdapter(): ApiAdapter {
               : []
 
         const auditItems = asItems<AdminSnapshot['audit']['items'][number]>(audit)
+        const accessReviewData = accessReview as { sod_risks?: unknown[] } | null
+        const usersData = users as { page?: number; page_size?: number; total?: number } | null
 
         return {
-          // Users, access review and bindings are not published by the API yet.
-          // Empty pages are honest here only because the view labels them as
-          // unavailable; they are not a claim that the tenant has no users.
-          users: { items: [], page: 1, page_size: 10, total: 0 },
+          users: {
+            items: asItems<AdminSnapshot['users']['items'][number]>(users),
+            page: usersData?.page ?? 1,
+            page_size: usersData?.page_size ?? 20,
+            total: usersData?.total ?? 0,
+          },
           roles: asItems<AdminSnapshot['roles'][number]>(roles),
           capabilities: asItems<AdminSnapshot['capabilities'][number]>(capabilities),
           bindings: [],
-          accessReview: [],
+          accessReview: asItems<AdminSnapshot['accessReview'][number]>(accessReviewData?.sod_risks),
           audit: {
             items: auditItems,
             page: 1,
-            page_size: auditItems.length,
+            page_size: 50,
             total: auditItems.length,
           },
         } as never
       },
+      loadUserBindings: async (userId: number) =>
+        unwrap(client.get(`/users/${userId}/bindings`, {
+          params: { legal_entity_id: legalEntityId() },
+          headers: { 'X-Legal-Entity-Id': String(legalEntityId()) },
+        })).catch(() => null) as never,
       createBinding: (payload) =>
         unwrap(
           client.post(`/users/${(payload as { userId?: number }).userId ?? 0}/bindings`, payload, {

@@ -55,6 +55,8 @@ export type Principal = {
   tenantId: number
   employmentId: number | null
   displayName: string
+  tenantName?: string
+  legalEntityName?: string
   email: string
   employmentNo: string
   jobTitle: string
@@ -822,7 +824,8 @@ export type PayrollApi = {
 }
 
 export type AdminApi = {
-  getAdminSnapshot(tab: string): Promise<AdminSnapshot>
+  getAdminSnapshot(tab?: string): Promise<AdminSnapshot>
+  loadUserBindings(userId: number): Promise<unknown>
   createBinding(payload: Omit<AuthorityBinding, 'id' | 'status' | 'riskLevel'>): Promise<AuthorityBinding>
   reviewAccess(id: number, action: 'KEEP' | 'REVOKE'): Promise<AccessReviewItem>
 }

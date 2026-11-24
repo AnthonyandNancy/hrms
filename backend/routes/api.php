@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Engagement\Http\Controllers\NoticeController;
 use App\Modules\Engagement\Http\Controllers\NotificationController;
+use App\Modules\IAM\Http\Controllers\AccessReviewController;
 use App\Modules\IAM\Http\Controllers\AuthController;
 use App\Modules\IAM\Http\Controllers\AuthorizationAdminController;
 use App\Modules\IAM\Http\Controllers\BreakGlassController;
@@ -95,6 +96,8 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
 
     Route::post('/auth/break-glass', [BreakGlassController::class, 'activate'])->middleware(['mfa.step-up', 'capability:iam.session.manage,SELF'])->name('auth.break-glass.activate');
     Route::post('/auth/break-glass/{id}/revoke', [BreakGlassController::class, 'revoke'])->middleware('capability:iam.session.manage,SELF')->name('auth.break-glass.revoke');
+
+    Route::get('/access-review', [AccessReviewController::class, 'show'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,LEGAL_ENTITY,legal_entity_id'])->name('access-review.show');
 
     Route::get('/auth/events', [AuthorizationAdminController::class, 'authEvents'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,LEGAL_ENTITY,legal_entity_id'])->name('auth.events');
 });

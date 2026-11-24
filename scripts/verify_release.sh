@@ -58,6 +58,8 @@ if [ -d "$ROOT/frontend" ] && [ -f "$ROOT/frontend/package.json" ]; then
   run_gate "frontend lint" pnpm lint
   run_gate "frontend unit" pnpm test:unit -- --run
   run_gate "frontend build" pnpm build
+  run_gate "no demo wording" bash -c "! grep -rIn --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=mocks -E '演示验证码|任意 6 位|246810|演示账号' src"
+  run_gate "no mock data in dist" bash -c "! grep -rIl -E 'demo\.example|createMockAdapter' dist"
   if [ "${1:-}" != "--quick" ]; then
     run_gate "frontend e2e mock" pnpm test:e2e
   else

@@ -11,6 +11,12 @@ declare(strict_types=1);
  * matrix cannot drift from the executable capability middleware.
  */
 return [
+    'GET /v1/access-review' => [
+        'capability' => 'iam.audit.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'mfa_required'],
+    ],
     'DELETE /v1/bindings/{id}' => [
         'capability' => 'iam.binding.manage',
         'anchor' => 'LEGAL_ENTITY',

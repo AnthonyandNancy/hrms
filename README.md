@@ -132,32 +132,43 @@ The approved plan (section 15) mandates ADR-0001–ADR-0015. All fifteen are Acc
 
 The approved solution and plan are authoritative; this README does not replace their governance and sign-off requirements.
 
-## Demo credentials
+## First run
 
-Demo accounts are **local-only** and must never be enabled in a deployed
-environment. They are seeded with an operator-supplied password
-(`DEMO_SEED_PASSWORD`, at least 12 characters) and are not published here:
+The supported production birth path is the idempotent installer. It creates
+reference data and exactly one administrator, and **zero** employees, payroll
+runs or workflow cases:
 
 ```bash
 cd backend
-php artisan iam:seed-demo      # demo.admin, demo.hr, demo.manager, demo.employee
+php artisan hrms:install   --legal-entity-code=ACME-CN --legal-entity-name="Acme China"   --country=CN --timezone=Asia/Shanghai --currency=CNY   --admin-username=installer --admin-email=installer@example.test   --admin-password="$(cat /run/secrets/admin_password)"   --annual-days=10.00 --legal-basis="Company policy appendix A"
+```
+
+The administrator receives a real confirmed TOTP factor; the secret, otpauth
+URI and recovery codes are printed once and must be stored offline. Login stops
+at `202 MFA_REQUIRED` until the second factor is completed at
+`POST /v1/auth/mfa/challenge`; no session cookie is issued before that.
+
+`deploy/scripts/docker_up.sh` runs the installer by default. It requires
+`ADMIN_PASSWORD`, `LEGAL_ENTITY_CODE`, `LEGAL_ENTITY_NAME`, `ADMIN_USERNAME`,
+`ADMIN_EMAIL`, `ANNUAL_DAYS` and `LEGAL_BASIS`.
+
+## Optional demo dataset
+
+Demo accounts are **local-only** and must never be enabled in a deployed
+environment. `docker_up.sh --demo` (or the commands below with an
+operator-supplied `DEMO_SEED_PASSWORD`, at least 12 characters) loads the
+synthetic dataset; this is never the default path:
+
+```bash
+cd backend
+php artisan iam:seed-demo      # synthetic demo users, real TOTP factors
 php artisan people:seed-demo   # synthetic org, people, assignments and terms
-php artisan workflow:seed-templates
 php artisan talent:seed-demo
 ```
 
-The password is the value you passed as `DEMO_SEED_PASSWORD`; it is never
-committed and the login form does not prefill it. For the real-backend E2E
-suite export the same value:
-
-```bash
-export HRMS_DEMO_PASSWORD='<the password you seeded>'
-cd frontend && pnpm exec playwright test --config playwright.real.config.ts
-```
-
-The demo dataset is synthetic. `demo:seed` runs in **SHADOW** mode: domains owned
-by parallel modules are rehearsed and reconciled but not merged into live
-business tables, and `demo:verify` reports that honestly.
+`demo:seed` runs in **SHADOW** mode: domains owned by parallel modules are
+rehearsed and reconciled but not merged into live business tables, and
+`demo:verify` reports that honestly.
 
 ## Honest scope status
 

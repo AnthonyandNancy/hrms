@@ -37,6 +37,14 @@ final class MeController
             'has_mfa' => $user->hasConfirmedMfa(),
             'mfa_verified' => $principal->hasMfa(),
             'auth_version' => $principal->authVersion(),
+            'tenant_name' => (string) (\App\Modules\Organization\Models\LegalEntity::query()
+                ->where('tenant_id', $principal->tenantId())
+                ->orderBy('id')
+                ->value('name') ?? 'HRMS'),
+            'legal_entity_name' => (string) (\App\Modules\Organization\Models\LegalEntity::query()
+                ->where('tenant_id', $principal->tenantId())
+                ->orderBy('id')
+                ->value('name') ?? ''),
             'roles' => UserRole::query()
                 ->where('tenant_id', $principal->tenantId())
                 ->where('user_id', $principal->userId())

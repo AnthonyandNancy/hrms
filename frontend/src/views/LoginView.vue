@@ -15,7 +15,7 @@ const session = useSessionStore()
 
 // Never ship a working credential in the bundle. The username is a harmless
 // convenience prefill; the password must be typed by the human operating the
-// local demo (see README "Demo credentials").
+// Local development helper. Production builds must use the HTTP adapter.
 const form = reactive({
   username: 'demo.hr',
   password: '',
@@ -25,13 +25,14 @@ const errors = reactive<Record<string, string>>({})
 const totpError = ref('')
 const submitting = ref(false)
 const totpSubmitting = ref(false)
-const showDemo = ref(true)
+const showDemo = ref(false)
 const expiredVisible = ref(route.query.expired === '1')
 const enrollmentOpen = ref(false)
 
 const demoAccounts = computed(() => (session.principal ? [] : getApi().auth.demoAccounts()))
 
 const mfaRequired = computed(() => session.status === 'mfa_required')
+const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
 
 function clearErrors(): void {
   for (const key of Object.keys(errors)) delete errors[key]
@@ -96,10 +97,6 @@ function backToPassword(): void {
   clearErrors()
 }
 
-function useDemoTotp(): void {
-  totpCode.value = '246810'
-}
-
 function onMfaEnabled(): void {
   enrollmentOpen.value = false
   ElMessage.success('MFA 已启用，请在下次登录时输入动态验证码。')
@@ -122,7 +119,7 @@ onMounted(() => {
         <span class="login-brand__mark" aria-hidden="true">澄</span>
         <div>
           <p class="login-brand__name">澄明 HR</p>
-          <p class="login-brand__tenant">DEMO · 上海 · 澄明科技</p>
+          <p class="login-brand__tenant">{{ tenantLabel }}</p>
         </div>
       </div>
 
@@ -148,7 +145,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <p class="login-brand__footer">参考实现 · 合成演示数据，不含真实个人信息</p>
+      <p class="login-brand__footer">报告问题请联系 IT 服务台</p>
     </section>
 
     <main class="login-panel">
@@ -229,7 +226,7 @@ onMounted(() => {
               aria-controls="demo-accounts-list"
               @click="showDemo = !showDemo"
             >
-              <span>演示账号</span>
+              <span>账号帮助</span>
               <span class="demo-accounts__hint">点击填入</span>
             </button>
             <div v-if="showDemo && demoAccounts.length > 0" id="demo-accounts-list" class="demo-accounts__grid">
@@ -276,7 +273,7 @@ onMounted(() => {
               class="totp-input"
             />
             <p v-if="totpError" id="login-totp-error" class="field-error" role="alert">{{ totpError }}</p>
-            <button type="button" class="demo-totp" @click="useDemoTotp">使用演示验证码 246810</button>
+            
 
             <el-button
               type="primary"

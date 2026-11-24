@@ -2661,6 +2661,26 @@ paths:
           $ref: "#/components/responses/NotFound"
         "419":
           $ref: "#/components/responses/CsrfFailed"
+  /v1/access-review:
+    get:
+      operationId: getAccessReview
+      tags:
+        - IAM Audit
+      summary: Quarterly read-only access review
+      parameters:
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/auth/events:
     get:
       operationId: listAuthEvents

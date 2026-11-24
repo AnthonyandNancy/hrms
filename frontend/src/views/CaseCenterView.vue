@@ -179,7 +179,6 @@ onMounted(load)
       </div>
       <div class="page-header__actions">
         <span v-if="longestWaitDays !== null" class="plain-chip">最长等待：{{ longestWaitDays }} 天</span>
-        <span v-else class="plain-chip muted">最长等待：投影未发布</span>
       </div>
     </header>
 

@@ -197,7 +197,6 @@ onMounted(load)
             <h2 class="panel__title">用户账户</h2>
             <p class="panel__subtitle">账户、角色与 MFA 状态。撤权与离职会提升 auth_version，使旧会话下一次请求失效。</p>
           </div>
-          <span class="plain-chip">投影未发布</span>
         </div>
         <p class="small muted" style="margin: 0 0 12px">
           账户列表端点尚未在 OpenAPI 契约中发布。这里不使用 <code>/me/capabilities</code>
@@ -452,7 +451,6 @@ onMounted(load)
               <el-option label="组织单元" value="ORG_UNIT" />
               <el-option label="法人" value="LEGAL_ENTITY" />
               <el-option label="本人" value="SELF" />
-              <el-option label="租户" value="TENANT" />
             </el-select>
           </label>
           <label class="field-label"><span>锚点</span><el-input v-model="bindingForm.anchorName" placeholder="例如：人力资源部" /></label>

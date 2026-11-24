@@ -27,6 +27,9 @@ import { GROUP_LABEL, type NavigationItem } from '@/router/navigation'
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+
+const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
+
 const app = useAppStore()
 
 const icons: Record<string, unknown> = {
@@ -104,7 +107,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
         <span class="sidebar__mark" aria-hidden="true">澄</span>
         <span class="sidebar__brand-copy">
           <span class="sidebar__name">澄明 HR</span>
-          <span class="sidebar__tenant">DEMO · 上海</span>
+          <span class="sidebar__tenant">{{ tenantLabel }}</span>
         </span>
         <button
           class="sidebar__collapse"

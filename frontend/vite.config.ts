@@ -2,7 +2,16 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const apiMode = process.env.VITE_API_MODE ?? 'mock'
+
+  if (mode === 'production' && apiMode !== 'http') {
+    throw new Error(
+      'VITE_API_MODE must be "http" for a production build: shipping the mock adapter would serve synthetic data as if it were real.',
+    )
+  }
+
+  return {
   plugins: [vue()],
   resolve: {
     alias: {
@@ -24,7 +33,9 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    sourcemap: true,
+    // Production bundles must not leak the mock adapter source or demo data.
+    sourcemap: mode !== 'production',
     chunkSizeWarningLimit: 1200,
   },
+  }
 })

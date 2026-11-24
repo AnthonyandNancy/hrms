@@ -2998,6 +2998,7 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
       },
     },
     admin: {
+      loadUserBindings: async () => [],
       getAdminSnapshot: async () => {
         if (role !== 'admin') throw new ApiError('FORBIDDEN', '需要管理员权限')
         const users = employeeSeed.slice(0, 7).map((employee, index) => ({

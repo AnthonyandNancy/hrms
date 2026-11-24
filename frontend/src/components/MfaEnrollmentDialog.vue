@@ -105,7 +105,7 @@ watch(open, (value) => {
           autocomplete="one-time-code"
         />
         <p class="mfa-enroll__hint">
-          任意 6 位数字可通过演示环境验证；生产环境由后端校验 TOTP 窗口并绑定密钥。
+          请在此输入认证器当前显示的 6 位数字。系统会校验 TOTP 时间窗口后完成绑定。
         </p>
       </template>
 
