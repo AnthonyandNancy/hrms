@@ -84,6 +84,7 @@ final class RoleTemplateCatalog
                 $grant('SUPER_ADMIN', 'time.calendar.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('SUPER_ADMIN', 'time.shift.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('SUPER_ADMIN', 'reporting.dashboard.read', $le, FieldProfile::P1_INTERNAL),
+                $grant('SUPER_ADMIN', 'engagement.notice.read', $le, FieldProfile::P1_INTERNAL),
             ]),
             new RoleTemplate('SYSTEM_ADMIN', 'System administrator', 'Operate accounts, roles and organization metadata without payroll or audit.', [
                 $grant('SYSTEM_ADMIN', 'iam.user.read', $le, FieldProfile::P1_INTERNAL),
@@ -95,6 +96,7 @@ final class RoleTemplateCatalog
                 $grant('SYSTEM_ADMIN', 'org.tree.read', $le, FieldProfile::P0_PUBLIC),
                 $grant('SYSTEM_ADMIN', 'people.employee.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('SYSTEM_ADMIN', 'reporting.dashboard.read', $le, FieldProfile::P1_INTERNAL),
+                $grant('SYSTEM_ADMIN', 'engagement.notice.read', $le, FieldProfile::P1_INTERNAL),
             ]),
             new RoleTemplate('HR_ADMIN', 'HR administrator', 'Own people data, organization structure and HR policy execution.', [
                 $grant('HR_ADMIN', 'people.employee.read', $le, FieldProfile::P2_SENSITIVE),
@@ -233,6 +235,9 @@ final class RoleTemplateCatalog
                 $grant('LINE_MANAGER', 'lifecycle.probation.manage', $managed, FieldProfile::P2_SENSITIVE),
                 $grant('LINE_MANAGER', 'lifecycle.transfer.manage', $managed, FieldProfile::P2_SENSITIVE),
                 $grant('LINE_MANAGER', 'org.tree.read', $managed, FieldProfile::P0_PUBLIC),
+                // Notices are company-wide communication: every employed
+                // person must be able to read them, not only HR and staff.
+                $grant('LINE_MANAGER', 'engagement.notice.read', $managed, FieldProfile::P1_INTERNAL),
                 $grant('LINE_MANAGER', 'reporting.dashboard.read', $managed, FieldProfile::P1_INTERNAL),
             ]),
             new RoleTemplate('EMPLOYEE', 'Employee self-service', 'Own profile, leave, attendance, payslips and notices.', [

@@ -51,3 +51,37 @@ factoryhr-redis-1           Up 3 minutes (healthy)
   /dashboard shows 在职人数 = 4 人 with drilldown links
   /employees lists 4 employees, PII masked (手机/邮箱/身份证号)
   console: 0 errors, 0 warnings
+
+=== Port 5174 = Docker stack (Vite dev server removed) ===
+Tue Nov 24 02:35:09 UTC 2026
+NAME                        STATUS                        PORTS
+factoryhr-minio-1           Up 27 minutes (healthy)       9000/tcp
+factoryhr-mysql-1           Up 27 minutes (healthy)       3306/tcp, 33060/tcp
+factoryhr-nginx-1           Up 42 seconds (healthy)       0.0.0.0:5174->80/tcp, [::]:5174->80/tcp
+factoryhr-php-app-1         Up About a minute (healthy)   9000/tcp
+factoryhr-php-scheduler-1   Up 56 seconds (healthy)       9000/tcp
+factoryhr-php-worker-1      Up 57 seconds (healthy)       9000/tcp
+factoryhr-redis-1           Up 27 minutes (healthy)       6379/tcp
+
+--- published port ---
+80/tcp -> 0.0.0.0:5174
+80/tcp -> [::]:5174
+
+--- SPA + API on 5174 ---
+  GET /          = 200 text/html; charset=utf-8
+  GET /v1/health = 200
+
+--- 4 demo accounts on 5174 ---
+  demo.admin      login=429
+  demo.hr         login=429
+  demo.manager    login=429
+  demo.employee   login=429
+
+--- browser walkthrough (Playwright, demo.admin) ---
+  10/10 routes render, 0 console errors
+
+--- 4 demo accounts on 5174 (after throttle window) ---
+  demo.admin      login=200
+  demo.hr         login=200
+  demo.manager    login=200
+  demo.employee   login=200

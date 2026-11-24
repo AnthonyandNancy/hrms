@@ -9,8 +9,25 @@ import type {
   ExportJob,
   LoginRequest,
   SessionBootstrap,
+  AdminSnapshot,
 } from '@/api/contracts'
 import { ApiError } from '@/api/errors'
+
+/**
+ * The employer (legal entity) the interface is currently acting for.
+ *
+ * The reference implementation is single-employer, so this stays 1; it exists
+ * as one function so a multi-entity switcher only has to change it in one
+ * place instead of editing every scattered `legal_entity_id: 1` literal.
+ */
+export function legalEntityId(): number {
+  return 1
+}
+
+/** Headers that scope a request to the current employer. */
+function legalEntityHeaders(): Record<string, string> {
+  return { 'X-Legal-Entity-Id': String(legalEntityId()) }
+}
 
 /**
  * Session-cookie HTTP adapter for the real Laravel backend.
@@ -332,7 +349,7 @@ export function createHttpAdapter(): ApiAdapter {
               org_unit_id: orgId ?? undefined,
               status: status || undefined,
             },
-            headers: { 'X-Legal-Entity-Id': '1' },
+            headers: legalEntityHeaders(),
           }),
         ).then((data) => {
           const result = data as unknown as {
@@ -352,7 +369,7 @@ export function createHttpAdapter(): ApiAdapter {
         unwrap(
           client.get(`/employees/${id}`, {
             params: { as_of: asOf },
-            headers: { 'X-Legal-Entity-Id': '1' },
+            headers: legalEntityHeaders(),
           }),
         ).then((data) => normaliseEmployeeDetail(data as unknown as Record<string, unknown>)) as never,
       revealField: () => {
@@ -364,8 +381,8 @@ export function createHttpAdapter(): ApiAdapter {
       getOrgTree: async (asOf) => {
         const data = (await unwrap(
           client.get('/org-units/tree', {
-            params: { as_of: asOf, legal_entity_id: 1 },
-            headers: { 'X-Legal-Entity-Id': '1' },
+            params: { as_of: asOf, legal_entity_id: legalEntityId() },
+            headers: legalEntityHeaders(),
           }),
         )) as unknown as { items: Array<Record<string, unknown>> }
 
@@ -486,7 +503,49 @@ export function createHttpAdapter(): ApiAdapter {
     },
 
     admin: {
-      getAdminSnapshot: () => unwrap(client.get('/me/capabilities')) as never,
+      // The backend does not expose an aggregated admin snapshot endpoint; the
+      // OpenAPI contract has no such path. Compose it from the endpoints that
+      // do exist and report the rest as unavailable rather than inventing data.
+      // `/me/capabilities` describes the *caller*, so it must never be presented
+      // as the tenant capability catalogue.
+      getAdminSnapshot: async () => {
+        const params = { legal_entity_id: legalEntityId() }
+        // Only request what the caller is entitled to. The events endpoint
+        // requires `iam.audit.read`, which SYSTEM_ADMIN deliberately lacks
+        // (separation of duties), and an unentitled request shows up as a
+        // console 403 that looks like a bug rather than a policy decision.
+        const [roles, capabilities, audit] = await Promise.all([
+          unwrap(client.get('/roles', { params })).catch(() => null),
+          unwrap(client.get('/capabilities', { params })).catch(() => null),
+          Promise.resolve(null),
+        ])
+
+        const asItems = <T,>(value: unknown): T[] =>
+          Array.isArray(value)
+            ? (value as T[])
+            : Array.isArray((value as { items?: unknown })?.items)
+              ? ((value as { items: T[] }).items)
+              : []
+
+        const auditItems = asItems<AdminSnapshot['audit']['items'][number]>(audit)
+
+        return {
+          // Users, access review and bindings are not published by the API yet.
+          // Empty pages are honest here only because the view labels them as
+          // unavailable; they are not a claim that the tenant has no users.
+          users: { items: [], page: 1, page_size: 10, total: 0 },
+          roles: asItems<AdminSnapshot['roles'][number]>(roles),
+          capabilities: asItems<AdminSnapshot['capabilities'][number]>(capabilities),
+          bindings: [],
+          accessReview: [],
+          audit: {
+            items: auditItems,
+            page: 1,
+            page_size: auditItems.length,
+            total: auditItems.length,
+          },
+        } as never
+      },
       createBinding: (payload) =>
         unwrap(
           client.post(`/users/${(payload as { userId?: number }).userId ?? 0}/bindings`, payload, {
@@ -501,7 +560,7 @@ export function createHttpAdapter(): ApiAdapter {
         unwrap(
           client.get('/engagement/notices', {
             params: { filter },
-            headers: { 'X-Legal-Entity-Id': '1' },
+            headers: legalEntityHeaders(),
           }),
         ) as never,
       getNotice: (id) => unwrap(client.get(`/engagement/notices/${id}`)) as never,
@@ -528,7 +587,7 @@ export function createHttpAdapter(): ApiAdapter {
     dashboard: {
       getDashboard: async () => {
         const data = await unwrap<BackendDashboardData>(
-          client.get('/reporting/dashboard', { headers: { 'X-Legal-Entity-Id': '1' } }),
+          client.get('/reporting/dashboard', { headers: legalEntityHeaders() }),
         )
 
         return normaliseDashboard(data)
@@ -540,7 +599,7 @@ export function createHttpAdapter(): ApiAdapter {
     reporting: {
       getReportDefinitions: () =>
         unwrap(
-          client.get('/reporting/definitions', { headers: { 'X-Legal-Entity-Id': '1' } }),
+          client.get('/reporting/definitions', { headers: legalEntityHeaders() }),
         ) as never,
       runReport: (code, filters) =>
         unwrap(client.post('/reporting/run', { definition_code: code, filters })) as never,

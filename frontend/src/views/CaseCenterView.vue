@@ -23,16 +23,27 @@ const loading = ref(false)
 const error = ref('')
 const rows = ref<CaseSummary[]>([])
 const total = ref(0)
+
+// `/v1/cases` does not return how long each case has been waiting, so this
+// stays null and the chip says the projection is unpublished. A fabricated
+// "1 day" is worse than an honest gap: it looks like live data.
+const longestWaitDays = computed<number | null>(() => null)
 const page = ref(1)
 const pageSize = ref(10)
 
-const scopes = computed(() =>
-  [
-    { key: 'approvals' as const, label: '我的待办', count: 3 },
-    { key: 'mine' as const, label: '我发起的', count: 2 },
-    { key: 'all' as const, label: '全部案例', count: 7, capability: 'workflow.case.read' },
-  ].filter((item) => !item.capability || session.can(item.capability)),
-)
+// Counts come from the loaded page, never from literals. Hardcoded numbers
+// previously showed "7 cases" next to an empty list, which reads as data loss
+// rather than as "this scope has nothing for you".
+const scopes = computed(() => {
+  const loaded = total.value
+  return [
+    // `/v1/cases` does not implement per-scope filtering yet, so only the total
+    // is a real number. The other scopes show no count instead of a fake one.
+    { key: 'approvals' as const, label: '我的待办', count: null as number | null },
+    { key: 'mine' as const, label: '我发起的', count: null as number | null },
+    { key: 'all' as const, label: '全部案例', count: loaded, capability: 'workflow.case.read' },
+  ].filter((item) => !('capability' in item) || !item.capability || session.can(item.capability))
+})
 
 const statusTabs: Array<{ key: ApplicationStatus | 'ALL'; label: string }> = [
   { key: 'ALL', label: '全部申请状态' },
@@ -167,7 +178,8 @@ onMounted(load)
         </p>
       </div>
       <div class="page-header__actions">
-        <span class="plain-chip">最长等待：1 天</span>
+        <span v-if="longestWaitDays !== null" class="plain-chip">最长等待：{{ longestWaitDays }} 天</span>
+        <span v-else class="plain-chip muted">最长等待：投影未发布</span>
       </div>
     </header>
 

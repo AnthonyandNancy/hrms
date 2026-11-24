@@ -66,13 +66,13 @@ compose exec -T php-app php backend/artisan talent:seed-demo
 compose exec -T php-app php backend/artisan time:seed-leave-types --tenant=1 --annual-days=15.00 || true
 
 log "verifying the deployment"
-health="$(curl -fsS "http://127.0.0.1:${HTTP_PORT:-8080}/v1/health" || true)"
+health="$(curl -fsS "http://127.0.0.1:${HTTP_PORT:-5174}/v1/health" || true)"
 if ! grep -q '"status":"ok"' <<<"${health}"; then
     die "health check did not report ok: ${health}"
 fi
 
 login_code="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-    "http://127.0.0.1:${HTTP_PORT:-8080}/v1/auth/login" \
+    "http://127.0.0.1:${HTTP_PORT:-5174}/v1/auth/login" \
     -H 'Content-Type: application/json' -H 'Accept: application/json' \
     -d "{\"username\":\"demo.hr\",\"password\":\"${DEMO_SEED_PASSWORD}\"}")"
 
@@ -80,5 +80,5 @@ if [[ "${login_code}" != "200" ]]; then
     die "demo.hr login failed with HTTP ${login_code}"
 fi
 
-pass "stack is up: http://localhost:${HTTP_PORT:-8080}/v1/health (status ok, demo.hr login 200)"
+pass "stack is up: http://localhost:${HTTP_PORT:-5174}/v1/health (status ok, demo.hr login 200)"
 log "this is a reference/demo deployment: synthetic data, placeholder secrets, no TLS"

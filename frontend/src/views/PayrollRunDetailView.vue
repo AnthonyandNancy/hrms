@@ -180,7 +180,10 @@ onMounted(load)
         <el-tabs v-model="activeTab" class="payroll-tabs">
           <el-tab-pane label="员工结果" name="results">
             <div class="tab-toolbar">
-              <p class="small muted">输入快照：合同与组织截至 {{ formatBusinessDate('2026-11-20') }}；金额为整数分。</p>
+              <p class="small muted">
+                输入快照：合同与组织截至
+                {{ data?.inputLockedAt ? formatDateTimeInTimezone(data.inputLockedAt) : '尚未锁定' }}；金额为整数分。
+              </p>
               <el-input placeholder="搜索员工或工号" size="small" style="max-width: 240px" aria-label="搜索工资行" />
             </div>
             <div class="payroll-lines-wrap">

@@ -58,12 +58,12 @@
 
 | 编号 | 证据 | 结果 | 证据文件 / 说明 |
 |---|---|---|---|
-| E-01 | 架构边界报告 | **PASS** | `evidence/logs/arch-test.txt`：`Module boundaries OK`，16 条非阻断 ownership 警告（见 §6 已知限制） |
+| E-01 | 架构边界报告 | **PASS** | `evidence/logs/arch-test.txt`：`Module boundaries OK`，4 条非阻断 ownership 警告（见 §6 已知限制） |
 | E-02 | 能力覆盖报告 | **PASS** | `evidence/logs/capability-audit.txt`：`Capability audit OK`，受保护路由全部有 capability，公共路由仅 5 条显式白名单 |
-| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**722 passed / 35,728 assertions / 0 failure / 0 error / 0 skipped** |
+| E-03 | 后端测试报告 | **PASS** | `evidence/logs/backend-test-current.txt` 与 `junit-current.xml`：**726 passed / 35,734 assertions / 0 failure / 0 error / 0 skipped** |
 | E-04 | 静态分析与风格 | **PASS** | `evidence/logs/pint.txt`（891 文件 PASS）、`evidence/logs/phpstan.txt`（`[OK] No errors`，level 6） |
 | E-05 | 契约校验 | **PASS** | `evidence/logs/openapi-lint.txt`（125 paths / 139 operations / 3.1.0）、`evidence/logs/openapi-validate.txt`（Redocly valid，3 条非阻断 warning）、契约测试 PASS |
-| E-06 | 前端质量 | **PASS** | `frontend-typecheck.txt`、`frontend-lint.txt`、`frontend-unit.txt`（30 passed）、`frontend-build.txt` |
+| E-06 | 前端质量 | **PASS** | `frontend-typecheck.txt`、`frontend-lint.txt`、`frontend-unit.txt`（32 passed）、`frontend-build.txt` |
 | E-07 | E2E 报告 | **PASS** | Mock：`frontend-e2e-mock.txt`（11 passed）；真实后端：`frontend-e2e-real.txt`（8 passed，1.8m） |
 | E-08 | 权限负测矩阵 | **PASS** | `backend/tests/Authorization/endpoint_matrix.php` 覆盖 **134** 条受保护端点，`capability:audit` 无缺失告警；负测见 §4 |
 | E-09 | 时间旅行报告 | **PASS** | 半开区间 `AsOfQueryTest`/`DateRangeTest`；T-1/T/T+1 `AsOfConsistencyTest`；DST 与跨夜 `ShiftWindowTest`、`OvernightShiftTest` |
@@ -71,7 +71,7 @@
 | E-11 | 工资计算与平行报告 | **PASS（实数，机制层）** | 4 名员工实际计算（gross 5,000,000 / net 4,180,400 分，`failed: 0`）；`payroll-reconciliation.txt` 通过；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、`failed_employee_count: 0`、人数一致。⚠ 旧系统导出为**合成对照文件**（`scripts/payroll_old_export.php` 由同一计算生成并打印警告），故它证明对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
 | E-12 | 迁移彩排与对账 | **PASS（SHADOW）** | `migration-rehearsal.txt`、`migration-rehearsal-script.txt`：6 域 `APPLIED`/`reconcile=PASS`，target=SHADOW |
 | E-13 | 备份恢复与回滚演练 | **PASS（本地范围）** | `backup-restore.txt`（sha256 一致）、`verify-release.txt` 中 rollback drill PASS（2.3s / 3600s 预算）。MySQL PITR、feature-flag 回退、路由切换为 NOT_EXECUTED |
-| E-13b | Docker Compose 部署栈（后端 + 前端 SPA） | **PASS** | `evidence/logs/docker-compose.txt`：7 个服务全部 healthy；`/v1/health` 返回 `status=ok`（db/cache/storage 均 true）；MySQL 107 表 / 26 迁移。**SPA 已构建进 nginx 镜像并与 API 同源**：10 个前端路由全部 200，静态资源 200。真实 Chromium 验收：`demo.hr` 登录成功→`/workspace`；仪表盘「在职人数 4 人」；员工目录 4 人且 PII 全遮罩；控制台 0 错误 0 警告。一键脚本 `deploy/scripts/docker_up.sh` 从 `docker compose down -v` 完整跑通 |
+| E-13b | Docker Compose 部署栈（后端 + 前端 SPA，单一 5174 入口） | **PASS** | `evidence/logs/docker-compose.txt`：7 个服务全部 healthy；`/v1/health` 返回 `status=ok`（db/cache/storage 均 true）；MySQL 107 表 / 26 迁移。**SPA 已构建进 nginx 镜像并与 API 同源**，端口统一为 **5174**（Vite 开发服务器已停用）。10 个前端路由全部 200，静态资源 200。真实 Chromium 验收：`demo.admin` 与 `demo.hr` 均登录成功；**10 个路由 0 控制台错误**；仪表盘「在职人数 4 人」；员工目录 4 人且 PII 全遮罩。一键脚本 `deploy/scripts/docker_up.sh` 从 `docker compose down -v` 完整跑通 |
 | E-14 | 安全扫描 | **PASS（本地）+ GATE（SAST）** | `composer-audit.txt`：无已知漏洞；`gitleaks.txt`：106 commits，`no leaks found`；SAST 由 `.github/workflows/codeql.yml` 在 GitHub 执行，本地无法证明 |
 | E-15 | 审计样本 | **PASS** | 登录/失败/锁定：`LoginSecurityTest`；撤权：`SessionRevocationTest`；导出：`ExportScopeTest`；工资封存：`PayrollRunLifecycleTest`；break-glass：`BreakGlassTest`；审计只追加：`AuditAppendOnlyTest` |
 | E-16 | UAT 记录 | **GATE** | 自动化映射见 §5；UAT-01–13 **业务签字未完成**，不得标记通过 |

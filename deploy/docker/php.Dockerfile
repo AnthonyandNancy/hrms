@@ -82,7 +82,9 @@ COPY --from=frontend --chown=${UID}:${GID} /app/frontend/dist /var/www/html/fron
 
 RUN addgroup -g "${GID}" -S app \
     && adduser -u "${UID}" -S -G app app \
-    && mkdir -p /var/www/html/backend/storage/framework/{cache,sessions,views} \
+    && mkdir -p /var/www/html/backend/storage/framework/cache \
+        /var/www/html/backend/storage/framework/sessions \
+        /var/www/html/backend/storage/framework/views \
         /var/www/html/backend/storage/logs \
         /var/www/html/backend/bootstrap/cache \
         /var/www/html/frontend-published \

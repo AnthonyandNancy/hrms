@@ -9,7 +9,7 @@ import { getApi } from '@/api'
 import type { ExportJob, ExportPurpose, ExportRequest, ReportDefinition, ReportResult } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTimeInTimezone } from '@/utils/format'
+import { formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { exportSchema, validate } from '@/utils/validation'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -175,7 +175,7 @@ watch(selectedCode, () => {
   chart = null
   for (const key of Object.keys(filterValues)) delete filterValues[key]
   for (const filter of selectedDefinition.value?.filters ?? []) {
-    filterValues[filter.key] = filter.type === 'DATE_RANGE' ? '2026-11-23' : (filter.options?.[0] ?? '')
+    filterValues[filter.key] = filter.type === 'DATE_RANGE' ? todayBusinessDate() : (filter.options?.[0] ?? '')
   }
   void runReport()
 })
@@ -183,7 +183,7 @@ watch(selectedCode, () => {
 onMounted(async () => {
   await loadDefinitions()
   for (const filter of selectedDefinition.value?.filters ?? []) {
-    filterValues[filter.key] = filter.type === 'DATE_RANGE' ? '2026-11-23' : (filter.options?.[0] ?? '')
+    filterValues[filter.key] = filter.type === 'DATE_RANGE' ? todayBusinessDate() : (filter.options?.[0] ?? '')
   }
   await runReport()
 })

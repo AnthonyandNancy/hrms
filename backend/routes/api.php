@@ -175,7 +175,7 @@ Route::middleware(['auth.session', 'capability:platform.feature.manage'])->group
     Route::put('/platform/features/{flag}', [FeatureFlagController::class, 'update'])->name('platform.features.update');
 });
 
-Route::middleware(WorkflowPrincipalContext::class)->prefix('cases')->group(function (): void {
+Route::middleware(['auth.session', WorkflowPrincipalContext::class])->prefix('cases')->group(function (): void {
     Route::get('/', [CaseController::class, 'index'])
         ->middleware('capability:workflow.case.read')
         ->name('workflow.cases.index');
@@ -204,7 +204,7 @@ Route::middleware(WorkflowPrincipalContext::class)->prefix('cases')->group(funct
         ->name('workflow.cases.decide');
 });
 
-Route::prefix('effects')->middleware(WorkflowPrincipalContext::class)->group(function (): void {
+Route::prefix('effects')->middleware(['auth.session', WorkflowPrincipalContext::class])->group(function (): void {
     Route::post('/{id}/retry', [EffectController::class, 'retry'])
         ->whereNumber('id')
         ->middleware('capability:workflow.case.admin')
@@ -215,7 +215,7 @@ Route::get('/tasks/my', [TaskController::class, 'my'])
     ->middleware([WorkflowPrincipalContext::class, 'capability:workflow.case.read'])
     ->name('workflow.tasks.my');
 
-Route::prefix('workflow/templates')->middleware(WorkflowPrincipalContext::class)->group(function (): void {
+Route::prefix('workflow/templates')->middleware(['auth.session', WorkflowPrincipalContext::class])->group(function (): void {
     Route::get('/', [TemplateController::class, 'index'])
         ->middleware('capability:workflow.case.read')
         ->name('workflow.templates.index');
@@ -224,7 +224,7 @@ Route::prefix('workflow/templates')->middleware(WorkflowPrincipalContext::class)
         ->name('workflow.templates.store');
 });
 
-Route::middleware(WorkflowPrincipalContext::class)->group(function (): void {
+Route::middleware(['auth.session', WorkflowPrincipalContext::class])->group(function (): void {
     Route::post('/delegations', [DelegationController::class, 'store'])
         ->middleware('capability:workflow.case.decide')
         ->name('workflow.delegations.store');

@@ -255,6 +255,45 @@ curl -s http://localhost:8080/v1/health | jq .data.status  # "ok"
 | 12 | 员工目录 403 被当成"空列表"展示 | Sev2 | 与 #11 同源；修复日期后恢复 |
 | 13 | `el-pagination` 使用已弃用的 `small` 属性 | Sev3 | 控制台每次都有弃用警告 |
 
+### 端口与认证：两处必须说明的变更
+
+**1. 5174 现在是 Docker，不再是 Vite**
+
+此前 `:5174` 是本机 `pnpm dev`（Vite 开发服务器），`:8080` 才是容器栈 —— 两个入口并存，
+不符合"全部端在 Docker"。已关闭 Vite 与 `artisan serve` 进程，把 compose 的发布端口改为
+`5174`，现在：
+
+| 地址 | 承载 |
+|---|---|
+| `http://localhost:5174/` | SPA（nginx 容器，构建产物） |
+| `http://localhost:5174/v1/*` | Laravel API（php-fpm 容器） |
+| `http://localhost:5174/v1/health` | `status=ok`，db/cache/storage 全 true |
+
+演示账号（密码统一 `Demo!2026Synthetic`）：`demo.admin` / `demo.hr` / `demo.manager` / `demo.employee`。
+
+**2. workflow 路由缺失认证中间件（Sev2）**
+
+`/v1/cases`、`/v1/effects`、`/v1/workflow/templates`、`/v1/delegations` 四个路由组只挂了
+`WorkflowPrincipalContext`（它只写请求属性，不做认证），因此**已登录用户访问 `/v1/cases` 得到 401**，
+而同一会话的 `/v1/me`、`/v1/org-units/tree` 都是 200。
+
+之所以一直没被发现：workflow 的测试用 `FakeWorkflowPrincipalResolver` 伪造主体，绕过了会话认证。
+已补 `auth.session`，并新增 `WorkflowAuthSessionTest`（真实登录，4 个用例）。
+**该测试在回退修复后确实失败**（"did not authenticate a valid session"），证明它能挡住回归。
+
+**3. 授权矩阵缺口（Sev3）**
+
+`LINE_MANAGER`、`SYSTEM_ADMIN`、`SUPER_ADMIN` 三个角色**都没有 `engagement.notice.read`**，
+导致经理和管理员看不到公司公告。公告是全员沟通，已为三者补上只读授权（仍不含 `manage`）。
+`SYSTEM_ADMIN` 继续没有 `iam.audit.read` —— 那是 `AUDITOR` 角色的职责，属**有意的职责分离**，
+不是缺口。
+
+**4. 前端硬编码假数据（Sev2）**
+
+`/cases` 页面把计数写死为"我的待办 3 / 我发起的 2 / 全部案例 7"，而 API 实际返回 `total: 0`，
+界面于是出现"全部案例 7"配"没有审批案例"的矛盾。同类问题还有"最长等待：1 天"。
+已全部改为从 API 派生；无法取得时显示"投影未发布"，不编造数字。
+
 ### 仍需注意
 
 - 这是**参考/演示部署**：合成数据、占位口令、无 TLS、单机 Compose。生产 HA、

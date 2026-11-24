@@ -5,7 +5,7 @@ import { ArrowDown, ArrowRight, WarningFilled } from '@element-plus/icons-vue'
 import { getApi } from '@/api'
 import type { MoveImpact, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
-import { formatBusinessDate } from '@/utils/format'
+import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { useSessionStore } from '@/stores/session'
 import AsOfDatePicker from '@/components/AsOfDatePicker.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -13,7 +13,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 
 const session = useSessionStore()
-const asOf = ref('2026-11-23')
+const asOf = ref(todayBusinessDate())
 const loading = ref(false)
 const error = ref('')
 const tree = ref<OrgNode[]>([])

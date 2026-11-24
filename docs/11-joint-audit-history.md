@@ -245,6 +245,38 @@
 
 E-13b 由 **GATE** 转为 **PASS**；GATE-09 关闭。
 
+### 11. 第六轮：把 5174 收进 Docker，并补上 workflow 认证漏洞
+
+用户要求"全部端必须在 docker 部署上线"。此前 `:5174` 是本机 Vite 开发服务器，`:8080` 才是容器栈——
+两个入口并存，不满足要求。本轮关闭 Vite 与 `artisan serve`，把 compose 发布端口改为 5174。
+
+切换过程中暴露了本轮最严重的缺陷：
+
+| # | 缺陷 | 严重度 | 说明 |
+|---|---|---|---|
+| 33 | **workflow 四个路由组缺 `auth.session`** | **Sev2（认证）** | `/v1/cases` 等对已登录用户返回 401，而同会话 `/v1/me` 是 200 |
+| 34 | workflow 测试伪造 principal，掩盖了 #33 | Sev2（测试可信度） | `FakeWorkflowPrincipalResolver` 绕过会话认证，测试再绿也证明不了路由受保护 |
+| 35 | `LINE_MANAGER`/`SYSTEM_ADMIN`/`SUPER_ADMIN` 无 `engagement.notice.read` | Sev3 | 经理与管理员看不到公司公告 |
+| 36 | `/cases` 计数硬编码 3/2/7，"最长等待 1 天" | **Sev2** | API 返回 0，界面却显示 7 条，制造"数据丢失"假象 |
+
+**#33 的性质**：这是一个**认证缺失**，不是授权错误。`WorkflowPrincipalContext` 只把主体写进
+请求属性，从不验证会话；缺少 `auth.session` 时，控制器拿不到主体，返回 401。
+
+**#34 是它能存活的原因**：测试用假 resolver 直接注入主体，跳过了真实登录路径。修复后新增
+`WorkflowAuthSessionTest`（真实 `postJson('/v1/auth/login')` + cookie + CSRF），并**验证该测试在
+回退修复后确实失败**：
+
+```
+⨯ workflow endpoints accept an authenticated session with data set #0
+  /v1/cases did not authenticate a valid session
+```
+
+**#36 的性质**：硬编码数字让界面自相矛盾（"全部案例 7" + "没有审批案例"）。已全部改为从 API
+派生；取不到时显示"投影未发布"，不编造。
+
+**结果**：`/cases`→200；四类角色均可读公告；**10 个路由在浏览器中 0 控制台错误**；
+后端 726 测试通过（新增 4）；capability:audit / arch:test / Pint 全绿。
+
 ## 结论
 
 **`ACCEPTED_WITH_GATES`**：代码证据全绿、无 Sev1/Sev2 遗留；组织签认（S-01–S-08）、
