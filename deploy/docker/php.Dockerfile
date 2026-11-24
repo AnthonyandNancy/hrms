@@ -12,6 +12,32 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
+FROM node:24-alpine AS frontend
+
+WORKDIR /app/frontend
+
+# Same relative API base as the SPA expects when served from the same origin.
+ARG VITE_API_MODE=http
+ARG VITE_API_BASE_URL=/v1
+ENV VITE_API_MODE=$VITE_API_MODE VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+# Copy sources without clobbering the freshly installed node_modules: the
+# build context contains a host node_modules that must never replace it.
+COPY frontend/src ./src
+COPY frontend/public ./public
+COPY frontend/index.html frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json frontend/vite.config.ts frontend/env.d.ts ./
+RUN pnpm build
+
+# Nginx image that already contains the built SPA. Used by the `nginx` service
+# so the frontend and API share an origin without a cross-image volume.
+FROM nginx:1.27-alpine AS frontend-runtime
+
+COPY --from=frontend /app/frontend/dist /usr/share/nginx/html
+COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
+
 FROM php:8.4-fpm-alpine AS runtime
 
 ARG UID=10001
@@ -52,14 +78,20 @@ WORKDIR /var/www/html
 COPY --from=vendor --chown=${UID}:${GID} /app/backend/vendor /var/www/html/backend/vendor
 COPY --chown=${UID}:${GID} backend /var/www/html/backend
 COPY --chown=${UID}:${GID} deploy /var/www/html/deploy
+COPY --from=frontend --chown=${UID}:${GID} /app/frontend/dist /var/www/html/frontend/dist
 
 RUN addgroup -g "${GID}" -S app \
     && adduser -u "${UID}" -S -G app app \
     && mkdir -p /var/www/html/backend/storage/framework/{cache,sessions,views} \
         /var/www/html/backend/storage/logs \
         /var/www/html/backend/bootstrap/cache \
-    && chown -R app:app /var/www/html/backend/storage /var/www/html/backend/bootstrap/cache \
-    && chmod -R ug+rwX /var/www/html/backend/storage /var/www/html/backend/bootstrap/cache
+        /var/www/html/frontend-published \
+    && chown -R app:app /var/www/html/backend/storage \
+        /var/www/html/backend/bootstrap/cache \
+        /var/www/html/frontend-published \
+    && chmod -R ug+rwX /var/www/html/backend/storage \
+        /var/www/html/backend/bootstrap/cache \
+        /var/www/html/frontend-published
 
 USER app
 

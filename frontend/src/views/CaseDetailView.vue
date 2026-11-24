@@ -6,7 +6,7 @@ import { getApi } from '@/api'
 import type { CaseAction, CaseDetail } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTimeInTimezone, formatBusinessDate } from '@/utils/format'
+import { formatDateTimeInTimezone, formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { decisionSchema, validate } from '@/utils/validation'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Timeline from '@/components/Timeline.vue'
@@ -236,7 +236,7 @@ onMounted(load)
                 <dt>提交时间</dt>
                 <dd>{{ formatDateTimeInTimezone(detail.appliedAt) }}</dd>
                 <dt>数据截止</dt>
-                <dd>{{ formatBusinessDate('2026-11-23') }}</dd>
+                <dd>{{ formatBusinessDate(todayBusinessDate()) }}</dd>
               </dl>
             </div>
           </section>

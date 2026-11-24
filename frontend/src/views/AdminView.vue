@@ -6,7 +6,7 @@ import type { AdminSnapshot, AuthorityBinding, CapabilityDefinition } from '@/ap
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { FIELD_PROFILE_LABEL } from '@/utils/status'
-import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
+import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
@@ -29,7 +29,7 @@ const bindingForm = reactive({
   anchorName: '',
   fieldProfiles: ['P0_PUBLIC'] as AuthorityBinding['fieldProfiles'],
   purpose: '',
-  validFrom: '2026-11-23',
+  validFrom: todayBusinessDate(),
   expiresOn: '2027-02-28',
 })
 

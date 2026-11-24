@@ -150,7 +150,7 @@ const pageCount = computed(() => Math.max(1, Math.ceil(props.total / props.pageS
         :page-sizes="[10, 20, 50]"
         layout="sizes, prev, pager, next"
         background
-        small
+        size="small"
         @current-change="emit('update:page', $event)"
         @size-change="emit('update:pageSize', $event)"
       />

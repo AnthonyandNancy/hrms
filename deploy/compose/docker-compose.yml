@@ -45,6 +45,8 @@ x-app-common: &app-common
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
   volumes:
     - app-storage:/var/www/html/backend/storage
+    # nginx runs a different image, so the SPA built into this image is
+    # published to a shared volume that nginx mounts read-only.
   networks:
     - backend
   depends_on:
@@ -63,7 +65,13 @@ x-app-common: &app-common
 
 services:
   nginx:
-    image: nginx:1.27-alpine
+    # Reuses the same image so the built SPA is present at
+    # /var/www/html/frontend/dist without a cross-image volume.
+    build:
+      context: ../..
+      dockerfile: deploy/docker/php.Dockerfile
+      target: frontend-runtime
+    image: factoryhr/frontend:local
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-8080}:80"
@@ -84,6 +92,7 @@ services:
 
   php-app:
     <<: *app-common
+    # Publish the SPA once (idempotent) before starting php-fpm.
     command: ["php-fpm", "--nodaemonize"]
 
   php-worker:

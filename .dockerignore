@@ -1,0 +1,34 @@
+# Keep the build context small and deterministic.
+#
+# Without this file the context includes host node_modules/vendor trees, which
+# are both huge and platform-specific; copying them over the container's own
+# install breaks the frontend build (vue-tsc is a Linux install inside the
+# image, not the host's Windows one).
+
+**/node_modules
+**/vendor
+
+# Build and test artefacts
+frontend/dist
+frontend/playwright-report
+frontend/playwright-report-real
+frontend/test-results
+backend/storage/logs
+backend/storage/framework/cache
+backend/storage/framework/sessions
+backend/storage/framework/views
+backend/bootstrap/cache/*.php
+backend/database/*.sqlite
+
+# Local secrets and VCS noise
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.gitignore
+.worktrees
+
+# Documentation build artefacts
+build
+__pycache__
+*.pyc

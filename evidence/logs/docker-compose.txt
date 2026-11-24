@@ -29,3 +29,25 @@ factoryhr-redis-1           Up 3 minutes (healthy)
   /v1/time/attendance?month=2026-11                    200
   /v1/reporting/definitions?legal_entity_id=1          200
   /v1/payroll/runs (HR must be 403 by design)             403
+
+--- SPA (built into the nginx image) ---
+  /                200 text/html; charset=utf-8
+  /login           200 text/html; charset=utf-8
+  /workspace       200 text/html; charset=utf-8
+  /cases           200 text/html; charset=utf-8
+  /notices         200 text/html; charset=utf-8
+  /organization    200 text/html; charset=utf-8
+  /leave           200 text/html; charset=utf-8
+  /attendance      200 text/html; charset=utf-8
+  /dashboard       200 text/html; charset=utf-8
+  /reports         200 text/html; charset=utf-8
+  /admin           200 text/html; charset=utf-8
+
+--- assets referenced by index.html ---
+  /assets/index-DDWIaHCL.js                200 application/javascript; charset=utf-8
+
+--- browser verification (Playwright, real Chromium) ---
+  login page renders, demo.hr logs in, redirects to /workspace
+  /dashboard shows 在职人数 = 4 人 with drilldown links
+  /employees lists 4 employees, PII masked (手机/邮箱/身份证号)
+  console: 0 errors, 0 warnings

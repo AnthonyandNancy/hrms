@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { AttendanceCorrectionPayload, AttendanceDay, AttendanceMonth } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
-import { formatMonthLabel, weekdayLabel } from '@/utils/format'
+import { formatMonthLabel, todayBusinessDate, weekdayLabel } from '@/utils/format'
 import { ATTENDANCE_STATUS } from '@/utils/status'
 import { correctionSchema, validate } from '@/utils/validation'
 import LoadingState from '@/components/LoadingState.vue'
@@ -18,7 +18,7 @@ const correctionOpen = ref(false)
 const submitting = ref(false)
 const formError = ref('')
 const form = reactive<AttendanceCorrectionPayload>({
-  date: '2026-11-23',
+  date: todayBusinessDate(),
   correctionType: 'MISSING_PUNCH',
   firstIn: '08:56',
   lastOut: '18:30',
@@ -60,7 +60,7 @@ async function load(): Promise<void> {
 }
 
 function openCorrection(day?: AttendanceDay): void {
-  form.date = day?.date ?? '2026-11-23'
+  form.date = day?.date ?? todayBusinessDate()
   form.correctionType = day?.firstIn ? 'WRONG_TIME' : 'MISSING_PUNCH'
   form.firstIn = day?.firstIn ?? '08:56'
   form.lastOut = day?.lastOut ?? '18:30'

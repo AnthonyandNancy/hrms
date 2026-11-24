@@ -232,6 +232,29 @@ docker compose -f deploy/compose/docker-compose.yml ps     # 7 services healthy
 curl -s http://localhost:8080/v1/health | jq .data.status  # "ok"
 ```
 
+### 前端也已进入容器并通过浏览器验收
+
+不只是 API：**SPA 已构建进 nginx 镜像，与 API 同源**，用真实 Chromium 验证过。
+
+| 项 | 结果 |
+|---|---|
+| 构建方式 | Dockerfile 新增 `node:24-alpine` 前端 stage，pnpm 构建后由 `frontend-runtime` 阶段带走 |
+| 同源部署 | nginx 同时服务 `/`（SPA）与 `/v1/`（php-fpm），浏览器无需 CORS |
+| SPA 路由回退 | `/login`、`/workspace`、`/cases`、`/notices`、`/organization`、`/leave`、`/attendance`、`/dashboard`、`/reports`、`/admin` 全部 200 |
+| 静态资源 | `index.html` 引用的 JS/CSS 均 200 |
+| 真实登录 | `demo.hr` 在浏览器中登录成功并跳转 `/workspace` |
+| 真实数据 | 仪表盘「在职人数 4 人」；员工目录列出 4 人，手机/邮箱/身份证号**全部遮罩** |
+| 控制台 | **0 错误 0 警告** |
+
+期间又修复了 4 个前端缺陷：
+
+| # | 缺陷 | 严重度 | 说明 |
+|---|---|---|---|
+| 10 | 仪表盘标签由后端返回英文（`Headcount`、`View details`） | Sev3 | 中文界面混英文。改为按稳定 `code` 在前端映射中文，`COUNT/MINUTES` 等机器单位也本地化 |
+| 11 | **9 处硬编码演示日期 `2026-11-23`** | **Sev2** | 授权绑定从 11-24 起有效，前端却在查 11-23 → 员工目录 **403 后显示"没有匹配的员工"**，看起来像权限 bug。新增 `todayBusinessDate(tz)` 按业务时区取当天 |
+| 12 | 员工目录 403 被当成"空列表"展示 | Sev2 | 与 #11 同源；修复日期后恢复 |
+| 13 | `el-pagination` 使用已弃用的 `small` 属性 | Sev3 | 控制台每次都有弃用警告 |
+
 ### 仍需注意
 
 - 这是**参考/演示部署**：合成数据、占位口令、无 TLS、单机 Compose。生产 HA、

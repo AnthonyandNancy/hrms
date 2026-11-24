@@ -6,6 +6,7 @@ import {
   formatMoney,
   formatMonthLabel,
   parseYuanToCents,
+  todayBusinessDate,
   weekdayLabel,
 } from '@/utils/format'
 
@@ -54,5 +55,21 @@ describe('business date and UTC formatting', () => {
   it('labels weekdays from a calendar date without local shift', () => {
     expect(weekdayLabel('2026-11-23')).toBe('周一')
     expect(weekdayLabel('2026-11-22')).toBe('周日')
+  })
+})
+
+describe('todayBusinessDate', () => {
+  it('renders the date in the requested timezone, not the machine timezone', () => {
+    // 2026-11-23T17:30Z is still 2026-11-23 in UTC but already 2026-11-24 in
+    // Shanghai. A view that hardcoded the UTC date would query a day that is
+    // in the past for the user's business calendar.
+    const instant = new Date('2026-11-23T17:30:00Z')
+    expect(todayBusinessDate('UTC', instant)).toBe('2026-11-23')
+    expect(todayBusinessDate('Asia/Shanghai', instant)).toBe('2026-11-24')
+  })
+
+  it('always returns a zero padded ISO date', () => {
+    const instant = new Date('2026-01-05T03:00:00Z')
+    expect(todayBusinessDate('UTC', instant)).toBe('2026-01-05')
   })
 })

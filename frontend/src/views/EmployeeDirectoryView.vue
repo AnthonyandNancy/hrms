@@ -6,7 +6,7 @@ import { getApi } from '@/api'
 import type { DirectoryEmployee, EmployeeDetail, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import { formatBusinessDate } from '@/utils/format'
+import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { EMPLOYEE_STATUS } from '@/utils/status'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import AsOfDatePicker from '@/components/AsOfDatePicker.vue'
@@ -29,7 +29,7 @@ const filters = reactive({
   search: '',
   orgId: null as number | null,
   status: '' as DirectoryEmployee['status'] | '',
-  asOf: '2026-11-23',
+  asOf: todayBusinessDate(),
   page: 1,
   pageSize: 10,
 })
@@ -124,7 +124,7 @@ function resetFilters(): void {
   filters.search = ''
   filters.orgId = null
   filters.status = ''
-  filters.asOf = '2026-11-23'
+  filters.asOf = todayBusinessDate()
   filters.page = 1
 }
 

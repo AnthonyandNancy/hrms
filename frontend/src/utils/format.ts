@@ -145,3 +145,22 @@ export function addDays(date: string, days: number): string {
 export function toUtcDate(date: string): Date {
   return new Date(`${date}T00:00:00Z`)
 }
+
+/**
+ * Today as a business date (YYYY-MM-DD) in the given IANA timezone.
+ *
+ * Views must not hardcode demo dates: a fixed date silently becomes invalid as
+ * soon as the authorization bindings or data move past it, and the resulting
+ * 403/empty list looks like a permissions bug rather than a stale default.
+ */
+export function todayBusinessDate(timeZone = 'Asia/Shanghai', now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}

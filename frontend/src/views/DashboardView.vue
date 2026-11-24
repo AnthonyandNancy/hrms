@@ -5,6 +5,7 @@ import { getApi } from '@/api'
 import type { DashboardData, DashboardMetric } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
+import { metricLabel, metricUnitLabel } from '@/utils/status'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import FreshnessNote from '@/components/FreshnessNote.vue'
@@ -43,13 +44,13 @@ onMounted(load)
     <header class="page-header">
       <div class="page-header__copy">
         <p class="page-header__breadcrumb">洞察</p>
-        <h1 class="page-header__title">{{ data?.greeting ?? '人力仪表盘' }}</h1>
+        <h1 class="page-header__title">人力仪表盘</h1>
         <p class="page-header__description">
           所有指标都与下钻列表使用同一投影与同一授权谓词。数字、列表与导出不会各算一套口径。
         </p>
       </div>
       <div class="page-header__actions">
-        <FreshnessNote v-if="data" :timestamp="'2026-11-23T09:05:00Z'" />
+        <FreshnessNote v-if="data" :timestamp="data.freshness" />
       </div>
     </header>
 
@@ -63,16 +64,16 @@ onMounted(load)
           :key="metric.code"
           type="button"
           class="metric-card"
-          :aria-label="`${metric.label} ${metric.value}${metric.unit}，${metric.drilldownLabel}`"
+          :aria-label="`${metricLabel(metric.code, metric.label)} ${metric.value}${metric.unit}，查看明细`"
           @click="openMetric(metric)"
         >
-          <span class="metric-card__label">{{ metric.label }}</span>
+          <span class="metric-card__label">{{ metricLabel(metric.code, metric.label) }}</span>
           <span class="metric-card__value">
-            {{ metric.value }}<span class="metric-card__unit">{{ metric.unit }}</span>
+            {{ metric.value }}<span class="metric-card__unit">{{ metricUnitLabel(metric.unit) }}</span>
           </span>
           <span class="metric-card__footer">
             <span>{{ trendLabel(metric) }}</span>
-            <span class="metric-card__drill">{{ metric.drilldownLabel }} →</span>
+            <span class="metric-card__drill">查看明细 →</span>
           </span>
         </button>
       </section>

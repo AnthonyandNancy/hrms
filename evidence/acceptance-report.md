@@ -71,7 +71,7 @@
 | E-11 | 工资计算与平行报告 | **PASS（实数，机制层）** | 4 名员工实际计算（gross 5,000,000 / net 4,180,400 分，`failed: 0`）；`payroll-reconciliation.txt` 通过；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、`failed_employee_count: 0`、人数一致。⚠ 旧系统导出为**合成对照文件**（`scripts/payroll_old_export.php` 由同一计算生成并打印警告），故它证明对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
 | E-12 | 迁移彩排与对账 | **PASS（SHADOW）** | `migration-rehearsal.txt`、`migration-rehearsal-script.txt`：6 域 `APPLIED`/`reconcile=PASS`，target=SHADOW |
 | E-13 | 备份恢复与回滚演练 | **PASS（本地范围）** | `backup-restore.txt`（sha256 一致）、`verify-release.txt` 中 rollback drill PASS（2.3s / 3600s 预算）。MySQL PITR、feature-flag 回退、路由切换为 NOT_EXECUTED |
-| E-13b | Docker Compose 部署栈 | **PASS** | `evidence/logs/docker-compose.txt`：7 个服务全部 healthy；`/v1/health` 返回 `status=ok`（db/cache/storage 均 true）；MySQL 107 表 / 26 迁移；4 个演示账号登录 200；7 个受保护端点 200（payroll/runs 对 HR 403 属设计）。一键脚本 `deploy/scripts/docker_up.sh` 从 `down` 状态完整跑通 |
+| E-13b | Docker Compose 部署栈（后端 + 前端 SPA） | **PASS** | `evidence/logs/docker-compose.txt`：7 个服务全部 healthy；`/v1/health` 返回 `status=ok`（db/cache/storage 均 true）；MySQL 107 表 / 26 迁移。**SPA 已构建进 nginx 镜像并与 API 同源**：10 个前端路由全部 200，静态资源 200。真实 Chromium 验收：`demo.hr` 登录成功→`/workspace`；仪表盘「在职人数 4 人」；员工目录 4 人且 PII 全遮罩；控制台 0 错误 0 警告。一键脚本 `deploy/scripts/docker_up.sh` 从 `docker compose down -v` 完整跑通 |
 | E-14 | 安全扫描 | **PASS（本地）+ GATE（SAST）** | `composer-audit.txt`：无已知漏洞；`gitleaks.txt`：106 commits，`no leaks found`；SAST 由 `.github/workflows/codeql.yml` 在 GitHub 执行，本地无法证明 |
 | E-15 | 审计样本 | **PASS** | 登录/失败/锁定：`LoginSecurityTest`；撤权：`SessionRevocationTest`；导出：`ExportScopeTest`；工资封存：`PayrollRunLifecycleTest`；break-glass：`BreakGlassTest`；审计只追加：`AuditAppendOnlyTest` |
 | E-16 | UAT 记录 | **GATE** | 自动化映射见 §5；UAT-01–13 **业务签字未完成**，不得标记通过 |

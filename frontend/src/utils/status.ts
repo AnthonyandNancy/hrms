@@ -81,3 +81,43 @@ export function effectStatusText(status: EffectStatus | null | undefined): strin
 export function applicationStatusText(status: ApplicationStatus): string {
   return APPLICATION_STATUS[status].label
 }
+
+/**
+ * Dashboard metric labels.
+ *
+ * The API returns a stable English `code` plus an English `label`. Codes are
+ * the contract; the label is presentation. Mapping by code here keeps the
+ * interface consistently Chinese without making the metric code locale-specific.
+ *
+ * Unknown codes fall back to the API label so a newly added metric is still
+ * visible rather than blank.
+ */
+export const METRIC_LABEL: Record<string, string> = {
+  headcount: '在职人数',
+  probation: '试用期人数',
+  turnover: '主动离职率',
+  pending_approvals: '待审批',
+  contract_expiring: '合同到期',
+  leave_liability: '假期负债',
+  payroll_cost_by_entity: '分法人人力成本',
+  recruitment_funnel: '招聘漏斗',
+}
+
+export function metricLabel(code: string, fallback?: string | null): string {
+  return METRIC_LABEL[code] ?? fallback ?? code
+}
+
+/**
+ * Metric units. The API uses stable machine units; the interface shows Chinese.
+ */
+export const METRIC_UNIT_LABEL: Record<string, string> = {
+  COUNT: '人',
+  MINUTES: '分钟',
+  MINOR_UNITS: '分',
+  CENTS: '分',
+  RATIO: '%',
+}
+
+export function metricUnitLabel(unit: string): string {
+  return METRIC_UNIT_LABEL[unit] ?? unit
+}

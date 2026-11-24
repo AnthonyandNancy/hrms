@@ -252,7 +252,7 @@ onMounted(load)
             v-model:page-size="pageSize"
             :total="total"
             layout="prev, pager, next"
-            small
+            size="small"
             background
           />
         </div>
