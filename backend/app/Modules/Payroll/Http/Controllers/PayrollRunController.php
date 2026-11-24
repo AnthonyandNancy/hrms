@@ -18,7 +18,6 @@ use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Authorization\ResourceRef;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +26,6 @@ final class PayrollRunController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly Clock $clock,
         private readonly PayrollRunService $runs,
         private readonly CalculationService $calculation,
         private readonly ApprovalService $approval,

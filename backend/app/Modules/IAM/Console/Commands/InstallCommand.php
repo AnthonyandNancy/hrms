@@ -53,7 +53,7 @@ final class InstallCommand extends Command
         $name = trim((string) $this->option('legal-entity-name'));
         $username = trim((string) $this->option('admin-username'));
         $email = trim((string) $this->option('admin-email'));
-        $password = (string) ($this->option('admin-password') ?: env('ADMIN_PASSWORD', ''));
+        $password = (string) ($this->option('admin-password') ?: config('iam.install.admin_password', ''));
 
         foreach (['--legal-entity-code' => $code, '--legal-entity-name' => $name, '--admin-username' => $username, '--admin-email' => $email] as $option => $value) {
             if ($value === '') {

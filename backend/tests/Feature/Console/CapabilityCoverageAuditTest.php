@@ -18,19 +18,13 @@ final class CapabilityCoverageAuditTest extends TestCase
             $issued = [...$issued, ...$template->capabilityCodes()];
         }
 
-        $wildcard = in_array('*', $issued, true);
-        $this->assertTrue($wildcard, 'At least one admin template must hold the wildcard.');
+        $this->assertContains('*', $issued, 'At least one admin template must hold the wildcard.');
 
-        foreach ((new CapabilityCatalog)->codes() as $code) {
-            if ($code === 'iam.session.manage') {
-                continue;
-            }
-
-            $this->assertTrue(
-                $wildcard || in_array($code, $issued, true),
-                "G-COV-1 would fail: no template issues {$code}.",
-            );
-        }
+        // A wildcard holder covers the whole catalog; the catalog must still be
+        // non-empty and every concrete template grant must be catalogued.
+        $codes = (new CapabilityCatalog)->codes();
+        $this->assertNotEmpty($codes);
+        $this->assertGreaterThanOrEqual(76, count($codes));
     }
 
     public function test_every_route_capability_is_issued(): void
@@ -41,7 +35,15 @@ final class CapabilityCoverageAuditTest extends TestCase
             $issued = [...$issued, ...$template->capabilityCodes()];
         }
 
-        foreach (app('router')->getRoutes() as $route) {
+        $routes = app('router')->getRoutes();
+
+        if (! $routes instanceof \Illuminate\Routing\RouteCollection) {
+            $this->fail('The router did not expose a RouteCollection.');
+        }
+
+        $checked = 0;
+
+        foreach ($routes as $route) {
             foreach ($route->gatherMiddleware() as $middleware) {
                 if (! is_string($middleware) || ! str_starts_with($middleware, 'capability:')) {
                     continue;
@@ -53,12 +55,18 @@ final class CapabilityCoverageAuditTest extends TestCase
                     continue;
                 }
 
-                $this->assertTrue(
-                    in_array('*', $issued, true) || in_array($code, $issued, true),
-                    "G-COV-3 would fail: route {$route->uri()} requires unissued {$code}.",
-                );
+                $checked++;
+
+                if (! in_array('*', $issued, true)) {
+                    $this->assertTrue(
+                        in_array($code, $issued, true),
+                        "G-COV-3 would fail: route {$route->uri()} requires unissued {$code}.",
+                    );
+                }
             }
         }
+
+        $this->assertGreaterThan(0, $checked, 'The route scan must actually find guarded routes.');
     }
 
     public function test_every_template_grant_is_catalogued_or_wildcard(): void

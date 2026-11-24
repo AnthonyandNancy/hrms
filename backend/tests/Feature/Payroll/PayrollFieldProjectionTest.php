@@ -72,6 +72,9 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
         return $run->refresh();
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function payrollHeaders(): array
     {
         return [
