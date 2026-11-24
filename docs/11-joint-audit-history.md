@@ -196,6 +196,38 @@
 
 **门禁变化**：23 项，`PASS=23 FAIL=0 SKIP=0`。
 
+### 10. 第五轮：真正把 Docker 栈跑起来
+
+此前所有证据都建立在 `php artisan serve` + Vite 之上，**容器栈只做过语法校验**。
+本轮实际执行 `docker compose build` / `up`，并在过程中发现 11 个只在容器或 MySQL 下暴露的缺陷。
+
+| # | 缺陷 | 严重度 | 触发条件 |
+|---|---|---|---|
+| 18 | Dockerfile 缺 `sqlite-dev`，`pdo_sqlite` 编译失败 | Sev2 | 镜像构建 |
+| 19 | Dockerfile 缺 PHP `redis` 扩展，worker/scheduler 崩溃 | Sev2 | 队列启动 |
+| 20 | compose 的 `php artisan` 路径错（WORKDIR 是 `/var/www/html`） | Sev2 | worker/scheduler |
+| 21 | nginx `/up` 用 `proxy_pass` 连 FastCGI 端口 | Sev2 | 健康检查恒 502 |
+| 22 | MySQL 索引名超 64 字符，workflow 迁移失败 | Sev2 | MySQL 迁移 |
+| 23 | `dashboard_snapshots.reason` VARCHAR(120) 装不下说明文案 | Sev2 | 仪表盘查询 |
+| 24 | `league/flysystem-aws-s3-v3` 从未声明（S3 从未工作） | **Sev2** | `storage` 健康检查 |
+| 25 | nginx 缓存 php-app IP，重建后 502 | Sev3 | `compose up` 重建 |
+| 26 | 演示用户 `auth_version` 未初始化，MySQL 存 0 | **Sev2** | 所有受保护端点 403 |
+| 27 | 三 PHP 服务并发初始化共享卷 | Sev3 | `mkdir ... file exists`，栈起不来 |
+| 28 | 容器继承本地 `.env` 的登录限流 100/min | **Sev2** | 生产爆破防护被静默削弱 |
+
+**共性**：SQLite 不校验 `VARCHAR` 长度、`artisan serve` 不走 nginx/php-fpm、本地 `vendor/`
+恰好手工装过 S3 适配器 —— 三个"本地碰巧成立"的假设掩盖了全部 8 个问题。
+
+**结果**：
+- 7 个服务全部 healthy；
+- `/v1/health` → `status=ok`（db/cache/storage 全 true）；
+- MySQL 107 表 / 26 迁移；
+- 4 个演示账号登录 200；
+- 7 个受保护端点 200（`payroll/runs` 对 HR 403 符合职责分离）；
+- 新增 `deploy/scripts/docker_up.sh`，从 `down` 状态一条命令完成构建→迁移→灌数→验证。
+
+E-13b 由 **GATE** 转为 **PASS**；GATE-09 关闭。
+
 ## 结论
 
 **`ACCEPTED_WITH_GATES`**：代码证据全绿、无 Sev1/Sev2 遗留；组织签认（S-01–S-08）、

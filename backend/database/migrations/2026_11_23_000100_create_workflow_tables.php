@@ -183,7 +183,12 @@ return new class extends Migration
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
 
-            $table->index(['tenant_id', 'proxy_user_id', 'valid_from', 'valid_to']);
+            // Explicit short name. The auto-generated name is 76 characters
+            // (workflow_delegations_tenant_id_proxy_user_id_valid_from_valid_to_index)
+            // and MySQL caps identifiers at 64, so the default fails on MySQL
+            // while passing on SQLite. This is a defect fix, not a schema change:
+            // the indexed columns and semantics are identical.
+            $table->index(['tenant_id', 'proxy_user_id', 'valid_from', 'valid_to'], 'workflow_deleg_proxy_window_idx');
             $table->index(['tenant_id', 'principal_user_id']);
         });
     }

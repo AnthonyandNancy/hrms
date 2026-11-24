@@ -71,7 +71,7 @@
 | E-11 | 工资计算与平行报告 | **PASS（实数，机制层）** | 4 名员工实际计算（gross 5,000,000 / net 4,180,400 分，`failed: 0`）；`payroll-reconciliation.txt` 通过；`payroll-parallel-check.txt` 退出码 **0**、`unexplained_count: 0`、`failed_employee_count: 0`、人数一致。⚠ 旧系统导出为**合成对照文件**（`scripts/payroll_old_export.php` 由同一计算生成并打印警告），故它证明对账机制与人数/金额一致，**不替代真实旧系统平行运行（GATE-06）** |
 | E-12 | 迁移彩排与对账 | **PASS（SHADOW）** | `migration-rehearsal.txt`、`migration-rehearsal-script.txt`：6 域 `APPLIED`/`reconcile=PASS`，target=SHADOW |
 | E-13 | 备份恢复与回滚演练 | **PASS（本地范围）** | `backup-restore.txt`（sha256 一致）、`verify-release.txt` 中 rollback drill PASS（2.3s / 3600s 预算）。MySQL PITR、feature-flag 回退、路由切换为 NOT_EXECUTED |
-| E-13b | Docker Compose 部署栈 | **GATE（NOT_EXECUTED）** | `docker-compose.txt`：`compose config` 校验通过、7 个服务可解析；但本环境 **Docker registry 不可达**，镜像无法构建/拉取，栈**从未启动**。此前所有验证均基于 `php artisan serve` + Vite，不是容器栈 |
+| E-13b | Docker Compose 部署栈 | **PASS** | `evidence/logs/docker-compose.txt`：7 个服务全部 healthy；`/v1/health` 返回 `status=ok`（db/cache/storage 均 true）；MySQL 107 表 / 26 迁移；4 个演示账号登录 200；7 个受保护端点 200（payroll/runs 对 HR 403 属设计）。一键脚本 `deploy/scripts/docker_up.sh` 从 `down` 状态完整跑通 |
 | E-14 | 安全扫描 | **PASS（本地）+ GATE（SAST）** | `composer-audit.txt`：无已知漏洞；`gitleaks.txt`：106 commits，`no leaks found`；SAST 由 `.github/workflows/codeql.yml` 在 GitHub 执行，本地无法证明 |
 | E-15 | 审计样本 | **PASS** | 登录/失败/锁定：`LoginSecurityTest`；撤权：`SessionRevocationTest`；导出：`ExportScopeTest`；工资封存：`PayrollRunLifecycleTest`；break-glass：`BreakGlassTest`；审计只追加：`AuditAppendOnlyTest` |
 | E-16 | UAT 记录 | **GATE** | 自动化映射见 §5；UAT-01–13 **业务签字未完成**，不得标记通过 |
@@ -132,7 +132,7 @@
 | 演示数据 | `demo:seed --live` 现已把 6 域写入真实业务表（organizations/people/assignments/terms/leave_openings/payroll_ytd 各 12 行，reconcile=PASS）；`time:seed-leave-types` 提供假期类型；`payroll:seed-demo-run` 生成一个 CALCULATED 批次 | 演示租户不再为空集；但仍是合成数据，不据此推断生产正确性 |
 | 迁移彩排 | 仅在 SHADOW 目标完成 6 域对账 | 生产冻结窗口三轮彩排仍为 GATE |
 | 回滚演练 | 脚本证明快照/恢复/完整性/时限；MySQL PITR、feature-flag 回退、路由切换以 `NOT_EXECUTED` 明示 | 生产回滚演练仍为 GATE |
-| **Docker Compose 未启动** | 本环境 Docker registry 不可达（`docker pull` 超时），PHP 基础镜像缺失，`docker compose build` 失败。所有验证用的是 `php artisan serve`（8000）+ Vite（5174），**不是容器栈** | Compose 部署路径为 **GATE**。`compose config` 已校验通过并修复了 `APP_URL`/CORS 两处配置缺陷，但"能起容器"未被证明 |
+| ~~Docker Compose 未启动~~ | **已解决**：镜像构建成功，7 个服务全部 healthy，API 经 nginx:8080 验证通过。构建过程中修复了 6 个只在容器/MySQL 下暴露的缺陷（见下） | E-13b 由 GATE 转为 **PASS** |
 | 架构警告 | `arch:test` 警告由 16 条降至 4 条（仅剩 `RetentionService` 动态表名）；同时修复扫描器把 `DB::table('x as a')` 误判为未知表的问题，该修复暴露并修掉了 Lifecycle 直接读 People 表 2 处违规 | 剩余 4 条非阻断，已登记为 ADR-0015 复审触发条件 |
 | SAST | CodeQL 仅在 GitHub Actions 运行 | 本地证据不包含 SAST 结果 |
 | **APP_KEY 曾进入 git 历史** | 生成 compose 证据时误把解析后的 `APP_KEY` 写入 `evidence/logs/compose-config.txt` 并提交（`f5c5313`）。已**轮换本地 APP_KEY**、用旧密钥解密后以新密钥重新加密全部 20 个 PII 密文字段（验证 20/20 可读）、删除临时明文、并把证据文件改为只记录环境变量名 | 旧密钥已失效，无法解密任何数据。**项目负责人已接受**历史保留不重写：本项目内网部署、不做外网部署（决定日期 2026-11-24）。若部署范围变为外网/外发，须重评；新环境仍必须使用独立 APP_KEY |
@@ -151,7 +151,7 @@
 | GATE-06 | 真实旧系统工资平行运行（差异=0） | 财务 / QA | 未执行（退出码 2） |
 | GATE-07 | 三轮生产式迁移彩排与冻结窗口 | 数据 / QA | 仅 SHADOW 完成 |
 | GATE-08 | UAT-01–13 业务签字 | 业务 | 未签字 |
-| GATE-09 | Docker Compose 栈构建与启动（本环境 registry 不可达） | DevOps | 未执行 |
+| ~~GATE-09~~ | Docker Compose 栈构建与启动 | DevOps | **已完成**（7 服务 healthy，API 验证通过） |
 
 ## 9. 复现方法
 

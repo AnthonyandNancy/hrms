@@ -21,6 +21,10 @@ x-app-common: &app-common
     # The SPA is served separately (dev server or static host). Browser requests
     # are credentialed, so origins must be explicit and never "*".
     HRMS_CORS_ALLOWED_ORIGINS: ${HRMS_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+    # Pin the login throttle explicitly. Without this the container inherits
+    # backend/.env, where a developer may have raised it for local E2E runs,
+    # silently weakening brute-force protection in a deployed stack.
+    IAM_LOGIN_RATE_LIMIT_PER_MINUTE: ${IAM_LOGIN_RATE_LIMIT_PER_MINUTE:-5}
     DB_CONNECTION: mysql
     DB_HOST: mysql
     DB_PORT: "3306"
@@ -84,13 +88,34 @@ services:
 
   php-worker:
     <<: *app-common
-    command: ["php", "artisan", "queue:work", "redis", "--sleep=1", "--tries=3", "--timeout=90"]
+    command: ["php", "backend/artisan", "queue:work", "redis", "--sleep=1", "--tries=3", "--timeout=90"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      # Serialise volume initialisation: all three PHP services mount the same
+      # app-storage volume, and Docker fails the race with
+      # "mkdir ... file exists" if they start simultaneously.
+      php-app:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "php", "-r", "exit(0);"]
 
   php-scheduler:
     <<: *app-common
-    command: ["php", "artisan", "schedule:work"]
+    command: ["php", "backend/artisan", "schedule:work"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      php-app:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "php", "-r", "exit(0);"]
 
@@ -134,7 +159,10 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    # Pinned release tags are no longer anonymously pullable from Docker Hub
+    # (pull access denied). Override MINIO_IMAGE to pin a verified digest in a
+    # real environment; the default keeps the reference stack runnable.
+    image: ${MINIO_IMAGE:-minio/minio:latest}
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -150,6 +178,29 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  # One-shot init container: creates the private bucket so the application's
+  # storage health check passes on a fresh `docker compose up`. Without it the
+  # bucket must be created by hand and /v1/health reports storage=false.
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-factoryhr}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me}
+      AWS_BUCKET: ${AWS_BUCKET:-factoryhr-private}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "local/$$AWS_BUCKET" &&
+        mc anonymous set none "local/$$AWS_BUCKET" &&
+        echo "bucket ready: $$AWS_BUCKET"
+    networks:
+      - backend
 
 networks:
   backend:

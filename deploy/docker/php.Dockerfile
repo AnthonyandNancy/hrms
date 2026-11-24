@@ -29,6 +29,10 @@ RUN apk add --no-cache \
         icu-dev \
         libzip-dev \
         oniguruma-dev \
+        sqlite-dev \
+    && apk add --no-cache --virtual .pecl-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         intl \
@@ -38,7 +42,7 @@ RUN apk add --no-cache \
         pdo_mysql \
         pdo_sqlite \
         zip \
-    && apk del .build-deps \
+    && apk del .build-deps .pecl-deps \
     && rm -rf /var/cache/apk/* /tmp/*
 
 COPY deploy/docker/php.ini /usr/local/etc/php/conf.d/99-factoryhr.ini

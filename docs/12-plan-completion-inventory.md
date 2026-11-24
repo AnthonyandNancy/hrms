@@ -172,31 +172,72 @@ ls deploy/scripts/migrate_*.php                     # 5（含共用实现）
 `docker compose config` 会**解析并展开全部环境变量**，其中包含密钥。任何把 compose 解析结果
 写入文件的操作都可能造成密钥落盘。证据文件只能记录**键名**，不能记录**值**。
 
-## 10. Docker Compose 部署栈（新增 GATE）
+## 10. Docker Compose 部署栈：已构建、已启动、已验证
 
-**问题**：接受"项目能在 Docker 里跑起来"这一预期时，必须说明——**本仓库的容器栈从未启动过**。
+**此前状态**：容器栈从未启动，只有 `compose config` 语法校验。
+**当前状态**：镜像构建成功，**7 个服务全部 healthy**，API 经 `nginx:8080` 全部验证通过。
 
-| 项 | 事实 |
+| 项 | 结果 |
 |---|---|
-| `deploy/compose/docker-compose.yml` | 7 个服务（nginx / php-app / php-worker / php-scheduler / mysql / redis / minio），`docker compose config` **校验通过** |
-| 镜像构建 | `docker compose build` **失败** |
-| 根因 | 本环境无法连通 `registry-1.docker.io`：`docker pull nginx:1.27-alpine` 超时 |
-| 已缓存镜像 | 仅 `mysql:8.4`、`redis:7-alpine`；`composer:2`、`php:8.4-fpm-alpine`、`nginx:1.27-alpine`、`minio` 均缺失 |
-| 实际验证方式 | **`php artisan serve`（:8000）+ Vite（:5174）**，不是容器 |
+| `docker compose build` | 成功（`factoryhr/php-app:local`） |
+| 运行中的服务 | nginx、php-app、php-worker、php-scheduler、mysql、redis、minio — 全部 healthy |
+| `/up`（nginx 健康检查） | 200 |
+| `/v1/health` | `status=ok`，`db/cache/storage` 均为 true |
+| MySQL | 107 张表，26 条迁移记录 |
+| 演示账号 | `demo.admin` / `demo.hr` / `demo.manager` / `demo.employee` 全部登录 200 |
+| 受保护端点 | workspace / dashboard / org-tree / notices / leave-balances / employees 全部 200；`payroll/runs` 对 HR 返回 403（职责分离，符合设计） |
+| 一键启动 | `DEMO_SEED_PASSWORD=... deploy/scripts/docker_up.sh` 从 `down` 状态完整跑通 |
 
-因此：**23 项门禁与全部 E2E 证明的是应用逻辑，不是容器部署**。
+### 构建过程中发现并修复的 9 个缺陷
 
-### 顺带修复的两处配置缺陷
+这些缺陷**只在容器或 MySQL 下暴露**，SQLite + `artisan serve` 永远不会发现：
 
-`compose config` 解析后发现：
-
-| 缺陷 | 原值 | 影响 | 修复 |
+| # | 缺陷 | 严重度 | 说明 |
 |---|---|---|---|
-| `APP_URL` 与发布端口不一致 | `http://localhost:8000`，而 nginx 发布 `8080` | 导出下载、短效文件链接等**绝对 URL** 会指错端口 | 改为 `${APP_URL:-http://localhost:${HTTP_PORT:-8080}}` |
-| 生产容器缺 CORS 白名单 | 未设置 | 带凭据的浏览器请求全部被拒 | 注入 `HRMS_CORS_ALLOWED_ORIGINS` 默认值（显式 origin，绝不用 `*`） |
+| 1 | Dockerfile 缺 `sqlite-dev` | Sev2 | `pdo_sqlite` 编译失败，镜像构建中止 |
+| 2 | Dockerfile 缺 PHP `redis` 扩展 | Sev2 | worker/scheduler 启动即崩溃（`Class "Redis" not found`） |
+| 3 | compose 的 artisan 路径错误 | Sev2 | WORKDIR 是 `/var/www/html`，命令却写 `php artisan`，应为 `php backend/artisan` |
+| 4 | nginx `/up` 用 `proxy_pass` 连 FastCGI | Sev2 | php-fpm 说 FastCGI，`proxy_pass` 发 HTTP，健康检查永远 502 |
+| 5 | MySQL 索引名超 64 字符 | Sev2 | `workflow_delegations_tenant_id_proxy_user_id_valid_from_valid_to_index` 超限，迁移在 MySQL 上失败（SQLite 无此限制） |
+| 6 | `dashboard_snapshots.reason` 列为 VARCHAR(120) | Sev2 | 不可用指标的说明文案超长，仪表盘 500（SQLite 不校验长度） |
+| 7 | 演示用户 `auth_version` 未初始化（MySQL 存 0） | **Sev2** | 与绑定的 `auth_version=1` 不匹配，**所有受保护端点 403** |
+| 8 | 三个 PHP 服务同时初始化共享 storage 卷 | Sev3 | `docker compose up` 报 `mkdir ... file exists`，栈起不来 |
+| 9 | 容器继承 `backend/.env` 的 `IAM_LOGIN_RATE_LIMIT_PER_MINUTE=100` | **Sev2** | 生产容器的登录爆破防护被静默削弱 |
 
-两处都属于"只在容器里才会暴露"的问题——这正是为什么"没启动过 Docker"是一个必须记录的缺口，而不是可以略过的细节。
+另修复两处依赖/配置问题：
 
+- **`league/flysystem-aws-s3-v3` 从未被声明**：它只是 Laravel 的 suggest，`composer install` 从不安装，
+  导致 S3 存储在此仓库**从未真正工作过**（`/v1/health` 的 `storage:false`）。已加入 `require`。
+- **nginx 缓存 php-app 的 IP**：`docker compose up` 重建 php-app 后 nginx 仍指向旧地址，产生 502。
+  已改为 `resolver 127.0.0.11 valid=10s` + `server ... resolve`。
+
+### 如何完成
+
+```bash
+cd deploy/compose
+cp .env.example .env          # 填入真实 APP_KEY 与口令
+cd ../..
+
+# 一条命令：构建 → 启动 → 迁移 → 灌数据 → 健康检查 → 登录验证
+DEMO_SEED_PASSWORD='<至少12位>' bash deploy/scripts/docker_up.sh
+
+# 需要清空数据库重来时
+DEMO_SEED_PASSWORD='...' bash deploy/scripts/docker_up.sh --reset
+```
+
+验证：
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml ps     # 7 services healthy
+curl -s http://localhost:8080/v1/health | jq .data.status  # "ok"
+```
+
+### 仍需注意
+
+- 这是**参考/演示部署**：合成数据、占位口令、无 TLS、单机 Compose。生产 HA、
+  外部密钥管理、真实 IdP、备份 PITR 仍是 §3 的 GATE。
+- MinIO 的固定版本 tag 已不可匿名拉取，compose 改为 `${MINIO_IMAGE:-minio/minio:latest}`；
+  真实环境应 pin 到校验过的 digest。
 ### 如何完成
 
 ```bash

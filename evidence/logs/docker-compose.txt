@@ -1,35 +1,31 @@
-=== docker/compose availability ===
-Tue Nov 24 00:57:48 UTC 2026
+=== Docker Compose deployment verification ===
+Tue Nov 24 01:40:17 UTC 2026
 
---- docker version ---
-Docker version 29.9.2, build a82e528
+--- 7 services ---
+NAME                        STATUS
+factoryhr-minio-1           Up 3 minutes (healthy)
+factoryhr-mysql-1           Up 3 minutes (healthy)
+factoryhr-nginx-1           Up About a minute (healthy)
+factoryhr-php-app-1         Up About a minute (healthy)
+factoryhr-php-scheduler-1   Up About a minute (healthy)
+factoryhr-php-worker-1      Up About a minute (healthy)
+factoryhr-redis-1           Up 3 minutes (healthy)
 
---- compose config validation ---
-compose config: VALID
+--- health ---
+{"code":"OK","message":"OK","data":{"status":"ok","version":"1.0.0-reference","checks":{"db":true,"cache":true,"storage":true},"time":"2026-11-24T01:40:18Z"},"request_id":"01M85KBZZH5DJ43TY40G5J8PB1"}
 
---- resolved services ---
-minio
-mysql
-nginx
-php-app
-php-scheduler
-php-worker
-redis
+--- database ---
+  tables=107
+  migrations_ran=26
+  login_throttle_per_min=5
 
---- base image availability ---
-composer:2                                           MISSING
-php:8.4-fpm-alpine                                   MISSING
-nginx:1.27-alpine                                    MISSING
-mysql:8.4                                            cached
-redis:7-alpine                                       cached
-minio/minio:RELEASE.2025-07-23T15-54-02Z             MISSING
-
---- registry reachability ---
-Error response from daemon: Get "https://registry-1.docker.io/v2/": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)
-
---- running containers (none from this project) ---
-(empty above means no factoryhr container is running)
-
-NOT_EXECUTED: image build and stack start. The Docker registry is unreachable from this environment,
-so the documented compose deployment path could not be exercised. It is recorded as an environment GATE,
-not as a pass.
+--- demo.hr authenticated endpoints ---
+  /v1/me/workspace                                     200
+  /v1/reporting/dashboard?legal_entity_id=1            200
+  /v1/org-units/tree?legal_entity_id=1                 200
+  /v1/engagement/notices?legal_entity_id=1             200
+  /v1/time/leave/balances                              200
+  /v1/employees?legal_entity_id=1&page=1&page_size=10  200
+  /v1/time/attendance?month=2026-11                    200
+  /v1/reporting/definitions?legal_entity_id=1          200
+  /v1/payroll/runs (HR must be 403 by design)             403

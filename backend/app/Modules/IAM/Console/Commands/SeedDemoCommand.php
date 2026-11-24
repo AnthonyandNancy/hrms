@@ -54,8 +54,20 @@ final class SeedDemoCommand extends Command
                     'status' => User::STATUS_ACTIVE,
                     'is_privileged' => $privileged,
                     'mfa_enrolled_at' => $privileged ? $clock->now() : null,
+                    // auth_version has no database default. Leaving it unset
+                    // produced 0 on MySQL, while the bindings created below
+                    // carried 1, so every authorization check failed closed and
+                    // all protected endpoints returned 403.
+                    'auth_version' => 1,
                 ],
             );
+
+            // Repair users created before auth_version was initialised: a 0
+            // here can never match any binding and silently denies everything.
+            if ((int) $user->auth_version < 1) {
+                $user->forceFill(['auth_version' => 1])->save();
+                $user->refresh();
+            }
 
             foreach ($roles as $roleCode) {
                 $grants = RoleCapability::query()->where('role_code', $roleCode)->get();
