@@ -13,7 +13,7 @@ This reference implementation also had to answer a narrower but decisive questio
 
 ## Decision
 
-1. **Capabilities are code-owned and frozen.** `App\Modules\IAM\Authorization\CapabilityCatalog` declares every capability with its resource, actions, allowed anchors, field profile, risk level and description. There is no editable capability surface, no client-supplied capability flag and no permanent superuser. `tests/Unit/Authorization/CapabilityCatalogTest.php` asserts uniqueness, known anchors/profiles and the ten code-owned role templates.
+1. **Capabilities are code-owned and frozen.** `App\Modules\IAM\Authorization\CapabilityCatalog` declares every capability with its resource, actions, allowed anchors, field profile, risk level and description. There is no editable capability surface and no client-supplied capability flag; the only superuser is a code-owned, time-boxed wildcard grant (ADR-0016). `tests/Unit/Authorization/CapabilityCatalogTest.php` asserts uniqueness, known anchors/profiles and the ten code-owned role templates.
 
 2. **Exactly seven anchors.** `App\Shared\Authorization\AnchorType` enumerates `SELF`, `MANAGED`, `ORG_UNIT`, `ORG_SUBTREE`, `CASE`, `PAYROLL_RUN`, `LEGAL_ENTITY`. There is deliberately no `CUSTOM` variant and no arbitrary predicate language; `AnchorTypeTest` asserts the frozen set and that an unknown anchor is rejected.
 
@@ -31,7 +31,7 @@ This reference implementation also had to answer a narrower but decisive questio
 
 6. **Field profiles P0–P3 are ordered and never merge across rows.** `FieldProfile` defines `P0_PUBLIC`, `P1_INTERNAL`, `P2_SENSITIVE`, `P3_RESTRICTED` with strict rank ordering. A row is visible only up to the profile carried by a binding that also covers that row. `P3` is always hidden, is never filterable, and is never returned by `FieldSet::mask()`. Only `P0`/`P1` are filterable; `P2` requires an export capability for export but is still masked in output.
 
-7. **Separation of duties is checked in addition to capabilities.** `SodRules` rejects payroll maker + approver and governance + audit combinations with a typed conflict, rather than relying on role naming.
+7. **Separation of duties is layered, not a capability-set check.** Object-level invariants (the same person must not prepare and approve the same payroll run, request and approve their own break-glass, or reopen alone) are enforced by the owning service on the concrete object. Capability-set combinations are reported by `SodRules::risks()` as CUMULATIVE or OBJECT_LEVEL signals that require explicit acknowledgement and quarterly review, and are never hard-blocked, because the wildcard holder necessarily carries all of them. See ADR-0016.
 
 8. **Route metadata is the executable policy and the audit evidence.** Capability and anchor are middleware parameters on each route; `php artisan capability:audit` compares the registered routes against `tests/Authorization/endpoint_matrix.php` and warns on missing negative-test entries. The matrix is generated from the registered route table so it cannot drift.
 
@@ -78,7 +78,7 @@ Evidence: `evidence/logs/capability-audit.txt`, `evidence/logs/backend-test-curr
 
 ## Security and privacy
 
-Deny by default; no hidden admin shortcut; no permanent superuser; capability codes are never accepted from the client. Break-glass requires two distinct people, a reason and produces a 30-minute audited grant (`BreakGlassTest`), and the reason text is never exposed in the grant JSON. Sensitive field access is audited without logging values (`FieldProjectionTest`). Sessions carry an `auth_version`; a role, binding, password or offboarding change increments it so the next request fails immediately (`SessionRevocationTest`). Real IdP/OIDC federation, external pen-testing and production KMS remain organizational gates and are not claimed here.
+Deny by default; no hidden admin shortcut; no superuser without expiry, MFA and quarterly review; capability codes are never accepted from the client. Break-glass requires two distinct people, a reason and produces a 30-minute audited grant (`BreakGlassTest`), and the reason text is never exposed in the grant JSON. Sensitive field access is audited without logging values (`FieldProjectionTest`). Sessions carry an `auth_version`; a role, binding, password or offboarding change increments it so the next request fails immediately (`SessionRevocationTest`). Real IdP/OIDC federation, external pen-testing and production KMS remain organizational gates and are not claimed here.
 
 ## Review triggers and rollback
 

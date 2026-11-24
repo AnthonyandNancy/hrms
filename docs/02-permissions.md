@@ -175,7 +175,9 @@ no post-filtering after pagination. Returning P2/P3 data emits a
 - Break-glass requires a requester, a distinct active approver, a reason of at
   least 10 characters and MFA enrollment. Grants last 30 minutes, are revocable
   by either party, emit `security.break_glass.activated` audit + outbox events
-  and expire automatically. No permanent super administrator exists.
+  and expire automatically. `SUPER_ADMIN` and `SYSTEM_ADMIN` hold the
+  wildcard `*` under `LEGAL_ENTITY`/`P3_RESTRICTED`, time-boxed to 30/366 days
+  by `iam:bind-role`; no unreviewed permanent super administrator exists.
 
 ## Negative test matrix
 
@@ -205,9 +207,21 @@ php artisan iam:sync-capabilities   # code catalog + 10 role templates -> read m
 php artisan iam:seed-demo           # requires DEMO_SEED_PASSWORD >= 12 chars
 php artisan iam:reap-sessions
 php artisan iam:access-review --quarter=2026-Q4
+php artisan hrms:install --legal-entity-code=ACME-CN ...  # production baseline
+php artisan iam:verify-mfa-enrollment
 ```
 
 `iam:access-review` prints one JSON object. Cumulative and object-level risk
 rows are under `sod_risks`, each shaped as
 `{principal_id, capabilities: [code, code], kind}`; the key is not
 `sod_conflicts`.
+
+## Separation of duties
+
+- **Cumulative** risk (for example `iam.binding.manage` plus
+  `iam.audit.read`) is a job-design signal. Granting it requires
+  `acknowledge_sod_risk: true`, returns `data.warnings`, writes
+  `security.sod_risk_accepted`, and appears in the quarterly access review.
+- **Object-level** risk (preparing and approving the same payroll run) is a
+  hard invariant enforced by `ApprovalService`, `BreakGlassService` and
+  `ReopenService` (409 `SOD_CONFLICT`). A wildcard grant never bypasses it.

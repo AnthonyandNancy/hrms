@@ -15,7 +15,7 @@ check on every request, 12h/30m standard and 8h/15m privileged limits, and
 immediate revocation. D-11 requires TOTP and WebAuthn MFA, forced enrollment for
 privileged/payroll roles, step-up for high-risk actions, no SMS/email second
 factors, and two-person break-glass for at most 30 minutes with full audit and
-no permanent super-admin.
+no super-admin without an expiry, MFA and quarterly review.
 
 The repository implements local-password authentication, server-side sessions,
 CSRF, auth-version revocation, TOTP/WebAuthn challenges, and break-glass. It does
@@ -98,7 +98,7 @@ ADR records the implemented security boundary and the gaps that remain GATEs.
     and a 30-minute expiry. It records an audit event and an outbox alert.
     Either requester or approver may revoke. `X-Break-Glass-Grant` is checked
     against the active grant, expiry, scope, and participant; an unknown/expired
-    grant does not elevate. There is no permanent super-admin switch.
+    grant does not elevate. There is no un-reviewed super-admin switch; the wildcard grant is time-boxed and audited (ADR-0016).
 11. **Capability checks remain separate from authentication.** IAM's
     `CapabilityAuthorizer` resolves capability × anchor × field profile and
     break-glass elevation; authentication never implies authorization.
@@ -137,7 +137,7 @@ ADR records the implemented security boundary and the gaps that remain GATEs.
 - **Break-glass `scope` can be `['*']`** when no scope is supplied. The service
   caps explicit scope at 10 capabilities and validates codes, but the wildcard
   is a broad emergency scope and must be reviewed against the least-privilege
-  intent; it is not a permanent super-admin, but it is wider than a narrow
+  intent; it is not an unreviewed permanent super-admin, but it is wider than a narrow
   capability list.
 - **There is no OIDC/provider abstraction test** in this repository because the
   adapter does not exist; local fallback is the tested path.
@@ -151,7 +151,7 @@ ADR records the implemented security boundary and the gaps that remain GATEs.
 | Long-lived sessions without an absolute cap | Sliding idle alone lets a session live forever; server-side idle and absolute expiries are both required. |
 | Role name checks instead of capability × anchor checks | Roles are packages, not authorization truth; capability/scope checks support seven anchors and field profiles. |
 | SMS or email OTP as a second factor | Explicitly excluded by D-11 due to interception and account-recovery risk. |
-| User-editable MFA disable or a permanent super-admin | Creates an unrecoverable or unauditable bypass; break-glass must be two-person, time-boxed, and revocable. |
+| User-editable MFA disable or an unreviewed permanent super-admin | Creates an unrecoverable or unauditable bypass; break-glass must be two-person, time-boxed, and revocable. |
 | Store raw session/CSRF tokens for easier debugging | A database or log leak would immediately compromise sessions; only hashes belong at rest. |
 | Implement SSO by embedding a proprietary WeChat/DingTalk SDK in core auth | Couples the core to vendor protocols; D-09 requires OIDC or an adapter/bridge outside the critical path. |
 
@@ -191,7 +191,7 @@ CSRF configuration is environment-driven; production must use Secure cookies,
 explicit CORS origins, a real IdP, MFA key custody, and alert routing. Operators
 need runbooks for session revocation, break-glass approval/revocation, MFA
 reset/recovery, and IdP outage. Break-glass approvers must be reachable; a
-permanent super-admin is not an acceptable fallback.
+an unreviewed permanent super-admin is not an acceptable fallback.
 
 ## Validation
 
@@ -233,7 +233,7 @@ test are in place, but its current route attachment is incomplete as noted
 above; every request checks auth version and active user state; high-risk
 routes where `mfa.step-up` is attached require a fresh step-up. Break-glass is
 two-person, 30 minutes, scoped, revocable,
-audited, and emits an outbox alert, with no permanent super-admin. Login
+audited, and emits an outbox alert, with no super-admin without an expiry, MFA and quarterly review. Login
 failures are rate-limited and audited without exposing credentials. Production
 OIDC/SCIM, a real IdP, KMS-backed MFA/secrets, WebAuthn assertion signature
 verification, full alert delivery, penetration testing, and privacy/retention
