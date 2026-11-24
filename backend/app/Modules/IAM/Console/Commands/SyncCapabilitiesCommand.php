@@ -10,6 +10,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,7 @@ final class SyncCapabilitiesCommand extends Command
         $codes = array_map(static fn ($definition): string => $definition->code, $definitions);
 
         $orphaned = AuthorityBinding::query()
+            ->where('capability_code', '!=', CapabilityWildcard::WILDCARD)
             ->whereNotIn('capability_code', $codes)
             ->distinct()
             ->pluck('capability_code')

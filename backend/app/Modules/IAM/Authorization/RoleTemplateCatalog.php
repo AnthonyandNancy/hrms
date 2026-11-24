@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Authorization;
 
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 
 /**
@@ -64,39 +65,11 @@ final class RoleTemplateCatalog
         $grant = static fn (string $role, string $capability, AnchorType $anchor, FieldProfile $profile): RoleGrant => new RoleGrant($role, $capability, $anchor, $profile);
 
         $templates = [
-            new RoleTemplate('SUPER_ADMIN', 'Super administrator (time-boxed)', 'Emergency administration; assignments must be time-boxed and reviewed.', [
-                $grant('SUPER_ADMIN', 'iam.user.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'iam.user.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'iam.role.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'iam.binding.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'org.unit.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'org.unit.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'org.tree.read', $le, FieldProfile::P0_PUBLIC),
-                $grant('SUPER_ADMIN', 'people.employee.read', $le, FieldProfile::P2_SENSITIVE),
-                $grant('SUPER_ADMIN', 'people.employee.manage', $le, FieldProfile::P2_SENSITIVE),
-                $grant('SUPER_ADMIN', 'people.assignment.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.attendance.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.attendance.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.punch.import', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.leave.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.leave.admin', $le, FieldProfile::P2_SENSITIVE),
-                $grant('SUPER_ADMIN', 'time.leave.ledger.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.calendar.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'time.shift.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'reporting.dashboard.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SUPER_ADMIN', 'engagement.notice.read', $le, FieldProfile::P1_INTERNAL),
+            new RoleTemplate('SUPER_ADMIN', 'Super administrator', 'Full authority inside the legal entity, time-boxed and reviewed.', [
+                $grant('SUPER_ADMIN', CapabilityWildcard::WILDCARD, $le, FieldProfile::P3_RESTRICTED),
             ]),
-            new RoleTemplate('SYSTEM_ADMIN', 'System administrator', 'Operate accounts, roles and organization metadata without payroll or audit.', [
-                $grant('SYSTEM_ADMIN', 'iam.user.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'iam.user.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'iam.role.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'iam.binding.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'org.unit.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'org.unit.manage', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'org.tree.read', $le, FieldProfile::P0_PUBLIC),
-                $grant('SYSTEM_ADMIN', 'people.employee.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'reporting.dashboard.read', $le, FieldProfile::P1_INTERNAL),
-                $grant('SYSTEM_ADMIN', 'engagement.notice.read', $le, FieldProfile::P1_INTERNAL),
+            new RoleTemplate('SYSTEM_ADMIN', 'System administrator', 'Full authority inside the legal entity, renewed annually and reviewed quarterly.', [
+                $grant('SYSTEM_ADMIN', CapabilityWildcard::WILDCARD, $le, FieldProfile::P3_RESTRICTED),
             ]),
             new RoleTemplate('HR_ADMIN', 'HR administrator', 'Own people data, organization structure and HR policy execution.', [
                 $grant('HR_ADMIN', 'people.employee.read', $le, FieldProfile::P2_SENSITIVE),
