@@ -4,46 +4,57 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Authorization;
 
-use App\Modules\IAM\Auth\CapabilityAuthorizer;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\ResourceRef;
 use App\Shared\Exceptions\ValidationException;
 
 /**
- * Field projection is resolved from the same binding as row scope. A P3 field
- * is never in any output; P2 is masked, not filterable and export-gated.
+ * Field projection is resolved from the same binding as row scope. A P3
+ * holder may read restricted values, but P3 is never filterable, sortable or
+ * exportable; a P2 holder cannot see P3 at all.
  */
 final class FieldProjectionTest extends AuthorizationTestSupport
 {
-    public function test_p0_visible_and_filterable_p1_visible_but_masked_p2_visible_but_masked_p3_hidden(): void
+    public function test_a_p3_binding_sees_salary_but_cannot_filter_or_export_it(): void
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
         $this->organization->knownLegalEntities = [1];
 
-        $set = app(CapabilityAuthorizer::class)->fields(
+        $set = app(Authorizer::class)->fields(
             $this->actingAsUser($user),
             'people.employee.read',
             $this->resourceRow(),
         );
 
         $this->assertTrue($set->isVisible('display_name'));
-        $this->assertTrue($set->isFilterable('display_name'));
-        $this->assertTrue($set->isVisible('email'));
-        $this->assertTrue($set->isFilterable('email'));
-        $this->assertTrue($set->isVisible('id_number'));
-        $this->assertFalse($set->isFilterable('id_number'));
-        $this->assertFalse($set->isVisible('salary'));
+        $this->assertTrue($set->isVisible('salary'));
+        $this->assertFalse($set->isFilterable('salary'));
+        $this->assertFalse($set->isExportable('salary'));
 
         $masked = $set->mask($this->resourceRow()->row());
+        $this->assertSame('999999', $masked['salary']);
+        $this->assertSame('sensitive', $masked['health']);
+    }
 
-        $this->assertSame('Ada Lovelace', $masked['display_name']);
-        $this->assertNotSame('ada@example.test', $masked['email']);
-        $this->assertArrayNotHasKey('salary', $masked);
-        $this->assertNotSame('110101199001011234', $masked['id_number']);
+    public function test_a_p2_binding_does_not_see_salary(): void
+    {
+        $user = User::factory()->create();
+        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
+        $this->organization->knownLegalEntities = [1];
+
+        $set = app(Authorizer::class)->fields(
+            $this->actingAsUser($user),
+            'people.employee.read',
+            $this->resourceRow(),
+        );
+
+        $this->assertFalse($set->isVisible('salary'));
+        $this->assertArrayNotHasKey('salary', $set->mask($this->resourceRow()->row()));
     }
 
     public function test_p2_is_not_filterable_and_throws_domain_422(): void
@@ -52,7 +63,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
-        $set = app(CapabilityAuthorizer::class)->fields(
+        $set = app(Authorizer::class)->fields(
             $this->actingAsUser($user),
             'people.employee.read',
             $this->resourceRow(),
@@ -70,7 +81,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
 
         $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
 
-        app(CapabilityAuthorizer::class)->fields(
+        app(Authorizer::class)->fields(
             $this->actingAsUser($user),
             'people.employee.read',
             $this->resourceRow(),
@@ -84,8 +95,8 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $this->grant($user, 'reporting.export', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
-        $readSet = app(CapabilityAuthorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
-        $exportSet = app(CapabilityAuthorizer::class)->fields($this->actingAsUser($user), 'reporting.export', $this->resourceRow());
+        $readSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
+        $exportSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'reporting.export', $this->resourceRow());
 
         $this->assertFalse($readSet->isExportable('id_number'));
         $this->assertTrue($exportSet->isExportable('id_number'));
@@ -98,7 +109,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
-        app(CapabilityAuthorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
+        app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
 
         $this->assertNotEmpty($this->sensitiveAuditor->records);
         $record = $this->sensitiveAuditor->records[0];
@@ -107,19 +118,37 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $this->assertStringNotContainsString('110101199001011234', json_encode($record, JSON_THROW_ON_ERROR));
     }
 
-    public function test_p3_values_never_reach_serialized_output_or_logs(): void
+    public function test_p3_values_are_never_exportable_or_filterable_even_when_visible(): void
+    {
+        $user = User::factory()->create();
+        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'reporting.export', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+        $this->organization->knownLegalEntities = [1];
+
+        $set = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
+        $exportSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'reporting.export', $this->resourceRow());
+
+        $this->assertTrue($set->isVisible('salary'));
+        $this->assertFalse($set->isExportable('salary'));
+        $this->assertFalse($exportSet->isExportable('salary'));
+        $this->assertNotContains('salary', $exportSet->exportable());
+        $this->assertNotContains('health', $exportSet->exportable());
+    }
+
+    public function test_revealing_a_restricted_field_writes_an_audit_event(): void
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
         $this->organization->knownLegalEntities = [1];
 
-        $set = app(CapabilityAuthorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
-        $output = json_encode($set->mask($this->resourceRow()->row()), JSON_THROW_ON_ERROR);
+        app(Authorizer::class)->fields(
+            $this->actingAsUser($user),
+            'people.employee.read',
+            $this->resourceRow(),
+        );
 
-        $this->assertStringNotContainsString('salary', $output);
-        $this->assertStringNotContainsString('999999', $output);
-        $this->assertStringNotContainsString('health', $output);
-
+        $this->assertNotEmpty($this->sensitiveAuditor->records);
+        $this->assertContains('salary', $this->sensitiveAuditor->records[0]['fields']);
     }
 
     private function grant(User $user, string $capability, AnchorType $anchor, ?int $anchorId, FieldProfile $profile): void

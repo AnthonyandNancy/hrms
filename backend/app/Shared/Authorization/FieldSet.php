@@ -30,12 +30,15 @@ final class FieldSet
     /**
      * @param  array<string, FieldProfile>  $profiles
      */
-    public function __construct(array $profiles, private readonly bool $exportUnlocked = false)
-    {
+    public function __construct(
+        array $profiles,
+        private readonly bool $exportUnlocked = false,
+        private readonly bool $restrictedVisible = false,
+    ) {
         $this->profiles = $profiles;
         $this->visible = array_keys(array_filter(
             $profiles,
-            static fn (FieldProfile $profile): bool => ! $profile->isHidden(),
+            fn (FieldProfile $profile): bool => ! $this->isFieldHidden($profile),
         ));
         $this->filterable = array_keys(array_filter(
             $profiles,
@@ -47,7 +50,7 @@ final class FieldSet
         ));
         $this->hidden = array_keys(array_filter(
             $profiles,
-            static fn (FieldProfile $profile): bool => $profile->isHidden(),
+            fn (FieldProfile $profile): bool => $this->isFieldHidden($profile),
         ));
     }
 
@@ -93,7 +96,12 @@ final class FieldSet
 
     public function isVisible(string $field): bool
     {
-        return isset($this->profiles[$field]) && ! $this->profiles[$field]->isHidden();
+        return isset($this->profiles[$field]) && ! $this->isFieldHidden($this->profiles[$field]);
+    }
+
+    private function isFieldHidden(FieldProfile $profile): bool
+    {
+        return $profile->isHidden() && ! $this->restrictedVisible;
     }
 
     public function isFilterable(string $field): bool
@@ -139,8 +147,9 @@ final class FieldSet
     }
 
     /**
-     * Remove hidden fields, then mask P1/P2 values. The method never mutates
-     * the input and never returns a P3 key.
+     * Remove hidden fields, then mask P1/P2 values. P3 is normally dropped;
+     * a P3-holding caller may set restrictedVisible to receive the real value,
+     * which is still never exportable or filterable.
      *
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
@@ -156,7 +165,7 @@ final class FieldSet
 
             $profile = $this->profiles[$field];
 
-            if ($profile->isHidden()) {
+            if ($this->isFieldHidden($profile)) {
                 continue;
             }
 
@@ -164,7 +173,7 @@ final class FieldSet
                 FieldProfile::P0_PUBLIC => $value,
                 FieldProfile::P1_INTERNAL => $this->maskInternal($field, $value),
                 FieldProfile::P2_SENSITIVE => $this->maskSensitive($value),
-                FieldProfile::P3_RESTRICTED => null,
+                FieldProfile::P3_RESTRICTED => $this->restrictedVisible ? $value : null,
             };
         }
 

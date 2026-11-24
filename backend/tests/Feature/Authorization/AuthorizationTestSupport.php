@@ -64,6 +64,8 @@ abstract class AuthorizationTestSupport extends TestCase
         $this->app->instance(CaseMembershipDirectory::class, $this->cases);
         $this->app->instance(PayrollRunMembershipDirectory::class, $this->payroll);
         $this->app->instance(SensitiveAccessAuditor::class, $this->sensitiveAuditor);
+        $this->app->forgetInstance(\App\Shared\Authorization\Authorizer::class);
+        $this->app->forgetInstance(\App\Modules\IAM\Auth\CapabilityAuthorizer::class);
     }
 
     protected function actingAsUser(User $user, ?int $employmentId = null, bool $mfa = false, ?string $sessionId = null): Principal

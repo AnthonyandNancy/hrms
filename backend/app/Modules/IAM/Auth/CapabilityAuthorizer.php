@@ -197,12 +197,21 @@ final class CapabilityAuthorizer implements Authorizer
             $profiles[$field] = $sensitivity->isAtMost($effective) ? $sensitivity : FieldProfile::P3_RESTRICTED;
         }
 
-        $set = new FieldSet($profiles, $capability === 'payroll.export' || str_ends_with($capability, '.export'));
+        $set = new FieldSet(
+            $profiles,
+            exportUnlocked: $capability === 'payroll.export' || str_ends_with($capability, '.export'),
+            restrictedVisible: $effective->rank() >= FieldProfile::P3_RESTRICTED->rank(),
+        );
 
         $sensitive = [];
         foreach ($set->profiles() as $field => $profile) {
+            // P3 is normally hidden and never "accessed"; when a P3 holder can
+            // see it, the projection must leave an audit trail of field names.
+            $visible = $set->isVisible($field);
+            $revealedRestricted = $profile === FieldProfile::P3_RESTRICTED && $effective->rank() >= FieldProfile::P3_RESTRICTED->rank();
+
             if (in_array($profile, [FieldProfile::P2_SENSITIVE, FieldProfile::P3_RESTRICTED], true)
-                && $set->isVisible($field)) {
+                && ($visible || $revealedRestricted)) {
                 $sensitive[] = $field;
             }
         }

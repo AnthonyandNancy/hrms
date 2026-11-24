@@ -25,11 +25,11 @@ class FieldProfileTest extends TestCase
     {
         $set = $this->fieldSet(exportUnlocked: false);
 
-        $this->assertSame(['name', 'email', 'id_number'], $set->visible);
+        $this->assertSame(['name', 'email', 'id_number', 'salary'], $set->visible);
         $this->assertSame(['name', 'email'], $set->filterable);
         $this->assertSame(['name'], $set->exportable);
         $this->assertTrue($set->isVisible('id_number'));
-        $this->assertFalse($set->isVisible('salary'));
+        $this->assertTrue($set->isVisible('salary'));
         $this->assertFalse($set->isExportable('id_number'));
     }
 
@@ -41,7 +41,7 @@ class FieldProfileTest extends TestCase
         $this->assertFalse($set->isExportable('salary'));
     }
 
-    public function test_mask_keeps_p0_masks_p1_and_p2_and_never_returns_p3(): void
+    public function test_without_the_flag_p3_stays_hidden_and_mask_omits_it(): void
     {
         $row = [
             'name' => 'Ada Lovelace',
@@ -50,7 +50,12 @@ class FieldProfileTest extends TestCase
             'salary' => '999999',
         ];
 
-        $masked = $this->fieldSet()->mask($row);
+        $masked = (new FieldSet([
+            'name' => FieldProfile::P0_PUBLIC,
+            'email' => FieldProfile::P1_INTERNAL,
+            'id_number' => FieldProfile::P2_SENSITIVE,
+            'salary' => FieldProfile::P3_RESTRICTED,
+        ]))->mask($row);
 
         $this->assertSame('Ada Lovelace', $masked['name']);
         $this->assertNotSame('ada@example.test', $masked['email']);
@@ -73,6 +78,21 @@ class FieldProfileTest extends TestCase
         }
     }
 
+    public function test_a_restricted_field_set_can_reveal_p3_values_but_never_export_them(): void
+    {
+        $set = new FieldSet([
+            'name' => FieldProfile::P0_PUBLIC,
+            'salary' => FieldProfile::P3_RESTRICTED,
+        ], exportUnlocked: true, restrictedVisible: true);
+
+        $this->assertTrue($set->isVisible('salary'));
+        $this->assertFalse($set->isExportable('salary'));
+        $this->assertFalse($set->isFilterable('salary'));
+        $this->assertSame(['name', 'salary'], $set->visible());
+        $this->assertSame(['name'], $set->exportable());
+        $this->assertSame('240000.00', $set->mask(['name' => 'Ada', 'salary' => '240000.00'])['salary']);
+    }
+
     private function fieldSet(bool $exportUnlocked = false): FieldSet
     {
         return new FieldSet([
@@ -80,6 +100,6 @@ class FieldProfileTest extends TestCase
             'email' => FieldProfile::P1_INTERNAL,
             'id_number' => FieldProfile::P2_SENSITIVE,
             'salary' => FieldProfile::P3_RESTRICTED,
-        ], $exportUnlocked);
+        ], $exportUnlocked, restrictedVisible: true);
     }
 }
