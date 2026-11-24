@@ -96,8 +96,19 @@ paths:
       operationId: getMyCapabilities
       tags: [IAM Me]
       summary: Effective bindings for the current auth_version
+      description: |
+        Returns the caller's effective authority bindings for the current
+        auth_version. When the caller holds the code-owned wildcard `*`, the
+        response expands it into the complete capability catalog so clients
+        can evaluate every capability; the expansion is serialization-only and
+        never writes rows. Otherwise `wildcard` is false and the effective
+        binding rows are returned unchanged.
       responses:
-        '200': { $ref: '#/components/responses/Envelope' }
+        '200':
+          description: Effective bindings, with any wildcard expanded for display
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyCapabilitiesEnvelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
   /auth/mfa/totp/enroll:
     post:
@@ -541,3 +552,44 @@ components:
                     mfa_verified: { type: boolean }
                     idle_expires_at: { type: string, format: date-time }
                     absolute_expires_at: { type: string, format: date-time }
+    MyCapabilitiesEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [capabilities, wildcard, mfa_required, mfa_verified]
+              properties:
+                capabilities:
+                  type: array
+                  description: |
+                    Effective bindings for the caller. When the caller holds
+                    `*`, this is the expanded set containing every capability
+                    code in the catalog exactly once, with the wildcard
+                    binding's anchor and field profile, and each synthesized
+                    row marked `wildcard: true`. The `*` code itself is not
+                    returned as a capability. Without the wildcard, the
+                    effective binding rows are returned unchanged.
+                  items: { $ref: '#/components/schemas/MyCapabilityBinding' }
+                wildcard:
+                  type: boolean
+                  description: True when the caller holds the wildcard grant that was expanded.
+                mfa_required: { type: boolean }
+                mfa_verified: { type: boolean }
+    MyCapabilityBinding:
+      type: object
+      additionalProperties: true
+      required: [capability, anchor_type, anchor_id, field_profile, purpose_code, valid_from, valid_to]
+      properties:
+        capability: { type: string }
+        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY] }
+        anchor_id: { type: [integer, 'null'] }
+        field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+        purpose_code: { type: string }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: string, format: date-time }
+        wildcard:
+          type: boolean
+          description: Present and true only on capability rows synthesized from a wildcard grant.
