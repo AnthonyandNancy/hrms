@@ -9,6 +9,7 @@ use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType as Anchor;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\BindingGrant;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
 use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
 use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
@@ -18,8 +19,6 @@ use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\ResourceRef;
-use App\Shared\Authorization\SodRules;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Time\Clock;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,7 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Default-deny authorization engine.
  *
  * Resolution order for one binding: tenant -> principal+auth_version ->
- * capability -> effective dates -> SOD -> anchor target. Row predicates are
+ * capability -> effective dates -> anchor target. Row predicates are
  * unions; field profiles are resolved per covered row and never merged across
  * bindings that do not cover the row.
  */
@@ -236,14 +235,6 @@ final class CapabilityAuthorizer implements Authorizer
             $businessDate,
         );
 
-        $codes = array_map(static fn (BindingGrant $grant): string => $grant->capabilityCode, $grants);
-
-        try {
-            SodRules::assertAllowed(array_values(array_unique($codes)));
-        } catch (ConflictException) {
-            return [];
-        }
-
         return array_values(array_filter(
             $grants,
             static fn (BindingGrant $grant): bool => $grant->tenantId === $p->tenantId()
@@ -393,6 +384,10 @@ final class CapabilityAuthorizer implements Authorizer
 
     private function anchorAllows(BindingGrant $grant, Principal $p, string $capability, ?int $anchorId, string $businessDate): bool
     {
+        if (CapabilityWildcard::is($grant->capabilityCode)) {
+            return true;
+        }
+
         return match ($grant->anchorType) {
             Anchor::SELF => in_array($capability, self::INTRINSIC_SELF_CAPABILITIES, true)
                 || $this->people->employmentIdsForUser($p->tenantId(), $p->userId()) !== [],
@@ -419,6 +414,10 @@ final class CapabilityAuthorizer implements Authorizer
     {
         if ($row->tenantId !== null && $row->tenantId !== $p->tenantId()) {
             return false;
+        }
+
+        if (CapabilityWildcard::is($grant->capabilityCode)) {
+            return true;
         }
 
         return match ($grant->anchorType) {

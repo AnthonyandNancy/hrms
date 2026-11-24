@@ -7,6 +7,7 @@ namespace App\Modules\IAM\Authorization;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\BindingGrant;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
 use App\Shared\Authorization\FieldProfile;
 use Illuminate\Support\Facades\Cache;
@@ -25,17 +26,19 @@ final class EloquentAuthorityBindingRepository implements AuthorityBindingReposi
         int $authVersion,
         string $businessDate,
     ): array {
-        $cacheKey = sprintf('iam:bindings:%d:%d:%d:%d:%s', $tenantId, $principalId, $authVersion, $capabilityCode === '' ? 0 : crc32($capabilityCode), $businessDate);
+        $candidates = array_values(array_unique([$capabilityCode, CapabilityWildcard::WILDCARD]));
+        $candidateKey = crc32(implode('|', $candidates));
+        $cacheKey = sprintf('iam:bindings:%d:%d:%d:%d:%s', $tenantId, $principalId, $authVersion, $candidateKey, $businessDate);
         $ttl = (int) config('iam.authorization.binding_cache_seconds', 60);
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = Cache::remember($cacheKey, $ttl, function () use ($tenantId, $principalId, $capabilityCode, $authVersion, $businessDate): array {
+        $rows = Cache::remember($cacheKey, $ttl, function () use ($tenantId, $principalId, $candidates, $authVersion, $businessDate): array {
             $start = $businessDate.' 00:00:00';
 
             return AuthorityBinding::query()
                 ->where('tenant_id', $tenantId)
                 ->where('principal_id', $principalId)
-                ->where('capability_code', $capabilityCode)
+                ->whereIn('capability_code', $candidates)
                 ->where('auth_version', $authVersion)
                 ->where('valid_from', '<=', $start)
                 ->where('valid_to', '>', $start)
