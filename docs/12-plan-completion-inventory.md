@@ -125,3 +125,44 @@ ls deploy/scripts/migrate_*.php                     # 5（含共用实现）
 3. 3 个计划目录提及但正文未要求的索引型文档，以及 1 个 `docs/plans/` 目录。
 
 若要求 30 周生产切换**真正完成**，第 1、2 类必须由组织推进；本仓库不伪造其通过。
+
+## 9. Docker Compose 部署栈（新增 GATE）
+
+**问题**：接受"项目能在 Docker 里跑起来"这一预期时，必须说明——**本仓库的容器栈从未启动过**。
+
+| 项 | 事实 |
+|---|---|
+| `deploy/compose/docker-compose.yml` | 7 个服务（nginx / php-app / php-worker / php-scheduler / mysql / redis / minio），`docker compose config` **校验通过** |
+| 镜像构建 | `docker compose build` **失败** |
+| 根因 | 本环境无法连通 `registry-1.docker.io`：`docker pull nginx:1.27-alpine` 超时 |
+| 已缓存镜像 | 仅 `mysql:8.4`、`redis:7-alpine`；`composer:2`、`php:8.4-fpm-alpine`、`nginx:1.27-alpine`、`minio` 均缺失 |
+| 实际验证方式 | **`php artisan serve`（:8000）+ Vite（:5174）**，不是容器 |
+
+因此：**23 项门禁与全部 E2E 证明的是应用逻辑，不是容器部署**。
+
+### 顺带修复的两处配置缺陷
+
+`compose config` 解析后发现：
+
+| 缺陷 | 原值 | 影响 | 修复 |
+|---|---|---|---|
+| `APP_URL` 与发布端口不一致 | `http://localhost:8000`，而 nginx 发布 `8080` | 导出下载、短效文件链接等**绝对 URL** 会指错端口 | 改为 `${APP_URL:-http://localhost:${HTTP_PORT:-8080}}` |
+| 生产容器缺 CORS 白名单 | 未设置 | 带凭据的浏览器请求全部被拒 | 注入 `HRMS_CORS_ALLOWED_ORIGINS` 默认值（显式 origin，绝不用 `*`） |
+
+两处都属于"只在容器里才会暴露"的问题——这正是为什么"没启动过 Docker"是一个必须记录的缺口，而不是可以略过的细节。
+
+### 如何完成
+
+```bash
+# 需要能访问 Docker registry 的网络环境
+cd deploy/compose
+cp .env.example .env          # 填入真实 APP_KEY 与口令
+docker compose build
+docker compose up -d
+docker compose ps             # 7 个服务应为 healthy
+curl -fsS http://localhost:8080/up
+curl -fsS http://localhost:8080/v1/health
+docker compose exec php-app php artisan migrate --force
+```
+
+启动后应把 `compose ps` 与健康检查输出补进 `evidence/logs/docker-compose.txt`，并将本 GATE 改为 PASS。

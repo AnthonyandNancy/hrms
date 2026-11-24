@@ -1,0 +1,35 @@
+=== docker/compose availability ===
+Tue Nov 24 00:57:48 UTC 2026
+
+--- docker version ---
+Docker version 29.9.2, build a82e528
+
+--- compose config validation ---
+compose config: VALID
+
+--- resolved services ---
+minio
+mysql
+nginx
+php-app
+php-scheduler
+php-worker
+redis
+
+--- base image availability ---
+composer:2                                           MISSING
+php:8.4-fpm-alpine                                   MISSING
+nginx:1.27-alpine                                    MISSING
+mysql:8.4                                            cached
+redis:7-alpine                                       cached
+minio/minio:RELEASE.2025-07-23T15-54-02Z             MISSING
+
+--- registry reachability ---
+Error response from daemon: Get "https://registry-1.docker.io/v2/": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)
+
+--- running containers (none from this project) ---
+(empty above means no factoryhr container is running)
+
+NOT_EXECUTED: image build and stack start. The Docker registry is unreachable from this environment,
+so the documented compose deployment path could not be exercised. It is recorded as an environment GATE,
+not as a pass.
