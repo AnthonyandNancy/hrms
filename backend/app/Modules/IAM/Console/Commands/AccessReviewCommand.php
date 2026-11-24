@@ -57,8 +57,8 @@ final class AccessReviewCommand extends Command
 
         $conflicts = [];
         foreach ($byPrincipal as $principalId => $codes) {
-            foreach (SodRules::conflicts($codes) as $pair) {
-                $conflicts[] = ['principal_id' => $principalId, 'capabilities' => $pair];
+            foreach (SodRules::risks($codes) as $risk) {
+                $conflicts[] = ['principal_id' => $principalId, 'capabilities' => $risk['pair']];
             }
         }
 

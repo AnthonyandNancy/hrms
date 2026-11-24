@@ -43,6 +43,7 @@ final class SecurityEventService
             'target_user_id',
             'method',
             'outcome',
+            'risks',
         ]));
 
         return AuthEvent::query()->create([

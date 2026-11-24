@@ -82,7 +82,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
         $this->assertNotNull($runBinding->auth_version);
     }
 
-    public function test_sod_conflict_blocks_role_assignment(): void
+    public function test_a_risky_role_assignment_requires_explicit_acknowledgement(): void
     {
         $this->freeze();
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
@@ -108,7 +108,9 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
                 'PAYROLL_RUN' => 77,
                 'LEGAL_ENTITY' => 1,
             ],
-        ], $auth)->assertStatus(409);
+        ], $auth)
+            ->assertStatus(422)
+            ->assertJsonPath('data.reason', 'SOD_RISK_NOT_ACKNOWLEDGED');
     }
 
     private function roleManager(): User

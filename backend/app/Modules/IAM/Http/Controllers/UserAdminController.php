@@ -150,6 +150,7 @@ final class UserAdminController
             'reason' => ['required', 'string', 'min:3', 'max:255'],
             'binding_anchors' => ['sometimes', 'array'],
             'binding_anchors.*' => ['integer', 'min:1'],
+            'acknowledge_sod_risk' => ['sometimes', 'boolean'],
         ]);
 
         if (! RoleTemplateCatalog::validateCode((string) $validated['role_code'])) {
@@ -175,7 +176,16 @@ final class UserAdminController
         $anchors = $this->resolveRoleAnchors($request, $grants);
         /** @var list<string> $capabilities */
         $capabilities = $grants->pluck('capability_code')->map(static fn (mixed $code): string => (string) $code)->all();
-        SodRules::assertAllowed(array_values(array_unique([...$capabilities, ...$this->currentCapabilityCodes((int) $target->id)])));
+        $combined = array_values(array_unique([...$capabilities, ...$this->currentCapabilityCodes((int) $target->id)]));
+        $risks = SodRules::risks($combined);
+
+        if ($risks !== [] && ! $request->boolean('acknowledge_sod_risk')) {
+            throw new ValidationException(
+                ['acknowledge_sod_risk' => ['This grant creates a separation-of-duties risk. Confirm to proceed.']],
+                'The given data was invalid.',
+                ['reason' => 'SOD_RISK_NOT_ACKNOWLEDGED', 'risks' => $risks],
+            );
+        }
 
         $now = $this->clock->now();
         $from = isset($validated['valid_from'])
@@ -189,7 +199,7 @@ final class UserAdminController
             $to = $role->expires_at;
         }
 
-        DB::transaction(function () use ($target, $principal, $role, $grants, $anchors, $validated, $from, $to, $request): void {
+        DB::transaction(function () use ($target, $principal, $role, $grants, $anchors, $validated, $risks, $from, $to, $request): void {
             $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $newVersion = (int) $user->auth_version + 1;
 
@@ -231,9 +241,24 @@ final class UserAdminController
                 'role_code' => (string) $role->code,
                 'reason' => (string) $validated['reason'],
             ], $request);
+
+            if ($risks !== []) {
+                $this->events->record((int) $user->tenant_id, $principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
+                    'target_user_id' => (int) $user->id,
+                    'role_code' => (string) $role->code,
+                    'reason' => (string) $validated['reason'],
+                    'risks' => $risks,
+                ], $request);
+            }
         });
 
-        return ApiResponse::created(['user_id' => (int) $target->id, 'role_code' => $role->code]);
+        $payload = ['user_id' => (int) $target->id, 'role_code' => $role->code];
+
+        if ($risks !== []) {
+            $payload['warnings'] = $risks;
+        }
+
+        return ApiResponse::created($payload);
     }
 
     /**
@@ -287,6 +312,7 @@ final class UserAdminController
     {
         return AuthorityBinding::query()
             ->where('principal_id', $userId)
+            ->where('valid_from', '<=', $this->clock->now())
             ->where('valid_to', '>', $this->clock->now())
             ->pluck('capability_code')
             ->map(static fn (mixed $code): string => (string) $code)

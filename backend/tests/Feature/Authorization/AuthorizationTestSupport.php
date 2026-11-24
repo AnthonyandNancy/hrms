@@ -7,14 +7,21 @@ namespace Tests\Feature\Authorization;
 use App\Modules\IAM\Auth\AuthenticatedPrincipal;
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\IAM\Models\AuthorityBinding;
+use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Services\TotpService;
+use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
 use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\Fakes\FakeCaseMembershipDirectory;
 use Tests\Fakes\FakeOrganizationScopeDirectory;
 use Tests\Fakes\FakePayrollRunMembershipDirectory;
@@ -59,7 +66,7 @@ abstract class AuthorizationTestSupport extends TestCase
         $this->app->instance(SensitiveAccessAuditor::class, $this->sensitiveAuditor);
     }
 
-    protected function actingAsUser(User $user, ?int $employmentId = null, bool $mfa = false): Principal
+    protected function actingAsUser(User $user, ?int $employmentId = null, bool $mfa = false, ?string $sessionId = null): Principal
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
@@ -68,10 +75,56 @@ abstract class AuthorizationTestSupport extends TestCase
             authVersion: (int) $user->auth_version,
             privileged: (bool) $user->is_privileged,
             mfa: $mfa,
+            sessionId: $sessionId,
         );
 
         $this->app->make(AuthenticationContext::class)->set($principal);
 
         return $principal;
+    }
+
+    /**
+     * A legal-entity super administrator with the code-owned wildcard binding
+     * and a real confirmed TOTP factor, authenticated through the same
+     * explicit-principal seam as every authorization test.
+     */
+    protected function systemAdmin(): User
+    {
+        $user = User::factory()->create([
+            'tenant_id' => 1,
+            'auth_version' => 1,
+            'is_privileged' => true,
+        ]);
+
+        AuthorityBinding::factory()
+            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED)
+            ->create([
+                'capability_code' => CapabilityWildcard::WILDCARD,
+                'purpose_code' => 'SYSTEM_ADMIN',
+                'valid_from' => '2025-01-01 00:00:00',
+                'valid_to' => '2030-01-01 00:00:00',
+            ]);
+
+        $now = app(\App\Shared\Time\Clock::class)->now();
+        MfaFactor::query()->create([
+            'tenant_id' => 1,
+            'user_id' => (int) $user->id,
+            'type' => MfaFactor::TYPE_TOTP,
+            'secret_ciphertext' => Crypt::encryptString(app(TotpService::class)->generateSecret()),
+            'label' => 'test-system-admin',
+            'confirmed_at' => $now,
+        ]);
+        $user->forceFill(['mfa_enrolled_at' => $now])->save();
+
+        $this->organization->knownLegalEntities = [1];
+        $this->people->employmentByUser[(int) $user->id] = [1];
+
+        $principal = $this->actingAsUser($user, 1, true, 'test-session');
+
+        $this->app->instance(Principal::class, $principal);
+        $this->app->instance(AuthenticatedPrincipal::class, $principal);
+
+        return $user;
     }
 }

@@ -12,6 +12,7 @@ use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -129,7 +130,16 @@ final class AuthorizationAdminController
             'purpose_code' => ['required', 'string', 'max:48'],
             'valid_from' => ['sometimes', 'date'],
             'valid_to' => ['sometimes', 'date', 'after:valid_from'],
+            'acknowledge_sod_risk' => ['sometimes', 'boolean'],
         ]);
+
+        if (CapabilityWildcard::is((string) $validated['capability_code'])) {
+            throw new ValidationException(
+                ['capability_code' => ['The wildcard capability cannot be granted through the API.']],
+                'The given data was invalid.',
+                ['reason' => 'WILDCARD_NOT_GRANTABLE'],
+            );
+        }
 
         $target = \App\Modules\IAM\Models\User::query()
             ->where('tenant_id', $principal->tenantId())
@@ -167,18 +177,28 @@ final class AuthorizationAdminController
         $existing = AuthorityBinding::query()
             ->where('tenant_id', $principal->tenantId())
             ->where('principal_id', $userId)
+            ->where('valid_from', '<=', $this->clock->now())
             ->where('valid_to', '>', $this->clock->now())
             ->pluck('capability_code')
             ->map(static fn (mixed $code): string => (string) $code)
             ->all();
 
-        SodRules::assertAllowed(array_values(array_unique([...$existing, (string) $validated['capability_code']])));
+        $combined = array_values(array_unique([...$existing, (string) $validated['capability_code']]));
+        $risks = SodRules::risks($combined);
+
+        if ($risks !== [] && ! $request->boolean('acknowledge_sod_risk')) {
+            throw new ValidationException(
+                ['acknowledge_sod_risk' => ['This grant creates a separation-of-duties risk. Confirm to proceed.']],
+                'The given data was invalid.',
+                ['reason' => 'SOD_RISK_NOT_ACKNOWLEDGED', 'risks' => $risks],
+            );
+        }
 
         $now = $this->clock->now();
         $from = isset($validated['valid_from']) ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC') : $now;
         $to = isset($validated['valid_to']) ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC') : $now->addYear();
 
-        $binding = DB::transaction(function () use ($target, $principal, $validated, $anchor, $profile, $from, $to, $request): AuthorityBinding {
+        $binding = DB::transaction(function () use ($target, $principal, $validated, $anchor, $profile, $risks, $from, $to, $request): AuthorityBinding {
             $user = \App\Modules\IAM\Models\User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $newVersion = (int) $user->auth_version + 1;
 
@@ -210,17 +230,34 @@ final class AuthorizationAdminController
                 'binding_id' => (int) $created->id,
             ], $request);
 
+            if ($risks !== []) {
+                $this->events->record((int) $user->tenant_id, $principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
+                    'target_user_id' => (int) $user->id,
+                    'capability' => (string) $validated['capability_code'],
+                    'anchor_type' => $anchor->value,
+                    'anchor_id' => $anchor->requiresAnchorId() ? (int) $validated['anchor_id'] : null,
+                    'binding_id' => (int) $created->id,
+                    'risks' => $risks,
+                ], $request);
+            }
+
             return $created;
         });
 
-        return ApiResponse::created([
+        $payload = [
             'id' => (int) $binding->id,
             'user_id' => (int) $binding->principal_id,
             'capability' => $binding->capability_code,
             'anchor_type' => $binding->anchor_type,
             'anchor_id' => $binding->anchor_id,
             'field_profile' => $binding->field_profile,
-        ]);
+        ];
+
+        if ($risks !== []) {
+            $payload['warnings'] = $risks;
+        }
+
+        return ApiResponse::created($payload);
     }
 
     public function destroyBinding(Request $request, int $id): JsonResponse
