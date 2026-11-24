@@ -44,6 +44,7 @@ final class CapabilityAuditCommand extends Command
         $rows = [];
         $unguarded = [];
         $missingManifest = [];
+        $violations = [];
         $manifest = $this->manifest();
 
         foreach ($this->v1Routes() as $route) {
@@ -83,6 +84,57 @@ final class CapabilityAuditCommand extends Command
 
         if ($public = count(array_filter($rows, static fn (array $row): bool => $row[2] === 'PUBLIC'))) {
             $this->line("Public routes (explicit allowlist): {$public}");
+        }
+
+        $catalog = app(\App\Modules\IAM\Authorization\CapabilityCatalog::class);
+        $templates = \App\Modules\IAM\Authorization\RoleTemplateCatalog::templates();
+        $issued = [];
+
+        foreach ($templates as $template) {
+            foreach ($template->capabilityCodes() as $code) {
+                $issued[] = $code;
+
+                if (! \App\Shared\Authorization\CapabilityWildcard::is($code) && ! $catalog->has($code)) {
+                    $violations[] = "G-COV-2: template {$template->code} grants unknown capability {$code}";
+                }
+            }
+        }
+
+        $intrinsic = ['iam.session.manage'];
+        $wildcardIssued = in_array(\App\Shared\Authorization\CapabilityWildcard::WILDCARD, $issued, true);
+
+        foreach ($catalog->codes() as $code) {
+            if (in_array($code, $intrinsic, true)) {
+                continue;
+            }
+
+            if (! $wildcardIssued && ! in_array($code, $issued, true)) {
+                $violations[] = "G-COV-1: no role template issues {$code}";
+            }
+        }
+
+        foreach ($this->v1Routes() as $route) {
+            $code = $this->capability($route);
+
+            if ($code === null || in_array($code, $intrinsic, true)) {
+                continue;
+            }
+
+            if (! $wildcardIssued && ! in_array($code, $issued, true)) {
+                $violations[] = "G-COV-3: route {$route->uri()} requires unissued capability {$code}";
+            }
+        }
+
+        if ($violations !== []) {
+            $this->error('Capability coverage audit failed with '.count($violations).' violation(s):');
+
+            foreach ($violations as $violation) {
+                $this->line('  - '.$violation);
+            }
+
+            $this->line('Fix: add the capability to CapabilityCatalog and to at least one role template, then re-run.');
+
+            return self::FAILURE;
         }
 
         if ($unguarded !== []) {
