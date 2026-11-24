@@ -17,7 +17,14 @@ source "${SCRIPT_DIR}/lib/common.sh"
 
 COMPOSE_FILE="${REPO_ROOT}/deploy/compose/docker-compose.yml"
 RESET=0
-[[ "${1:-}" == "--reset" ]] && RESET=1
+DEMO=0
+for arg in "$@"; do
+    case "${arg}" in
+        --reset) RESET=1 ;;
+        --demo) DEMO=1 ;;
+        *) die "unknown argument: ${arg}" ;;
+    esac
+done
 
 compose() { docker compose -f "${COMPOSE_FILE}" "$@"; }
 
