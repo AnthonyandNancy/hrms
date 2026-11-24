@@ -14,6 +14,24 @@ use App\Modules\Organization\Models\Position;
 
 final class OrganizationFactsService implements OrganizationFacts
 {
+    public function legalEntitiesForTenant(int $tenantId): array
+    {
+        return LegalEntity::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (LegalEntity $entity): LegalEntityInfo => new LegalEntityInfo(
+                id: (int) $entity->id,
+                tenantId: (int) $entity->tenant_id,
+                code: (string) $entity->code,
+                name: (string) $entity->name,
+                countryCode: (string) $entity->country_code,
+                timezone: (string) $entity->timezone,
+                currencyCode: (string) $entity->currency_code,
+                status: (string) $entity->status,
+            ))->all();
+    }
+
     public function legalEntity(int $tenantId, int $legalEntityId): ?LegalEntityInfo
     {
         $entity = LegalEntity::query()

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Console;
 
-use App\Modules\Organization\Models\LegalEntity;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Time\Models\ShiftTemplate;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\ShiftService;
@@ -36,7 +36,15 @@ final class SeedCalendarCommand extends Command
             return self::FAILURE;
         }
 
-        $entity = LegalEntity::query()->whereKey($entityId)->first();
+        $entities = app(OrganizationFacts::class)->legalEntitiesForTenant(1);
+        $entity = null;
+
+        foreach ($entities as $candidate) {
+            if ($candidate->id === $entityId) {
+                $entity = $candidate;
+                break;
+            }
+        }
 
         if ($entity === null) {
             $this->error("Legal entity {$entityId} does not exist.");
@@ -48,17 +56,17 @@ final class SeedCalendarCommand extends Command
         $workweek = array_map('intval', explode(',', (string) $this->option('workweek')));
         $minutes = (int) $this->option('standard-day-minutes');
 
-        $calendar->configure((int) $entity->tenant_id, $entityId, $timezone, $workweek, $minutes);
+        $calendar->configure($entity->tenantId, $entityId, $timezone, $workweek, $minutes);
         $this->info("Calendar configured for legal entity {$entityId} ({$timezone}).");
 
         $existing = ShiftTemplate::query()
-            ->where('tenant_id', (int) $entity->tenant_id)
+            ->where('tenant_id', $entity->tenantId)
             ->where('legal_entity_id', $entityId)
             ->where('code', 'STANDARD')
             ->exists();
 
         if (! $existing) {
-            $shifts->createTemplate((int) $entity->tenant_id, [
+            $shifts->createTemplate($entity->tenantId, [
                 'legal_entity_id' => $entityId,
                 'code' => 'STANDARD',
                 'name' => 'Standard day',
@@ -93,7 +101,7 @@ final class SeedCalendarCommand extends Command
                 }
 
                 $calendar->addHoliday(
-                    (int) $entity->tenant_id,
+                    $entity->tenantId,
                     $entityId,
                     $date,
                     $name,

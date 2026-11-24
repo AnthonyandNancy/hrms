@@ -118,7 +118,8 @@ final class WildcardGrantTest extends AuthorizationTestSupport
 
         $this->assertInstanceOf(FieldSet::class, $set);
         $this->assertTrue($set->isVisible('display_name'));
-        $this->assertFalse($set->isVisible('salary'));
+        $this->assertTrue($set->isVisible('salary'), 'A wildcard grant carries P3 and may reveal restricted values.');
+        $this->assertFalse($set->isExportable('salary'));
     }
 
     public function test_an_expired_wildcard_binding_permits_nothing(): void

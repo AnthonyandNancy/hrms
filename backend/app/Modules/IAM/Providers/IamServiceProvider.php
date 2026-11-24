@@ -50,6 +50,7 @@ final class IamServiceProvider extends ServiceProvider
         \App\Modules\IAM\Console\Commands\ReapSessionsCommand::class,
         \App\Modules\IAM\Console\Commands\AccessReviewCommand::class,
         \App\Modules\IAM\Console\Commands\BindRoleCommand::class,
+        \App\Modules\IAM\Console\Commands\InstallCommand::class,
         \App\Modules\IAM\Console\Commands\VerifyMfaEnrollmentCommand::class,
     ];
 

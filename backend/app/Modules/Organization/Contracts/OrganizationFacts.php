@@ -12,6 +12,11 @@ interface OrganizationFacts
 {
     public function legalEntity(int $tenantId, int $legalEntityId): ?LegalEntityInfo;
 
+    /**
+     * @return list<LegalEntityInfo>
+     */
+    public function legalEntitiesForTenant(int $tenantId): array;
+
     public function orgUnit(int $tenantId, int $orgUnitId): ?OrgUnitInfo;
 
     public function position(int $tenantId, int $positionId): ?PositionInfo;

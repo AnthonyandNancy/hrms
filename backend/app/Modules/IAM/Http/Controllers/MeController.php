@@ -9,6 +9,7 @@ use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Time\Clock;
@@ -37,14 +38,8 @@ final class MeController
             'has_mfa' => $user->hasConfirmedMfa(),
             'mfa_verified' => $principal->hasMfa(),
             'auth_version' => $principal->authVersion(),
-            'tenant_name' => (string) (\App\Modules\Organization\Models\LegalEntity::query()
-                ->where('tenant_id', $principal->tenantId())
-                ->orderBy('id')
-                ->value('name') ?? 'HRMS'),
-            'legal_entity_name' => (string) (\App\Modules\Organization\Models\LegalEntity::query()
-                ->where('tenant_id', $principal->tenantId())
-                ->orderBy('id')
-                ->value('name') ?? ''),
+            'tenant_name' => $this->tenantName($principal->tenantId()),
+            'legal_entity_name' => $this->tenantName($principal->tenantId()),
             'roles' => UserRole::query()
                 ->where('tenant_id', $principal->tenantId())
                 ->where('user_id', $principal->userId())
@@ -124,6 +119,13 @@ final class MeController
             'mfa_required' => $this->requiresMfa($principal->userId(), $principal->tenantId()),
             'mfa_verified' => $principal->hasMfa(),
         ]);
+    }
+
+    private function tenantName(int $tenantId): string
+    {
+        $entities = app(OrganizationFacts::class)->legalEntitiesForTenant($tenantId);
+
+        return $entities === [] ? 'HRMS' : $entities[0]->name;
     }
 
     private function requiresMfa(int $userId, int $tenantId): bool

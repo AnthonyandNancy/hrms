@@ -2,20 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Platform\Install;
+namespace App\Modules\IAM\Console\Commands;
 
 use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\MfaService;
 use App\Modules\IAM\Services\PasswordHasher;
-use App\Modules\Organization\Models\LegalEntity;
-use App\Modules\Organization\Models\OrgUnit;
-use App\Modules\Organization\Models\OrgUnitClosure;
+use App\Modules\Organization\Contracts\OrganizationBootstrap;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
 
 /**
  * The only supported production birth path.
@@ -78,42 +75,17 @@ final class InstallCommand extends Command
         $admin = null;
 
         try {
-            DB::transaction(function () use ($report, $tenantId, $code, $name, $clock): int {
-                $entity = LegalEntity::query()->firstOrCreate(
-                    ['tenant_id' => $tenantId, 'code' => $code],
-                    [
-                        'name' => $name,
-                        'country_code' => strtoupper((string) $this->option('country')),
-                        'timezone' => (string) $this->option('timezone'),
-                        'currency_code' => strtoupper((string) $this->option('currency')),
-                        'status' => 'ACTIVE',
-                    ],
-                );
-                $report->record('legal_entity', $entity->wasRecentlyCreated ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, "id={$entity->id}");
-
-                $root = OrgUnit::query()->firstOrCreate(
-                    ['tenant_id' => $tenantId, 'code' => $code.'-HQ'],
-                    [
-                        'legal_entity_id' => (int) $entity->id,
-                        'parent_id' => null,
-                        'name' => $name.' Headquarters',
-                        'type' => 'COMPANY',
-                        'status' => 'ACTIVE',
-                        'valid_from' => '2026-01-01',
-                        'valid_to' => '9999-12-31',
-                        'recorded_at' => $clock->now(),
-                        'source_type' => 'INSTALL',
-                    ],
-                );
-                $report->record('root_org_unit', $root->wasRecentlyCreated ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, "id={$root->id}");
-
-                OrgUnitClosure::query()->firstOrCreate(
-                    ['tenant_id' => $tenantId, 'ancestor_id' => (int) $root->id, 'descendant_id' => (int) $root->id, 'valid_from' => '2026-01-01'],
-                    ['depth' => 0, 'valid_to' => '9999-12-31', 'recorded_at' => $clock->now(), 'source_type' => 'INSTALL'],
-                );
-
-                return (int) $entity->id;
-            });
+            $bootstrap = app(OrganizationBootstrap::class)->ensureLegalEntityWithRoot(
+                $tenantId,
+                $code,
+                $name,
+                (string) $this->option('country'),
+                (string) $this->option('timezone'),
+                (string) $this->option('currency'),
+            );
+            $report->record('legal_entity', $bootstrap['legal_entity_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['legal_entity_id']);
+            $report->record('root_org_unit', $bootstrap['root_org_unit_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['root_org_unit_id']);
+            $entityId = $bootstrap['legal_entity_id'];
 
             $this->runStep($report, 'capabilities', 'iam:sync-capabilities');
             $this->runStep($report, 'workflow_templates', 'workflow:seed-templates', ['--tenant-id' => $tenantId]);
@@ -123,8 +95,6 @@ final class InstallCommand extends Command
                 '--annual-days' => $this->option('annual-days'),
                 '--legal-basis' => $this->option('legal-basis'),
             ], static fn ($value): bool => $value !== null && $value !== ''));
-
-            $entityId = (int) LegalEntity::query()->where('tenant_id', $tenantId)->where('code', $code)->value('id');
 
             $this->runStep($report, 'calendar', 'time:seed-calendar', array_filter([
                 '--legal-entity' => $entityId,

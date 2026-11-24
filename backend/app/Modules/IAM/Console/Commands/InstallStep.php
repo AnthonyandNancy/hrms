@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Platform\Install;
+namespace App\Modules\IAM\Console\Commands;
 
 /**
  * One installer step. Steps are independent and idempotent so a failed install
