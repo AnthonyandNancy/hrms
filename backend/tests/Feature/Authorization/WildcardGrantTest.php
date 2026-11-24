@@ -10,6 +10,13 @@ use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
+use App\Shared\Authorization\FieldSet;
+use App\Shared\Authorization\ResourceRef;
+use App\Shared\Time\Clock;
+use App\Shared\Time\FrozenClock;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class WildcardGrantTest extends AuthorizationTestSupport
 {
@@ -43,6 +50,75 @@ final class WildcardGrantTest extends AuthorizationTestSupport
             new AnchorRef(AnchorType::LEGAL_ENTITY, 1),
             '2026-11-24',
         ));
+    }
+
+    public function test_constrain_scopes_a_concrete_capability_query_to_the_wildcards_legal_entity(): void
+    {
+        $this->clock = new FrozenClock('2026-11-24T09:00:00Z');
+        $this->app->instance(Clock::class, $this->clock);
+
+        Schema::create('wildcard_scope_rows', function ($table): void {
+            $table->id();
+            $table->unsignedBigInteger('tenant_id');
+            $table->unsignedBigInteger('employment_id');
+        });
+
+        DB::table('wildcard_scope_rows')->insert([
+            ['tenant_id' => 1, 'employment_id' => 501],
+            ['tenant_id' => 1, 'employment_id' => 502],
+            ['tenant_id' => 2, 'employment_id' => 501],
+        ]);
+
+        $user = User::factory()->create(['auth_version' => 1]);
+        $this->organization->knownLegalEntities = [1];
+        $this->organization->unitsByLegalEntity[1] = [12];
+        $this->people->employmentByOrgUnit[12] = [501];
+        $this->grant($user, '*', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+
+        $model = new class extends Model
+        {
+            protected $table = 'wildcard_scope_rows';
+        };
+
+        $query = app(CapabilityAuthorizer::class)->constrain(
+            $model->newQuery(),
+            $this->actingAsUser($user),
+            'payroll.run.read',
+            '2026-11-24',
+        );
+
+        $this->assertSame([501], $query->pluck('employment_id')->all());
+    }
+
+    public function test_fields_projects_a_concrete_employee_for_a_wildcard_grant(): void
+    {
+        $this->clock = new FrozenClock('2026-11-24T09:00:00Z');
+        $this->app->instance(Clock::class, $this->clock);
+
+        $user = User::factory()->create(['auth_version' => 1]);
+        $this->organization->knownLegalEntities = [1];
+        $this->grant($user, '*', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+
+        $set = app(CapabilityAuthorizer::class)->fields(
+            $this->actingAsUser($user),
+            'people.employee.read',
+            new ResourceRef(
+                resourceType: 'employee',
+                id: 17,
+                row: [
+                    'display_name' => 'Ada Lovelace',
+                    'salary' => '999999',
+                ],
+                tenantId: 1,
+                employmentId: 501,
+                orgUnitId: 12,
+                legalEntityId: 1,
+            ),
+        );
+
+        $this->assertInstanceOf(FieldSet::class, $set);
+        $this->assertTrue($set->isVisible('display_name'));
+        $this->assertFalse($set->isVisible('salary'));
     }
 
     public function test_an_expired_wildcard_binding_permits_nothing(): void
