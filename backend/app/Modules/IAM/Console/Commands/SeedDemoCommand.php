@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Console\Commands;
 
 use App\Modules\IAM\Models\AuthorityBinding;
+use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\PasswordHasher;
+use App\Modules\IAM\Services\TotpService;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Crypt;
 
 final class SeedDemoCommand extends Command
 {
@@ -53,7 +56,6 @@ final class SeedDemoCommand extends Command
                     'password_hash' => $hash,
                     'status' => User::STATUS_ACTIVE,
                     'is_privileged' => $privileged,
-                    'mfa_enrolled_at' => $privileged ? $clock->now() : null,
                     // auth_version has no database default. Leaving it unset
                     // produced 0 on MySQL, while the bindings created below
                     // carried 1, so every authorization check failed closed and
@@ -67,6 +69,14 @@ final class SeedDemoCommand extends Command
             if ((int) $user->auth_version < 1) {
                 $user->forceFill(['auth_version' => 1])->save();
                 $user->refresh();
+            }
+
+            if ($privileged && ! MfaFactor::query()
+                ->where('user_id', (int) $user->id)
+                ->whereNotNull('confirmed_at')
+                ->whereNull('disabled_at')
+                ->exists()) {
+                $this->enrollTotp($user, $clock);
             }
 
             foreach ($roles as $roleCode) {
@@ -113,5 +123,29 @@ final class SeedDemoCommand extends Command
         $this->info('Demo users are idempotent and contain synthetic data only.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Create a real confirmed TOTP factor and print the provisioning URI once
+     * so the operator can actually complete a login challenge.
+     */
+    private function enrollTotp(User $user, Clock $clock): void
+    {
+        $totp = app(TotpService::class);
+        $secret = $totp->generateSecret();
+
+        MfaFactor::query()->create([
+            'tenant_id' => (int) $user->tenant_id,
+            'user_id' => (int) $user->id,
+            'type' => MfaFactor::TYPE_TOTP,
+            'secret_ciphertext' => Crypt::encryptString($secret),
+            'label' => 'demo-privileged',
+            'confirmed_at' => $clock->now(),
+        ]);
+
+        $user->forceFill(['mfa_enrolled_at' => $clock->now()])->save();
+
+        $issuer = (string) config('iam.mfa.totp_issuer', 'HRMS');
+        $this->line("TOTP for {$user->username}: ".$totp->provisioningUri($issuer, $user->username, $secret));
     }
 }

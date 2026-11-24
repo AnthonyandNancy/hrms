@@ -44,6 +44,7 @@ if [ -d "$ROOT/backend" ]; then
   run_gate "pint" vendor/bin/pint --test
   run_gate "phpstan" php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress
   run_gate "capability audit" php artisan capability:audit
+  run_gate "mfa enrollment invariant" php artisan iam:verify-mfa-enrollment
   run_gate "arch test" php artisan arch:test
   run_gate "openapi contract" bash -c "[ -f tests/Contract/OpenApiContractTest.php ] && php artisan test --filter=OpenApiContractTest || exit 2"
 else

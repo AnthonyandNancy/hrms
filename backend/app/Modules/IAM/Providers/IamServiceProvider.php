@@ -49,6 +49,7 @@ final class IamServiceProvider extends ServiceProvider
         \App\Modules\IAM\Console\Commands\SeedDemoCommand::class,
         \App\Modules\IAM\Console\Commands\ReapSessionsCommand::class,
         \App\Modules\IAM\Console\Commands\AccessReviewCommand::class,
+        \App\Modules\IAM\Console\Commands\VerifyMfaEnrollmentCommand::class,
     ];
 
     public function register(): void
