@@ -135,6 +135,7 @@
 | **Docker Compose 未启动** | 本环境 Docker registry 不可达（`docker pull` 超时），PHP 基础镜像缺失，`docker compose build` 失败。所有验证用的是 `php artisan serve`（8000）+ Vite（5174），**不是容器栈** | Compose 部署路径为 **GATE**。`compose config` 已校验通过并修复了 `APP_URL`/CORS 两处配置缺陷，但"能起容器"未被证明 |
 | 架构警告 | `arch:test` 警告由 16 条降至 4 条（仅剩 `RetentionService` 动态表名）；同时修复扫描器把 `DB::table('x as a')` 误判为未知表的问题，该修复暴露并修掉了 Lifecycle 直接读 People 表 2 处违规 | 剩余 4 条非阻断，已登记为 ADR-0015 复审触发条件 |
 | SAST | CodeQL 仅在 GitHub Actions 运行 | 本地证据不包含 SAST 结果 |
+| **APP_KEY 曾进入 git 历史** | 生成 compose 证据时误把解析后的 `APP_KEY` 写入 `evidence/logs/compose-config.txt` 并提交（`f5c5313`）。已**轮换本地 APP_KEY**、用旧密钥解密后以新密钥重新加密全部 20 个 PII 密文字段（验证 20/20 可读）、删除临时明文、并把证据文件改为只记录环境变量名 | 旧密钥已失效，无法解密任何数据。**项目负责人已接受**历史保留不重写：本项目内网部署、不做外网部署（决定日期 2026-11-24）。若部署范围变为外网/外发，须重评；新环境仍必须使用独立 APP_KEY |
 | 演示口令的残留历史 | 该口令曾出现在提交 `600c30c`/`a565a04` 的文件内容中，已在 `a565a04` 从工作树移除、并在 `388f6f1` 从审计文档中脱敏；因仓库无 remote 且存在 12 个 worktree 与 15+ 分支，未做历史重写 | 对该值视为**已泄露并应轮换**：任何按本仓库部署的环境都必须使用全新的 `DEMO_SEED_PASSWORD`，不得复用该值。若将来添加 remote，须在首次推送前重写历史或强制轮换 |
 
 ## 8. 组织门禁（GATE，不得标记通过）
