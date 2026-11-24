@@ -72,9 +72,6 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
         return $run->refresh();
     }
 
-    /**
-     * @return array<string, string>
-     */
     public function test_run_detail_omits_amounts_for_a_p2_only_reader(): void
     {
         $run = $this->calculatedRunForProjection();
@@ -92,6 +89,9 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
         $this->assertArrayHasKey('status', $response->json('data'));
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function payrollHeaders(): array
     {
         return [

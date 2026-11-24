@@ -46,7 +46,7 @@ final class AccessReviewController
             ->where('valid_to', '>', $now)
             ->orderBy('id')
             ->get()
-            ->map(static fn (AuthorityBinding $binding): array => [
+            ->map(fn (AuthorityBinding $binding): array => [
                 'binding_id' => (int) $binding->id,
                 'principal_id' => (int) $binding->principal_id,
                 'capability_code' => (string) $binding->capability_code,
