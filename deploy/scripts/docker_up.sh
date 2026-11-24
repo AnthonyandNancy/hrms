@@ -55,15 +55,46 @@ fi
 log "running migrations"
 compose exec -T php-app php backend/artisan migrate --force
 
-log "seeding the synthetic demo tenant"
-compose exec -T -e DEMO_SEED_PASSWORD="${DEMO_SEED_PASSWORD:?DEMO_SEED_PASSWORD must be set (>=12 chars)}" \
-    php-app php backend/artisan iam:sync-capabilities
-compose exec -T -e DEMO_SEED_PASSWORD="${DEMO_SEED_PASSWORD}" \
-    php-app php backend/artisan iam:seed-demo
-compose exec -T php-app php backend/artisan people:seed-demo
-compose exec -T php-app php backend/artisan workflow:seed-templates
-compose exec -T php-app php backend/artisan talent:seed-demo
-compose exec -T php-app php backend/artisan time:seed-leave-types --tenant=1 --annual-days=15.00 || true
+if [[ "${DEMO}" -eq 1 ]]; then
+    log "installing the demo baseline plus the synthetic dataset"
+    : "${DEMO_SEED_PASSWORD:?DEMO_SEED_PASSWORD must be set (>=12 chars)}"
+
+    compose exec -T php-app php backend/artisan hrms:install \
+        --legal-entity-code=DEMO-CN \
+        --legal-entity-name="Demo China Co Ltd" \
+        --country=CN --timezone=Asia/Shanghai --currency=CNY \
+        --admin-username=demo.admin --admin-email=demo.admin@example.test \
+        --admin-password="${DEMO_SEED_PASSWORD}" \
+        --annual-days=15.00 --legal-basis="Synthetic demo policy, not legal advice" \
+        --enable=payroll,time,self_service
+    compose exec -T php-app php backend/artisan people:seed-demo
+    compose exec -T php-app php backend/artisan talent:seed-demo
+else
+    log "installing the production reference baseline"
+    : "${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (>=12 chars)}"
+    : "${LEGAL_ENTITY_CODE:?LEGAL_ENTITY_CODE must be set}"
+    : "${LEGAL_ENTITY_NAME:?LEGAL_ENTITY_NAME must be set}"
+    : "${ADMIN_USERNAME:?ADMIN_USERNAME must be set}"
+    : "${ADMIN_EMAIL:?ADMIN_EMAIL must be set}"
+    : "${ANNUAL_DAYS:?ANNUAL_DAYS must be set (statutory entitlement is a legal decision)}"
+    : "${LEGAL_BASIS:?LEGAL_BASIS must be set}"
+
+    compose exec -T php-app php backend/artisan hrms:install \
+        --legal-entity-code="${LEGAL_ENTITY_CODE}" \
+        --legal-entity-name="${LEGAL_ENTITY_NAME}" \
+        --country="${COUNTRY:-CN}" \
+        --timezone="${TIMEZONE:-Asia/Shanghai}" \
+        --currency="${CURRENCY:-CNY}" \
+        --admin-username="${ADMIN_USERNAME}" \
+        --admin-email="${ADMIN_EMAIL}" \
+        --admin-password="${ADMIN_PASSWORD}" \
+        --annual-days="${ANNUAL_DAYS}" \
+        --legal-basis="${LEGAL_BASIS}" \
+        ${HOLIDAYS_FILE:+--holidays-file="${HOLIDAYS_FILE}"} \
+        ${ENABLE_FLAGS:+--enable="${ENABLE_FLAGS}"} \
+        ${APPROVED_BY:+--approved-by="${APPROVED_BY}"} \
+        ${PAYROLL_YEAR:+--payroll-year="${PAYROLL_YEAR}"}
+fi
 
 log "verifying the deployment"
 health="$(curl -fsS "http://127.0.0.1:${HTTP_PORT:-5174}/v1/health" || true)"
@@ -71,14 +102,16 @@ if ! grep -q '"status":"ok"' <<<"${health}"; then
     die "health check did not report ok: ${health}"
 fi
 
-login_code="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-    "http://127.0.0.1:${HTTP_PORT:-5174}/v1/auth/login" \
-    -H 'Content-Type: application/json' -H 'Accept: application/json' \
-    -d "{\"username\":\"demo.hr\",\"password\":\"${DEMO_SEED_PASSWORD}\"}")"
+if [[ "${DEMO}" -eq 1 ]]; then
+    login_code="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+        "http://127.0.0.1:${HTTP_PORT:-5174}/v1/auth/login" \
+        -H 'Content-Type: application/json' -H 'Accept: application/json' \
+        -d "{\"username\":\"demo.admin\",\"password\":\"${DEMO_SEED_PASSWORD}\"}")"
 
-if [[ "${login_code}" != "200" ]]; then
-    die "demo.hr login failed with HTTP ${login_code}"
+    if [[ "${login_code}" != "202" && "${login_code}" != "200" ]]; then
+        die "demo.admin login failed with HTTP ${login_code}"
+    fi
 fi
 
-pass "stack is up: http://localhost:${HTTP_PORT:-5174}/v1/health (status ok, demo.hr login 200)"
-log "this is a reference/demo deployment: synthetic data, placeholder secrets, no TLS"
+pass "stack is up: http://localhost:${HTTP_PORT:-5174}/v1/health (status ok)"
+log "deployment complete: TLS termination and secret management are environment responsibilities"
