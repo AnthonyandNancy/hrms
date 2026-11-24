@@ -83,6 +83,15 @@ for script in deploy/scripts/backup_restore_smoke.sh deploy/scripts/migration_re
   fi
 done
 
+section "Cutover migration wrappers (E10)"
+for wrapper in migrate_organizations migrate_people migrate_leave_opening migrate_payroll_ytd; do
+  if [ -f "$ROOT/deploy/scripts/$wrapper.php" ]; then
+    run_gate "$wrapper validate" php "$ROOT/deploy/scripts/$wrapper.php"
+  else
+    skip_gate "$wrapper" "missing"
+  fi
+done
+
 section "Payroll correctness (E-11, needs real calculated runs)"
 # Reuses the demo database. Skipped honestly when no calculated run exists, so a
 # clean checkout never reports a fabricated pass.

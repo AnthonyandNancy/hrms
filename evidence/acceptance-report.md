@@ -16,7 +16,7 @@
 
 **`ACCEPTED_WITH_GATES`**
 
-- 全部 **19** 项可执行发布门禁通过（`PASS=19 FAIL=0 SKIP=0`），无 Sev1、无未关闭 Sev2。
+- 全部 **23** 项可执行发布门禁通过（`PASS=23 FAIL=0 SKIP=0`），无 Sev1、无未关闭 Sev2。
 - 联合审计期间发现并修复 5 类真实缺陷（2 个 Sev2、2 个体验/正确性缺陷、1 个合规缺陷）。其中 Sev2 均有失败测试先行复现并由回归测试锁定；合规缺陷以构建产物检索确认修复。
 - 组织签认（S-01–S-08）、真实身份源、银行/税务申报、工资条 PDF、HA、渗透测试与真实迁移平行运行仍为 **GATE**，本仓库不伪造其通过。
 
@@ -47,8 +47,9 @@
 | 17 | 工资对账 | `php artisan payroll:reconciliation` | PASS |
 | 18 | 合成旧系统导出 | `php scripts/payroll_old_export.php` | PASS |
 | 19 | 工资平行检查 | `php artisan payroll:parallel-check` | PASS |
+| 20–23 | 分域迁移包装器 ×4 | `php deploy/scripts/migrate_*.php` | PASS |
 
-汇总行：`PASS=19 FAIL=0 SKIP=0`。
+汇总行：`PASS=23 FAIL=0 SKIP=0`。
 
 > 门禁 17–19 仅在演示库存在 `CALCULATED` 及以上批次时执行，否则显式 SKIP 并说明原因；
 > 干净检出不会伪造工资通过。

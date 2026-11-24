@@ -27,12 +27,17 @@ class AuthorityBindingFactory extends Factory
             'anchor_key' => 1,
             'field_profile' => FieldProfile::P1_INTERNAL->value,
             'purpose_code' => 'test',
-            'valid_from' => now()->subDay(),
-            'valid_to' => now()->addYear(),
+            // Validity must follow the injected clock, not the wall clock.
+            // Authorization looks bindings up at `businessDate 00:00:00`, so a
+            // wall-clock "now minus one day" can land after that instant and
+            // make an otherwise valid binding look expired. That made these
+            // tests depend on the time of day they were run.
+            'valid_from' => app(\App\Shared\Time\Clock::class)->now()->subDay()->startOfDay()->utc(),
+            'valid_to' => app(\App\Shared\Time\Clock::class)->now()->addYear()->utc(),
             'source_type' => 'TEST',
             'source_id' => null,
             'auth_version' => 1,
-            'created_at' => now(),
+            'created_at' => app(\App\Shared\Time\Clock::class)->now()->utc(),
         ];
     }
 
