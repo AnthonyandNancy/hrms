@@ -33,3 +33,16 @@ This is a **reference implementation of the documented architecture and P0 verti
 ## Review ledger
 
 (no tasks complete yet)
+
+---
+
+# Plan 2: superuser coverage & production baseline (2026-11-24)
+
+Plan source: docs/superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md
+Design source: docs/superpowers/specs/2026-11-24-superuser-coverage-and-production-baseline-design.md
+Baseline commit for this plan: f688568 (docs approved)
+Order: 1-11, 13, 12, 14-19 (Task 13 before Task 12 acceptance)
+
+## Review ledger
+
+Task 1: complete (commits f688568..7c12de7, review clean)
