@@ -25,8 +25,15 @@ use Illuminate\Support\ServiceProvider;
 
 final class PlatformServiceProvider extends ServiceProvider
 {
+    /** @var list<class-string> */
+    private const COMMANDS = [
+        \App\Modules\Platform\Install\InstallCommand::class,
+    ];
+
     public function register(): void
     {
+        $this->commands(self::COMMANDS);
+
         $this->app->bind(OutboxDispatcher::class, LogOutboxDispatcher::class);
         $this->app->bind(AuditRecorder::class, AuditRecorderAdapter::class);
         $this->app->bind(OutboxRecorder::class, OutboxRecorderAdapter::class);
