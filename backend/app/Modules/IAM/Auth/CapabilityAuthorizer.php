@@ -394,7 +394,23 @@ final class CapabilityAuthorizer implements Authorizer
     private function anchorAllows(BindingGrant $grant, Principal $p, string $capability, ?int $anchorId, string $businessDate): bool
     {
         if (CapabilityWildcard::is($grant->capabilityCode)) {
-            return true;
+            // `*` covers every capability, but it is still an entity-scoped
+            // grant: it must not widen the anchor the template was bound to.
+            return match ($grant->anchorType) {
+                Anchor::SELF => true,
+                Anchor::MANAGED => $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate) !== [],
+                Anchor::ORG_UNIT => $anchorId !== null
+                    && $anchorId === $grant->anchorId
+                    && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate),
+                Anchor::ORG_SUBTREE => $anchorId !== null
+                    && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate)
+                    && in_array($anchorId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId ?? 0, $businessDate), true),
+                Anchor::CASE => $anchorId !== null && $anchorId === $grant->anchorId,
+                Anchor::PAYROLL_RUN => $anchorId !== null && $anchorId === $grant->anchorId,
+                Anchor::LEGAL_ENTITY => $anchorId !== null
+                    && $anchorId === $grant->anchorId
+                    && $this->organization->legalEntityExists($p->tenantId(), $anchorId),
+            };
         }
 
         return match ($grant->anchorType) {
@@ -426,7 +442,22 @@ final class CapabilityAuthorizer implements Authorizer
         }
 
         if (CapabilityWildcard::is($grant->capabilityCode)) {
-            return true;
+            // Same row scope as a concrete grant; `*` removes only the
+            // capability membership check, never the anchor boundary.
+            return match ($grant->anchorType) {
+                Anchor::SELF => $row->employmentId !== null
+                    && in_array($row->employmentId, $this->people->employmentIdsForUser($p->tenantId(), $p->userId()), true)
+                    && $grant->anchorId === null,
+                Anchor::MANAGED => $row->employmentId !== null
+                    && in_array($row->employmentId, $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate), true),
+                Anchor::ORG_UNIT => $row->orgUnitId !== null && $row->orgUnitId === $grant->anchorId,
+                Anchor::ORG_SUBTREE => $row->orgUnitId !== null
+                    && $grant->anchorId !== null
+                    && in_array($row->orgUnitId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId, $businessDate), true),
+                Anchor::CASE => $row->caseId !== null && $row->caseId === $grant->anchorId,
+                Anchor::PAYROLL_RUN => $row->payrollRunId !== null && $row->payrollRunId === $grant->anchorId,
+                Anchor::LEGAL_ENTITY => $row->legalEntityId !== null && $row->legalEntityId === $grant->anchorId,
+            };
         }
 
         return match ($grant->anchorType) {

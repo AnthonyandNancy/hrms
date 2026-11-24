@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Http\Controllers;
 
+use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Shared\ApiResponse;
@@ -20,10 +21,12 @@ final class AccessReviewController
     public function __construct(
         private readonly Clock $clock,
         private readonly CapabilityCatalog $catalog,
+        private readonly AuthenticationContext $context,
     ) {}
 
     public function show(): JsonResponse
     {
+        $tenantId = $this->context->requirePrincipal()->tenantId();
         $now = $this->clock->now();
         $cutoff = $now->subDays(90);
 
@@ -36,7 +39,9 @@ final class AccessReviewController
         ));
 
         $unused = AuthorityBinding::query()
+            ->where('tenant_id', $tenantId)
             ->whereIn('capability_code', $highRiskCodes)
+            ->where('valid_from', '<=', $now)
             ->where('created_at', '<', $cutoff)
             ->where('valid_to', '>', $now)
             ->orderBy('id')
@@ -45,13 +50,13 @@ final class AccessReviewController
                 'binding_id' => (int) $binding->id,
                 'principal_id' => (int) $binding->principal_id,
                 'capability_code' => (string) $binding->capability_code,
-                'risk' => $binding->capability_code === '*' ? 'critical' : null,
+                'risk' => $binding->capability_code === '*' ? 'critical' : $this->catalog->find((string) $binding->capability_code)?->risk,
                 'created_at' => $binding->created_at?->toIso8601ZuluString(),
             ])
             ->all();
 
         $byPrincipal = [];
-        foreach (AuthorityBinding::query()->where('valid_to', '>', $now)->get() as $binding) {
+        foreach (AuthorityBinding::query()->where('tenant_id', $tenantId)->where('valid_from', '<=', $now)->where('valid_to', '>', $now)->get() as $binding) {
             $byPrincipal[(int) $binding->principal_id][] = $binding->capability_code;
         }
 

@@ -46,6 +46,13 @@ type BackendUser = {
   auth_version: number
 }
 
+type BackendMfaChallenge = {
+  status: 'MFA_REQUIRED'
+  challenge_id: string
+  masked_destination: string
+  expires_at: string | null
+}
+
 type BackendLogin = {
   user: BackendUser
   csrf_token: string
@@ -286,12 +293,23 @@ export function createHttpAdapter(): ApiAdapter {
     bootstrap: loadIdentity,
 
     async login(payload: LoginRequest) {
-      const result = await unwrap<BackendLogin>(
-        client.post<ApiEnvelope<BackendLogin>>('/auth/login', {
-          username: payload.username.trim().toLowerCase(),
-          password: payload.password,
-        }),
-      )
+      const response = await client.post<ApiEnvelope<BackendLogin | BackendMfaChallenge>>('/auth/login', {
+        username: payload.username.trim().toLowerCase(),
+        password: payload.password,
+      })
+      const body = response.data
+
+      if (body.data && 'status' in body.data && body.data.status === 'MFA_REQUIRED') {
+        const challenge = body.data as BackendMfaChallenge
+
+        return {
+          status: 'MFA_REQUIRED' as const,
+          challengeId: challenge.challenge_id,
+          maskedDestination: challenge.masked_destination,
+        }
+      }
+
+      const result = body.data as BackendLogin
       csrfToken = result.csrf_token
       sessionExpiresAt = result.session.absolute_expires_at
 
@@ -299,9 +317,15 @@ export function createHttpAdapter(): ApiAdapter {
     },
 
     async verifyTotp(payload) {
-      await unwrap(
-        client.post('/auth/mfa/step-up', { factor_type: 'TOTP', code: payload.code }),
-      )
+      const response = await client.post<ApiEnvelope<BackendLogin>>('/auth/mfa/challenge', {
+        challenge_id: payload.challengeId,
+        factor_type: 'TOTP',
+        code: payload.code,
+      })
+      const result = response.data.data as BackendLogin
+      csrfToken = result.csrf_token
+      sessionExpiresAt = result.session.absolute_expires_at
+
       return loadIdentity()
     },
 

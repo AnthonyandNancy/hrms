@@ -9,6 +9,8 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\ResourceRef;
@@ -155,5 +157,37 @@ final class WildcardGrantTest extends AuthorizationTestSupport
             ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create(['capability_code' => $capability]);
+    }
+
+    public function test_a_wildcard_binding_does_not_cross_legal_entity_boundaries(): void
+    {
+        $user = User::factory()->create(['auth_version' => 1]);
+        $this->organization->knownLegalEntities = [1, 2];
+        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+
+        $principal = $this->actingAsUser($user);
+        $authorizer = app(Authorizer::class);
+        $date = '2026-11-24';
+
+        $this->assertTrue($authorizer->allows($principal, 'payroll.run.read', new AnchorRef(AnchorType::LEGAL_ENTITY, 1), $date));
+        $this->assertFalse(
+            $authorizer->allows($principal, 'payroll.run.read', new AnchorRef(AnchorType::LEGAL_ENTITY, 2), $date),
+            'A wildcard grant anchored to entity 1 must not authorise entity 2.',
+        );
+
+        $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
+        $authorizer->fields($principal, 'people.employee.read', $this->employeeRowForLegalEntity(2));
+    }
+
+    private function employeeRowForLegalEntity(int $legalEntityId): ResourceRef
+    {
+        return new ResourceRef(
+            resourceType: 'employee',
+            id: 17,
+            row: ['display_name' => 'Ada', 'salary' => '1'],
+            tenantId: 1,
+            employmentId: 501,
+            legalEntityId: $legalEntityId,
+        );
     }
 }

@@ -6,6 +6,7 @@ namespace Tests\Feature\IAM;
 
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
+use App\Modules\Organization\Models\LegalEntity;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +20,15 @@ final class BindRoleCommandTest extends TestCase
     {
         parent::setUp();
         $this->app->instance(Clock::class, new FrozenClock('2026-11-24T09:00:00Z'));
+        LegalEntity::query()->create([
+            'tenant_id' => 1,
+            'code' => 'ACME-CN',
+            'name' => 'Acme China',
+            'country_code' => 'CN',
+            'timezone' => 'Asia/Shanghai',
+            'currency_code' => 'CNY',
+            'status' => 'ACTIVE',
+        ]);
     }
 
     public function test_it_binds_the_system_admin_wildcard_for_a_year(): void
@@ -89,6 +99,34 @@ final class BindRoleCommandTest extends TestCase
             '--user' => (int) $user->id,
             '--role' => 'NOT_A_ROLE',
             '--legal-entity' => 1,
+        ])->assertExitCode(1);
+
+        $this->assertSame(0, AuthorityBinding::query()->count());
+    }
+
+    public function test_it_is_idempotent_even_when_the_clock_advances(): void
+    {
+        $user = User::factory()->create(['auth_version' => 1]);
+        $arguments = ['--user' => (int) $user->id, '--role' => 'SYSTEM_ADMIN', '--legal-entity' => 1];
+
+        $this->artisan('iam:bind-role', $arguments)->assertExitCode(0);
+        $versionAfterFirst = (int) $user->fresh()->auth_version;
+
+        $this->app->instance(Clock::class, new FrozenClock('2026-11-26T09:00:00Z'));
+        $this->artisan('iam:bind-role', $arguments)->assertExitCode(0);
+
+        $this->assertSame(1, AuthorityBinding::query()->count());
+        $this->assertSame($versionAfterFirst, (int) $user->fresh()->auth_version);
+    }
+
+    public function test_it_refuses_a_legal_entity_outside_the_users_tenant(): void
+    {
+        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+
+        $this->artisan('iam:bind-role', [
+            '--user' => (int) $user->id,
+            '--role' => 'SYSTEM_ADMIN',
+            '--legal-entity' => 999,
         ])->assertExitCode(1);
 
         $this->assertSame(0, AuthorityBinding::query()->count());

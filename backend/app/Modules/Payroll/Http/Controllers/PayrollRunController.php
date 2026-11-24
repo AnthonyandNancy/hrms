@@ -26,6 +26,7 @@ final class PayrollRunController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
+        private readonly \App\Shared\Time\Clock $clock,
         private readonly PayrollRunService $runs,
         private readonly CalculationService $calculation,
         private readonly ApprovalService $approval,
@@ -38,6 +39,7 @@ final class PayrollRunController
     public function index(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
+        $includeAmounts = $this->canSeeAmounts($principal);
         $page = max(1, (int) $request->query('page', '1'));
         $pageSize = min(100, max(1, (int) $request->query('page_size', '20')));
 
@@ -52,6 +54,14 @@ final class PayrollRunController
             $pageSize,
         );
 
+        if (! $includeAmounts) {
+            $data['items'] = array_map(static function (array $item): array {
+                unset($item['gross_cents'], $item['deductions_cents'], $item['net_cents'], $item['employer_cost_cents']);
+
+                return $item;
+            }, $data['items']);
+        }
+
         return ApiResponse::ok($data);
     }
 
@@ -60,7 +70,7 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->runs->findRun($principal->tenantId(), $id);
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->canSeeAmounts($principal)));
     }
 
     public function employees(int $id): JsonResponse
@@ -77,6 +87,19 @@ final class PayrollRunController
         $rows = $this->runs->employees($run, $fields);
 
         return ApiResponse::ok(ApiResponse::list($rows, 1, max(1, count($rows)), count($rows)));
+    }
+
+    private function canSeeAmounts(\App\Modules\IAM\Contracts\Principal $principal): bool
+    {
+        try {
+            return $this->authorizer->permits(
+                $principal,
+                'payroll.payslip.read',
+                $this->clock->now()->toDateString(),
+            );
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function moneyFields(\App\Modules\IAM\Contracts\Principal $principal, string $capability, \App\Modules\Payroll\Models\PayrollRun $run): FieldSet

@@ -75,6 +75,23 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
     /**
      * @return array<string, string>
      */
+    public function test_run_detail_omits_amounts_for_a_p2_only_reader(): void
+    {
+        $run = $this->calculatedRunForProjection();
+        /** @var AllowAllAuthorizer $authorizer */
+        $authorizer = app(Authorizer::class);
+        $authorizer->fieldProfiles['payroll.payslip.read'] = FieldProfile::P2_SENSITIVE;
+        // canSeeAmounts uses permits(); deny the capability so the run summary
+        // is still visible (run.read) but payslip amounts are not.
+        $authorizer->deniedCapabilities = ['payroll.payslip.read'];
+
+        $response = $this->getJson('/v1/payroll/runs/'.(int) $run->id, $this->payrollHeaders())->assertOk();
+
+        $this->assertArrayNotHasKey('gross_cents', $response->json('data'));
+        $this->assertArrayNotHasKey('net_cents', $response->json('data'));
+        $this->assertArrayHasKey('status', $response->json('data'));
+    }
+
     private function payrollHeaders(): array
     {
         return [

@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, Lock, Key, Setting } from '@element-plus/icons-vue'
 import { useSessionStore } from '@/stores/session'
-import { getApi } from '@/api'
 import { loginSchema, totpSchema, validate } from '@/utils/validation'
 import { errorCopy } from '@/api/errors'
 import MfaEnrollmentDialog from '@/components/MfaEnrollmentDialog.vue'
@@ -17,7 +16,7 @@ const session = useSessionStore()
 // convenience prefill; the password must be typed by the human operating the
 // Local development helper. Production builds must use the HTTP adapter.
 const form = reactive({
-  username: 'demo.hr',
+  username: '',
   password: '',
 })
 const totpCode = ref('')
@@ -25,11 +24,8 @@ const errors = reactive<Record<string, string>>({})
 const totpError = ref('')
 const submitting = ref(false)
 const totpSubmitting = ref(false)
-const showDemo = ref(false)
 const expiredVisible = ref(route.query.expired === '1')
 const enrollmentOpen = ref(false)
-
-const demoAccounts = computed(() => (session.principal ? [] : getApi().auth.demoAccounts()))
 
 const mfaRequired = computed(() => session.status === 'mfa_required')
 const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
@@ -37,12 +33,6 @@ const tenantLabel = computed(() => session.principal?.legalEntityName ?? session
 function clearErrors(): void {
   for (const key of Object.keys(errors)) delete errors[key]
   totpError.value = ''
-}
-
-function fillDemo(username: string, password: string): void {
-  form.username = username
-  form.password = password
-  clearErrors()
 }
 
 function redirectTarget(): string {
@@ -216,32 +206,6 @@ onMounted(() => {
             <el-button text :icon="Key" @click="enrollmentOpen = true">绑定动态口令</el-button>
             <span class="login-card__separator" aria-hidden="true">·</span>
             <span class="login-card__help">忘记密码请联系 IT 服务台</span>
-          </div>
-
-          <div class="demo-accounts">
-            <button
-              type="button"
-              class="demo-accounts__toggle"
-              :aria-expanded="showDemo"
-              aria-controls="demo-accounts-list"
-              @click="showDemo = !showDemo"
-            >
-              <span>账号帮助</span>
-              <span class="demo-accounts__hint">点击填入</span>
-            </button>
-            <div v-if="showDemo && demoAccounts.length > 0" id="demo-accounts-list" class="demo-accounts__grid">
-              <button
-                v-for="account in demoAccounts"
-                :key="account.role"
-                type="button"
-                class="demo-account"
-                @click="fillDemo(account.username, account.password)"
-              >
-                <span class="demo-account__label">{{ account.label }}</span>
-                <span class="demo-account__email">{{ account.username }}</span>
-                <span class="demo-account__note">{{ account.note }}</span>
-              </button>
-            </div>
           </div>
         </template>
 
@@ -566,76 +530,6 @@ onMounted(() => {
   color: var(--color-ink-muted);
 }
 
-.demo-accounts {
-  margin-top: 26px;
-  padding-top: 18px;
-  border-top: 1px solid var(--color-line);
-}
-
-.demo-accounts__toggle {
-  display: flex;
-  width: 100%;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 0;
-  color: var(--color-ink-secondary);
-  font-size: 11.5px;
-  font-weight: 650;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.demo-accounts__hint {
-  color: var(--color-ink-muted);
-  font-weight: 400;
-}
-
-.demo-accounts__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.demo-account {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 70px;
-  padding: 8px 10px;
-  color: var(--color-ink-secondary);
-  text-align: left;
-  background: #fff;
-  border: 1px solid var(--color-line);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.demo-account:hover {
-  border-color: #9cb6b0;
-  background: #fbfdfc;
-}
-
-.demo-account__label {
-  font-size: 11.5px;
-  font-weight: 650;
-}
-
-.demo-account__email {
-  overflow: hidden;
-  color: var(--color-brand);
-  font-family: "Cascadia Code", Consolas, monospace;
-  font-size: 9.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.demo-account__note {
-  color: var(--color-ink-muted);
-  font-size: 10px;
-}
-
 .mfa-destination {
   display: flex;
   align-items: center;
@@ -653,18 +547,6 @@ onMounted(() => {
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 20px;
   letter-spacing: 0.35em;
-}
-
-.demo-totp {
-  align-self: flex-start;
-  margin: 4px 0 0;
-  padding: 2px 0;
-  color: var(--color-brand);
-  font-size: 11.5px;
-  background: transparent;
-  border: 0;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 .login-card__legal {
@@ -714,10 +596,6 @@ onMounted(() => {
 
   .login-brand__lede {
     font-size: 13px;
-  }
-
-  .demo-accounts__grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

@@ -9,6 +9,7 @@ use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
 use App\Shared\Time\Clock;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -129,34 +130,60 @@ final class SessionManager
      */
     public function completeChallenge(string $challengeToken, Request $request): array
     {
-        ['session' => $session, 'user' => $user] = $this->findChallenge($challengeToken);
+        return DB::transaction(function () use ($challengeToken, $request): array {
+            // Lock the row so two concurrent submissions cannot both consume
+            // the same challenge. The second transaction blocks, then sees a
+            // null challenge hash and fails closed.
+            $locked = Session::query()
+                ->where('mfa_challenge_hash', hash('sha256', $challengeToken))
+                ->whereNull('revoked_at')
+                ->lockForUpdate()
+                ->first();
 
-        $token = $this->randomToken();
-        $csrf = $this->randomToken();
-        $privileged = (bool) $user->is_privileged;
-        $idleMinutes = $privileged
-            ? (int) config('iam.session.privileged_idle_minutes', 15)
-            : (int) config('iam.session.standard_idle_minutes', 30);
-        $absoluteHours = $privileged
-            ? (int) config('iam.session.privileged_absolute_hours', 8)
-            : (int) config('iam.session.standard_absolute_hours', 12);
+            if (! $locked instanceof Session || $locked->mfa_challenge_expires_at === null || $locked->mfa_challenge_expires_at->lessThanOrEqualTo($this->clock->now())) {
+                throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
+            }
 
-        $now = $this->clock->now();
-        $session->forceFill([
-            'token_hash' => hash('sha256', $token),
-            'csrf_hash' => hash('sha256', $csrf),
-            'mfa_challenge_hash' => null,
-            'mfa_challenge_expires_at' => null,
-            'mfa_verified' => false,
-            'mfa_verified_until' => null,
-            'ip' => $request->ip(),
-            'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
-            'idle_expires_at' => $now->addMinutes($idleMinutes),
-            'absolute_expires_at' => $now->addHours($absoluteHours),
-            'last_seen_at' => $now,
-        ])->save();
+            $locked->forceFill(['mfa_challenge_hash' => null, 'mfa_challenge_expires_at' => null])->save();
 
-        return ['session' => $session, 'token' => $token, 'csrf_token' => $csrf, 'user' => $user];
+            $user = User::query()->whereKey($locked->user_id)->first();
+
+            if (! $user instanceof User || (int) $user->tenant_id !== (int) $locked->tenant_id) {
+                throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
+            }
+
+            if ((int) $user->auth_version !== (int) $locked->auth_version || ! $user->isActive()) {
+                $this->revoke($locked);
+
+                throw new AuthenticationFailedException('AUTH_VERSION_STALE');
+            }
+
+            $session = $locked;
+            $token = $this->randomToken();
+            $csrf = $this->randomToken();
+            $privileged = (bool) $user->is_privileged;
+            $idleMinutes = $privileged
+                ? (int) config('iam.session.privileged_idle_minutes', 15)
+                : (int) config('iam.session.standard_idle_minutes', 30);
+            $absoluteHours = $privileged
+                ? (int) config('iam.session.privileged_absolute_hours', 8)
+                : (int) config('iam.session.standard_absolute_hours', 12);
+
+            $now = $this->clock->now();
+            $session->forceFill([
+                'token_hash' => hash('sha256', $token),
+                'csrf_hash' => hash('sha256', $csrf),
+                'mfa_verified' => false,
+                'mfa_verified_until' => null,
+                'ip' => $request->ip(),
+                'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
+                'idle_expires_at' => $now->addMinutes($idleMinutes),
+                'absolute_expires_at' => $now->addHours($absoluteHours),
+                'last_seen_at' => $now,
+            ])->save();
+
+            return ['session' => $session, 'token' => $token, 'csrf_token' => $csrf, 'user' => $user];
+        });
     }
 
     public function findValid(string $token): Session

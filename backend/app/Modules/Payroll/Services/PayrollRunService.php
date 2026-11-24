@@ -191,7 +191,7 @@ final class PayrollRunService
     /**
      * @return array<string, mixed>
      */
-    public function runDetail(PayrollRun $run): array
+    public function runDetail(PayrollRun $run, bool $includeAmounts = true): array
     {
         $employees = PayrollRunEmployee::query()
             ->where('run_id', $run->id)
@@ -199,7 +199,7 @@ final class PayrollRunService
             ->get();
 
         return [
-            ...$this->runSummary($run),
+            ...$this->runSummary($run, $includeAmounts),
             'scheme_id' => (int) $run->scheme_id,
             'earning_period_start' => $this->dateOnly($run->earning_period_start),
             'earning_period_end' => $this->dateOnly($run->earning_period_end),
@@ -213,16 +213,23 @@ final class PayrollRunService
             'snapshot_version' => (int) $run->snapshot_version,
             'reopen_count' => (int) $run->reopen_count,
             'employee_count' => $employees->count(),
-            'employees' => $employees->map(fn (PayrollRunEmployee $employee): array => [
-                'employment_id' => (int) $employee->employment_id,
-                'status' => $employee->status->value,
-                'gross_cents' => (int) $employee->gross_cents,
-                'taxable_cents' => (int) $employee->taxable_cents,
-                'deductions_cents' => (int) $employee->deductions_cents,
-                'net_cents' => (int) $employee->net_cents,
-                'employer_cost_cents' => (int) $employee->employer_cost_cents,
-                'failure_reason' => $employee->failure_reason,
-            ])->all(),
+            'employees' => $employees->map(function (PayrollRunEmployee $employee) use ($includeAmounts): array {
+                $row = [
+                    'employment_id' => (int) $employee->employment_id,
+                    'status' => $employee->status->value,
+                    'failure_reason' => $employee->failure_reason,
+                ];
+
+                if ($includeAmounts) {
+                    $row['gross_cents'] = (int) $employee->gross_cents;
+                    $row['taxable_cents'] = (int) $employee->taxable_cents;
+                    $row['deductions_cents'] = (int) $employee->deductions_cents;
+                    $row['net_cents'] = (int) $employee->net_cents;
+                    $row['employer_cost_cents'] = (int) $employee->employer_cost_cents;
+                }
+
+                return $row;
+            })->all(),
         ];
     }
 
@@ -431,9 +438,9 @@ final class PayrollRunService
     /**
      * @return array<string, mixed>
      */
-    public function runSummary(PayrollRun $run): array
+    public function runSummary(PayrollRun $run, bool $includeAmounts = true): array
     {
-        return [
+        $summary = [
             'id' => (int) $run->id,
             'legal_entity_id' => (int) $run->legal_entity_id,
             'period' => (string) $run->period,
@@ -441,11 +448,16 @@ final class PayrollRunService
             'status' => $run->status->value,
             'correction_of_run_id' => $run->correction_of_run_id,
             'pay_date' => $this->dateOnly($run->pay_date),
-            'gross_cents' => (int) $run->gross_cents,
-            'deductions_cents' => (int) $run->deductions_cents,
-            'net_cents' => (int) $run->net_cents,
-            'employer_cost_cents' => (int) $run->employer_cost_cents,
             'created_at' => $run->created_at->toIso8601ZuluString(),
         ];
+
+        if ($includeAmounts) {
+            $summary['gross_cents'] = (int) $run->gross_cents;
+            $summary['deductions_cents'] = (int) $run->deductions_cents;
+            $summary['net_cents'] = (int) $run->net_cents;
+            $summary['employer_cost_cents'] = (int) $run->employer_cost_cents;
+        }
+
+        return $summary;
     }
 }
