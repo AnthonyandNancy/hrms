@@ -3267,12 +3267,29 @@ git commit -m "chore(evidence): refresh the gates and record round 12 of the joi
 - `MfaPolicy::challengeRequired()` 在 Task 6 定义，Task 7 的 `AuthController` 与 `MfaService` 均通过它判断。
 - `SessionManager::issueChallenge()` / `completeChallenge()` 在 Task 7 定义并在同任务内消费，无跨任务悬空引用。
 
-## 执行方式选择
+## 执行方式（已确定）
 
 计划已保存到 `docs/superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md`。
 
-**1. Subagent-Driven（推荐）** — 每个 Task 派一个全新 subagent，任务间由我复核；适合本计划的 19 个任务，因为 Task 2/3、Task 9/10、Task 12/13 之间有明确的接口依赖，需要逐任务把关。
+**执行方式：Subagent-Driven（按推荐，已确认）。** 每个 Task 派一个全新 subagent，任务间由主代理复核。选择理由：Task 2/3、Task 9/10、Task 12/13 之间存在明确的接口依赖（`CapabilityWildcard` → 模板；`FieldSet` 签名 → 薪酬投影；`iam:bind-role` → 安装器），逐任务复核可以在接口处拦住偏差。
 
-**2. Inline Execution** — 在当前会话内按 executing-plans 分批执行，带检查点。
+**已接受的两处破坏性变更：**
 
-请选择其一。**在开始编码前，请先确认本计划本身**（尤其是 Task 7 的登录改造会触及 7 个既有测试文件，Task 9 的 P3 语义变更是破坏性变更）。
+| 变更 | 影响面 | 已接受的缓解 |
+|---|---|---|
+| Task 7：登录强制 MFA 挑战 | 7 个真实调用 `/v1/auth/login` 的测试文件 | Step 1 先测量失败面再改代码；优先改用 `actingAsUser()` 辅助方法 |
+| Task 9：P3 语义从"永不输出"改为"P3 档位可见" | `FieldProjectionTest` 两条断言反转 | 只改 `FieldSet`，不动 `FieldProfile::isHidden()`，导出层语义保持 |
+
+**执行前置条件（缺一不可）：**
+
+1. Task 1–4 必须按序完成并各自绿测——它们是后续所有任务的地基（通配符常量、解析、模板、展开）。
+2. Task 13（`iam:bind-role`）必须先于 Task 12 的安装器验收完成，否则安装器无法绑定 `SYSTEM_ADMIN`。
+3. Task 19 的真实栈验收需要 Docker 可用；若不可用，其余 18 个任务仍可完成，但 AC-21 保持未验证并在 `docs/12-plan-completion-inventory.md` 中如实标注。
+
+**每个 Task 的复核清单（主代理在 subagent 交回后执行）：**
+
+- [ ] 该 Task 的失败测试确实先红过（subagent 需提供失败输出）
+- [ ] 新增/修改的测试断言与 Spec 的 AC 编号对应
+- [ ] `git status --porcelain` 为空
+- [ ] 未修改已批准的 `docs/HRMS_V1.0_*.md`
+- [ ] 提交信息描述的是行为变化，不是"修了一下"
