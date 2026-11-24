@@ -14,7 +14,7 @@ final class AccessReviewCommand extends Command
 {
     protected $signature = 'iam:access-review {--quarter= : Quarter in YYYY-Qn format}';
 
-    protected $description = 'Report high-risk bindings unused for 90 days and SOD conflicts.';
+    protected $description = 'Report high-risk bindings unused for 90 days and separation-of-duties risks.';
 
     public function handle(Clock $clock, CapabilityCatalog $catalog): int
     {
@@ -55,10 +55,14 @@ final class AccessReviewCommand extends Command
             $byPrincipal[(int) $binding->principal_id][] = $binding->capability_code;
         }
 
-        $conflicts = [];
+        $risks = [];
         foreach ($byPrincipal as $principalId => $codes) {
             foreach (SodRules::risks($codes) as $risk) {
-                $conflicts[] = ['principal_id' => $principalId, 'capabilities' => $risk['pair']];
+                $risks[] = [
+                    'principal_id' => $principalId,
+                    'capabilities' => $risk['pair'],
+                    'kind' => $risk['kind'],
+                ];
             }
         }
 
@@ -66,7 +70,7 @@ final class AccessReviewCommand extends Command
             'quarter' => $quarter,
             'generated_at' => $clock->now()->toIso8601ZuluString(),
             'unused_high_risk_bindings' => $unused,
-            'sod_conflicts' => $conflicts,
+            'sod_risks' => $risks,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
         return self::SUCCESS;

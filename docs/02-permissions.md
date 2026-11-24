@@ -22,8 +22,13 @@ Authorization is **Capability × Anchor × Field profile**:
   the role code is never an authorization check. There are ten templates and
   no person or department names may be used as role codes.
 - **Deny by default.** A request with no matching binding, a stale
-  `auth_version`, a disabled/locked user, a tenant mismatch, an expired
-  binding, or an SOD conflict is denied before any row is returned.
+  `auth_version`, a disabled/locked user, a tenant mismatch, or an expired
+  binding is denied before any row is returned.
+- **Separation of duties is two different controls.** Cumulative risk (for
+  example `iam.binding.manage` plus `iam.audit.read`) is allowed with an
+  explicit `acknowledge_sod_risk`, reported as `data.warnings`, and audited as
+  `security.sod_risk_accepted`. Object-level risk (preparing and approving the
+  same payroll run) remains a hard invariant in the owning service.
 
 ### Hard-deny precedence
 
@@ -31,9 +36,12 @@ Authorization is **Capability × Anchor × Field profile**:
 2. live enabled user + current `auth_version`,
 3. tenant match,
 4. capability + effective binding dates,
-5. separation-of-duties conflict,
-6. anchor target (organisation, case membership, payroll run membership),
-7. field-level visibility.
+5. anchor target (organisation, case membership, payroll run membership),
+6. field-level visibility.
+
+Object-level separation-of-duties checks run inside the owning service after
+the object is loaded (for example `ApprovalService::assertSod()`); they are not
+capability-set rules and are not bypassed by a wildcard grant.
 
 ## Seven anchors
 
@@ -186,7 +194,8 @@ entity, old auth version, IDOR, CSRF and SOD.
 | MFA missing / stale | `403 MFA_REQUIRED` / `403 MFA_STEP_UP_REQUIRED` |
 | CSRF missing/invalid | `419 CSRF_FAILED` |
 | stale `auth_version` / revoked session | `401 UNAUTHENTICATED` |
-| SOD conflict | `409 CONFLICT` |
+| unacknowledged cumulative SOD risk | `422 VALIDATION_FAILED` / `SOD_RISK_NOT_ACKNOWLEDGED` |
+| object-level SOD conflict | `409 CONFLICT` / `SOD_CONFLICT` |
 | rate limit | `429 RATE_LIMITED` |
 
 ## Commands
@@ -197,3 +206,8 @@ php artisan iam:seed-demo           # requires DEMO_SEED_PASSWORD >= 12 chars
 php artisan iam:reap-sessions
 php artisan iam:access-review --quarter=2026-Q4
 ```
+
+`iam:access-review` prints one JSON object. Cumulative and object-level risk
+rows are under `sod_risks`, each shaped as
+`{principal_id, capabilities: [code, code], kind}`; the key is not
+`sod_conflicts`.

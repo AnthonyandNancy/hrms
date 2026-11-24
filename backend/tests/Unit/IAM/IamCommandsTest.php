@@ -11,10 +11,12 @@ use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
+use App\Shared\Authorization\SodRules;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class IamCommandsTest extends TestCase
@@ -78,14 +80,66 @@ final class IamCommandsTest extends TestCase
         $this->assertNull($active->fresh()?->revoked_at);
     }
 
-    public function test_access_review_requires_quarter_and_reports_json(): void
+    public function test_access_review_requires_quarter_and_reports_sod_risks(): void
     {
         $this->freeze();
         $this->artisan('iam:access-review', ['--quarter' => 'bad'])->assertFailed();
 
-        $this->artisan('iam:access-review', ['--quarter' => '2026-Q4'])
-            ->expectsOutputToContain('unused_high_risk_bindings')
-            ->assertSuccessful();
+        // A real cumulative pair, plus a wildcard holder that necessarily
+        // carries every rule. Asserting only the JSON key would not prove that
+        // the report evaluates bindings at all.
+        $this->bind(1, 'iam.binding.manage');
+        $this->bind(1, 'iam.audit.read');
+        $this->bind(2, '*');
+
+        $exit = Artisan::call('iam:access-review', ['--quarter' => '2026-Q4']);
+        $this->assertSame(0, $exit);
+
+        /** @var array<string, mixed> $report */
+        $report = json_decode(trim(Artisan::output()), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame('2026-Q4', $report['quarter']);
+        $this->assertArrayHasKey('unused_high_risk_bindings', $report);
+        $this->assertArrayNotHasKey('sod_conflicts', $report);
+        $this->assertArrayHasKey('sod_risks', $report);
+
+        /** @var list<array{principal_id: int, capabilities: array{0: string, 1: string}, kind: string}> $risks */
+        $risks = $report['sod_risks'];
+        $this->assertCount(7, $risks);
+
+        $concrete = array_values(array_filter($risks, static fn (array $risk): bool => $risk['principal_id'] === 1));
+        $this->assertSame([
+            [
+                'principal_id' => 1,
+                'capabilities' => ['iam.audit.read', 'iam.binding.manage'],
+                'kind' => SodRules::KIND_CUMULATIVE,
+            ],
+        ], $concrete);
+
+        $wildcard = array_values(array_filter($risks, static fn (array $risk): bool => $risk['principal_id'] === 2));
+        $this->assertCount(6, $wildcard);
+        $this->assertContains([
+            'principal_id' => 2,
+            'capabilities' => ['iam.audit.read', 'iam.binding.manage'],
+            'kind' => SodRules::KIND_CUMULATIVE,
+        ], $wildcard);
+        $this->assertContains([
+            'principal_id' => 2,
+            'capabilities' => ['payroll.run.approve', 'payroll.run.prepare'],
+            'kind' => SodRules::KIND_OBJECT_LEVEL,
+        ], $wildcard);
+    }
+
+    private function bind(int $principalId, string $capabilityCode): void
+    {
+        AuthorityBinding::factory()
+            ->forPrincipal(1, $principalId)
+            ->anchor(AnchorType::LEGAL_ENTITY, 1)
+            ->create([
+                'capability_code' => $capabilityCode,
+                'valid_from' => '2025-01-01 00:00:00',
+                'valid_to' => '2030-01-01 00:00:00',
+            ]);
     }
 
     private function freeze(): void

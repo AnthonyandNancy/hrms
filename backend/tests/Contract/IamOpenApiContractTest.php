@@ -52,6 +52,43 @@ final class IamOpenApiContractTest extends TestCase
         $this->assertStringContainsString('X-CSRF-Token', $yaml);
     }
 
+    public function test_iam_grant_endpoints_document_sod_acknowledgement(): void
+    {
+        $yaml = str_replace("\r\n", "\n", (string) file_get_contents(base_path('../docs/openapi/iam.yaml')));
+
+        foreach ([
+            'assignRole' => 'SodRiskRoleAssignmentEnvelope',
+            'createUserBinding' => 'SodRiskBindingEnvelope',
+        ] as $operationId => $successSchema) {
+            $operation = $this->operationBlock($yaml, $operationId);
+
+            $this->assertStringContainsString('acknowledge_sod_risk:', $operation, "{$operationId} must accept acknowledge_sod_risk.");
+            $this->assertMatchesRegularExpression(
+                '/acknowledge_sod_risk:\s*\n\s+type: boolean/',
+                $operation,
+                "{$operationId} must document acknowledge_sod_risk as a boolean.",
+            );
+            $this->assertStringContainsString($successSchema, $operation, "{$operationId} must document the success warnings shape.");
+            $this->assertStringContainsString('SodRiskNotAcknowledged', $operation, "{$operationId} must document the 422 SOD reason.");
+            $this->assertStringNotContainsString("'409'", $operation, "{$operationId} must not claim a hard-blocking SOD 409.");
+        }
+
+        $this->assertStringContainsString('SodRiskWarning:', $yaml);
+        $this->assertStringContainsString('SOD_RISK_NOT_ACKNOWLEDGED', $yaml);
+        $this->assertStringContainsString('enum: [CUMULATIVE, OBJECT_LEVEL]', $yaml);
+    }
+
+    private function operationBlock(string $yaml, string $operationId): string
+    {
+        $start = strpos($yaml, 'operationId: '.$operationId);
+        $this->assertNotFalse($start, "Missing operation {$operationId}");
+
+        $end = strpos($yaml, "\n  /", $start);
+        $this->assertNotFalse($end, "Could not isolate operation {$operationId}");
+
+        return substr($yaml, $start, $end - $start);
+    }
+
     public function test_every_iam_route_has_capability_metadata_except_public_allowlist(): void
     {
         $public = ['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login'];

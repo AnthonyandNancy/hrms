@@ -315,14 +315,24 @@ paths:
                   type: object
                   additionalProperties: { type: integer, minimum: 1 }
                   description: Required anchor ids by anchor type, e.g. PAYROLL_RUN and ORG_UNIT
+                acknowledge_sod_risk:
+                  type: boolean
+                  description: |
+                    Required to be true when expanding the role would leave the
+                    target holding a separation-of-duties risk (for example
+                    `iam.role.manage` plus `iam.audit.read`). Without it the
+                    request fails with reason `SOD_RISK_NOT_ACKNOWLEDGED`.
       responses:
-        '201': { $ref: '#/components/responses/Envelope' }
+        '201':
+          description: Role expanded, with any separation-of-duties warnings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SodRiskRoleAssignmentEnvelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { description: SOD conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
         '419': { $ref: '#/components/responses/CsrfFailed' }
-        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '422': { $ref: '#/components/responses/SodRiskNotAcknowledged' }
   /roles:
     get:
       operationId: listRoles
@@ -396,14 +406,26 @@ paths:
                 purpose_code: { type: string, maxLength: 48 }
                 valid_from: { type: string, format: date-time }
                 valid_to: { type: string, format: date-time }
+                acknowledge_sod_risk:
+                  type: boolean
+                  description: |
+                    Required to be true when this binding would leave the target
+                    holding a separation-of-duties risk (for example
+                    `payroll.run.prepare` plus `payroll.run.approve`). Without
+                    it the request fails with reason
+                    `SOD_RISK_NOT_ACKNOWLEDGED`. The wildcard `*` is always
+                    rejected with `WILDCARD_NOT_GRANTABLE`.
       responses:
-        '201': { $ref: '#/components/responses/Envelope' }
+        '201':
+          description: Binding created, with any separation-of-duties warnings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SodRiskBindingEnvelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { description: SOD conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
         '419': { $ref: '#/components/responses/CsrfFailed' }
-        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '422': { $ref: '#/components/responses/SodRiskNotAcknowledged' }
   /bindings/{id}:
     delete:
       operationId: deleteBinding
@@ -503,6 +525,28 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    SodRiskNotAcknowledged:
+      description: |
+        Validation failure. For `SOD_RISK_NOT_ACKNOWLEDGED`, `data.reason` is
+        that code, `data.fields.acknowledge_sod_risk` explains the confirmation
+        requirement, and `data.risks` is the list of detected risks.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            sodRiskNotAcknowledged:
+              value:
+                code: VALIDATION_FAILED
+                message: The given data was invalid.
+                data:
+                  reason: SOD_RISK_NOT_ACKNOWLEDGED
+                  fields:
+                    acknowledge_sod_risk:
+                      - This grant creates a separation-of-duties risk. Confirm to proceed.
+                  risks:
+                    - pair: [iam.audit.read, iam.binding.manage]
+                      kind: CUMULATIVE
+                request_id: 01M83YXN5D1504BQSXJ36VQPGF
   schemas:
     Envelope:
       type: object
@@ -593,3 +637,58 @@ components:
         wildcard:
           type: boolean
           description: Present and true only on capability rows synthesized from a wildcard grant.
+
+    SodRiskWarning:
+      type: object
+      required: [pair, kind]
+      additionalProperties: false
+      properties:
+        pair:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { type: string }
+          description: The two capability codes whose combination is risky, sorted lexicographically.
+        kind:
+          type: string
+          enum: [CUMULATIVE, OBJECT_LEVEL]
+          description: |
+            CUMULATIVE is a job-design risk reported for acknowledgement and
+            review; OBJECT_LEVEL is reported here but enforced against the
+            concrete object by Payroll, BreakGlass and Reopen services.
+    SodRiskBindingEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [id, user_id, capability, anchor_type, anchor_id, field_profile]
+              properties:
+                id: { type: integer }
+                user_id: { type: integer }
+                capability: { type: string }
+                anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY] }
+                anchor_id: { type: [integer, 'null'] }
+                field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+                warnings:
+                  type: array
+                  description: Present only when acknowledging one or more separation-of-duties risks.
+                  items: { $ref: '#/components/schemas/SodRiskWarning' }
+    SodRiskRoleAssignmentEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: object
+              required: [user_id, role_code]
+              properties:
+                user_id: { type: integer }
+                role_code: { type: string }
+                warnings:
+                  type: array
+                  description: Present only when acknowledging one or more separation-of-duties risks.
+                  items: { $ref: '#/components/schemas/SodRiskWarning' }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Payroll;
 
+use App\Modules\IAM\Auth\CapabilityAuthorizer;
+use App\Modules\IAM\Models\AuthorityBinding;
+use App\Modules\IAM\Models\User;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\Payslip;
@@ -11,6 +14,10 @@ use App\Modules\Payroll\Models\PayslipLine;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
+use App\Shared\Authorization\AnchorRef;
+use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Exceptions\ConflictException;
 use Tests\Support\PayrollTestCase;
 
@@ -131,12 +138,96 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, 10);
     }
 
+    public function test_a_holder_of_prepare_and_approve_cannot_approve_their_own_run(): void
+    {
+        $fixture = $this->reviewedRunPreparedByDualCapabilityHolder('2026-08');
+        $actorId = $fixture['actor_id'];
+        $run = $fixture['run'];
+
+        try {
+            app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, $actorId);
+            $this->fail('A preparer holding both prepare and approve must not approve their own run.');
+        } catch (ConflictException $exception) {
+            $this->assertSame('SOD_CONFLICT', $exception->details()['reason']);
+            $this->assertSame('approve', $exception->details()['step']);
+            $this->assertSame(['preparer'], $exception->details()['conflicts_with']);
+        }
+
+        $this->assertSame(PayrollRunStatus::REVIEWED, $run->refresh()->status);
+    }
+
+    public function test_self_approval_by_a_dual_capability_holder_is_409_over_http(): void
+    {
+        $fixture = $this->reviewedRunPreparedByDualCapabilityHolder('2026-09');
+        $actorId = $fixture['actor_id'];
+        $run = $fixture['run'];
+
+        // This suite's route gate is AllowAll; the capability premise is
+        // proven above with the production authorizer, so the 409 below comes
+        // from ApprovalService::assertSod, not from a middleware denial.
+        $this->actAs($actorId);
+        $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/approve', [], ['X-Legal-Entity-Id' => (string) $this->legalEntityId])
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'SOD_CONFLICT')
+            ->assertJsonPath('data.step', 'approve')
+            ->assertJsonPath('data.conflicts_with', ['preparer']);
+
+        $this->assertSame(PayrollRunStatus::REVIEWED, $run->refresh()->status);
+    }
+
     public function test_reviewer_cannot_approve_same_run(): void
     {
         $run = $this->reviewedRun('2026-07', reviewerId: 11);
 
         $this->expectException(ConflictException::class);
         app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, 11);
+    }
+
+    /**
+     * @return array{actor_id: int, run: PayrollRun}
+     */
+    private function reviewedRunPreparedByDualCapabilityHolder(string $period): array
+    {
+        $base = $this->seedPayrollBase();
+        $actor = User::factory()->create(['tenant_id' => $this->tenantId, 'auth_version' => 1]);
+        $actorId = (int) $actor->id;
+        $this->actAs($actorId);
+        $this->grant($actorId, 'payroll.run.prepare');
+        $this->grant($actorId, 'payroll.run.approve');
+
+        // Prove the actor really holds both capabilities under the production
+        // authorizer. This premise used to be rejected at the capability layer;
+        // only the object-level control may now reject the approval.
+        $principal = $this->actAs($actorId);
+        /** @var \Tests\Fakes\FakeOrganizationScopeDirectory $organization */
+        $organization = app(OrganizationScopeDirectory::class);
+        $organization->knownLegalEntities = [$this->legalEntityId];
+
+        $anchor = AnchorRef::legalEntity($this->legalEntityId);
+        $authorizer = app(CapabilityAuthorizer::class);
+        $this->assertTrue($authorizer->allows($principal, 'payroll.run.prepare', $anchor, '2026-11-23'));
+        $this->assertTrue($authorizer->allows($principal, 'payroll.run.approve', $anchor, '2026-11-23'));
+
+        $run = $this->payrollRun((int) $base['scheme']->id, $period);
+        $run->forceFill([
+            'status' => PayrollRunStatus::REVIEWED,
+            'prepared_by' => $actorId,
+            'reviewed_by' => 11,
+        ])->save();
+
+        return ['actor_id' => $actorId, 'run' => $run];
+    }
+
+    private function grant(int $userId, string $capability): void
+    {
+        AuthorityBinding::factory()
+            ->forPrincipal($this->tenantId, $userId, 1)
+            ->anchor(AnchorType::LEGAL_ENTITY, $this->legalEntityId, FieldProfile::P2_SENSITIVE)
+            ->create([
+                'capability_code' => $capability,
+                'valid_from' => '2025-01-01 00:00:00',
+                'valid_to' => '2030-01-01 00:00:00',
+            ]);
     }
 
     private function publishedRun(string $period, int $preparedBy = 10): PayrollRun

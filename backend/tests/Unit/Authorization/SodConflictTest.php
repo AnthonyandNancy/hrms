@@ -40,6 +40,14 @@ final class SodConflictTest extends TestCase
         $this->assertTrue(SodRules::hasRisk(['*']));
     }
 
+    public function test_the_obsolete_hard_block_exception_file_no_longer_exists(): void
+    {
+        $this->assertFalse(
+            file_exists(__DIR__.'/../../../app/Shared/Authorization/SodConflictException.php'),
+            'Cumulative SoD is a reported risk, so the capability-layer conflict exception must be gone.',
+        );
+    }
+
     public function test_the_hard_blocking_api_no_longer_exists(): void
     {
         $this->assertFalse(
