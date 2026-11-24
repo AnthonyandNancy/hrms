@@ -120,20 +120,12 @@ final class MeController
 
     private function requiresMfa(int $userId, int $tenantId): bool
     {
-        $privileged = (bool) User::query()->whereKey($userId)->value('is_privileged');
-
-        if ($privileged) {
-            return true;
-        }
-
-        $codes = AuthorityBinding::query()
+        $user = User::query()
             ->where('tenant_id', $tenantId)
-            ->where('principal_id', $userId)
-            ->whereIn('capability_code', ['payroll.run.prepare', 'payroll.run.approve', 'payroll.run.publish', 'payroll.export'])
-            ->where('valid_from', '<=', $this->clock->now())
-            ->where('valid_to', '>', $this->clock->now())
-            ->exists();
+            ->whereKey($userId)
+            ->first();
 
-        return $codes;
+        return $user instanceof User
+            && app(\App\Modules\IAM\Services\MfaPolicy::class)->challengeRequired($user);
     }
 }

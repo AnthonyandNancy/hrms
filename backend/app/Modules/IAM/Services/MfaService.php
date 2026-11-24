@@ -138,17 +138,7 @@ final class MfaService
 
     public function requiresMfa(User $user): bool
     {
-        if ($user->is_privileged) {
-            return true;
-        }
-
-        return \App\Modules\IAM\Models\AuthorityBinding::query()
-            ->where('tenant_id', $user->tenant_id)
-            ->where('principal_id', $user->id)
-            ->whereIn('capability_code', ['payroll.run.prepare', 'payroll.run.approve', 'payroll.run.publish', 'payroll.export'])
-            ->where('valid_from', '<=', $this->clock->now())
-            ->where('valid_to', '>', $this->clock->now())
-            ->exists();
+        return app(MfaPolicy::class)->challengeRequired($user);
     }
 
     private function verifyTotp(User $user, string $code): bool
