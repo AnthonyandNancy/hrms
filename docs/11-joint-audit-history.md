@@ -337,3 +337,42 @@ are now fixed; the two traps found while implementing it are recorded last.
 
 Remaining organizational gates (real IdP, pen-test, HA/PITR, statutory payroll
 parallel run, named signatories) are unchanged and are not claimed here.
+
+### Round 12 final-review fixes (2026-11-24)
+
+The whole-branch review found two release blockers and several Important
+issues. All were fixed before completion:
+
+- **Frontend could not complete the new MFA challenge** — `auth.login()` now
+  maps `202 MFA_REQUIRED` to `{challengeId, maskedDestination}`, and
+  `verifyTotp()` posts `{challenge_id, factor_type, code}` to
+  `/auth/mfa/challenge`; covered by `mfaChallenge.spec.ts`.
+- **Wildcard bypassed legal-entity scope** — `anchorAllows()` and
+  `resourceCoveredByGrant()` now keep the anchor/row boundary for `*`; a
+  wildcard on entity 1 cannot authorise entity 2 (`WildcardGrantTest`, new
+  cross-entity negative test).
+- Access review is tenant-scoped, requires `valid_from <= now`, and reports
+  the catalogue risk for concrete codes; a cross-tenant negative test was
+  added.
+- Grant challenge completion is now transactional with `lockForUpdate()` and
+  consumes the challenge atomically; a wrong code still does not consume it.
+- `runSummary()`/`runDetail()` omit amounts for a caller without
+  `payroll.payslip.read`; `/runs/{id}` has a P2-only negative test.
+- `iam:bind-role` validates the legal entity belongs to the user's tenant and
+  is idempotent when the clock advances; `DatabaseSeeder` delegates to the
+  real demo seeder so it cannot fake `mfa_enrolled_at`; demo users all receive
+  real TOTP factors.
+- Installer requires `--annual-days` and `--legal-basis`, prints the partial
+  report on failure, and records step details in the `install.completed` audit.
+- Canonical OpenAPI now documents `MyCapabilitiesEnvelope`,
+  `AccessReviewEnvelope` and the MFA challenge/202 response.
+- Frontend admin rows are normalised to the UI contract; bindings load per
+  user; the demo account UI, `demo.hr` prefill and "unpublished projection"
+  placeholders are removed. Development mock mode is lazily loaded only when
+  `VITE_API_MODE=mock` and `DEV`; production still requires `http`.
+
+Final gates: backend `800 passed / 36,891 assertions`; frontend `34` unit
+tests, typecheck, lint and http-mode build; `scripts/verify_release.sh --quick`
+`PASS=22 FAIL=0 SKIP=2`; real isolated Docker stack: install PASS, health OK,
+login `202`, counts `users=1, employments=0, payroll_runs=0, leave_types=3,
+calendars=1, shifts=1, confirmed factors=1`, MFA invariant OK.

@@ -342,3 +342,17 @@ gates). Gate log: `evidence/logs/verify-release.txt`.
 document is updated but remains a merge fragment until the integration branch
 keeps both files in lockstep, and the organizational gates from Round 11 are
 unchanged.
+
+### Round 12 final-review remediation
+
+Fixed after the whole-branch review: frontend MFA challenge completion,
+wildcard legal-entity scope, access-review tenant/validity scoping, payroll
+run-detail amount projection, transactional one-time challenge consumption,
+bind-role tenant validation + advancing-clock idempotency, default seeder MFA
+invariant, installer required inputs/failure report, canonical OpenAPI schemas,
+admin row normalisation/bindings, demo UI removal and lazy dev mock.
+
+Final evidence: backend `800 passed / 36,891 assertions`; frontend `34` unit
+tests; release gates `PASS=22 FAIL=0 SKIP=2`; real isolated Docker stack
+production install PASS with `users=1, employments=0, payroll_runs=0,
+leave_types=3, calendars=1, shifts=1, confirmed factors=1` and login `202`.
