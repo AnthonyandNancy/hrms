@@ -7,6 +7,7 @@ namespace App\Modules\Time\Providers;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Time\Adapters\PeopleEmploymentDirectory;
 use App\Modules\Time\Adapters\WorkflowCaseAdapter;
+use App\Modules\Time\Console\SeedCalendarCommand;
 use App\Modules\Time\Console\SeedLeaveTypesCommand;
 use App\Modules\Time\Contracts\AttendanceWorkspaceReader;
 use App\Modules\Time\Contracts\EmploymentDirectory;
@@ -60,6 +61,7 @@ final class TimeServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SeedLeaveTypesCommand::class,
+                SeedCalendarCommand::class,
             ]);
         }
     }
