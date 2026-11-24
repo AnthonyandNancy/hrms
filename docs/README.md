@@ -6,6 +6,15 @@
 | 解决方案：第一性原理重构 | `HRMS_V1.0_解决方案_第一性原理重构.md` | `../交付物/HRMS_V1.0_解决方案_第一性原理重构.docx` / `.pdf` |
 | 实施计划：30 周落地路线图 | `HRMS_V1.0_实施计划_30周路线图.md` | `../交付物/HRMS_V1.0_实施计划_30周路线图.docx` / `.pdf` |
 
+## 变更提案（superpowers 工作流）
+
+| 提案 | 设计文档 | 修改计划 | 状态 |
+|---|---|---|---|
+| 最高权限完整性、生产基线数据与去演示化 | `superpowers/specs/2026-11-24-superuser-coverage-and-production-baseline-design.md` | `superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md` | 待批准 |
+
+该提案修订（不重写）上述两份已批准交付件，涉及 ADR-0004 第 7 条与 ADR-0013 的表述边界，并新增 ADR-0016、ADR-0017。
+
+
 ## 阅读顺序
 
 1. 先读解决方案 00–04 章：确认问题定义、五项已定稿决策、备选路线与五层模型。
