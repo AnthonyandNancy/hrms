@@ -283,3 +283,57 @@ E-13b 由 **GATE** 转为 **PASS**；GATE-09 关闭。
 真实 IdP、银行/税务、工资条 PDF、HA/PITR、渗透测试、真实工资平行运行仍为 GATE。
 
 报告：`evidence/acceptance-report.md`；门禁日志：`evidence/logs/verify-release.txt`。
+
+## Round 12 — superuser coverage and production baseline (2026-11-24)
+
+Scope: wildcard superuser coverage, separation-of-duties layering, real MFA
+login, P3 field semantics, production installer, demo removal and coverage
+gates. Plan: `docs/superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md`.
+
+The twelve defects below were found in the audit that produced this plan and
+are now fixed; the two traps found while implementing it are recorded last.
+
+| Audit finding | Fix commit / evidence |
+|---|---|
+| E-01/E-02: `SUPER_ADMIN`/`SYSTEM_ADMIN` only held 20/10 of 76 capabilities | Both templates now hold one `*` grant (`33a01a6`); `RoleTemplateCoverageTest` |
+| E-03/E-04: nine capabilities had no issuing role, making payroll approval unreachable | `*` coverage + G-COV-1/G-COV-3 (`b13cdd8`); `CapabilityCoverageAuditTest` |
+| E-05/E-06: capability-layer SoD blocked legitimate writes and never ran on reads | `SodRules` is a risk catalogue (`edd6753`); object-level tests |
+| E-07: direct binding writes bypassed SoD | API paths require `acknowledge_sod_risk`, audit `security.sod_risk_accepted` (`edd6753`) |
+| E-08/E-09: demo admin had `mfa_enrolled_at` with zero factors; step-up impossible | demo seed creates a real TOTP factor (`8cdee63`); `iam:verify-mfa-enrollment` |
+| E-10: privileged writes were permanently 403 | Real MFA enrollment/step-up and the invite code no longer rely on a fake flag |
+| E-11: password alone produced a fully usable session | Login returns `202 MFA_REQUIRED` with no cookie (`921b67f`); `MfaLoginChallengeTest` |
+| E-12: MFA requirement hard-coded four payroll codes | `MfaPolicy` derives it from field profile/privilege (`c6506f6`); `MfaPolicyTest` |
+| E-13/E-15: mock bundle by default; seed `|| true` swallowed failures | `VITE_API_MODE=http` gate + mock-free dist; `docker_up.sh` fails loudly (`1fcad8a`, `a14afec`) |
+| E-14: admin UI hard-coded users empty | Real `/users`, `/access-review`, bindings/audit aggregation (`1fcad8a`); `adminSnapshot.spec.ts` |
+| E-16: no production calendar/holiday/shift command | `time:seed-calendar` (`05dba5d`); `SeedCalendarCommandTest` |
+| E-18/E-19/E-20/E-22: phantom TENANT anchor, unwired field projection, P2 capability returning P3 money, plaintext PII | TENANT removed; `FieldSet`/authorizer wiring; payroll projection (`d608751`, `be4dae5`); `FieldProjectionTest`, `PayrollFieldProjectionTest` |
+| E-21: user-visible demo wording/万能码 | Removed login/MFA/README/docker wording (`1fcad8a`); grep gate |
+| E-23: `iam:sync-capabilities` treated `*` as an unknown capability | Sync excludes only `CapabilityWildcard::WILDCARD` (`33a01a6`); `SyncCapabilitiesWildcardTest` |
+
+### Traps the implementation itself introduced and caught
+
+1. **`/me/capabilities` menu-empty trap.** Returning the literal `*` row made
+   the SPA's `granted.has(code)` checks all false. Fixed by expanding at the
+   serialization layer with `wildcard: true` (`5a71423`); 76 unique codes and
+   no DB writes are asserted.
+2. **Challenge consumed before TOTP verification.** The first login-challenge
+   implementation rotated the session token before checking the code, so a
+   wrong code burned the challenge and issued a token. Fixed by
+   `findChallenge()` → verify → `completeChallenge()` (`921b67f`);
+   `test_a_wrong_code_does_not_consume_the_challenge_or_issue_a_token`.
+
+### Verification evidence
+
+- Backend: `793 passed / 36,872 assertions`.
+- Frontend: typecheck, lint, `33` unit tests, `VITE_API_MODE=http pnpm build`;
+  dist scan finds no `demo.example`/`createMockAdapter`; demo-wording grep clean.
+- `scripts/verify_release.sh --quick`: `PASS=22 FAIL=0 SKIP=2`; log
+  `evidence/logs/verify-release.txt`.
+- Real Docker stack (isolated project): production install PASS; health OK;
+  login `202 MFA_REQUIRED` without a cookie; `users=1, employments=0,
+  payroll_runs=0, leave_types=3, calendars=1, shifts=1, confirmed factors=1`;
+  installer rerun idempotent; `iam:verify-mfa-enrollment` and
+  `capability:audit` pass.
+
+Remaining organizational gates (real IdP, pen-test, HA/PITR, statutory payroll
+parallel run, named signatories) are unchanged and are not claimed here.

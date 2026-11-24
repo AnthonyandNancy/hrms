@@ -315,3 +315,30 @@ docker compose exec php-app php artisan migrate --force
 ```
 
 启动后应把 `compose ps` 与健康检查输出补进 `evidence/logs/docker-compose.txt`，并将本 GATE 改为 PASS。
+
+## Round 12 — superuser coverage and production baseline
+
+| Item | Status | Evidence |
+|---|---|---|
+| Wildcard `*` as a code-owned, time-boxed capability | Done | `CapabilityWildcard`, admin templates, `iam:bind-role`, `WildcardGrantTest`, `BindRoleCommandTest` |
+| `/v1/me/capabilities` expansion for the SPA | Done | `MeCapabilitiesWildcardTest` (76 codes, `wildcard: true`, no DB writes) |
+| Cumulative SoD acknowledgement + audit + review; object-level invariants hard | Done | `SodRiskAcknowledgementTest`, real self-approval tests at domain/HTTP level |
+| Real MFA login challenge | Done | `MfaLoginChallengeTest` (202/no cookie, verify-before-consume, expiry, pre-session rejected) |
+| `mfa_enrolled_at` ⟺ confirmed factor | Done | `iam:verify-mfa-enrollment`; `MfaEnrollmentInvariantTest` |
+| Capability-driven MFA policy | Done | `MfaPolicyTest` (privileged, P2/P3, wildcard, stale version, expiry) |
+| P3 visibility without export/filter + audit; payroll projection | Done | `FieldProjectionTest`, `FieldProfileTest`, `PayrollFieldProjectionTest` |
+| Calendar/holiday/shift reference command | Done | `time:seed-calendar`; `SeedCalendarCommandTest` |
+| `hrms:install` production birth path | Done | `InstallCommandTest` (one admin + real TOTP, zero business data, idempotent, failed password leaves nothing) |
+| `docker_up.sh` default install, `--demo` opt-in | Done | Real isolated stack run; installer + health + `202` login + counts |
+| Frontend single source of truth, demo removal, build gate | Done | `adminSnapshot.spec.ts`; dist/wording scans; non-http build fails |
+| Coverage gates G-COV-1/2/3 | Done | `capability:audit`; `CapabilityCoverageAuditTest` |
+| ADR-0016/0017 and docs | Done | `docs/adr/0016-*`, `docs/adr/0017-*`, ADR-0004/0013, `docs/02-permissions.md` |
+
+**Counts:** backend `793 tests / 36,872 assertions`; frontend `33` unit tests;
+release gates `PASS=22 FAIL=0 SKIP=2` (skips are pre-existing demo/payroll-data
+gates). Gate log: `evidence/logs/verify-release.txt`.
+
+**Honest gaps:** `SKIP=2` (demo-data-dependent gates), the canonical OpenAPI
+document is updated but remains a merge fragment until the integration branch
+keeps both files in lockstep, and the organizational gates from Round 11 are
+unchanged.
