@@ -27,6 +27,31 @@ trait AuthenticatesRequests
             'password' => $password,
         ]);
 
+        // A privileged or P2+ holder now receives 202 MFA_REQUIRED and no
+        // cookie. Complete the challenge with a real TOTP factor so callers
+        // still exercise the production login flow end to end.
+        if ($response->status() === 202) {
+            $factor = MfaFactor::query()
+                ->where('user_id', $user->id)
+                ->whereNotNull('confirmed_at')
+                ->whereNull('disabled_at')
+                ->latest('id')
+                ->first();
+
+            // Without a confirmed factor the challenge cannot be completed;
+            // return the 202 to the caller so it can assert the fail-closed
+            // login contract instead of silently bypassing MFA.
+            if ($factor !== null) {
+                $secret = Crypt::decryptString((string) $factor->secret_ciphertext);
+
+                $response = $this->postJson('/v1/auth/mfa/challenge', [
+                    'challenge_id' => (string) $response->json('data.challenge_id'),
+                    'factor_type' => 'TOTP',
+                    'code' => app(TotpService::class)->code($secret, app(Clock::class)->now()->getTimestamp()),
+                ]);
+            }
+        }
+
         $response->assertOk();
 
         $cookie = $response->getCookie((string) config('iam.session.cookie'), false);

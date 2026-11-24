@@ -65,6 +65,7 @@ Route::get('/meta', MetaController::class)->name('meta');
 |--------------------------------------------------------------------------
 */
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('auth.login');
+Route::post('/auth/mfa/challenge', [MfaController::class, 'completeChallenge'])->middleware('throttle:5,1')->name('auth.mfa.challenge');
 
 Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/me/workspace', [WorkspaceController::class, 'show'])->middleware('capability:iam.session.manage,SELF')->name('me.workspace');

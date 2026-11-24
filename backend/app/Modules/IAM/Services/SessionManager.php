@@ -54,6 +54,111 @@ final class SessionManager
         return ['session' => $session, 'token' => $token, 'csrf_token' => $csrf];
     }
 
+    /**
+     * Create a pre-session for a password-verified login that still owes a
+     * second factor. The caller receives an opaque challenge token; no session
+     * or CSRF cookie is issued until completeChallenge() succeeds.
+     *
+     * @return array{session: Session, challenge_token: string}
+     */
+    public function issueChallenge(User $user, Request $request): array
+    {
+        $now = $this->clock->now();
+        $challenge = $this->randomToken();
+        $idleMinutes = (int) config('iam.session.challenge_minutes', 5);
+
+        $session = Session::query()->create([
+            'id' => (string) Str::ulid(),
+            'user_id' => (int) $user->id,
+            'tenant_id' => (int) $user->tenant_id,
+            'token_hash' => hash('sha256', $this->randomToken()),
+            'csrf_hash' => hash('sha256', $this->randomToken()),
+            'ip' => $request->ip(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
+            'mfa_verified' => false,
+            'mfa_challenge_hash' => hash('sha256', $challenge),
+            'mfa_challenge_expires_at' => $now->addMinutes($idleMinutes),
+            'auth_version' => (int) $user->auth_version,
+            'idle_expires_at' => $now->addMinutes($idleMinutes),
+            'absolute_expires_at' => $now->addMinutes($idleMinutes),
+            'last_seen_at' => $now,
+            'created_at' => $now,
+        ]);
+
+        return ['session' => $session, 'challenge_token' => $challenge];
+    }
+
+    /**
+     * Resolve and validate an outstanding MFA challenge without consuming it.
+     * Possession of the high-entropy challenge token is the only proof needed
+     * before the factor itself is verified.
+     *
+     * @return array{session: Session, user: User}
+     */
+    public function findChallenge(string $challengeToken): array
+    {
+        $session = Session::query()
+            ->where('mfa_challenge_hash', hash('sha256', $challengeToken))
+            ->whereNull('revoked_at')
+            ->first();
+
+        if (! $session instanceof Session || $session->mfa_challenge_expires_at === null || $session->mfa_challenge_expires_at->lessThanOrEqualTo($this->clock->now())) {
+            throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
+        }
+
+        $user = User::query()->whereKey($session->user_id)->first();
+
+        if (! $user instanceof User || (int) $user->tenant_id !== (int) $session->tenant_id) {
+            throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
+        }
+
+        if ((int) $user->auth_version !== (int) $session->auth_version || ! $user->isActive()) {
+            $this->revoke($session);
+
+            throw new AuthenticationFailedException('AUTH_VERSION_STALE');
+        }
+
+        return ['session' => $session, 'user' => $user];
+    }
+
+    /**
+     * Consume a still-open challenge after the second factor has been verified
+     * and rotate it into a real session token + CSRF token.
+     *
+     * @return array{session: Session, token: string, csrf_token: string}
+     */
+    public function completeChallenge(string $challengeToken, Request $request): array
+    {
+        ['session' => $session, 'user' => $user] = $this->findChallenge($challengeToken);
+
+        $token = $this->randomToken();
+        $csrf = $this->randomToken();
+        $privileged = (bool) $user->is_privileged;
+        $idleMinutes = $privileged
+            ? (int) config('iam.session.privileged_idle_minutes', 15)
+            : (int) config('iam.session.standard_idle_minutes', 30);
+        $absoluteHours = $privileged
+            ? (int) config('iam.session.privileged_absolute_hours', 8)
+            : (int) config('iam.session.standard_absolute_hours', 12);
+
+        $now = $this->clock->now();
+        $session->forceFill([
+            'token_hash' => hash('sha256', $token),
+            'csrf_hash' => hash('sha256', $csrf),
+            'mfa_challenge_hash' => null,
+            'mfa_challenge_expires_at' => null,
+            'mfa_verified' => false,
+            'mfa_verified_until' => null,
+            'ip' => $request->ip(),
+            'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
+            'idle_expires_at' => $now->addMinutes($idleMinutes),
+            'absolute_expires_at' => $now->addHours($absoluteHours),
+            'last_seen_at' => $now,
+        ])->save();
+
+        return ['session' => $session, 'token' => $token, 'csrf_token' => $csrf, 'user' => $user];
+    }
+
     public function findValid(string $token): Session
     {
         $session = Session::query()

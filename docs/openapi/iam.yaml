@@ -39,6 +39,37 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SessionEnvelope' }
+        '202':
+          description: A second factor is required; no session cookie is issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaChallengeEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /auth/mfa/challenge:
+    post:
+      operationId: completeMfaChallenge
+      security: []
+      tags: [IAM MFA]
+      summary: Exchange a one-time login MFA challenge for a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challenge_id, factor_type, code]
+              properties:
+                challenge_id: { type: string, minLength: 16, maxLength: 512 }
+                factor_type: { type: string, enum: [TOTP, WEBAUTHN, RECOVERY_CODE] }
+                code: { type: string, maxLength: 32 }
+      responses:
+        '200':
+          description: Session issued after a valid second factor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionEnvelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -692,3 +723,19 @@ components:
                   type: array
                   description: Present only when acknowledging one or more separation-of-duties risks.
                   items: { $ref: '#/components/schemas/SodRiskWarning' }
+
+    MfaChallengeEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, const: ACCEPTED }
+        message: { type: string }
+        data:
+          type: object
+          required: [status, challenge_id, masked_destination, expires_at]
+          properties:
+            status: { type: string, const: MFA_REQUIRED }
+            challenge_id: { type: string }
+            masked_destination: { type: string }
+            expires_at: { type: [string, 'null'], format: date-time }
+        request_id: { type: string }

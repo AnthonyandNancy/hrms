@@ -34,8 +34,18 @@ class UserFactory extends Factory
     {
         return $this->state(fn (): array => [
             'is_privileged' => true,
-            'mfa_enrolled_at' => now(),
-        ]);
+        ])->afterCreating(static function (User $user): void {
+            $now = app(\App\Shared\Time\Clock::class)->now();
+            \App\Modules\IAM\Models\MfaFactor::query()->create([
+                'tenant_id' => (int) $user->tenant_id,
+                'user_id' => (int) $user->id,
+                'type' => \App\Modules\IAM\Models\MfaFactor::TYPE_TOTP,
+                'secret_ciphertext' => \Illuminate\Support\Facades\Crypt::encryptString(app(\App\Modules\IAM\Services\TotpService::class)->generateSecret()),
+                'label' => 'factory-privileged',
+                'confirmed_at' => $now,
+            ]);
+            $user->forceFill(['mfa_enrolled_at' => $now])->save();
+        });
     }
 
     public function withoutMfa(): static

@@ -86,6 +86,23 @@ final class AuthController
             $user->forceFill(['password_hash' => $this->passwords->hash((string) $validated['password'])])->save();
         }
 
+        if (app(\App\Modules\IAM\Services\MfaPolicy::class)->challengeRequired($user)) {
+            $issued = $this->sessions->issueChallenge($user, $request);
+
+            $user->forceFill(['last_login_at' => $this->clock->now()])->save();
+
+            $this->events->record((int) $user->tenant_id, (int) $user->id, 'login.mfa_challenge', 'SUCCESS', [
+                'session_id' => (string) $issued['session']->id,
+            ], $request);
+
+            return ApiResponse::accepted([
+                'status' => 'MFA_REQUIRED',
+                'challenge_id' => $issued['challenge_token'],
+                'masked_destination' => 'TOTP authenticator',
+                'expires_at' => $issued['session']->mfa_challenge_expires_at?->toIso8601ZuluString(),
+            ], 'A second factor is required.');
+        }
+
         $issued = $this->sessions->issue($user, $request, (bool) $user->is_privileged);
         $user->forceFill(['last_login_at' => $this->clock->now()])->save();
 

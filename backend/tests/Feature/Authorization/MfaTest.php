@@ -20,19 +20,29 @@ final class MfaTest extends AuthorizationTestSupport
 {
     use AuthenticatesRequests;
 
-    public function test_privileged_user_without_enrollment_cannot_use_privileged_capability(): void
+    public function test_privileged_user_without_enrollment_cannot_finish_login_or_use_a_capability(): void
     {
         $user = User::factory()->withoutMfa()->create(['is_privileged' => true]);
         $this->grant($user, 'iam.user.read', FieldProfile::P1_INTERNAL);
         $this->organization->knownLegalEntities = [1];
-        $auth = $this->loginAs($user);
 
-        $response = $this->getJson('/v1/users', ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']]);
+        $login = $this->postJson('/v1/auth/login', [
+            'username' => $user->username,
+            'password' => 'Correct-Horse-9!',
+        ]);
 
-        $response->assertForbidden()->assertJsonPath('data.reason', 'MFA_REQUIRED');
+        // Password alone is no longer a session for a privileged user: the
+        // login stops at the MFA challenge and issues no cookie. Without a
+        // confirmed factor the challenge cannot be completed, so no request
+        // ever reaches the capability gate.
+        $login->assertStatus(202)->assertJsonPath('data.status', 'MFA_REQUIRED');
+        $this->assertNull($login->getCookie((string) config('iam.session.cookie'), false));
+
+        $this->getJson('/v1/users', ['X-Legal-Entity-Id' => '1'])
+            ->assertUnauthorized();
     }
 
-    public function test_payroll_role_without_mfa_gets_403_but_ordinary_capability_is_unaffected(): void
+    public function test_payroll_role_without_enrollment_stops_at_the_login_challenge(): void
     {
         $user = User::factory()->withoutMfa()->create();
         $this->grant($user, 'payroll.run.prepare', FieldProfile::P2_SENSITIVE, AnchorType::PAYROLL_RUN, 5);
@@ -40,11 +50,14 @@ final class MfaTest extends AuthorizationTestSupport
         $this->organization->knownLegalEntities = [1];
         $this->payroll->runsByUser[(int) $user->id] = [5];
         $this->payroll->memberships[5] = ['payroll.run.prepare'];
-        $auth = $this->loginAs($user);
 
-        $this->getJson('/v1/roles', ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']])
-            ->assertStatus(403)
-            ->assertJsonPath('data.reason', 'MFA_REQUIRED');
+        $login = $this->postJson('/v1/auth/login', [
+            'username' => $user->username,
+            'password' => 'Correct-Horse-9!',
+        ]);
+
+        $login->assertStatus(202)->assertJsonPath('data.status', 'MFA_REQUIRED');
+        $this->assertNull($login->getCookie((string) config('iam.session.cookie'), false));
     }
 
     public function test_totp_enrollment_confirm_returns_otpauth_uri_and_single_use_recovery_codes(): void

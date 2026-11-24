@@ -7,15 +7,18 @@ namespace App\Modules\Workflow\Http\Controllers;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
 use App\Modules\Workflow\Models\WorkflowTask;
 use App\Shared\ApiResponse;
+use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class TaskController
 {
+    public function __construct(private readonly Clock $clock) {}
+
     public function my(Request $request): JsonResponse
     {
         $principal = WorkflowPrincipalContext::from($request);
-        $today = now('UTC');
+        $today = $this->clock->now();
 
         $tasks = WorkflowTask::query()
             ->where('tenant_id', $principal->tenantId)

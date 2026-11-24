@@ -20,7 +20,7 @@ final class IamRouteMatrixTest extends TestCase
         foreach (app('router')->getRoutes()->getRoutes() as $route) {
             $uri = '/'.$route->uri();
 
-            if (in_array($uri, ['/v1/health', '/v1/health/live', '/v1/health/ready', '/v1/meta', '/v1/auth/login'], true)) {
+            if (in_array($uri, ['/v1/health', '/v1/health/live', '/v1/health/ready', '/v1/meta', '/v1/auth/login', '/v1/auth/mfa/challenge'], true)) {
                 continue;
             }
 

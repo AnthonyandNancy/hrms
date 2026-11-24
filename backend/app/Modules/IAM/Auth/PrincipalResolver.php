@@ -34,6 +34,10 @@ final class PrincipalResolver
         }
 
         $session = $this->sessions->findValid($token);
+
+        if ($session->mfa_challenge_hash !== null) {
+            throw new AuthenticationFailedException('MFA_CHALLENGE_INCOMPLETE');
+        }
         $user = User::query()->whereKey($session->user_id)->first();
 
         if (! $user instanceof User || (int) $user->tenant_id !== (int) $session->tenant_id) {

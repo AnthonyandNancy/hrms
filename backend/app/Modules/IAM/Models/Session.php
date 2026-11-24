@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $auth_version
  * @property bool $mfa_verified
  * @property \Carbon\CarbonImmutable|null $mfa_verified_until
+ * @property string|null $mfa_challenge_hash
+ * @property \Carbon\CarbonImmutable|null $mfa_challenge_expires_at
  * @property \Carbon\CarbonImmutable $idle_expires_at
  * @property \Carbon\CarbonImmutable $absolute_expires_at
  * @property \Carbon\CarbonImmutable|null $revoked_at
@@ -50,6 +52,8 @@ final class Session extends Model
         'user_agent',
         'mfa_verified',
         'mfa_verified_until',
+        'mfa_challenge_hash',
+        'mfa_challenge_expires_at',
         'auth_version',
         'idle_expires_at',
         'absolute_expires_at',
@@ -72,6 +76,7 @@ final class Session extends Model
             'auth_version' => 'integer',
             'mfa_verified' => 'boolean',
             'mfa_verified_until' => 'immutable_datetime',
+            'mfa_challenge_expires_at' => 'immutable_datetime',
             'idle_expires_at' => 'immutable_datetime',
             'absolute_expires_at' => 'immutable_datetime',
             'revoked_at' => 'immutable_datetime',

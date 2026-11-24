@@ -39,7 +39,7 @@ class DenyByDefaultTest extends AuthorizationTestSupport
 
     public function test_all_protected_routes_carry_capability_metadata(): void
     {
-        $public = ['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login'];
+        $public = ['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login', 'v1/auth/mfa/challenge'];
 
         foreach (app('router')->getRoutes()->getRoutes() as $route) {
             $uri = $route->uri();
