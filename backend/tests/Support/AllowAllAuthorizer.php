@@ -7,6 +7,7 @@ namespace Tests\Support;
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\ResourceRef;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,9 @@ final class AllowAllAuthorizer implements Authorizer
 
     /** @var list<string> */
     public array $deniedCapabilities = [];
+
+    /** @var array<string, FieldProfile> */
+    public array $fieldProfiles = [];
 
     public function constrain(Builder $query, Principal $principal, string $capability, string $businessDate): Builder
     {
@@ -40,8 +44,26 @@ final class AllowAllAuthorizer implements Authorizer
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
-        return new FieldSet([
-            '*' => \App\Shared\Authorization\FieldProfile::P0_PUBLIC,
-        ], exportUnlocked: true);
+        $profile = $this->fieldProfiles[$capability] ?? null;
+        $amounts = [
+            'gross' => FieldProfile::P3_RESTRICTED,
+            'net' => FieldProfile::P3_RESTRICTED,
+            'deductions' => FieldProfile::P3_RESTRICTED,
+            'taxable' => FieldProfile::P3_RESTRICTED,
+            'employer_cost' => FieldProfile::P3_RESTRICTED,
+            'employee_si' => FieldProfile::P3_RESTRICTED,
+            'employee_hf' => FieldProfile::P3_RESTRICTED,
+            'tax' => FieldProfile::P3_RESTRICTED,
+        ];
+
+        if ($profile === null) {
+            throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
+        }
+
+        if ($profile->rank() < FieldProfile::P2_SENSITIVE->rank()) {
+            throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
+        }
+
+        return new FieldSet($amounts, restrictedVisible: $profile->rank() >= FieldProfile::P3_RESTRICTED->rank());
     }
 }

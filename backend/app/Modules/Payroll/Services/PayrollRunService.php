@@ -11,6 +11,7 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollSchemeItem;
+use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -228,25 +229,44 @@ final class PayrollRunService
     /**
      * @return list<array<string, mixed>>
      */
-    public function employees(PayrollRun $run): array
+    public function employees(PayrollRun $run, FieldSet $fields): array
     {
         return PayrollRunEmployee::query()
             ->where('run_id', $run->id)
             ->orderBy('employment_id')
             ->get()
-            ->map(fn (PayrollRunEmployee $employee): array => [
-                'employment_id' => (int) $employee->employment_id,
-                'status' => $employee->status->value,
-                'gross_cents' => (int) $employee->gross_cents,
-                'taxable_cents' => (int) $employee->taxable_cents,
-                'deductions_cents' => (int) $employee->deductions_cents,
-                'net_cents' => (int) $employee->net_cents,
-                'employer_cost_cents' => (int) $employee->employer_cost_cents,
-                'employee_si_cents' => (int) $employee->employee_si_cents,
-                'employee_hf_cents' => (int) $employee->employee_hf_cents,
-                'tax_cents' => (int) $employee->tax_cents,
-                'failure_reason' => $employee->failure_reason,
-            ])->all();
+            ->map(function (PayrollRunEmployee $employee) use ($fields): array {
+                // Money keys are projected through the caller's field set and
+                // disappear entirely when the caller only holds run-read.
+                $row = [
+                    'employment_id' => (int) $employee->employment_id,
+                    'status' => $employee->status->value,
+                    'failure_reason' => $employee->failure_reason,
+                ];
+
+                // The projection schema names amounts gross/net/deductions.
+                // The API keeps its established *_cents keys, so decide
+                // visibility from the schema and emit the API key only when
+                // the field is visible.
+                $amounts = [
+                    'gross' => 'gross_cents',
+                    'net' => 'net_cents',
+                    'deductions' => 'deductions_cents',
+                    'taxable' => 'taxable_cents',
+                    'employer_cost' => 'employer_cost_cents',
+                    'employee_si' => 'employee_si_cents',
+                    'employee_hf' => 'employee_hf_cents',
+                    'tax' => 'tax_cents',
+                ];
+
+                foreach ($amounts as $schemaField => $apiKey) {
+                    if ($fields->isVisible($schemaField)) {
+                        $row[$apiKey] = (int) $employee->{$apiKey};
+                    }
+                }
+
+                return $row;
+            })->all();
     }
 
     /**

@@ -12,7 +12,13 @@ use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldProfile;
+use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Authorization\ResourceRef;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +26,8 @@ final class PayrollRunController
 {
     public function __construct(
         private readonly PrincipalResolver $principals,
+        private readonly Authorizer $authorizer,
+        private readonly Clock $clock,
         private readonly PayrollRunService $runs,
         private readonly CalculationService $calculation,
         private readonly ApprovalService $approval,
@@ -61,9 +69,36 @@ final class PayrollRunController
     {
         $principal = $this->principals->resolve();
         $run = $this->runs->findRun($principal->tenantId(), $id);
-        $rows = $this->runs->employees($run);
+
+        // A payroll.run.read holder may see the run summary but not amounts.
+        // Amount visibility is decided by the payroll.payslip.read field
+        // profile; a P3 grant reveals values, anything less omits the money
+        // keys entirely rather than returning null.
+        $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
+
+        $rows = $this->runs->employees($run, $fields);
 
         return ApiResponse::ok(ApiResponse::list($rows, 1, max(1, count($rows)), count($rows)));
+    }
+
+    private function moneyFields(\App\Modules\IAM\Contracts\Principal $principal, string $capability, \App\Modules\Payroll\Models\PayrollRun $run): FieldSet
+    {
+        try {
+            return $this->authorizer->fields($principal, $capability, new ResourceRef(
+                resourceType: 'payslip',
+                id: (int) $run->id,
+                row: [],
+                tenantId: (int) $run->tenant_id,
+                legalEntityId: (int) $run->legal_entity_id,
+                payrollRunId: (int) $run->id,
+            ));
+        } catch (NotFoundOrForbiddenException) {
+            return new FieldSet([
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'status' => FieldProfile::P0_PUBLIC,
+                'failure_reason' => FieldProfile::P1_INTERNAL,
+            ]);
+        }
     }
 
     public function store(Request $request): JsonResponse

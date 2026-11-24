@@ -9,7 +9,11 @@ use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldProfile;
+use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Authorization\ResourceRef;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +27,7 @@ final class PayrollPayslipController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly PeopleDirectory $people,
+        private readonly Authorizer $authorizer,
     ) {}
 
     public function mine(Request $request): JsonResponse
@@ -55,7 +60,7 @@ final class PayrollPayslipController
         $payslips = $query->get();
 
         return ApiResponse::ok(ApiResponse::list(
-            $payslips->map(fn (Payslip $payslip): array => $this->summary($payslip))->all(),
+            $payslips->map(fn (Payslip $payslip): array => $this->summary($payslip, $this->fieldsFor($payslip)))->all(),
             1,
             20,
             $payslips->count(),
@@ -90,7 +95,7 @@ final class PayrollPayslipController
             ->first();
 
         return ApiResponse::ok([
-            ...$this->summary($payslip),
+            ...$this->summary($payslip, $this->fieldsFor($payslip)),
             'period' => $run !== null ? (string) $run->period : null,
             'lines' => PayslipLine::query()
                 ->where('payslip_id', $payslip->id)
@@ -113,18 +118,41 @@ final class PayrollPayslipController
     /**
      * @return array<string, mixed>
      */
-    private function summary(Payslip $payslip): array
+    private function summary(Payslip $payslip, FieldSet $fields): array
     {
         return [
             'id' => (int) $payslip->id,
             'run_id' => (int) $payslip->run_id,
             'employment_id' => (int) $payslip->employment_id,
             'version' => (int) $payslip->version,
-            'gross_cents' => (int) $payslip->gross_cents,
-            'deductions_cents' => (int) $payslip->deductions_cents,
-            'net_cents' => (int) $payslip->net_cents,
-            'employer_cost_cents' => (int) $payslip->employer_cost_cents,
+            ...($fields->isVisible('gross') ? ['gross_cents' => (int) $payslip->gross_cents] : []),
+            ...($fields->isVisible('deductions') ? ['deductions_cents' => (int) $payslip->deductions_cents] : []),
+            ...($fields->isVisible('net') ? ['net_cents' => (int) $payslip->net_cents] : []),
+            ...($fields->isVisible('employer_cost') ? ['employer_cost_cents' => (int) $payslip->employer_cost_cents] : []),
             'published_at' => $payslip->published_at?->toIso8601ZuluString(),
         ];
+    }
+
+    private function fieldsFor(Payslip $payslip): FieldSet
+    {
+        $principal = $this->principals->resolve();
+
+        try {
+            return $this->authorizer->fields($principal, 'payroll.payslip.read.self', new ResourceRef(
+                resourceType: 'payslip',
+                id: (int) $payslip->id,
+                row: [],
+                tenantId: (int) $payslip->tenant_id,
+                employmentId: (int) $payslip->employment_id,
+                payrollRunId: (int) $payslip->run_id,
+            ));
+        } catch (NotFoundOrForbiddenException) {
+            return new FieldSet([
+                'gross' => FieldProfile::P3_RESTRICTED,
+                'deductions' => FieldProfile::P3_RESTRICTED,
+                'net' => FieldProfile::P3_RESTRICTED,
+                'employer_cost' => FieldProfile::P3_RESTRICTED,
+            ]);
+        }
     }
 }
