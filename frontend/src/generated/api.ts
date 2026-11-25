@@ -3094,7 +3094,14 @@ export interface paths {
         /** List the ten templates and tenant exception roles */
         get: operations["listRoles"];
         put?: never;
-        post?: never;
+        /**
+         * Create a tenant exception role from code-owned capability codes
+         * @description Capability semantics are code-owned. The request may select known
+         *     capability codes with an anchor the capability allows and a field
+         *     profile no wider than the capability maximum. Requires an
+         *     Idempotency-Key.
+         */
+        post: operations["createRole"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13682,6 +13689,41 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Role created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };

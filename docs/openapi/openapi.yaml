@@ -15043,6 +15043,53 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+    post:
+      operationId: createRole
+      tags:
+        - IAM Administration
+      summary: Create a tenant exception role from code-owned capability codes
+      description: |
+        Capability semantics are code-owned. The request may select known
+        capability codes with an anchor the capability allows and a field
+        profile no wider than the capability maximum. Requires an
+        Idempotency-Key.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCreateRequest"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
   /v1/roles/{id}/capabilities:
     put:
       operationId: replaceRoleCapabilities
