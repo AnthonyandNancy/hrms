@@ -21,6 +21,14 @@ import {
   User,
   Wallet,
   Expand,
+  Refresh,
+  Files,
+  Timer,
+  Van,
+  TrendCharts,
+  Search,
+  UserFilled,
+  Reading,
 } from '@element-plus/icons-vue'
 import { useSessionStore } from '@/stores/session'
 import { useAppStore } from '@/stores/app'
@@ -62,18 +70,37 @@ const icons: Record<string, unknown> = {
   Stamp,
   User,
   Wallet,
+  Refresh,
+  Files,
+  Timer,
+  Van,
+  TrendCharts,
+  Search,
+  UserFilled,
+  Reading,
 }
 
 const currentNavKey = computed(() => (typeof route.meta.navKey === 'string' ? route.meta.navKey : ''))
-const groupedNavigation = computed(() => {
-  const groups = new Map<NavigationItem['group'], NavigationItem[]>()
-  for (const item of session.navigation) {
-    const list = groups.get(item.group) ?? []
-    list.push(item)
-    groups.set(item.group, list)
+const groupedNavigation = computed(() => session.navigation)
+const expandedGroups = ref<Set<string>>(new Set())
+
+function isGroupOpen(item: NavigationItem): boolean {
+  return expandedGroups.value.has(item.key) || item.children.some((child) => child.key === currentNavKey.value)
+}
+
+function toggleGroup(item: NavigationItem): void {
+  const next = new Set(expandedGroups.value)
+  if (next.has(item.key)) {
+    next.delete(item.key)
+  } else {
+    next.add(item.key)
   }
-  return [...groups.entries()]
-})
+  expandedGroups.value = next
+}
+
+function isChildActive(childKey: string): boolean {
+  return currentNavKey.value === childKey
+}
 
 const pageTitle = computed(() => (typeof route.meta.title === 'string' ? route.meta.title : 'HRMS'))
 
@@ -149,27 +176,51 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <nav class="sidebar__nav">
-        <div v-for="[group, items] in groupedNavigation" :key="group" class="sidebar__group">
-          <p class="sidebar__group-label">{{ GROUP_LABEL[group] }}</p>
-          <RouterLink
-            v-for="item in items"
-            :key="item.key"
-            :to="item.path"
-            class="nav-link"
-            :class="{ 'nav-link--active': currentNavKey === item.key }"
-            :aria-current="currentNavKey === item.key ? 'page' : undefined"
-            :title="app.sidebarCollapsed ? item.label : undefined"
-            @click="closeMobileNav"
-          >
-            <el-icon class="nav-link__icon" aria-hidden="true">
-              <component :is="icons[item.icon]" />
-            </el-icon>
-            <span class="nav-link__label">{{ item.label }}</span>
-            <span v-if="badgeFor(item)" class="nav-link__badge" :aria-label="`${badgeFor(item)} 条待处理`">
-              {{ badgeFor(item) }}
-            </span>
-          </RouterLink>
+      <nav class="sidebar__nav" aria-label="V1.1 功能菜单">
+        <div v-for="item in groupedNavigation" :key="item.key" class="sidebar__group">
+          <template v-if="item.children.length === 0">
+            <RouterLink
+              :to="item.path"
+              class="nav-link"
+              :class="{ 'nav-link--active': currentNavKey === item.key }"
+              :aria-current="currentNavKey === item.key ? 'page' : undefined"
+              :title="app.sidebarCollapsed ? item.label : undefined"
+              @click="closeMobileNav"
+            >
+              <el-icon class="nav-link__icon" aria-hidden="true"><HomeFilled /></el-icon>
+              <span class="nav-link__label">{{ item.label }}</span>
+            </RouterLink>
+          </template>
+          <template v-else>
+            <button
+              type="button"
+              class="nav-link nav-link--group"
+              :aria-expanded="isGroupOpen(item)"
+              :title="app.sidebarCollapsed ? item.label : undefined"
+              @click="toggleGroup(item)"
+            >
+              <el-icon class="nav-link__icon" aria-hidden="true">
+                <component :is="icons[item.icon]" />
+              </el-icon>
+              <span class="nav-link__label">{{ GROUP_LABEL[item.group] }}</span>
+              <span v-if="badgeFor(item)" class="nav-link__badge" :aria-label="`${badgeFor(item)} 条待处理`">
+                {{ badgeFor(item) }}
+              </span>
+            </button>
+            <div v-if="isGroupOpen(item) && !app.sidebarCollapsed" class="sidebar__children">
+              <RouterLink
+                v-for="child in item.children"
+                :key="child.key"
+                :to="child.path"
+                class="nav-link nav-link--child"
+                :class="{ 'nav-link--active': isChildActive(child.key) }"
+                :aria-current="isChildActive(child.key) ? 'page' : undefined"
+                @click="closeMobileNav"
+              >
+                <span class="nav-link__label">{{ child.label }}</span>
+              </RouterLink>
+            </div>
+          </template>
         </div>
       </nav>
     </aside>
@@ -247,6 +298,7 @@ onBeforeUnmount(() => {
       <footer class="app-footer">
         <span>澄明科技 HRMS</span>
         <span>审计与导出操作会记录操作者、目的与时间</span>
+        <span data-testid="build-sha" class="mono">构建 {{ import.meta.env.VITE_BUILD_SHA ?? 'unknown' }}</span>
       </footer>
     </div>
   </div>

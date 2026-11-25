@@ -18,6 +18,16 @@ final class MetaController
             'server_time' => CarbonImmutable::now('UTC')->toIso8601ZuluString(),
             'supported_timezones' => array_values((array) config('hrms.supported_timezones', ['UTC', 'Asia/Shanghai'])),
             'api_version' => 'v1',
+            'commit' => $this->stable('app.release.commit'),
+            'build_time' => $this->stable('app.release.build_time'),
+            'spa_build_sha' => $this->stable('app.release.spa_build_sha'),
         ]);
+    }
+
+    private function stable(string $key): string
+    {
+        $value = config($key);
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : 'unknown';
     }
 }

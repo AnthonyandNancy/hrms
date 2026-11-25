@@ -1,151 +1,84 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { PAGE_REGISTRY, type PageSpec } from '@/router/registry'
+import { matureView } from '@/router/pageComponents'
+
+/**
+ * Build a route from the controlled registry.
+ *
+ * Mature views keep their existing component. Every other registered page uses
+ * ResourcePage with the page's declared canonical GET operation. That makes
+ * coverage executable: a page can no longer exist without a route, capability,
+ * menu metadata and an API declaration.
+ */
+function registryRoute(page: PageSpec, nested = true): RouteRecordRaw {
+  const loader = matureView(page.componentKey)
+
+  return {
+    path: nested ? page.path.replace(/^\//, '') : page.path,
+    name: page.name,
+    component: loader ?? (() => import('@/components/ResourcePage.vue')),
+    props: loader ? (page.path.includes(':id') ? true : false) : { page },
+    meta: {
+      title: page.menu?.label ?? page.name,
+      capability: page.capability === 'public' ? undefined : page.capability,
+      public: page.capability === 'public',
+      menu: page.menu,
+      registry: page,
+    },
+  } as RouteRecordRaw
+}
+
+const loginPage = PAGE_REGISTRY.find((page) => page.path === '/login')
+const notFoundPage = PAGE_REGISTRY.find((page) => page.path === '/not-found')
+const shellPages = PAGE_REGISTRY.filter(
+  (page) => page.path !== '/login' && page.path !== '/not-found',
+)
+
+if (loginPage === undefined || notFoundPage === undefined) {
+  throw new Error('The base registry must declare /login and /not-found.')
+}
 
 const routes: RouteRecordRaw[] = [
-  {
-    path: '/login',
-    name: 'login',
-    component: () => import('@/views/LoginView.vue'),
-    meta: { public: true, title: '登录' },
-  },
+  registryRoute(loginPage, false),
   {
     path: '/',
     component: () => import('@/layouts/AppShell.vue'),
     children: [
-      {
-        path: '',
-        redirect: '/workspace',
-      },
-      {
-        path: 'workspace',
-        name: 'workspace',
-        component: () => import('@/views/WorkspaceView.vue'),
-        meta: { title: '我的工作台', navKey: 'workspace' },
-      },
-      {
-        path: 'employees',
-        name: 'employees',
-        component: () => import('@/views/EmployeeDirectoryView.vue'),
-        meta: { title: '员工目录', capability: 'people.employee.read', navKey: 'directory' },
-      },
-      {
-        path: 'organization',
-        name: 'organization',
-        component: () => import('@/views/OrgTreeView.vue'),
-        meta: { title: '组织架构', capability: 'org.tree.read', navKey: 'organization' },
-      },
-      {
-        path: 'cases',
-        name: 'cases',
-        component: () => import('@/views/CaseCenterView.vue'),
-        meta: { title: '审批中心', capability: 'workflow.case.read', navKey: 'cases' },
-      },
-      {
-        path: 'cases/:id',
-        name: 'case-detail',
-        component: () => import('@/views/CaseDetailView.vue'),
-        meta: { title: '案例详情', capability: 'workflow.case.read', navKey: 'cases' },
-        props: true,
-      },
-      {
-        path: 'leave',
-        name: 'leave',
-        component: () => import('@/views/LeaveView.vue'),
-        meta: { title: '假期与余额', capability: 'time.leave.read', navKey: 'leave' },
-      },
-      {
-        path: 'attendance',
-        name: 'attendance',
-        component: () => import('@/views/AttendanceView.vue'),
-        meta: { title: '考勤日历', capability: 'time.attendance.read', navKey: 'attendance' },
-      },
-      {
-        path: 'payroll',
-        name: 'payroll',
-        component: () => import('@/views/PayrollRunsView.vue'),
-        meta: { title: '工资批次', capability: 'payroll.run.read', navKey: 'payroll' },
-      },
-      {
-        path: 'payroll/runs/:id',
-        name: 'payroll-run-detail',
-        component: () => import('@/views/PayrollRunDetailView.vue'),
-        meta: { title: '工资批次详情', capability: 'payroll.run.read', navKey: 'payroll' },
-        props: true,
-      },
-      {
-        path: 'payroll/my-payslips',
-        name: 'payslips',
-        component: () => import('@/views/PayslipsView.vue'),
-        meta: { title: '我的工资条', capability: 'payroll.payslip.read.self', navKey: 'payslips' },
-      },
-      {
-        path: 'payroll/my-payslips/:id',
-        name: 'payslip-detail',
-        component: () => import('@/views/PayslipDetailView.vue'),
-        meta: { title: '工资条详情', capability: 'payroll.payslip.read.self', navKey: 'payslips' },
-        props: true,
-      },
-      {
-        path: 'hr/employees',
-        name: 'hr-employees-legacy',
-        redirect: '/employees',
-      },
-      {
-        path: 'system/users',
-        name: 'system-users-legacy',
-        redirect: '/admin',
-      },
-      {
-        path: 'admin',
-        name: 'admin',
-        component: () => import('@/views/AdminView.vue'),
-        meta: { title: '权限治理', capability: 'iam.user.read', navKey: 'admin' },
-      },
-      {
-        path: 'notices',
-        name: 'notices',
-        component: () => import('@/views/NoticesView.vue'),
-        meta: { title: '公告与通知', capability: 'engagement.notice.read', navKey: 'notices' },
-      },
-      {
-        path: 'notices/:id',
-        name: 'notice-detail',
-        component: () => import('@/views/NoticeDetailView.vue'),
-        meta: { title: '公告详情', capability: 'engagement.notice.read', navKey: 'notices' },
-        props: true,
-      },
-      {
-        path: 'dashboard',
-        name: 'dashboard',
-        component: () => import('@/views/DashboardView.vue'),
-        meta: { title: '人力仪表盘', capability: 'reporting.dashboard.read', navKey: 'dashboard' },
-      },
-      {
-        path: 'dashboard/metric/:metric',
-        name: 'metric-drilldown',
-        component: () => import('@/views/MetricDrilldownView.vue'),
-        meta: { title: '指标下钻', capability: 'reporting.dashboard.read', navKey: 'dashboard' },
-        props: true,
-      },
-      {
-        path: 'reports',
-        name: 'reports',
-        component: () => import('@/views/ReportsView.vue'),
-        meta: { title: '报表中心', capability: 'reporting.export', navKey: 'reports' },
-      },
-      {
-        path: 'forbidden',
-        name: 'forbidden',
-        component: () => import('@/views/ForbiddenView.vue'),
-        meta: { title: '无访问权限' },
-      },
+      { path: '', redirect: '/workspace' },
+      ...shellPages.map((page) => registryRoute(page)),
     ],
+  },
+  registryRoute(notFoundPage, false),
+  {
+    path: '/employees',
+    redirect: '/hr/employees',
+  },
+  {
+    path: '/organization',
+    redirect: '/hr/departments',
+  },
+  {
+    path: '/cases',
+    name: 'cases',
+    component: () => import('@/views/CaseCenterView.vue'),
+    meta: { title: '审批中心', capability: 'workflow.case.read' },
+  },
+  {
+    path: '/cases/:id',
+    name: 'case-detail',
+    component: () => import('@/views/CaseDetailView.vue'),
+    meta: { title: '案例详情', capability: 'workflow.case.read' },
+    props: true,
+  },
+  {
+    path: '/admin',
+    redirect: '/system/users',
   },
   {
     path: '/:pathMatch(.*)*',
-    name: 'not-found',
-    component: () => import('@/views/NotFoundView.vue'),
-    meta: { public: true, title: '页面不存在' },
+    name: 'not-found-catchall',
+    redirect: '/not-found',
   },
 ]
 

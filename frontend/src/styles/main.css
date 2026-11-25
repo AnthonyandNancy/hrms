@@ -1511,3 +1511,24 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* V1.1 registry-driven menu: parent groups expand to real child pages. */
+.nav-link--group {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  background: transparent;
+}
+
+.nav-link--child {
+  padding-left: 34px;
+  font-size: 11.5px;
+}
+
+.sidebar__children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 4px;
+}

@@ -19,6 +19,12 @@ return [
 
     'version' => env('APP_VERSION', '1.0.0'),
 
+    'release' => [
+        'commit' => env('APP_COMMIT'),
+        'build_time' => env('APP_BUILD_TIME'),
+        'spa_build_sha' => env('SPA_BUILD_SHA'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

@@ -5,7 +5,10 @@ x-app-common: &app-common
     context: ../..
     dockerfile: deploy/docker/php.Dockerfile
     target: runtime
-  image: factoryhr/php-app:local
+    args:
+      GIT_SHA: ${GIT_SHA:-unknown}
+      BUILD_TIME: ${BUILD_TIME:-unknown}
+  image: factoryhr/php-app:${RELEASE_TAG:-local}
   restart: unless-stopped
   env_file:
     - path: ../../backend/.env
@@ -71,7 +74,10 @@ services:
       context: ../..
       dockerfile: deploy/docker/php.Dockerfile
       target: frontend-runtime
-    image: factoryhr/frontend:local
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    image: factoryhr/frontend:${RELEASE_TAG:-local}
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-5174}:80"

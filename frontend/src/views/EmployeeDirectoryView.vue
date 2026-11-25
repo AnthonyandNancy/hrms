@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { DirectoryEmployee, EmployeeDetail, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { EMPLOYEE_STATUS } from '@/utils/status'
@@ -21,7 +22,7 @@ const router = useRouter()
 const session = useSessionStore()
 
 const loading = ref(false)
-const error = ref('')
+const pageError = usePageError()
 const rows = ref<DirectoryEmployee[]>([])
 const total = ref(0)
 const orgs = ref<OrgNode[]>([])
@@ -75,7 +76,7 @@ const employeeIdFromQuery = computed(() => {
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     const result = await getApi().employees.listEmployees({
       search: filters.search,
@@ -88,7 +89,7 @@ async function load(): Promise<void> {
     rows.value = result.items
     total.value = result.total
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
     rows.value = []
     total.value = 0
   } finally {
@@ -231,9 +232,10 @@ onMounted(async () => {
 
     <section class="panel">
       <ErrorState
-        v-if="error"
+        v-if="pageError.message.value"
         description="员工目录暂时无法加载。请检查网络或稍后重试。"
-        :code="error"
+        :code="pageError.code.value"
+        :request-id="pageError.requestId.value"
         @retry="load"
       />
       <LoadingState v-else-if="loading && rows.length === 0" :rows="6" label="正在加载员工目录" />

@@ -19,7 +19,9 @@ WORKDIR /app/frontend
 # Same relative API base as the SPA expects when served from the same origin.
 ARG VITE_API_MODE=http
 ARG VITE_API_BASE_URL=/v1
-ENV VITE_API_MODE=$VITE_API_MODE VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+ENV VITE_API_MODE=$VITE_API_MODE VITE_API_BASE_URL=$VITE_API_BASE_URL VITE_BUILD_SHA=$GIT_SHA
 
 RUN corepack enable
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -42,6 +44,9 @@ FROM php:8.4-fpm-alpine AS runtime
 
 ARG UID=10001
 ARG GID=10001
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+ENV APP_COMMIT=$GIT_SHA APP_BUILD_TIME=$BUILD_TIME SPA_BUILD_SHA=$GIT_SHA
 
 RUN apk add --no-cache \
         bash \

@@ -3267,6 +3267,12 @@ export interface components {
             /** Format: date-time */
             server_time: string;
             api_version: string;
+            /** @description Git commit baked into the API image, or "unknown" when not built from a tagged checkout. */
+            commit: string;
+            /** @description UTC build timestamp baked into the API image, or "unknown". */
+            build_time: string;
+            /** @description SPA build SHA baked into the same release, or "unknown". */
+            spa_build_sha: string;
             supported_timezones: string[];
         };
         MetaEnvelope: components["schemas"]["Envelope"] & {

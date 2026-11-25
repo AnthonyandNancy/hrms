@@ -1021,6 +1021,9 @@ components:
         - server_time
         - supported_timezones
         - api_version
+        - commit
+        - build_time
+        - spa_build_sha
       properties:
         version:
           type: string
@@ -1031,6 +1034,15 @@ components:
           format: date-time
         api_version:
           type: string
+        commit:
+          type: string
+          description: Git commit baked into the API image, or "unknown" when not built from a tagged checkout.
+        build_time:
+          type: string
+          description: UTC build timestamp baked into the API image, or "unknown".
+        spa_build_sha:
+          type: string
+          description: SPA build SHA baked into the same release, or "unknown".
         supported_timezones:
           type: array
           items:

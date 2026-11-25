@@ -1,4 +1,24 @@
 import type { CaseAction } from '@/api/contracts'
+import { PAGE_REGISTRY, type MenuSpec } from '@/router/registry'
+
+export type NavigationGroup =
+  | 'dashboard'
+  | 'reports'
+  | 'people'
+  | 'organization'
+  | 'lifecycle'
+  | 'contracts'
+  | 'attendance'
+  | 'leave'
+  | 'overtime'
+  | 'travel'
+  | 'payroll'
+  | 'performance'
+  | 'recruitment'
+  | 'candidates'
+  | 'training'
+  | 'engagement'
+  | 'system'
 
 export type NavigationItem = {
   key: string
@@ -6,123 +26,152 @@ export type NavigationItem = {
   path: string
   icon: string
   capability?: string
-  group: 'work' | 'people' | 'time' | 'pay' | 'insight' | 'admin'
+  group: NavigationGroup
   badge?: 'approvals' | 'notices'
+  children: NavigationChild[]
 }
 
-export const NAVIGATION: NavigationItem[] = [
-  {
-    key: 'workspace',
-    label: '我的工作台',
-    path: '/workspace',
-    icon: 'HomeFilled',
-    group: 'work',
-  },
-  {
-    key: 'cases',
-    label: '审批中心',
-    path: '/cases',
-    icon: 'Stamp',
-    capability: 'workflow.case.read',
-    group: 'work',
-    badge: 'approvals',
-  },
-  {
-    key: 'directory',
-    label: '员工目录',
-    path: '/employees',
-    icon: 'User',
-    capability: 'people.employee.read',
-    group: 'people',
-  },
-  {
-    key: 'organization',
-    label: '组织架构',
-    path: '/organization',
-    icon: 'Share',
-    capability: 'org.tree.read',
-    group: 'people',
-  },
-  {
-    key: 'leave',
-    label: '假期与余额',
-    path: '/leave',
-    icon: 'Calendar',
-    capability: 'time.leave.read',
-    group: 'time',
-  },
-  {
-    key: 'attendance',
-    label: '考勤日历',
-    path: '/attendance',
-    icon: 'Clock',
-    capability: 'time.attendance.read',
-    group: 'time',
-  },
-  {
-    key: 'payroll',
-    label: '工资批次',
-    path: '/payroll',
-    icon: 'Money',
-    capability: 'payroll.run.read',
-    group: 'pay',
-  },
-  {
-    key: 'payslips',
-    label: '我的工资条',
-    path: '/payroll/my-payslips',
-    icon: 'Wallet',
-    capability: 'payroll.payslip.read.self',
-    group: 'pay',
-  },
-  {
-    key: 'dashboard',
-    label: '人力仪表盘',
-    path: '/dashboard',
-    icon: 'DataAnalysis',
-    capability: 'reporting.dashboard.read',
-    group: 'insight',
-  },
-  {
-    key: 'reports',
-    label: '报表中心',
-    path: '/reports',
-    icon: 'Document',
-    capability: 'reporting.export',
-    group: 'insight',
-  },
-  {
-    key: 'notices',
-    label: '公告与通知',
-    path: '/notices',
-    icon: 'Bell',
-    capability: 'engagement.notice.read',
-    group: 'work',
-    badge: 'notices',
-  },
-  {
-    key: 'admin',
-    label: '权限治理',
-    path: '/admin',
-    icon: 'Lock',
-    capability: 'iam.user.read',
-    group: 'admin',
-  },
-]
-
-export const GROUP_LABEL: Record<NavigationItem['group'], string> = {
-  work: '协作',
-  people: '人员与组织',
-  time: '假勤',
-  pay: '薪酬',
-  insight: '洞察',
-  admin: '治理',
+export type NavigationChild = {
+  key: string
+  label: string
+  path: string
+  capability: string
+  order: number
 }
 
-/** UI-only filtering. The backend is always the authority for each resource. */
+const GROUP_BY_MENU: Record<string, NavigationGroup> = {
+  仪表盘: 'dashboard',
+  报表中心: 'reports',
+  员工档案: 'people',
+  部门管理: 'organization',
+  岗位管理: 'organization',
+  员工异动: 'lifecycle',
+  劳动合同: 'contracts',
+  考勤打卡: 'attendance',
+  请假管理: 'leave',
+  加班管理: 'overtime',
+  出差管理: 'travel',
+  薪资管理: 'payroll',
+  绩效考核: 'performance',
+  招聘需求: 'recruitment',
+  候选人: 'candidates',
+  培训管理: 'training',
+  公告通知: 'engagement',
+  系统管理: 'system',
+}
+
+const GROUP_LABEL: Record<NavigationGroup, string> = {
+  dashboard: '仪表盘',
+  reports: '报表中心',
+  people: '员工档案',
+  organization: '组织与岗位',
+  lifecycle: '员工异动',
+  contracts: '劳动合同',
+  attendance: '考勤打卡',
+  leave: '请假管理',
+  overtime: '加班管理',
+  travel: '出差管理',
+  payroll: '薪资管理',
+  performance: '绩效考核',
+  recruitment: '招聘需求',
+  candidates: '候选人',
+  training: '培训管理',
+  engagement: '公告通知',
+  system: '系统管理',
+}
+
+const ICON_BY_GROUP: Record<NavigationGroup, string> = {
+  dashboard: 'DataAnalysis',
+  reports: 'Document',
+  people: 'User',
+  organization: 'Share',
+  lifecycle: 'Refresh',
+  contracts: 'Files',
+  attendance: 'Clock',
+  leave: 'Calendar',
+  overtime: 'Timer',
+  travel: 'Van',
+  payroll: 'Money',
+  performance: 'TrendCharts',
+  recruitment: 'Search',
+  candidates: 'UserFilled',
+  training: 'Reading',
+  engagement: 'Bell',
+  system: 'Lock',
+}
+
+const BADGE_BY_GROUP: Partial<Record<NavigationGroup, 'approvals' | 'notices'>> = {
+  lifecycle: 'approvals',
+  engagement: 'notices',
+}
+
+function menuGroupKey(menu: MenuSpec): NavigationGroup {
+  return GROUP_BY_MENU[menu.group] ?? 'system'
+}
+
+/**
+ * Build the 17 top-level menu groups from the controlled registry.
+ *
+ * A parent menu is never sufficient to see a child: every child keeps its own
+ * capability and is filtered independently. The workspace base entry is the
+ * only non-menu item exposed at the top.
+ */
+export const NAVIGATION: NavigationItem[] = (() => {
+  const groups = new Map<NavigationGroup, NavigationChild[]>()
+  const groupOrder = new Map<NavigationGroup, number>()
+
+  for (const page of PAGE_REGISTRY) {
+    if (page.menu === null) {
+      continue
+    }
+    const group = menuGroupKey(page.menu)
+    const children = groups.get(group) ?? []
+    children.push({
+      key: page.name,
+      label: page.menu.label,
+      path: page.path,
+      capability: page.capability,
+      order: page.menu.order,
+    })
+    groups.set(group, children)
+    groupOrder.set(group, Math.min(groupOrder.get(group) ?? Number.MAX_SAFE_INTEGER, page.menu.order))
+  }
+
+  return [
+    {
+      key: 'workspace',
+      label: '我的工作台',
+      path: '/workspace',
+      icon: 'HomeFilled',
+      group: 'dashboard',
+      children: [],
+    },
+    ...[...groups.entries()]
+      .sort(([a], [b]) => (groupOrder.get(a) ?? 0) - (groupOrder.get(b) ?? 0))
+      .map(([group, children]) => {
+        const first = children[0]
+        return {
+          key: group,
+          label: GROUP_LABEL[group],
+          path: first?.path ?? '/workspace',
+          icon: ICON_BY_GROUP[group],
+          group,
+          badge: BADGE_BY_GROUP[group],
+          children: children.sort((a, b) => a.order - b.order),
+        }
+      }),
+  ]
+})()
+
+export { GROUP_LABEL }
+
 export function visibleNavigation(capabilities: readonly string[]): NavigationItem[] {
   const granted = new Set(capabilities)
-  return NAVIGATION.filter((item) => !item.capability || granted.has(item.capability))
+
+  return NAVIGATION.map((item) => ({
+    ...item,
+    children: item.children.filter((child) => granted.has(child.capability)),
+  })).filter((item) => item.children.length > 0 || item.key === 'workspace')
 }
 
 export function can(capabilities: readonly string[], capability: string | undefined): boolean {
@@ -144,5 +193,6 @@ export function visibleCaseActions(
 }
 
 export function firstAllowedPath(capabilities: readonly string[]): string {
-  return visibleNavigation(capabilities)[0]?.path ?? '/workspace'
+  const navigation = visibleNavigation(capabilities)
+  return navigation[0]?.path ?? '/workspace'
 }

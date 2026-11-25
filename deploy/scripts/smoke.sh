@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 BASE_URL="${SMOKE_BASE_URL:-http://127.0.0.1:8080}"
+EXPECT_COMMIT="${SMOKE_EXPECT_COMMIT:-}"
 INSECURE=0
 
 usage() {
@@ -22,12 +23,14 @@ Checks:
   4. GET /v1/meta          => 200 code=OK twice (idempotent read)
   5. GET /v1/platform/features without credentials => 403 FORBIDDEN
   6. GET /v1/meta?password=... must not echo the secret
+  7. /v1/meta exposes commit/build_time/spa_build_sha; optional --expect-commit must match
 USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base-url) BASE_URL="${2:-}"; shift 2 ;;
+    --expect-commit) EXPECT_COMMIT="${2:-}"; shift 2 ;;
     --insecure) INSECURE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
@@ -89,8 +92,21 @@ volatile = {"server_time"}
 if {k: v for k, v in a.items() if k not in volatile} != {k: v for k, v in b.items() if k not in volatile}:
     print("FAIL: repeated /v1/meta reads returned different stable data", file=sys.stderr)
     raise SystemExit(1)
+for field in ("commit", "build_time", "spa_build_sha"):
+    if not isinstance(a.get(field), str) or not a.get(field):
+        print(f"FAIL: /v1/meta missing {field}", file=sys.stderr)
+        raise SystemExit(1)
 print("  idempotent read: /v1/meta stable fields identical on repeat")
 PY
+
+if [[ -n "${EXPECT_COMMIT}" ]]; then
+  META_COMMIT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["data"]["commit"])' "${META_A}")"
+  if [[ "${META_COMMIT}" != "${EXPECT_COMMIT}" ]]; then
+    fail "release commit mismatch: meta=${META_COMMIT} expected=${EXPECT_COMMIT}"
+    exit 1
+  fi
+  pass "release commit matches ${EXPECT_COMMIT}"
+fi
 
 DENIED_STATUS="$("${CURL[@]}" --output "${TMP_DIR}/denied.json" --write-out '%{http_code}' "${BASE_URL}/v1/platform/features")"
 if [[ "${DENIED_STATUS}" != "401" && "${DENIED_STATUS}" != "403" ]]; then

@@ -19,6 +19,9 @@ ENV_FILE="${COMPOSE_ENV_FILE:-${COMPOSE_DIR}/.env}"
 SKIP_BUILD=0
 DRY_RUN=0
 RELEASE_ID="${RELEASE_ID:-$(git -C "${REPO_ROOT}" rev-parse --short HEAD)}"
+GIT_SHA="${GIT_SHA:-$(git -C "${REPO_ROOT}" rev-parse HEAD)}"
+BUILD_TIME="${BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+export GIT_SHA BUILD_TIME RELEASE_TAG="${RELEASE_TAG:-${RELEASE_ID}}"
 
 usage() {
   cat <<'USAGE'
@@ -131,7 +134,7 @@ run ssh "${STAGING_USER}@${STAGING_HOST}" \
 # 6. Post-deploy smoke against the public URL.
 log "stage 6/6: smoke"
 if [[ "${DRY_RUN}" != "1" ]]; then
-  if ! "${SCRIPT_DIR}/smoke.sh" --base-url "https://${STAGING_HOST}"; then
+  if ! "${SCRIPT_DIR}/smoke.sh" --base-url "https://${STAGING_HOST}" --expect-commit "${GIT_SHA}"; then
     fail "smoke failed; rolling back release marker"
     ssh "${STAGING_USER}@${STAGING_HOST}" \
       "cd '${STAGING_PATH}' && test -f '${PREVIOUS_RELEASE_FILE}' && docker compose --env-file .env down --remove-orphans || true"
