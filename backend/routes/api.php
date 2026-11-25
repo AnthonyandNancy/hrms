@@ -8,6 +8,10 @@ use App\Modules\IAM\Http\Controllers\AccessReviewController;
 use App\Modules\IAM\Http\Controllers\AuthController;
 use App\Modules\IAM\Http\Controllers\AuthorizationAdminController;
 use App\Modules\IAM\Http\Controllers\BreakGlassController;
+use App\Modules\IAM\Http\Controllers\DataScopeAdminController;
+use App\Modules\IAM\Http\Controllers\FieldPolicyAdminController;
+use App\Modules\IAM\Http\Controllers\MenuAdminController;
+use App\Modules\IAM\Http\Controllers\RoleAdminController;
 use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
@@ -28,10 +32,12 @@ use App\Modules\People\Http\Controllers\EmployeeProfileController;
 use App\Modules\People\Http\Controllers\EmploymentContractController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
+use App\Modules\Platform\Http\Controllers\DictionaryAdminController;
 use App\Modules\Platform\Http\Controllers\FeatureFlagController;
 use App\Modules\Platform\Http\Controllers\HealthController;
 use App\Modules\Platform\Http\Controllers\LivenessController;
 use App\Modules\Platform\Http\Controllers\MetaController;
+use App\Modules\Platform\Http\Controllers\NotificationAdminController;
 use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
@@ -43,6 +49,7 @@ use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
+use App\Modules\Time\Http\Controllers\CalendarAdminController;
 use App\Modules\Time\Http\Controllers\LeaveController;
 use App\Modules\Time\Http\Controllers\OvertimeController;
 use App\Modules\Time\Http\Controllers\OvertimeRequestController;
@@ -102,7 +109,33 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('users.roles.store');
 
     Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.index');
+    Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.store');
+    Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.copy');
+    Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.capabilities.replace');
     Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('capabilities.index');
+
+    Route::get('/system/menus', [MenuAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.index');
+    Route::post('/system/menus', [MenuAdminController::class, 'store'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.store');
+    Route::patch('/system/menus/{page_code}', [MenuAdminController::class, 'update'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.update');
+    Route::delete('/system/menus/{page_code}', [MenuAdminController::class, 'destroy'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.destroy');
+
+    Route::get('/system/data-scopes', [DataScopeAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.scope.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.data-scopes.index');
+    Route::put('/system/data-scopes/{id}', [DataScopeAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.scope.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.data-scopes.update');
+
+    Route::get('/system/field-policies', [FieldPolicyAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.field.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.field-policies.index');
+    Route::put('/system/field-policies/{field_key}', [FieldPolicyAdminController::class, 'update'])->where('field_key', '.*')->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.field.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.field-policies.update');
+
+    Route::get('/system/dictionaries', [DictionaryAdminController::class, 'dictionaries'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.index');
+    Route::post('/system/dictionaries', [DictionaryAdminController::class, 'storeDictionary'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.store');
+    Route::patch('/system/dictionaries/{id}', [DictionaryAdminController::class, 'updateDictionary'])->whereNumber('id')->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.update');
+
+    Route::get('/system/parameters', [DictionaryAdminController::class, 'parameters'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.parameters.index');
+    Route::put('/system/parameters', [DictionaryAdminController::class, 'updateParameter'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.parameters.update');
+
+    Route::post('/system/calendars/{legal_entity_id}/publish', [CalendarAdminController::class, 'publish'])
+        ->whereNumber('legal_entity_id')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:time.calendar.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('system.calendars.publish');
 
     Route::get('/users/{id}/bindings', [AuthorizationAdminController::class, 'bindings'])->middleware(['mfa.enrolled', 'capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id'])->name('bindings.index');
     Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id'])->name('bindings.store');
@@ -574,6 +607,28 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->whereNumber('notification')
         ->middleware('capability:engagement.notification.read')
         ->name('engagement.notifications.read');
+});
+
+Route::prefix('notification-templates')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/', [NotificationAdminController::class, 'templates'])
+        ->middleware('capability:notification.template.manage')
+        ->name('notification-templates.index');
+    Route::post('/', [NotificationAdminController::class, 'storeTemplate'])
+        ->middleware('capability:notification.template.manage')
+        ->name('notification-templates.store');
+});
+
+Route::prefix('notifications')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/deliveries', [NotificationAdminController::class, 'deliveries'])
+        ->middleware('capability:notification.delivery.manage')
+        ->name('notifications.deliveries.index');
+    Route::post('/dispatch', [NotificationAdminController::class, 'dispatch'])
+        ->middleware('capability:notification.delivery.manage')
+        ->name('notifications.dispatch');
+    Route::post('/deliveries/{id}/retry', [NotificationAdminController::class, 'retry'])
+        ->whereNumber('id')
+        ->middleware('capability:notification.delivery.manage')
+        ->name('notifications.deliveries.retry');
 });
 
 /*

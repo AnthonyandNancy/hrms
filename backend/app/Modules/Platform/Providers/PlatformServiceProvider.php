@@ -7,6 +7,8 @@ namespace App\Modules\Platform\Providers;
 use App\Modules\Platform\Contracts\DictionaryReader;
 use App\Modules\Platform\Contracts\FileObjectReader;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
+use App\Modules\Platform\Contracts\MenuOverrideReader;
+use App\Modules\Platform\Contracts\MenuOverrideWriter;
 use App\Modules\Platform\Contracts\OutboxDispatcher;
 use App\Modules\Platform\Contracts\ParameterReader;
 use App\Modules\Platform\Contracts\PrivateFileStore;
@@ -20,6 +22,7 @@ use App\Modules\Platform\Services\DatabaseParameterReader;
 use App\Modules\Platform\Services\EloquentFileObjectReader;
 use App\Modules\Platform\Services\FileMetadataAdapter;
 use App\Modules\Platform\Services\LocalPrivateFileStore;
+use App\Modules\Platform\Services\MenuOverrideService;
 use App\Modules\Platform\Services\LogOutboxDispatcher;
 use App\Modules\Platform\Services\OutboxRecorderAdapter;
 use App\Shared\Files\FileMetadataReader;
@@ -40,6 +43,8 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->bind(FileMetadataReader::class, FileMetadataAdapter::class);
         $this->app->bind(PrivateFileStore::class, LocalPrivateFileStore::class);
         $this->app->bind(FileObjectReader::class, EloquentFileObjectReader::class);
+        $this->app->bind(MenuOverrideReader::class, MenuOverrideService::class);
+        $this->app->bind(MenuOverrideWriter::class, MenuOverrideService::class);
 
         $this->app->singleton(MigrationTargetRegistry::class, function (): MigrationTargetRegistry {
             $registry = new MigrationTargetRegistry;
