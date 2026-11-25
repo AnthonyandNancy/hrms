@@ -32,6 +32,9 @@ final class CapabilityAuditCommand extends Command
         'v1/meta',
         'v1/auth/login',
         'v1/auth/mfa/challenge',
+        // Signed-URL content delivery: authorization is the short-lived
+        // signature minted by an already capability-guarded endpoint.
+        'v1/documents/{document_id}/content',
     ];
 
     protected $signature = 'capability:audit

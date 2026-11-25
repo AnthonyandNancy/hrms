@@ -135,6 +135,15 @@ export const POSITION_STAFF_COLUMNS: readonly PeopleColumn[] = [
   { key: 'employment_id', label: '员工关系', width: '100px' },
 ]
 
+export const DOCUMENT_COLUMNS = [
+  { key: 'original_name', label: '文件名', minWidth: '200px' },
+  { key: 'category', label: '分类', width: '120px' },
+  { key: 'version', label: '版本', width: '80px' },
+  { key: 'size_bytes', label: '大小', width: '110px' },
+  { key: 'legal_hold', label: '法律保留', width: '110px' },
+  { key: 'created_at', label: '上传时间', width: '180px' },
+]
+
 export const GAP = {
   files: {
     label: '员工附件',

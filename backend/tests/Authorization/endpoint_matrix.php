@@ -10,7 +10,38 @@ declare(strict_types=1);
  * planned for that route. Generated from the registered route table so the
  * matrix cannot drift from the executable capability middleware.
  */
-return [
+return ['GET /v1/employments/{employment_id}/document-files' => [
+    'capability' => 'people.document.read',
+    'anchor' => 'LEGAL_ENTITY',
+    'risk' => 'high',
+    'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
+],
+    'POST /v1/employments/{employment_id}/document-files' => [
+        'capability' => 'people.document.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/documents/{document_id}/signed-download' => [
+        'capability' => 'people.document.download',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
+    ],
+    'DELETE /v1/documents/{document_id}' => [
+        'capability' => 'people.employee.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+
+    'POST /v1/employments/{employment_id}/documents' => [
+        'capability' => 'people.document.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+
     'GET /v1/access-review' => [
         'capability' => 'iam.audit.read',
         'anchor' => 'LEGAL_ENTITY',
@@ -481,12 +512,6 @@ return [
     ],
     'POST /v1/employments/{employment_id}/assignments' => [
         'capability' => 'people.assignment.manage',
-        'anchor' => 'SELF',
-        'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
-    ],
-    'POST /v1/employments/{employment_id}/documents' => [
-        'capability' => 'people.contract.manage',
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],

@@ -128,6 +128,12 @@ export async function loadPeoplePage(
       case 'employee-detail':
         if (id === null) return emptyState()
         return single(await resourceGet<unknown>(`/v1/employees/${id}`, { as_of: asOf }))
+      case 'employee-documents':
+        if (id === null) return emptyState()
+        return toReadState(await readPeopleList(`/v1/employments/${id}/document-files`, {
+          page: 1,
+          page_size: 20,
+        }))
       case 'employee-profile':
         if (id === null) return emptyState()
         return toReadState(await readPeopleList(`/v1/employees/${id}/${config.read.resource}`))

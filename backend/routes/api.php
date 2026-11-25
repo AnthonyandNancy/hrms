@@ -23,6 +23,7 @@ use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
 use App\Modules\People\Http\Controllers\ContractLifecycleController;
 use App\Modules\People\Http\Controllers\EmployeeController;
+use App\Modules\People\Http\Controllers\EmployeeDocumentController;
 use App\Modules\People\Http\Controllers\EmployeeProfileController;
 use App\Modules\People\Http\Controllers\EmploymentContractController;
 use App\Modules\People\Http\Controllers\EmploymentController;
@@ -241,6 +242,38 @@ Route::post('/persons', [PersonController::class, 'store'])
     ->middleware(IdempotentCommand::class)
     ->middleware('capability:people.employee.manage')
     ->name('persons.store');
+
+// K3 binary document surface. It deliberately lives under a distinct prefix:
+// `POST /v1/employments/{id}/documents` already means "register an existing
+// file_object_id", and taking that path over would silently change an existing
+// contract that other pages depend on.
+Route::prefix('employments/{employment_id}/document-files')->middleware('auth.session')->group(function (): void {
+    Route::get('/', [EmployeeDocumentController::class, 'index'])
+        ->whereNumber('employment_id')
+        ->middleware('capability:people.document.read')
+        ->name('employments.document-files.index');
+    Route::post('/', [EmployeeDocumentController::class, 'store'])
+        ->whereNumber('employment_id')
+        ->middleware('capability:people.document.read')
+        ->name('employments.document-files.upload');
+});
+
+Route::get('/documents/{document_id}/signed-download', [EmployeeDocumentController::class, 'signedDownload'])
+    ->whereNumber('document_id')
+    ->middleware('auth.session')
+    ->middleware('capability:people.document.download')
+    ->name('documents.signed-download');
+
+Route::get('/documents/{document_id}/content', [EmployeeDocumentController::class, 'content'])
+    ->whereNumber('document_id')
+    ->middleware('auth.session')
+    ->name('documents.content');
+
+Route::delete('/documents/{document_id}', [EmployeeDocumentController::class, 'destroy'])
+    ->whereNumber('document_id')
+    ->middleware('auth.session')
+    ->middleware('capability:people.employee.manage')
+    ->name('documents.destroy');
 
 Route::get('/documents/{document_id}/download', [EmploymentController::class, 'downloadDocument'])
     ->middleware('auth.session')
