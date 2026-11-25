@@ -45,6 +45,9 @@ const ALL_CAPABILITIES = [
   'payroll.run.close',
   'payroll.run.correct',
   'payroll.payslip.read',
+  'payroll.compensation.read',
+  'payroll.compensation.manage',
+  'payroll.salary-adjustment.manage',
 ]
 
 function syntheticSession(includeWriteCapabilities = false): SessionBootstrap & { authenticated: true } {
@@ -191,6 +194,8 @@ describe('time/payroll registry mapping', () => {
       '/v1/payroll/payslips',
       '/v1/payroll/statutory-parameters',
       '/v1/payroll/runs/{id}/inputs',
+      '/v1/payroll/employee-plans',
+      '/v1/payroll/adjustments',
     ]
 
     expect(TIME_PAYROLL_DEFINITIONS).toHaveLength(43)
@@ -468,6 +473,122 @@ describe('representative time/payroll mounts', () => {
     expect(wrapper.text()).toContain('req-attendance-500')
   })
 
+  it('mounts the compensation archive and renders server cents via MoneyText without a backend gap', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 31,
+          employment_id: 501,
+          legal_entity_id: 1,
+          effective_from: '2026-01-01',
+          currency: 'CNY',
+          salary_scheme_code: 'SCHEME-A',
+          base_salary_cents: 1000000,
+          created_at: '2026-11-25T02:00:00Z',
+        },
+        {
+          id: 32,
+          employment_id: 501,
+          legal_entity_id: 1,
+          effective_from: '2026-07-01',
+          currency: 'CNY',
+          salary_scheme_code: 'SCHEME-A',
+          base_salary_cents: 1200000,
+          created_at: '2026-11-25T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 2,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('payroll/employee-plans', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/payroll/employee-plans', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="payroll-employee-plans"]').text()
+    expect(text).toContain('¥10,000.00')
+    expect(text).toContain('¥12,000.00')
+    expect(wrapper.findAllComponents(MoneyText).length).toBeGreaterThan(0)
+  })
+
+  it('does not synthesize compensation amounts when the server omits P3 cents', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 33,
+          employment_id: 501,
+          legal_entity_id: 1,
+          effective_from: '2026-08-01',
+          currency: 'CNY',
+          salary_scheme_code: 'SCHEME-A',
+          created_at: '2026-11-25T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('payroll/employee-plans')
+    await flushPromises()
+
+    const text = wrapper.get('[data-testid="payroll-employee-plans"]').text()
+    expect(text).toContain('已按字段权限隐藏')
+    expect(text).not.toContain('¥')
+    expect(text).not.toContain('0.00')
+  })
+
+  it('mounts salary adjustments with the approved case and integer cents', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 41,
+          employment_id: 501,
+          legal_entity_id: 1,
+          effective_from: '2026-10-01',
+          currency: 'CNY',
+          case_id: 77,
+          compensation_id: 32,
+          reason: 'Synthetic approved salary change',
+          base_salary_cents: 1400000,
+          created_at: '2026-11-25T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('payroll/adjustments', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/payroll/adjustments', expect.objectContaining({ legal_entity_id: 1 }))
+    const text = wrapper.get('[data-testid="payroll-adjustments"]').text()
+    expect(text).toContain('CASE-77')
+    expect(text).toContain('¥14,000.00')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+  })
+
   it('loads payroll inputs from the selected real run endpoint and shows no backend gap', async () => {
     resourceGet.mockImplementation((path: string) => {
       if (path === '/payroll/runs') return Promise.resolve(payrollRuns)
@@ -507,6 +628,112 @@ describe('live write actions', () => {
   beforeEach(() => {
     resourceGet.mockReset()
     resourcePost.mockReset()
+  })
+
+  it('submits a compensation version as integer cents through the real endpoint', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({ id: 51, base_salary_cents: 1550000 })
+
+    const wrapper = await mountPage('payroll/employee-plans', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="compensation-employment-id"]').setValue('501')
+    await wrapper.get('[data-testid="compensation-effective-from"]').setValue('2026-12-01')
+    await wrapper.get('[data-testid="compensation-base-salary-cents"]').setValue('1550000')
+    await wrapper.get('[data-testid="compensation-currency"]').setValue('CNY')
+    await wrapper.get('[data-testid="compensation-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/payroll/employee-plans',
+      {
+        employment_id: 501,
+        effective_from: '2026-12-01',
+        base_salary_cents: 1550000,
+        currency: 'CNY',
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('薪酬档案版本已新增')
+  })
+
+  it('rejects a fractional compensation amount before calling the server', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('payroll/employee-plans', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="compensation-employment-id"]').setValue('501')
+    await wrapper.get('[data-testid="compensation-effective-from"]').setValue('2026-12-01')
+    await wrapper.get('[data-testid="compensation-base-salary-cents"]').setValue('15500.50')
+    await wrapper.get('[data-testid="compensation-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('整数分')
+  })
+
+  it('submits a salary adjustment with its approved workflow case id', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({ id: 61, case_id: 77, base_salary_cents: 1600000 })
+
+    const wrapper = await mountPage('payroll/adjustments', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="adjustment-employment-id"]').setValue('501')
+    await wrapper.get('[data-testid="adjustment-case-id"]').setValue('77')
+    await wrapper.get('[data-testid="adjustment-effective-from"]').setValue('2026-12-15')
+    await wrapper.get('[data-testid="adjustment-base-salary-cents"]').setValue('1600000')
+    await wrapper.get('[data-testid="adjustment-reason"]').setValue('Synthetic approved salary change')
+    await wrapper.get('[data-testid="adjustment-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/payroll/adjustments',
+      {
+        employment_id: 501,
+        case_id: 77,
+        effective_from: '2026-12-15',
+        base_salary_cents: 1600000,
+        currency: 'CNY',
+        reason: 'Synthetic approved salary change',
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('调薪记录已应用')
   })
 
   it('submits an attendance correction through the real correction endpoint', async () => {

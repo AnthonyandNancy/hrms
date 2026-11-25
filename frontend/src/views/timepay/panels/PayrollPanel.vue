@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { resourcePost } from '@/api/resourceClient'
 import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import MoneyText from '@/components/MoneyText.vue'
 import type { TimePayrollPageDefinition } from '../types'
-import { hasAnyMoney, moneyField, newIdempotencyKey, statusTone, textValue } from '../panelUtils'
+import { hasAnyMoney, moneyField, newIdempotencyKey, statusTone, textValue, todayIsoDate } from '../panelUtils'
 
 const props = defineProps<{
   definition: TimePayrollPageDefinition
@@ -33,10 +33,30 @@ const RUN_ACTIONS = [
 ] as const
 
 const showRunTable = computed(() =>
-  ['payroll-overview', 'payroll-batches', 'payroll-reviews', 'payroll-disbursement', 'payroll-reports', 'payroll-adjustments', 'payroll-employee-plans'].includes(
+  ['payroll-overview', 'payroll-batches', 'payroll-reviews', 'payroll-disbursement', 'payroll-reports'].includes(
     props.definition.panel,
   ),
 )
+
+const compensationForm = reactive({
+  employment_id: '',
+  effective_from: todayIsoDate(),
+  base_salary_cents: '',
+  currency: 'CNY',
+  salary_scheme_code: '',
+})
+
+const adjustmentForm = reactive({
+  employment_id: '',
+  case_id: '',
+  effective_from: todayIsoDate(),
+  base_salary_cents: '',
+  currency: 'CNY',
+  reason: '',
+})
+
+const canManageCompensation = computed(() => session.can('payroll.compensation.manage'))
+const canManageAdjustment = computed(() => session.can('payroll.salary-adjustment.manage'))
 
 const hasMoneyAuthorization = computed(() =>
   props.rows.some((row) => hasAnyMoney(row, MONEY_KEYS)),
@@ -79,6 +99,138 @@ async function runAction(row: Record<string, unknown>, action: string): Promise<
 
 function money(record: Record<string, unknown>, key: string): number | null {
   return moneyField(record, key)
+}
+
+function positiveInteger(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!/^[1-9]\d*$/.test(trimmed)) return null
+  const value = Number(trimmed)
+  return Number.isSafeInteger(value) ? value : null
+}
+
+function minorUnits(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!/^(0|[1-9]\d*)$/.test(trimmed)) return null
+  const value = Number(trimmed)
+  return Number.isSafeInteger(value) ? value : null
+}
+
+function currencyCode(raw: string): string | null {
+  const code = raw.trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(code) ? code : null
+}
+
+async function submitCompensation(): Promise<void> {
+  actionError.clear()
+  actionMessage.value = ''
+
+  const employmentId = positiveInteger(compensationForm.employment_id)
+  const cents = minorUnits(compensationForm.base_salary_cents)
+  const currency = currencyCode(compensationForm.currency)
+  const effectiveFrom = compensationForm.effective_from.trim()
+  const scheme = compensationForm.salary_scheme_code.trim()
+
+  if (employmentId === null) {
+    actionError.reject(new Error('员工 ID 必须是正整数。'))
+    return
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) {
+    actionError.reject(new Error('请选择有效的生效日期。'))
+    return
+  }
+  if (cents === null) {
+    actionError.reject(new Error('基本工资必须是非负整数分，不能输入小数或货币符号。'))
+    return
+  }
+  if (currency === null) {
+    actionError.reject(new Error('币种必须是三位大写字母代码。'))
+    return
+  }
+
+  submitting.value = true
+  try {
+    const result = await resourcePost<Record<string, unknown>>(
+      '/payroll/employee-plans',
+      {
+        employment_id: employmentId,
+        effective_from: effectiveFrom,
+        base_salary_cents: cents,
+        currency,
+        ...(scheme === '' ? {} : { salary_scheme_code: scheme }),
+      },
+      { idempotencyKey: newIdempotencyKey('payroll-compensation') },
+    )
+    actionMessage.value = `薪酬档案版本已新增：${textValue(result.id, '已受理')}`
+    compensationForm.base_salary_cents = ''
+    emit('action-success', actionMessage.value)
+    emit('refresh')
+  } catch (reason) {
+    actionError.capture(reason)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitAdjustment(): Promise<void> {
+  actionError.clear()
+  actionMessage.value = ''
+
+  const employmentId = positiveInteger(adjustmentForm.employment_id)
+  const caseId = positiveInteger(adjustmentForm.case_id)
+  const cents = minorUnits(adjustmentForm.base_salary_cents)
+  const currency = currencyCode(adjustmentForm.currency)
+  const effectiveFrom = adjustmentForm.effective_from.trim()
+  const reason = adjustmentForm.reason.trim()
+
+  if (employmentId === null) {
+    actionError.reject(new Error('员工 ID 必须是正整数。'))
+    return
+  }
+  if (caseId === null) {
+    actionError.reject(new Error('审批案例 ID 必须是正整数。'))
+    return
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) {
+    actionError.reject(new Error('请选择有效的生效日期。'))
+    return
+  }
+  if (cents === null) {
+    actionError.reject(new Error('调薪金额必须是非负整数分，不能输入小数或货币符号。'))
+    return
+  }
+  if (currency === null) {
+    actionError.reject(new Error('币种必须是三位大写字母代码。'))
+    return
+  }
+  if (reason.length < 5 || reason.length > 500) {
+    actionError.reject(new Error('调薪原因需要 5 到 500 个字符。'))
+    return
+  }
+
+  submitting.value = true
+  try {
+    const result = await resourcePost<Record<string, unknown>>(
+      '/payroll/adjustments',
+      {
+        employment_id: employmentId,
+        case_id: caseId,
+        effective_from: effectiveFrom,
+        base_salary_cents: cents,
+        currency,
+        reason,
+      },
+      { idempotencyKey: newIdempotencyKey('payroll-adjustment') },
+    )
+    actionMessage.value = `调薪记录已应用：${textValue(result.id, '已受理')}`
+    adjustmentForm.base_salary_cents = ''
+    adjustmentForm.reason = ''
+    emit('action-success', actionMessage.value)
+    emit('refresh')
+  } catch (reason) {
+    actionError.capture(reason)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -215,6 +367,119 @@ function money(record: Record<string, unknown>, key: string): number | null {
           </tr>
         </tbody>
       </table>
+    </section>
+
+    <section v-else-if="definition.panel === 'payroll-employee-plans'" class="panel">
+      <h2>员工薪资档案</h2>
+      <p class="small muted">
+        每个生效日期是一个不可覆盖的版本；金额由服务端按 P3 字段权限返回。服务端省略金额键时，页面不会补零或推算。
+      </p>
+      <table v-if="rows.length > 0" class="timepay-table">
+        <caption class="sr-only">员工薪资档案版本</caption>
+        <thead>
+          <tr>
+            <th scope="col">版本</th><th scope="col">员工</th><th scope="col">生效日</th>
+            <th scope="col">币种</th><th scope="col">薪资方案</th><th scope="col" class="align-right">基本工资</th><th scope="col">创建时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in rows" :key="textValue(row.id)" :data-testid="`compensation-row-${textValue(row.id)}`">
+            <td class="mono">#{{ textValue(row.id) }}</td>
+            <td>{{ textValue(row.employment_id) }}</td>
+            <td>{{ textValue(row.effective_from) }}</td>
+            <td>{{ textValue(row.currency) }}</td>
+            <td>{{ textValue(row.salary_scheme_code) }}</td>
+            <td class="align-right">
+              <MoneyText v-if="money(row, 'base_salary_cents') !== null" :cents="money(row, 'base_salary_cents')" size="sm" tone="strong" />
+              <span v-else class="small muted">已按字段权限隐藏</span>
+            </td>
+            <td class="small">{{ textValue(row.created_at) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">当前筛选下没有薪酬档案版本。</p>
+
+      <form v-if="canManageCompensation" class="timepay-form" data-testid="compensation-form" @submit.prevent="submitCompensation">
+        <h2>新增档案版本</h2>
+        <p class="small muted">同一员工同一生效日不能重复；历史版本保持只读。</p>
+        <div class="timepay-form__grid">
+          <label>员工 ID
+            <input v-model="compensationForm.employment_id" data-testid="compensation-employment-id" inputmode="numeric" />
+          </label>
+          <label>生效日
+            <input v-model="compensationForm.effective_from" data-testid="compensation-effective-from" type="date" />
+          </label>
+          <label>基本工资（整数分）
+            <input v-model="compensationForm.base_salary_cents" data-testid="compensation-base-salary-cents" inputmode="numeric" />
+          </label>
+          <label>币种
+            <input v-model="compensationForm.currency" data-testid="compensation-currency" maxlength="3" />
+          </label>
+          <label>薪资方案代码（可选）
+            <input v-model="compensationForm.salary_scheme_code" data-testid="compensation-scheme-code" maxlength="64" />
+          </label>
+        </div>
+        <el-button type="primary" native-type="submit" :loading="submitting" data-testid="compensation-submit">新增版本</el-button>
+      </form>
+      <p v-else class="small muted">当前账号没有 `payroll.compensation.manage`，仅可查看授权范围内的档案。</p>
+    </section>
+
+    <section v-else-if="definition.panel === 'payroll-adjustments'" class="panel">
+      <h2>调薪记录</h2>
+      <p class="small muted">
+        仅展示已关联审批案例的调薪记录；服务端会在审批未通过、案例重复应用或金额不一致时拒绝写入。
+      </p>
+      <table v-if="rows.length > 0" class="timepay-table">
+        <caption class="sr-only">调薪记录</caption>
+        <thead>
+          <tr>
+            <th scope="col">记录</th><th scope="col">员工</th><th scope="col">生效日</th><th scope="col">审批案例</th>
+            <th scope="col">原因</th><th scope="col" class="align-right">调薪后基本工资</th><th scope="col">创建时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in rows" :key="textValue(row.id)" :data-testid="`adjustment-row-${textValue(row.id)}`">
+            <td class="mono">#{{ textValue(row.id) }}</td>
+            <td>{{ textValue(row.employment_id) }}</td>
+            <td>{{ textValue(row.effective_from) }}</td>
+            <td class="mono">CASE-{{ textValue(row.case_id) }}</td>
+            <td>{{ textValue(row.reason) }}</td>
+            <td class="align-right">
+              <MoneyText v-if="money(row, 'base_salary_cents') !== null" :cents="money(row, 'base_salary_cents')" size="sm" tone="strong" />
+              <span v-else class="small muted">已按字段权限隐藏</span>
+            </td>
+            <td class="small">{{ textValue(row.created_at) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">当前筛选下没有调薪记录。</p>
+
+      <form v-if="canManageAdjustment" class="timepay-form" data-testid="adjustment-form" @submit.prevent="submitAdjustment">
+        <h2>应用已审批调薪</h2>
+        <p class="small muted">必须引用状态为 APPROVED 的薪酬变更案例；同一案例只能应用一次。</p>
+        <div class="timepay-form__grid">
+          <label>员工 ID
+            <input v-model="adjustmentForm.employment_id" data-testid="adjustment-employment-id" inputmode="numeric" />
+          </label>
+          <label>审批案例 ID
+            <input v-model="adjustmentForm.case_id" data-testid="adjustment-case-id" inputmode="numeric" />
+          </label>
+          <label>生效日
+            <input v-model="adjustmentForm.effective_from" data-testid="adjustment-effective-from" type="date" />
+          </label>
+          <label>调薪后基本工资（整数分）
+            <input v-model="adjustmentForm.base_salary_cents" data-testid="adjustment-base-salary-cents" inputmode="numeric" />
+          </label>
+          <label>币种
+            <input v-model="adjustmentForm.currency" data-testid="adjustment-currency" maxlength="3" />
+          </label>
+        </div>
+        <label class="timepay-form__wide">调薪原因
+          <textarea v-model="adjustmentForm.reason" maxlength="500" data-testid="adjustment-reason" rows="3" />
+        </label>
+        <el-button type="primary" native-type="submit" :loading="submitting" data-testid="adjustment-submit">应用调薪</el-button>
+      </form>
+      <p v-else class="small muted">当前账号没有 `payroll.salary-adjustment.manage`，仅可查看授权范围内的调薪记录。</p>
     </section>
 
     <section v-else-if="definition.panel === 'payroll-payslips'" class="panel">
