@@ -6,6 +6,9 @@ namespace Tests\Support;
 
 use App\Modules\Talent\Models\PerformanceCycle;
 use App\Modules\Talent\Models\PerformanceReview;
+use App\Modules\Talent\Models\TrainingEnrollment;
+use App\Modules\Talent\Models\TrainingProgram;
+use App\Modules\Talent\Models\TrainingSession;
 use App\Modules\Talent\Providers\TalentServiceProvider;
 use App\Modules\Workflow\Domain\EffectRegistry;
 use App\Modules\Workflow\Services\DomainEffectHandlerAdapter;
@@ -56,5 +59,45 @@ abstract class TalentTestCase extends LifecycleTestCase
             'self_rating' => $selfRating,
             'recorded_at' => $this->clock->now(),
         ]);
+    }
+
+    protected function seedTrainingSession(int $capacity = 5, int $employmentId = 1): TrainingSession
+    {
+        $program = TrainingProgram::query()->firstOrCreate(
+            ['tenant_id' => 1, 'code' => 'SYN-LIFECYCLE'],
+            [
+                'title' => 'Synthetic lifecycle programme',
+                'status' => 'ACTIVE',
+                'default_capacity' => $capacity,
+                'recorded_at' => $this->clock->now(),
+            ],
+        );
+
+        $session = TrainingSession::query()->create([
+            'tenant_id' => 1,
+            'program_id' => (int) $program->id,
+            'starts_on' => '2026-12-01',
+            'ends_on' => '2026-12-01',
+            'starts_at' => '2026-12-01 09:00:00',
+            'ends_at' => '2026-12-01 17:00:00',
+            'capacity' => $capacity,
+            'location' => 'Synthetic training room',
+            'status' => 'SCHEDULED',
+            'recorded_at' => $this->clock->now(),
+        ]);
+
+        TrainingEnrollment::query()->firstOrCreate(
+            ['tenant_id' => 1, 'session_id' => (int) $session->id, 'employment_id' => $employmentId],
+            [
+                'status' => 'COMPLETED',
+                'attended' => true,
+                'completion_result' => 'PASS',
+                'score' => 88,
+                'completed_at' => $this->clock->now(),
+                'recorded_at' => $this->clock->now(),
+            ],
+        );
+
+        return $session;
     }
 }

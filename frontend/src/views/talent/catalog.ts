@@ -14,7 +14,13 @@ const CALIBRATION_COLUMNS = ['calibration_id', 'cycle_id', 'review_id', 'previou
 const RESULT_COLUMNS = ['review_id', 'cycle_id', 'employment_id', 'cycle_status', 'status', 'self_rating', 'manager_rating', 'calibrated_rating'] as const
 const REPORT_COLUMNS = ['cycle_id', 'name', 'status', 'review_count', 'submitted_reviews', 'draft_reviews', 'calibrated_reviews'] as const
 const SESSION_COLUMNS = ['session_id', 'program_id', 'starts_on', 'ends_on', 'capacity', 'location', 'status'] as const
-const ENROLLMENT_COLUMNS = ['enrollment_id', 'session_id', 'employment_id', 'status', 'completion_result'] as const
+const TRAINING_PLAN_COLUMNS = ['plan_id', 'code', 'title', 'year', 'budget_cents', 'currency', 'status'] as const
+const TRAINING_COURSE_COLUMNS = ['course_id', 'plan_id', 'code', 'title', 'instructor', 'delivery_mode', 'duration_minutes', 'cost_cents', 'status'] as const
+const TRAINING_CHECKIN_COLUMNS = ['checkin_id', 'session_id', 'employment_id', 'checked_in_at', 'checked_out_at', 'study_minutes'] as const
+const TRAINING_EXAM_COLUMNS = ['exam_id', 'course_id', 'code', 'title', 'version', 'passing_score', 'max_score', 'status'] as const
+const TRAINING_FEEDBACK_COLUMNS = ['training_feedback_id', 'enrollment_id', 'employment_id', 'rating', 'comments', 'status'] as const
+const TRAINING_RECORD_COLUMNS = ['enrollment_id', 'employment_id', 'course_code', 'course_title', 'status', 'completion_result', 'score', 'study_minutes', 'checkin_count', 'feedback_count', 'latest_exam_version'] as const
+const TRAINING_REPORT_COLUMNS = ['plan_id', 'code', 'title', 'year', 'budget_cents', 'training_cost_cents', 'enrolled_count', 'completed_count', 'completion_rate_bps', 'exam_pass_count', 'study_minutes_total', 'feedback_count', 'average_feedback_rating_bps'] as const
 
 const PERFORMANCE_CREATES: readonly TalentFormKind[] = ['cycle-create']
 const INDICATOR_CREATES: readonly TalentFormKind[] = ['indicator-create']
@@ -29,9 +35,13 @@ const OPENING_CREATES: readonly TalentFormKind[] = ['opening-publish']
 const CANDIDATE_CREATES: readonly TalentFormKind[] = ['candidate-create']
 const INTERVIEW_CREATES: readonly TalentFormKind[] = ['interview-schedule']
 const OFFER_CREATES: readonly TalentFormKind[] = ['offer-create', 'offer-accept']
-const PROGRAM_CREATES: readonly TalentFormKind[] = ['program-create']
 const SESSION_CREATES: readonly TalentFormKind[] = ['session-create']
 const ENROLLMENT_CREATES: readonly TalentFormKind[] = ['enrollment-create', 'enrollment-complete']
+const PLAN_CREATES: readonly TalentFormKind[] = ['plan-create']
+const COURSE_CREATES: readonly TalentFormKind[] = ['course-create']
+const CHECKIN_CREATES: readonly TalentFormKind[] = ['checkin-create']
+const EXAM_CREATES: readonly TalentFormKind[] = ['exam-create', 'exam-publish']
+const TRAINING_FEEDBACK_CREATES: readonly TalentFormKind[] = ['training-feedback-create']
 
 const PANEL = {
   cycles: {
@@ -103,6 +113,41 @@ const PANEL = {
     title: '培训登记',
     body: '场次容量与重复报名由服务端在事务内保证，页面按服务端返回的报名编号展示。',
     points: ['重复报名不会新增第二行', '完成记录需提交考核结果'],
+  },
+  trainingPlanBudget: {
+    title: '计划预算',
+    body: '预算与费用均以整数分提交，页面不做货币浮点换算；年度计划绑定课程与场次后进入报表口径。',
+    points: ['金额字段为整数分', '计划编码在租户内唯一'],
+  },
+  trainingCourse: {
+    title: '课程目录',
+    body: '课程可关联培训计划，讲师、形式、时长与成本均由服务端保存并按实时台账返回。',
+    points: ['课程编码在租户内唯一', '课程成本为整数分'],
+  },
+  trainingCheckin: {
+    title: '签到幂等',
+    body: '同一场次与同一任职只保留一条签到；重复提交返回原签到记录，不移动首次签到时间。',
+    points: ['学时由签到/签退时间派生', '服务端不接收客户端学时字段'],
+  },
+  trainingExam: {
+    title: '考试版本',
+    body: '草稿可继续编辑；发布后的版本永久冻结，任何修改都会形成新的版本行。',
+    points: ['已发布版本不能静默修改', '重复发布返回 EXAM_ALREADY_PUBLISHED'],
+  },
+  trainingFeedback: {
+    title: '反馈追加',
+    body: '反馈仅追加，不覆盖历史行；同一幂等键重放返回原反馈编号。',
+    points: ['反馈仅追加，不覆盖历史行', '幂等重放返回 200'],
+  },
+  trainingRecord: {
+    title: '档案口径',
+    body: '档案由报名、完成、签到、考试版本与反馈实时聚合；学时由签到/签退时间派生，不额外存储。',
+    points: ['学时由签到/签退时间派生', '证书未建表时不展示占位值'],
+  },
+  trainingReport: {
+    title: '报表口径',
+    body: '报表比率以基点表示（10000 = 100%），预算与成本均为整数分，所有数字来自实时聚合。',
+    points: ['报表比率以基点表示', '完成率与通过率不推算缺失数据'],
   },
 } satisfies Record<string, { title: string; body: string; points: readonly string[] }>
 
@@ -488,33 +533,23 @@ const TRAINING_PAGES: TalentPageConfig[] = [
     ...TRAINING_BASE,
     key: 'training/index',
     title: '培训计划',
-    description: '培训计划、预算与审批。',
-    readPath: '/v1/training/programs',
-    readLabel: '培训项目',
-    columns: PROGRAM_COLUMNS,
-    forms: PROGRAM_CREATES,
-    panels: [PANEL.training],
-    pending: {
-      label: '培训计划预算与审批',
-      plannedPath: '/v1/training/plans',
-      detail: '后端当前只有培训项目与场次；计划预算和审批接口未提供。',
-    },
+    description: '维护年度培训计划与整数分预算，所有金额不经过浮点计算。',
+    readPath: '/v1/training/plans',
+    readLabel: '培训计划',
+    columns: TRAINING_PLAN_COLUMNS,
+    forms: PLAN_CREATES,
+    panels: [PANEL.trainingPlanBudget],
   },
   {
     ...TRAINING_BASE,
     key: 'training/courses',
     title: '课程库',
-    description: '课程、讲师、形式与材料。',
-    readPath: '/v1/training/programs',
+    description: '维护课程、讲师、形式、时长与成本，并关联培训计划。',
+    readPath: '/v1/training/courses',
     readLabel: '课程库',
-    columns: PROGRAM_COLUMNS,
-    forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '课程库管理',
-      plannedPath: '/v1/training/courses',
-      detail: '当前培训项目接口不等同于课程库；课程、讲师与材料接口未提供。',
-    },
+    columns: TRAINING_COURSE_COLUMNS,
+    forms: COURSE_CREATES,
+    panels: [PANEL.trainingCourse],
   },
   {
     ...TRAINING_BASE,
@@ -542,81 +577,56 @@ const TRAINING_PAGES: TalentPageConfig[] = [
     ...TRAINING_BASE,
     key: 'training/checkins',
     title: '培训签到',
-    description: '签到、补签与到场记录。',
-    readPath: '/v1/training/programs',
-    readLabel: '后续签到',
-    columns: PROGRAM_COLUMNS,
-    forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '培训签到',
-      plannedPath: '/v1/training/sessions/{id}/checkins',
-      detail: '后端仅支持完成登记，未提供签到名单、签到或补签接口。',
-    },
+    description: '按场次与任职登记签到/签退；学时只从时间证据派生。',
+    readPath: '/v1/training/checkins',
+    readLabel: '签到记录',
+    columns: TRAINING_CHECKIN_COLUMNS,
+    forms: CHECKIN_CREATES,
+    panels: [PANEL.trainingCheckin],
   },
   {
     ...TRAINING_BASE,
     key: 'training/exams',
     title: '培训考试',
-    description: '题库、考试与成绩管理。',
-    readPath: '/v1/training/programs',
-    readLabel: '后续培训考试',
-    columns: PROGRAM_COLUMNS,
-    forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '培训考试',
-      plannedPath: '/v1/training/exams',
-      detail: '后端无题库、试卷、成绩或补考接口；完成登记中的 score 不等于考试管理。',
-    },
+    description: '考试内容按版本冻结；已发布版本不可静默修改。',
+    readPath: '/v1/training/exams',
+    readLabel: '考试版本',
+    columns: TRAINING_EXAM_COLUMNS,
+    forms: EXAM_CREATES,
+    panels: [PANEL.trainingExam],
   },
   {
     ...TRAINING_BASE,
     key: 'training/feedback',
     title: '培训反馈',
-    description: '满意度与效果评估问卷。',
-    readPath: '/v1/training/programs',
-    readLabel: '后续培训反馈',
-    columns: PROGRAM_COLUMNS,
-    forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '培训反馈',
-      plannedPath: '/v1/training/feedback',
-      detail: '后端无问卷、满意度或效果评估接口。',
-    },
+    description: '按报名追加满意度与效果反馈，历史反馈永不被覆盖。',
+    readPath: '/v1/training/feedback',
+    readLabel: '培训反馈',
+    columns: TRAINING_FEEDBACK_COLUMNS,
+    forms: TRAINING_FEEDBACK_CREATES,
+    panels: [PANEL.trainingFeedback],
   },
   {
     ...TRAINING_BASE,
     key: 'training/records',
     title: '培训档案',
-    description: '个人与部门培训记录、学时与证书。',
-    readPath: '/v1/training/report',
-    readLabel: '培训完成记录',
-    columns: ENROLLMENT_COLUMNS,
+    description: '个人培训记录聚合报名、完成、签到学时、考试版本与反馈数量。',
+    readPath: '/v1/training/records',
+    readLabel: '个人培训记录',
+    columns: TRAINING_RECORD_COLUMNS,
     forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '培训档案证书',
-      plannedPath: '/v1/training/records',
-      detail: '培训报表可返回完成记录，但学时、证书与个人档案聚合接口未提供。',
-    },
+    panels: [PANEL.trainingRecord],
   },
   {
     ...TRAINING_BASE,
     key: 'training/reports',
     title: '培训报表',
-    description: '参加率、完成率、考试通过率与费用。',
-    readPath: '/v1/training/report',
-    readLabel: '培训完成记录',
-    columns: ENROLLMENT_COLUMNS,
+    description: '按计划聚合参加、完成、考试通过、学时与反馈；比率以基点表示。',
+    readPath: '/v1/training/reports',
+    readLabel: '培训计划报表',
+    columns: TRAINING_REPORT_COLUMNS,
     forms: [],
-    panels: [PANEL.training],
-    pending: {
-      label: '培训统计聚合与费用',
-      plannedPath: '/v1/training/reports',
-      detail: '现有 /v1/training/report 只返回完成记录，不返回聚合率或费用。',
-    },
+    panels: [PANEL.trainingReport],
   },
 ]
 

@@ -10,12 +10,109 @@ declare(strict_types=1);
  * planned for that route. Generated from the registered route table so the
  * matrix cannot drift from the executable capability middleware.
  */
-return ['GET /v1/documents/{document_id}/content' => [
-    'capability' => 'people.document.download',
-    'anchor' => 'LEGAL_ENTITY',
-    'risk' => 'high',
-    'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
-],
+return [
+    'GET /v1/training/plans' => [
+        'capability' => 'training.plan.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/training/plans' => [
+        'capability' => 'training.plan.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/training/courses' => [
+        'capability' => 'training.course.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/training/courses' => [
+        'capability' => 'training.course.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/training/enrollments' => [
+        'capability' => 'training.enrollment.manage',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+    ],
+    'GET /v1/training/checkins' => [
+        'capability' => 'training.checkin.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'GET /v1/training/sessions/{id}/checkins' => [
+        'capability' => 'training.checkin.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/training/sessions/{id}/checkins' => [
+        'capability' => 'training.checkin.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/training/exams' => [
+        'capability' => 'training.exam.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/training/exams' => [
+        'capability' => 'training.exam.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'POST /v1/training/exams/{id}/publish' => [
+        'capability' => 'training.exam.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/training/feedback' => [
+        'capability' => 'training.feedback.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/training/feedback' => [
+        'capability' => 'training.feedback.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/training/records' => [
+        'capability' => 'training.record.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'GET /v1/training/records/export' => [
+        'capability' => 'training.record.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'GET /v1/training/reports' => [
+        'capability' => 'training.report.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'GET /v1/documents/{document_id}/content' => [
+        'capability' => 'people.document.download',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
+    ],
     'GET /v1/employments/{employment_id}/document-files' => [
         'capability' => 'people.document.read',
         'anchor' => 'LEGAL_ENTITY',

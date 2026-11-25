@@ -51,6 +51,93 @@ const routeId = computed(() => {
 })
 const formKinds = computed<readonly TalentFormKind[]>(() => config.value?.forms ?? [])
 
+function numericCell(row: TalentRow, key: string): number {
+  const value = row[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+const trainingSummary = computed<{ title: string; items: Array<{ label: string; value: string }> } | null>(() => {
+  const current = config.value
+  if (current === null || current.domain !== 'training' || rows.value.length === 0) return null
+
+  const sum = (key: string): number => rows.value.reduce((total, row) => total + numericCell(row, key), 0)
+
+  switch (current.key) {
+    case 'training/index':
+      return {
+        title: '计划汇总（实时）',
+        items: [
+          { label: '计划数量', value: String(rows.value.length) },
+          { label: '预算合计（整数分）', value: String(sum('budget_cents')) },
+        ],
+      }
+    case 'training/courses':
+      return {
+        title: '课程汇总（实时）',
+        items: [
+          { label: '课程数量', value: String(rows.value.length) },
+          { label: '成本合计（整数分）', value: String(sum('cost_cents')) },
+          { label: '总时长（分钟）', value: String(sum('duration_minutes')) },
+        ],
+      }
+    case 'training/checkins':
+      return {
+        title: '签到汇总（实时）',
+        items: [
+          { label: '签到条数', value: String(rows.value.length) },
+          { label: '学时合计（分钟）', value: String(sum('study_minutes')) },
+        ],
+      }
+    case 'training/exams':
+      return {
+        title: '考试版本汇总（实时）',
+        items: [
+          { label: '版本数量', value: String(rows.value.length) },
+          {
+            label: '已发布版本',
+            value: String(rows.value.filter((row) => row.status === 'PUBLISHED').length),
+          },
+        ],
+      }
+    case 'training/feedback':
+      return {
+        title: '反馈汇总（实时）',
+        items: [
+          { label: '反馈条数', value: String(rows.value.length) },
+          {
+            label: '平均满意度',
+            value: (() => {
+              const rated = rows.value.filter((row) => typeof row.rating === 'number')
+              if (rated.length === 0) return '—'
+              return (rated.reduce((total, row) => total + numericCell(row, 'rating'), 0) / rated.length).toFixed(1)
+            })(),
+          },
+        ],
+      }
+    case 'training/records':
+      return {
+        title: '档案汇总（实时）',
+        items: [
+          { label: '档案条数', value: String(rows.value.length) },
+          { label: '学时合计（分钟）', value: String(sum('study_minutes')) },
+          { label: '反馈合计', value: String(sum('feedback_count')) },
+        ],
+      }
+    case 'training/reports':
+      return {
+        title: '报表汇总（实时）',
+        items: [
+          { label: '计划数量', value: String(rows.value.length) },
+          { label: '报名合计', value: String(sum('enrolled_count')) },
+          { label: '完成合计', value: String(sum('completed_count')) },
+          { label: '学时合计（分钟）', value: String(sum('study_minutes_total')) },
+        ],
+      }
+    default:
+      return null
+  }
+})
+
 function displayCell(row: TalentRow, column: string): string {
   if (column === 'has_email') return rowHasEmail(row) ? '已登记' : '未登记'
   return rowText(row, column)
@@ -187,6 +274,27 @@ onMounted(load)
             部分数据：{{ config.pending ? '本页存在尚未上线的后端能力，停用区域不会展示伪造数据。' : '服务端标记本次响应不完整，请结合请求编号联系管理员。' }}
           </span>
         </footer>
+      </section>
+
+      <section
+        v-if="trainingSummary"
+        class="panel talent-lifecycle-summary"
+        data-testid="lifecycle-summary"
+      >
+        <header class="panel__header">
+          <div>
+            <h2 class="panel__title">{{ trainingSummary.title }}</h2>
+            <p class="panel__subtitle">数字均由本次服务端返回行实时计算，不缓存推算结果。</p>
+          </div>
+        </header>
+        <div class="panel__body">
+          <dl class="talent-lifecycle-summary__grid">
+            <div v-for="item in trainingSummary.items" :key="item.label" class="talent-lifecycle-summary__item">
+              <dt>{{ item.label }}</dt>
+              <dd>{{ item.value }}</dd>
+            </div>
+          </dl>
+        </div>
       </section>
 
       <section v-if="actionRows.length > 0" class="panel talent-action-panel">
@@ -396,5 +504,33 @@ onMounted(load)
   padding-left: 18px;
   color: var(--color-ink-secondary);
   font-size: 12px;
+}
+
+.talent-lifecycle-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.talent-lifecycle-summary__item {
+  padding: 12px;
+  background: #f7fbfa;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.talent-lifecycle-summary__item dt {
+  color: var(--color-ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.talent-lifecycle-summary__item dd {
+  margin-top: 4px;
+  color: var(--color-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-weight: 700;
 }
 </style>

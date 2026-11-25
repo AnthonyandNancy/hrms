@@ -23,6 +23,12 @@ export type TalentFormKind =
   | 'session-create'
   | 'enrollment-create'
   | 'enrollment-complete'
+  | 'plan-create'
+  | 'course-create'
+  | 'checkin-create'
+  | 'exam-create'
+  | 'exam-publish'
+  | 'training-feedback-create'
 
 export type TalentPanel = {
   title: string
