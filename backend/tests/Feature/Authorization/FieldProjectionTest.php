@@ -33,6 +33,13 @@ final class FieldProjectionTest extends AuthorizationTestSupport
 
         $this->assertTrue($set->isVisible('display_name'));
         $this->assertTrue($set->isVisible('salary'));
+
+        // ADR-0024: P3 field reads leave an audit record of field names only.
+        $this->assertNotEmpty($this->sensitiveAuditor->records);
+        $record = $this->sensitiveAuditor->records[0];
+        $this->assertSame('people.employee.read', $record['capability']);
+        $this->assertContains('salary', $record['fields']);
+        $this->assertArrayNotHasKey('value', $record);
         $this->assertFalse($set->isFilterable('salary'));
         $this->assertFalse($set->isExportable('salary'));
 

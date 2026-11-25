@@ -152,6 +152,23 @@ final class PayrollRunService
         });
     }
 
+    /**
+     * @param  list<int>  $runIds
+     * @return list<PayrollRun>
+     */
+    public function runsByIds(int $tenantId, array $runIds): array
+    {
+        if ($runIds === []) {
+            return [];
+        }
+
+        return PayrollRun::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('id', $runIds)
+            ->get()
+            ->all();
+    }
+
     public function findRun(int $tenantId, int $runId): PayrollRun
     {
         $run = PayrollRun::query()->where('tenant_id', $tenantId)->whereKey($runId)->first();

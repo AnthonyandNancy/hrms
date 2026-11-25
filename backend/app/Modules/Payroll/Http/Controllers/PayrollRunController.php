@@ -60,6 +60,13 @@ final class PayrollRunController
 
                 return $item;
             }, $data['items']);
+        } else {
+            // ADR-0024 requires P3 reads to be audited. Listing runs does not
+            // call the row-level field projection by itself, so resolve the
+            // field set per run; that path records field names (never values).
+            foreach ($this->runs->runsByIds($principal->tenantId(), array_map(static fn (array $item): int => (int) $item['id'], $data['items'])) as $run) {
+                $this->moneyFields($principal, 'payroll.payslip.read', $run);
+            }
         }
 
         return ApiResponse::ok($data);
