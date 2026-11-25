@@ -34,7 +34,10 @@ const ALL_CAPABILITIES = [
   'time.leave.request',
   'time.leave.request.cancel',
   'time.overtime.read',
+  'time.overtime.request',
+  'time.overtime.confirm',
   'time.overtime.settle',
+  'time.timeoff.read',
   'time.travel.read',
   'time.travel.request',
   'payroll.run.read',
@@ -184,6 +187,8 @@ describe('time/payroll registry mapping', () => {
       '/v1/time/leave/ledger',
       '/v1/time/overtime/records',
       '/v1/time/overtime/policies',
+      '/v1/time/overtime/requests',
+      '/v1/time/overtime/timeoff-balances',
       '/v1/travel/requests',
       '/v1/payroll/runs',
       '/v1/payroll/items',
@@ -304,6 +309,188 @@ describe('representative time/payroll mounts', () => {
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
     expect(wrapper.text()).toContain('结算已完成')
+  })
+
+  it('mounts the overtime application and posts the real request endpoint', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 31,
+          employment_id: 501,
+          business_date: '2026-11-24',
+          declared_minutes: 90,
+          confirmed_minutes: null,
+          status: 'APPROVED',
+          reason: 'Synthetic release support',
+          case_id: null,
+          overtime_record_id: null,
+          recorded_at: '2026-11-24T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: 'synthetic',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({
+      id: 32,
+      employment_id: 501,
+      business_date: '2026-11-26',
+      declared_minutes: 120,
+      confirmed_minutes: null,
+      status: 'APPROVED',
+      reason: 'Synthetic month-end support',
+      case_id: null,
+      overtime_record_id: null,
+      recorded_at: '2026-11-25T02:00:00Z',
+    })
+
+    const wrapper = await mountPage('overtime/index', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/overtime/requests', expect.any(Object))
+    expect(wrapper.get('[data-testid="overtime-apply"]').text()).toContain('1 小时 30 分钟')
+    await wrapper.get('[data-testid="overtime-business-date"]').setValue('2026-11-26')
+    await wrapper.get('[data-testid="overtime-declared-minutes"]').setValue('120')
+    await wrapper.get('[data-testid="overtime-reason"]').setValue('Synthetic month-end support')
+    await wrapper.get('[data-testid="overtime-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/time/overtime/requests',
+      {
+        business_date: '2026-11-26',
+        declared_minutes: 120,
+        reason: 'Synthetic month-end support',
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('加班申请已提交')
+  })
+
+  it('mounts overtime confirmation and posts the real confirm endpoint', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 41,
+          employment_id: 501,
+          business_date: '2026-11-20',
+          declared_minutes: 120,
+          confirmed_minutes: null,
+          status: 'APPROVED',
+          reason: 'Synthetic release support',
+          case_id: 44,
+          overtime_record_id: null,
+          recorded_at: '2026-11-20T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: 'synthetic',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({
+      id: 41,
+      employment_id: 501,
+      business_date: '2026-11-20',
+      declared_minutes: 120,
+      confirmed_minutes: 90,
+      status: 'CONFIRMED',
+      reason: 'Synthetic release support',
+      case_id: 44,
+      overtime_record_id: 77,
+      recorded_at: '2026-11-20T02:00:00Z',
+    })
+
+    const wrapper = await mountPage('overtime/confirm', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/overtime/requests', expect.any(Object))
+    await wrapper.get('[data-testid="confirm-minutes-41"]').setValue('90')
+    await wrapper.get('[data-testid="confirm-41"]').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/time/overtime/requests/41/confirm',
+      { confirmed_minutes: 90 },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('加班工时已确认')
+  })
+
+  it('mounts timeoff balances and renders the server-derived projection', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          settlement_id: 99,
+          overtime_record_id: 77,
+          employment_id: 501,
+          business_date: '2026-11-20',
+          method: 'TIMEOFF',
+          minutes: 120,
+          reason: 'Synthetic time-off compensation',
+          recorded_at: '2026-11-21T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 100,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: 'synthetic',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+      employment_id: 501,
+      available_minutes: 120,
+      settlement_count: 1,
+    })
+
+    const wrapper = await mountPage('overtime/timeoff', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/overtime/timeoff-balances', expect.any(Object))
+    expect(wrapper.get('[data-testid="overtime-timeoff"]').text()).toContain('2 小时')
+    expect(wrapper.text()).toContain('2026-11-20')
+    expect(wrapper.text()).toContain('TIMEOFF')
+  })
+
+  it('removes the leave cancellation gap and uses the live leave request list', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 33,
+          caseId: 33,
+          caseNo: 'CASE-000033',
+          title: '年假申请',
+          type: 'LEAVE',
+          applicationStatus: 'APPROVED',
+          fromDate: '2026-12-01',
+          toDate: '2026-12-02',
+          minutes: 960,
+          state: 'APPROVED',
+        },
+      ],
+      total: 1,
+    })
+
+    const wrapper = await mountPage('leave/cancellations', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/leave/requests', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('CASE-000033')
+    expect(wrapper.find('[data-testid="cancel-leave-33"]').exists()).toBe(true)
   })
 
   it('mounts travel requests and cancels through the live travel endpoint', async () => {
