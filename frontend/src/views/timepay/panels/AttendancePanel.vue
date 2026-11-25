@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { resourcePost } from '@/api/resourceClient'
 import { usePageError } from '@/composables/usePageError'
+import { useSessionStore } from '@/stores/session'
 import type { TimePayrollPageDefinition } from '../types'
 import {
   formatMinutes,
@@ -21,9 +22,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{ refresh: []; 'action-success': [message: string] }>()
 
+const session = useSessionStore()
 const actionError = usePageError()
 const submitting = ref(false)
 const actionMessage = ref('')
+
+const canManageRules = computed(() => session.can('time.attendance.rule.manage'))
+const canManageSchedule = computed(() => session.can('time.shift.schedule.manage'))
 
 const attendanceSummary = computed(() => {
   const found = props.rows.find((row) => row.summary !== undefined)
@@ -58,6 +63,50 @@ const correctionForm = reactive({
 
 const closeForm = reactive({ month: new Date().toISOString().slice(0, 7) })
 const lastClosureId = ref<number | null>(null)
+
+const ruleForm = reactive({
+  version: '',
+  effective_from: todayIsoDate(),
+  late_grace_source: 'SHIFT' as 'SHIFT' | 'LEGAL_ENTITY' | 'NONE',
+  count_break: true,
+  overtime_after_scheduled: true,
+  incomplete_threshold_minutes: '1',
+})
+
+const scheduleForm = reactive({
+  employment_id: '',
+  business_date: todayIsoDate(),
+  shift_template_id: '',
+})
+
+const shiftOptions = computed<Record<string, unknown>[]>(() => {
+  const catalogue = props.related?.shifts
+  if (catalogue === null || typeof catalogue !== 'object' || Array.isArray(catalogue)) return []
+  const items = (catalogue as Record<string, unknown>).items
+  return Array.isArray(items) ? items.filter(isObject) : []
+})
+
+const ruleRows = computed(() => props.rows.filter((row) => row.version !== undefined))
+const scheduleRows = computed(() => props.rows.filter((row) => row.business_date !== undefined))
+const closureRows = computed(() => props.rows.filter((row) => row.month !== undefined && row.status !== undefined))
+const deviceRows = computed(() => props.rows.filter((row) => row.code !== undefined && row.health !== undefined))
+
+/**
+ * Panels with their own dedicated section below. The punch fallback must not
+ * render on top of them, otherwise a device list would show an empty punch
+ * table as well.
+ */
+const DEDICATED_PANELS = new Set([
+  'attendance-rules',
+  'attendance-schedules',
+  'attendance-devices',
+  'attendance-closing',
+  'attendance-exceptions',
+  'attendance-calendar',
+  'attendance-shifts',
+  'attendance-corrections',
+])
+const showPunchFallback = computed(() => !DEDICATED_PANELS.has(props.definition.panel))
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -117,6 +166,101 @@ async function recalculate(): Promise<void> {
   await postAction('/time/attendance/recalculate', monthPayload(), '考勤重算已受理')
 }
 
+function positiveInteger(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!/^[1-9]\d*$/.test(trimmed)) return null
+  const value = Number(trimmed)
+  return Number.isSafeInteger(value) ? value : null
+}
+
+async function publishRule(): Promise<void> {
+  actionError.clear()
+  actionMessage.value = ''
+
+  const version = ruleForm.version.trim()
+  const threshold = positiveInteger(ruleForm.incomplete_threshold_minutes)
+
+  if (!/^[A-Za-z0-9._-]{3,32}$/.test(version)) {
+    actionError.reject(new Error('规则版本号需要 3 到 32 个字母、数字、点、下划线或短横线。'))
+    return
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ruleForm.effective_from)) {
+    actionError.reject(new Error('请选择有效的规则生效日期。'))
+    return
+  }
+  if (threshold === null) {
+    actionError.reject(new Error('不完整判定阈值必须是正整数分钟。'))
+    return
+  }
+
+  submitting.value = true
+  try {
+    const result = await resourcePost<Record<string, unknown>>(
+      '/time/attendance/rules',
+      {
+        version,
+        effective_from: ruleForm.effective_from,
+        config: {
+          late_grace_source: ruleForm.late_grace_source,
+          count_break: ruleForm.count_break,
+          overtime_after_scheduled: ruleForm.overtime_after_scheduled,
+          incomplete_threshold_minutes: threshold,
+        },
+      },
+      { idempotencyKey: newIdempotencyKey('attendance-rule') },
+    )
+    actionMessage.value = `考勤规则版本已发布：${textValue(result.version, version)}`
+    ruleForm.version = ''
+    emit('action-success', actionMessage.value)
+    emit('refresh')
+  } catch (reason) {
+    actionError.capture(reason)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function scheduleShift(): Promise<void> {
+  actionError.clear()
+  actionMessage.value = ''
+
+  const employmentId = positiveInteger(scheduleForm.employment_id)
+  const templateId = positiveInteger(scheduleForm.shift_template_id)
+
+  if (employmentId === null) {
+    actionError.reject(new Error('员工 ID 必须是正整数。'))
+    return
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduleForm.business_date)) {
+    actionError.reject(new Error('请选择有效的排班日期。'))
+    return
+  }
+  if (templateId === null) {
+    actionError.reject(new Error('请选择要排的班次。'))
+    return
+  }
+
+  submitting.value = true
+  try {
+    const result = await resourcePost<Record<string, unknown>>(
+      '/time/shift-schedules',
+      {
+        employment_id: employmentId,
+        business_date: scheduleForm.business_date,
+        shift_template_id: templateId,
+      },
+      { idempotencyKey: newIdempotencyKey('attendance-schedule') },
+    )
+    actionMessage.value = `排班已保存：${textValue(result.business_date, scheduleForm.business_date)}`
+    emit('action-success', actionMessage.value)
+    emit('refresh')
+  } catch (reason) {
+    actionError.capture(reason)
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function postAction(path: string, body: Record<string, unknown>, success: string): Promise<void> {
   actionError.clear()
   actionMessage.value = ''
@@ -134,6 +278,15 @@ async function postAction(path: string, body: Record<string, unknown>, success: 
   } finally {
     submitting.value = false
   }
+}
+
+function ruleConfigValue(row: Record<string, unknown>, key: string): string {
+  const config = row.config
+  if (config === null || typeof config !== 'object' || Array.isArray(config)) return '—'
+  const value = (config as Record<string, unknown>)[key]
+  if (value === true) return '是'
+  if (value === false) return '否'
+  return textValue(value)
 }
 
 function dayStatusLabel(status: unknown): string {
@@ -194,6 +347,142 @@ function dayStatusLabel(status: unknown): string {
       <el-button type="primary" :loading="submitting" :disabled="submitting" data-testid="correction-submit" @click="submitCorrection">
         提交补卡申请
       </el-button>
+    </section>
+
+    <section v-if="definition.panel === 'attendance-rules'" class="panel">
+      <h2>规则版本</h2>
+      <p class="small muted">每个版本带生效日期；发布新版本只追加历史，历史版本永不被改写。</p>
+      <table v-if="ruleRows.length > 0" class="timepay-table">
+        <caption class="sr-only">考勤规则版本</caption>
+        <thead><tr><th scope="col">版本</th><th scope="col">生效日期</th><th scope="col">当前生效</th><th scope="col">休息扣除</th><th scope="col">加班起算</th><th scope="col">校验和</th></tr></thead>
+        <tbody>
+          <tr v-for="row in ruleRows" :key="textValue(row.id)">
+            <td class="mono">{{ textValue(row.version) }}</td>
+            <td>{{ textValue(row.effective_from) }}</td>
+            <td>{{ row.is_effective === true ? '是' : '否' }}</td>
+            <td>{{ ruleConfigValue(row, 'count_break') }}</td>
+            <td>{{ ruleConfigValue(row, 'overtime_after_scheduled') }}</td>
+            <td class="mono">{{ textValue(row.checksum).slice(0, 12) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">后端还没有返回任何规则版本；页面不会本地生成规则。</p>
+
+      <div v-if="canManageRules" class="timepay-form panel">
+        <h3>发布新版本</h3>
+        <div class="timepay-form__grid">
+          <label>版本号
+            <input v-model="ruleForm.version" data-testid="attendance-rule-version" maxlength="32" />
+          </label>
+          <label>生效日期
+            <input v-model="ruleForm.effective_from" data-testid="attendance-rule-effective-from" type="date" />
+          </label>
+          <label>迟到宽限来源
+            <select v-model="ruleForm.late_grace_source" data-testid="attendance-rule-late-grace-source">
+              <option value="SHIFT">班次</option>
+              <option value="LEGAL_ENTITY">法人</option>
+              <option value="NONE">不宽限</option>
+            </select>
+          </label>
+          <label>不完整判定阈值（分钟）
+            <input v-model="ruleForm.incomplete_threshold_minutes" data-testid="attendance-rule-threshold" inputmode="numeric" />
+          </label>
+        </div>
+        <label class="timepay-form__wide">
+          <input v-model="ruleForm.count_break" data-testid="attendance-rule-count-break" type="checkbox" />
+          休息时间计入工时
+        </label>
+        <label class="timepay-form__wide">
+          <input v-model="ruleForm.overtime_after_scheduled" data-testid="attendance-rule-overtime" type="checkbox" />
+          超过计划工时后记加班
+        </label>
+        <el-button type="primary" :loading="submitting" :disabled="submitting" data-testid="attendance-rule-publish" @click="publishRule">
+          发布规则版本
+        </el-button>
+      </div>
+      <p v-else class="small muted">当前账号没有 time.attendance.rule.manage，只能查看规则版本。</p>
+    </section>
+
+    <section v-if="definition.panel === 'attendance-schedules'" class="panel">
+      <h2>排班记录</h2>
+      <p class="small muted">同一员工同一天只允许一个班次；重复排不同班次由服务端返回 SCHEDULE_CONFLICT。</p>
+      <table v-if="scheduleRows.length > 0" class="timepay-table">
+        <caption class="sr-only">排班记录</caption>
+        <thead><tr><th scope="col">考勤日</th><th scope="col">员工</th><th scope="col">班次</th><th scope="col">开始</th><th scope="col">结束</th><th scope="col">跨夜</th></tr></thead>
+        <tbody>
+          <tr v-for="row in scheduleRows" :key="textValue(row.id)">
+            <td>{{ textValue(row.business_date) }}</td>
+            <td>{{ textValue(row.employment_id) }}</td>
+            <td class="mono">{{ textValue(row.shift_code) }}</td>
+            <td>{{ textValue(row.start_local_time) }}</td>
+            <td>{{ textValue(row.end_local_time) }}</td>
+            <td>{{ row.crosses_midnight === true ? '是' : '否' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">当前筛选条件下没有排班记录；页面不会合成排班。</p>
+
+      <div v-if="canManageSchedule" class="timepay-form panel">
+        <h3>新增排班</h3>
+        <div class="timepay-form__grid">
+          <label>员工 ID
+            <input v-model="scheduleForm.employment_id" data-testid="attendance-schedule-employment" inputmode="numeric" />
+          </label>
+          <label>考勤日
+            <input v-model="scheduleForm.business_date" data-testid="attendance-schedule-date" type="date" />
+          </label>
+          <label>班次
+            <select v-model="scheduleForm.shift_template_id" data-testid="attendance-schedule-template">
+              <option value="">请选择班次</option>
+              <option v-for="shift in shiftOptions" :key="textValue(shift.id)" :value="textValue(shift.id)">
+                {{ textValue(shift.code) }} · {{ textValue(shift.start_local_time) }}–{{ textValue(shift.end_local_time) }}
+              </option>
+            </select>
+          </label>
+        </div>
+        <el-button type="primary" :loading="submitting" :disabled="submitting" data-testid="attendance-schedule-submit" @click="scheduleShift">
+          保存排班
+        </el-button>
+      </div>
+      <p v-else class="small muted">当前账号没有 time.shift.schedule.manage，只能查看排班。</p>
+    </section>
+
+    <section v-if="definition.panel === 'attendance-devices'" class="panel">
+      <h2>设备健康</h2>
+      <p class="small muted">健康状态由适配器回报，接口只读；页面不提供任何写入设备健康的入口。</p>
+      <table v-if="deviceRows.length > 0" class="timepay-table">
+        <caption class="sr-only">考勤设备健康</caption>
+        <thead><tr><th scope="col">编码</th><th scope="col">名称</th><th scope="col">适配器</th><th scope="col">健康</th><th scope="col">最近心跳</th><th scope="col">启用</th></tr></thead>
+        <tbody>
+          <tr v-for="row in deviceRows" :key="textValue(row.id)">
+            <td class="mono">{{ textValue(row.code) }}</td>
+            <td>{{ textValue(row.name) }}</td>
+            <td>{{ textValue(row.adapter) }}</td>
+            <td><span class="timepay-status" :class="`timepay-status--${statusTone(textValue(row.health))}`">{{ textValue(row.health) }}</span></td>
+            <td>{{ textValue(row.last_seen_at) }}</td>
+            <td>{{ row.active === true ? '是' : '否' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">尚未登记任何考勤设备；页面不会展示虚构设备状态。</p>
+    </section>
+
+    <section v-if="definition.panel === 'attendance-closing'" class="panel">
+      <h2>月结记录</h2>
+      <table v-if="closureRows.length > 0" class="timepay-table">
+        <caption class="sr-only">考勤月结记录</caption>
+        <thead><tr><th scope="col">月份</th><th scope="col">状态</th><th scope="col">关账时间</th><th scope="col">重开时间</th><th scope="col">重开原因</th></tr></thead>
+        <tbody>
+          <tr v-for="row in closureRows" :key="textValue(row.id)">
+            <td>{{ textValue(row.month) }}</td>
+            <td><span class="timepay-status" :class="`timepay-status--${statusTone(textValue(row.status))}`">{{ textValue(row.status) }}</span></td>
+            <td>{{ textValue(row.closed_at) }}</td>
+            <td>{{ textValue(row.reopened_at) }}</td>
+            <td>{{ textValue(row.reopen_reason) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="small muted">尚无月结记录；关账后这里会出现带审计原因的锁定记录。</p>
     </section>
 
     <section v-if="definition.panel === 'attendance-closing'" class="timepay-form panel">
@@ -268,13 +557,13 @@ function dayStatusLabel(status: unknown): string {
       </table>
     </section>
 
-    <section v-else class="panel">
+    <section v-else-if="showPunchFallback" class="panel">
       <h2>{{ definition.title }}</h2>
       <table v-if="calendarDays.length > 0" class="timepay-table">
         <caption class="sr-only">{{ definition.title }}记录</caption>
         <thead><tr><th scope="col">日期</th><th scope="col">星期</th><th scope="col">状态</th><th scope="col">首次打卡</th><th scope="col">末次打卡</th><th scope="col">工时</th></tr></thead>
         <tbody>
-          <tr v-for="day in definition.panel === 'attendance-punches' || definition.panel === 'attendance-devices' ? correctionDays : calendarDays" :key="textValue(day.date)">
+          <tr v-for="day in definition.panel === 'attendance-punches' ? correctionDays : calendarDays" :key="textValue(day.date)">
             <td>{{ textValue(day.date) }}</td>
             <td>{{ textValue(day.weekday) }}</td>
             <td>{{ dayStatusLabel(day.status) }}</td>
