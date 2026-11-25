@@ -168,8 +168,6 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'time.travel.policy.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.travel.approve', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.travel.expense.manage', $le, FieldProfile::P2_SENSITIVE),
-                $grant('HR_ADMIN', 'payroll.compensation.read', $le, FieldProfile::P2_SENSITIVE),
-                $grant('HR_ADMIN', 'payroll.salary-adjustment.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'performance.indicator.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'performance.goal.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'performance.feedback.manage', $le, FieldProfile::P2_SENSITIVE),

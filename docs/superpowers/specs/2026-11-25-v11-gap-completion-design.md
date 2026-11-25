@@ -313,9 +313,9 @@ POST /v1/... (Idempotency-Key)
 | 18 | `time.travel.policy.manage` | K6 | 新增 | HR_ADMIN |
 | 19 | `time.travel.approve` | K6 | 新增 | LINE_MANAGER, HR_ADMIN |
 | 20 | `time.travel.expense.manage` | K6 | 新增 | HR_ADMIN, HR_SPECIALIST |
-| 21 | `payroll.compensation.read` | K7 | 新增 | PAYROLL_SPECIALIST, PAYROLL_APPROVER, HR_ADMIN(P2) |
+| 21 | `payroll.compensation.read` | K7 | 新增 | PAYROLL_SPECIALIST, PAYROLL_APPROVER（**不授 HR_ADMIN**：既有 SoD 不变量要求 HR_ADMIN 不持有任何 `payroll.*`，该约束更严，优先于本行初稿） |
 | 22 | `payroll.compensation.manage` | K7 | 新增 | PAYROLL_SPECIALIST |
-| 23 | `payroll.salary-adjustment.manage` | K7 | 新增 | HR_ADMIN, PAYROLL_APPROVER |
+| 23 | `payroll.salary-adjustment.manage` | K7 | 新增 | PAYROLL_APPROVER（**不授 HR_ADMIN**：同第 21 行 SoD 约束） |
 | 24 | `performance.indicator.manage` | K8 | 新增 | HR_ADMIN, TRAINING_ADMIN |
 | 25 | `performance.goal.manage` | K8 | 新增 | LINE_MANAGER, EMPLOYEE(SELF), HR_ADMIN |
 | 26 | `performance.feedback.manage` | K8 | 新增 | HR_ADMIN, LINE_MANAGER |
