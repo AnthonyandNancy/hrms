@@ -59,7 +59,6 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(\App\Modules\Workflow\Contracts\CaseCommandPort::class),
             $app->make(\App\Modules\Workflow\Contracts\CaseDecisionPort::class),
             $app->make(\App\Modules\Workflow\Contracts\WorkflowCaseGateway::class),
-            $app->make(\App\Modules\Workflow\Contracts\WorkflowPrincipalResolver::class),
         ));
 
         $this->app->bind(NoticeGovernanceService::class, fn ($app): NoticeGovernanceService => new NoticeGovernanceService(

@@ -62,6 +62,9 @@ final class NoticeGovernanceService
      * Submit a draft notice for approval. The notice must already have been
      * created with approval_required=true.
      */
+    /**
+     * @return array<string, mixed>
+     */
     public function submit(Principal $principal, int $noticeId, string $businessDate): array
     {
         $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
@@ -109,6 +112,9 @@ final class NoticeGovernanceService
      * Apply an APPROVE/REJECT decision through Workflow, then mirror the Case
      * state onto the notice. A notice can never be approved by this method
      * without the Case decision actually succeeding.
+     */
+    /**
+     * @return array<string, mixed>
      */
     public function decide(Principal $principal, int $noticeId, string $action, string $comment, string $businessDate): array
     {
@@ -168,6 +174,9 @@ final class NoticeGovernanceService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function publish(Principal $principal, int $noticeId, string $businessDate): array
     {
         $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
@@ -438,6 +447,9 @@ final class NoticeGovernanceService
         return ['items' => $items, 'total' => count($items), 'as_of' => $today];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function archive(Principal $principal, int $noticeId, string $reason, string $businessDate): array
     {
         $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
@@ -470,6 +482,9 @@ final class NoticeGovernanceService
         return $this->noticesPayload($principal, $notice->refresh(), $today);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function restore(Principal $principal, int $noticeId, string $businessDate): array
     {
         $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();

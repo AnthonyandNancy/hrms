@@ -9,7 +9,6 @@ use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\CaseDecisionPort;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
-use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use App\Shared\Exceptions\NotFoundException;
 
 /**
@@ -25,7 +24,6 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
         private readonly CaseCommandPort $cases,
         private readonly CaseDecisionPort $decisions,
         private readonly WorkflowCaseGateway $gateway,
-        private readonly WorkflowPrincipalResolver $principals,
     ) {}
 
     public function ensureTemplate(int $tenantId): void

@@ -576,11 +576,11 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->name('engagement.notices.submit');
     Route::post('/notices/{notice}/decision', [NoticeGovernanceController::class, 'decision'])
         ->whereNumber('notice')
-        ->middleware('capability:engagement.notice.publish')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:engagement.notice.publish'])
         ->name('engagement.notices.decision');
     Route::post('/notices/{notice}/publish', [NoticeGovernanceController::class, 'publish'])
         ->whereNumber('notice')
-        ->middleware('capability:engagement.notice.publish')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:engagement.notice.publish'])
         ->name('engagement.notices.publish');
     Route::get('/notices/{notice}/audience', [NoticeGovernanceController::class, 'audience'])
         ->whereNumber('notice')
@@ -592,7 +592,7 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->name('engagement.notices.reads');
     Route::get('/notices/{notice}/reads/export', [NoticeGovernanceController::class, 'exportReads'])
         ->whereNumber('notice')
-        ->middleware('capability:engagement.notice.export')
+        ->middleware(['mfa.enrolled', 'capability:engagement.notice.export'])
         ->name('engagement.notices.reads.export');
 
     Route::get('/notice-templates', [NoticeGovernanceController::class, 'templates'])
@@ -968,22 +968,22 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
 */
 Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/plans', [BenefitController::class, 'plans'])
-        ->middleware('capability:benefit.read,SELF')
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.plans.index');
     Route::post('/plans', [BenefitController::class, 'storePlan'])
-        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('benefits.plans.store');
     Route::get('/enrollments', [BenefitController::class, 'enrollments'])
-        ->middleware('capability:benefit.read,SELF')
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.enrollments.index');
     Route::post('/enrollments', [BenefitController::class, 'storeEnrollment'])
-        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('benefits.enrollments.store');
     Route::get('/transactions', [BenefitController::class, 'transactions'])
-        ->middleware('capability:benefit.read,SELF')
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.transactions.index');
     Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
-        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('benefits.transactions.store');
 });
 

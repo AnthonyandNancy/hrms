@@ -5,7 +5,7 @@ export type PlatformMode =
   | 'reports-exports'
   | 'notice-list'
   | 'notice-create'
-  | 'notice-gap'
+  | 'notice-governance'
   | 'account'
   | 'users'
   | 'roles'
@@ -34,6 +34,8 @@ export type PlatformPageConfig = {
   /** A deliberately visible backend gap. Never replaced with synthetic data. */
   gap?: string
   gapPath?: string
+  /** Notice governance panel served by a real API. */
+  noticePanel?: 'approval' | 'audience' | 'reads' | 'templates' | 'archive'
 }
 
 const DASHBOARD_DESCRIPTION =
@@ -43,7 +45,7 @@ const REPORTS_DESCRIPTION =
   '报表目录、运行结果与导出任务全部来自 Reporting API；字段档位和可导出口径由服务端返回。'
 
 const NOTICE_DESCRIPTION =
-  '公告受众、阅读确认与撤回由 Engagement API 校验；没有接口的发布范围、阅读明细与模板不回填假数据。'
+  '公告受众、审批决定、阅读确认、导出、模板与归档全部来自 Engagement/Workflow 真实接口；不展示虚构的阅读人或审批人。'
 
 export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
   {
@@ -186,45 +188,40 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     title: '公告审核',
     breadcrumb: '公告通知',
     description: '当前公告接口没有独立审核状态或审批端点；仅展示真实公告状态。',
-    mode: 'notice-gap',
-    gap: '后端接口待补: 公告审核/驳回',
-    gapPath: 'POST /v1/engagement/notices/{notice}/approve',
+    mode: 'notice-governance',
+    noticePanel: 'approval',
   },
   {
     key: 'notices/audience',
     title: '公告发布范围',
     breadcrumb: '公告通知',
     description: '公告受众已随记录返回；独立的受众预览与校验端点尚未提供。',
-    mode: 'notice-gap',
-    gap: '后端接口待补: 公告受众预览与校验',
-    gapPath: 'GET /v1/engagement/notices/{notice}/audience',
+    mode: 'notice-governance',
+    noticePanel: 'audience',
   },
   {
     key: 'notices/reads',
     title: '公告阅读记录',
     breadcrumb: '公告通知',
     description: '展示接口实际返回的确认人数与受众数；阅读人明细接口尚未提供。',
-    mode: 'notice-gap',
-    gap: '后端接口待补: 公告阅读人明细与导出',
-    gapPath: 'GET /v1/engagement/notices/{notice}/reads',
+    mode: 'notice-governance',
+    noticePanel: 'reads',
   },
   {
     key: 'notices/templates',
     title: '公告模板',
     breadcrumb: '公告通知',
     description: '当前仅支持直接创建公告，模板与变量目录接口尚未提供。',
-    mode: 'notice-gap',
-    gap: '后端接口待补: 公告模板与变量',
-    gapPath: 'GET /v1/engagement/notice-templates',
+    mode: 'notice-governance',
+    noticePanel: 'templates',
   },
   {
     key: 'notices/archive',
     title: '公告归档',
     breadcrumb: '公告通知',
     description: '当前列表只返回可见已发布公告；归档检索与恢复接口尚未提供。',
-    mode: 'notice-gap',
-    gap: '后端接口待补: 公告归档检索/恢复',
-    gapPath: 'POST /v1/engagement/notices/{notice}/archive',
+    mode: 'notice-governance',
+    noticePanel: 'archive',
   },
   {
     key: 'account',
@@ -303,10 +300,8 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'benefits',
     title: '社保公积金与福利',
     breadcrumb: '系统管理',
-    description: '当前 checkout 没有福利、社保基数或发放台账接口，因此不展示虚构的缴费数据。',
+    description: '福利方案按生效日版本化，参保基数变更保留历史；金额为整数分，费率由服务端以定点小数返回。',
     mode: 'benefits',
-    gap: '后端接口待补: 社保公积金与福利模块',
-    gapPath: 'GET /v1/benefits',
   },
   {
     key: 'system/system-calendars',

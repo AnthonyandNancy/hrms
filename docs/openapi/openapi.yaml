@@ -3989,6 +3989,32 @@ components:
           type: integer
         audienceCount:
           type: integer
+        approvalCaseId:
+          type:
+            - integer
+            - "null"
+        approval_case_id:
+          type:
+            - integer
+            - "null"
+        approvedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        archivedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        templateCode:
+          type:
+            - string
+            - "null"
+        templateVersion:
+          type:
+            - integer
+            - "null"
     NoticeList:
       type: object
       required:
@@ -4035,6 +4061,268 @@ components:
           items:
             $ref: "#/components/schemas/Notification"
         total:
+          type: integer
+    BenefitPlan:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - legal_entity_id
+        - employer_rate
+        - employee_rate
+        - effective_from
+        - effective_to
+        - version
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        legal_entity_id:
+          type:
+            - integer
+            - "null"
+        employer_rate:
+          type: string
+          pattern: '^(0|1)\.[0-9]{6,18}$'
+        employee_rate:
+          type: string
+          pattern: '^(0|1)\.[0-9]{6,18}$'
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type:
+            - string
+            - "null"
+          format: date
+        version:
+          type: integer
+          minimum: 1
+    BenefitEnrollment:
+      type: object
+      required:
+        - id
+        - plan_id
+        - employment_id
+        - legal_entity_id
+        - base_amount_cents
+        - employee_rate
+        - employer_rate
+        - employee_contribution_cents
+        - employer_contribution_cents
+        - effective_from
+        - effective_to
+        - version
+      properties:
+        id:
+          type: integer
+        plan_id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        base_amount_cents:
+          type: integer
+          minimum: 0
+        employee_rate:
+          type: string
+        employer_rate:
+          type: string
+        employee_contribution_cents:
+          type: integer
+          minimum: 0
+        employer_contribution_cents:
+          type: integer
+          minimum: 0
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type:
+            - string
+            - "null"
+          format: date
+        version:
+          type: integer
+          minimum: 1
+    BenefitTransaction:
+      type: object
+      required:
+        - id
+        - enrollment_id
+        - employment_id
+        - legal_entity_id
+        - period
+        - base_amount_cents
+        - employee_amount_cents
+        - employer_amount_cents
+        - total_amount_cents
+        - payroll_run_id
+        - status
+      properties:
+        id:
+          type: integer
+        enrollment_id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        period:
+          type: string
+          pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+        base_amount_cents:
+          type: integer
+          minimum: 0
+        employee_amount_cents:
+          type: integer
+          minimum: 0
+        employer_amount_cents:
+          type: integer
+          minimum: 0
+        total_amount_cents:
+          type: integer
+          minimum: 0
+        payroll_run_id:
+          type:
+            - integer
+            - "null"
+        status:
+          type: string
+          enum:
+            - RECORDED
+    BenefitProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: {}
+    NoticeAudiencePreview:
+      type: object
+      required:
+        - notice_id
+        - audienceType
+        - audienceLabel
+        - orgUnitIds
+        - roleCodes
+        - recipientUserIds
+        - recipientCount
+        - resolvedOn
+      properties:
+        notice_id:
+          type: integer
+        audienceType:
+          type: string
+          enum:
+            - ALL
+            - ORG
+            - ROLE
+        audienceLabel:
+          type: string
+        orgUnitIds:
+          type: array
+          items:
+            type: integer
+        roleCodes:
+          type: array
+          items:
+            type: string
+        recipientUserIds:
+          type: array
+          items:
+            type: integer
+        recipientCount:
+          type: integer
+          minimum: 0
+        resolvedOn:
+          type: string
+          format: date
+    NoticeTemplate:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - version
+        - body_template
+        - variables
+        - status
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        body_template:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+            - PUBLISHED
+    NoticeReadExport:
+      type: object
+      required:
+        - fields
+        - rows
+        - row_count
+        - as_of
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        row_count:
+          type: integer
+          minimum: 0
+        as_of:
+          type: string
+          format: date
+    NoticeDecision:
+      type: object
+      required:
+        - id
+        - status
+        - notice_status
+        - application_status
+        - case_id
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        notice_status:
+          type: string
+          enum:
+            - PENDING_APPROVAL
+            - APPROVED
+            - REJECTED
+        application_status:
+          type: string
+          enum:
+            - IN_REVIEW
+            - APPROVED
+            - REJECTED
+        case_id:
           type: integer
     ReportDefinition:
       type: object
@@ -4709,6 +4997,62 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/NoticeList"
+    BenefitPlanEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/BenefitPlan"
+    BenefitEnrollmentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/BenefitEnrollment"
+    BenefitTransactionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/BenefitTransaction"
+    BenefitProjectionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/BenefitProjection"
+    NoticeAudiencePreviewEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoticeAudiencePreview"
+    NoticeTemplateEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoticeTemplate"
+    NoticeReadExportEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoticeReadExport"
+    NoticeDecisionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/NoticeDecision"
     NotificationEnvelope:
       allOf:
         - $ref: "#/components/schemas/Envelope"
@@ -10651,6 +10995,335 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.parameters.manage
+  /v1/benefits/plans:
+    get:
+      operationId: benefitsPlansIndex
+      tags:
+        - Benefits
+      summary: List effective-dated benefit plan versions
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: legal_entity_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Benefit plan projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.read
+    post:
+      operationId: benefitsPlansStore
+      tags:
+        - Benefits
+      summary: Append a benefit plan version
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - employer_rate
+                - employee_rate
+                - effective_from
+              properties:
+                code:
+                  type: string
+                  pattern: '^[A-Z][A-Z0-9_]{2,63}$'
+                name:
+                  type: string
+                  maxLength: 160
+                employer_rate:
+                  type: string
+                employee_rate:
+                  type: string
+                effective_from:
+                  type: string
+                  format: date
+                effective_to:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                legal_entity_id:
+                  type:
+                    - integer
+                    - "null"
+      responses:
+        "201":
+          description: Plan version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitPlanEnvelope"
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitPlanEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.manage
+  /v1/benefits/enrollments:
+    get:
+      operationId: benefitsEnrollmentsIndex
+      tags:
+        - Benefits
+      summary: List append-only statutory enrollment versions
+      parameters:
+        - name: employment_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: plan_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Enrollment projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.read
+    post:
+      operationId: benefitsEnrollmentsStore
+      tags:
+        - Benefits
+      summary: Append a statutory base movement
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan_id
+                - employment_id
+                - base_amount_cents
+                - effective_from
+              properties:
+                plan_id:
+                  type: integer
+                  minimum: 1
+                employment_id:
+                  type: integer
+                  minimum: 1
+                base_amount_cents:
+                  type: integer
+                  minimum: 0
+                effective_from:
+                  type: string
+                  format: date
+                effective_to:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+      responses:
+        "201":
+          description: Enrollment version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitEnrollmentEnvelope"
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitEnrollmentEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.manage
+  /v1/benefits/transactions:
+    get:
+      operationId: benefitsTransactionsIndex
+      tags:
+        - Benefits
+      summary: List monthly statutory contribution ledger rows
+      parameters:
+        - name: employment_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: enrollment_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: payroll_run_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Transaction projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.read
+    post:
+      operationId: benefitsTransactionsStore
+      tags:
+        - Benefits
+      summary: Record a monthly contribution and optional payroll link
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enrollment_id
+                - period
+              properties:
+                enrollment_id:
+                  type: integer
+                  minimum: 1
+                period:
+                  type: string
+                  pattern: '^\d{4}-(0[1-9]|1[0-2])$'
+                payroll_run_id:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+      responses:
+        "201":
+          description: Transaction recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.manage
   /v1/engagement/notices:
     get:
       operationId: engagementNoticesIndex
@@ -10826,6 +11499,466 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/{notice}/submit:
+    post:
+      operationId: engagementNoticesSubmit
+      tags:
+        - Engagement
+      summary: Submit a draft notice to its Workflow approval case
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "201":
+          description: Notice submitted for approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/{notice}/decision:
+    post:
+      operationId: engagementNoticesDecision
+      tags:
+        - Engagement
+      summary: Record an APPROVE or REJECT decision on the notice case
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - APPROVE
+                    - REJECT
+                comment:
+                  type: string
+                  maxLength: 4000
+                business_date:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Decision recorded by Workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeDecisionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.publish
+  /v1/engagement/notices/{notice}/publish:
+    post:
+      operationId: engagementNoticesPublish
+      tags:
+        - Engagement
+      summary: Publish a notice only after its Workflow Case is approved
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Notice published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.publish
+  /v1/engagement/notices/{notice}/audience:
+    get:
+      operationId: engagementNoticesAudience
+      tags:
+        - Engagement
+      summary: Resolve the live audience membership for a notice
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Live audience preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeAudiencePreviewEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/{notice}/reads:
+    get:
+      operationId: engagementNoticesReads
+      tags:
+        - Engagement
+      summary: List acknowledgement evidence for a notice
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Acknowledgement projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - user_id
+                                    - acknowledged_at
+                                  properties:
+                                    user_id:
+                                      type: integer
+                                    acknowledged_at:
+                                      type:
+                                        - string
+                                        - "null"
+                                      format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.read
+  /v1/engagement/notices/{notice}/reads/export:
+    get:
+      operationId: engagementNoticesReadsExport
+      tags:
+        - Engagement
+      summary: Export whitelisted acknowledgement fields with sensitive-access audit
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fields
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Whitelisted acknowledgement export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeReadExportEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.export
+  /v1/engagement/notice-templates:
+    get:
+      operationId: engagementNoticeTemplatesIndex
+      tags:
+        - Engagement
+      summary: List versioned notice templates
+      responses:
+        "200":
+          description: Notice template projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/NoticeTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.read
+    post:
+      operationId: engagementNoticeTemplatesStore
+      tags:
+        - Engagement
+      summary: Publish a notice template version
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - body_template
+              properties:
+                code:
+                  type: string
+                  pattern: '^[A-Z][A-Z0-9_]{2,63}$'
+                name:
+                  type: string
+                  maxLength: 160
+                body_template:
+                  type: string
+                  maxLength: 20000
+                variables:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Template version published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeTemplateEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/archive:
+    get:
+      operationId: engagementNoticesArchiveIndex
+      tags:
+        - Engagement
+      summary: List archived notices
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Archived notice projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/Notice"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/{notice}/archive:
+    post:
+      operationId: engagementNoticesArchive
+      tags:
+        - Engagement
+      summary: Archive a notice and retain its previous status
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                business_date:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Notice archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+  /v1/engagement/notices/{notice}/restore:
+    post:
+      operationId: engagementNoticesRestore
+      tags:
+        - Engagement
+      summary: Restore an archived notice to its previous status
+      parameters:
+        - name: notice
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Notice restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoticeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage

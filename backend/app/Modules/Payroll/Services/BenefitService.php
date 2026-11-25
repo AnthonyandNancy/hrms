@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\IAM\Contracts\Principal;
-use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Modules\Payroll\Models\BenefitTransaction;
+use App\Modules\People\Contracts\PeopleDirectory;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -28,8 +28,6 @@ use Illuminate\Support\Facades\DB;
  */
 final class BenefitService
 {
-    private const RATE_SCALE = 6;
-
     public function __construct(
         private readonly Authorizer $authorizer,
         private readonly PeopleDirectory $people,
@@ -75,7 +73,7 @@ final class BenefitService
         $employeeRate = $this->normalizeRate((string) $data['employee_rate'], 'employee_rate');
         $code = strtoupper(trim((string) $data['code']));
         $effectiveFrom = (string) $data['effective_from'];
-        $effectiveTo = isset($data['effective_to']) && $data['effective_to'] !== null ? (string) $data['effective_to'] : null;
+        $effectiveTo = isset($data['effective_to']) ? (string) $data['effective_to'] : null;
 
         if ($effectiveTo !== null && $effectiveTo < $effectiveFrom) {
             throw new ValidationException(
@@ -109,7 +107,7 @@ final class BenefitService
 
             $plan = BenefitPlan::query()->create([
                 'tenant_id' => $tenantId,
-                'legal_entity_id' => isset($data['legal_entity_id']) && $data['legal_entity_id'] !== null ? (int) $data['legal_entity_id'] : null,
+                'legal_entity_id' => isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null,
                 'code' => $code,
                 'name' => trim((string) $data['name']),
                 'employer_rate' => $employerRate,
@@ -200,7 +198,7 @@ final class BenefitService
         }
 
         $effectiveFrom = (string) $data['effective_from'];
-        $effectiveTo = isset($data['effective_to']) && $data['effective_to'] !== null ? (string) $data['effective_to'] : null;
+        $effectiveTo = isset($data['effective_to']) ? (string) $data['effective_to'] : null;
 
         if ($effectiveTo !== null && $effectiveTo < $effectiveFrom) {
             throw new ValidationException(
@@ -301,7 +299,7 @@ final class BenefitService
 
         $employeeAmount = $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employee_rate);
         $employerAmount = $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employer_rate);
-        $payrollRunId = isset($data['payroll_run_id']) && $data['payroll_run_id'] !== null ? (int) $data['payroll_run_id'] : null;
+        $payrollRunId = isset($data['payroll_run_id']) ? (int) $data['payroll_run_id'] : null;
 
         return DB::transaction(function () use ($tenantId, $actorUserId, $enrollment, $period, $employeeAmount, $employerAmount, $payrollRunId): BenefitTransaction {
             if ($payrollRunId !== null && BenefitTransaction::query()
@@ -444,6 +442,9 @@ final class BenefitService
         ];
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $items
+     */
     public function projection(string $asOf, array $items, int $total, int $page, int $pageSize, string $resource): ProjectionResult
     {
         return new ProjectionResult(

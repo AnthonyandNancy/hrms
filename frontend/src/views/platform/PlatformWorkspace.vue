@@ -70,6 +70,36 @@ const calendarData = ref<PlatformRow | null>(null)
 const leaveTypes = ref<PlatformRow[]>([])
 const auditEvents = ref<PlatformRow[]>([])
 const accessReview = ref<PlatformRow | null>(null)
+const benefitsPlans = ref<PlatformRow[]>([])
+const benefitEnrollments = ref<PlatformRow[]>([])
+const benefitTransactions = ref<PlatformRow[]>([])
+const noticeAudience = ref<PlatformRow | null>(null)
+const noticeReads = ref<PlatformRow[]>([])
+const noticeTemplates = ref<PlatformRow[]>([])
+const archivedNotices = ref<PlatformRow[]>([])
+const noticeDecisionComment = ref('')
+
+const benefitPlanForm = reactive({
+  code: 'SOCIAL_INSURANCE',
+  name: '社会保险',
+  employerRate: '0.160000',
+  employeeRate: '0.080000',
+  effectiveFrom: todayBusinessDate(),
+})
+
+const benefitEnrollmentForm = reactive({
+  planId: '',
+  employmentId: '',
+  baseAmountCents: '',
+  effectiveFrom: todayBusinessDate(),
+})
+
+const noticeTemplateForm = reactive({
+  code: '',
+  name: '',
+  bodyTemplate: '',
+  variables: '',
+})
 
 const noticeFilter = ref<'all' | 'unread' | 'acknowledged' | 'managed'>('all')
 const selectedUser = ref<PlatformRow | null>(null)
@@ -237,8 +267,9 @@ const empty = computed(() => {
     case 'reports-detail':
       return definitions.value.length === 0 && reportResult.value === null
     case 'notice-list':
-    case 'notice-gap':
       return notices.value.length === 0
+    case 'notice-governance':
+      return notices.value.length === 0 && noticeTemplates.value.length === 0 && archivedNotices.value.length === 0
     case 'account':
       return meData.value === null
     case 'users':
@@ -263,7 +294,7 @@ const empty = computed(() => {
     case 'audit':
       return auditEvents.value.length === 0 && unusedBindings.value.length === 0 && sodRisks.value.length === 0
     case 'benefits':
-      return true
+      return benefitsPlans.value.length === 0 && benefitEnrollments.value.length === 0 && benefitTransactions.value.length === 0
     case 'notice-create':
       return false
     default:
@@ -415,6 +446,257 @@ async function loadNotices(): Promise<void> {
   partial.value = partialFlag(payload)
 }
 
+async function loadBenefits(): Promise<void> {
+  const [planPayload, enrollmentPayload, transactionPayload] = await settleReads([
+    resourceGet<unknown>('/v1/benefits/plans', { page: 1, page_size: 50 }),
+    resourceGet<unknown>('/v1/benefits/enrollments', { page: 1, page_size: 50 }),
+    resourceGet<unknown>('/v1/benefits/transactions', { page: 1, page_size: 50 }),
+  ])
+  benefitsPlans.value = rowsFrom(planPayload)
+  benefitEnrollments.value = rowsFrom(enrollmentPayload)
+  benefitTransactions.value = rowsFrom(transactionPayload)
+  partial.value = partialFlag(planPayload, enrollmentPayload, transactionPayload)
+}
+
+async function loadNoticeGovernance(): Promise<void> {
+  const panel = config.value?.noticePanel
+
+  if (panel === 'templates') {
+    const payload = await resourceGet<unknown>('/v1/engagement/notice-templates')
+    noticeTemplates.value = rowsFrom(payload)
+    partial.value = partialFlag(payload)
+    return
+  }
+
+  if (panel === 'archive') {
+    const payload = await resourceGet<unknown>('/v1/engagement/notices/archive', { page: 1, page_size: 50 })
+    archivedNotices.value = rowsFrom(payload)
+    partial.value = partialFlag(payload)
+    return
+  }
+
+  // Governance panels operate on the management projection: drafts,
+  // pending/rejected notices and archived history are not in the public feed.
+  noticeFilter.value = 'managed'
+  await loadNotices()
+
+  const first = notices.value[0]
+  if (first === undefined) return
+
+  if (panel === 'reads') {
+    const payload = await resourceGet<unknown>(`/v1/engagement/notices/${idText(first.id)}/reads`, {
+      page: 1,
+      page_size: 50,
+    })
+    noticeReads.value = rowsFrom(payload)
+    partial.value ||= partialFlag(payload)
+  }
+}
+
+async function loadNoticePanel(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+
+  try {
+    const panel = config.value?.noticePanel
+
+    if (panel === 'audience') {
+      noticeAudience.value = recordFrom(await resourceGet<unknown>(`/v1/engagement/notices/${id}/audience`))
+      return
+    }
+
+    if (panel === 'reads') {
+      const payload = await resourceGet<unknown>(`/v1/engagement/notices/${id}/reads`, { page: 1, page_size: 50 })
+      noticeReads.value = rowsFrom(payload)
+      partial.value ||= partialFlag(payload)
+    }
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function decideNotice(row: PlatformRow, action: 'APPROVE' | 'REJECT'): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+
+  try {
+    const payload = await resourcePost<unknown>(
+      `/v1/engagement/notices/${id}/decision`,
+      { action, comment: noticeDecisionComment.value.trim() },
+      { idempotencyKey: nextIdempotencyKey('notice-decision'), headers: writeHeaders() },
+    )
+    const updated = recordFrom(payload)
+    if (updated !== null) {
+      row.status = updated.notice_status ?? updated.status
+    }
+    successMessage.value = action === 'APPROVE' ? '公告审批已通过。' : '公告已驳回。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function publishNotice(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+
+  try {
+    const payload = await resourcePost<unknown>(
+      `/v1/engagement/notices/${id}/publish`,
+      {},
+      { idempotencyKey: nextIdempotencyKey('notice-publish'), headers: writeHeaders() },
+    )
+    const updated = recordFrom(payload)
+    if (updated !== null) row.status = updated.status
+    successMessage.value = '公告已发布。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function exportNoticeReads(): Promise<void> {
+  const first = notices.value[0]
+  if (first === undefined) {
+    actionError.value = { message: '请先选择一条公告。', requestId: null, reason: 'NOTICE_REQUIRED' }
+    return
+  }
+
+  resetFeedback()
+
+  try {
+    const payload = await resourceGet<unknown>(`/v1/engagement/notices/${idText(first.id)}/reads/export`, {
+      fields: 'user_id,acknowledged_at',
+    })
+    noticeReads.value = rowsFrom(payload, 'rows')
+    successMessage.value = '阅读记录已按白名单字段导出，并写入敏感字段访问审计。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function submitNoticeTemplate(): Promise<void> {
+  resetFeedback()
+  const code = noticeTemplateForm.code.trim().toUpperCase()
+  const bodyTemplate = noticeTemplateForm.bodyTemplate.trim()
+
+  if (code === '' || noticeTemplateForm.name.trim() === '' || bodyTemplate === '') {
+    actionError.value = { message: '模板代码、名称与正文必填。', requestId: null, reason: 'NOTICE_TEMPLATE_REQUIRED' }
+    return
+  }
+
+  try {
+    await resourcePost<unknown>(
+      '/v1/engagement/notice-templates',
+      {
+        code,
+        name: noticeTemplateForm.name.trim(),
+        body_template: bodyTemplate,
+        variables: noticeTemplateForm.variables
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item !== ''),
+      },
+      { idempotencyKey: nextIdempotencyKey('notice-template'), headers: writeHeaders() },
+    )
+    noticeTemplateForm.code = ''
+    noticeTemplateForm.name = ''
+    noticeTemplateForm.bodyTemplate = ''
+    noticeTemplateForm.variables = ''
+    await loadNoticeGovernance()
+    successMessage.value = '公告模板版本已发布。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function archiveNotice(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+
+  try {
+    await resourcePost<unknown>(
+      `/v1/engagement/notices/${id}/archive`,
+      { reason: '页面归档操作' },
+      { idempotencyKey: nextIdempotencyKey('notice-archive'), headers: writeHeaders() },
+    )
+    row.status = 'ARCHIVED'
+    successMessage.value = '公告已归档。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function restoreNotice(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+
+  try {
+    const payload = await resourcePost<unknown>(
+      `/v1/engagement/notices/${id}/restore`,
+      {},
+      { idempotencyKey: nextIdempotencyKey('notice-restore'), headers: writeHeaders() },
+    )
+    const updated = recordFrom(payload)
+    if (updated !== null) row.status = updated.status
+    successMessage.value = '公告已恢复。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function createBenefitPlan(): Promise<void> {
+  resetFeedback()
+
+  try {
+    await resourcePost<unknown>(
+      '/v1/benefits/plans',
+      {
+        code: benefitPlanForm.code.trim().toUpperCase(),
+        name: benefitPlanForm.name.trim(),
+        employer_rate: benefitPlanForm.employerRate,
+        employee_rate: benefitPlanForm.employeeRate,
+        effective_from: benefitPlanForm.effectiveFrom,
+      },
+      { idempotencyKey: nextIdempotencyKey('benefit-plan'), headers: writeHeaders() },
+    )
+    await loadBenefits()
+    successMessage.value = '福利方案版本已创建。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function createBenefitEnrollment(): Promise<void> {
+  resetFeedback()
+  const base = Number(benefitEnrollmentForm.baseAmountCents)
+
+  if (!Number.isInteger(base) || base < 0) {
+    actionError.value = { message: '参保基数必须是非负整数分。', requestId: null, reason: 'BENEFIT_BASE_INVALID' }
+    return
+  }
+
+  try {
+    await resourcePost<unknown>(
+      '/v1/benefits/enrollments',
+      {
+        plan_id: Number(benefitEnrollmentForm.planId),
+        employment_id: Number(benefitEnrollmentForm.employmentId),
+        base_amount_cents: base,
+        effective_from: benefitEnrollmentForm.effectiveFrom,
+      },
+      { idempotencyKey: nextIdempotencyKey('benefit-enrollment'), headers: writeHeaders() },
+    )
+    await loadBenefits()
+    successMessage.value = '参保基数版本已追加。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
 async function loadAccount(): Promise<void> {
   const payload = await resourceGet<unknown>('/v1/me')
   meData.value = recordFrom(payload)
@@ -511,8 +793,10 @@ async function load(): Promise<void> {
         break
       case 'notice-list':
       case 'notice-create':
-      case 'notice-gap':
         await loadNotices()
+        break
+      case 'notice-governance':
+        await loadNoticeGovernance()
         break
       case 'account':
         await loadAccount()
@@ -548,6 +832,8 @@ async function load(): Promise<void> {
         await loadAudit()
         break
       case 'benefits':
+        await loadBenefits()
+        break
       case null:
         break
       default:
@@ -1375,7 +1661,7 @@ watch(selectedExportDefinition, () => {
       </template>
 
       <!-- Notices -->
-      <template v-else-if="mode === 'notice-list' || mode === 'notice-gap'">
+      <template v-else-if="mode === 'notice-list' || mode === 'notice-governance'">
         <div class="platform-toolbar">
           <div class="platform-filters" role="group" aria-label="公告筛选">
             <button
@@ -1431,6 +1717,14 @@ watch(selectedExportDefinition, () => {
               >
                 撤回
               </el-button>
+              <el-button
+                v-if="rowText(notice, 'status') !== 'ARCHIVED'"
+                text
+                size="small"
+                @click="archiveNotice(notice)"
+              >
+                归档
+              </el-button>
             </div>
           </article>
         </section>
@@ -1466,11 +1760,94 @@ watch(selectedExportDefinition, () => {
           </div>
         </section>
 
-        <section v-if="mode === 'notice-gap' && config?.key === 'notices/reads'" class="panel">
-          <div class="panel__header"><h2 class="panel__title">阅读完成度（真实计数）</h2></div>
+        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'approval'" class="panel" data-testid="notice-approval-panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">公告审核（Workflow Case）</h2>
+              <p class="panel__subtitle">审批结果由 Workflow Case 决定；驳回后发布端点会返回 409。</p>
+            </div>
+          </div>
+          <div v-if="notices.length > 0" class="panel__body">
+            <label class="platform-field">
+              <span>审批意见</span>
+              <input v-model="noticeDecisionComment" maxlength="4000" placeholder="审批或驳回意见" />
+            </label>
+            <div class="platform-card-list">
+              <article v-for="notice in notices" :key="`approval-${idText(notice.id)}`" class="platform-card">
+                <div class="platform-card__main">
+                  <p class="platform-card__title">{{ rowText(notice, 'title') }}</p>
+                  <p class="small muted">
+                    状态 {{ statusText(rowText(notice, 'status')) }} · Case
+                    {{ rowText(notice, 'approvalCaseId') }}
+                  </p>
+                </div>
+                <div class="platform-card__actions">
+                  <el-button
+                    v-if="rowText(notice, 'status') === 'PENDING_APPROVAL'"
+                    type="primary"
+                    size="small"
+                    @click="decideNotice(notice, 'APPROVE')"
+                  >
+                    通过
+                  </el-button>
+                  <el-button
+                    v-if="rowText(notice, 'status') === 'PENDING_APPROVAL'"
+                    size="small"
+                    @click="decideNotice(notice, 'REJECT')"
+                  >
+                    驳回
+                  </el-button>
+                  <el-button
+                    v-if="rowText(notice, 'status') === 'APPROVED'"
+                    type="primary"
+                    plain
+                    size="small"
+                    @click="publishNotice(notice)"
+                  >
+                    发布
+                  </el-button>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">当前没有待审核公告。</p></div>
+        </section>
+
+        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'audience'" class="panel" data-testid="notice-audience-panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">公告发布范围</h2>
+              <p class="panel__subtitle">人数与用户 ID 来自当前组织/角色目录，不使用公告上缓存数字。</p>
+            </div>
+          </div>
+          <div v-if="notices.length > 0" class="panel__body">
+            <div class="platform-inline-actions">
+              <el-button v-for="notice in notices" :key="`audience-${idText(notice.id)}`" size="small" @click="loadNoticePanel(notice)">
+                {{ rowText(notice, 'title') }}
+              </el-button>
+            </div>
+            <dl v-if="noticeAudience" class="platform-definition-grid">
+              <div><dt>受众类型</dt><dd>{{ rowText(noticeAudience, 'audienceType') }}</dd></div>
+              <div><dt>受众标签</dt><dd>{{ rowText(noticeAudience, 'audienceLabel') }}</dd></div>
+              <div><dt>实时人数</dt><dd>{{ rowText(noticeAudience, 'recipientCount') }}</dd></div>
+              <div><dt>用户 ID</dt><dd>{{ rowText(noticeAudience, 'recipientUserIds') }}</dd></div>
+              <div><dt>解析日期</dt><dd>{{ rowText(noticeAudience, 'resolvedOn') }}</dd></div>
+            </dl>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">当前没有可预览受众的公告。</p></div>
+        </section>
+
+        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'reads'" class="panel" data-testid="notice-reads-panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">公告阅读记录</h2>
+              <p class="panel__subtitle">导出按白名单字段返回，并记录 sensitive_field_access 审计。</p>
+            </div>
+            <el-button size="small" @click="exportNoticeReads">导出白名单字段</el-button>
+          </div>
           <div class="platform-table-wrap">
             <table class="platform-table">
-              <caption class="visually-hidden">公告阅读计数</caption>
+              <caption class="visually-hidden">公告阅读记录</caption>
               <thead><tr><th scope="col">公告</th><th scope="col">已确认</th><th scope="col">受众</th><th scope="col">完成率</th></tr></thead>
               <tbody>
                 <tr v-for="notice in notices" :key="`read-${idText(notice.id)}`">
@@ -1486,6 +1863,60 @@ watch(selectedExportDefinition, () => {
               </tbody>
             </table>
           </div>
+          <div class="panel__body">
+            <el-button size="small" @click="notices[0] && loadNoticePanel(notices[0])">读取明细</el-button>
+            <ul v-if="noticeReads.length > 0" class="platform-list">
+              <li v-for="ack in noticeReads" :key="`ack-${rowText(ack, 'user_id')}`">
+                <span>用户 {{ rowText(ack, 'user_id') }}</span>
+                <span class="small muted">{{ formatDateTimeInTimezone(rowText(ack, 'acknowledged_at', '')) }}</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'templates'" class="panel" data-testid="notice-templates-panel">
+          <div class="panel__header"><h2 class="panel__title">公告模板</h2></div>
+          <div class="panel__body platform-form">
+            <label class="platform-field"><span>模板代码</span><input v-model="noticeTemplateForm.code" data-testid="notice-template-code" placeholder="PAYROLL_REMINDER" /></label>
+            <label class="platform-field"><span>名称</span><input v-model="noticeTemplateForm.name" data-testid="notice-template-name" placeholder="薪酬提醒" /></label>
+            <label class="platform-field"><span>模板正文</span><textarea v-model="noticeTemplateForm.bodyTemplate" data-testid="notice-template-body" rows="4" /></label>
+            <label class="platform-field"><span>变量（逗号分隔）</span><input v-model="noticeTemplateForm.variables" placeholder="period,amount" /></label>
+            <el-button type="primary" data-testid="notice-template-submit" @click="submitNoticeTemplate">发布模板版本</el-button>
+          </div>
+          <div v-if="noticeTemplates.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">公告模板</caption>
+              <thead><tr><th scope="col">代码</th><th scope="col">名称</th><th scope="col">版本</th><th scope="col">变量</th></tr></thead>
+              <tbody>
+                <tr v-for="template in noticeTemplates" :key="`template-${idText(template.id)}`">
+                  <td>{{ rowText(template, 'code') }}</td>
+                  <td>{{ rowText(template, 'name') }}</td>
+                  <td>{{ rowText(template, 'version') }}</td>
+                  <td>{{ rowText(template, 'variables') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">尚未发布模板。</p></div>
+        </section>
+
+        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'archive'" class="panel" data-testid="notice-archive-panel">
+          <div class="panel__header"><h2 class="panel__title">公告归档</h2></div>
+          <div v-if="archivedNotices.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">已归档公告</caption>
+              <thead><tr><th scope="col">标题</th><th scope="col">归档时间</th><th scope="col">摘要</th><th scope="col">操作</th></tr></thead>
+              <tbody>
+                <tr v-for="notice in archivedNotices" :key="`archived-${idText(notice.id)}`">
+                  <td>{{ rowText(notice, 'title') }}</td>
+                  <td>{{ formatDateTimeInTimezone(rowText(notice, 'archivedAt', '')) }}</td>
+                  <td>{{ rowText(notice, 'summary') }}</td>
+                  <td><el-button size="small" @click="restoreNotice(notice)">恢复</el-button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">没有已归档公告。</p></div>
         </section>
       </template>
 
@@ -2169,15 +2600,84 @@ watch(selectedExportDefinition, () => {
 
       <!-- Benefits and Calendars -->
       <template v-else-if="mode === 'benefits'">
-        <section class="panel">
-          <div class="panel__header"><h2 class="panel__title">福利模块</h2></div>
-          <div class="panel__body stack--tight">
-            <p class="platform-gap__title">后端接口待补: 社保公积金与福利模块</p>
-            <p class="small muted">
-              本 checkout 没有基数方案、缴费项、月度增减员、福利项目或发放台账 API。页面不展示任何虚构的缴费金额或员工福利数据。
-            </p>
-            <p class="mono small">计划接口：GET /v1/benefits · GET /v1/benefits/contributions · GET /v1/benefits/ledger</p>
+        <section class="panel" data-testid="benefit-plans-panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">社保公积金方案</h2>
+              <p class="panel__subtitle">按生效日版本化，费率以定点小数字符串返回；不覆盖历史版本。</p>
+            </div>
           </div>
+          <div class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">福利方案版本</caption>
+              <thead><tr><th scope="col">代码</th><th scope="col">名称</th><th scope="col">版本</th><th scope="col">雇主费率</th><th scope="col">个人费率</th><th scope="col">生效日</th></tr></thead>
+              <tbody>
+                <tr v-for="plan in benefitsPlans" :key="`plan-${idText(plan.id)}`">
+                  <td>{{ rowText(plan, 'code') }}</td>
+                  <td>{{ rowText(plan, 'name') }}</td>
+                  <td>{{ rowText(plan, 'version') }}</td>
+                  <td>{{ rowText(plan, 'employer_rate') }}</td>
+                  <td>{{ rowText(plan, 'employee_rate') }}</td>
+                  <td>{{ rowText(plan, 'effective_from') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel__body platform-form">
+            <label class="platform-field"><span>方案代码</span><input v-model="benefitPlanForm.code" data-testid="benefit-plan-code" /></label>
+            <label class="platform-field"><span>名称</span><input v-model="benefitPlanForm.name" data-testid="benefit-plan-name" /></label>
+            <label class="platform-field"><span>雇主费率</span><input v-model="benefitPlanForm.employerRate" data-testid="benefit-plan-employer-rate" /></label>
+            <label class="platform-field"><span>个人费率</span><input v-model="benefitPlanForm.employeeRate" data-testid="benefit-plan-employee-rate" /></label>
+            <label class="platform-field"><span>生效日</span><input v-model="benefitPlanForm.effectiveFrom" type="date" data-testid="benefit-plan-effective-from" /></label>
+            <el-button type="primary" data-testid="benefit-plan-submit" @click="createBenefitPlan">创建方案版本</el-button>
+          </div>
+        </section>
+
+        <section class="panel" data-testid="benefit-enrollments-panel">
+          <div class="panel__header"><h2 class="panel__title">参保基数与月度台账</h2></div>
+          <div class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">参保版本</caption>
+              <thead><tr><th scope="col">员工</th><th scope="col">方案</th><th scope="col">基数（分）</th><th scope="col">版本</th><th scope="col">生效日</th></tr></thead>
+              <tbody>
+                <tr v-for="enrollment in benefitEnrollments" :key="`enrollment-${idText(enrollment.id)}`">
+                  <td>{{ rowText(enrollment, 'employment_id') }}</td>
+                  <td>{{ rowText(enrollment, 'plan_id') }}</td>
+                  <td>{{ rowText(enrollment, 'base_amount_cents') }}</td>
+                  <td>{{ rowText(enrollment, 'version') }}</td>
+                  <td>{{ rowText(enrollment, 'effective_from') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel__body platform-form">
+            <label class="platform-field"><span>方案 ID</span><input v-model="benefitEnrollmentForm.planId" data-testid="benefit-enrollment-plan" /></label>
+            <label class="platform-field"><span>任职 ID</span><input v-model="benefitEnrollmentForm.employmentId" data-testid="benefit-enrollment-employment" /></label>
+            <label class="platform-field"><span>基数（整数分）</span><input v-model="benefitEnrollmentForm.baseAmountCents" data-testid="benefit-enrollment-base" /></label>
+            <label class="platform-field"><span>生效日</span><input v-model="benefitEnrollmentForm.effectiveFrom" type="date" data-testid="benefit-enrollment-effective-from" /></label>
+            <el-button type="primary" data-testid="benefit-enrollment-submit" @click="createBenefitEnrollment">追加参保版本</el-button>
+          </div>
+        </section>
+
+        <section class="panel" data-testid="benefit-transactions-panel">
+          <div class="panel__header"><h2 class="panel__title">月度缴费台账</h2></div>
+          <div v-if="benefitTransactions.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">月度缴费台账</caption>
+              <thead><tr><th scope="col">期间</th><th scope="col">任职</th><th scope="col">个人（分）</th><th scope="col">雇主（分）</th><th scope="col">合计（分）</th><th scope="col">工资批次</th></tr></thead>
+              <tbody>
+                <tr v-for="transaction in benefitTransactions" :key="`tx-${idText(transaction.id)}`">
+                  <td>{{ rowText(transaction, 'period') }}</td>
+                  <td>{{ rowText(transaction, 'employment_id') }}</td>
+                  <td>{{ rowText(transaction, 'employee_amount_cents') }}</td>
+                  <td>{{ rowText(transaction, 'employer_amount_cents') }}</td>
+                  <td>{{ rowText(transaction, 'total_amount_cents') }}</td>
+                  <td>{{ rowText(transaction, 'payroll_run_id') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">尚无月度缴费记录。</p></div>
         </section>
       </template>
 

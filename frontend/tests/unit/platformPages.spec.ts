@@ -1030,14 +1030,201 @@ describe('Wave 5 platform and business pages', () => {
     expect(wrapper.text()).not.toContain('{"')
   })
 
-  it('shows the health-benefits gap without pretending an API exists', async () => {
+  it('loads benefit plans, enrollment versions and the monthly ledger from real endpoints', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/benefits/plans') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 10,
+              code: 'SOCIAL_INSURANCE',
+              name: '社会保险',
+              employer_rate: '0.160000',
+              employee_rate: '0.080000',
+              effective_from: '2026-01-01',
+              version: 1,
+            },
+          ]),
+        )
+      }
+      if (path === '/v1/benefits/enrollments') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 20,
+              employment_id: 1001,
+              plan_id: 10,
+              base_amount_cents: 1000000,
+              effective_from: '2026-01-01',
+              version: 1,
+            },
+          ]),
+        )
+      }
+      if (path === '/v1/benefits/transactions') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 30,
+              period: '2026-01',
+              employment_id: 1001,
+              employee_amount_cents: 80000,
+              employer_amount_cents: 160000,
+              total_amount_cents: 240000,
+              payroll_run_id: 77,
+            },
+          ]),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({ id: 11, version: 2 })
+
     const { wrapper } = await mountAt('benefits', '/benefits')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="backend-gap"]').text()).toContain('后端接口待补: 社保公积金与福利模块')
-    expect(wrapper.text()).toContain('GET /v1/benefits')
-    expect(resource.get).not.toHaveBeenCalled()
+    expect(resource.get).toHaveBeenCalledWith('/v1/benefits/plans', expect.any(Object))
+    expect(resource.get).toHaveBeenCalledWith('/v1/benefits/enrollments', expect.any(Object))
+    expect(resource.get).toHaveBeenCalledWith('/v1/benefits/transactions', expect.any(Object))
+    expect(wrapper.text()).toContain('SOCIAL_INSURANCE')
+    expect(wrapper.text()).toContain('1000000')
+    expect(wrapper.text()).toContain('240000')
+    expect(wrapper.text()).not.toContain('后端接口待补')
     expect(wrapper.text()).not.toContain('{"')
+
+    await wrapper.get('[data-testid="benefit-plan-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/benefits/plans',
+      expect.objectContaining({
+        code: 'SOCIAL_INSURANCE',
+        employer_rate: '0.160000',
+        employee_rate: '0.080000',
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+
+  it('renders notice approval, live audience, reads, templates and archive from real endpoints', async () => {
+    const notice = {
+      id: 61,
+      title: 'Synthetic governed notice',
+      summary: 'Synthetic governed body',
+      body: ['Synthetic governed body'],
+      status: 'PENDING_APPROVAL',
+      audience: 'ALL',
+      audienceLabel: '全体员工',
+      publishedAt: '2026-11-25T06:00:00Z',
+      retractedAt: null,
+      authorName: null,
+      requiresAck: true,
+      acknowledged: false,
+      acknowledgementCount: 0,
+      audienceCount: 2,
+      approvalCaseId: 901,
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/engagement/notices') return Promise.resolve([notice])
+      if (path === '/v1/engagement/notices/61/audience') {
+        return Promise.resolve({
+          notice_id: 61,
+          audienceType: 'ALL',
+          audienceLabel: '全体员工',
+          orgUnitIds: [],
+          roleCodes: [],
+          recipientUserIds: [7, 8],
+          recipientCount: 2,
+          resolvedOn: '2026-11-25',
+        })
+      }
+      if (path === '/v1/engagement/notices/61/reads') {
+        return Promise.resolve(
+          listResponse([{ user_id: 7, acknowledged_at: '2026-11-25T07:00:00Z' }]),
+        )
+      }
+      if (path === '/v1/engagement/notices/61/reads/export') {
+        return Promise.resolve({
+          fields: ['user_id', 'acknowledged_at'],
+          rows: [{ user_id: 7, acknowledged_at: '2026-11-25T07:00:00Z' }],
+          row_count: 1,
+          as_of: '2026-11-25',
+        })
+      }
+      if (path === '/v1/engagement/notice-templates') {
+        return Promise.resolve(
+          listResponse([
+            { id: 11, code: 'PAYROLL_REMINDER', name: '薪酬提醒', version: 1, body_template: 'Payroll {{period}}', variables: ['period'] },
+          ]),
+        )
+      }
+      if (path === '/v1/engagement/notices/archive') {
+        return Promise.resolve(
+          listResponse([
+            { id: 62, title: 'Synthetic archived notice', summary: 'Archived body', status: 'ARCHIVED', archivedAt: '2026-11-25T08:00:00Z' },
+          ]),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({
+      ...notice,
+      notice_status: 'APPROVED',
+      application_status: 'APPROVED',
+      case_id: 901,
+    })
+
+    const approval = await mountAt('notices/approval', '/notices/approval')
+    await flushPromises()
+    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices', { filter: 'managed' })
+    expect(approval.wrapper.get('[data-testid="notice-approval-panel"]').text()).toContain('Synthetic governed notice')
+    expect(approval.wrapper.text()).not.toContain('后端接口待补')
+
+    const approve = approval.wrapper.findAll('button').find((button) => button.text() === '通过')
+    expect(approve, 'approve button').toBeDefined()
+    await approve!.trigger('click')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/engagement/notices/61/decision',
+      { action: 'APPROVE', comment: '' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    const audience = await mountAt('notices/audience', '/notices/audience')
+    await flushPromises()
+    const preview = audience.wrapper.findAll('button').find((button) => button.text() === 'Synthetic governed notice')
+    expect(preview, 'audience preview button').toBeDefined()
+    await preview!.trigger('click')
+    await flushPromises()
+    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/61/audience')
+    expect(audience.wrapper.get('[data-testid="notice-audience-panel"]').text()).toContain('2')
+
+    const reads = await mountAt('notices/reads', '/notices/reads')
+    await flushPromises()
+    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/61/reads', { page: 1, page_size: 50 })
+    expect(reads.wrapper.get('[data-testid="notice-reads-panel"]').text()).toContain('导出白名单字段')
+
+    const templates = await mountAt('notices/templates', '/notices/templates')
+    await flushPromises()
+    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notice-templates')
+    expect(templates.wrapper.get('[data-testid="notice-templates-panel"]').text()).toContain('PAYROLL_REMINDER')
+    await templates.wrapper.get('[data-testid="notice-template-code"]').setValue('PAYROLL_REMINDER')
+    await templates.wrapper.get('[data-testid="notice-template-name"]').setValue('薪酬提醒')
+    await templates.wrapper.get('[data-testid="notice-template-body"]').setValue('Payroll {{period}}')
+    await templates.wrapper.get('[data-testid="notice-template-submit"]').trigger('click')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/engagement/notice-templates',
+      expect.objectContaining({ code: 'PAYROLL_REMINDER' }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    const archive = await mountAt('notices/archive', '/notices/archive')
+    await flushPromises()
+    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/archive', { page: 1, page_size: 50 })
+    expect(archive.wrapper.get('[data-testid="notice-archive-panel"]').text()).toContain('Synthetic archived notice')
+    expect(archive.wrapper.text()).not.toContain('后端接口待补')
   })
 
   it('renders the server request id on a 5xx page-load error', async () => {
