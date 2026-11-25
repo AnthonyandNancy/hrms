@@ -1246,28 +1246,28 @@ return [
         'capability' => 'performance.calibration.manage',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'mfa_required'],
     ],
 
     'POST /v1/performance/reviews/{id}/calibration' => [
         'capability' => 'performance.calibration.manage',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
 
     'GET /v1/performance/results' => [
         'capability' => 'performance.result.publish',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'mfa_required'],
     ],
 
     'POST /v1/performance/cycles/{id}/publish' => [
         'capability' => 'performance.result.publish',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
 
     'GET /v1/performance/reports' => [
