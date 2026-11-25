@@ -62,7 +62,6 @@ GET /v1/reporting/dashboard
 GET /v1/reporting/dashboard/metrics/{metric}
 GET /v1/reporting/definitions
 GET /v1/reporting/exports/{jobId}/download
-GET /v1/roles
 GET /v1/tasks/my
 GET /v1/time/attendance
 GET /v1/time/attendance/{employment_id}
