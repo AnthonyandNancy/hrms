@@ -20,6 +20,14 @@
 - P3 读取/导出必须写 `SensitiveAccessAuditor`；字段策略只允许收紧。
 - 不得造假数据/假接口/假 E2E；缺口未实现必须显式 `后端接口待补`。
 - 每个 Task 结束必须跑对应测试；每个 Phase 结束跑全量门禁。
+- **用户已确认（2026-11-25）：不惜一切代价，按生产上线标准补齐前后端所有功能。以下为不可降级底线：**
+  - 63 处 gap 必须清零，不得保留“后端接口待补”。
+  - 每个新端点必须有 OpenAPI schema、`x-capability`、运行时校验、生成类型。
+  - 每个新路由必须有 4 类负测；P3 读取/导出必须有审计。
+  - 迁移必须在空库与现有库双跑；备份恢复零差异；金额只用整数分。
+  - 160 页 + 12 集群真实 E2E 必须通过；零未解释 5xx。
+  - 后端/前端/契约/覆盖矩阵全量门禁必须全绿。
+  - 任何 Task 未达到对应底线视为未完成，不得勾选；不得以“赶进度”降低测试、权限或审计。
 
 ## 文件结构总览
 
@@ -711,6 +719,69 @@ git commit -m "feat(v11): add cluster dimension to coverage matrix"
 ---
 
 ## Phase B：高价值闭环（K2 / K5 / K8 / K9 / K7）
+
+### Task A6: legacy 路由台账与迁移顺序
+
+**Files:**
+- Create: `docs/audit/2026-11-25-v11-legacy-routes.md`
+- Create: `backend/tests/Contract/LegacyRouteInventoryTest.php`
+- Modify: `docs/superpowers/plans/2026-11-25-v11-gap-completion-implementation-plan.md`（回填迁移 Task 编号）
+
+**Interfaces:**
+- Produces: 现有 193 条路由逐条标记 `kernel` 或 `legacy`；新增路由禁止标记 legacy
+
+- [ ] **Step 1: Write the failing test**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Contract;
+
+use Tests\TestCase;
+
+final class LegacyRouteInventoryTest extends TestCase
+{
+    public function test_every_route_is_classified_as_kernel_or_legacy(): void
+    {
+        $inventory = file_get_contents(base_path('../docs/audit/2026-11-25-v11-legacy-routes.md'));
+        $routes = app('router')->getRoutes();
+
+        foreach ($routes as $route) {
+            $uri = $route->uri();
+            if (! str_starts_with($uri, 'v1/')) {
+                continue;
+            }
+            $this->assertStringContainsString('`/'.$uri.'`', $inventory, "Route /{$uri} is not classified.");
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd backend && php artisan test --compact --filter=LegacyRouteInventoryTest`
+Expected: FAIL（台账不存在或缺路由）。
+
+- [ ] **Step 3: Write minimal implementation**
+
+生成台账：每条现有路由一行，列 `method/path/capability/kernel|legacy/migration_task`。规则：
+- 已使用 CommandRunner/ProjectionResponder 的标记 `kernel`；
+- 其余标记 `legacy`，并指定迁移 Task（B/C/D 对应集群）；
+- 新增路由一律 `kernel`，测试阻止新增 `legacy`。
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd backend && php artisan test --compact --filter=LegacyRouteInventoryTest`
+Expected: PASS。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/audit/2026-11-25-v11-legacy-routes.md backend/tests/Contract/LegacyRouteInventoryTest.php
+git commit -m "docs(v11): classify legacy routes and migration order"
+```
 
 ### Task B1（K2）: 合同全生命周期
 
@@ -1912,6 +1983,71 @@ Expected: PASS。
 
 ## Phase E：验收与收口
 
+### Task E0: 生产上线标准门禁脚本
+
+**Files:**
+- Create: `scripts/v11_production_gate.mjs`
+- Create: `deploy/scripts/v11_production_gate.sh`
+- Modify: `package.json`（新增 `v11:gate`）
+- Test: `frontend/tests/unit/productionGateScript.spec.ts`
+
+**Interfaces:**
+- Produces: `pnpm v11:gate` 一条命令执行 8 项生产底线，任一失败退出非零
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+describe('production gate', () => {
+  it('declares all eight production gates', () => {
+    const source = readFileSync(resolve(process.cwd(), '../scripts/v11_production_gate.mjs'), 'utf8')
+    for (const gate of ['gap-zero', 'openapi', 'capability', 'negative-tests', 'migration', 'real-stack', 'release-trace', 'coverage']) {
+      expect(source).toContain(gate)
+    }
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd frontend && pnpm vitest run tests/unit/productionGateScript.spec.ts`
+Expected: FAIL（脚本不存在）。
+
+- [ ] **Step 3: Write minimal implementation**
+
+`scripts/v11_production_gate.mjs` 顺序执行并汇总：
+
+```js
+const gates = [
+  ['gap-zero', 'node scripts/audit_route_coverage.mjs --require-mature --require-capabilities'],
+  ['openapi', 'node deploy/scripts/openapi-lint.mjs'],
+  ['capability', 'cd backend && php artisan capability:audit'],
+  ['negative-tests', 'cd backend && php artisan test --filter=GapCompletionCapabilityMatrixTest'],
+  ['migration', 'bash deploy/scripts/migration_rehearsal.sh'],
+  ['real-stack', 'bash deploy/scripts/verify_real_stack.sh'],
+  ['release-trace', 'node scripts/check_release_traceability.mjs'],
+  ['coverage', 'node scripts/generate_coverage_matrix.mjs'],
+]
+```
+
+逐项 `spawnSync`，打印 PASS/FAIL，任一失败 `process.exit(1)`；结果写 `evidence/v11-production-gate-<stamp>.log`。
+`deploy/scripts/v11_production_gate.sh` 为等价 shell 入口（CI 用）；`package.json` 加 `"v11:gate": "node scripts/v11_production_gate.mjs"`。
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd frontend && pnpm vitest run tests/unit/productionGateScript.spec.ts`
+Expected: PASS。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/v11_production_gate.mjs deploy/scripts/v11_production_gate.sh package.json frontend/tests/unit/productionGateScript.spec.ts
+git commit -m "feat(v11): add production acceptance gate"
+```
+
 ### Task E1: 12 集群负测矩阵与能力门禁
 
 **Files:**
@@ -2134,11 +2270,12 @@ node scripts/audit_route_coverage.mjs --require-mature --require-capabilities
 ## 依赖与顺序
 
 ```text
-A1 → A2 → A3 → A4 → A5
-A5 → B1..B5（可并行，但 B1/B2 先验证 Command/Projection）
+A1 → A2 → A3 → A4 → A5 → A6
+A6 → B1..B5（可并行，但 B1/B2 先验证 Command/Projection）
 B1..B5 → C1..C4（C1 依赖 B1 的版本化模式）
 B1..B5 → D1..D4（D1 依赖 A3/A4；D4 依赖 A2）
-C/D → E1..E4
+E0 可与 C/D 并行（门禁脚本先就绪）
+C/D → E1..E4 → E0 最终跑通
 ```
 
 ## 风险与回滚
@@ -2153,11 +2290,20 @@ C/D → E1..E4
 
 ## Definition of Done（全局）
 
-- 63 个 gap 标记清零；`--require-capabilities` 通过。
-- 156 能力码全部有角色授予与负测。
-- 12 集群各有一条真实栈主链路 E2E。
-- 后端/前端/契约/真实栈全量门禁通过。
-- 验收报告与覆盖矩阵更新，release SHA 可追溯。
+对齐 Spec 12.1 的八项“生产上线标准”，逐项可验证：
+
+| # | 生产标准 | 验证命令/证据 | Task |
+|---:|---|---|---|
+| 1 | 功能完整（63 gap 清零） | `node scripts/audit_route_coverage.mjs --require-mature --require-capabilities` | E3 |
+| 2 | 契约完整 | `node deploy/scripts/openapi-lint.mjs` + `pnpm openapi:check` | A2、每 Task |
+| 3 | 权限完整 | `php artisan capability:audit` + `GapCompletionCapabilityMatrixTest` | A4、E1 |
+| 4 | 数据完整 | `migration_rehearsal.sh` + `mysql_backup_restore.sh` | A3、E4 |
+| 5 | 真实栈完整 | 160 页 + 12 集群 Playwright | E2 |
+| 6 | 可运维 | `/v1/meta` commit + `check_release_traceability.mjs` | E4 |
+| 7 | 可回归 | 后端 test/pint/phpstan + 前端 typecheck/lint/test/build | E4 |
+| 8 | 不留尾巴 | 覆盖矩阵无 `PENDING`/`gap`；已知缺口均有 Task 编号 | E3 |
+
+**任一格未通过，不得发布、不得勾选完成。**
 
 ## Spec 覆盖映射
 
