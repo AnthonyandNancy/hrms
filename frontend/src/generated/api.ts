@@ -2648,6 +2648,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employments/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paginated contract ledger with projection freshness
+         * @description Requires capability `people.contract.read`. Row scope is applied before pagination and returned in the standard projection envelope.
+         */
+        get: operations["listEmploymentContractLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employment-contracts/{id}/amendments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Append-only amendment and termination history for one contract */
+        get: operations["listEmploymentContractAmendments"];
+        put?: never;
+        /**
+         * Append an effective-dated contract amendment without overwriting history
+         * @description Requires an Idempotency-Key header. Replays return 200 with `Idempotency-Replayed true`; reusing a key with a different payload returns 409.
+         */
+        post: operations["amendEmploymentContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employment-contracts/{id}/terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Terminate an active contract and append a termination version */
+        post: operations["terminateEmploymentContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contract-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paginated contract-template versions */
+        get: operations["listContractTemplates"];
+        put?: never;
+        /** Create the next draft version for a contract-template code */
+        post: operations["createContractTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contract-templates/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a draft template version and archive the prior published version */
+        post: operations["publishContractTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employments/contracts/expiring": {
         parameters: {
             query?: never;
@@ -3553,6 +3646,115 @@ export interface components {
             previous_contract_id: number | null;
             renewed_by_id: number | null;
             days_to_expiry: number | null;
+        };
+        EmploymentContractLifecycle: {
+            id: number;
+            employment_id: number;
+            legal_entity_id: number | null;
+            contract_no: string;
+            /** @enum {string} */
+            contract_type: "FIXED_TERM" | "OPEN_ENDED" | "INTERNSHIP" | "CONSULTANT";
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string | null;
+            /** Format: date */
+            signed_on: string | null;
+            /** Format: date */
+            terminated_on: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "EXPIRING" | "RENEWED" | "TERMINATED" | "ARCHIVED";
+            version: number;
+            previous_contract_id: number | null;
+            renewed_by_id: number | null;
+            template_id: number | null;
+            terms_summary: string | null;
+            days_to_expiry: number | null;
+        };
+        EmploymentContractLedgerRow: components["schemas"]["EmploymentContractLifecycle"] & {
+            employee_no: string | null;
+            employee_name: string | null;
+        };
+        EmploymentContractVersion: {
+            id: number;
+            contract_id: number;
+            employment_id: number;
+            /** @enum {string} */
+            change_type: "AMENDMENT" | "TERMINATION" | "RENEWAL";
+            terms_version: number;
+            document_version: number;
+            /** Format: date */
+            effective_from: string;
+            /** Format: date */
+            effective_to: string;
+            reason: string | null;
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        ContractTemplate: {
+            id: number;
+            code: string;
+            name: string;
+            version: number;
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+            body: string;
+            /** Format: date-time */
+            published_at: string | null;
+        };
+        ProjectionPagination: {
+            items: unknown[];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        EmploymentContractPage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["EmploymentContractLedgerRow"][];
+        };
+        EmploymentContractVersionPage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["EmploymentContractVersion"][];
+        };
+        ContractTemplatePage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["ContractTemplate"][];
+        };
+        ContractAmendment: {
+            contract: components["schemas"]["EmploymentContractLifecycle"];
+            version: components["schemas"]["EmploymentContractVersion"];
+        };
+        EmploymentContractPageEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["EmploymentContractPage"];
+        };
+        EmploymentContractVersionPageEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["EmploymentContractVersionPage"];
+        };
+        ContractTemplatePageEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ContractTemplatePage"];
+        };
+        ContractAmendmentEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ContractAmendment"];
+        };
+        ContractLifecycleResult: {
+            contract: components["schemas"]["EmploymentContractLifecycle"];
+            version: components["schemas"]["EmploymentContractVersion"];
+        };
+        ContractLifecycleEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ContractLifecycleResult"];
+        };
+        ContractTemplateEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ContractTemplate"];
         };
         Department: {
             id: number;
@@ -4520,6 +4722,7 @@ export interface components {
         /** @description Business date. Defaults to today in the legal entity timezone. */
         AsOf: string;
         IdempotencyKey: string;
+        IdempotencyKeyRequired: string;
         IfMatchOptional: string;
         CsrfToken: string;
     };
@@ -9859,6 +10062,251 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentContractLedger: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                legal_entity_id?: number;
+                status?: "DRAFT" | "ACTIVE" | "EXPIRING" | "RENEWED" | "TERMINATED" | "ARCHIVED";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract ledger projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmploymentContractPageEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentContractAmendments: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract version history projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmploymentContractVersionPageEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    amendEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_date: string;
+                    reason: string;
+                    changes: {
+                        /** @enum {string} */
+                        contract_type?: "FIXED_TERM" | "OPEN_ENDED" | "INTERNSHIP" | "CONSULTANT";
+                        /** Format: date */
+                        end_date?: string | null;
+                        /** Format: date */
+                        signed_on?: string | null;
+                        terms_summary?: string | null;
+                        template_id?: number | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Amendment version appended */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractAmendmentEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    terminateEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_date: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract terminated and history appended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractLifecycleEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listContractTemplates: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                code?: string;
+                status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract template projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplatePageEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Draft template version created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    publishContractTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractTemplateEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };

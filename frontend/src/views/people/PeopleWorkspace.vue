@@ -271,10 +271,12 @@ onMounted(load)
       />
 
       <ContractForm
-        v-if="config.form === 'contract-editor' || config.form === 'contract-renewal'"
+        v-if="config.form === 'contract-editor' || config.form === 'contract-renewal' || config.form === 'contract-changes' || config.form === 'contract-template-editor'"
         :rows="state.rows"
         :employment-id="routeId === undefined ? null : employmentId"
+        :form="config.form"
         @created="refreshAfterWrite"
+        @saved="refreshAfterWrite"
       />
 
       <section v-if="config.read.kind === 'org-tree' && state.rows.length > 0" class="panel people-tree-panel">

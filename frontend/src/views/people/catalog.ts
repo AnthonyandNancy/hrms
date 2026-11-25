@@ -15,6 +15,7 @@ import {
   POSITION_COLUMNS,
   POSITION_STAFF_COLUMNS,
   STAFFING_COLUMNS,
+  TEMPLATE_COLUMNS,
   TIMELINE_COLUMNS,
 } from './catalog-columns'
 
@@ -121,9 +122,20 @@ const CONTRACT_PAGES: PeoplePageConfig[] = [
     ],
   },
   { ...CONTRACT_DOMAIN, key: 'hr/contracts/renewals', title: '合同续签', description: '查看到期窗口合同并创建续签版本。', readLabel: '到期合同', read: { kind: 'contract-expiring' }, columns: CONTRACT_COLUMNS, form: 'contract-renewal' },
-  { ...CONTRACT_DOMAIN, key: 'hr/contracts/changes', title: '合同变更/终止', description: '查看合同台账；变更和终止等待后端版本化命令。', readLabel: '合同', read: { kind: 'contracts-ledger' }, columns: CONTRACT_COLUMNS, gap: GAP.contractChanges },
+  {
+    ...CONTRACT_DOMAIN, key: 'hr/contracts/changes', title: '合同变更/终止', description: '选择合同后追加变更或终止版本；合同历史只追加、不覆盖。', readLabel: '合同', read: { kind: 'contracts-ledger' }, columns: CONTRACT_COLUMNS, form: 'contract-changes',
+    detailFields: [
+      { key: 'contract_no', label: '合同编号' },
+      { key: 'contract_type', label: '合同类型' },
+      { key: 'employment_id', label: '员工关系' },
+      { key: 'start_date', label: '开始日期' },
+      { key: 'end_date', label: '结束日期' },
+      { key: 'status', label: '状态' },
+      { key: 'version', label: '版本' },
+    ],
+  },
   { ...CONTRACT_DOMAIN, key: 'hr/contracts/expiry', title: '到期预警', description: '按 60 天窗口读取到期合同，页面内标记 60、30、7 天区间。', readLabel: '到期合同', read: { kind: 'contract-expiring', withinDays: 60 }, columns: CONTRACT_COLUMNS },
-  { ...CONTRACT_DOMAIN, key: 'hr/contracts/templates', title: '合同模板', description: '查看合同只读数据；模板管理等待后端接口。', readLabel: '到期合同', read: { kind: 'contract-expiring', withinDays: 60 }, columns: CONTRACT_COLUMNS, gap: GAP.contractTemplates },
+  { ...CONTRACT_DOMAIN, key: 'hr/contracts/templates', title: '合同模板', description: '查看版本化合同模板；创建草稿并发布后，旧发布版本自动归档。', readLabel: '合同模板', read: { kind: 'contract-templates' }, columns: TEMPLATE_COLUMNS, form: 'contract-template-editor' },
 ]
 
 export const PEOPLE_PAGE_CONFIGS: readonly PeoplePageConfig[] = [

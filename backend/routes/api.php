@@ -20,6 +20,7 @@ use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
+use App\Modules\People\Http\Controllers\ContractLifecycleController;
 use App\Modules\People\Http\Controllers\EmployeeController;
 use App\Modules\People\Http\Controllers\EmployeeProfileController;
 use App\Modules\People\Http\Controllers\EmploymentContractController;
@@ -152,6 +153,38 @@ Route::get('/employments/contracts/expiring', [EmploymentContractController::cla
     ->middleware('auth.session')
     ->middleware('capability:people.contract.read')
     ->name('employments.contracts.expiring');
+
+Route::get('/employments/contracts', [ContractLifecycleController::class, 'contracts'])
+    ->middleware(['auth.session', 'capability:people.contract.read'])
+    ->name('employments.contracts.ledger');
+
+Route::prefix('employment-contracts/{id}')->middleware('auth.session')->group(function (): void {
+    Route::get('/amendments', [ContractLifecycleController::class, 'amendments'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.read')
+        ->name('employment-contracts.amendments.index');
+    Route::post('/amendments', [ContractLifecycleController::class, 'amend'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.amend')
+        ->name('employment-contracts.amendments.store');
+    Route::post('/terminate', [ContractLifecycleController::class, 'terminate'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.terminate')
+        ->name('employment-contracts.terminate');
+});
+
+Route::prefix('contract-templates')->middleware('auth.session')->group(function (): void {
+    Route::get('/', [ContractLifecycleController::class, 'templates'])
+        ->middleware('capability:people.contract.read')
+        ->name('contract-templates.index');
+    Route::post('/', [ContractLifecycleController::class, 'createTemplate'])
+        ->middleware('capability:people.contract.template.manage')
+        ->name('contract-templates.store');
+    Route::post('/{id}/publish', [ContractLifecycleController::class, 'publishTemplate'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.template.manage')
+        ->name('contract-templates.publish');
+});
 
 Route::prefix('employments/{employmentId}/contracts')->middleware('auth.session')->group(function (): void {
     Route::get('/', [EmploymentContractController::class, 'index'])

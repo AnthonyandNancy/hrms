@@ -73,6 +73,14 @@ components:
       schema:
         type: string
         maxLength: 128
+    IdempotencyKeyRequired:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
     IfMatchOptional:
       name: If-Match
       in: header
@@ -1639,6 +1647,326 @@ components:
           type:
             - integer
             - "null"
+    EmploymentContractLifecycle:
+      type: object
+      required:
+        - id
+        - employment_id
+        - legal_entity_id
+        - contract_no
+        - contract_type
+        - start_date
+        - end_date
+        - signed_on
+        - terminated_on
+        - status
+        - version
+        - previous_contract_id
+        - renewed_by_id
+        - template_id
+        - terms_summary
+        - days_to_expiry
+      properties:
+        id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type:
+            - integer
+            - "null"
+        contract_no:
+          type: string
+        contract_type:
+          type: string
+          enum:
+            - FIXED_TERM
+            - OPEN_ENDED
+            - INTERNSHIP
+            - CONSULTANT
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type:
+            - string
+            - "null"
+          format: date
+        signed_on:
+          type:
+            - string
+            - "null"
+          format: date
+        terminated_on:
+          type:
+            - string
+            - "null"
+          format: date
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - ACTIVE
+            - EXPIRING
+            - RENEWED
+            - TERMINATED
+            - ARCHIVED
+        version:
+          type: integer
+        previous_contract_id:
+          type:
+            - integer
+            - "null"
+        renewed_by_id:
+          type:
+            - integer
+            - "null"
+        template_id:
+          type:
+            - integer
+            - "null"
+        terms_summary:
+          type:
+            - string
+            - "null"
+        days_to_expiry:
+          type:
+            - integer
+            - "null"
+    EmploymentContractLedgerRow:
+      allOf:
+        - $ref: "#/components/schemas/EmploymentContractLifecycle"
+        - type: object
+          required:
+            - employee_no
+            - employee_name
+          properties:
+            employee_no:
+              type:
+                - string
+                - "null"
+            employee_name:
+              type:
+                - string
+                - "null"
+    EmploymentContractVersion:
+      type: object
+      required:
+        - id
+        - contract_id
+        - employment_id
+        - change_type
+        - terms_version
+        - document_version
+        - effective_from
+        - effective_to
+        - reason
+        - snapshot
+        - recorded_at
+      properties:
+        id:
+          type: integer
+        contract_id:
+          type: integer
+        employment_id:
+          type: integer
+        change_type:
+          type: string
+          enum:
+            - AMENDMENT
+            - TERMINATION
+            - RENEWAL
+        terms_version:
+          type: integer
+        document_version:
+          type: integer
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          type: string
+          format: date
+        reason:
+          type:
+            - string
+            - "null"
+        snapshot:
+          type: object
+          additionalProperties: true
+        recorded_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ContractTemplate:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - version
+        - status
+        - body
+        - published_at
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        version:
+          type: integer
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+        body:
+          type: string
+        published_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ProjectionPagination:
+      type: object
+      required:
+        - items
+        - page
+        - page_size
+        - total
+        - as_of
+        - freshness
+        - source_hash
+        - partial
+        - partial_reason
+        - drilldown
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+        as_of:
+          type: string
+          format: date
+        freshness:
+          type: string
+          enum:
+            - LIVE
+            - MATERIALIZED
+            - STALE
+        source_hash:
+          type: string
+        partial:
+          type: boolean
+        partial_reason:
+          type:
+            - string
+            - "null"
+        drilldown:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    EmploymentContractPage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmploymentContractLedgerRow"
+    EmploymentContractVersionPage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmploymentContractVersion"
+    ContractTemplatePage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ContractTemplate"
+    ContractAmendment:
+      type: object
+      required:
+        - contract
+        - version
+      properties:
+        contract:
+          $ref: "#/components/schemas/EmploymentContractLifecycle"
+        version:
+          $ref: "#/components/schemas/EmploymentContractVersion"
+    EmploymentContractPageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/EmploymentContractPage"
+    EmploymentContractVersionPageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/EmploymentContractVersionPage"
+    ContractTemplatePageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ContractTemplatePage"
+    ContractAmendmentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ContractAmendment"
+    ContractLifecycleResult:
+      type: object
+      required:
+        - contract
+        - version
+      properties:
+        contract:
+          $ref: "#/components/schemas/EmploymentContractLifecycle"
+        version:
+          $ref: "#/components/schemas/EmploymentContractVersion"
+    ContractLifecycleEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ContractLifecycleResult"
+    ContractTemplateEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ContractTemplate"
     Department:
       type: object
       required:
@@ -11077,6 +11405,370 @@ paths:
           schema:
             type: integer
             minimum: 1
+  /v1/employments/contracts:
+    get:
+      operationId: listEmploymentContractLedger
+      tags:
+        - People
+      summary: Paginated contract ledger with projection freshness
+      description: Requires capability `people.contract.read`. Row scope is applied before pagination and returned in the standard projection envelope.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: legal_entity_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - DRAFT
+              - ACTIVE
+              - EXPIRING
+              - RENEWED
+              - TERMINATED
+              - ARCHIVED
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Contract ledger projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmploymentContractPageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.read
+  /v1/employment-contracts/{id}/amendments:
+    get:
+      operationId: listEmploymentContractAmendments
+      tags:
+        - People
+      summary: Append-only amendment and termination history for one contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Contract version history projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmploymentContractVersionPageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.read
+    post:
+      operationId: amendEmploymentContract
+      tags:
+        - People
+      summary: Append an effective-dated contract amendment without overwriting history
+      description: Requires an Idempotency-Key header. Replays return 200 with `Idempotency-Replayed true`; reusing a key with a different payload returns 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - effective_date
+                - reason
+                - changes
+              properties:
+                effective_date:
+                  type: string
+                  format: date
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                changes:
+                  type: object
+                  minProperties: 1
+                  additionalProperties: false
+                  properties:
+                    contract_type:
+                      type: string
+                      enum:
+                        - FIXED_TERM
+                        - OPEN_ENDED
+                        - INTERNSHIP
+                        - CONSULTANT
+                    end_date:
+                      type:
+                        - string
+                        - "null"
+                      format: date
+                    signed_on:
+                      type:
+                        - string
+                        - "null"
+                      format: date
+                    terms_summary:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 2000
+                    template_id:
+                      type:
+                        - integer
+                        - "null"
+                      minimum: 1
+      responses:
+        "201":
+          description: Amendment version appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractAmendmentEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.amend
+  /v1/employment-contracts/{id}/terminate:
+    post:
+      operationId: terminateEmploymentContract
+      tags:
+        - People
+      summary: Terminate an active contract and append a termination version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - effective_date
+                - reason
+              properties:
+                effective_date:
+                  type: string
+                  format: date
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "200":
+          description: Contract terminated and history appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractLifecycleEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.terminate
+  /v1/contract-templates:
+    get:
+      operationId: listContractTemplates
+      tags:
+        - People
+      summary: Paginated contract-template versions
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: code
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - DRAFT
+              - PUBLISHED
+              - ARCHIVED
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Contract template projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractTemplatePageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.read
+    post:
+      operationId: createContractTemplate
+      tags:
+        - People
+      summary: Create the next draft version for a contract-template code
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - body
+              properties:
+                code:
+                  type: string
+                  maxLength: 64
+                  pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+                name:
+                  type: string
+                  maxLength: 160
+                body:
+                  type: string
+                  maxLength: 20000
+      responses:
+        "201":
+          description: Draft template version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractTemplateEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.template.manage
+  /v1/contract-templates/{id}/publish:
+    post:
+      operationId: publishContractTemplate
+      tags:
+        - People
+      summary: Publish a draft template version and archive the prior published version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Template published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractTemplateEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.template.manage
   /v1/employments/contracts/expiring:
     get:
       operationId: listExpiringEmploymentContracts

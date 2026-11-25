@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Lifecycle\Providers;
 
+use App\Modules\Lifecycle\Contracts\EmploymentContractVersionLedger;
 use App\Modules\Lifecycle\Contracts\ExportTaskCanceller;
 use App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort;
 use App\Modules\Lifecycle\Contracts\TurnoverDirectory;
+use App\Modules\Lifecycle\Services\EmploymentContractVersionLedgerService;
 use App\Modules\Lifecycle\Services\NullExportTaskCanceller;
 use App\Modules\Lifecycle\Services\TalentOnboardingDraftService;
 use App\Modules\Lifecycle\Services\UnavailableTurnoverDirectory;
@@ -42,6 +44,7 @@ final class LifecycleServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ExportTaskCanceller::class, NullExportTaskCanceller::class);
+        $this->app->bind(EmploymentContractVersionLedger::class, EmploymentContractVersionLedgerService::class);
         $this->app->bind(TalentOnboardingDraftPort::class, TalentOnboardingDraftService::class);
         $this->app->bindIf(TurnoverDirectory::class, UnavailableTurnoverDirectory::class);
 

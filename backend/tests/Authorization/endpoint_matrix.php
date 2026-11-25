@@ -935,6 +935,48 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
     ],
+    'GET /v1/employments/contracts' => [
+        'capability' => 'people.contract.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'GET /v1/employment-contracts/{id}/amendments' => [
+        'capability' => 'people.contract.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'POST /v1/employment-contracts/{id}/amendments' => [
+        'capability' => 'people.contract.amend',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required', 'idempotency_key_missing'],
+    ],
+    'POST /v1/employment-contracts/{id}/terminate' => [
+        'capability' => 'people.contract.terminate',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required', 'idempotency_key_missing'],
+    ],
+    'GET /v1/contract-templates' => [
+        'capability' => 'people.contract.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'POST /v1/contract-templates' => [
+        'capability' => 'people.contract.template.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required', 'idempotency_key_missing'],
+    ],
+    'POST /v1/contract-templates/{id}/publish' => [
+        'capability' => 'people.contract.template.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required', 'idempotency_key_missing'],
+    ],
     'GET /v1/employments/contracts/expiring' => [
         'capability' => 'people.contract.read',
         'anchor' => 'LEGAL_ENTITY',
