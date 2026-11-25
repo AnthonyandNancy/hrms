@@ -34,6 +34,7 @@ use App\Modules\Platform\Http\Middleware\IdempotentCommand;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use App\Modules\Reporting\Http\Controllers\ReportingController;
 use App\Modules\Talent\Http\Controllers\PerformanceController;
+use App\Modules\Talent\Http\Controllers\PerformanceTemplateController;
 use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
@@ -510,6 +511,14 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
     Route::get('/candidates', [RecruitmentController::class, 'candidates'])
         ->middleware('capability:recruitment.candidate.read')
         ->name('recruitment.candidates.index');
+    Route::get('/requisitions/{id}/openings', [App\Modules\Talent\Http\Controllers\RecruitmentOpeningController::class, 'index'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.requisition.read')
+        ->name('recruitment.openings.index');
+    Route::post('/requisitions/{id}/openings', [App\Modules\Talent\Http\Controllers\RecruitmentOpeningController::class, 'store'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.requisition.manage')
+        ->name('recruitment.openings.store');
     Route::post('/candidates', [RecruitmentController::class, 'storeCandidate'])
         ->middleware('capability:recruitment.candidate.manage')
         ->name('recruitment.candidates.store');
@@ -527,6 +536,13 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
 });
 
 Route::prefix('performance')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/templates', [PerformanceTemplateController::class, 'index'])
+        ->middleware('capability:performance.cycle.read')
+        ->name('performance.templates.index');
+    Route::post('/templates', [PerformanceTemplateController::class, 'store'])
+        ->middleware('capability:performance.cycle.manage')
+        ->name('performance.templates.store');
+
     Route::get('/cycles', [PerformanceController::class, 'cycles'])
         ->middleware('capability:performance.cycle.read')
         ->name('performance.cycles.index');
