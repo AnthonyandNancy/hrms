@@ -10,12 +10,18 @@ declare(strict_types=1);
  * planned for that route. Generated from the registered route table so the
  * matrix cannot drift from the executable capability middleware.
  */
-return ['GET /v1/employments/{employment_id}/document-files' => [
-    'capability' => 'people.document.read',
+return ['GET /v1/documents/{document_id}/content' => [
+    'capability' => 'people.document.download',
     'anchor' => 'LEGAL_ENTITY',
     'risk' => 'high',
     'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
 ],
+    'GET /v1/employments/{employment_id}/document-files' => [
+        'capability' => 'people.document.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
+    ],
     'POST /v1/employments/{employment_id}/document-files' => [
         'capability' => 'people.document.read',
         'anchor' => 'LEGAL_ENTITY',

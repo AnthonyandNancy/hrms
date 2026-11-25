@@ -264,9 +264,12 @@ Route::get('/documents/{document_id}/signed-download', [EmployeeDocumentControll
     ->middleware('capability:people.document.download')
     ->name('documents.signed-download');
 
+// Signed-URL content delivery: the signature proves WHICH document, and the
+// capability proves WHO may ever receive bytes. Both are required, so this
+// route stays inside the universal default-deny rule.
 Route::get('/documents/{document_id}/content', [EmployeeDocumentController::class, 'content'])
     ->whereNumber('document_id')
-    ->middleware('auth.session')
+    ->middleware(['auth.session', 'signed', 'capability:people.document.download'])
     ->name('documents.content');
 
 Route::delete('/documents/{document_id}', [EmployeeDocumentController::class, 'destroy'])

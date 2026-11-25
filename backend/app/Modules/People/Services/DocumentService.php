@@ -197,9 +197,12 @@ final class DocumentService
      */
     public function signedDownloadUrl(int $tenantId, Document $document, ?int $actorUserId = null): string
     {
+        // Sign against the wall clock the `signed` middleware validates with,
+        // not the business clock: a frozen business clock would mint URLs that
+        // are already expired relative to the request validator.
         $url = URL::temporarySignedRoute(
             'documents.content',
-            $this->clock->now()->addMinutes(self::SIGNED_URL_TTL_MINUTES),
+            \Carbon\CarbonImmutable::now('UTC')->addMinutes(self::SIGNED_URL_TTL_MINUTES),
             ['document_id' => (int) $document->id, 'tenant_id' => $tenantId],
         );
 

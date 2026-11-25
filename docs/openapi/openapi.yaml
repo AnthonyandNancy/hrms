@@ -1893,6 +1893,24 @@ components:
             - string
             - "null"
           format: date-time
+    DocumentReference:
+      type: object
+      required: [id, version]
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+    SignedDownload:
+      type: object
+      required: [document_id, url, expires_in_minutes]
+      properties:
+        document_id:
+          type: integer
+        url:
+          type: string
+        expires_in_minutes:
+          type: integer
     ProjectionPagination:
       type: object
       required:
@@ -5244,16 +5262,28 @@ paths:
             maximum: 100
             default: 20
       responses:
-        '200':
+        "200":
           description: Document projection
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProjectionPagination'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectionPagination"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.document.read
     post:
       tags:
         - People
@@ -5294,12 +5324,30 @@ paths:
                   type: string
                   format: binary
       responses:
-        '201':
-          description: Created
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
+        "201":
+          description: Document created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DocumentReference"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.document.read
 
   /v1/documents/{document_id}/signed-download:
     get:
@@ -5316,14 +5364,87 @@ paths:
             type: integer
             minimum: 1
       responses:
-        '200':
+        "200":
           description: Signed URL
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SignedDownload"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.document.download
+
+  /v1/documents/{document_id}/content:
+    get:
+      tags:
+        - People
+      operationId: downloadDocumentContent
+      summary: Download document bytes through a signed URL
+      description: |
+        Authorization is the short-lived signature minted by
+        `/v1/documents/{document_id}/signed-download`; the route additionally
+        requires the `people.document.download` capability, so it stays inside
+        the universal default-deny rule.
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: expires
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: signature
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document bytes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: string
+                        format: binary
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.document.download
 
   /v1/documents/{document_id}:
     delete:
@@ -5347,14 +5468,33 @@ paths:
             minLength: 1
             maxLength: 128
       responses:
-        '200':
+        "200":
           description: Deleted
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deleted:
+                            type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
 
   /v1/employments/{employment_id}/documents:
     post:

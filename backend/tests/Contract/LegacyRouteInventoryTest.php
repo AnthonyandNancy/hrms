@@ -165,19 +165,15 @@ final class LegacyRouteInventoryTest extends TestCase
 
     public function test_the_ledger_covers_every_registered_operation(): void
     {
-        $this->assertCount(219, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
+        $this->assertCount(224, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
     }
 
     public function test_the_unguarded_routes_are_exactly_the_public_allowlist(): void
     {
-        $allowlist = [
-            'v1/health',
-            'v1/health/live',
-            'v1/health/ready',
-            'v1/meta',
-            'v1/auth/login',
-            'v1/auth/mfa/challenge',
-        ];
+        // Single source of truth: the audit command's own allowlist. Adding a
+        // signed or public route must be an explicit decision there, not a
+        // silent extra entry here.
+        $allowlist = \App\Console\Commands\CapabilityAuditCommand::PUBLIC_ALLOWLIST;
 
         $unguarded = [];
 
@@ -198,14 +194,14 @@ final class LegacyRouteInventoryTest extends TestCase
         sort($unguarded);
         sort($allowlist);
 
-        $this->assertSame($allowlist, $unguarded, 'Exactly the six public routes may be unguarded.');
+        $this->assertSame($allowlist, $unguarded, 'Exactly the allowlisted routes may be unguarded.');
     }
 
     public function test_every_public_allowlist_route_is_classified_kernel(): void
     {
         $ledger = $this->ledger();
 
-        foreach (['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login', 'v1/auth/mfa/challenge'] as $uri) {
+        foreach (\App\Console\Commands\CapabilityAuditCommand::PUBLIC_ALLOWLIST as $uri) {
             $entries = array_filter(
                 $ledger,
                 static fn (array $entry, string $key): bool => str_ends_with($key, " /{$uri}"),

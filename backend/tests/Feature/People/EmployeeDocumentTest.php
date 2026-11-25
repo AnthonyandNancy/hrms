@@ -52,13 +52,17 @@ final class EmployeeDocumentTest extends PeopleTestCase
         $this->assertArrayHasKey('source_hash', $list);
         $this->assertSame('LIVE', $list['freshness']);
 
-        // The signed URL is the only way to obtain bytes.
+        // The signed URL is the only way to obtain bytes, and the content route
+        // additionally requires the download capability.
         $signed = $this->getJson("/v1/documents/{$documentId}/signed-download")
             ->assertOk()
             ->json('data');
 
         $download = $this->get($signed['url'])->assertOk();
         $this->assertSame($bytes, $download->getContent());
+
+        // Without a valid signature the same bytes are unreachable.
+        $this->getJson("/v1/documents/{$documentId}/content")->assertForbidden();
     }
 
     public function test_a_document_under_legal_hold_cannot_be_deleted(): void
