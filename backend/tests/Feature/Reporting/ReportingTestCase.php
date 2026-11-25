@@ -245,6 +245,7 @@ abstract class ReportingTestCase extends PeopleTestCase
      * derived from the report/payload so a test retry is a true replay.
      *
      * @param  array<string, mixed>  $payload
+     * @return \Illuminate\Testing\TestResponse<\Illuminate\Http\Response>
      */
     protected function postExport(string $reportCode, array $payload = []): \Illuminate\Testing\TestResponse
     {

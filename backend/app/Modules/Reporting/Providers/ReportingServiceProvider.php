@@ -64,7 +64,6 @@ final class ReportingServiceProvider extends ServiceProvider
 
         $this->app->bind(ReportSubscriptionService::class, fn ($app): ReportSubscriptionService => new ReportSubscriptionService(
             $app->make(ReportService::class),
-            $app->make(ReportDefinitionCatalog::class),
             $app->make(\App\Shared\Authorization\Authorizer::class),
             $app->make(\App\Shared\Authorization\Contracts\AccessSubjectStateDirectory::class),
             $app->make(\App\Shared\Observability\AuditRecorder::class),

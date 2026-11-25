@@ -6,9 +6,9 @@ namespace App\Modules\Reporting\Services;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Models\ReportRun;
+use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
-use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
@@ -293,6 +293,7 @@ final class ReportService
 
         return $charts;
     }
+
     /**
      * P2/P3 report reads and exports must leave evidence without values.
      *
@@ -332,5 +333,4 @@ final class ReportService
             ],
         );
     }
-
 }

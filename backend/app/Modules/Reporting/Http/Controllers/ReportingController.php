@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Reporting\Http\Controllers;
 
 use App\Modules\Reporting\Services\ExportService;
-use App\Modules\Reporting\Services\ReportSubscriptionService;
 use App\Modules\Reporting\Services\ReportDefinitionCatalog;
 use App\Modules\Reporting\Services\ReportService;
 use App\Shared\ApiResponse;
@@ -24,7 +23,6 @@ final class ReportingController
         private readonly ReportDefinitionCatalog $catalog,
         private readonly ReportService $reports,
         private readonly ExportService $exports,
-        private readonly ReportSubscriptionService $subscriptions,
         private readonly \App\Shared\Commands\CommandRunner $commands,
         private readonly \App\Shared\Projections\ProjectionResponder $projections,
     ) {}

@@ -28,7 +28,6 @@ final class ReportSubscriptionService
 
     public function __construct(
         private readonly ReportService $reports,
-        private readonly ReportDefinitionCatalog $catalog,
         private readonly Authorizer $authorizer,
         private readonly AccessSubjectStateDirectory $subjects,
         private readonly AuditRecorder $audit,
@@ -359,6 +358,7 @@ final class ReportSubscriptionService
             'WEEKLY' => $now->addWeek(),
             'MONTHLY' => $now->addMonth(),
             'QUARTERLY' => $now->addMonths(3),
+            default => $now->addMonth(),
         };
     }
 }

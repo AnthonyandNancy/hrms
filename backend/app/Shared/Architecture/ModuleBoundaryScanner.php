@@ -50,7 +50,7 @@ final class ModuleBoundaryScanner
         'Payroll' => ['payroll_items', 'payroll_schemes', 'payroll_runs', 'payslips', 'payslip_lines', 'payroll_input_snapshots', 'payroll_ytd', 'payroll_receipts', 'payroll_adjustments', 'employee_compensations', 'salary_adjustments'],
         'Talent' => ['recruitment_requisitions', 'candidates', 'interviews', 'offers', 'performance_cycles', 'performance_templates', 'performance_reviews', 'performance_appeals', 'performance_indicators', 'performance_goals', 'performance_feedback', 'performance_calibrations', 'training_programs', 'training_sessions', 'training_enrollments'],
         'Engagement' => ['notices', 'notifications'],
-        'Reporting' => ['report_definitions', 'export_jobs', 'projections'],
+        'Reporting' => ['report_definitions', 'report_subscriptions', 'export_jobs', 'projections'],
         'Platform' => ['audit_events', 'outbox_events', 'idempotency_keys', 'file_objects', 'dictionaries', 'parameters', 'sys_dictionaries', 'sys_parameters', 'feature_flags', 'migration_runs', 'migration_issues', 'staging_rows', 'migration_shadow_rows', 'demo_datasets', 'retention_policies', 'legal_holds'],
     ];
 
