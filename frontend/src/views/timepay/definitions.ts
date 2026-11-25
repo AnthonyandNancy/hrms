@@ -3,6 +3,8 @@ import { currentMonth } from './utils'
 
 const month = currentMonth()
 const attendanceQuery = { month }
+const attendanceAsOf = {}
+const scheduleQuery = { page: 1, page_size: 20 }
 const leaveAsOf = {}
 const listQuery = { page: 1, page_size: 20 }
 const payrollQuery = { page: 1, page_size: 20, legal_entity_id: 1 }
@@ -52,12 +54,11 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     panel: 'attendance-rules',
     domain: 'attendance',
     title: '考勤规则',
-    description: '展示后端考勤规则投影；规则版本与生效日期由服务端治理。',
-    endpoint: '/v1/time/attendance',
-    query: attendanceQuery,
-    gap: backendGap('GET', '/v1/time/attendance/rules', '考勤规则读接口待补，当前仅展示考勤投影中的规则结果。'),
+    description: '按生效日期展示考勤规则版本；发布新版本只追加历史，不改写已生效规则。',
+    endpoint: '/v1/time/attendance/rules',
+    query: attendanceAsOf,
     testId: 'attendance-rules',
-    emptyTitle: '暂无可展示的考勤规则',
+    emptyTitle: '尚未发布考勤规则版本',
   },
   {
     key: 'attendance/shifts',
@@ -77,11 +78,10 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     panel: 'attendance-schedules',
     domain: 'attendance',
     title: '排班管理',
-    description: '以班次目录和考勤投影为只读对照；排班写入接口尚未提供。',
-    endpoint: '/v1/time/shifts',
-    query: {},
-    related: [{ key: 'attendance', endpoint: '/v1/time/attendance', query: attendanceQuery }],
-    gap: backendGap('POST', '/v1/time/shift-schedules', '排班读写接口待补，当前只展示班次目录与本人考勤投影。'),
+    description: '按员工与考勤日排班；同一员工同一天只允许一个班次，冲突由服务端拒绝并给出稳定原因。',
+    endpoint: '/v1/time/shift-schedules',
+    query: scheduleQuery,
+    related: [{ key: 'shifts', endpoint: '/v1/time/shifts', query: {} }],
     testId: 'attendance-schedules',
     emptyTitle: '还没有排班数据',
   },
@@ -116,9 +116,8 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     domain: 'attendance',
     title: '考勤月结',
     description: '月结锁定后普通重算被拒绝；解锁必须填写原因并留下审计记录。',
-    endpoint: '/v1/time/attendance',
-    query: attendanceQuery,
-    gap: backendGap('GET', '/v1/time/attendance/closings', '月结列表读接口待补；关账、重开和重算动作已接通真实写接口。'),
+    endpoint: '/v1/time/attendance/closings',
+    query: listQuery,
     testId: 'attendance-closing',
     emptyTitle: '考勤月结尚无记录',
   },
@@ -128,10 +127,9 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     panel: 'attendance-devices',
     domain: 'attendance',
     title: '设备对接',
-    description: '设备健康状态与适配器清单尚未提供读接口；页面保留接入计划入口，不生成模拟设备数据。',
-    endpoint: '/v1/time/attendance',
-    query: attendanceQuery,
-    gap: backendGap('GET', '/v1/time/attendance/devices', '考勤设备读接口待补，当前不展示虚构设备状态。'),
+    description: '设备健康由适配器流水回报；列表只读，页面不会也不能写入设备健康状态。',
+    endpoint: '/v1/time/attendance/devices',
+    query: listQuery,
     testId: 'attendance-devices',
     emptyTitle: '暂无设备数据',
   },

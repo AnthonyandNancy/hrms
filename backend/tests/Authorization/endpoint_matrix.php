@@ -1403,4 +1403,47 @@ return ['GET /v1/documents/{document_id}/content' => [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
     ],
+
+    // K4/C2 — attendance rules, shift schedules, closing list and devices.
+    'GET /v1/time/attendance/rules' => [
+        'capability' => 'time.attendance.rule.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/time/attendance/rules' => [
+        'capability' => 'time.attendance.rule.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'immutable_rule_version', 'unknown_rule_config_key', 'mfa_required'],
+    ],
+
+    'GET /v1/time/shift-schedules' => [
+        'capability' => 'time.shift.schedule.read',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+    ],
+
+    'POST /v1/time/shift-schedules' => [
+        'capability' => 'time.shift.schedule.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'schedule_conflict', 'period_closed', 'mfa_required'],
+    ],
+
+    'GET /v1/time/attendance/closings' => [
+        'capability' => 'time.attendance.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'GET /v1/time/attendance/devices' => [
+        'capability' => 'time.attendance.device.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
 ];

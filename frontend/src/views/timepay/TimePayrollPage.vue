@@ -46,6 +46,12 @@ const title = computed(() => props.definition.title)
 const successMessage = ref('')
 const FORM_PANELS = new Set([
   'attendance-corrections',
+  // K4 panels own their empty state and their forms: rendering the generic
+  // empty card instead would hide the rule publish and schedule write forms
+  // on a tenant that has no rows yet.
+  'attendance-rules',
+  'attendance-schedules',
+  'attendance-devices',
   'attendance-closing',
   'leave-apply',
   'travel-apply',

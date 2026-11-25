@@ -4950,6 +4950,203 @@ components:
             - REOPENED
         replayed:
           type: boolean
+    AttendanceRuleConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        late_grace_source:
+          type: string
+          enum:
+            - SHIFT
+            - LEGAL_ENTITY
+            - NONE
+        count_break:
+          type: boolean
+        overtime_after_scheduled:
+          type: boolean
+        incomplete_threshold_minutes:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        rounding_minutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+    AttendanceRuleVersion:
+      type: object
+      required:
+        - id
+        - version
+        - effective_from
+        - checksum
+        - config
+        - is_effective
+      properties:
+        id:
+          type: integer
+        version:
+          type: string
+        effective_from:
+          type: string
+          format: date
+        checksum:
+          type: string
+        config:
+          $ref: "#/components/schemas/AttendanceRuleConfig"
+        is_effective:
+          type: boolean
+        created_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ShiftSchedule:
+      type: object
+      required:
+        - id
+        - legal_entity_id
+        - employment_id
+        - business_date
+        - shift_template_id
+        - created_by
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        employment_id:
+          type: integer
+        business_date:
+          type: string
+          format: date
+        shift_template_id:
+          type: integer
+        shift_code:
+          type:
+            - string
+            - "null"
+        shift_name:
+          type:
+            - string
+            - "null"
+        start_local_time:
+          type:
+            - string
+            - "null"
+        end_local_time:
+          type:
+            - string
+            - "null"
+        crosses_midnight:
+          type:
+            - boolean
+            - "null"
+        created_by:
+          type: integer
+        created_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ShiftScheduleWrite:
+      type: object
+      required:
+        - schedule_id
+        - legal_entity_id
+        - employment_id
+        - business_date
+        - shift_template_id
+        - replayed
+      properties:
+        schedule_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        employment_id:
+          type: integer
+        business_date:
+          type: string
+          format: date
+        shift_template_id:
+          type: integer
+        replayed:
+          type: boolean
+    AttendanceClosureRow:
+      type: object
+      required:
+        - id
+        - legal_entity_id
+        - month
+        - status
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        month:
+          type: string
+        status:
+          type: string
+          enum:
+            - CLOSED
+            - REOPENED
+        closed_by:
+          type:
+            - integer
+            - "null"
+        closed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        reopened_by:
+          type:
+            - integer
+            - "null"
+        reopened_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        reopen_reason:
+          type:
+            - string
+            - "null"
+    AttendanceDevice:
+      type: object
+      required:
+        - id
+        - legal_entity_id
+        - code
+        - name
+        - adapter
+        - health
+        - active
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        adapter:
+          type: string
+        health:
+          type: string
+          enum:
+            - ONLINE
+            - DEGRADED
+            - OFFLINE
+            - UNKNOWN
+        last_seen_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        active:
+          type: boolean
     AttendanceRecalculationAccepted:
       type: object
       required:
@@ -8362,6 +8559,289 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.shift.read
+  /v1/time/attendance/rules:
+    get:
+      operationId: timeAttendanceRulesIndex
+      tags:
+        - Time
+      summary: List effective-dated attendance rule versions
+      description: |
+        Returns every stored rule version newest first plus `is_effective` for the
+        requested business date. History is append-only; publishing a version
+        never rewrites an earlier row. Requires capability
+        `time.attendance.rule.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: legal_entity_id
+          in: query
+          required: false
+          description: Optional legal entity the caller must already be scoped to.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Attendance rule versions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            required:
+                              - items
+                              - total
+                              - as_of
+                              - freshness
+                              - source_hash
+                            properties:
+                              as_of:
+                                type: string
+                                format: date
+                              freshness:
+                                type: string
+                                enum:
+                                  - LIVE
+                                  - MATERIALIZED
+                                  - STALE
+                              source_hash:
+                                type: string
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/AttendanceRuleVersion"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.rule.read
+    post:
+      operationId: timeAttendanceRulesPublish
+      tags:
+        - Time
+      summary: Publish a new effective-dated attendance rule version
+      description: |
+        Append-only publish. Re-publishing an identical version is an idempotent
+        replay; re-using a version string with a different definition returns 409
+        `RULE_VERSION_IMMUTABLE`. Requires capability
+        `time.attendance.rule.manage`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - version
+                - effective_from
+                - config
+              properties:
+                version:
+                  type: string
+                  minLength: 3
+                  maxLength: 32
+                  pattern: ^[A-Za-z0-9._-]+$
+                effective_from:
+                  type: string
+                  format: date
+                config:
+                  $ref: "#/components/schemas/AttendanceRuleConfig"
+      responses:
+        "201":
+          description: Rule version published or replayed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/AttendanceRuleVersion"
+                          - type: object
+                            required:
+                              - replayed
+                            properties:
+                              replayed:
+                                type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.rule.manage
+  /v1/time/shift-schedules:
+    get:
+      operationId: timeShiftSchedulesIndex
+      tags:
+        - Time
+      summary: List per-day shift schedules visible to the actor
+      description: |
+        SELF actors see only their own schedules; MANAGED actors see their team;
+        entity-scoped actors see their legal entities. Requires capability
+        `time.shift.schedule.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: employment_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: legal_entity_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: "from"
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: "to"
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Shift schedules
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            required:
+                              - items
+                              - total
+                              - as_of
+                              - freshness
+                              - source_hash
+                            properties:
+                              as_of:
+                                type: string
+                                format: date
+                              freshness:
+                                type: string
+                                enum:
+                                  - LIVE
+                                  - MATERIALIZED
+                                  - STALE
+                              source_hash:
+                                type: string
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/ShiftSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.shift.schedule.read
+    post:
+      operationId: timeShiftSchedulesStore
+      tags:
+        - Time
+      summary: Schedule one employment to one shift template for one business date
+      description: |
+        Exactly one schedule row may exist per employment per business date. A
+        second template for the same day returns 409 `SCHEDULE_CONFLICT`; the
+        database unique index enforces the same invariant under concurrency. A
+        period that is already CLOSED rejects the write with 409 `PERIOD_CLOSED`
+        until it is reopened with an audited reason. Requires capability
+        `time.shift.schedule.manage`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employment_id
+                - business_date
+                - shift_template_id
+              properties:
+                employment_id:
+                  type: integer
+                  minimum: 1
+                business_date:
+                  type: string
+                  format: date
+                shift_template_id:
+                  type: integer
+                  minimum: 1
+      responses:
+        "201":
+          description: Schedule created or replayed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ShiftScheduleWrite"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.shift.schedule.manage
   /v1/time/leave/balances:
     get:
       operationId: timeLeaveBalances
@@ -14800,6 +15280,83 @@ paths:
                     - REFERRAL
                     - AGENCY
   /v1/time/attendance/closings:
+    get:
+      operationId: timeAttendanceClosingsIndex
+      tags:
+        - Time
+      summary: List attendance period closures for the actor's legal entities
+      description: |
+        Read-only list of closed and reopened months with the reopen evidence.
+        Scoped to the actor's legal entities; a `legal_entity_id` outside that
+        scope returns 404. Requires capability `time.attendance.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: legal_entity_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Attendance period closures
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            required:
+                              - items
+                              - total
+                              - as_of
+                              - freshness
+                              - source_hash
+                            properties:
+                              as_of:
+                                type: string
+                                format: date
+                              freshness:
+                                type: string
+                                enum:
+                                  - LIVE
+                                  - MATERIALIZED
+                                  - STALE
+                              source_hash:
+                                type: string
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/AttendanceClosureRow"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.read
     post:
       operationId: closeAttendancePeriod
       tags:
@@ -14945,6 +15502,90 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.manage
+  /v1/time/attendance/devices:
+    get:
+      operationId: timeAttendanceDevicesIndex
+      tags:
+        - Time
+      summary: Read-only attendance device inventory and health
+      description: |
+        Device health is reported by the adapter pipeline. This endpoint is
+        deliberately read-only: there is no write surface that lets a client
+        assert health. Rows come from `attendance_devices` scoped to the actor's
+        legal entities. Requires capability `time.attendance.device.read`.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: legal_entity_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Attendance devices
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            required:
+                              - items
+                              - total
+                              - as_of
+                              - freshness
+                              - source_hash
+                            properties:
+                              as_of:
+                                type: string
+                                format: date
+                              freshness:
+                                type: string
+                                enum:
+                                  - LIVE
+                                  - MATERIALIZED
+                                  - STALE
+                              source_hash:
+                                type: string
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/AttendanceDevice"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.device.read
   /v1/overtime/records/{recordId}/settlements:
     post:
       operationId: settleOvertimeRecord

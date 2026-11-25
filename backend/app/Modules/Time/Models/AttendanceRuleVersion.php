@@ -8,8 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
+ * @property int $tenant_id
  * @property string $version
  * @property array<string, mixed> $config_json
+ * @property \Carbon\CarbonImmutable $effective_from
+ * @property string $checksum
+ * @property \Carbon\CarbonImmutable|null $created_at
  */
 final class AttendanceRuleVersion extends Model
 {

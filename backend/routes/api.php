@@ -45,6 +45,7 @@ use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
+use App\Modules\Time\Http\Controllers\AttendanceOpsController;
 use App\Modules\Time\Http\Controllers\LeaveController;
 use App\Modules\Time\Http\Controllers\OvertimeController;
 use App\Modules\Time\Http\Controllers\OvertimeRequestController;
@@ -472,6 +473,30 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::get('/shifts', [TimeCatalogController::class, 'shifts'])
         ->middleware('capability:time.shift.read')
         ->name('time.shifts.index');
+
+    // Attendance rule versions (effective-dated, append-only) and the per-day
+    // shift schedule surface. Reads use the projection envelope; the publish
+    // and schedule writes go through CommandRunner with Idempotency-Key.
+    Route::get('/attendance/rules', [AttendanceOpsController::class, 'rules'])
+        ->middleware('capability:time.attendance.rule.read')
+        ->name('time.attendance.rules.index');
+    Route::post('/attendance/rules', [AttendanceOpsController::class, 'publishRule'])
+        ->middleware(['csrf.header', 'capability:time.attendance.rule.manage'])
+        ->name('time.attendance.rules.store');
+
+    Route::get('/shift-schedules', [AttendanceOpsController::class, 'schedules'])
+        ->middleware('capability:time.shift.schedule.read')
+        ->name('time.shift-schedules.index');
+    Route::post('/shift-schedules', [AttendanceOpsController::class, 'storeSchedule'])
+        ->middleware(['csrf.header', 'capability:time.shift.schedule.manage'])
+        ->name('time.shift-schedules.store');
+
+    Route::get('/attendance/closings', [AttendanceOpsController::class, 'closings'])
+        ->middleware('capability:time.attendance.read')
+        ->name('time.attendance.closings.index');
+    Route::get('/attendance/devices', [AttendanceOpsController::class, 'devices'])
+        ->middleware('capability:time.attendance.device.read')
+        ->name('time.attendance.devices.index');
 
     Route::get('/leave/types', [TimeCatalogController::class, 'leaveTypes'])
         ->middleware('capability:time.leave.read')

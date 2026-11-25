@@ -30,6 +30,11 @@ const ALL_CAPABILITIES = [
   'time.attendance.correct.request',
   'time.attendance.manage',
   'time.attendance.reopen',
+  'time.attendance.rule.read',
+  'time.attendance.rule.manage',
+  'time.shift.schedule.read',
+  'time.shift.schedule.manage',
+  'time.attendance.device.read',
   'time.leave.read',
   'time.leave.request',
   'time.leave.request.cancel',
@@ -186,8 +191,12 @@ describe('time/payroll registry mapping', () => {
   it('declares a live GET path for every page and keeps the public /v1 path in the endpoint map', () => {
     const allowedGetPaths = [
       '/v1/time/attendance',
+      '/v1/time/attendance/rules',
+      '/v1/time/attendance/closings',
+      '/v1/time/attendance/devices',
       '/v1/time/calendars/',
       '/v1/time/shifts',
+      '/v1/time/shift-schedules',
       '/v1/time/leave/balances',
       '/v1/time/leave/requests',
       '/v1/time/leave/types',
@@ -215,11 +224,27 @@ describe('time/payroll registry mapping', () => {
       const endpoint: string = TIME_PAYROLL_API_PATHS[definition.key] ?? ''
       expect(endpoint).toBe(definition.endpoint)
       expect(endpoint.startsWith('/v1/')).toBe(true)
-      if (endpoint.startsWith('/v1/time/attendance')) {
-        expect(endpoint).toBe('/v1/time/attendance')
-      } else {
-        expect(allowedGetPaths.some((allowed) => endpoint.startsWith(allowed))).toBe(true)
+      expect(allowedGetPaths.some((allowed) => endpoint.startsWith(allowed))).toBe(true)
+      if (definition.domain === 'attendance') {
+        expect(definition.gap, `${definition.key} must not carry a backend gap`).toBeUndefined()
       }
+    }
+  })
+
+  it('wires the four K4 attendance gap pages to their real endpoints', () => {
+    const expected: Record<string, string> = {
+      'attendance/rules': '/v1/time/attendance/rules',
+      'attendance/schedules': '/v1/time/shift-schedules',
+      'attendance/closing': '/v1/time/attendance/closings',
+      'attendance/devices': '/v1/time/attendance/devices',
+    }
+
+    for (const [key, endpoint] of Object.entries(expected)) {
+      expect(TIME_PAYROLL_API_PATHS[key]).toBe(endpoint)
+      const definition = TIME_PAYROLL_DEFINITIONS.find((entry) => entry.key === key)
+      expect(definition, `${key} must exist`).toBeDefined()
+      expect(definition?.gap).toBeUndefined()
+      expect(definition?.endpoint).toBe(endpoint)
     }
   })
 })
@@ -1224,6 +1249,287 @@ describe('live write actions', () => {
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
     expect(requestsPage.text()).toContain('请假申请已撤回')
+  })
+
+  it('renders attendance rule versions and publishes a new version through the live endpoint', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 2,
+          version: 'TIME-RULES-2026.2',
+          effective_from: '2026-07-01',
+          checksum: 'b'.repeat(64),
+          config: { count_break: false, overtime_after_scheduled: true },
+          is_effective: true,
+          created_at: '2026-07-01T00:00:00Z',
+        },
+        {
+          id: 1,
+          version: 'TIME-RULES-2026.1',
+          effective_from: '2026-01-01',
+          checksum: 'a'.repeat(64),
+          config: { count_break: true, overtime_after_scheduled: true },
+          is_effective: false,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 2,
+      total: 2,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({
+      id: 3,
+      version: 'TIME-RULES-2026.3',
+      effective_from: '2026-12-01',
+      replayed: false,
+    })
+
+    const wrapper = await mountPage('attendance/rules', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/attendance/rules', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="attendance-rules"]').text()
+    expect(text).toContain('TIME-RULES-2026.2')
+    expect(text).toContain('TIME-RULES-2026.1')
+
+    await wrapper.get('[data-testid="attendance-rule-version"]').setValue('TIME-RULES-2026.3')
+    await wrapper.get('[data-testid="attendance-rule-effective-from"]').setValue('2026-12-01')
+    await wrapper.get('[data-testid="attendance-rule-threshold"]').setValue('2')
+    await wrapper.get('[data-testid="attendance-rule-publish"]').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/time/attendance/rules',
+      {
+        version: 'TIME-RULES-2026.3',
+        effective_from: '2026-12-01',
+        config: {
+          late_grace_source: 'SHIFT',
+          count_break: true,
+          overtime_after_scheduled: true,
+          incomplete_threshold_minutes: 2,
+        },
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('考勤规则版本已发布')
+  })
+
+  it('renders shift schedules and posts a schedule write with the real payload', async () => {
+    resourceGet.mockImplementation((path: string) => {
+      if (path === '/time/shifts') {
+        return Promise.resolve({
+          items: [
+            { id: 7, code: 'DAY', start_local_time: '09:00:00', end_local_time: '18:00:00' },
+            { id: 8, code: 'NIGHT', start_local_time: '22:00:00', end_local_time: '06:00:00' },
+          ],
+          total: 2,
+        })
+      }
+      return Promise.resolve({
+        items: [
+          {
+            id: 41,
+            legal_entity_id: 1,
+            employment_id: 501,
+            business_date: '2026-11-25',
+            shift_template_id: 7,
+            shift_code: 'DAY',
+            start_local_time: '09:00:00',
+            end_local_time: '18:00:00',
+            crosses_midnight: false,
+          },
+        ],
+        page: 1,
+        page_size: 20,
+        total: 1,
+        as_of: '2026-11-25',
+        freshness: 'LIVE',
+        source_hash: '',
+        partial: false,
+        partial_reason: null,
+        drilldown: null,
+      })
+    })
+    resourcePost.mockResolvedValue({
+      schedule_id: 42,
+      legal_entity_id: 1,
+      employment_id: 501,
+      business_date: '2026-11-26',
+      shift_template_id: 8,
+      replayed: false,
+    })
+
+    const wrapper = await mountPage('attendance/schedules', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/shift-schedules', expect.any(Object))
+    expect(resourceGet).toHaveBeenCalledWith('/time/shifts', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="attendance-schedules"]').text()).toContain('DAY')
+
+    await wrapper.get('[data-testid="attendance-schedule-employment"]').setValue('501')
+    await wrapper.get('[data-testid="attendance-schedule-date"]').setValue('2026-11-26')
+    await wrapper.get('[data-testid="attendance-schedule-template"]').setValue('8')
+    await wrapper.get('[data-testid="attendance-schedule-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/time/shift-schedules',
+      { employment_id: 501, business_date: '2026-11-26', shift_template_id: 8 },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('shows the stable SCHEDULE_CONFLICT reason when the server rejects a duplicate schedule', async () => {
+    resourceGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === '/time/shifts'
+          ? { items: [{ id: 7, code: 'DAY' }], total: 1 }
+          : {
+              items: [],
+              page: 1,
+              page_size: 20,
+              total: 0,
+              as_of: '2026-11-25',
+              freshness: 'LIVE',
+              source_hash: '',
+              partial: false,
+              partial_reason: null,
+              drilldown: null,
+            },
+      ),
+    )
+    resourcePost.mockRejectedValue(
+      new ApiError('CONFLICT', 'The employment already has a different shift scheduled on this business date.', {
+        status: 409,
+        details: { reason: 'SCHEDULE_CONFLICT' },
+      }),
+    )
+
+    const wrapper = await mountPage('attendance/schedules', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="attendance-schedule-employment"]').setValue('501')
+    await wrapper.get('[data-testid="attendance-schedule-date"]').setValue('2026-11-25')
+    await wrapper.get('[data-testid="attendance-schedule-template"]').setValue('7')
+    await wrapper.get('[data-testid="attendance-schedule-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="attendance-schedules"]').text()).not.toContain('排班已保存')
+  })
+
+  it('renders the attendance closing list with reopen evidence and no backend gap', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 91,
+          legal_entity_id: 1,
+          month: '2026-11',
+          status: 'CLOSED',
+          closed_by: 10,
+          closed_at: '2026-11-25T01:00:00Z',
+          reopened_by: null,
+          reopened_at: null,
+          reopen_reason: null,
+        },
+        {
+          id: 90,
+          legal_entity_id: 1,
+          month: '2026-10',
+          status: 'REOPENED',
+          closed_by: 10,
+          closed_at: '2026-10-31T01:00:00Z',
+          reopened_by: 11,
+          reopened_at: '2026-11-02T02:00:00Z',
+          reopen_reason: 'Synthetic correction after close.',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 2,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('attendance/closing', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/attendance/closings', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="attendance-closing"]').text()
+    expect(text).toContain('2026-11')
+    expect(text).toContain('CLOSED')
+    expect(text).toContain('Synthetic correction after close.')
+  })
+
+  it('renders only real device rows and offers no device write control', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 5,
+          legal_entity_id: 1,
+          code: 'DEV-SYNTH-01',
+          name: 'Synthetic lobby reader',
+          adapter: 'ZK-LAN',
+          health: 'DEGRADED',
+          last_seen_at: '2026-11-25T00:18:00Z',
+          active: true,
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('attendance/devices', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/time/attendance/devices', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="attendance-devices"]').text()
+    expect(text).toContain('DEV-SYNTH-01')
+    expect(text).toContain('DEGRADED')
+    expect(text).toContain('ZK-LAN')
+    expect(wrapper.findAll('input').length).toBe(0)
+  })
+
+  it('hides the attendance rule publish form without the manage capability', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 1,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('attendance/rules')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="attendance-rule-publish"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('只能查看规则版本')
   })
 
   it('closes, reopens, and recalculates attendance through live attendance endpoints', async () => {
