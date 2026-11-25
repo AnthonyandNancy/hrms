@@ -1076,8 +1076,8 @@ return [
     'POST /v1/positions/grades' => [
         'capability' => 'org.position.grade.manage',
         'anchor' => 'LEGAL_ENTITY',
-        'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
     'GET /v1/positions/{id}/requirements' => [
         'capability' => 'org.position.qualification.manage',
@@ -1088,8 +1088,8 @@ return [
     'POST /v1/positions/{id}/requirements' => [
         'capability' => 'org.position.qualification.manage',
         'anchor' => 'LEGAL_ENTITY',
-        'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
     'GET /v1/positions/{id}/staff' => [
         'capability' => 'org.position.staff.read',
