@@ -159,13 +159,13 @@ return [
         'capability' => 'payroll.compensation.read',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked', 'mfa_required'],
     ],
     'GET /v1/payroll/employee-plans' => [
         'capability' => 'payroll.compensation.read',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked', 'mfa_required'],
     ],
     'GET /v1/payroll/items' => [
         'capability' => 'payroll.run.read',
@@ -597,13 +597,13 @@ return [
         'capability' => 'payroll.salary-adjustment.manage',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'critical',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'case_not_approved', 'case_already_applied'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'case_not_approved', 'case_already_applied', 'mfa_required'],
     ],
     'POST /v1/payroll/employee-plans' => [
         'capability' => 'payroll.compensation.manage',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'critical',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'duplicate_effective_date'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'duplicate_effective_date', 'mfa_required'],
     ],
     'POST /v1/payroll/items' => [
         'capability' => 'payroll.run.prepare',
