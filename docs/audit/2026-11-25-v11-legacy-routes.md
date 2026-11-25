@@ -4,10 +4,10 @@
 > **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
 > 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 操作总数：**236**
-- 有能力的操作：**230**
+- v1 操作总数：**242**
+- 有能力的操作：**236**
 - 公共白名单操作：**6**
-- kernel 操作：**52**
+- kernel 操作：**59**
 
 ## 1. 台账
 
@@ -204,51 +204,57 @@
 | 189 | `GET` | `/v1/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
 | 190 | `GET` | `/v1/tasks/my` | `workflow.case.read` | `—` | legacy | E3 |
 | 191 | `GET` | `/v1/time/attendance` | `time.attendance.read` | `—` | legacy | C2 |
-| 192 | `POST` | `/v1/time/attendance/closings` | `time.attendance.manage` | `—` | legacy | C2 |
-| 193 | `POST` | `/v1/time/attendance/closings/{id}/reopen` | `time.attendance.reopen` | `—` | legacy | C2 |
-| 194 | `POST` | `/v1/time/attendance/corrections` | `time.attendance.correct.request` | `—` | legacy | C2 |
-| 195 | `POST` | `/v1/time/attendance/recalculate` | `time.attendance.manage` | `—` | legacy | C2 |
-| 196 | `GET` | `/v1/time/attendance/{employment_id}` | `time.attendance.read` | `—` | legacy | C2 |
-| 197 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | D1 |
-| 198 | `GET` | `/v1/time/leave/balances` | `time.leave.read` | `—` | legacy | E3 |
-| 199 | `GET` | `/v1/time/leave/ledger` | `time.leave.ledger.read` | `—` | legacy | E3 |
-| 200 | `GET` | `/v1/time/leave/policies` | `time.leave.read` | `—` | legacy | E3 |
-| 201 | `POST` | `/v1/time/leave/preview` | `time.leave.read` | `—` | legacy | E3 |
-| 202 | `GET` | `/v1/time/leave/requests` | `time.leave.read` | `—` | legacy | E3 |
-| 203 | `POST` | `/v1/time/leave/requests` | `time.leave.request` | `—` | legacy | E3 |
-| 204 | `POST` | `/v1/time/leave/requests/{caseId}/cancel` | `time.leave.request.cancel` | `—` | legacy | E3 |
-| 205 | `GET` | `/v1/time/leave/types` | `time.leave.read` | `—` | legacy | E3 |
-| 206 | `GET` | `/v1/time/overtime/policies` | `time.overtime.read` | `—` | legacy | B2 |
-| 207 | `GET` | `/v1/time/overtime/records` | `time.overtime.read` | `—` | legacy | B2 |
-| 208 | `GET` | `/v1/time/overtime/requests` | `time.overtime.read` | `—` | kernel | — |
-| 209 | `POST` | `/v1/time/overtime/requests` | `time.overtime.request` | `—` | kernel | — |
-| 210 | `POST` | `/v1/time/overtime/requests/{id}/confirm` | `time.overtime.confirm` | `—` | kernel | — |
-| 211 | `GET` | `/v1/time/overtime/timeoff-balances` | `time.timeoff.read` | `—` | kernel | — |
-| 212 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | C2 |
-| 213 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
-| 214 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
-| 215 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
-| 216 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | legacy | D3 |
-| 217 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | legacy | D3 |
-| 218 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
-| 219 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 220 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 221 | `GET` | `/v1/travel/expenses` | `time.travel.expense` | `—` | kernel | — |
-| 222 | `POST` | `/v1/travel/expenses` | `time.travel.expense.manage` | `LEGAL_ENTITY` | kernel | — |
-| 223 | `GET` | `/v1/travel/policies` | `time.travel.policy.read` | `LEGAL_ENTITY` | kernel | — |
-| 224 | `POST` | `/v1/travel/policies` | `time.travel.policy.manage` | `LEGAL_ENTITY` | kernel | — |
-| 225 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | kernel | — |
-| 226 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | kernel | — |
-| 227 | `POST` | `/v1/travel/requests/{id}/approve` | `time.travel.approve` | `MANAGED` | kernel | — |
-| 228 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | kernel | — |
-| 229 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
-| 230 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 231 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 232 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 233 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 234 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 235 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
-| 236 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
+| 192 | `GET` | `/v1/time/attendance/closings` | `time.attendance.read` | `—` | kernel | — |
+| 193 | `POST` | `/v1/time/attendance/closings` | `time.attendance.manage` | `—` | kernel | — |
+| 194 | `POST` | `/v1/time/attendance/closings/{id}/reopen` | `time.attendance.reopen` | `—` | legacy | C2 |
+| 195 | `POST` | `/v1/time/attendance/corrections` | `time.attendance.correct.request` | `—` | legacy | C2 |
+| 196 | `GET` | `/v1/time/attendance/devices` | `time.attendance.device.read` | `—` | kernel | — |
+| 197 | `POST` | `/v1/time/attendance/recalculate` | `time.attendance.manage` | `—` | legacy | C2 |
+| 198 | `GET` | `/v1/time/attendance/rules` | `time.attendance.rule.read` | `—` | kernel | — |
+| 199 | `POST` | `/v1/time/attendance/rules` | `time.attendance.rule.manage` | `—` | kernel | — |
+| 200 | `GET` | `/v1/time/attendance/{employment_id}` | `time.attendance.read` | `—` | legacy | C2 |
+| 201 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | D1 |
+| 202 | `GET` | `/v1/time/leave/balances` | `time.leave.read` | `—` | legacy | E3 |
+| 203 | `GET` | `/v1/time/leave/ledger` | `time.leave.ledger.read` | `—` | legacy | E3 |
+| 204 | `GET` | `/v1/time/leave/policies` | `time.leave.read` | `—` | legacy | E3 |
+| 205 | `POST` | `/v1/time/leave/preview` | `time.leave.read` | `—` | legacy | E3 |
+| 206 | `GET` | `/v1/time/leave/requests` | `time.leave.read` | `—` | legacy | E3 |
+| 207 | `POST` | `/v1/time/leave/requests` | `time.leave.request` | `—` | legacy | E3 |
+| 208 | `POST` | `/v1/time/leave/requests/{caseId}/cancel` | `time.leave.request.cancel` | `—` | legacy | E3 |
+| 209 | `GET` | `/v1/time/leave/types` | `time.leave.read` | `—` | legacy | E3 |
+| 210 | `GET` | `/v1/time/overtime/policies` | `time.overtime.read` | `—` | legacy | B2 |
+| 211 | `GET` | `/v1/time/overtime/records` | `time.overtime.read` | `—` | legacy | B2 |
+| 212 | `GET` | `/v1/time/overtime/requests` | `time.overtime.read` | `—` | kernel | — |
+| 213 | `POST` | `/v1/time/overtime/requests` | `time.overtime.request` | `—` | kernel | — |
+| 214 | `POST` | `/v1/time/overtime/requests/{id}/confirm` | `time.overtime.confirm` | `—` | kernel | — |
+| 215 | `GET` | `/v1/time/overtime/timeoff-balances` | `time.timeoff.read` | `—` | kernel | — |
+| 216 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | C2 |
+| 217 | `GET` | `/v1/time/shift-schedules` | `time.shift.schedule.read` | `—` | kernel | — |
+| 218 | `POST` | `/v1/time/shift-schedules` | `time.shift.schedule.manage` | `—` | kernel | — |
+| 219 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
+| 220 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
+| 221 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
+| 222 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | legacy | D3 |
+| 223 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | legacy | D3 |
+| 224 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
+| 225 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
+| 226 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
+| 227 | `GET` | `/v1/travel/expenses` | `time.travel.expense` | `—` | kernel | — |
+| 228 | `POST` | `/v1/travel/expenses` | `time.travel.expense.manage` | `LEGAL_ENTITY` | kernel | — |
+| 229 | `GET` | `/v1/travel/policies` | `time.travel.policy.read` | `LEGAL_ENTITY` | kernel | — |
+| 230 | `POST` | `/v1/travel/policies` | `time.travel.policy.manage` | `LEGAL_ENTITY` | kernel | — |
+| 231 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | kernel | — |
+| 232 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | kernel | — |
+| 233 | `POST` | `/v1/travel/requests/{id}/approve` | `time.travel.approve` | `MANAGED` | kernel | — |
+| 234 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | kernel | — |
+| 235 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
+| 236 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 237 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 238 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 239 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 240 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 241 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
+| 242 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
 
 ## 2. 迁移规则
 

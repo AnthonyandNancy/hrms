@@ -165,7 +165,6 @@ POST /v1/recruitment/requisitions
 POST /v1/recruitment/requisitions/{id}/openings
 POST /v1/reporting/exports
 POST /v1/reporting/run
-POST /v1/time/attendance/closings
 POST /v1/time/attendance/closings/{id}/reopen
 POST /v1/time/attendance/corrections
 POST /v1/time/attendance/recalculate
