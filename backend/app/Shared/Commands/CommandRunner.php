@@ -13,12 +13,16 @@ use Illuminate\Support\Facades\DB;
 /**
  * Single entry point for write commands.
  *
- * Responsibilities, in order:
+ * Ordering is deliberate:
  *  1. Resolve the caller principal (never trusts a client-supplied tenant).
- *  2. Require a bounded Idempotency-Key for idempotent commands.
- *  3. Evaluate invariants inside the transaction, before any write.
- *  4. Delegate the write to the operation closure through the idempotency
- *     ledger so retries replay the original body instead of re-executing.
+ *  2. Require a bounded Idempotency-Key.
+ *  3. Reserve the key, then evaluate invariants and run the write inside the
+ *     ledger's operation closure.
+ *
+ * Invariants MUST run inside the operation closure, not before it: a retry of
+ * a completed command has to replay the stored response, and a state-sensitive
+ * invariant (for example "contract is ACTIVE") would otherwise reject the
+ * replay with 409 after the first call already changed that state.
  *
  * Capability and anchor enforcement stay in route middleware: the runner is a
  * correctness seam, not a second authorization system.
@@ -42,14 +46,6 @@ final class CommandRunner
     ): CommandResult {
         $key = trim($idempotencyKey);
 
-        if (! $definition->idempotent) {
-            throw new ValidationException(
-                ['idempotency_key' => ['This command does not accept an Idempotency-Key.']],
-                'This command does not accept an Idempotency-Key.',
-                ['reason' => 'IDEMPOTENCY_KEY_NOT_SUPPORTED'],
-            );
-        }
-
         if ($key === '' || mb_strlen($key) > 128) {
             throw new ValidationException(
                 ['idempotency_key' => ['A valid Idempotency-Key header is required (1-128 characters).']],
@@ -61,23 +57,25 @@ final class CommandRunner
         $principal = $this->principals->resolve();
 
         return DB::transaction(function () use ($definition, $payload, $operation, $key, $principal): CommandResult {
-            foreach ($definition->invariants as $invariantClass) {
-                $invariant = app($invariantClass);
-
-                if (! $invariant instanceof Invariant) {
-                    throw new \LogicException("{$invariantClass} must implement ".Invariant::class.'.');
-                }
-
-                $invariant->assert($principal->tenantId(), $payload);
-            }
-
             $result = $this->idempotency->run(
                 tenantId: $principal->tenantId(),
                 principalId: $principal->userId(),
                 scope: 'CMD:'.$definition->name,
                 key: $key,
                 payload: $payload,
-                operation: $operation,
+                operation: function () use ($definition, $payload, $operation, $principal): array {
+                    foreach ($definition->invariants as $invariantClass) {
+                        $invariant = app($invariantClass);
+
+                        if (! $invariant instanceof Invariant) {
+                            throw new \LogicException("{$invariantClass} must implement ".Invariant::class.'.');
+                        }
+
+                        $invariant->assert($principal->tenantId(), $payload);
+                    }
+
+                    return $operation();
+                },
             );
 
             return new CommandResult(
