@@ -577,6 +577,7 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
         ->whereNumber('id')
         ->middleware('capability:recruitment.interview.manage')
         ->name('recruitment.interviews.store');
+    Route::get('/offers', [RecruitmentController::class, 'offers'])->middleware('capability:recruitment.offer.manage')->name('recruitment.offers.index');
     Route::post('/offers', [RecruitmentController::class, 'storeOffer'])
         ->middleware('capability:recruitment.offer.manage')
         ->name('recruitment.offers.store');

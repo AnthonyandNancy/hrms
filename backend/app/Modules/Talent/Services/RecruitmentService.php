@@ -309,27 +309,36 @@ final class RecruitmentService
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @param  array<string, mixed>  $filters
+     * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
-    public function offers(int $tenantId, ?int $candidateId = null): array
+    public function offers(int $tenantId, array $filters = [], int $page = 1, int $pageSize = 20): array
     {
-        return Offer::query()
+        $query = Offer::query()
             ->where('tenant_id', $tenantId)
-            ->when($candidateId !== null, fn ($query) => $query->where('candidate_id', $candidateId))
+            ->when(isset($filters['candidate_id']) && (int) $filters['candidate_id'] > 0, fn ($builder) => $builder->where('candidate_id', (int) $filters['candidate_id']))
+            ->when(isset($filters['requisition_id']) && (int) $filters['requisition_id'] > 0, fn ($builder) => $builder->where('requisition_id', (int) $filters['requisition_id']))
+            ->when(isset($filters['status']) && $filters['status'] !== '', fn ($builder) => $builder->where('status', (string) $filters['status']))
             ->orderBy('candidate_id')
-            ->orderBy('version')
-            ->get()
-            ->map(static fn (Offer $offer): array => [
-                'offer_id' => (int) $offer->id,
-                'candidate_id' => (int) $offer->candidate_id,
-                'requisition_id' => (int) $offer->requisition_id,
-                'version' => (int) $offer->version,
-                'status' => (string) $offer->status,
-                'base_salary_minor' => (int) $offer->base_salary_minor,
-                'salary_currency' => (string) $offer->salary_currency,
-                'start_date' => (string) $offer->start_date,
-                'onboarding_case_id' => $offer->onboarding_case_id,
-            ])->all();
+            ->orderBy('version');
+
+        $total = (int) (clone $query)->count();
+        $items = $query->forPage($page, $pageSize)->get()->map(static fn (Offer $offer): array => [
+            'offer_id' => (int) $offer->id,
+            'candidate_id' => (int) $offer->candidate_id,
+            'requisition_id' => (int) $offer->requisition_id,
+            'version' => (int) $offer->version,
+            'status' => (string) $offer->status,
+            'base_salary_minor' => (int) $offer->base_salary_minor,
+            'salary_currency' => (string) $offer->salary_currency,
+            'start_date' => (string) $offer->start_date,
+            'case_id' => $offer->case_id !== null ? (int) $offer->case_id : null,
+            'onboarding_case_id' => $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,
+            'accepted_at' => $offer->accepted_at?->toIso8601ZuluString(),
+            'declined_at' => $offer->declined_at?->toIso8601ZuluString(),
+        ])->all();
+
+        return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
     }
 
     private function ensureWorkflowTemplate(int $tenantId): void

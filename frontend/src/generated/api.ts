@@ -1534,7 +1534,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Paginated offers with candidate/requisition/status filters
+         * @description Requires capability `recruitment.offer.manage`. Money is returned as integer minor units.
+         */
+        get: operations["listOffers"];
         put?: never;
         /** Create an offer approval Case */
         post: operations["recruitmentOffersStore"];
@@ -7545,6 +7549,38 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listOffers: {
+        parameters: {
+            query?: {
+                candidate_id?: number;
+                requisition_id?: number;
+                status?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Offer page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Paginated"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

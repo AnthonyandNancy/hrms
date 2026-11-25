@@ -120,6 +120,30 @@ final class RecruitmentController
         return $this->command($request, "candidate-{$candidateId}-interview", $data, fn (): array => $this->recruitment->createInterview($principal->tenantId(), $principal->userId(), $candidateId, $data));
     }
 
+    public function offers(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::legalEntity(1));
+        $data = $request->validate([
+            'candidate_id' => ['nullable', 'integer', 'min:1'],
+            'requisition_id' => ['nullable', 'integer', 'min:1'],
+            'status' => ['nullable', 'string', 'max:24'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return ApiResponse::ok($this->recruitment->offers(
+            $principal->tenantId(),
+            [
+                'candidate_id' => $data['candidate_id'] ?? null,
+                'requisition_id' => $data['requisition_id'] ?? null,
+                'status' => $data['status'] ?? null,
+            ],
+            (int) ($data['page'] ?? 1),
+            (int) ($data['page_size'] ?? 20),
+        ));
+    }
+
     public function storeOffer(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
