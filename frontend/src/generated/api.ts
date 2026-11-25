@@ -167,6 +167,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employments/{employment_id}/document-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List employee document files
+         * @description Requires capability `people.document.read`. Returns the standard projection envelope.
+         */
+        get: operations["listEmploymentDocumentFiles"];
+        put?: never;
+        /**
+         * Upload an employee document file
+         * @description Requires capability `people.document.read` and an Idempotency-Key.
+         */
+        post: operations["uploadEmploymentDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}/signed-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mint a short-lived signed download URL
+         * @description Requires capability `people.document.download`.
+         */
+        get: operations["signDocumentDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download document bytes through a signed URL
+         * @description Authorization is the short-lived signature minted by
+         *     `/v1/documents/{document_id}/signed-download`; the route additionally
+         *     requires the `people.document.download` capability, so it stays inside
+         *     the universal default-deny rule.
+         */
+        get: operations["downloadDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an employee document
+         * @description Requires capability `people.employee.manage`. Refused while a legal hold applies.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employments/{employment_id}/documents": {
         parameters: {
             query?: never;
@@ -1638,6 +1725,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/training/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the tenant training plan ledger
+         * @description Requires capability `training.plan.manage`. Live projection envelope with as-of and source hash.
+         */
+        get: operations["trainingPlansIndex"];
+        put?: never;
+        /** Create an annual or monthly training plan with an integer-cents budget */
+        post: operations["trainingPlansStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the course catalogue
+         * @description Requires capability `training.course.manage`. Optional plan filter is applied before projection.
+         */
+        get: operations["trainingCoursesIndex"];
+        put?: never;
+        /** Create a course with instructor, delivery mode, duration and integer-cents cost */
+        post: operations["trainingCoursesStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/training/programs": {
         parameters: {
             query?: never;
@@ -1669,8 +1798,50 @@ export interface paths {
          */
         get: operations["trainingSessionsList"];
         put?: never;
-        /** Create a training session */
+        /** Create a training session with capacity and optional plan/course links */
         post: operations["trainingSessionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/sessions/{id}/checkins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** List check-ins recorded for one training session */
+        get: operations["trainingSessionCheckinsIndex"];
+        put?: never;
+        /**
+         * Record an idempotent check-in for an enrolled employment
+         * @description Idempotent per (session, employment). A repeat returns the same
+         *     check-in row as 200; the first call returns 201. Study minutes are
+         *     derived from check-in/check-out and never accepted from the client.
+         */
+        post: operations["trainingSessionCheckinsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/checkins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List training attendance check-ins with derived study minutes */
+        get: operations["trainingCheckinsIndex"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1684,9 +1855,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List the live enrollment ledger */
+        get: operations["trainingEnrollmentsIndex"];
         put?: never;
-        /** Enrol an employment in a training session */
+        /**
+         * Enrol an employment in a training session
+         * @description Capacity is enforced under a session row lock. Re-enrolling the same
+         *     employment in the same session is idempotent and returns 200 with the
+         *     existing enrollment; a full session returns 409 with reason
+         *     TRAINING_CAPACITY_REACHED.
+         */
         post: operations["trainingEnrollmentsStore"];
         delete?: never;
         options?: never;
@@ -1703,8 +1881,120 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Record training completion */
+        /** Record training completion and exam score */
         post: operations["trainingEnrollmentsComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List exam versions including draft and published status */
+        get: operations["trainingExamsIndex"];
+        put?: never;
+        /** Create a draft exam or the next immutable version after publication */
+        post: operations["trainingExamsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/exams/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a draft exam version, permanently freezing its content */
+        post: operations["trainingExamsPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List append-only training feedback rows */
+        get: operations["trainingFeedbackIndex"];
+        put?: never;
+        /**
+         * Append feedback for an enrollment
+         * @description Feedback rows are append-only; a post never rewrites an earlier row.
+         */
+        post: operations["trainingFeedbackStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read personal training records aggregated from enrollments, check-ins, exams and feedback */
+        get: operations["trainingRecordsIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/records/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export personal training records using an explicit field whitelist
+         * @description Every export writes field-name-only evidence through
+         *     SensitiveAccessAuditor. An unknown field is rejected with 422 and
+         *     reason EXPORT_FIELD_NOT_ALLOWED.
+         */
+        get: operations["trainingRecordsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/training/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plan-level attendance, completion, exam-pass, study-time and feedback aggregates */
+        get: operations["trainingReportsIndex"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4005,6 +4295,15 @@ export interface components {
             /** Format: date-time */
             published_at: string | null;
         };
+        DocumentReference: {
+            id: number;
+            version: number;
+        };
+        SignedDownload: {
+            document_id: number;
+            url: string;
+            expires_in_minutes: number;
+        };
         ProjectionPagination: {
             items: unknown[];
             page: number;
@@ -5134,6 +5433,254 @@ export interface components {
             minutes: number;
             replayed: boolean;
         };
+        TrainingProgram: {
+            program_id: number;
+            code: string;
+            title: string;
+            status: string;
+        };
+        TrainingSession: {
+            session_id: number;
+            program_id: number;
+            plan_id: number | null;
+            course_id: number | null;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            /** Format: date-time */
+            starts_at: string | null;
+            /** Format: date-time */
+            ends_at: string | null;
+            capacity: number;
+            location: string | null;
+            /** @enum {string} */
+            status: "SCHEDULED" | "CANCELLED" | "COMPLETED";
+        };
+        TrainingEnrollment: {
+            enrollment_id: number;
+            session_id: number;
+            employment_id: number;
+            /** @enum {string} */
+            status: "ENROLLED" | "ATTENDED" | "COMPLETED";
+            attended: boolean;
+            /** @enum {string|null} */
+            completion_result: "PASS" | "FAIL" | "ATTENDED" | null;
+            score: number | null;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        TrainingProgramListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingProgram"][];
+            };
+        };
+        TrainingSessionListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingSession"][];
+            };
+        };
+        TrainingEnrollmentListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingEnrollment"][];
+            };
+        };
+        TrainingProgramEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProgram"];
+        };
+        TrainingSessionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingSession"];
+        };
+        TrainingEnrollmentEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingEnrollment"];
+        };
+        TrainingProjectionData: {
+            items: unknown[];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        TrainingPlan: {
+            plan_id: number;
+            code: string;
+            title: string;
+            year: number;
+            budget_cents: number;
+            currency: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TrainingCourse: {
+            course_id: number;
+            plan_id: number | null;
+            code: string;
+            title: string;
+            instructor: string | null;
+            /** @enum {string} */
+            delivery_mode: "ONSITE" | "ONLINE" | "HYBRID";
+            duration_minutes: number;
+            cost_cents: number;
+            currency: string;
+            materials: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "ARCHIVED";
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TrainingCheckin: {
+            checkin_id: number;
+            session_id: number;
+            employment_id: number;
+            /** Format: date-time */
+            checked_in_at: string | null;
+            /** Format: date-time */
+            checked_out_at: string | null;
+            /** @description Derived from check-in/check-out; never stored. */
+            study_minutes: number;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TrainingExam: {
+            exam_id: number;
+            course_id: number | null;
+            code: string;
+            title: string;
+            version: number;
+            passing_score: number;
+            max_score: number;
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED";
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TrainingFeedback: {
+            training_feedback_id: number;
+            enrollment_id: number;
+            session_id: number;
+            employment_id: number;
+            rating: number | null;
+            comments: string;
+            questionnaire: {
+                [key: string]: unknown;
+            } | null;
+            /** @constant */
+            status: "RECORDED";
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TrainingRecord: {
+            enrollment_id: number;
+            employment_id: number;
+            session_id: number;
+            course_code: string | null;
+            course_title: string | null;
+            /** Format: date */
+            session_starts_on: string | null;
+            status: string;
+            attended: boolean;
+            /** @enum {string|null} */
+            completion_result: "PASS" | "FAIL" | "ATTENDED" | null;
+            score: number | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            checkin_count: number;
+            /** @description Derived from check-in/check-out; never stored. */
+            study_minutes: number;
+            feedback_count: number;
+            latest_exam_version: number | null;
+        };
+        TrainingReport: {
+            plan_id: number;
+            code: string;
+            title: string;
+            year: number;
+            budget_cents: number;
+            training_cost_cents: number;
+            currency: string;
+            course_count: number;
+            session_count: number;
+            enrolled_count: number;
+            completed_count: number;
+            completion_rate_bps: number;
+            exam_pass_count: number;
+            exam_pass_rate_bps: number;
+            study_minutes_total: number;
+            feedback_count: number;
+            average_feedback_rating_bps: number;
+        };
+        TrainingRecordExport: {
+            fields: string[];
+            items: {
+                [key: string]: unknown;
+            }[];
+        };
+        TrainingPlanListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingPlan"][];
+            };
+        };
+        TrainingCourseListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingCourse"][];
+            };
+        };
+        TrainingCheckinListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingCheckin"][];
+            };
+        };
+        TrainingExamListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingExam"][];
+            };
+        };
+        TrainingFeedbackListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingFeedback"][];
+            };
+        };
+        TrainingRecordListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingRecord"][];
+            };
+        };
+        TrainingReportListEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingProjectionData"] & {
+                items?: components["schemas"]["TrainingReport"][];
+            };
+        };
+        TrainingPlanEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingPlan"];
+        };
+        TrainingCourseEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingCourse"];
+        };
+        TrainingCheckinEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingCheckin"];
+        };
+        TrainingExamEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingExam"];
+        };
+        TrainingFeedbackEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingFeedback"];
+        };
+        TrainingRecordExportEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["TrainingRecordExport"];
+        };
         TravelRequest: {
             travel_id: number;
             employment_id: number;
@@ -5497,6 +6044,177 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["Terms"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentDocumentFiles: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    uploadEmploymentDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    category: "CONTRACT" | "ID" | "EDUCATION" | "CERTIFICATE" | "OTHER";
+                    retention_class: string;
+                    legal_hold?: boolean;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Document created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DocumentReference"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    signDocumentDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SignedDownload"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    downloadDocumentContent: {
+        parameters: {
+            query: {
+                tenant_id: number;
+                expires: number;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        /** Format: binary */
+                        data?: string;
+                    };
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            deleted?: boolean;
+                        };
                     };
                 };
             };
@@ -8480,32 +9198,199 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    trainingProgramsIndex: {
+    trainingPlansIndex: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["Envelope"];
+            /** @description Training plan projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingPlansStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    title: string;
+                    year: number;
+                    budget_cents?: number;
+                    /** @default CNY */
+                    currency?: string;
+                    /** @enum {string} */
+                    status?: "ACTIVE" | "ARCHIVED";
+                };
+            };
+        };
+        responses: {
+            /** @description Training plan created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingPlanEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingCoursesIndex: {
+        parameters: {
+            query?: {
+                plan_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Training course projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCourseListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingCoursesStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    plan_id?: number | null;
+                    code: string;
+                    title: string;
+                    instructor?: string | null;
+                    /** @enum {string} */
+                    delivery_mode?: "ONSITE" | "ONLINE" | "HYBRID";
+                    duration_minutes?: number;
+                    cost_cents?: number;
+                    /** @default CNY */
+                    currency?: string;
+                    materials?: string | null;
+                    /** @enum {string} */
+                    status?: "ACTIVE" | "ARCHIVED";
+                };
+            };
+        };
+        responses: {
+            /** @description Training course created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCourseEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingProgramsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Training program projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingProgramListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };
     trainingProgramsStore: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    title: string;
+                    default_capacity?: number | null;
+                };
+            };
+        };
         responses: {
-            201: components["responses"]["Envelope"];
+            /** @description Training program created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingProgramEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
@@ -8518,6 +9403,8 @@ export interface operations {
             query?: {
                 program_id?: number;
                 status?: string;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
             };
             header?: never;
             path?: never;
@@ -8531,9 +9418,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["Paginated"];
-                    };
+                    "application/json": components["schemas"]["TrainingSessionListEnvelope"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
@@ -8544,13 +9429,41 @@ export interface operations {
     trainingSessionsStore: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    program_id: number;
+                    plan_id?: number | null;
+                    course_id?: number | null;
+                    /** Format: date */
+                    starts_on: string;
+                    /** Format: date */
+                    ends_on: string;
+                    /** Format: date-time */
+                    starts_at: string;
+                    /** Format: date-time */
+                    ends_at: string;
+                    capacity: number;
+                    location?: string | null;
+                };
+            };
+        };
         responses: {
-            201: components["responses"]["Envelope"];
+            /** @description Session created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingSessionEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
@@ -8558,16 +9471,176 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    trainingEnrollmentsStore: {
+    trainingSessionCheckinsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session check-in projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCheckinListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingSessionCheckinsStore: {
         parameters: {
             query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    employment_id: number;
+                    /** Format: date-time */
+                    checked_in_at?: string | null;
+                    /** Format: date-time */
+                    checked_out_at?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Existing check-in replayed without changing times */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCheckinEnvelope"];
+                };
+            };
+            /** @description Check-in recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCheckinEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingCheckinsIndex: {
+        parameters: {
+            query?: {
+                session_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            201: components["responses"]["Envelope"];
+            /** @description Check-in projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingCheckinListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingEnrollmentsIndex: {
+        parameters: {
+            query?: {
+                session_id?: number;
+                employment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enrollment projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingEnrollmentListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingEnrollmentsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    session_id: number;
+                    employment_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Existing enrollment returned idempotently */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingEnrollmentEnvelope"];
+                };
+            };
+            /** @description Enrollment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingEnrollmentEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
@@ -8578,7 +9651,112 @@ export interface operations {
     trainingEnrollmentsComplete: {
         parameters: {
             query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    attended?: boolean;
+                    /** @enum {string} */
+                    completion_result: "PASS" | "FAIL" | "ATTENDED";
+                    score?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Completion recorded or replayed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingEnrollmentEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingExamsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
             header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exam version projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingExamListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingExamsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    course_id?: number | null;
+                    code: string;
+                    title: string;
+                    passing_score: number;
+                    max_score: number;
+                    publish?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Exam version created or draft updated */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingExamEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingExamsPublish: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
             path: {
                 id: number;
             };
@@ -8586,24 +9764,195 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["Envelope"];
+            /** @description Exam version published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingExamEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
-    trainingReportIndex: {
+    trainingFeedbackIndex: {
         parameters: {
-            query?: never;
+            query?: {
+                enrollment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["Envelope"];
+            /** @description Training feedback projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingFeedbackListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingFeedbackStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrollment_id: number;
+                    rating?: number | null;
+                    comments: string;
+                    questionnaire?: {
+                        [key: string]: unknown;
+                    } | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Feedback appended */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingFeedbackEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingRecordsIndex: {
+        parameters: {
+            query?: {
+                employment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Personal training record projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingRecordListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingRecordsExport: {
+        parameters: {
+            query: {
+                fields: ("employment_id" | "session_id" | "enrollment_id" | "course_code" | "course_title" | "status" | "completion_result" | "score" | "study_minutes" | "checkin_count" | "feedback_count" | "latest_exam_version")[];
+                employment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whitelisted training record export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingRecordExportEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingReportsIndex: {
+        parameters: {
+            query?: {
+                plan_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Training report projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingReportListEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingReportIndex: {
+        parameters: {
+            query?: {
+                program_id?: number;
+                employment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Legacy attendance report projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrainingEnrollmentListEnvelope"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
