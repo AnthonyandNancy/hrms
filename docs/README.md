@@ -12,6 +12,7 @@
 |---|---|---|---|
 | 最高权限完整性、生产基线数据与去演示化 | `superpowers/specs/2026-11-24-superuser-coverage-and-production-baseline-design.md` | `superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md` | 已批准，按 Subagent-Driven 执行 |
 | V1.1 生产完整性（17 菜单、140 业务页、14 平台模块、6 基础页、26 工作包） | `superpowers/specs/2026-11-25-v11-production-completion-design.md` | `superpowers/plans/2026-11-25-v11-production-completion-implementation-plan.md` | **已确认**；页面/权限蓝皮书 `audit/2026-11-25-v11-page-access-blueprint.md`；清单 `audit/2026-11-25-v11-page-inventory.md`；审计 `audit/2026-11-25-v11-gap-audit.md` |
+| V1.1 缺口补全（63 项 → 12 能力集群 + 3 内核） | `superpowers/specs/2026-11-25-v11-gap-completion-design.md` | `superpowers/plans/2026-11-25-v11-gap-completion-implementation-plan.md` | **待用户确认**；ADR-0028～0032 |
 
 该提案修订（不重写）上述两份已批准交付件，涉及 ADR-0004 第 7 条与 ADR-0013 的表述边界，并新增 ADR-0016、ADR-0017。
 
@@ -47,3 +48,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File convert_final.ps1
 - [ADR-0025](adr/0025-intranet-mfa-and-operational-posture.md)
 - [ADR-0026](adr/0026-page-coverage-registry.md)
 - [ADR-0027](adr/0027-page-permission-and-role-allocation.md)
+- [ADR-0028](adr/0028-capability-loop-projection-contract-platform-kernel.md)
+- [ADR-0029](adr/0029-projection-contract-and-freshness.md)
+- [ADR-0030](adr/0030-command-envelope-and-effect-retry.md)
+- [ADR-0031](adr/0031-platform-kernel-ownership.md)
+- [ADR-0032](adr/0032-scope-and-field-policy-write-model.md)

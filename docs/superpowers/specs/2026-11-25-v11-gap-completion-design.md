@@ -254,8 +254,8 @@ POST /v1/... (Idempotency-Key)
 
 | # | 集群 | 页面数 | 新增/扩展表 | 关键不变量 | 真实 E2E |
 |---:|---|---:|---|---|---|
-| K1 | 组织岗位完整性 | 5 | `position_qualifications`、`position_grades`、`assignment` 扩展 | 停用前无在岗；借调=Assignment；职级代码拥有 | 岗位→借调→回岗 |
-| K2 | 合同全生命周期 | 3 | `contract_templates`、`_versions` 扩展 | 版本只追加；终止需生效日；模板发布需版本 | 续签→变更→终止 |
+| K1 | 组织岗位完整性 | 4 | `position_qualifications`、`position_grades`、`assignment` 扩展 | 停用前无在岗；借调=Assignment；职级代码拥有 | 岗位→借调→回岗 |
+| K2 | 合同全生命周期 | 2 | `contract_templates`、`_versions` 扩展 | 版本只追加；终止需生效日；模板发布需版本 | 续签→变更→终止 |
 | K3 | 员工文档 | 1 | 复用 `documents`/`file_objects` | 删除需保留类/法律保留；签名下载 | 上传→列表→下载→删除拒绝 |
 | K4 | 考勤规则与排班 | 4 | `attendance_rules` 读模型、`shift_schedules`、`attendance_devices` | 规则版本化；排班冲突；月结锁定 | 排班→打卡→月结→重开 |
 | K5 | 加班与调休 | 4 | `overtime_requests`、`overtime_confirmations`、`timeoff_balances` 投影 | 申请≠确认；同一工时只结算一次 | 申请→确认→工资/调休→重复拒绝 |
@@ -264,7 +264,7 @@ POST /v1/... (Idempotency-Key)
 | K8 | 绩效全周期 | 6 | `performance_indicators`、`goals`、`feedback`、`calibration`、`results` | 权重=100；校准不改原始分；发布后不可改 | 目标→自评→校准→发布→申诉 |
 | K9 | 招聘全漏斗 | 10 | `candidate_evaluations`、`candidate_communications`、`talent_pool_tags`、`candidate_imports` | 需求批准才发布；转员工幂等；PII 字段档位 | 需求→发布→面试→Offer→转员工 |
 | K10 | 培训全周期 | 7 | `training_plans`、`courses`、`checkins`、`exams`、`feedback` | 容量/重复报名；签到幂等；学时派生 | 计划→课程→报名→签到→考试→档案 |
-| K11 | 平台治理 | 12 | 见 5.1.3 | 能力码代码拥有；范围白名单；P3 不可放宽；outbox 幂等 | 建角色→授权→预览→生效；字典/日历/通知 |
+| K11 | 平台治理 | 15 | 见 5.1.3 | 能力码代码拥有；范围白名单；P3 不可放宽；outbox 幂等 | 建角色→授权→预览→生效；字典/日历/通知 |
 | K12 | 报表与订阅 | 5 | `report_definitions` 扩展、`report_subscriptions`、`report_exports` | 报表不写业务表；订阅再鉴权；导出白名单 | 自定义报表→订阅→导出→下载审计 |
 
 ### 5.3 新增能力码
