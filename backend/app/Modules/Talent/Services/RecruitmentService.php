@@ -11,6 +11,7 @@ use App\Modules\Talent\Models\Interview;
 use App\Modules\Talent\Models\Offer;
 use App\Modules\Talent\Models\Requisition;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
+use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
@@ -27,6 +28,7 @@ final class RecruitmentService
         private readonly WorkflowCaseGateway $workflow,
         private readonly OfferStateMachine $offerMachine,
         private readonly TalentOnboardingDraftPort $onboarding,
+        private readonly SensitiveAccessAuditor $sensitiveAuditor,
     ) {}
 
     /**
@@ -44,6 +46,8 @@ final class RecruitmentService
                 'title' => (string) $input['title'],
                 'status' => 'PENDING_APPROVAL',
                 'headcount' => (int) $input['headcount'],
+                'budget_minor' => isset($input['budget_minor']) ? (int) $input['budget_minor'] : null,
+                'budget_currency' => isset($input['budget_currency']) ? mb_strtoupper((string) $input['budget_currency']) : null,
                 'target_start_date' => $input['target_start_date'] ?? null,
                 'recorded_at' => $this->clock->now(),
             ]);
@@ -77,6 +81,9 @@ final class RecruitmentService
                 'requisition_id' => (int) $requisition->id,
                 'requisition_no' => (string) $requisition->requisition_no,
                 'status' => (string) $requisition->status,
+                'headcount' => (int) $requisition->headcount,
+                'budget_minor' => $requisition->budget_minor !== null ? (int) $requisition->budget_minor : null,
+                'budget_currency' => $requisition->budget_currency !== null ? (string) $requisition->budget_currency : null,
                 'case_id' => $case->id,
             ];
         });
@@ -324,20 +331,32 @@ final class RecruitmentService
             ->orderBy('version');
 
         $total = (int) (clone $query)->count();
-        $items = $query->forPage($page, $pageSize)->get()->map(fn (Offer $offer): array => [
-            'offer_id' => (int) $offer->id,
-            'candidate_id' => (int) $offer->candidate_id,
-            'requisition_id' => (int) $offer->requisition_id,
-            'version' => (int) $offer->version,
-            'status' => (string) $offer->status,
-            'base_salary_minor' => (int) $offer->base_salary_minor,
-            'salary_currency' => (string) $offer->salary_currency,
-            'start_date' => (string) $offer->start_date,
-            'case_id' => $offer->case_id !== null ? (int) $offer->case_id : null,
-            'onboarding_case_id' => $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,
-            'accepted_at' => $this->iso($offer->accepted_at),
-            'declined_at' => $this->iso($offer->declined_at),
-        ])->values()->all();
+        $items = $query->forPage($page, $pageSize)->get()->map(function (Offer $offer) use ($tenantId): array {
+            $this->sensitiveAuditor->record(
+                tenantId: $tenantId,
+                userId: app(\App\Shared\Authorization\PrincipalResolver::class)->resolve()->userId(),
+                resourceType: 'offer',
+                resourceId: (string) $offer->id,
+                capability: 'recruitment.offer.manage',
+                fields: ['base_salary_minor'],
+                context: ['profile' => 'P3_RESTRICTED', 'access' => 'LIST'],
+            );
+
+            return [
+                'offer_id' => (int) $offer->id,
+                'candidate_id' => (int) $offer->candidate_id,
+                'requisition_id' => (int) $offer->requisition_id,
+                'version' => (int) $offer->version,
+                'status' => (string) $offer->status,
+                'base_salary_minor' => (int) $offer->base_salary_minor,
+                'salary_currency' => (string) $offer->salary_currency,
+                'start_date' => (string) $offer->start_date,
+                'case_id' => $offer->case_id !== null ? (int) $offer->case_id : null,
+                'onboarding_case_id' => $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,
+                'accepted_at' => $this->iso($offer->accepted_at),
+                'declined_at' => $this->iso($offer->declined_at),
+            ];
+        })->values()->all();
 
         return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
     }

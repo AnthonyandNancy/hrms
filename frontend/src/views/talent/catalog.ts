@@ -21,6 +21,12 @@ const TRAINING_EXAM_COLUMNS = ['exam_id', 'course_id', 'code', 'title', 'version
 const TRAINING_FEEDBACK_COLUMNS = ['training_feedback_id', 'enrollment_id', 'employment_id', 'rating', 'comments', 'status'] as const
 const TRAINING_RECORD_COLUMNS = ['enrollment_id', 'employment_id', 'course_code', 'course_title', 'status', 'completion_result', 'score', 'study_minutes', 'checkin_count', 'feedback_count', 'latest_exam_version'] as const
 const TRAINING_REPORT_COLUMNS = ['plan_id', 'code', 'title', 'year', 'budget_cents', 'training_cost_cents', 'enrolled_count', 'completed_count', 'completion_rate_bps', 'exam_pass_count', 'study_minutes_total', 'feedback_count', 'average_feedback_rating_bps'] as const
+const BOARD_COLUMNS = ['requisition_no', 'title', 'status', 'headcount', 'openings_count', 'candidate_count', 'interview_count', 'offer_count', 'hired_count', 'vacancy_count', 'fill_rate_bps'] as const
+const BUDGET_COLUMNS = ['requisition_no', 'title', 'headcount', 'budget_minor', 'budget_currency', 'committed_offer_minor', 'budget_variance_minor', 'filled_headcount', 'vacancy_count'] as const
+const RECRUITMENT_REPORT_COLUMNS = ['requisition_no', 'title', 'headcount', 'openings_count', 'candidate_count', 'interview_count', 'offer_count', 'accepted_offers', 'hired_count', 'fill_rate_bps', 'time_to_hire_days'] as const
+const EVALUATION_COLUMNS = ['evaluation_id', 'candidate_id', 'rating', 'recommendation', 'strengths', 'concerns', 'status'] as const
+const COMMUNICATION_COLUMNS = ['communication_id', 'candidate_id', 'channel', 'direction', 'subject', 'consent_basis', 'sent_at'] as const
+const TALENT_POOL_COLUMNS = ['tag_id', 'candidate_id', 'tag', 'reason', 'retention_until', 'status'] as const
 
 const PERFORMANCE_CREATES: readonly TalentFormKind[] = ['cycle-create']
 const INDICATOR_CREATES: readonly TalentFormKind[] = ['indicator-create']
@@ -31,9 +37,15 @@ const RESULT_CREATES: readonly TalentFormKind[] = ['cycle-publish']
 const TEMPLATE_CREATES: readonly TalentFormKind[] = ['template-create']
 const REVIEW_CREATES: readonly TalentFormKind[] = ['review-create', 'review-submit', 'review-appeal']
 const REQUISITION_CREATES: readonly TalentFormKind[] = ['requisition-create']
+const APPROVAL_CREATES: readonly TalentFormKind[] = ['requisition-approve']
+const IMPORT_CREATES: readonly TalentFormKind[] = ['candidate-import']
 const OPENING_CREATES: readonly TalentFormKind[] = ['opening-publish']
 const CANDIDATE_CREATES: readonly TalentFormKind[] = ['candidate-create']
 const INTERVIEW_CREATES: readonly TalentFormKind[] = ['interview-schedule']
+const EVALUATION_CREATES: readonly TalentFormKind[] = ['evaluation-create']
+const COMMUNICATION_CREATES: readonly TalentFormKind[] = ['communication-create']
+const TALENT_POOL_CREATES: readonly TalentFormKind[] = ['talent-pool-tag']
+const CONVERT_CREATES: readonly TalentFormKind[] = ['candidate-convert']
 const OFFER_CREATES: readonly TalentFormKind[] = ['offer-create', 'offer-accept']
 const SESSION_CREATES: readonly TalentFormKind[] = ['session-create']
 const ENROLLMENT_CREATES: readonly TalentFormKind[] = ['enrollment-create', 'enrollment-complete']
@@ -94,10 +106,15 @@ const PANEL = {
     body: '仅已批准的需求允许发布招聘岗位，发布失败时保留在表单并展示服务端业务原因。',
     points: ['同一需求与渠道重复发布幂等', '撤回与关闭接口尚未提供'],
   },
+  board: {
+    title: '漏斗口径',
+    body: '看板数值只来自需求、开放岗位、面试、Offer 与候选人转换记录，不生成预测或演示行。',
+    points: ['需求批准后才允许发布开放岗位', '招聘人数与已入职人数均按实时行计数'],
+  },
   budget: {
     title: '预算口径',
-    body: '当前后端未提供预算字段或预算聚合接口，本页不展示推算数据。',
-    points: ['待补预算接口', '待补编制缺口接口'],
+    body: '预算与实际 Offer 成本均以整数货币最小单位表示；未配置预算时保持 null，不以 0 代替。',
+    points: ['金额为整数分', '编制缺口按需求人数减去已入职人数'],
   },
   candidate: {
     title: '隐私边界',
@@ -311,17 +328,12 @@ const REQUEST_PAGES: TalentPageConfig[] = [
     ...RECRUITMENT_REQUEST_BASE,
     key: 'recruitment/requests/approval',
     title: '招聘需求审批',
-    description: '审批动作由通用审批流程处理，需求台账保持只读。',
+    description: '按实时需求台账查看审批状态；审批决策继续由通用审批流程按 case_id 处理。',
     readPath: '/v1/recruitment/requisitions',
     readLabel: '待审批招聘需求',
     columns: REQUISITION_COLUMNS,
-    forms: [],
+    forms: APPROVAL_CREATES,
     panels: [PANEL.openings],
-    pending: {
-      label: '招聘需求审批动作',
-      plannedPath: '/v1/workflow/cases/{id}/decisions',
-      detail: '本域未提供审批决策路由；请从审批流程中心按 case_id 处理，页面不伪造本地审批按钮。',
-    },
   },
   {
     ...RECRUITMENT_REQUEST_BASE,
@@ -338,49 +350,34 @@ const REQUEST_PAGES: TalentPageConfig[] = [
     ...RECRUITMENT_REQUEST_BASE,
     key: 'recruitment/requests/board',
     title: '招聘进度看板',
-    description: '需求人数与实际入职转化进展。',
-    readPath: '/v1/recruitment/requisitions',
-    readLabel: '后续招聘看板',
-    columns: REQUISITION_COLUMNS,
+    description: '按需求实时聚合渠道、面试、Offer 与入职转化进展。',
+    readPath: '/v1/recruitment/board',
+    readLabel: '招聘漏斗看板',
+    columns: BOARD_COLUMNS,
     forms: [],
-    panels: [PANEL.openings],
-    pending: {
-      label: '招聘进度看板',
-      plannedPath: '/v1/recruitment/requests/board',
-      detail: '后端仅有需求台账，渠道、阶段与转化聚合接口未提供。',
-    },
+    panels: [PANEL.board],
   },
   {
     ...RECRUITMENT_REQUEST_BASE,
     key: 'recruitment/requests/budget',
     title: '招聘预算与编制',
-    description: '预算、实际成本与编制缺口管理。',
-    readPath: '/v1/recruitment/requisitions',
-    readLabel: '后续预算',
-    columns: REQUISITION_COLUMNS,
+    description: '预算、已承诺 Offer 成本与编制缺口均来自实时需求与转化聚合。',
+    readPath: '/v1/recruitment/budget',
+    readLabel: '招聘预算',
+    columns: BUDGET_COLUMNS,
     forms: [],
     panels: [PANEL.budget],
-    pending: {
-      label: '招聘预算与编制',
-      plannedPath: '/v1/recruitment/requisitions/{id}/budget',
-      detail: '需求创建模型不包含预算字段，且无预算聚合或编制缺口接口。',
-    },
   },
   {
     ...RECRUITMENT_REQUEST_BASE,
     key: 'recruitment/requests/reports',
     title: '招聘统计',
-    description: '渠道、周期与需求达成率统计。',
-    readPath: '/v1/recruitment/requisitions',
-    readLabel: '后续招聘统计',
-    columns: REQUISITION_COLUMNS,
+    description: '按需求统计开放岗位、候选人、面试、Offer、入职与填补率。',
+    readPath: '/v1/recruitment/reports',
+    readLabel: '招聘统计',
+    columns: RECRUITMENT_REPORT_COLUMNS,
     forms: [],
-    panels: [PANEL.openings],
-    pending: {
-      label: '招聘统计',
-      plannedPath: '/v1/recruitment/requisitions/reports',
-      detail: '后端未定义招聘渠道、周期、达成率或导出统计接口。',
-    },
+    panels: [PANEL.reports],
   },
 ]
 
@@ -412,33 +409,23 @@ const CANDIDATE_PAGES: TalentPageConfig[] = [
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/imports',
     title: '简历解析/导入',
-    description: '上传、解析、重复识别与人工校验。',
+    description: '按行导入候选人，逐行返回接受或拒绝原因；拒绝行不会被静默丢弃。',
     readPath: '/v1/recruitment/candidates',
-    readLabel: '后续简历导入',
+    readLabel: '现有候选人',
     columns: CANDIDATE_COLUMNS,
-    forms: [],
+    forms: IMPORT_CREATES,
     panels: [PANEL.candidate],
-    pending: {
-      label: '简历解析/导入',
-      plannedPath: '/v1/recruitment/candidates/imports',
-      detail: '后端未提供文件上传、解析任务或重复合并接口；仅有候选人新建接口。',
-    },
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/pipeline',
     title: '招聘流程看板',
-    description: '按招聘阶段展示候选人流转。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '后续招聘漏斗',
-    columns: CANDIDATE_COLUMNS,
+    description: '按需求实时查看候选人、面试、Offer 与入职转化阶段。',
+    readPath: '/v1/recruitment/board',
+    readLabel: '招聘漏斗',
+    columns: BOARD_COLUMNS,
     forms: [],
-    panels: [PANEL.candidate],
-    pending: {
-      label: '招聘流程看板',
-      plannedPath: '/v1/recruitment/candidates/pipeline',
-      detail: '候选人查询不返回阶段流转，阶段迁移接口也未提供。',
-    },
+    panels: [PANEL.board],
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
@@ -455,17 +442,13 @@ const CANDIDATE_PAGES: TalentPageConfig[] = [
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/evaluations',
     title: '面试评价',
-    description: '结构化评分与录用意见。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '后续面试评价',
-    columns: CANDIDATE_COLUMNS,
-    forms: [],
+    description: '按候选人记录结构化评分、录用建议与评语；读取会写敏感访问审计。',
+    readPath: '/v1/recruitment/candidates/{id}/evaluations',
+    readLabel: '面试评价',
+    columns: EVALUATION_COLUMNS,
+    forms: EVALUATION_CREATES,
     panels: [PANEL.candidate],
-    pending: {
-      label: '面试评价',
-      plannedPath: '/v1/recruitment/candidates/{id}/evaluations',
-      detail: '面试创建接口不写评价；结构化评价读取与提交接口均未提供。',
-    },
+    routeFilterKey: 'candidate_id',
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
@@ -482,49 +465,36 @@ const CANDIDATE_PAGES: TalentPageConfig[] = [
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/communications',
     title: '候选人沟通',
-    description: '联系记录、沟通模板与同意审计。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '后续候选人沟通',
-    columns: CANDIDATE_COLUMNS,
-    forms: [],
+    description: '按候选人记录渠道、方向、内容与同意基础，读取会写敏感访问审计。',
+    readPath: '/v1/recruitment/candidates/{id}/communications',
+    readLabel: '候选人沟通',
+    columns: COMMUNICATION_COLUMNS,
+    forms: COMMUNICATION_CREATES,
     panels: [PANEL.candidate],
-    pending: {
-      label: '候选人沟通',
-      plannedPath: '/v1/recruitment/candidates/{id}/communications',
-      detail: '后端无沟通模板、发送记录或同意管理接口。',
-    },
+    routeFilterKey: 'candidate_id',
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/talent-pool',
     title: '人才库与标签',
-    description: '标签、状态与留存期管理。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '后续人才库',
-    columns: CANDIDATE_COLUMNS,
-    forms: [],
+    description: '按候选人维护人才库标签、原因与留存截止日；读取会写敏感访问审计。',
+    readPath: '/v1/recruitment/candidates/{id}/talent-pool',
+    readLabel: '人才库标签',
+    columns: TALENT_POOL_COLUMNS,
+    forms: TALENT_POOL_CREATES,
     panels: [PANEL.candidate],
-    pending: {
-      label: '人才库与标签',
-      plannedPath: '/v1/recruitment/candidates/talent-pool',
-      detail: '候选人模型未暴露标签或留存策略接口。',
-    },
+    routeFilterKey: 'candidate_id',
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
     key: 'recruitment/candidates/convert',
     title: '录用转入职',
-    description: '接受 Offer 并生成唯一入职草稿；不在此页伪造员工主档。',
+    description: '将已接受 Offer 的候选人幂等转为唯一员工任职；同一候选人的新幂等键重放返回原任职。',
     readPath: '/v1/recruitment/offers',
     readLabel: 'Offer 台账',
     columns: OFFER_COLUMNS,
-    forms: ['offer-accept'],
+    forms: CONVERT_CREATES,
     panels: [PANEL.offers],
-    pending: {
-      label: '录用转入职映射确认',
-      plannedPath: '/v1/recruitment/candidates/{id}/convert',
-      detail: '真实接受动作 /v1/recruitment/offers/{id}/accept 已上线并会生成入职草稿；候选人到员工主档的转换结果查询与附件交接接口尚未提供。',
-    },
   },
 ]
 

@@ -36,10 +36,13 @@ const config = computed(() => {
   return talentPageConfig(key)
 })
 
+const scopedCandidateId = ref<string>(typeof route.query.candidate_id === 'string' ? route.query.candidate_id : '')
+
 const routeFilter = computed<Record<string, unknown>>(() => {
   if (config.value?.routeFilterKey === undefined) return {}
-  const value = route.params.id
-  if (typeof value !== 'string' || !/^\d+$/.test(value)) return { [config.value.routeFilterKey]: null }
+  const routeValue = route.params.id
+  const value = typeof routeValue === 'string' && /^\d+$/.test(routeValue) ? routeValue : scopedCandidateId.value
+  if (!/^\d+$/.test(value)) return { [config.value.routeFilterKey]: null }
   return { [config.value.routeFilterKey]: Number(value) }
 })
 
@@ -154,7 +157,8 @@ function normaliseCandidate(row: TalentRow): TalentRow {
 
 function normalisedRow(row: TalentRow): TalentRow {
   if (config.value?.domain !== 'recruitment-candidates') return row
-  if (config.value.columns.includes('offer_id')) return row
+  const key = config.value.key
+  if (key !== 'recruitment/candidates/index' && key !== 'recruitment/candidates/by-id') return row
   return normaliseCandidate(row)
 }
 
@@ -166,7 +170,18 @@ async function load(): Promise<void> {
   loaded.value = false
   loading.value = true
   try {
-    const result = await readTalentList(current.readPath, routeFilter.value, normalisedRow)
+    const filterId = routeFilter.value.candidate_id
+    if (current.readPath.includes('{id}') && typeof filterId !== 'number') {
+      rows.value = []
+      total.value = 0
+      partial.value = false
+      return
+    }
+    const readPath =
+      typeof filterId === 'number' && current.readPath.includes('{id}')
+        ? current.readPath.replace('{id}', String(filterId))
+        : current.readPath
+    const result = await readTalentList(readPath, routeFilter.value, normalisedRow)
     const filterKey = current.routeFilterKey
     const filterValue = filterKey === undefined ? null : routeFilter.value[filterKey]
     const filteredRows =
@@ -236,6 +251,19 @@ onMounted(load)
     </template>
 
     <template #data>
+      <form
+        v-if="config.routeFilterKey === 'candidate_id'"
+        class="panel talent-scope"
+        data-testid="candidate-scope"
+        @submit.prevent="load"
+      >
+        <label class="talent-field">
+          候选人 ID
+          <input v-model="scopedCandidateId" data-testid="candidate-scope-id" inputmode="numeric" required />
+        </label>
+        <button type="submit" :disabled="loading" data-testid="candidate-scope-load">读取候选人子资源</button>
+      </form>
+
       <section
         v-if="pageError.message.value === '' && rows.length > 0"
         class="panel talent-data-panel"
@@ -337,7 +365,7 @@ onMounted(load)
         v-for="kind in formKinds"
         :key="kind"
         :kind="kind"
-        :route-id="routeId"
+        :route-id="routeId ?? (scopedCandidateId !== '' ? scopedCandidateId : undefined)"
         @created="onCreated"
       />
     </template>
@@ -386,6 +414,17 @@ onMounted(load)
 .talent-pending,
 .talent-guidance {
   overflow: hidden;
+}
+
+.talent-scope {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 17px;
+}
+
+.talent-scope .talent-field {
+  margin: 0;
 }
 
 .talent-refresh {

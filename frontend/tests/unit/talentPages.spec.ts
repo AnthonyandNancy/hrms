@@ -276,33 +276,65 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.text()).toContain('培训场次已创建')
   })
 
-  it('keeps unbacked candidate convert data out of the offer accept workflow', async () => {
+  it('converts an accepted candidate through the real idempotent endpoint', async () => {
     resource.get.mockResolvedValue(listResponse([
       {
         offer_id: 44,
         candidate_id: 31,
         requisition_id: 8,
         version: 1,
-        status: 'APPROVED',
+        status: 'ACCEPTED',
         base_salary_minor: 2000000,
         salary_currency: 'CNY',
         start_date: '2026-12-01',
       },
     ]))
+    resource.post.mockResolvedValue({
+      conversion_id: 9,
+      candidate_id: 31,
+      employment_id: 501,
+      person_id: 61,
+      offer_id: 44,
+      legal_entity_id: 1,
+      org_unit_id: 8,
+      employee_no: 'CONV-UI-1',
+      status: 'COMPLETED',
+      converted_at: '2026-11-25T01:00:00Z',
+      business_replayed: false,
+    })
 
     const wrapper = await mountWithRouter('recruitment/candidates/convert', '/recruitment/candidates/convert')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/offers', expect.any(Object))
-    expect(wrapper.find('[data-testid="backend-pending"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('/v1/recruitment/candidates/{id}/convert')
-    expect(wrapper.find('[data-testid="offer-accept-submit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="backend-pending"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="offer-accept-submit"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="convert-candidate-id"]').setValue('31')
+    await wrapper.get('[data-testid="convert-legal-entity-id"]').setValue('1')
+    await wrapper.get('[data-testid="convert-org-unit-id"]').setValue('8')
+    await wrapper.get('[data-testid="convert-employee-no"]').setValue('CONV-UI-1')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/recruitment/candidates/31/convert',
+      {
+        legal_entity_id: 1,
+        org_unit_id: 8,
+        employee_no: 'CONV-UI-1',
+        hire_date: null,
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('任职 501')
   })
 
-  it('declares a live GET path and explicit backend gaps for every Wave 4 page config', () => {
+  it('declares live funnel read paths with no remaining K9 backend gaps', () => {
     expect(TALENT_PAGE_CONFIGS).toHaveLength(36)
     for (const page of TALENT_PAGE_CONFIGS) {
       expect(page.readPath, page.key).toMatch(/^\/v1\//)
+      expect(page.pending, page.key).toBeUndefined()
     }
     expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/reviews')?.readPath).toBe(
       '/v1/performance/reviews',
@@ -326,35 +358,34 @@ describe('Wave 4 talent domain components', () => {
       expect(page?.pending, key).toBeUndefined()
     }
 
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/indicators')?.readPath).toBe(
-      '/v1/performance/indicators',
-    )
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/goals')?.readPath).toBe(
-      '/v1/performance/goals',
-    )
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/feedback')?.readPath).toBe(
-      '/v1/performance/feedback',
-    )
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/calibration')?.readPath).toBe(
-      '/v1/performance/calibration',
-    )
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/results')?.readPath).toBe(
-      '/v1/performance/results',
-    )
-    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/reports')?.readPath).toBe(
-      '/v1/performance/reports',
-    )
-
-    const plannedGaps = new Map([
-      ['recruitment/candidates/imports', '/v1/recruitment/candidates/imports'],
-      ['recruitment/candidates/pipeline', '/v1/recruitment/candidates/pipeline'],
+    const recruitmentLivePaths = new Map([
+      ['recruitment/requests/approval', '/v1/recruitment/requisitions'],
+      ['recruitment/requests/board', '/v1/recruitment/board'],
+      ['recruitment/requests/budget', '/v1/recruitment/budget'],
+      ['recruitment/requests/reports', '/v1/recruitment/reports'],
+      ['recruitment/candidates/imports', '/v1/recruitment/candidates'],
+      ['recruitment/candidates/pipeline', '/v1/recruitment/board'],
+      ['recruitment/candidates/evaluations', '/v1/recruitment/candidates/{id}/evaluations'],
       ['recruitment/candidates/communications', '/v1/recruitment/candidates/{id}/communications'],
-      ['recruitment/candidates/talent-pool', '/v1/recruitment/candidates/talent-pool'],
-      ['recruitment/candidates/convert', '/v1/recruitment/candidates/{id}/convert'],
+      ['recruitment/candidates/talent-pool', '/v1/recruitment/candidates/{id}/talent-pool'],
+      ['recruitment/candidates/convert', '/v1/recruitment/offers'],
     ])
-    for (const [key, plannedPath] of plannedGaps) {
+    for (const [key, readPath] of recruitmentLivePaths) {
       const page = TALENT_PAGE_CONFIGS.find((candidate) => candidate.key === key)
-      expect(page?.pending?.plannedPath, key).toBe(plannedPath)
+      expect(page?.readPath, key).toBe(readPath)
+      expect(page?.pending, key).toBeUndefined()
+    }
+
+    const performancePaths = new Map([
+      ['performance/indicators', '/v1/performance/indicators'],
+      ['performance/goals', '/v1/performance/goals'],
+      ['performance/feedback', '/v1/performance/feedback'],
+      ['performance/calibration', '/v1/performance/calibration'],
+      ['performance/results', '/v1/performance/results'],
+      ['performance/reports', '/v1/performance/reports'],
+    ])
+    for (const [key, readPath] of performancePaths) {
+      expect(TALENT_PAGE_CONFIGS.find((page) => page.key === key)?.readPath, key).toBe(readPath)
     }
   })
 
@@ -438,16 +469,162 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.get('[data-testid="request-id"]').text()).toContain('req-talent-500')
   })
 
-  it('shows an explicit backend-pending panel with the planned path for unbacked pages', async () => {
+  it('shows a per-row candidate import report instead of dropping rejected rows', async () => {
     resource.get.mockResolvedValue(listResponse())
+    resource.post.mockResolvedValue({
+      import_id: 71,
+      requisition_id: null,
+      source: 'CSV',
+      row_count: 2,
+      accepted_count: 1,
+      rejected_count: 1,
+      rows: [
+        { row_number: 1, status: 'ACCEPTED', reason: null, errors: {}, candidate_id: 301 },
+        {
+          row_number: 2,
+          status: 'REJECTED',
+          reason: 'ROW_VALIDATION_FAILED',
+          errors: { email: ['The email must be a valid email address.'] },
+          candidate_id: null,
+        },
+      ],
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
 
     const wrapper = await mountWithRouter('recruitment/candidates/imports', '/recruitment/candidates/imports')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates', expect.any(Object))
-    expect(wrapper.text()).toContain('后端接口待补')
-    expect(wrapper.text()).toContain('/v1/recruitment/candidates/imports')
-    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
+    await wrapper.get('[data-testid="candidate-import-rows"]').setValue(
+      'Synthetic Imported, imported@example.test\nSynthetic Invalid, not-an-email',
+    )
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/recruitment/candidates/imports',
+      expect.objectContaining({
+        source: 'CSV',
+        rows: [
+          { display_name: 'Synthetic Imported', email: 'imported@example.test' },
+          { display_name: 'Synthetic Invalid', email: 'not-an-email' },
+        ],
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="candidate-import-report"]').text()).toContain('ROW_VALIDATION_FAILED')
+    expect(wrapper.text()).toContain('拒绝 1 行')
+  })
+
+  it('approves a requisition through the real workflow decision endpoint', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { requisition_id: 8, requisition_no: 'REQ-008', title: 'Synthetic engineer', status: 'PENDING_APPROVAL', headcount: 2, case_id: 10 },
+    ]))
+    resource.post.mockResolvedValue({
+      case_id: 10,
+      application_status: 'APPROVED',
+      effect_status: 'APPLIED',
+      effects: [],
+    })
+
+    const wrapper = await mountWithRouter('recruitment/requests/approval', '/recruitment/requests/approval')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/requisitions', expect.any(Object))
+    await wrapper.get('[data-testid="requisition-approval-case-id"]').setValue('10')
+    await wrapper.get('[data-testid="requisition-approval-comment"]').setValue('Synthetic approval')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/cases/10/decisions',
+      { action: 'APPROVE', comment: 'Synthetic approval' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('Case 10 已批准')
+  })
+
+  it('loads funnel board and budget projections from their live endpoints', async () => {
+
+    const boardRow = {
+      requisition_id: 8,
+      requisition_no: 'REQ-BOARD-1',
+      title: 'Synthetic funnel role',
+      status: 'APPROVED',
+      legal_entity_id: 1,
+      org_unit_id: 3,
+      headcount: 2,
+      openings_count: 1,
+      candidate_count: 4,
+      interview_count: 3,
+      offer_count: 1,
+      accepted_offers: 1,
+      hired_count: 1,
+      vacancy_count: 1,
+      fill_rate_bps: 5000,
+    }
+
+    resource.get.mockResolvedValueOnce(listResponse([boardRow]))
+    const board = await mountWithRouter('recruitment/requests/board', '/recruitment/requests/board')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/board', expect.any(Object))
+    expect(board.text()).toContain('REQ-BOARD-1')
+    expect(board.text()).toContain('5000')
+
+    resource.get.mockResolvedValueOnce(listResponse([
+      {
+        requisition_id: 8,
+        requisition_no: 'REQ-BOARD-1',
+        title: 'Synthetic funnel role',
+        status: 'APPROVED',
+        legal_entity_id: 1,
+        headcount: 2,
+        budget_minor: 5000000,
+        budget_currency: 'CNY',
+        committed_offer_minor: 2000000,
+        budget_variance_minor: 3000000,
+        filled_headcount: 1,
+        vacancy_count: 1,
+      },
+    ]))
+    const budget = await mountWithRouter('recruitment/requests/budget', '/recruitment/requests/budget')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/budget', expect.any(Object))
+    expect(budget.text()).toContain('3000000')
+    expect(budget.text()).toContain('整数分')
+  })
+
+  it('loads candidate evaluations for a scoped candidate without candidate PII leakage', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        evaluation_id: 91,
+        candidate_id: 31,
+        interview_id: 12,
+        evaluator_user_id: 10,
+        rating: 4,
+        recommendation: 'YES',
+        strengths: 'Synthetic strengths',
+        concerns: null,
+        comments: 'Synthetic comments',
+        status: 'RECORDED',
+        recorded_at: '2026-11-25T01:00:00Z',
+      },
+    ]))
+
+    const wrapper = await mountWithRouter(
+      'recruitment/candidates/evaluations',
+      '/recruitment/candidates/evaluations?candidate_id=31',
+    )
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates/31/evaluations', {
+      candidate_id: 31,
+    })
+    expect(wrapper.text()).toContain('Synthetic strengths')
+    expect(wrapper.text()).toContain('YES')
+    expect(wrapper.text()).not.toContain('@')
   })
 
   it('loads performance indicators from the live endpoint and creates one with an idempotency key', async () => {

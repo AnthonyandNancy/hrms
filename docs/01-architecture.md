@@ -25,7 +25,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 
 | Module | Owned tables (reference names) | Allowed dependencies |
 | --- | --- | --- |
-D
+| Talent | `recruitment_requisitions`, `requisition_openings`, `candidates`, `candidate_evaluations`, `candidate_communications`, `talent_pool_tags`, `candidate_imports`, `candidate_conversions`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `performance_indicators`, `performance_goals`, `performance_feedback`, `performance_calibrations`, `training_programs`, `training_sessions`, `training_enrollments`, `training_plans`, `training_courses`, `training_checkins`, `training_exams`, `training_feedback` | People/Organization Contracts, Workflow Contracts, Lifecycle Contracts, IAM Contracts, Shared |
 | IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities`, `user_roles`, `iam_data_scope_policies`, `iam_field_policies` | Platform Contracts, Shared |
 | Organization | `org_units`, `org_unit_closure`, `positions`, `position_qualifications`, `position_grades` | People Contracts/IDs, Shared |
 | People | `persons`, `employments`, `assignments`, `employment_terms`, `documents`, `employment_user_links`, `employment_contracts`, `contract_templates` | Organization Contracts/IDs, IAM Contracts/IDs, Lifecycle `EmploymentContractVersionLedger` contract, Shared |

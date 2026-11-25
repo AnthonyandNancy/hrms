@@ -93,6 +93,13 @@ components:
       required: true
       schema:
         type: string
+    RecruitmentCandidateId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
   schemas:
     ExportJobHistoryItem:
       type: object
@@ -2666,6 +2673,237 @@ components:
             - string
             - "null"
           format: date-time
+    RecruitmentCandidateRow:
+      type: object
+      required: [candidate_id, display_name, status, has_email, has_mobile, source]
+      properties:
+        candidate_id: {type: integer}
+        display_name: {type: string}
+        status: {type: string}
+        has_email: {type: boolean}
+        has_mobile: {type: boolean}
+        source:
+          type: [string, "null"]
+    RecruitmentBoardRow:
+      type: object
+      required: [requisition_id, requisition_no, title, status, legal_entity_id, org_unit_id, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, vacancy_count, fill_rate_bps]
+      properties:
+        requisition_id: {type: integer}
+        requisition_no: {type: string}
+        title: {type: string}
+        status: {type: string}
+        legal_entity_id: {type: integer}
+        org_unit_id: {type: integer}
+        headcount: {type: integer, minimum: 0}
+        openings_count: {type: integer, minimum: 0}
+        candidate_count: {type: integer, minimum: 0}
+        interview_count: {type: integer, minimum: 0}
+        offer_count: {type: integer, minimum: 0}
+        accepted_offers: {type: integer, minimum: 0}
+        hired_count: {type: integer, minimum: 0}
+        vacancy_count: {type: integer, minimum: 0}
+        fill_rate_bps: {type: integer, minimum: 0, maximum: 10000}
+    RecruitmentBudgetRow:
+      type: object
+      required: [requisition_id, requisition_no, title, status, legal_entity_id, headcount, budget_minor, budget_currency, committed_offer_minor, budget_variance_minor, filled_headcount, vacancy_count]
+      properties:
+        requisition_id: {type: integer}
+        requisition_no: {type: string}
+        title: {type: string}
+        status: {type: string}
+        legal_entity_id: {type: integer}
+        headcount: {type: integer, minimum: 0}
+        budget_minor:
+          type: [integer, "null"]
+          description: Integer minor units; null when no budget was configured.
+        budget_currency:
+          type: [string, "null"]
+        committed_offer_minor: {type: integer, minimum: 0}
+        budget_variance_minor:
+          type: [integer, "null"]
+        filled_headcount: {type: integer, minimum: 0}
+        vacancy_count: {type: integer, minimum: 0}
+    RecruitmentReportRow:
+      type: object
+      required: [requisition_id, requisition_no, title, status, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, fill_rate_bps, time_to_hire_days]
+      properties:
+        requisition_id: {type: integer}
+        requisition_no: {type: string}
+        title: {type: string}
+        status: {type: string}
+        headcount: {type: integer, minimum: 0}
+        openings_count: {type: integer, minimum: 0}
+        candidate_count: {type: integer, minimum: 0}
+        interview_count: {type: integer, minimum: 0}
+        offer_count: {type: integer, minimum: 0}
+        accepted_offers: {type: integer, minimum: 0}
+        hired_count: {type: integer, minimum: 0}
+        fill_rate_bps: {type: integer, minimum: 0, maximum: 10000}
+        time_to_hire_days:
+          type: [integer, "null"]
+          minimum: 0
+    RecruitmentCandidateImportRequest:
+      type: object
+      required: [rows]
+      properties:
+        requisition_id:
+          type: [integer, "null"]
+          minimum: 1
+        source: {type: string, maxLength: 32}
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: object
+            properties:
+              display_name: {type: string, maxLength: 120}
+              email: {type: string, maxLength: 254}
+              mobile: {type: string, maxLength: 40}
+              source: {type: string, maxLength: 64}
+    RecruitmentCandidateImportRow:
+      type: object
+      required: [row_number, status, reason, errors, candidate_id]
+      properties:
+        row_number: {type: integer, minimum: 1}
+        status: {type: string, enum: [ACCEPTED, REJECTED]}
+        reason:
+          type: [string, "null"]
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string}
+        candidate_id:
+          type: [integer, "null"]
+    RecruitmentCandidateImportResult:
+      type: object
+      required: [import_id, requisition_id, source, row_count, accepted_count, rejected_count, rows, recorded_at]
+      properties:
+        import_id: {type: integer}
+        requisition_id:
+          type: [integer, "null"]
+        source: {type: string}
+        row_count: {type: integer, minimum: 0}
+        accepted_count: {type: integer, minimum: 0}
+        rejected_count: {type: integer, minimum: 0}
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecruitmentCandidateImportRow"
+        recorded_at:
+          type: [string, "null"]
+          format: date-time
+    RecruitmentCandidateEvaluationRequest:
+      type: object
+      required: [rating, recommendation]
+      properties:
+        interview_id:
+          type: [integer, "null"]
+          minimum: 1
+        rating: {type: integer, minimum: 1, maximum: 5}
+        recommendation: {type: string, enum: [STRONG_YES, YES, NO, STRONG_NO]}
+        strengths: {type: [string, "null"], maxLength: 4000}
+        concerns: {type: [string, "null"], maxLength: 4000}
+        comments: {type: [string, "null"], maxLength: 4000}
+    RecruitmentCandidateEvaluation:
+      type: object
+      required: [evaluation_id, candidate_id, interview_id, evaluator_user_id, rating, recommendation, strengths, concerns, comments, status, recorded_at]
+      properties:
+        evaluation_id: {type: integer}
+        candidate_id: {type: integer}
+        interview_id:
+          type: [integer, "null"]
+        evaluator_user_id: {type: integer}
+        rating: {type: integer, minimum: 1, maximum: 5}
+        recommendation: {type: string, enum: [STRONG_YES, YES, NO, STRONG_NO]}
+        strengths: {type: [string, "null"]}
+        concerns: {type: [string, "null"]}
+        comments: {type: [string, "null"]}
+        status: {type: string}
+        recorded_at:
+          type: [string, "null"]
+          format: date-time
+    RecruitmentCandidateCommunicationRequest:
+      type: object
+      required: [channel, direction, body, consent_basis]
+      properties:
+        channel: {type: string, enum: [EMAIL, PHONE, SMS, WECHAT, IN_PERSON, OTHER]}
+        direction: {type: string, enum: [INBOUND, OUTBOUND]}
+        subject: {type: [string, "null"], maxLength: 200}
+        body: {type: string, maxLength: 10000}
+        consent_basis: {type: string, maxLength: 64}
+        sent_at:
+          type: [string, "null"]
+          format: date-time
+    RecruitmentCandidateCommunication:
+      type: object
+      required: [communication_id, candidate_id, channel, direction, subject, body, consent_basis, sent_at, recorded_at]
+      properties:
+        communication_id: {type: integer}
+        candidate_id: {type: integer}
+        channel: {type: string}
+        direction: {type: string}
+        subject: {type: [string, "null"]}
+        body: {type: string}
+        consent_basis: {type: string}
+        sent_at:
+          type: [string, "null"]
+          format: date-time
+        recorded_at:
+          type: [string, "null"]
+          format: date-time
+    RecruitmentTalentPoolTagRequest:
+      type: object
+      required: [tag]
+      properties:
+        tag: {type: string, maxLength: 64}
+        reason: {type: [string, "null"], maxLength: 500}
+        retention_until:
+          type: [string, "null"]
+          format: date
+    RecruitmentTalentPoolTag:
+      type: object
+      required: [tag_id, candidate_id, tag, reason, retention_until, status, recorded_at]
+      properties:
+        tag_id: {type: integer}
+        candidate_id: {type: integer}
+        tag: {type: string}
+        reason: {type: [string, "null"]}
+        retention_until:
+          type: [string, "null"]
+          format: date
+        status: {type: string}
+        recorded_at:
+          type: [string, "null"]
+          format: date-time
+    RecruitmentCandidateConversionRequest:
+      type: object
+      required: [legal_entity_id, org_unit_id, employee_no]
+      properties:
+        legal_entity_id: {type: integer, minimum: 1}
+        org_unit_id: {type: integer, minimum: 1}
+        employee_no: {type: string, maxLength: 64}
+        hire_date:
+          type: [string, "null"]
+          format: date
+    RecruitmentCandidateConversion:
+      type: object
+      required: [conversion_id, candidate_id, employment_id, person_id, offer_id, legal_entity_id, org_unit_id, employee_no, status, converted_at, business_replayed]
+      properties:
+        conversion_id: {type: integer}
+        candidate_id: {type: integer}
+        employment_id: {type: integer}
+        person_id: {type: integer}
+        offer_id: {type: integer}
+        legal_entity_id: {type: integer}
+        org_unit_id: {type: integer}
+        employee_no: {type: string}
+        status: {type: string}
+        converted_at:
+          type: [string, "null"]
+          format: date-time
+        business_replayed: {type: boolean}
     RequisitionOpening:
       type: object
       required:
@@ -14698,19 +14936,482 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.staff.read
+  /v1/recruitment/board:
+    get:
+      operationId: recruitmentBoard
+      tags:
+        - Talent
+      summary: Live recruitment funnel board by requisition
+      description: Every value is derived from requisitions, openings, interviews, offers and candidate conversions.
+      responses:
+        "200":
+          description: Recruitment board projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentBoardRow"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.board.read
+  /v1/recruitment/budget:
+    get:
+      operationId: recruitmentBudget
+      tags:
+        - Talent
+      summary: Recruitment budget and headcount gap by requisition
+      description: Monetary values are integer minor units; a null budget means no budget was configured.
+      responses:
+        "200":
+          description: Recruitment budget projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentBudgetRow"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.budget.read
+  /v1/recruitment/reports:
+    get:
+      operationId: recruitmentReports
+      tags:
+        - Talent
+      summary: Recruitment conversion report by requisition
+      description: Fill rate is expressed in basis points (10000 = 100%) and derived from live conversion rows.
+      responses:
+        "200":
+          description: Recruitment report projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentReportRow"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.board.read
+  /v1/recruitment/candidates/imports:
+    post:
+      operationId: recruitmentCandidatesImport
+      tags:
+        - Talent
+      summary: Import candidates with a per-row validation report
+      description: Rejected rows are persisted in the report; they are never silently dropped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitmentCandidateImportRequest"
+      responses:
+        "201":
+          description: Import completed with per-row status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentCandidateImportResult"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.candidate.import
+  /v1/recruitment/candidates/{id}/evaluations:
+    get:
+      operationId: recruitmentCandidateEvaluationsIndex
+      tags:
+        - Talent
+      summary: List structured candidate evaluations
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      responses:
+        "200":
+          description: Candidate evaluation projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentCandidateEvaluation"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.evaluation.manage
+    post:
+      operationId: recruitmentCandidateEvaluationsStore
+      tags:
+        - Talent
+      summary: Record a structured candidate evaluation
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitmentCandidateEvaluationRequest"
+      responses:
+        "201":
+          description: Candidate evaluation recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentCandidateEvaluation"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.evaluation.manage
+  /v1/recruitment/candidates/{id}/communications:
+    get:
+      operationId: recruitmentCandidateCommunicationsIndex
+      tags:
+        - Talent
+      summary: List candidate communication records
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      responses:
+        "200":
+          description: Candidate communication projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentCandidateCommunication"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.communication.manage
+    post:
+      operationId: recruitmentCandidateCommunicationsStore
+      tags:
+        - Talent
+      summary: Log a candidate communication
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitmentCandidateCommunicationRequest"
+      responses:
+        "201":
+          description: Candidate communication logged
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentCandidateCommunication"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.communication.manage
+  /v1/recruitment/candidates/{id}/talent-pool:
+    get:
+      operationId: recruitmentCandidateTalentPoolIndex
+      tags:
+        - Talent
+      summary: List candidate talent-pool tags
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      responses:
+        "200":
+          description: Talent-pool tag projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentTalentPoolTag"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.talent-pool.manage
+    post:
+      operationId: recruitmentCandidateTalentPoolStore
+      tags:
+        - Talent
+      summary: Tag a candidate in the talent pool
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitmentTalentPoolTagRequest"
+      responses:
+        "201":
+          description: Talent-pool tag created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentTalentPoolTag"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.talent-pool.manage
+  /v1/recruitment/candidates/{id}/convert:
+    post:
+      operationId: recruitmentCandidateConvert
+      tags:
+        - Talent
+      summary: Convert an accepted candidate into exactly one employment
+      description: Business idempotency is keyed by candidate; a new Idempotency-Key returns the same employment.
+      parameters:
+        - $ref: "#/components/parameters/RecruitmentCandidateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitmentCandidateConversionRequest"
+      responses:
+        "200":
+          description: Business-idempotent conversion replay
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentCandidateConversion"
+        "201":
+          description: Candidate converted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecruitmentCandidateConversion"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.candidate.convert
   /v1/recruitment/candidates:
     get:
       operationId: recruitmentCandidatesIndex
       tags:
         - Talent
-      summary: List candidates
+      summary: List candidates with minimized contact PII
+      description: List responses expose only presence flags for email and mobile; sensitive field access is audited.
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Candidate projection with minimized PII
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/ProjectionPagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/RecruitmentCandidateRow"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.read
@@ -14872,6 +15573,30 @@ paths:
       tags:
         - Talent
       summary: Create a requisition approval Case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [legal_entity_id, org_unit_id, requisition_no, title, headcount]
+              properties:
+                legal_entity_id: {type: integer, minimum: 1}
+                org_unit_id: {type: integer, minimum: 1}
+                requisition_no: {type: string, maxLength: 64}
+                title: {type: string, maxLength: 160}
+                headcount: {type: integer, minimum: 1, maximum: 1000}
+                budget_minor:
+                  type: [integer, "null"]
+                  minimum: 0
+                  description: Integer minor units; never a float.
+                budget_currency:
+                  type: [string, "null"]
+                  minLength: 3
+                  maxLength: 3
+                target_start_date:
+                  type: [string, "null"]
+                  format: date
       responses:
         "201":
           $ref: "#/components/responses/Envelope"

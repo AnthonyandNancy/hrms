@@ -51,6 +51,7 @@ use App\Modules\Talent\Http\Controllers\PerformanceController;
 use App\Modules\Talent\Http\Controllers\PerformanceCycleController;
 use App\Modules\Talent\Http\Controllers\PerformanceTemplateController;
 use App\Modules\Talent\Http\Controllers\RecruitmentController;
+use App\Modules\Talent\Http\Controllers\RecruitmentFunnelController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
@@ -814,15 +815,55 @@ Route::patch('/onboarding-tasks/{id}', [LifecycleController::class, 'updateCheck
 |
 */
 Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): void {
+    Route::get('/board', [RecruitmentFunnelController::class, 'board'])
+        ->middleware('capability:recruitment.board.read')
+        ->name('recruitment.board');
+    Route::get('/budget', [RecruitmentFunnelController::class, 'budget'])
+        ->middleware('capability:recruitment.budget.read')
+        ->name('recruitment.budget');
+    Route::get('/reports', [RecruitmentFunnelController::class, 'reports'])
+        ->middleware('capability:recruitment.board.read')
+        ->name('recruitment.reports');
+    Route::post('/candidates/imports', [RecruitmentFunnelController::class, 'importCandidates'])
+        ->middleware(['csrf.header', 'mfa.enrolled', 'capability:recruitment.candidate.import'])
+        ->name('recruitment.candidates.imports.store');
+    Route::get('/candidates', [RecruitmentFunnelController::class, 'candidates'])
+        ->middleware('capability:recruitment.candidate.read')
+        ->name('recruitment.candidates.index');
+    Route::get('/candidates/{id}/evaluations', [RecruitmentFunnelController::class, 'evaluations'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.evaluation.manage')
+        ->name('recruitment.candidates.evaluations.index');
+    Route::post('/candidates/{id}/evaluations', [RecruitmentFunnelController::class, 'storeEvaluation'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.evaluation.manage'])
+        ->name('recruitment.candidates.evaluations.store');
+    Route::get('/candidates/{id}/communications', [RecruitmentFunnelController::class, 'communications'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.communication.manage')
+        ->name('recruitment.candidates.communications.index');
+    Route::post('/candidates/{id}/communications', [RecruitmentFunnelController::class, 'storeCommunication'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.communication.manage'])
+        ->name('recruitment.candidates.communications.store');
+    Route::get('/candidates/{id}/talent-pool', [RecruitmentFunnelController::class, 'talentPool'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.talent-pool.manage')
+        ->name('recruitment.candidates.talent-pool.index');
+    Route::post('/candidates/{id}/talent-pool', [RecruitmentFunnelController::class, 'storeTalentPoolTag'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.talent-pool.manage'])
+        ->name('recruitment.candidates.talent-pool.store');
+    Route::post('/candidates/{id}/convert', [RecruitmentFunnelController::class, 'convert'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'mfa.enrolled', 'capability:recruitment.candidate.convert,LEGAL_ENTITY,legal_entity_id'])
+        ->name('recruitment.candidates.convert');
     Route::get('/requisitions', [RecruitmentController::class, 'requisitions'])
         ->middleware('capability:recruitment.requisition.read')
         ->name('recruitment.requisitions.index');
     Route::post('/requisitions', [RecruitmentController::class, 'storeRequisition'])
         ->middleware('capability:recruitment.requisition.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('recruitment.requisitions.store');
-    Route::get('/candidates', [RecruitmentController::class, 'candidates'])
-        ->middleware('capability:recruitment.candidate.read')
-        ->name('recruitment.candidates.index');
     Route::get('/requisitions/{id}/openings', [App\Modules\Talent\Http\Controllers\RecruitmentOpeningController::class, 'index'])
         ->whereNumber('id')
         ->middleware('capability:recruitment.requisition.read')
