@@ -242,7 +242,7 @@ final class PositionCatalogService
             'version' => (int) $qualification->version,
             'requirements_json' => (array) $qualification->requirements_json,
             'effective_from' => (string) $qualification->effective_from,
-            'recorded_at' => $qualification->recorded_at?->toIso8601String(),
+            'recorded_at' => $qualification->getAttribute('recorded_at')?->toIso8601String(),
         ];
     }
 

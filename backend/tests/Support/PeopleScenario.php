@@ -171,6 +171,9 @@ final class PeopleScenario
         ], $overrides));
     }
 
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
     public function position(
         LegalEntity $legalEntity,
         ?OrgUnit $orgUnit,

@@ -1893,6 +1893,176 @@ components:
             - string
             - "null"
           format: date-time
+    PositionQualification:
+      type: object
+      required:
+        - id
+        - position_id
+        - version
+        - requirements_json
+        - effective_from
+      properties:
+        id:
+          type: integer
+        position_id:
+          type: integer
+        version:
+          type: integer
+          minimum: 1
+        requirements_json:
+          type: object
+          additionalProperties: true
+        effective_from:
+          type: string
+          format: date
+        recorded_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    PositionQualificationPage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/PositionQualification"
+    PositionGrade:
+      type: object
+      required:
+        - id
+        - legal_entity_id
+        - code
+        - name
+        - level
+        - active
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        level:
+          type: integer
+          minimum: 0
+        active:
+          type: boolean
+    PositionGradePage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/PositionGrade"
+    PositionStaffRow:
+      type: object
+      required:
+        - assignment_id
+        - employment_id
+        - legal_entity_id
+        - position_id
+        - assignment_type
+        - is_primary
+        - valid_from
+        - valid_to
+      properties:
+        assignment_id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        employee_no:
+          type: string
+        person_name:
+          type: string
+        org_unit_id:
+          type: integer
+        position_id:
+          type: integer
+        position_code:
+          type: string
+        position_title:
+          type: string
+        assignment_type:
+          type: string
+          enum:
+            - PRIMARY
+            - SECONDMENT
+            - MATRIX
+            - PROJECT
+        is_primary:
+          type: boolean
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+    PositionStaffPage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/PositionStaffRow"
+    SecondmentAssignment:
+      type: object
+      required:
+        - assignment_id
+        - employment_id
+        - host_org_unit_id
+        - assignment_type
+        - is_primary
+        - valid_from
+        - valid_to
+      properties:
+        assignment_id:
+          type: integer
+        employment_id:
+          type: integer
+        employee_no:
+          type: string
+        person_name:
+          type: string
+        host_org_unit_id:
+          type: integer
+        position_id:
+          type:
+            - integer
+            - "null"
+        assignment_type:
+          type: string
+          enum:
+            - SECONDMENT
+        is_primary:
+          type: boolean
+          enum:
+            - false
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: string
+          format: date
+    SecondmentPage:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SecondmentAssignment"
     ProjectionPagination:
       type: object
       required:
@@ -8788,6 +8958,134 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.rehire.manage
+  /v1/lifecycle/secondments:
+    get:
+      operationId: lifecycleSecondmentsIndex
+      tags:
+        - Lifecycle
+      summary: List secondment assignments as a live projection
+      description: Requires capability `lifecycle.secondment.manage`. Only assignments with assignment_type SECONDMENT are returned.
+      parameters:
+        - name: legal_entity_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: employment_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Secondment projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecondmentPage"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: lifecycle.secondment.manage
+    post:
+      operationId: lifecycleSecondmentStore
+      tags:
+        - Lifecycle
+      summary: Start a secondment as a parallel SECONDMENT assignment
+      description: |
+        Requires capability `lifecycle.secondment.manage` and an Idempotency-Key.
+        The command appends an Assignment with assignment_type SECONDMENT; the
+        primary assignment row is never rewritten. Overlapping secondments and
+        secondments without an active primary assignment are 409.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employment_id
+                - host_org_unit_id
+                - effective_from
+                - effective_to
+                - reason
+              properties:
+                employment_id:
+                  type: integer
+                  minimum: 1
+                host_org_unit_id:
+                  type: integer
+                  minimum: 1
+                position_id:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 1
+                effective_from:
+                  type: string
+                  format: date
+                effective_to:
+                  type: string
+                  format: date
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+      responses:
+        "201":
+          description: Secondment assignment created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecondmentAssignment"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: lifecycle.secondment.manage
   /v1/lifecycle/cases:
     get:
       tags: [Lifecycle]
@@ -13241,6 +13539,277 @@ paths:
                   enum:
                     - ACTIVE
                     - DISABLED
+  /v1/positions/grades:
+    get:
+      operationId: listPositionGrades
+      tags:
+        - Organization
+      summary: List the job-grade catalogue for a legal entity
+      description: Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
+      parameters:
+        - name: legal_entity_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Position grade projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionGradePage"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.position.grade.manage
+    post:
+      operationId: upsertPositionGrade
+      tags:
+        - Organization
+      summary: Create or update a job-grade row
+      description: Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - legal_entity_id
+                - code
+                - name
+                - level
+              properties:
+                legal_entity_id:
+                  type: integer
+                  minimum: 1
+                code:
+                  type: string
+                  maxLength: 32
+                name:
+                  type: string
+                  maxLength: 120
+                level:
+                  type: integer
+                  minimum: 0
+                  maximum: 9999
+                active:
+                  type: boolean
+      responses:
+        "200":
+          description: Existing grade updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionGrade"
+        "201":
+          description: Grade created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionGrade"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.position.grade.manage
+  /v1/positions/{id}/requirements:
+    get:
+      operationId: listPositionRequirements
+      tags:
+        - Organization
+      summary: List qualification requirement versions for a position
+      description: Requires capability `org.position.qualification.manage`. Versions are append-only and filtered to effective_from on or before as_of.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Position qualification projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionQualificationPage"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.position.qualification.manage
+    post:
+      operationId: versionPositionRequirements
+      tags:
+        - Organization
+      summary: Append a new qualification requirement version
+      description: Requires capability `org.position.qualification.manage` and an Idempotency-Key. Existing versions are never rewritten; each accepted write increments version.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - requirements
+                - effective_from
+              properties:
+                requirements:
+                  type: object
+                  additionalProperties: true
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "201":
+          description: Qualification version appended
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionQualification"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.position.qualification.manage
+  /v1/positions/{id}/staff:
+    get:
+      operationId: listPositionStaff
+      tags:
+        - Organization
+      summary: List as-of incumbents of a position
+      description: Requires capability `org.position.staff.read`. Incumbents are read through the People directory contract; row scope is the position legal entity.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Position staff projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PositionStaffPage"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.position.staff.read
   /v1/performance/indicators:
     get:
       operationId: listPerformanceIndicators
