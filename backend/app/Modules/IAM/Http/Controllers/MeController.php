@@ -6,6 +6,7 @@ namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\CapabilityCatalog;
+use App\Modules\IAM\Authorization\PermissionResourceCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
@@ -13,6 +14,7 @@ use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\CapabilityWildcard;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,12 +58,113 @@ final class MeController
     public function capabilities(Request $request): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
+        [$rows, $wildcard] = $this->effectiveBindings($principal->tenantId(), $principal->userId(), $principal->authVersion());
+
+        return ApiResponse::ok([
+            'capabilities' => $rows,
+            'wildcard' => $wildcard,
+            'mfa_required' => $this->requiresMfa($principal->userId(), $principal->tenantId()),
+            'mfa_verified' => $principal->hasMfa(),
+        ]);
+    }
+
+    /**
+     * Menu, action and field projection for the authenticated principal.
+     *
+     * Page visibility is exact: a page is returned only when its own
+     * required_capability is granted (or it is public). Menu groups are merely
+     * containers and never imply a child page.
+     */
+    public function permissions(Request $request): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        [$rows, $wildcard] = $this->effectiveBindings($principal->tenantId(), $principal->userId(), $principal->authVersion());
+
+        $actions = [];
+        $fieldProfilesByCapability = [];
+
+        foreach ($rows as $row) {
+            $capability = (string) $row['capability'];
+            $actions[$capability] = true;
+            $fieldProfilesByCapability[$capability] = $this->higherProfile(
+                $fieldProfilesByCapability[$capability] ?? null,
+                (string) $row['field_profile'],
+            );
+        }
+
+        ksort($actions);
+        $actionCodes = array_keys($actions);
+
+        $catalog = new PermissionResourceCatalog;
+        $visiblePages = [];
+
+        foreach ($catalog->pages() as $page) {
+            $required = (string) $page['required_capability'];
+
+            if ($required !== 'public' && ! isset($actions[$required])) {
+                continue;
+            }
+
+            $visiblePages[] = [
+                ...$page,
+                'field_profile_max' => $required === 'public'
+                    ? FieldProfile::P0_PUBLIC->value
+                    : ($fieldProfilesByCapability[$required] ?? FieldProfile::P0_PUBLIC->value),
+            ];
+        }
+
+        $anchorLabels = [
+            'SELF' => '仅本人',
+            'MANAGED' => '下属',
+            'ORG_UNIT' => '本部门',
+            'ORG_SUBTREE' => '本部门及子部门',
+            'CASE' => '指定案例',
+            'PAYROLL_RUN' => '指定工资批次',
+            'LEGAL_ENTITY' => '本公司/法人',
+        ];
+        $scopeLabels = [];
+
+        foreach ($rows as $row) {
+            $anchorType = (string) $row['anchor_type'];
+            $scopeLabels[$anchorType] = [
+                'anchor_type' => $anchorType,
+                'label' => $anchorLabels[$anchorType] ?? $anchorType,
+            ];
+        }
+
+        ksort($scopeLabels);
+
+        $profiles = [];
+
+        foreach ($fieldProfilesByCapability as $profile) {
+            $profiles[$profile] = true;
+        }
+
+        $fieldCapabilities = array_keys($profiles);
+        sort($fieldCapabilities);
+
+        return ApiResponse::ok([
+            'menus' => $catalog->menusForCapabilities($actionCodes),
+            'actions' => $actionCodes,
+            'field_capabilities' => $fieldCapabilities,
+            'scope_labels' => array_values($scopeLabels),
+            'auth_version' => $principal->authVersion(),
+            'pages' => $visiblePages,
+            'wildcard' => $wildcard,
+        ]);
+    }
+
+    /**
+     * @return array{0: list<array<string, mixed>>, 1: bool}
+     */
+    private function effectiveBindings(int $tenantId, int $userId, int $authVersion): array
+    {
         $businessDate = $this->clock->now()->toDateString();
 
         $query = AuthorityBinding::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->where('principal_id', $principal->userId())
-            ->where('auth_version', $principal->authVersion());
+            ->where('tenant_id', $tenantId)
+            ->where('principal_id', $userId)
+            ->where('auth_version', $authVersion);
 
         $bindings = BindingValidity::whereActiveOn($query, $businessDate)
             ->orderBy('capability_code')
@@ -95,32 +198,42 @@ final class MeController
             $concreteRows[$binding['capability']] ??= $binding;
         }
 
-        $wildcard = $wildcardBinding !== null;
-        $rows = $bindings;
-
-        if ($wildcardBinding !== null) {
-            $rows = [];
-
-            foreach (app(CapabilityCatalog::class)->all() as $definition) {
-                $rows[] = $concreteRows[$definition->code] ?? [
-                    'capability' => $definition->code,
-                    'anchor_type' => $wildcardBinding['anchor_type'],
-                    'anchor_id' => $wildcardBinding['anchor_id'],
-                    'field_profile' => $wildcardBinding['field_profile'],
-                    'purpose_code' => $wildcardBinding['purpose_code'],
-                    'valid_from' => $wildcardBinding['valid_from'],
-                    'valid_to' => $wildcardBinding['valid_to'],
-                    'wildcard' => true,
-                ];
-            }
+        if ($wildcardBinding === null) {
+            return [$bindings, false];
         }
 
-        return ApiResponse::ok([
-            'capabilities' => $rows,
-            'wildcard' => $wildcard,
-            'mfa_required' => $this->requiresMfa($principal->userId(), $principal->tenantId()),
-            'mfa_verified' => $principal->hasMfa(),
-        ]);
+        $rows = [];
+
+        foreach (app(CapabilityCatalog::class)->all() as $definition) {
+            $rows[] = $concreteRows[$definition->code] ?? [
+                'capability' => $definition->code,
+                'anchor_type' => $wildcardBinding['anchor_type'],
+                'anchor_id' => $wildcardBinding['anchor_id'],
+                'field_profile' => $wildcardBinding['field_profile'],
+                'purpose_code' => $wildcardBinding['purpose_code'],
+                'valid_from' => $wildcardBinding['valid_from'],
+                'valid_to' => $wildcardBinding['valid_to'],
+                'wildcard' => true,
+            ];
+        }
+
+        return [$rows, true];
+    }
+
+    private function higherProfile(?string $current, string $candidate): string
+    {
+        if ($current === null) {
+            return $candidate;
+        }
+
+        $currentProfile = FieldProfile::tryFrom($current);
+        $candidateProfile = FieldProfile::tryFrom($candidate);
+
+        if ($currentProfile === null || $candidateProfile === null) {
+            return $current;
+        }
+
+        return $candidateProfile->rank() > $currentProfile->rank() ? $candidate : $current;
     }
 
     private function tenantName(int $tenantId): string

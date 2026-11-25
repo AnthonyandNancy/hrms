@@ -37,9 +37,12 @@ use App\Modules\Talent\Http\Controllers\PerformanceController;
 use App\Modules\Talent\Http\Controllers\PerformanceTemplateController;
 use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
+use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
 use App\Modules\Time\Http\Controllers\LeaveController;
+use App\Modules\Time\Http\Controllers\OvertimeController;
 use App\Modules\Time\Http\Controllers\TimeCatalogController;
+use App\Modules\Time\Http\Controllers\TravelController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
 use App\Modules\Workflow\Http\Controllers\DecisionController;
 use App\Modules\Workflow\Http\Controllers\DelegationController;
@@ -77,6 +80,7 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/me/workspace', [WorkspaceController::class, 'show'])->middleware('capability:iam.session.manage,SELF')->name('me.workspace');
     Route::get('/me', [MeController::class, 'show'])->middleware('capability:iam.session.manage,SELF')->name('me.show');
     Route::get('/me/capabilities', [MeController::class, 'capabilities'])->middleware('capability:iam.session.manage,SELF')->name('me.capabilities');
+    Route::get('/me/permissions', [MeController::class, 'permissions'])->middleware('capability:iam.session.manage,SELF')->name('me.permissions');
 
     Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout');
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout-all');
@@ -354,6 +358,17 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.attendance.correct.request')
         ->name('time.attendance.corrections.store');
 
+    Route::post('/attendance/closings', [AttendanceClosingController::class, 'close'])
+        ->middleware('capability:time.attendance.manage')
+        ->name('time.attendance.closings.store');
+    Route::post('/attendance/closings/{id}/reopen', [AttendanceClosingController::class, 'reopen'])
+        ->whereNumber('id')
+        ->middleware('capability:time.attendance.reopen')
+        ->name('time.attendance.closings.reopen');
+    Route::post('/attendance/recalculate', [AttendanceClosingController::class, 'recalculate'])
+        ->middleware('capability:time.attendance.manage')
+        ->name('time.attendance.recalculate');
+
     Route::get('/calendars/{legal_entity_id}', [TimeCatalogController::class, 'calendar'])
         ->whereNumber('legal_entity_id')
         ->middleware('capability:time.calendar.read')
@@ -363,6 +378,18 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.shift.read')
         ->name('time.shifts.index');
 
+    Route::get('/leave/types', [TimeCatalogController::class, 'leaveTypes'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.types.index');
+    Route::get('/leave/policies', [TimeCatalogController::class, 'leavePolicies'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.policies.index');
+    Route::get('/overtime/records', [TimeCatalogController::class, 'overtimeRecords'])
+        ->middleware('capability:time.overtime.read')
+        ->name('time.overtime.records.index');
+    Route::get('/overtime/policies', [TimeCatalogController::class, 'overtimePolicies'])
+        ->middleware('capability:time.overtime.read')
+        ->name('time.overtime.policies.show');
     Route::get('/leave/balances', [LeaveController::class, 'balances'])
         ->middleware('capability:time.leave.read')
         ->name('time.leave.balances');
@@ -387,6 +414,26 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::get('/leave/ledger', [LeaveController::class, 'ledger'])
         ->middleware('capability:time.leave.ledger.read')
         ->name('time.leave.ledger');
+});
+
+Route::prefix('travel')->middleware('auth.session')->group(function (): void {
+    Route::get('/requests', [TravelController::class, 'index'])
+        ->middleware('capability:time.travel.read')
+        ->name('time.travel.requests.index');
+    Route::post('/requests', [TravelController::class, 'store'])
+        ->middleware('capability:time.travel.request')
+        ->name('time.travel.requests.store');
+    Route::post('/requests/{id}/cancel', [TravelController::class, 'cancel'])
+        ->whereNumber('id')
+        ->middleware('capability:time.travel.request')
+        ->name('time.travel.requests.cancel');
+});
+
+Route::prefix('overtime')->middleware('auth.session')->group(function (): void {
+    Route::post('/records/{recordId}/settlements', [OvertimeController::class, 'settle'])
+        ->whereNumber('recordId')
+        ->middleware('capability:time.overtime.settle')
+        ->name('time.overtime.settlements.store');
 });
 
 Route::prefix('leave')->middleware('auth.session')->group(function (): void {
