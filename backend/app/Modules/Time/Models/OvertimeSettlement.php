@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $method
  * @property int $minutes
  * @property string $reason
+ * @property \Carbon\CarbonImmutable|null $recorded_at
  */
 final class OvertimeSettlement extends Model
 {

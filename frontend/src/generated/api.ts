@@ -2382,6 +2382,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/time/overtime/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List overtime request projections for the caller scope */
+        get: operations["timeOvertimeRequestsIndex"];
+        put?: never;
+        /**
+         * Declare overtime for the caller employment
+         * @description Stores `declared_minutes` only. Actual minutes are recorded by the
+         *     separate confirmation command; an omitted or blank Idempotency-Key is
+         *     rejected with 422.
+         */
+        post: operations["timeOvertimeRequestsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time/overtime/requests/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm actual overtime minutes and materialise one overtime record
+         * @description Allowed only for an APPROVED request. A second confirmation with a new
+         *     idempotency key is a 409 `ALREADY_CONFIRMED`; the same key replays the
+         *     original 200 response.
+         */
+        post: operations["timeOvertimeRequestsConfirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time/overtime/timeoff-balances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Derive time-off-in-lieu balance from TIMEOFF settlements */
+        get: operations["timeOvertimeTimeoffBalancesShow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/permissions": {
         parameters: {
             query?: never;
@@ -2962,6 +3024,69 @@ export interface components {
             case_id: number | null;
             settlement_method: string | null;
             settlement_id: number | null;
+        };
+        OvertimeRequest: {
+            id: number;
+            employment_id: number;
+            /** Format: date */
+            business_date: string;
+            declared_minutes: number;
+            confirmed_minutes: number | null;
+            /** @enum {string} */
+            status: "SUBMITTED" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            reason: string;
+            case_id: number | null;
+            overtime_record_id: number | null;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        OvertimeRequestProjection: {
+            items: components["schemas"]["OvertimeRequest"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        TimeoffBalanceItem: {
+            settlement_id: number;
+            overtime_record_id: number;
+            employment_id: number;
+            /** Format: date */
+            business_date: string | null;
+            /** @constant */
+            method: "TIMEOFF";
+            minutes: number;
+            reason: string;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        TimeoffBalanceProjection: {
+            items: components["schemas"]["TimeoffBalanceItem"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+            employment_id: number;
+            available_minutes: number;
+            settlement_count: number;
         };
         OvertimePolicy: {
             multiplier: string;
@@ -9088,6 +9213,162 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeOvertimeRequestsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                employment_id?: number;
+                status?: "SUBMITTED" | "APPROVED" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overtime request projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequestProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeOvertimeRequestsStore: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    business_date: string;
+                    declared_minutes: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay of the original creation */
+            200: {
+                headers: {
+                    /** @description Always true on a replay. */
+                    "Idempotency-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequest"];
+                    };
+                };
+            };
+            /** @description Overtime request created */
+            201: {
+                headers: {
+                    /** @description Present and true when a completed request was replayed. */
+                    "Idempotency-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeOvertimeRequestsConfirm: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmed_minutes: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Confirmed overtime request */
+            200: {
+                headers: {
+                    /** @description Present and true when a completed request was replayed. */
+                    "Idempotency-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeOvertimeTimeoffBalancesShow: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                employment_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Derived time-off balance projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["TimeoffBalanceProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };

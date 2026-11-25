@@ -6,6 +6,16 @@ namespace App\Modules\Time\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property int $tenant_id
+ * @property int $employment_id
+ * @property \Carbon\CarbonImmutable $business_date
+ * @property int $minutes
+ * @property string $status
+ * @property int|null $case_id
+ * @property \Carbon\CarbonImmutable|null $created_at
+ */
 final class OvertimeRecord extends Model
 {
     public const UPDATED_AT = null;

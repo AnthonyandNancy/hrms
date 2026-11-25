@@ -121,6 +121,69 @@ components:
         case_id: { type: [integer, "null"] }
         settlement_method: { type: [string, "null"] }
         settlement_id: { type: [integer, "null"] }
+    OvertimeRequest:
+      type: object
+      required: [id, employment_id, business_date, declared_minutes, confirmed_minutes, status, reason, case_id, overtime_record_id, recorded_at]
+      properties:
+        id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        business_date: { type: string, format: date }
+        declared_minutes: { type: integer, minimum: 1, maximum: 10080 }
+        confirmed_minutes: { type: [integer, "null"], minimum: 1, maximum: 10080 }
+        status: { type: string, enum: [SUBMITTED, APPROVED, CONFIRMED, REJECTED, CANCELLED] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+        case_id: { type: [integer, "null"] }
+        overtime_record_id: { type: [integer, "null"] }
+        recorded_at: { type: [string, "null"], format: date-time }
+    OvertimeRequestProjection:
+      type: object
+      required: [items, page, page_size, total, as_of, freshness, source_hash, partial, partial_reason, drilldown]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OvertimeRequest"
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date }
+        freshness: { type: string, enum: [LIVE, MATERIALIZED, STALE] }
+        source_hash: { type: string }
+        partial: { type: boolean }
+        partial_reason: { type: [string, "null"] }
+        drilldown: { type: [object, "null"], additionalProperties: true }
+    TimeoffBalanceItem:
+      type: object
+      required: [settlement_id, overtime_record_id, employment_id, business_date, method, minutes, reason, recorded_at]
+      properties:
+        settlement_id: { type: integer, minimum: 1 }
+        overtime_record_id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        business_date: { type: [string, "null"], format: date }
+        method: { type: string, const: TIMEOFF }
+        minutes: { type: integer, minimum: 1 }
+        reason: { type: string }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TimeoffBalanceProjection:
+      type: object
+      required: [items, page, page_size, total, as_of, freshness, source_hash, partial, partial_reason, drilldown, employment_id, available_minutes, settlement_count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimeoffBalanceItem"
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date }
+        freshness: { type: string, enum: [LIVE, MATERIALIZED, STALE] }
+        source_hash: { type: string }
+        partial: { type: boolean }
+        partial_reason: { type: [string, "null"] }
+        drilldown: { type: [object, "null"], additionalProperties: true }
+        employment_id: { type: integer, minimum: 1 }
+        available_minutes: { type: integer, minimum: 0 }
+        settlement_count: { type: integer, minimum: 0 }
     OvertimePolicy:
       type: object
       required: [multiplier, allow_pay, allow_timeoff, statutory_holiday_multiplier, source, note]
@@ -9958,6 +10021,204 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.read
+  /v1/time/overtime/requests:
+    get:
+      operationId: timeOvertimeRequestsIndex
+      tags:
+        - Time
+      summary: List overtime request projections for the caller scope
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: employment_id
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SUBMITTED, APPROVED, CONFIRMED, REJECTED, CANCELLED]
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Overtime request projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequestProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.read
+    post:
+      operationId: timeOvertimeRequestsStore
+      tags:
+        - Time
+      summary: Declare overtime for the caller employment
+      description: |
+        Stores `declared_minutes` only. Actual minutes are recorded by the
+        separate confirmation command; an omitted or blank Idempotency-Key is
+        rejected with 422.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [business_date, declared_minutes, reason]
+              properties:
+                business_date: { type: string, format: date }
+                declared_minutes: { type: integer, minimum: 1, maximum: 10080 }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "201":
+          description: Overtime request created
+          headers:
+            Idempotency-Replayed:
+              description: Present and true when a completed request was replayed.
+              schema: { type: string, const: "true" }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequest"
+        "200":
+          description: Idempotent replay of the original creation
+          headers:
+            Idempotency-Replayed:
+              description: Always true on a replay.
+              schema: { type: string, const: "true" }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.request
+  /v1/time/overtime/requests/{id}/confirm:
+    post:
+      operationId: timeOvertimeRequestsConfirm
+      tags:
+        - Time
+      summary: Confirm actual overtime minutes and materialise one overtime record
+      description: |
+        Allowed only for an APPROVED request. A second confirmation with a new
+        idempotency key is a 409 `ALREADY_CONFIRMED`; the same key replays the
+        original 200 response.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed_minutes]
+              properties:
+                confirmed_minutes: { type: integer, minimum: 1, maximum: 10080 }
+      responses:
+        "200":
+          description: Confirmed overtime request
+          headers:
+            Idempotency-Replayed:
+              description: Present and true when a completed request was replayed.
+              schema: { type: string, const: "true" }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.confirm
+  /v1/time/overtime/timeoff-balances:
+    get:
+      operationId: timeOvertimeTimeoffBalancesShow
+      tags:
+        - Time
+      summary: Derive time-off-in-lieu balance from TIMEOFF settlements
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: employment_id
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Derived time-off balance projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TimeoffBalanceProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.timeoff.read
   /v1/me/permissions:
     get:
       operationId: getMyPermissions
