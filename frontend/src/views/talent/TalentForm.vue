@@ -39,6 +39,29 @@ const form = reactive({
   managerAssessment: '',
   managerRating: '',
   appealReason: '',
+  indicatorCode: '',
+  indicatorName: '',
+  indicatorCategory: '',
+  indicatorDataSource: '',
+  goalCycleId: '',
+  goalEmploymentId: '',
+  goalIndicatorId: '',
+  goalTitle: '',
+  goalTarget: '',
+  goalWeight: '',
+  goalDueOn: '',
+  feedbackCycleId: '',
+  feedbackReviewId: '',
+  feedbackFromEmploymentId: '',
+  feedbackToEmploymentId: '',
+  feedbackType: 'PEER',
+  feedbackRating: '',
+  feedbackComments: '',
+  feedbackAnonymous: false,
+  calibrationReviewId: '',
+  calibrationRating: '',
+  calibrationReason: '',
+  publishCycleId: '',
   requisitionNo: '',
   requisitionTitle: '',
   legalEntityId: '1',
@@ -241,6 +264,121 @@ async function submitAppeal(): Promise<void> {
       { idempotencyKey: nextIdempotencyKey('appeal') },
     )
     success(`评审 ${reviewId} 的申诉已创建`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitIndicator(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/performance/indicators',
+      {
+        code: form.indicatorCode.trim(),
+        name: form.indicatorName.trim(),
+        category: form.indicatorCategory.trim() || null,
+        data_source: form.indicatorDataSource.trim() || null,
+        active: true,
+      },
+      { idempotencyKey: nextIdempotencyKey('indicator') },
+    )
+    success(`指标“${form.indicatorCode.trim()}”已创建`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitGoal(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/performance/goals',
+      {
+        cycle_id: numeric(form.goalCycleId),
+        employment_id: numeric(form.goalEmploymentId),
+        indicator_id: numeric(form.goalIndicatorId),
+        title: form.goalTitle.trim(),
+        target_value: form.goalTarget.trim(),
+        weight: numeric(form.goalWeight),
+        due_on: form.goalDueOn || null,
+      },
+      { idempotencyKey: nextIdempotencyKey('goal') },
+    )
+    success('绩效目标已保存', row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitFeedback(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/performance/feedback',
+      {
+        cycle_id: numeric(form.feedbackCycleId),
+        review_id: numeric(form.feedbackReviewId),
+        from_employment_id: numeric(form.feedbackFromEmploymentId),
+        to_employment_id: numeric(form.feedbackToEmploymentId),
+        feedback_type: form.feedbackType,
+        rating: form.feedbackRating.trim() || null,
+        comments: form.feedbackComments.trim(),
+        anonymous: form.feedbackAnonymous,
+      },
+      { idempotencyKey: nextIdempotencyKey('feedback') },
+    )
+    success('360 反馈已记录', row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitCalibration(): Promise<void> {
+  resetFeedback()
+  const reviewId = numeric(form.calibrationReviewId)
+  if (reviewId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/performance/reviews/${reviewId}/calibration`,
+      {
+        calibrated_rating: form.calibrationRating.trim(),
+        reason: form.calibrationReason.trim(),
+      },
+      { idempotencyKey: nextIdempotencyKey('calibration') },
+    )
+    success(`评审 ${reviewId} 已校准；自评与主管评分保持不变`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitPublish(): Promise<void> {
+  resetFeedback()
+  const cycleId = numeric(form.publishCycleId)
+  if (cycleId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/performance/cycles/${cycleId}/publish`,
+      {},
+      { idempotencyKey: nextIdempotencyKey('publish') },
+    )
+    success(`周期 ${cycleId} 已发布，评审结果冻结`, row)
   } catch (error) {
     fail(error)
   } finally {
@@ -532,6 +670,58 @@ async function submitCompletion(): Promise<void> {
         {{ sectionTotalCopy }}
       </p>
       <button type="submit" :disabled="submitting" data-testid="template-submit">发布模板</button>
+    </form>
+
+    <form v-else-if="kind === 'indicator-create'" class="talent-form" @submit.prevent="submitIndicator">
+      <label class="talent-field">指标编码<input v-model="form.indicatorCode" data-testid="indicator-code" required maxlength="64" /></label>
+      <label class="talent-field">指标名称<input v-model="form.indicatorName" data-testid="indicator-name" required maxlength="160" /></label>
+      <label class="talent-field">分类<input v-model="form.indicatorCategory" maxlength="64" /></label>
+      <label class="talent-field">数据来源<input v-model="form.indicatorDataSource" maxlength="120" /></label>
+      <button type="submit" :disabled="submitting" data-testid="indicator-submit">创建指标</button>
+    </form>
+
+    <form v-else-if="kind === 'goal-create'" class="talent-form" @submit.prevent="submitGoal">
+      <label class="talent-field">周期 ID<input v-model="form.goalCycleId" data-testid="goal-cycle-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<input v-model="form.goalEmploymentId" data-testid="goal-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">指标 ID<input v-model="form.goalIndicatorId" data-testid="goal-indicator-id" inputmode="numeric" /></label>
+      <label class="talent-field">目标标题<input v-model="form.goalTitle" data-testid="goal-title" required maxlength="200" /></label>
+      <label class="talent-field">目标值<input v-model="form.goalTarget" data-testid="goal-target" required maxlength="120" /></label>
+      <label class="talent-field">权重<input v-model="form.goalWeight" data-testid="goal-weight" inputmode="numeric" /></label>
+      <label class="talent-field">截止日期<input v-model="form.goalDueOn" type="date" /></label>
+      <button type="submit" :disabled="submitting" data-testid="goal-submit">保存目标</button>
+    </form>
+
+    <form v-else-if="kind === 'feedback-create'" class="talent-form" @submit.prevent="submitFeedback">
+      <label class="talent-field">周期 ID<input v-model="form.feedbackCycleId" data-testid="feedback-cycle-id" inputmode="numeric" required /></label>
+      <label class="talent-field">评审 ID<input v-model="form.feedbackReviewId" data-testid="feedback-review-id" inputmode="numeric" /></label>
+      <label class="talent-field">评价人任职 ID<input v-model="form.feedbackFromEmploymentId" data-testid="feedback-from-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">被评价人任职 ID<input v-model="form.feedbackToEmploymentId" data-testid="feedback-to-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">
+        反馈类型
+        <select v-model="form.feedbackType" data-testid="feedback-type">
+          <option value="PEER">同级</option>
+          <option value="MANAGER">主管</option>
+          <option value="SELF">自评</option>
+          <option value="UPWARD">向上</option>
+          <option value="CROSS">跨团队</option>
+        </select>
+      </label>
+      <label class="talent-field">评级<input v-model="form.feedbackRating" maxlength="16" /></label>
+      <label class="talent-field talent-field--wide">反馈内容<textarea v-model="form.feedbackComments" data-testid="feedback-comments" rows="3" required maxlength="10000" /></label>
+      <label class="talent-checkbox"><input v-model="form.feedbackAnonymous" type="checkbox" /> 匿名反馈</label>
+      <button type="submit" :disabled="submitting" data-testid="feedback-submit">记录反馈</button>
+    </form>
+
+    <form v-else-if="kind === 'calibration-create'" class="talent-form" @submit.prevent="submitCalibration">
+      <label class="talent-field">评审 ID<input v-model="form.calibrationReviewId" data-testid="calibration-review-id" inputmode="numeric" required /></label>
+      <label class="talent-field">校准等级<input v-model="form.calibrationRating" data-testid="calibration-rating" required maxlength="16" /></label>
+      <label class="talent-field talent-field--wide">校准理由<textarea v-model="form.calibrationReason" data-testid="calibration-reason" rows="3" required minlength="3" maxlength="4000" /></label>
+      <button type="submit" :disabled="submitting" data-testid="calibration-submit">保存校准</button>
+    </form>
+
+    <form v-else-if="kind === 'cycle-publish'" class="talent-form" @submit.prevent="submitPublish">
+      <label class="talent-field">周期 ID<input v-model="form.publishCycleId" data-testid="publish-cycle-id" inputmode="numeric" required /></label>
+      <button type="submit" :disabled="submitting" data-testid="publish-submit">发布周期结果</button>
     </form>
 
     <div v-else-if="kind === 'review-create'" class="talent-form">

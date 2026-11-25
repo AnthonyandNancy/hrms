@@ -7,10 +7,21 @@ const CANDIDATE_COLUMNS = ['candidate_id', 'display_name', 'status', 'has_email'
 const PROGRAM_COLUMNS = ['program_id', 'code', 'title', 'status'] as const
 const OFFER_COLUMNS = ['offer_id', 'candidate_id', 'requisition_id', 'version', 'status', 'start_date'] as const
 const REVIEW_COLUMNS = ['review_id', 'cycle_id', 'employment_id', 'manager_employment_id', 'status', 'self_rating', 'manager_rating'] as const
+const INDICATOR_COLUMNS = ['indicator_id', 'code', 'name', 'category', 'data_source', 'active'] as const
+const GOAL_COLUMNS = ['goal_id', 'cycle_id', 'employment_id', 'indicator_id', 'title', 'target_value', 'weight', 'status'] as const
+const FEEDBACK_COLUMNS = ['feedback_id', 'cycle_id', 'review_id', 'from_employment_id', 'to_employment_id', 'feedback_type', 'rating', 'anonymous'] as const
+const CALIBRATION_COLUMNS = ['calibration_id', 'cycle_id', 'review_id', 'previous_rating', 'calibrated_rating', 'reason', 'calibrated_by'] as const
+const RESULT_COLUMNS = ['review_id', 'cycle_id', 'employment_id', 'cycle_status', 'status', 'self_rating', 'manager_rating', 'calibrated_rating'] as const
+const REPORT_COLUMNS = ['cycle_id', 'name', 'status', 'review_count', 'submitted_reviews', 'draft_reviews', 'calibrated_reviews'] as const
 const SESSION_COLUMNS = ['session_id', 'program_id', 'starts_on', 'ends_on', 'capacity', 'location', 'status'] as const
 const ENROLLMENT_COLUMNS = ['enrollment_id', 'session_id', 'employment_id', 'status', 'completion_result'] as const
 
 const PERFORMANCE_CREATES: readonly TalentFormKind[] = ['cycle-create']
+const INDICATOR_CREATES: readonly TalentFormKind[] = ['indicator-create']
+const GOAL_CREATES: readonly TalentFormKind[] = ['goal-create']
+const FEEDBACK_CREATES: readonly TalentFormKind[] = ['feedback-create']
+const CALIBRATION_CREATES: readonly TalentFormKind[] = ['calibration-create']
+const RESULT_CREATES: readonly TalentFormKind[] = ['cycle-publish']
 const TEMPLATE_CREATES: readonly TalentFormKind[] = ['template-create']
 const REVIEW_CREATES: readonly TalentFormKind[] = ['review-create', 'review-submit', 'review-appeal']
 const REQUISITION_CREATES: readonly TalentFormKind[] = ['requisition-create']
@@ -37,6 +48,36 @@ const PANEL = {
     title: '评审权限',
     body: '评分材料按员工授权范围展示，当前只展示服务端已脱敏或已授权的字段。',
     points: ['提交后评审记录不可直接改写', '申诉会创建独立审批 Case'],
+  },
+  indicators: {
+    title: '指标治理',
+    body: '指标编码在租户内唯一，停用与启停通过服务端字段维护，不使用前端缓存推断。',
+    points: ['租户内指标编码唯一', '指标清单实时读取'],
+  },
+  goals: {
+    title: '目标计划',
+    body: '目标通过周期与任职引用员工事实，权重由服务端按单目标校验范围。',
+    points: ['周期发布后目标冻结', '目标变更需保留服务端审计'],
+  },
+  feedback: {
+    title: '360 反馈边界',
+    body: '匿名标记由服务端保存并原样返回，页面不还原评价人身份。',
+    points: ['匿名反馈不展示评价人', '周期发布后停止收集'],
+  },
+  calibration: {
+    title: '校准约束',
+    body: '校准只写入 calibrated_rating，历史值以追加记录保留，自评与主管评分永不改写。',
+    points: ['校准写入独立证据表', '已发布周期禁止再次校准'],
+  },
+  results: {
+    title: '结果发布',
+    body: '发布前要求周期内所有评审均已提交；发布后评审与校准均被冻结。',
+    points: ['未全部提交返回 REVIEWS_NOT_SUBMITTED', '发布后写入返回 CYCLE_PUBLISHED'],
+  },
+  reports: {
+    title: '统计口径',
+    body: '报表只统计周期、评审与校准真实行数；没有数据时保持为空，不生成推算分布。',
+    points: ['提交数按 SUBMITTED 状态统计', '校准数按评审去重'],
   },
   openings: {
     title: '发布规则',
@@ -112,33 +153,23 @@ const PERFORMANCE_PAGES: TalentPageConfig[] = [
     ...PERFORMANCE_BASE,
     key: 'performance/indicators',
     title: '指标库',
-    description: '复用型绩效指标与数据来源管理。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续指标',
-    columns: CYCLE_COLUMNS,
-    forms: [],
-    panels: [PANEL.templates],
-    pending: {
-      label: '指标库',
-      plannedPath: '/v1/performance/indicators',
-      detail: '指标分类、数据来源、指标权重与启停接口均未在 V1.1 后端路由中提供。',
-    },
+    description: '维护可复用绩效指标、分类与数据来源；编码在租户内唯一。',
+    readPath: '/v1/performance/indicators',
+    readLabel: '绩效指标',
+    columns: INDICATOR_COLUMNS,
+    forms: INDICATOR_CREATES,
+    panels: [PANEL.indicators],
   },
   {
     ...PERFORMANCE_BASE,
     key: 'performance/goals',
     title: '目标计划',
-    description: '员工与主管确认 KPI 或 OKR 的目标计划。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续目标',
-    columns: CYCLE_COLUMNS,
-    forms: [],
-    panels: [PANEL.cycles],
-    pending: {
-      label: '目标计划',
-      plannedPath: '/v1/performance/goals',
-      detail: '目标制定、确认、变更与进度接口未在 V1.1 后端路由中提供。',
-    },
+    description: '为周期内员工设定目标、目标值、权重与截止日期。',
+    readPath: '/v1/performance/goals',
+    readLabel: '绩效目标',
+    columns: GOAL_COLUMNS,
+    forms: GOAL_CREATES,
+    panels: [PANEL.goals],
   },
   {
     ...PERFORMANCE_BASE,
@@ -155,49 +186,34 @@ const PERFORMANCE_PAGES: TalentPageConfig[] = [
     ...PERFORMANCE_BASE,
     key: 'performance/feedback',
     title: '360 反馈',
-    description: '邀请评价人并收集多源反馈。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续 360 反馈',
-    columns: CYCLE_COLUMNS,
-    forms: [],
-    panels: [PANEL.reviews],
-    pending: {
-      label: '360 反馈',
-      plannedPath: '/v1/performance/feedback',
-      detail: '评价人邀请、匿名策略、反馈回收与权限隔离接口未在后端提供。',
-    },
+    description: '记录同级、主管、自评与跨团队反馈，并保存匿名标记。',
+    readPath: '/v1/performance/feedback',
+    readLabel: '360 反馈',
+    columns: FEEDBACK_COLUMNS,
+    forms: FEEDBACK_CREATES,
+    panels: [PANEL.feedback],
   },
   {
     ...PERFORMANCE_BASE,
     key: 'performance/calibration',
     title: '绩效校准',
-    description: '部门与公司校准会议、等级分布校准。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续校准',
-    columns: CYCLE_COLUMNS,
-    forms: [],
-    panels: [PANEL.reviews],
-    pending: {
-      label: '绩效校准',
-      plannedPath: '/v1/performance/calibration',
-      detail: '校准会议、等级分布与审批链路接口未在后端提供。',
-    },
+    description: '追加校准等级与理由；只写 calibrated_rating，不改原始评分。',
+    readPath: '/v1/performance/calibration',
+    readLabel: '校准记录',
+    columns: CALIBRATION_COLUMNS,
+    forms: CALIBRATION_CREATES,
+    panels: [PANEL.calibration],
   },
   {
     ...PERFORMANCE_BASE,
     key: 'performance/results',
     title: '结果发布',
-    description: '发布、确认、申诉与归档绩效结果。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续结果',
-    columns: CYCLE_COLUMNS,
-    forms: [],
-    panels: [PANEL.reviews],
-    pending: {
-      label: '结果发布',
-      plannedPath: '/v1/performance/results',
-      detail: '结果发布、确认、修订与归档接口未在后端提供。',
-    },
+    description: '发布前校验全部评审已提交；发布后评审与校准冻结。',
+    readPath: '/v1/performance/results',
+    readLabel: '绩效结果',
+    columns: RESULT_COLUMNS,
+    forms: RESULT_CREATES,
+    panels: [PANEL.results],
   },
   {
     ...PERFORMANCE_BASE,
@@ -214,17 +230,12 @@ const PERFORMANCE_PAGES: TalentPageConfig[] = [
     ...PERFORMANCE_BASE,
     key: 'performance/reports',
     title: '绩效报表',
-    description: '周期趋势、等级分布与部门对比。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '后续绩效报表',
-    columns: CYCLE_COLUMNS,
+    description: '按周期统计评审提交、草稿与校准覆盖；所有数字均由服务端实时聚合。',
+    readPath: '/v1/performance/reports',
+    readLabel: '绩效完成度',
+    columns: REPORT_COLUMNS,
     forms: [],
-    panels: [PANEL.cycles],
-    pending: {
-      label: '绩效报表',
-      plannedPath: '/v1/performance/reports',
-      detail: '后端无绩效分布、趋势、部门对比或导出接口；本页不生成统计口径。',
-    },
+    panels: [PANEL.reports],
   },
 ]
 
