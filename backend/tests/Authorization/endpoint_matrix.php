@@ -1073,6 +1073,30 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
     ],
+    'GET /v1/time/overtime/requests' => [
+        'capability' => 'time.overtime.read',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'POST /v1/time/overtime/requests' => [
+        'capability' => 'time.overtime.request',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'POST /v1/time/overtime/requests/{id}/confirm' => [
+        'capability' => 'time.overtime.confirm',
+        'anchor' => 'MANAGED',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+    'GET /v1/time/overtime/timeoff-balances' => [
+        'capability' => 'time.timeoff.read',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
     'GET /v1/travel/requests' => [
         'capability' => 'time.travel.read',
         'anchor' => 'LEGAL_ENTITY',
