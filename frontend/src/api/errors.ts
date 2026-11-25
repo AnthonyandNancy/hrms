@@ -5,6 +5,7 @@ export class ApiError extends Error {
   readonly status: number
   readonly requestId: string | null
   readonly fieldErrors: Record<string, string[]>
+  readonly details: Record<string, unknown>
 
   constructor(
     code: ApiErrorCode,
@@ -13,6 +14,7 @@ export class ApiError extends Error {
       status?: number
       requestId?: string | null
       fieldErrors?: Record<string, string[]>
+      details?: Record<string, unknown>
     } = {},
   ) {
     super(message)
@@ -21,6 +23,13 @@ export class ApiError extends Error {
     this.status = options.status ?? statusForCode(code)
     this.requestId = options.requestId ?? null
     this.fieldErrors = options.fieldErrors ?? {}
+    this.details = options.details ?? {}
+  }
+
+  /** Stable business reason from the server envelope, e.g. REQUISITION_NOT_APPROVED. */
+  get serverReason(): string | null {
+    const reason = this.details.reason
+    return typeof reason === 'string' && reason !== '' ? reason : null
   }
 }
 

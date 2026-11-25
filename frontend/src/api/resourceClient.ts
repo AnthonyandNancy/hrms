@@ -46,6 +46,7 @@ function translate(error: unknown): never {
     status: axiosError.response.status,
     requestId: body?.request_id ?? null,
     fieldErrors: body?.data?.fields ?? {},
+    details: body?.data ?? {},
   })
 }
 

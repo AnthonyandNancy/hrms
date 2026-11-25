@@ -7,8 +7,8 @@
 ## 1. 汇总
 
 - 注册表条目：**160**
-- 专属业务视图（MATURE）：**14**
-- 通用回退（FALLBACK）：**146**
+- 专属业务视图（MATURE）：**50**
+- 通用回退（FALLBACK）：**110**
 - 无渲染器（MISSING）：**0**
 - 有 API 路径未在 OpenAPI 中登记的页面：**0**
 
@@ -150,42 +150,42 @@
 | 101 | payroll-payslips | `/payroll/payslips` | `payroll.run.read` | MATURE | — |
 | 102 | payroll-adjustments | `/payroll/adjustments` | `payroll.run.read` | FALLBACK | — |
 | 103 | payroll-reports | `/payroll/reports` | `payroll.run.read` | FALLBACK | — |
-| 104 | performance | `/performance` | `performance.cycle.read` | FALLBACK | — |
-| 105 | performance-templates | `/performance/templates` | `performance.cycle.read` | FALLBACK | — |
-| 106 | performance-indicators | `/performance/indicators` | `performance.cycle.read` | FALLBACK | — |
-| 107 | performance-goals | `/performance/goals` | `performance.cycle.read` | FALLBACK | — |
-| 108 | performance-reviews | `/performance/reviews` | `performance.cycle.read` | FALLBACK | — |
-| 109 | performance-feedback | `/performance/feedback` | `performance.cycle.read` | FALLBACK | — |
-| 110 | performance-calibration | `/performance/calibration` | `performance.cycle.read` | FALLBACK | — |
-| 111 | performance-results | `/performance/results` | `performance.cycle.read` | FALLBACK | — |
-| 112 | performance-appeals | `/performance/appeals` | `performance.cycle.read` | FALLBACK | — |
-| 113 | performance-reports | `/performance/reports` | `performance.cycle.read` | FALLBACK | — |
-| 114 | recruitment-requests | `/recruitment/requests` | `recruitment.requisition.read` | FALLBACK | — |
-| 115 | recruitment-requests-create | `/recruitment/requests/create` | `recruitment.requisition.read` | FALLBACK | — |
-| 116 | recruitment-requests-approval | `/recruitment/requests/approval` | `recruitment.requisition.read` | FALLBACK | — |
-| 117 | recruitment-requests-openings | `/recruitment/requests/openings` | `recruitment.requisition.read` | FALLBACK | — |
-| 118 | recruitment-requests-board | `/recruitment/requests/board` | `recruitment.requisition.read` | FALLBACK | — |
-| 119 | recruitment-requests-budget | `/recruitment/requests/budget` | `recruitment.requisition.read` | FALLBACK | — |
-| 120 | recruitment-requests-reports | `/recruitment/requests/reports` | `recruitment.requisition.read` | FALLBACK | — |
-| 121 | recruitment-candidates | `/recruitment/candidates` | `recruitment.candidate.read` | FALLBACK | — |
-| 122 | recruitment-candidates-by-id | `/recruitment/candidates/:id` | `recruitment.candidate.read` | FALLBACK | — |
-| 123 | recruitment-candidates-imports | `/recruitment/candidates/imports` | `recruitment.candidate.read` | FALLBACK | — |
-| 124 | recruitment-candidates-pipeline | `/recruitment/candidates/pipeline` | `recruitment.candidate.read` | FALLBACK | — |
-| 125 | recruitment-candidates-interviews | `/recruitment/candidates/interviews` | `recruitment.candidate.read` | FALLBACK | — |
-| 126 | recruitment-candidates-evaluations | `/recruitment/candidates/evaluations` | `recruitment.candidate.read` | FALLBACK | — |
-| 127 | recruitment-candidates-offers | `/recruitment/candidates/offers` | `recruitment.candidate.read` | FALLBACK | — |
-| 128 | recruitment-candidates-communications | `/recruitment/candidates/communications` | `recruitment.candidate.read` | FALLBACK | — |
-| 129 | recruitment-candidates-talent-pool | `/recruitment/candidates/talent-pool` | `recruitment.candidate.read` | FALLBACK | — |
-| 130 | recruitment-candidates-convert | `/recruitment/candidates/convert` | `recruitment.candidate.read` | FALLBACK | — |
-| 131 | training | `/training` | `training.program.read` | FALLBACK | — |
-| 132 | training-courses | `/training/courses` | `training.program.read` | FALLBACK | — |
-| 133 | training-sessions | `/training/sessions` | `training.program.read` | FALLBACK | — |
-| 134 | training-enrollments | `/training/enrollments` | `training.program.read` | FALLBACK | — |
-| 135 | training-checkins | `/training/checkins` | `training.program.read` | FALLBACK | — |
-| 136 | training-exams | `/training/exams` | `training.program.read` | FALLBACK | — |
-| 137 | training-feedback | `/training/feedback` | `training.program.read` | FALLBACK | — |
-| 138 | training-records | `/training/records` | `training.program.read` | FALLBACK | — |
-| 139 | training-reports | `/training/reports` | `training.program.read` | FALLBACK | — |
+| 104 | performance | `/performance` | `performance.cycle.read` | MATURE | — |
+| 105 | performance-templates | `/performance/templates` | `performance.cycle.read` | MATURE | — |
+| 106 | performance-indicators | `/performance/indicators` | `performance.cycle.read` | MATURE | — |
+| 107 | performance-goals | `/performance/goals` | `performance.cycle.read` | MATURE | — |
+| 108 | performance-reviews | `/performance/reviews` | `performance.cycle.read` | MATURE | — |
+| 109 | performance-feedback | `/performance/feedback` | `performance.cycle.read` | MATURE | — |
+| 110 | performance-calibration | `/performance/calibration` | `performance.cycle.read` | MATURE | — |
+| 111 | performance-results | `/performance/results` | `performance.cycle.read` | MATURE | — |
+| 112 | performance-appeals | `/performance/appeals` | `performance.cycle.read` | MATURE | — |
+| 113 | performance-reports | `/performance/reports` | `performance.cycle.read` | MATURE | — |
+| 114 | recruitment-requests | `/recruitment/requests` | `recruitment.requisition.read` | MATURE | — |
+| 115 | recruitment-requests-create | `/recruitment/requests/create` | `recruitment.requisition.read` | MATURE | — |
+| 116 | recruitment-requests-approval | `/recruitment/requests/approval` | `recruitment.requisition.read` | MATURE | — |
+| 117 | recruitment-requests-openings | `/recruitment/requests/openings` | `recruitment.requisition.read` | MATURE | — |
+| 118 | recruitment-requests-board | `/recruitment/requests/board` | `recruitment.requisition.read` | MATURE | — |
+| 119 | recruitment-requests-budget | `/recruitment/requests/budget` | `recruitment.requisition.read` | MATURE | — |
+| 120 | recruitment-requests-reports | `/recruitment/requests/reports` | `recruitment.requisition.read` | MATURE | — |
+| 121 | recruitment-candidates | `/recruitment/candidates` | `recruitment.candidate.read` | MATURE | — |
+| 122 | recruitment-candidates-by-id | `/recruitment/candidates/:id` | `recruitment.candidate.read` | MATURE | — |
+| 123 | recruitment-candidates-imports | `/recruitment/candidates/imports` | `recruitment.candidate.read` | MATURE | — |
+| 124 | recruitment-candidates-pipeline | `/recruitment/candidates/pipeline` | `recruitment.candidate.read` | MATURE | — |
+| 125 | recruitment-candidates-interviews | `/recruitment/candidates/interviews` | `recruitment.candidate.read` | MATURE | — |
+| 126 | recruitment-candidates-evaluations | `/recruitment/candidates/evaluations` | `recruitment.candidate.read` | MATURE | — |
+| 127 | recruitment-candidates-offers | `/recruitment/candidates/offers` | `recruitment.candidate.read` | MATURE | — |
+| 128 | recruitment-candidates-communications | `/recruitment/candidates/communications` | `recruitment.candidate.read` | MATURE | — |
+| 129 | recruitment-candidates-talent-pool | `/recruitment/candidates/talent-pool` | `recruitment.candidate.read` | MATURE | — |
+| 130 | recruitment-candidates-convert | `/recruitment/candidates/convert` | `recruitment.candidate.read` | MATURE | — |
+| 131 | training | `/training` | `training.program.read` | MATURE | — |
+| 132 | training-courses | `/training/courses` | `training.program.read` | MATURE | — |
+| 133 | training-sessions | `/training/sessions` | `training.program.read` | MATURE | — |
+| 134 | training-enrollments | `/training/enrollments` | `training.program.read` | MATURE | — |
+| 135 | training-checkins | `/training/checkins` | `training.program.read` | MATURE | — |
+| 136 | training-exams | `/training/exams` | `training.program.read` | MATURE | — |
+| 137 | training-feedback | `/training/feedback` | `training.program.read` | MATURE | — |
+| 138 | training-records | `/training/records` | `training.program.read` | MATURE | — |
+| 139 | training-reports | `/training/reports` | `training.program.read` | MATURE | — |
 | 140 | notices | `/notices` | `engagement.notice.read` | MATURE | — |
 | 141 | notices-editor | `/notices/editor` | `engagement.notice.read` | FALLBACK | — |
 | 142 | notices-approval | `/notices/approval` | `engagement.notice.read` | FALLBACK | — |
