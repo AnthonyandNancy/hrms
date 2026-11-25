@@ -47,7 +47,7 @@ final class ModuleBoundaryScanner
         'Lifecycle' => ['cases', 'decisions', 'effects', 'lifecycle_tasks', 'lifecycle_intents', 'onboarding_checklist_templates', 'employment_contract_versions'],
         'Workflow' => ['workflow_definitions', 'workflow_versions', 'workflow_instances', 'workflow_tasks', 'workflow_delegations'],
         'Time' => ['shifts', 'schedules', 'punch_records', 'attendance_days', 'attendance_corrections', 'leave_accounts', 'leave_ledger_entries', 'leave_types', 'leave_balances', 'leave_requests', 'overtime_records', 'overtime_settlements', 'overtime_requests'],
-        'Payroll' => ['payroll_items', 'payroll_schemes', 'payroll_runs', 'payslips', 'payslip_lines', 'payroll_input_snapshots', 'payroll_ytd', 'payroll_receipts', 'payroll_adjustments'],
+        'Payroll' => ['payroll_items', 'payroll_schemes', 'payroll_runs', 'payslips', 'payslip_lines', 'payroll_input_snapshots', 'payroll_ytd', 'payroll_receipts', 'payroll_adjustments', 'employee_compensations', 'salary_adjustments'],
         'Talent' => ['recruitment_requisitions', 'candidates', 'interviews', 'offers', 'performance_cycles', 'performance_templates', 'performance_reviews', 'performance_appeals', 'performance_indicators', 'performance_goals', 'performance_feedback', 'performance_calibrations', 'training_programs', 'training_sessions', 'training_enrollments'],
         'Engagement' => ['notices', 'notifications'],
         'Reporting' => ['report_definitions', 'export_jobs', 'projections'],

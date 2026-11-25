@@ -61,6 +61,8 @@ const FORM_PANELS = new Set([
   'payroll-statutory',
   'payroll-inputs',
   'payroll-payslips',
+  'payroll-employee-plans',
+  'payroll-adjustments',
 ])
 const showEmpty = computed(
   () =>

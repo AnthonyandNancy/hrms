@@ -155,6 +155,18 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
+    'GET /v1/payroll/adjustments' => [
+        'capability' => 'payroll.compensation.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked'],
+    ],
+    'GET /v1/payroll/employee-plans' => [
+        'capability' => 'payroll.compensation.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'p3_field_masked'],
+    ],
     'GET /v1/payroll/items' => [
         'capability' => 'payroll.run.read',
         'anchor' => 'LEGAL_ENTITY',
@@ -580,6 +592,18 @@ return [
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
+    ],
+    'POST /v1/payroll/adjustments' => [
+        'capability' => 'payroll.salary-adjustment.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'case_not_approved', 'case_already_applied'],
+    ],
+    'POST /v1/payroll/employee-plans' => [
+        'capability' => 'payroll.compensation.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'duplicate_effective_date'],
     ],
     'POST /v1/payroll/items' => [
         'capability' => 'payroll.run.prepare',

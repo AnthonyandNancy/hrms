@@ -16,6 +16,7 @@ use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\Organization\Http\Controllers\PositionController;
+use App\Modules\Payroll\Http\Controllers\CompensationController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
@@ -852,6 +853,22 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->middleware(IdempotentCommand::class)
         ->middleware(['mfa.step-up', 'capability:payroll.parameters.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('payroll.parameters.store');
+
+    // Effective-dated compensation archive and case-approved salary
+    // adjustments. Reads use the ProjectionResponder envelope; writes use
+    // CommandRunner (Idempotency-Key is required by the runner itself).
+    Route::get('/employee-plans', [CompensationController::class, 'plans'])
+        ->middleware('capability:payroll.compensation.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.employee-plans.index');
+    Route::post('/employee-plans', [CompensationController::class, 'storePlan'])
+        ->middleware('capability:payroll.compensation.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.employee-plans.store');
+    Route::get('/adjustments', [CompensationController::class, 'adjustments'])
+        ->middleware('capability:payroll.compensation.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.adjustments.index');
+    Route::post('/adjustments', [CompensationController::class, 'storeAdjustment'])
+        ->middleware('capability:payroll.salary-adjustment.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('payroll.adjustments.store');
 });
 
 /*

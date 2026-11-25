@@ -31,7 +31,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Lifecycle | `cases`, `decisions`, `effects`, `lifecycle_tasks`, `lifecycle_intents`, `onboarding_checklist_templates`, `employment_contract_versions` | People, Workflow Contracts, Time/IAM/Talent Contracts, Shared |
 | Workflow | `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_tasks`, `workflow_delegations` | IAM Contracts, Shared |
 | Time | `shifts`, `schedules`, `punch_records`, `attendance_days`, `attendance_corrections`, `leave_accounts`, `leave_ledger_entries`, `leave_types`, `leave_balances`, `leave_requests`, `overtime_records`, `overtime_settlements`, `overtime_requests` | People, Workflow Contracts, Shared |
-| Payroll | `payroll_items`, `payroll_schemes`, `payroll_runs`, `payslips`, `payslip_lines`, `payroll_input_snapshots` | Time, People, Workflow Contracts, Shared |
+| Payroll | `payroll_items`, `payroll_schemes`, `payroll_runs`, `payslips`, `payslip_lines`, `payroll_input_snapshots`, `employee_compensations`, `salary_adjustments` | Time, People, Workflow Contracts, Shared |
 | Talent | `recruitment_requisitions`, `candidates`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `performance_indicators`, `performance_goals`, `performance_feedback`, `performance_calibrations`, `training_programs`, `training_sessions`, `training_enrollments` | Lifecycle/People/Workflow Contracts, Shared |
 | Engagement | `notices`, `notifications` | Read-only Contracts from all modules, Shared |
 | Reporting | `report_definitions`, `export_jobs`, `projections` | Read-only projections/Contracts, Shared |

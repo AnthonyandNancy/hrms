@@ -75,6 +75,24 @@ final class CapabilityAuthorizer implements Authorizer
             'net' => FieldProfile::P3_RESTRICTED,
             'deductions' => FieldProfile::P3_RESTRICTED,
         ],
+        'employee_compensation' => [
+            'id' => FieldProfile::P0_PUBLIC,
+            'employment_id' => FieldProfile::P0_PUBLIC,
+            'effective_from' => FieldProfile::P0_PUBLIC,
+            'currency' => FieldProfile::P0_PUBLIC,
+            'salary_scheme_code' => FieldProfile::P1_INTERNAL,
+            'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+        ],
+        'salary_adjustment' => [
+            'id' => FieldProfile::P0_PUBLIC,
+            'employment_id' => FieldProfile::P0_PUBLIC,
+            'effective_from' => FieldProfile::P0_PUBLIC,
+            'currency' => FieldProfile::P0_PUBLIC,
+            'case_id' => FieldProfile::P1_INTERNAL,
+            'compensation_id' => FieldProfile::P1_INTERNAL,
+            'reason' => FieldProfile::P1_INTERNAL,
+            'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+        ],
     ];
 
     public function __construct(
