@@ -346,7 +346,7 @@ POST /v1/... (Idempotency-Key)
 | — | `engagement.notice.*` | K11 | 复用 | 已有 |
 | — | `reporting.report.read` / `reporting.report.create` / `reporting.subscription.manage` / `reporting.export` | K12 | 复用 | 已有 |
 
-**精确计数（执行期校正，2026-11-25）：** 清单 44 行中有 1 行 `time.overtime.request` 在 112 基线中已存在，因此真实新增 **43** 个、复用 9 个（含该行）；能力码总数 **112 → 155**。
+**精确计数（执行期校正，2026-11-25）：** 清单 44 行中有 1 行 `time.overtime.request` 在 112 基线中已存在，故清单本身贡献 **43** 个新增；同时审计发现既有路由已在用但从未登记的 `time.attendance.reopen`，一并补登记 1 个。最终新增 **44** 个，能力码总数 **112 → 156**（与初稿目标一致，但构成不同：43 个来自本表 + 1 个补登记的历史遗漏）。
 
 > 命名规则补充：能力码段内允许连字符（如 `payroll.salary-adjustment.manage`、`recruitment.talent-pool.manage`），但每段必须以小写字母或数字开头/结尾。
 

@@ -90,8 +90,27 @@ const clusterCounts = clusterMatches.reduce((counts, match) => {
   counts[match[1]] = (counts[match[1]] ?? 0) + 1
   return counts
 }, {})
+const { CLUSTER_MEMBERSHIP, CLUSTER_COUNTS } = await import('./lib/clusterMembership.mjs')
 const CLUSTER_CONTRACT = { K1: 4, K2: 2, K3: 1, K4: 4, K5: 4, K6: 3, K7: 2, K8: 6, K9: 10, K10: 7, K11: 15, K12: 5 }
 const clusterTotal = clusterMatches.length
+
+// Exact membership, not just counts: recover componentKey -> cluster from the
+// registry and compare it with the frozen map in both directions.
+const registryClusterByKey = new Map()
+for (const match of registry.matchAll(/\{cluster: '(K(?:[1-9]|1[0-2]))', path: '[^']*', name: '[^']*', componentKey: '([^']+)'/g)) {
+  registryClusterByKey.set(match[2], match[1])
+}
+const membershipMismatches = []
+for (const [key, cluster] of Object.entries(CLUSTER_MEMBERSHIP)) {
+  if (registryClusterByKey.get(key) !== cluster) {
+    membershipMismatches.push(`${key}: expected ${cluster}, registry has ${registryClusterByKey.get(key) ?? 'none'}`)
+  }
+}
+for (const key of registryClusterByKey.keys()) {
+  if (!(key in CLUSTER_MEMBERSHIP)) {
+    membershipMismatches.push(`${key}: clustered in registry but absent from frozen membership`)
+  }
+}
 
 // Executable "backend endpoint pending" markers, resolved to componentKeys.
 const { readGapMarkers } = await import('./lib/gapMarkers.mjs')
@@ -114,10 +133,25 @@ if (negativeCount !== 160) failures.push(`entries missing negative-test declarat
 if (missingBusiness.length > 0) failures.push(`inventory pages missing from registry: ${missingBusiness.map((p) => p.path).join(', ')}`)
 if (extraBusiness.length > 0) failures.push(`extra registry paths not in inventory: ${extraBusiness.join(', ')}`)
 if (clusterTotal !== 63) failures.push(`registry cluster pages=${clusterTotal}, expected 63`)
+if (membershipMismatches.length > 0) {
+  failures.push(`cluster membership drift: ${membershipMismatches.join('; ')}`)
+}
+for (const [cluster, expected] of Object.entries(CLUSTER_COUNTS)) {
+  if ((clusterCounts[cluster] ?? 0) !== expected) {
+    failures.push(`cluster ${cluster} has ${clusterCounts[cluster] ?? 0} pages, frozen map says ${expected}`)
+  }
+}
 for (const [cluster, expected] of Object.entries(CLUSTER_CONTRACT)) {
   if ((clusterCounts[cluster] ?? 0) !== expected) {
     failures.push(`cluster ${cluster} pages=${clusterCounts[cluster] ?? 0}, expected ${expected}`)
   }
+}
+if (gapMarkers.unparsed.length > 0) {
+  failures.push(
+    `gap-marker parser could not attribute every marker: ${gapMarkers.unparsed
+      .map((entry) => `${entry.file} (raw=${entry.raw}, attributed=${entry.attributed})`)
+      .join(', ')}`,
+  )
 }
 if (gapMarkers.hardcoded.length > 0) {
   // Scaffold/release mode reports this as debt; the capability gate rejects it.
@@ -160,6 +194,9 @@ const report = {
     counts: clusterCounts,
     expected: CLUSTER_CONTRACT,
     gapMarkers: gappedComponentKeys.length,
+    membershipDrift: membershipMismatches.length,
+    unparsedFiles: gapMarkers.unparsed.length,
+    hardcodedPanels: gapMarkers.hardcoded.length,
     gapByDomain: Object.fromEntries(Object.entries(gapMarkers.byStyle).map(([domain, keys]) => [domain, keys.length])),
   },
   mode: requireCapabilities ? 'capability-complete' : requireMature ? 'release' : 'scaffold',

@@ -168,7 +168,7 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'time.travel.policy.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.travel.approve', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.travel.expense.manage', $le, FieldProfile::P2_SENSITIVE),
-                $grant('HR_ADMIN', 'performance.indicator.manage', $le, FieldProfile::P2_SENSITIVE),
+                $grant('HR_ADMIN', 'performance.indicator.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'performance.goal.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'performance.feedback.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'performance.result.publish', $le, FieldProfile::P2_SENSITIVE),
@@ -309,6 +309,7 @@ final class RoleTemplateCatalog
                 $grant('ATTENDANCE_SPECIALIST', 'time.shift.schedule.manage', $ou, FieldProfile::P1_INTERNAL),
                 $grant('ATTENDANCE_SPECIALIST', 'time.attendance.device.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('ATTENDANCE_SPECIALIST', 'time.overtime.confirm', $ou, FieldProfile::P1_INTERNAL),
+                $grant('ATTENDANCE_SPECIALIST', 'time.attendance.reopen', $ou, FieldProfile::P1_INTERNAL),
             ]),
             new RoleTemplate('LINE_MANAGER', 'Line manager', 'Team approvals, attendance visibility and team dashboards.', [
                 $grant('LINE_MANAGER', 'workflow.case.read', $managed, FieldProfile::P1_INTERNAL),

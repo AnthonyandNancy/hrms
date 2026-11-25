@@ -11,8 +11,11 @@ import { join } from 'node:path'
  *   - talent:   `pending: { ... }`
  *   - platform: `gap: '<text>'`
  *
- * Entries are parsed as brace-delimited blocks that start at a two-space
- * open brace, so nested objects and arrays cannot be mistaken for an entry.
+ * IMPORTANT: this parser fails closed. It counts every raw marker occurrence
+ * in a file and compares that to the markers it managed to attribute to an
+ * entry. If they disagree, the file is reported as unparsed instead of
+ * silently contributing zero gaps — a formatting change must never turn a
+ * real backend gap into a green gate.
  */
 const DOMAIN_FILES = [
   { dir: 'frontend/src/views/people', style: 'people' },
@@ -39,107 +42,131 @@ function countBraces(line) {
   return delta
 }
 
-/** Splits a catalog source into blocks starting at a two-space open brace. */
-function entryBlocks(source) {
+/**
+ * Splits a catalog source into brace-balanced blocks. An entry starts at a line
+ * whose first non-space character is `{` and whose indentation equals the
+ * shallowest indentation observed among such lines. This tolerates 2-space and
+ * 4-space formatters instead of hard-coding an indent width.
+ */
+export function entryBlocks(source) {
   const lines = source.split(/\r?\n/)
-  const blocks = []
-  let current = null
-  let depth = 0
+  const starts = []
 
-  for (const line of lines) {
-    if (current === null) {
-      if (!/^ {2}\{/.test(line)) continue
-      current = [line]
-      depth = countBraces(line)
-      if (depth <= 0) {
-        blocks.push(current.join(NEWLINE))
-        current = null
-        depth = 0
-      }
-      continue
-    }
-
-    current.push(line)
-    depth += countBraces(line)
-    if (depth <= 0) {
-      blocks.push(current.join(NEWLINE))
-      current = null
-      depth = 0
-    }
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^( +)\{/)
+    if (match) starts.push({ index: i, indent: match[1].length })
   }
 
-  if (current !== null) blocks.push(current.join(NEWLINE))
+  if (starts.length === 0) return []
+
+  const minIndent = Math.min(...starts.map((entry) => entry.indent))
+  const entryStarts = starts.filter((entry) => entry.indent === minIndent).map((entry) => entry.index)
+
+  const blocks = []
+
+  for (let i = 0; i < entryStarts.length; i++) {
+    const start = entryStarts[i]
+    const limit = i + 1 < entryStarts.length ? entryStarts[i + 1] : lines.length
+    const block = []
+    let depth = 0
+    let opened = false
+
+    for (let j = start; j < limit; j++) {
+      block.push(lines[j])
+      depth += countBraces(lines[j])
+      if (lines[j].includes('{')) opened = true
+      if (opened && depth <= 0) break
+    }
+
+    blocks.push(block.join(NEWLINE))
+  }
 
   return blocks
 }
 
-/**
- * Returns the entry-level key of a block. Nested `key:` properties are always
- * indented deeper than the entry's own structural properties.
- */
+/** Returns the entry-level key: the first `key:` in the block. */
 function entryKey(block) {
-  // The entry's own key is the first `key:` in the block; nested column or
-  // related keys always appear later, inside arrays.
   const match = block.match(/key: '([^']+)'/)
   return match ? match[1] : null
+}
+
+/** Counts raw marker occurrences (not entries) so nothing can be swallowed. */
+function countMarkers(source, style) {
+  const pattern = GAP_PATTERN[style]
+  return source.split(/\r?\n/).filter((line) => pattern.test(line)).length
 }
 
 function scanFile(source, style) {
   const keys = new Set()
   const pattern = GAP_PATTERN[style]
+  let attributed = 0
 
   for (const block of entryBlocks(source)) {
     if (!pattern.test(block)) continue
     const key = entryKey(block)
-    if (key) keys.add(key)
+    if (key) {
+      keys.add(key)
+      attributed += countMarkers(block, style)
+    }
   }
 
-  return keys
+  return { keys, attributed, raw: countMarkers(source, style) }
 }
 
 /**
- * @returns {{ keys: Set<string>, byStyle: Record<string, string[]>, total: number, hardcoded: string[] }}
+ * @returns {{
+ *   keys: Set<string>,
+ *   byStyle: Record<string, string[]>,
+ *   total: number,
+ *   hardcoded: string[],
+ *   unparsed: Array<{file: string, raw: number, attributed: number}>,
+ * }}
  */
 export function readGapMarkers(root) {
   const keys = new Set()
   const byStyle = {}
+  const unparsed = []
 
   for (const domain of DOMAIN_FILES) {
     const dir = join(root, domain.dir)
     if (!existsSync(dir)) continue
     const found = []
+
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.ts')) continue
-      for (const key of scanFile(readFileSync(join(dir, name), 'utf8'), domain.style)) {
+      const file = `${domain.dir}/${name}`
+      const source = readFileSync(join(dir, name), 'utf8')
+      const { keys: fileKeys, attributed, raw } = scanFile(source, domain.style)
+
+      for (const key of fileKeys) {
         keys.add(key)
         found.push(key)
       }
+
+      if (attributed !== raw) {
+        unparsed.push({ file, raw, attributed })
+      }
     }
+
     byStyle[domain.style] = [...new Set(found)]
   }
 
-  // Vue workspaces may render the pending panel without a catalog entry.
   const hardcoded = []
   for (const domain of DOMAIN_FILES) {
     const dir = join(root, domain.dir)
     if (!existsSync(dir)) continue
+
     for (const name of readdirSync(dir)) {
       if (!name.endsWith('.vue')) continue
       const source = readFileSync(join(dir, name), 'utf8')
-      // A shared renderer may print the generic gap heading from a catalog
-      // entry (`{{ config.pending.label }}：后端接口待补`). Only a hardcoded,
-      // page-specific gap text bypasses the catalog and must be rejected.
-      // PlatformWorkspace currently duplicates catalog gap copy inside the
-      // template instead of binding to `config.gap`; every such panel is a
-      // hardcoded bypass and is reported with its line numbers for the K11 task.
-      const pageSpecific = source
-        .split(/\r?\n/)
-        .filter((line) => /后端接口待补[:：]/.test(line) && !line.includes('config.'))
+      const lines = source.split(/\r?\n/)
+      const pageSpecific = lines.filter((line) => /后端接口待补[:：]/.test(line) && !line.includes('config.'))
+
       if (pageSpecific.length > 0) {
         hardcoded.push(`${domain.dir}/${name} (${pageSpecific.length} hardcoded panel(s))`)
       }
     }
   }
 
-  return { keys, byStyle, total: keys.size, hardcoded }
+  return { keys, byStyle, total: keys.size, hardcoded, unparsed }
 }

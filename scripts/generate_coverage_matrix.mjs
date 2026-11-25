@@ -161,6 +161,7 @@ lines.push(
   '',
   `- 集群页面合计：**${clusterRows.reduce((total, row) => total + row.pages, 0)}**（契约 63）。`,
   `- 仍有后端缺口标记的页面：**${gapMarkers.total}**（目标 0；按域 ${Object.entries(gapMarkers.byStyle).map(([domain, keys]) => `${domain} ${keys.length}`).join('、')}）。`,
+  `- 解析失败（fail-closed 计数）：**${gapMarkers.unparsed.length}**；Vue 中硬编码缺口面板：**${gapMarkers.hardcoded.length}**。`,
   `- 仍有缺失 API 声明的集群：**${clusterRows.filter((row) => row.apiGaps > 0).map((row) => row.cluster).join(', ') || '无'}**。`,
   '',
 )

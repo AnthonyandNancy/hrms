@@ -123,6 +123,7 @@ class CapabilityCatalogTest extends TestCase
             'org.position.qualification.manage',
             'people.contract.terminate',
             'time.overtime.confirm',
+            'time.attendance.reopen',
             'payroll.compensation.manage',
             'performance.result.publish',
             'recruitment.candidate.convert',
@@ -138,7 +139,83 @@ class CapabilityCatalogTest extends TestCase
     {
         $catalog = new CapabilityCatalog;
 
-        $this->assertCount(155, $catalog->codes(), '112 baseline + 43 genuinely new codes; time.overtime.request already existed.');
+        $this->assertCount(156, $catalog->codes(), '112 baseline + 43 from the gap table + 1 historical omission (time.attendance.reopen).');
+    }
+
+    public function test_no_template_grant_exceeds_its_capability_field_profile(): void
+    {
+        $catalog = new CapabilityCatalog;
+        $violations = [];
+
+        foreach (RoleTemplateCatalog::templates() as $template) {
+            foreach ($template->grants as $grant) {
+                if (\App\Shared\Authorization\CapabilityWildcard::is($grant->capabilityCode)) {
+                    continue;
+                }
+
+                $definition = $catalog->find($grant->capabilityCode);
+
+                if ($definition === null) {
+                    continue;
+                }
+
+                if (! $grant->fieldProfile->isAtMost($definition->fieldProfileMax)) {
+                    $violations[] = "{$template->code} grants {$grant->capabilityCode} at {$grant->fieldProfile->value}, above the {$definition->fieldProfileMax->value} maximum.";
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode(' ', $violations));
+    }
+
+    public function test_no_template_grant_uses_an_anchor_the_capability_forbids(): void
+    {
+        $catalog = new CapabilityCatalog;
+        $violations = [];
+
+        foreach (RoleTemplateCatalog::templates() as $template) {
+            foreach ($template->grants as $grant) {
+                if (\App\Shared\Authorization\CapabilityWildcard::is($grant->capabilityCode)) {
+                    continue;
+                }
+
+                $definition = $catalog->find($grant->capabilityCode);
+
+                if ($definition === null) {
+                    continue;
+                }
+
+                if (! in_array($grant->anchorType, $definition->anchorTypes, true)) {
+                    $violations[] = "{$template->code} grants {$grant->capabilityCode} at {$grant->anchorType->value}, which the capability does not allow.";
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode(' ', $violations));
+    }
+
+    public function test_system_admin_governance_capabilities_are_reachable_through_its_wildcard(): void
+    {
+        // ADR-0024: SYSTEM_ADMIN carries exactly one wildcard grant, so every
+        // catalogued capability — including platform governance — is reachable
+        // without an explicit per-code grant. This asserts reachability rather
+        // than demanding grants that would contradict that ADR.
+        $template = RoleTemplateCatalog::find('SYSTEM_ADMIN');
+        $this->assertNotNull($template);
+        $this->assertSame([\App\Shared\Authorization\CapabilityWildcard::WILDCARD], $template->capabilityCodes());
+
+        $catalog = new CapabilityCatalog;
+
+        foreach ([
+            'time.attendance.device.read',
+            'system.dictionary.manage',
+            'system.parameter.manage',
+            'system.backup.manage',
+            'notification.template.manage',
+            'notification.delivery.manage',
+        ] as $code) {
+            $this->assertTrue($catalog->has($code), "{$code} must be catalogued so the wildcard reaches it.");
+        }
     }
 
     public function test_time_route_capabilities_are_issued_by_role_templates(): void

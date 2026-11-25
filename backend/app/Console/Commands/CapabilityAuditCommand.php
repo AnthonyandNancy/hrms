@@ -120,6 +120,16 @@ final class CapabilityAuditCommand extends Command
                 continue;
             }
 
+            // A wildcard makes a code REACHABLE but does not make it a real
+            // catalogued capability. A route that names an unregistered code is
+            // a typo risk (it silently falls back to deny for every non-super
+            // user), so this check must not be satisfied by the wildcard.
+            if (! $catalog->has($code)) {
+                $violations[] = "G-COV-3: route {$route->uri()} requires unknown capability {$code}";
+
+                continue;
+            }
+
             if (! $wildcardIssued && ! in_array($code, $issued, true)) {
                 $violations[] = "G-COV-3: route {$route->uri()} requires unissued capability {$code}";
             }
@@ -204,7 +214,10 @@ final class CapabilityAuditCommand extends Command
     {
         foreach ($route->gatherMiddleware() as $middleware) {
             if (is_string($middleware) && str_starts_with($middleware, 'capability:')) {
-                $code = trim(substr($middleware, strlen('capability:')));
+                // Middleware may carry an anchor suffix:
+                //   capability:people.employee.read,LEGAL_ENTITY,legal_entity_id
+                // Only the first segment is the capability code.
+                $code = trim(explode(',', substr($middleware, strlen('capability:')))[0]);
 
                 return $code !== '' ? $code : null;
             }

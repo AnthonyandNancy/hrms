@@ -41,15 +41,30 @@ class CapabilityAuditCommandTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_audit_rejects_a_route_default_naming_an_unknown_capability(): void
+    {
+        // A typo in a capability code must fail the audit: with the wildcard
+        // present, an unknown code is otherwise reachable only by superusers
+        // and silently denies every other role.
+        Route::middleware('api')
+            ->prefix('v1')
+            ->get('/unknown-default-fixture', static fn (): array => ['ok' => true])
+            ->defaults('capability', 'organization.unit.read');
+
+        $this->artisan('capability:audit')
+            ->expectsOutputToContain('requires unknown capability organization.unit.read')
+            ->assertFailed();
+    }
+
     public function test_audit_accepts_capability_route_default(): void
     {
         Route::middleware('api')
             ->prefix('v1')
             ->get('/default-guarded-fixture', static fn (): array => ['ok' => true])
-            ->defaults('capability', 'organization.unit.read');
+            ->defaults('capability', 'org.unit.read');
 
         $this->artisan('capability:audit')
-            ->expectsOutputToContain('GUARDED GET v1/default-guarded-fixture organization.unit.read')
+            ->expectsOutputToContain('GUARDED GET v1/default-guarded-fixture org.unit.read')
             ->assertSuccessful();
     }
 
