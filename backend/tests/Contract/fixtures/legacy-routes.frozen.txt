@@ -125,7 +125,6 @@ POST /v1/engagement/notices
 POST /v1/engagement/notices/{notice}/acknowledge
 POST /v1/engagement/notices/{notice}/retract
 POST /v1/engagement/notifications/{notification}/read
-POST /v1/fake/new-legacy-route
 POST /v1/leave/requests
 POST /v1/leave/requests/{caseId}/cancel
 POST /v1/lifecycle/contract-renewals

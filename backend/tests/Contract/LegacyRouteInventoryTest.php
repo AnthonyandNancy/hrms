@@ -163,9 +163,9 @@ final class LegacyRouteInventoryTest extends TestCase
         $this->assertSame([], $stale, 'Ledger lists routes that are not registered: '.implode(', ', $stale));
     }
 
-    public function test_the_ledger_covers_all_hundred_ninety_three_operations(): void
+    public function test_the_ledger_covers_every_registered_operation(): void
     {
-        $this->assertCount(193, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
+        $this->assertCount(197, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
     }
 
     public function test_the_unguarded_routes_are_exactly_the_public_allowlist(): void

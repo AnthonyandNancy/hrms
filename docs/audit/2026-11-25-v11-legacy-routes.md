@@ -1,12 +1,13 @@
 # V1.1 legacy 路由台账
 
-> 本文件由 `backend/routes/api.php` 的实际注册路由生成，**不是**手工清单。
-> 规则：`kernel` = 已使用 CommandRunner / ProjectionResponder 的端点；`legacy` = 尚未迁移，
-> 但已登记迁移 Task 的端点。新增路由必须是 `kernel`；`LegacyRouteInventoryTest` 阻止台账遗漏。
+> 本文件由 `php scripts/dump_routes.php` + `python .superpowers/sdd/v11-gap/gen_ledger.py` 生成，
+> **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
+> 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 路由总数：**193**
-- 有能力的路由：**187**
-- 公共白名单路由：**6**
+- v1 操作总数：**197**
+- 有能力的操作：**191**
+- 公共白名单操作：**6**
+- kernel 操作：**10**
 
 ## 1. 台账
 
@@ -185,42 +186,45 @@
 | 171 | `GET` | `/v1/time/leave/types` | `time.leave.read` | `—` | legacy | E3 |
 | 172 | `GET` | `/v1/time/overtime/policies` | `time.overtime.read` | `—` | legacy | B2 |
 | 173 | `GET` | `/v1/time/overtime/records` | `time.overtime.read` | `—` | legacy | B2 |
-| 174 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | C2 |
-| 175 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
-| 176 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
-| 177 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
-| 178 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | legacy | D3 |
-| 179 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | legacy | D3 |
-| 180 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
-| 181 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 182 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 183 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | legacy | C3 |
-| 184 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | legacy | C3 |
-| 185 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | legacy | C3 |
-| 186 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
-| 187 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 188 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 189 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 190 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 191 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 192 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
-| 193 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
+| 174 | `GET` | `/v1/time/overtime/requests` | `time.overtime.read` | `—` | kernel | — |
+| 175 | `POST` | `/v1/time/overtime/requests` | `time.overtime.request` | `—` | kernel | — |
+| 176 | `POST` | `/v1/time/overtime/requests/{id}/confirm` | `time.overtime.confirm` | `—` | kernel | — |
+| 177 | `GET` | `/v1/time/overtime/timeoff-balances` | `time.timeoff.read` | `—` | kernel | — |
+| 178 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | C2 |
+| 179 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
+| 180 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
+| 181 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
+| 182 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | legacy | D3 |
+| 183 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | legacy | D3 |
+| 184 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
+| 185 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
+| 186 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
+| 187 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | legacy | C3 |
+| 188 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | legacy | C3 |
+| 189 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | legacy | C3 |
+| 190 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
+| 191 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 192 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 193 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 194 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 195 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 196 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
+| 197 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
 
 ## 2. 迁移规则
 
 1. 每个 `legacy` 路由必须在 `迁移 Task` 列指向 B1–B5 / C1–C4 / D1–D4 / E3 之一。
 2. 集群 Task 完成后，该集群路由必须改为 `kernel`（CommandRunner 或 ProjectionResponder）。
 3. 任何新增 `/v1` 路由若未出现在本台账，`LegacyRouteInventoryTest` 失败。
-4. 台账中 `kernel` 条目只允许增加，不允许把已迁移路由改回 `legacy`。
-5. `E3` 仅用于“无集群归属的既有端点收敛”（auth/session、cases、Me、leave 读写等）；
-   它是验收阶段的迁移清扫，不新增能力集群。
+4. 新增路由必须是 `kernel`；`LegacyRouteInventoryTest` 用冻结清单阻止“新增即 legacy”。
+5. `E3` 仅用于无集群归属的既有端点收敛（auth/session、cases、Me、leave 读写等）。
 
-## 3. E3 范围（必须显式列出，避免变成垃圾桶）
+## 3. E3 范围（显式列出，避免变成垃圾桶）
 
 | 现有端点族 | 为何归 E3 | 迁移方式 |
 |---|---|---|
-| `/v1/auth/*`、`/v1/me/*`、`/v1/access-review`、`/v1/bindings`、`/v1/users` | IAM 会话与身份治理 | D1 完成后改为 ProjectionResponder；会话路由保持专用中间件 |
-| `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 内核既有端点 | E3 统一改为 ProjectionResponder/CommandRunner，不改语义 |
-| `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影，不重写账本 |
-| `/v1/employees*`、`/v1/employments*`、`/v1/persons`、`/v1/org-units*` | People/Org 既有读写 | C1 迁移岗位与组织部分；员工主档在 E3 收敛 |
+| `/v1/auth/*`、`/v1/me/*`、`/v1/bindings` | IAM 会话与身份治理 | D1 完成后改 ProjectionResponder；会话路由保持专用中间件 |
+| `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 既有端点 | E3 统一改 ProjectionResponder/CommandRunner |
+| `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影 |
+| `/v1/employees*`、`/v1/employments*`、`/v1/persons` | People 主档既有读写 | C1 迁移岗位与组织；员工主档 E3 收敛 |
 | `/v1/platform/features` | Feature flag 管理 | D1 迁移 |
