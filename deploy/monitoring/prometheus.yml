@@ -1,0 +1,58 @@
+# Prometheus scrape + rule reference for the HRMS compose topology.
+# Scrape targets are static placeholders: replace `targets` with your service
+# discovery (Kubernetes SD, Consul, or the compose DNS names behind a metrics
+# sidecar). The API exposes /metrics only when APP_METRICS_ENABLED=true.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: staging
+    service: hrms
+
+rule_files:
+  - /etc/prometheus/rules/hrms-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: hrms-php-app
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["php-app:9000"]
+        labels:
+          component: api
+
+  - job_name: hrms-php-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["php-worker:9000"]
+        labels:
+          component: worker
+
+  - job_name: hrms-mysql
+    static_configs:
+      - targets: ["mysqld-exporter:9104"]
+
+  - job_name: hrms-redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: hrms-blackbox
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://hrms.example.test/v1/health/live
+          - https://hrms.example.test/v1/health/ready
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

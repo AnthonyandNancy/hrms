@@ -1,0 +1,136 @@
+# Alert rules covering the operational risks named in the Task 9 brief.
+# Every alert includes a runbook link; empty links are never shipped.
+groups:
+  - name: hrms-availability
+    rules:
+      - alert: HrmsApiDown
+        expr: up{job="hrms-php-app"} == 0
+        for: 2m
+        labels:
+          severity: sev1
+        annotations:
+          summary: HRMS API target is down
+          description: php-app has been unscrapeable for 2 minutes.
+          runbook: docs/runbooks/rollback.md
+
+      - alert: HrmsReadinessFailing
+        expr: probe_success{job="hrms-blackbox", instance=~".*/v1/health/ready"} == 0
+        for: 3m
+        labels:
+          severity: sev1
+        annotations:
+          summary: HRMS readiness probe failing
+          description: Database, cache or storage dependency is unhealthy.
+          runbook: docs/runbooks/hypercare.md
+
+      - alert: HrmsHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="hrms-php-app", status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(http_requests_total{job="hrms-php-app"}[5m])), 1)
+          > 0.02
+        for: 5m
+        labels:
+          severity: sev1
+        annotations:
+          summary: HRMS 5xx error rate above 2%
+          description: Error budget burn detected on the API.
+          runbook: docs/runbooks/hypercare.md
+
+      - alert: HrmsP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="hrms-php-app"}[5m])) by (le)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: sev2
+        annotations:
+          summary: HRMS p95 latency above 1.5s
+          description: User-facing latency SLO burn.
+          runbook: docs/runbooks/hypercare.md
+
+  - name: hrms-background-work
+    rules:
+      - alert: HrmsQueueDepthHigh
+        expr: max(queue_size{job=~"hrms-php-(app|worker)"}) > 500
+        for: 10m
+        labels:
+          severity: sev2
+        annotations:
+          summary: Queue depth above 500 jobs
+          description: Worker throughput is below arrival rate.
+          runbook: docs/07-operations.md
+
+      - alert: HrmsQueueOldestJobHigh
+        expr: max(queue_oldest_job_seconds{job=~"hrms-php-(app|worker)"}) > 300
+        for: 5m
+        labels:
+          severity: sev2
+        annotations:
+          summary: Oldest queued job older than 5 minutes
+          description: Background effects and notifications are delayed.
+          runbook: docs/07-operations.md
+
+      - alert: HrmsOutboxLagHigh
+        expr: max(outbox_pending_events{job="hrms-php-app"}) > 100
+        for: 10m
+        labels:
+          severity: sev2
+        annotations:
+          summary: Transactional outbox backlog above 100
+          description: Downstream consumers may be missing events.
+          runbook: docs/07-operations.md
+
+      - alert: HrmsWorkflowEffectFailures
+        expr: increase(workflow_effect_failures_total{job="hrms-php-app"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: sev1
+        annotations:
+          summary: Workflow effect failed
+          description: A decision applied without its local effect.
+          runbook: docs/runbooks/hypercare.md
+
+      - alert: HrmsPayrollRunStuck
+        expr: max by (tenant_id) (payroll_run_age_seconds{state=~"CALCULATED|REVIEWED|APPROVED"}) > 14400
+        for: 15m
+        labels:
+          severity: sev1
+        annotations:
+          summary: Payroll run stuck in a pre-publish state for over 4 hours
+          description: Payroll close is at risk; check worker health and approvals.
+          runbook: docs/runbooks/hypercare.md
+
+  - name: hrms-data-protection
+    rules:
+      - alert: HrmsBackupStale
+        expr: time() - max(backup_last_success_timestamp_seconds{job="hrms-backup"}) > 93600
+        for: 30m
+        labels:
+          severity: sev1
+        annotations:
+          summary: No successful backup in 26 hours
+          description: RPO is at risk. Run backup_restore_smoke.sh and restore drill.
+          runbook: docs/07-operations.md
+
+      - alert: HrmsMigrationReconciliationFailed
+        expr: increase(migration_reconciliation_failures_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: sev1
+        annotations:
+          summary: Migration reconciliation reported a mismatch
+          description: Do not advance the cutover wave; investigate the run report.
+          runbook: docs/runbooks/cutover.md
+
+      - alert: HrmsFeatureFlagBlockedSpike
+        expr: increase(feature_flag_blocked_total[15m]) > 100
+        for: 5m
+        labels:
+          severity: sev3
+        annotations:
+          summary: Many requests blocked by feature flags
+          description: Verify the flag is intentionally off and clients are updated.
+          runbook: docs/07-operations.md
