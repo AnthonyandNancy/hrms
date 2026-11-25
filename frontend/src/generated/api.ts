@@ -1403,6 +1403,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/lifecycle/secondments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List secondment assignments as a live projection
+         * @description Requires capability `lifecycle.secondment.manage`. Only assignments with assignment_type SECONDMENT are returned.
+         */
+        get: operations["lifecycleSecondmentsIndex"];
+        put?: never;
+        /**
+         * Start a secondment as a parallel SECONDMENT assignment
+         * @description Requires capability `lifecycle.secondment.manage` and an Idempotency-Key.
+         *     The command appends an Assignment with assignment_type SECONDMENT; the
+         *     primary assignment row is never rewritten. Overlapping secondments and
+         *     secondments without an active primary assignment are 409.
+         */
+        post: operations["lifecycleSecondmentStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/lifecycle/cases": {
         parameters: {
             query?: never;
@@ -2979,6 +3006,74 @@ export interface paths {
         patch: operations["updatePosition"];
         trace?: never;
     };
+    "/v1/positions/grades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the job-grade catalogue for a legal entity
+         * @description Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
+         */
+        get: operations["listPositionGrades"];
+        put?: never;
+        /**
+         * Create or update a job-grade row
+         * @description Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+         */
+        post: operations["upsertPositionGrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/positions/{id}/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List qualification requirement versions for a position
+         * @description Requires capability `org.position.qualification.manage`. Versions are append-only and filtered to effective_from on or before as_of.
+         */
+        get: operations["listPositionRequirements"];
+        put?: never;
+        /**
+         * Append a new qualification requirement version
+         * @description Requires capability `org.position.qualification.manage` and an Idempotency-Key. Existing versions are never rewritten; each accepted write increments version.
+         */
+        post: operations["versionPositionRequirements"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/positions/{id}/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List as-of incumbents of a position
+         * @description Requires capability `org.position.staff.read`. Incumbents are read through the People directory contract; row scope is the position legal entity.
+         */
+        get: operations["listPositionStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/performance/indicators": {
         parameters: {
             query?: never;
@@ -4004,6 +4099,72 @@ export interface components {
             body: string;
             /** Format: date-time */
             published_at: string | null;
+        };
+        PositionQualification: {
+            id: number;
+            position_id: number;
+            version: number;
+            requirements_json: {
+                [key: string]: unknown;
+            };
+            /** Format: date */
+            effective_from: string;
+            /** Format: date-time */
+            recorded_at?: string | null;
+        };
+        PositionQualificationPage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["PositionQualification"][];
+        };
+        PositionGrade: {
+            id: number;
+            legal_entity_id: number;
+            code: string;
+            name: string;
+            level: number;
+            active: boolean;
+        };
+        PositionGradePage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["PositionGrade"][];
+        };
+        PositionStaffRow: {
+            assignment_id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            employee_no?: string;
+            person_name?: string;
+            org_unit_id?: number;
+            position_id: number;
+            position_code?: string;
+            position_title?: string;
+            /** @enum {string} */
+            assignment_type: "PRIMARY" | "SECONDMENT" | "MATRIX" | "PROJECT";
+            is_primary: boolean;
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to: string;
+        };
+        PositionStaffPage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["PositionStaffRow"][];
+        };
+        SecondmentAssignment: {
+            assignment_id: number;
+            employment_id: number;
+            employee_no?: string;
+            person_name?: string;
+            host_org_unit_id: number;
+            position_id?: number | null;
+            /** @enum {string} */
+            assignment_type: "SECONDMENT";
+            /** @enum {boolean} */
+            is_primary: false;
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to: string;
+        };
+        SecondmentPage: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["SecondmentAssignment"][];
         };
         ProjectionPagination: {
             items: unknown[];
@@ -8122,6 +8283,82 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    lifecycleSecondmentsIndex: {
+        parameters: {
+            query: {
+                legal_entity_id: number;
+                employment_id?: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Secondment projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SecondmentPage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    lifecycleSecondmentStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    employment_id: number;
+                    host_org_unit_id: number;
+                    position_id?: number | null;
+                    /** Format: date */
+                    effective_from: string;
+                    /** Format: date */
+                    effective_to: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Secondment assignment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SecondmentAssignment"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     listLifecycleCases: {
         parameters: {
             query?: {
@@ -11524,6 +11761,197 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPositionGrades: {
+        parameters: {
+            query: {
+                legal_entity_id: number;
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                active?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position grade projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionGradePage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    upsertPositionGrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    legal_entity_id: number;
+                    code: string;
+                    name: string;
+                    level: number;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Existing grade updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionGrade"];
+                    };
+                };
+            };
+            /** @description Grade created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionGrade"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPositionRequirements: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position qualification projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionQualificationPage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    versionPositionRequirements: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    requirements: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: date */
+                    effective_from: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Qualification version appended */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionQualification"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPositionStaff: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Position staff projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PositionStaffPage"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
