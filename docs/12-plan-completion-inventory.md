@@ -5,13 +5,26 @@
 >
 > 盘点基线：`998649f`。复现方式见文末。
 
+## 0. 修复记录：2026-11-25 超管授权可用性
+
+生产栈复现：安装器在 `00:42` 写入 `valid_from='2026-11-25 00:42:38'`，而授权读取
+按业务日零点比较，导致当天全部能力路由 403。修复内容与验证方式见
+`docs/superpowers/plans/2026-11-25-superuser-production-baseline-implementation-plan.md`：
+
+- 新增 `App\Shared\Authorization\BindingValidity`，以半开日窗口
+  `[dayStart, nextDayStart)` 作为唯一有效期判定；
+- 读取侧 8 处手写窗口（含 `23:59:59` 与 `endOfDay()` 两种变体）全部收敛；
+- 写入侧（CLI 绑定、手工绑定、角色分配）改为 `startOfDay()`；
+- `EloquentPrincipalAuthorityReader` 展开 `*`，使 Workflow/Time 桥获得具体能力码；
+- `GET /v1/tasks/my` 补 `auth.session`，并新增"全部受保护路由必须有会话中间件"的持久断言。
+
 ## 1. 总览
 
 | 维度 | 状态 |
 |---|---|
-| 代码可执行门禁 | **23 项全通过**（`PASS=23 FAIL=0 SKIP=0`） |
-| 后端测试 | 722 tests / 35,728 assertions，0 failure |
-| 前端 | 30 unit + 11 mock E2E + 8 真实后端 E2E |
+| 代码可执行门禁 | 以后端 `php artisan test` 与 `scripts/verify_release.sh` 的当次输出为准，不在此处固化计数 |
+| 后端测试 | 818 tests / 37,064 assertions，0 failure（2026-11-25 实测） |
+| 前端 | 52 unit（2026-11-25 实测） + 11 mock E2E + 8 真实后端 E2E |
 | ADR | ADR-0001–0015 全部 Accepted |
 | 文档 | 计划点名的文档已全部存在（缺 3 个计划从未要求的编号文档，见 §4） |
 | 组织/外部 GATE | **9 项未完成**，见 §3 |
@@ -108,7 +121,7 @@
 ## 7. 复现本盘点
 
 ```bash
-cd backend && php artisan test                      # 722 tests
+cd backend && php artisan test                      # 818 tests
 cd .. && bash scripts/verify_release.sh             # 23 gates
 ls docs/adr | wc -l                                 # 15
 ls docs/runbooks                                    # 3
@@ -323,20 +336,20 @@ docker compose exec php-app php artisan migrate --force
 | Wildcard `*` as a code-owned, time-boxed capability | Done | `CapabilityWildcard`, admin templates, `iam:bind-role`, `WildcardGrantTest`, `BindRoleCommandTest` |
 | `/v1/me/capabilities` expansion for the SPA | Done | `MeCapabilitiesWildcardTest` (76 codes, `wildcard: true`, no DB writes) |
 | Cumulative SoD acknowledgement + audit + review; object-level invariants hard | Done | `SodRiskAcknowledgementTest`, real self-approval tests at domain/HTTP level |
-| Real MFA login challenge | Done | `MfaLoginChallengeTest` (202/no cookie, verify-before-consume, expiry, pre-session rejected) |
+| MFA login challenge (opt-in via `IAM_MFA_ENABLED=true`) | Done | `MfaLoginChallengeTest` (202/no cookie, verify-before-consume, expiry, pre-session rejected) |
 | `mfa_enrolled_at` ⟺ confirmed factor | Done | `iam:verify-mfa-enrollment`; `MfaEnrollmentInvariantTest` |
 | Capability-driven MFA policy | Done | `MfaPolicyTest` (privileged, P2/P3, wildcard, stale version, expiry) |
 | P3 visibility without export/filter + audit; payroll projection | Done | `FieldProjectionTest`, `FieldProfileTest`, `PayrollFieldProjectionTest` |
 | Calendar/holiday/shift reference command | Done | `time:seed-calendar`; `SeedCalendarCommandTest` |
-| `hrms:install` production birth path | Done | `InstallCommandTest` (one admin + real TOTP, zero business data, idempotent, failed password leaves nothing) |
-| `docker_up.sh` default install, `--demo` opt-in | Done | Real isolated stack run; installer + health + `202` login + counts |
+| `hrms:install` production birth path | Done | `InstallCommandTest` (one admin, zero business data, idempotent, failed password leaves nothing); TOTP only when MFA is enabled |
+| `docker_up.sh` default install, `--demo` opt-in | Done | Real isolated stack run; installer + health + `200` password-only login + counts |
 | Frontend single source of truth, demo removal, build gate | Done | `adminSnapshot.spec.ts`; dist/wording scans; non-http build fails |
 | Coverage gates G-COV-1/2/3 | Done | `capability:audit`; `CapabilityCoverageAuditTest` |
 | ADR-0016/0017 and docs | Done | `docs/adr/0016-*`, `docs/adr/0017-*`, ADR-0004/0013, `docs/02-permissions.md` |
 
-**Counts:** backend `793 tests / 36,872 assertions`; frontend `33` unit tests;
-release gates `PASS=22 FAIL=0 SKIP=2` (skips are pre-existing demo/payroll-data
-gates). Gate log: `evidence/logs/verify-release.txt`.
+**Counts (2026-11-25):** backend `818 tests / 37,064 assertions`; frontend `52`
+unit tests; OpenAPI `127 paths / 141 operations`. Gate logs live under
+`evidence/logs/` and are the authority for the pass/skip split.
 
 **Honest gaps:** `SKIP=2` (demo-data-dependent gates), the canonical OpenAPI
 document is updated but remains a merge fragment until the integration branch
@@ -352,7 +365,7 @@ bind-role tenant validation + advancing-clock idempotency, default seeder MFA
 invariant, installer required inputs/failure report, canonical OpenAPI schemas,
 admin row normalisation/bindings, demo UI removal and lazy dev mock.
 
-Final evidence: backend `800 passed / 36,891 assertions`; frontend `34` unit
-tests; release gates `PASS=22 FAIL=0 SKIP=2`; real isolated Docker stack
-production install PASS with `users=1, employments=0, payroll_runs=0,
-leave_types=3, calendars=1, shifts=1, confirmed factors=1` and login `202`.
+Final evidence: backend `818 passed / 37,064 assertions`; frontend `52` unit
+tests. The isolated Docker production install yields `users=1, employments=0,
+payroll_runs=0, leave_types=3, calendars=1, shifts=1, confirmed factors=0`
+(MFA is disabled by default per ADR-0018) and a `200` password-only login.

@@ -54,6 +54,6 @@ class HealthService
 
     public function version(): string
     {
-        return (string) config('app.version', '1.0.0-reference');
+        return (string) config('app.version', '1.0.0');
     }
 }

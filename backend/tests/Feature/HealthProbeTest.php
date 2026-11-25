@@ -33,7 +33,7 @@ class HealthProbeTest extends TestCase
         $health->shouldReceive('databaseHealthy')->once()->andReturnFalse();
         $health->shouldReceive('cacheHealthy')->once()->andReturnTrue();
         $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
-        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $health->shouldReceive('version')->once()->andReturn('1.0.0');
         $this->app->instance(HealthService::class, $health);
 
         $this->getJson('/v1/health/ready')
@@ -49,7 +49,7 @@ class HealthProbeTest extends TestCase
         $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
         $health->shouldReceive('cacheHealthy')->once()->andReturnFalse();
         $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
-        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $health->shouldReceive('version')->once()->andReturn('1.0.0');
         $this->app->instance(HealthService::class, $health);
 
         $this->getJson('/v1/health/ready')
@@ -65,7 +65,7 @@ class HealthProbeTest extends TestCase
         $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
         $health->shouldReceive('cacheHealthy')->once()->andReturnFalse();
         $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
-        $health->shouldReceive('version')->once()->andReturn('1.0.0-reference');
+        $health->shouldReceive('version')->once()->andReturn('1.0.0');
         $this->app->instance(HealthService::class, $health);
 
         $this->getJson('/v1/health')

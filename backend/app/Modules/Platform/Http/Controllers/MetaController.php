@@ -13,7 +13,7 @@ final class MetaController
     public function __invoke(): JsonResponse
     {
         return ApiResponse::ok([
-            'version' => (string) config('app.version', '1.0.0-reference'),
+            'version' => (string) config('app.version', '1.0.0'),
             'environment' => (string) app()->environment(),
             'server_time' => CarbonImmutable::now('UTC')->toIso8601ZuluString(),
             'supported_timezones' => array_values((array) config('hrms.supported_timezones', ['UTC', 'Asia/Shanghai'])),

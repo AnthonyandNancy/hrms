@@ -1,8 +1,8 @@
-# HRMS V1.0 — Reference Implementation
+# HRMS V1.0 — 生产基线
 
-This repository is a **reference implementation of the approved HRMS V1.0 architecture**, not a completed 30-week production rollout.
+本仓库是 HRMS V1.0 的生产基线：已批准架构与实现按同一套代码、同一套门禁交付，默认安装路径不依赖任何演示数据。
 
-It implements the architectural skeleton and the Platform foundation from the approved solution and plan:
+基线包含以下已落地能力：
 
 - modular monolith with enforceable module boundaries;
 - `/v1` response envelope, stable error codes and request correlation;
@@ -11,7 +11,7 @@ It implements the architectural skeleton and the Platform foundation from the ap
 - architecture, capability-coverage and contract quality gates;
 - CI, deployment and backup/restore skeletons.
 
-Business domains (IAM authorization, person/employment, workflow, time, payroll, talent, engagement, reporting) are delivered by subsequent tasks. Empty module directories are intentional placeholders, not implemented features.
+业务域（IAM 授权、人员/任职、Workflow、假勤、薪酬、Talent、通知、报表）均在本基线内交付；`Talent` 目前只有后端切片，尚无对应前端页面，详见下方状态表。
 
 ## Prerequisites
 
@@ -143,10 +143,10 @@ cd backend
 php artisan hrms:install   --legal-entity-code=ACME-CN --legal-entity-name="Acme China"   --country=CN --timezone=Asia/Shanghai --currency=CNY   --admin-username=installer --admin-email=installer@example.test   --admin-password="$(cat /run/secrets/admin_password)"   --annual-days=10.00 --legal-basis="Company policy appendix A"
 ```
 
-The administrator receives a real confirmed TOTP factor; the secret, otpauth
-URI and recovery codes are printed once and must be stored offline. Login stops
-at `202 MFA_REQUIRED` until the second factor is completed at
-`POST /v1/auth/mfa/challenge`; no session cookie is issued before that.
+默认配置下（`IAM_MFA_ENABLED=false`）登录只需账号与密码，安装器不创建 TOTP 因子，
+`POST /v1/auth/login` 直接签发会话（见 ADR-0018）。设置 `IAM_MFA_ENABLED=true`
+后，特权账号与持有 P2/P3 绑定的账号会被要求先完成 `POST /v1/auth/mfa/challenge`，
+安装器也会在控制台打印一次性的 TOTP 密钥与恢复码。
 
 `deploy/scripts/docker_up.sh` runs the installer by default. It requires
 `ADMIN_PASSWORD`, `LEGAL_ENTITY_CODE`, `LEGAL_ENTITY_NAME`, `ADMIN_USERNAME`,
@@ -161,7 +161,7 @@ synthetic dataset; this is never the default path:
 
 ```bash
 cd backend
-php artisan iam:seed-demo      # synthetic demo users, real TOTP factors
+php artisan iam:seed-demo      # 合成演示账号（仅本地）
 php artisan people:seed-demo   # synthetic org, people, assignments and terms
 php artisan talent:seed-demo
 ```
@@ -172,24 +172,22 @@ rehearsed and reconciled but not merged into live business tables, and
 
 ## Honest scope status
 
-This repository is a **reference implementation** of the approved V1.0
-architecture, not a completed 30-week production cutover. Code evidence and
-organizational gates are reported separately in
-`evidence/acceptance-report.md`.
+代码证据与组织级门禁分别记录在 `evidence/acceptance-report.md`。下表只描述
+本仓库当前可验证的实现状态，未完成的外部依赖单独列出，不做"已完成"表述。
 
 | Area | Status |
 | --- | --- |
 | Platform envelope, request id, errors, health/meta | Implemented and tested |
 | Audit, outbox, idempotency, file metadata | Audit and outbox HTTP query surfaces implemented; file metadata read-only |
 | Module boundary and capability gates | Implemented and enforced (`arch:test`, `capability:audit`) |
-| OpenAPI contract | 125 paths / 139 operations; lint and Redocly validation green |
+| OpenAPI contract | 127 paths / 141 operations; lint 与 Redocly 校验通过 |
 | IAM (sessions, MFA, break-glass, access review) | Implemented and tested |
 | Organization, People, terms, assignments | Implemented and tested, as-of reads |
 | Workflow Case–Decision–Effect | Implemented and tested, closed case-type → template mapping |
 | Time, attendance, leave ledger | Implemented and tested; ledger reconciled |
 | Payroll runs, corrections, payslips | Implemented and tested; bank/tax CSV adapters only |
-| Recruitment / performance / training thin slices | Implemented and tested |
+| Recruitment / performance / training thin slices | 后端切片已实现并有测试；**前端无页面**，不作为可用功能对外承诺 |
 | Engagement notices, reporting, exports | Implemented and tested |
-| Frontend (Vue 3 + TS strict) | Implemented; 28 unit tests, mock and real-backend E2E |
+| Frontend (Vue 3 + TS strict) | 已实现；52 个单元测试，mock 与真实后端 E2E |
 | Payroll parallel run against a real legacy export | **Not executed** — no legacy file; command exits 2 by design |
 | Real IdP/OIDC, bank/tax filing, payslip PDF, HA, KMS, MySQL PITR, pen-test, S-01–S-08 sign-offs | Organizational/external gates, not fabricated here |

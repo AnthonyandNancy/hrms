@@ -1,7 +1,7 @@
 # 02 — Permissions and authorization (IAM)
 
-Status: Task 2 reference implementation. Binding sources: solution §7 and
-§7.11, plan §4.2/§5.2/§7, `.superpowers/sdd/artifacts/interface-freeze.md`.
+Status: 生产基线（授权引擎已落地并通过门禁）。来源：solution §7 与 §7.11、
+plan §4.2/§5.2/§7、ADR-0016、ADR-0018。
 
 ## Model
 
@@ -121,7 +121,7 @@ cannot be delegated.
 | Template | Purpose | Representative anchors |
 |---|---|---|
 | `SUPER_ADMIN` | emergency administration; time-boxed and reviewed | LEGAL_ENTITY |
-| `SYSTEM_ADMIN` | operate accounts, roles, organization metadata; no payroll/audit | LEGAL_ENTITY |
+| `SYSTEM_ADMIN` | 全能力通配绑定（`*`），含薪酬与审计；受 366 天上限、季度复核与 SoD 风险确认约束 | LEGAL_ENTITY |
 | `HR_ADMIN` | people, contracts, organization and HR case execution | LEGAL_ENTITY |
 | `HR_SPECIALIST` | day-to-day employee, assignment, contract work | ORG_UNIT |
 | `RECRUITER` | recruitment pipeline and candidate cases | ORG_UNIT, CASE |
