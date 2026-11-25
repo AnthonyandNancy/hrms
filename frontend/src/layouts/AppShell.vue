@@ -28,6 +28,7 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
+const mfaEnabled = false
 const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
 
 const app = useAppStore()
@@ -188,7 +189,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="workspace">我的工作台</el-dropdown-item>
-              <el-dropdown-item command="mfa">
+              <el-dropdown-item v-if="mfaEnabled" command="mfa">
                 {{ session.principal?.hasMfa ? '重新绑定 MFA' : '启用 MFA' }}
               </el-dropdown-item>
               <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>

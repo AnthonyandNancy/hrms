@@ -41,3 +41,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File convert_final.ps1
 ```
 - [ADR-0016](adr/0016-wildcard-superuser-and-sod-layering.md)
 - [ADR-0017](adr/0017-production-install-baseline-and-mfa-login.md)
+- [ADR-0018](adr/0018-password-only-login.md)

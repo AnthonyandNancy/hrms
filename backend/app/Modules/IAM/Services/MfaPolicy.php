@@ -34,6 +34,10 @@ final class MfaPolicy
 
     public function reason(User $user): ?string
     {
+        if (! (bool) config('iam.mfa.enabled', false)) {
+            return null;
+        }
+
         if ((bool) $user->is_privileged) {
             return self::REASON_PRIVILEGED;
         }

@@ -168,7 +168,11 @@ no post-filtering after pagination. Returning P2/P3 data emits a
 - WebAuthn registration/assertion challenge verification checks type,
   challenge, origin and `rpIdHash`; signature success is not faked.
 - SMS/email are rejected as second factors.
-- Privileged users and payroll prepare/approve/publish holders must enrol MFA
+- **MFA is disabled by default** (`IAM_MFA_ENABLED=false`, ADR-0018):
+  username + password is sufficient, including for `SYSTEM_ADMIN`. Login rate
+  limiting, lockout, `auth_version` invalidation and the capability gate still
+  apply. Set `IAM_MFA_ENABLED=true` to restore the controls below.
+- When enabled: privileged users and P2/P3 holders must enrol MFA
   or receive `403 MFA_REQUIRED`. High-risk mutations (user/role/binding
   changes, break-glass, payroll export) require a fresh `mfa.step-up` within
   15 minutes (`403 MFA_STEP_UP_REQUIRED`).
@@ -193,7 +197,7 @@ entity, old auth version, IDOR, CSRF and SOD.
 | wrong anchor / cross entity | `403 FORBIDDEN` or `404` when the target must not be disclosed |
 | P2/P3 filter or sort | `422 VALIDATION_FAILED` / `FIELD_NOT_FILTERABLE` |
 | P3 serialisation attempt | field absent; `FIELD_NOT_VISIBLE` for explicit request |
-| MFA missing / stale | `403 MFA_REQUIRED` / `403 MFA_STEP_UP_REQUIRED` |
+| MFA missing / stale (only when `IAM_MFA_ENABLED=true`) | `403 MFA_REQUIRED` / `403 MFA_STEP_UP_REQUIRED` |
 | CSRF missing/invalid | `419 CSRF_FAILED` |
 | stale `auth_version` / revoked session | `401 UNAUTHENTICATED` |
 | unacknowledged cumulative SOD risk | `422 VALIDATION_FAILED` / `SOD_RISK_NOT_ACKNOWLEDGED` |

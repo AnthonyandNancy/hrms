@@ -36,6 +36,7 @@ final class MfaLoginChallengeTest extends TestCase
 
         $this->clock = new FrozenClock('2026-11-24T09:00:00Z');
         $this->app->instance(Clock::class, $this->clock);
+        config(['iam.mfa.enabled' => true]);
     }
 
     public function test_a_privileged_login_without_a_second_factor_issues_no_session(): void

@@ -27,6 +27,7 @@ final class MfaPolicyTest extends TestCase
 
         $this->clock = new FrozenClock('2026-11-24T09:00:00Z');
         $this->app->instance(Clock::class, $this->clock);
+        config(['iam.mfa.enabled' => true]);
     }
 
     public function test_a_privileged_user_requires_mfa(): void

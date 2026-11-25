@@ -28,6 +28,10 @@ return [
     ],
 
     'mfa' => [
+        // Set IAM_MFA_ENABLED=true to require a second factor at login and
+        // for high-risk mutations. Disabled by the owner on 2026-11-25:
+        // password-only sign-in is the accepted operating mode for now.
+        'enabled' => env('IAM_MFA_ENABLED', false),
         'step_up_minutes' => 15,
         'totp_step_seconds' => 30,
         'totp_window' => 1,

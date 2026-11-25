@@ -58,6 +58,11 @@ abstract class AuthorizationTestSupport extends TestCase
         $this->cases = new FakeCaseMembershipDirectory;
         $this->payroll = new FakePayrollRunMembershipDirectory;
         $this->sensitiveAuditor = new SpySensitiveAccessAuditor;
+        // Bindings are created relative to the injected clock. Freeze it to
+        // the same business date the authorization tests query so the suite
+        // does not fail based on the wall-clock day it runs.
+        $this->clock = new FrozenClock('2026-11-23T09:00:00Z');
+        $this->app->instance(\App\Shared\Time\Clock::class, $this->clock);
 
         $this->app->instance(PersonEmploymentDirectory::class, $this->people);
         $this->app->instance(OrganizationScopeDirectory::class, $this->organization);

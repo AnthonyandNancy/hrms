@@ -36,8 +36,10 @@ final class InstallCommandTest extends TestCase
 
         $this->assertSame(1, User::query()->count(), 'The installer must create exactly one account.');
         $this->assertDatabaseHas('users', ['username' => 'installer', 'is_privileged' => true]);
-        $this->assertSame(1, MfaFactor::query()->whereNotNull('confirmed_at')->count());
-        $this->assertNotNull(User::query()->firstOrFail()->mfa_enrolled_at);
+        // MFA is disabled by default (owner decision, ADR-0018): the
+        // installer must not fabricate an enrolled timestamp.
+        $this->assertSame(0, MfaFactor::query()->whereNotNull('confirmed_at')->count());
+        $this->assertNull(User::query()->firstOrFail()->mfa_enrolled_at);
 
         $this->assertSame(10, Role::query()->where('is_template', true)->count());
         $this->assertSame(76, Capability::query()->count());

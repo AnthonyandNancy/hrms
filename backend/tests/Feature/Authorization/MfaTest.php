@@ -20,6 +20,12 @@ final class MfaTest extends AuthorizationTestSupport
 {
     use AuthenticatesRequests;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['iam.mfa.enabled' => true]);
+    }
+
     public function test_privileged_user_without_enrollment_cannot_finish_login_or_use_a_capability(): void
     {
         $user = User::factory()->withoutMfa()->create(['is_privileged' => true]);

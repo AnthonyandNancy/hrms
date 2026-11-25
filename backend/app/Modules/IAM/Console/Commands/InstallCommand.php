@@ -144,7 +144,9 @@ final class InstallCommand extends Command
 
             $factors = MfaFactor::query()->where('user_id', $admin->id)->whereNotNull('confirmed_at')->whereNull('disabled_at')->count();
 
-            if ($factors === 0) {
+            if (! (bool) config('iam.mfa.enabled', false)) {
+                $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, 'MFA disabled by IAM_MFA_ENABLED=false');
+            } elseif ($factors === 0) {
                 $mfa = app(MfaService::class);
                 $enrollment = $mfa->beginTotpEnrollment($admin);
                 $recoveryCodes = $mfa->confirmTotpEnrollment(

@@ -22,6 +22,10 @@ final class RequireMfaStepUp
 
     public function handle(Request $request, Closure $next): Response
     {
+        if (! (bool) config('iam.mfa.enabled', false)) {
+            return $next($request);
+        }
+
         $principal = $this->context->principalOrNull();
 
         if ($principal === null) {

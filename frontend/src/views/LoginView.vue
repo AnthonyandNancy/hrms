@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowRight, Lock, Key, Setting } from '@element-plus/icons-vue'
+import { ArrowRight, Lock, Setting } from '@element-plus/icons-vue'
 import { useSessionStore } from '@/stores/session'
 import { loginSchema, totpSchema, validate } from '@/utils/validation'
 import { errorCopy } from '@/api/errors'
@@ -203,8 +203,6 @@ onMounted(() => {
           </form>
 
           <div class="login-card__secondary-actions">
-            <el-button text :icon="Key" @click="enrollmentOpen = true">绑定动态口令</el-button>
-            <span class="login-card__separator" aria-hidden="true">·</span>
             <span class="login-card__help">忘记密码请联系 IT 服务台</span>
           </div>
         </template>
