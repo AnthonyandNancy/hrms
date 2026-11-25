@@ -80,6 +80,7 @@ const icons: Record<string, unknown> = {
   Reading,
 }
 
+const buildSha = import.meta.env.VITE_BUILD_SHA ?? 'unknown'
 const currentNavKey = computed(() => (typeof route.meta.navKey === 'string' ? route.meta.navKey : ''))
 const groupedNavigation = computed(() => session.navigation)
 const expandedGroups = ref<Set<string>>(new Set())
@@ -298,7 +299,7 @@ onBeforeUnmount(() => {
       <footer class="app-footer">
         <span>澄明科技 HRMS</span>
         <span>审计与导出操作会记录操作者、目的与时间</span>
-        <span data-testid="build-sha" class="mono">构建 {{ import.meta.env.VITE_BUILD_SHA ?? 'unknown' }}</span>
+        <span data-testid="build-sha" class="mono">构建 {{ buildSha }}</span>
       </footer>
     </div>
   </div>
