@@ -9,7 +9,6 @@ use App\Modules\Organization\Models\PositionGrade;
 use App\Modules\Organization\Models\PositionQualification;
 use App\Modules\People\Contracts\AssignmentDirectory;
 use App\Modules\People\Contracts\AssignmentOccupant;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
@@ -285,22 +284,5 @@ final class PositionCatalogService
             partialReason: null,
             drilldown: $drilldown,
         );
-    }
-
-    /**
-     * Disabling a staffed position is a business conflict. Kept here so the
-     * Position PATCH route and any future bulk command share one reason code.
-     */
-    public function assertCanDisable(int $tenantId, Position $position, string $on): void
-    {
-        $occupants = $this->assignments->positionIncumbents($tenantId, (int) $position->id, $on);
-
-        if ($occupants !== []) {
-            throw new ConflictException('A position with active incumbents cannot be disabled.', [
-                'reason' => 'POSITION_STAFFED',
-                'position_id' => (int) $position->id,
-                'incumbents' => count($occupants),
-            ]);
-        }
     }
 }
