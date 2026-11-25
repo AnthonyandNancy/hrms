@@ -366,6 +366,167 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->getJson('/v1/time/attendance/closings')->assertOk();
     }
 
+    public function test_every_k4_route_denies_unauthenticated_requests(): void
+    {
+        $this->forgetHttpPrincipal();
+
+        $this->getJson('/v1/time/attendance/rules')->assertUnauthorized();
+        $this->getJson('/v1/time/shift-schedules')->assertUnauthorized();
+        $this->getJson('/v1/time/attendance/closings')->assertUnauthorized();
+        $this->getJson('/v1/time/attendance/devices')->assertUnauthorized();
+        $this->postJson('/v1/time/attendance/rules', [
+            'version' => 'TIME-RULES-2026.9',
+            'effective_from' => '2026-12-01',
+            'config' => [],
+        ], ['Idempotency-Key' => 'anon-rule'])->assertUnauthorized();
+        $this->postJson('/v1/time/shift-schedules', [
+            'employment_id' => 1,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => 1,
+        ], ['Idempotency-Key' => 'anon-schedule'])->assertUnauthorized();
+    }
+
+    public function test_every_k4_write_route_is_capability_guarded(): void
+    {
+        $this->seedEmployment();
+        $this->shift(code: 'DAY');
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'LEGAL_ENTITY',
+            // Explicitly holds the read capabilities but neither manage one.
+            capabilities: [
+                'time.attendance.read',
+                'time.attendance.rule.read',
+                'time.shift.schedule.read',
+            ],
+            legalEntityIds: [1],
+        ));
+
+        $this->postJson('/v1/time/attendance/rules', [
+            'version' => 'TIME-RULES-2026.9',
+            'effective_from' => '2026-12-01',
+            'config' => [],
+        ], ['Idempotency-Key' => 'no-manage-rule'])->assertForbidden();
+
+        $this->postJson('/v1/time/shift-schedules', [
+            'employment_id' => 1,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => 1,
+        ], ['Idempotency-Key' => 'no-manage-schedule'])->assertForbidden();
+
+        $this->assertDatabaseCount('shift_schedules', 0);
+        $this->assertDatabaseCount('attendance_rule_versions', 0);
+    }
+
+    public function test_a_self_actor_only_sees_their_own_shift_schedules(): void
+    {
+        $this->people->add(TimeTestFixtures::employment(1, 2, 1));
+        $this->shift(code: 'DAY');
+
+        ShiftSchedule::query()->create([
+            'tenant_id' => 1,
+            'legal_entity_id' => 1,
+            'employment_id' => 1,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => 1,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+        ShiftSchedule::query()->create([
+            'tenant_id' => 1,
+            'legal_entity_id' => 1,
+            'employment_id' => 2,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => 1,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'SELF',
+            capabilities: ['time.shift.schedule.read'],
+        ));
+
+        $response = $this->getJson('/v1/time/shift-schedules')->assertOk();
+
+        $this->assertSame(1, $response->json('data.total'));
+        $this->assertSame(1, $response->json('data.items.0.employment_id'));
+    }
+
+    public function test_a_self_actor_cannot_schedule_another_employment(): void
+    {
+        $this->people->add(TimeTestFixtures::employment(1, 2, 1));
+        $this->people->add(TimeTestFixtures::employment(2, 88, 8));
+        $this->shift(code: 'DAY');
+
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'SELF',
+            capabilities: ['time.shift.schedule.manage', 'time.shift.read'],
+        ));
+
+        $this->postJson('/v1/time/shift-schedules', [
+            'employment_id' => 88,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => 1,
+        ], ['Idempotency-Key' => 'sch-cross-self'])->assertNotFound();
+
+        $this->assertDatabaseCount('shift_schedules', 0);
+    }
+
+    public function test_a_cross_tenant_device_row_is_never_listed(): void
+    {
+        $this->actAsAttendanceSpecialist();
+
+        AttendanceDevice::query()->create([
+            'tenant_id' => 2,
+            'legal_entity_id' => 1,
+            'code' => 'DEV-T2',
+            'name' => 'Other tenant reader',
+            'adapter' => 'ZK-LAN',
+            'health' => AttendanceDevice::HEALTH_ONLINE,
+            'last_seen_at' => $this->clock->now(),
+            'active' => true,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        $response = $this->getJson('/v1/time/attendance/devices')->assertOk();
+
+        $this->assertSame(0, $response->json('data.total'));
+        $this->assertSame([], $response->json('data.items'));
+    }
+
+    public function test_unknown_rule_configuration_keys_are_rejected(): void
+    {
+        $this->actAsAttendanceSpecialist();
+
+        $this->postJson('/v1/time/attendance/rules', [
+            'version' => 'TIME-RULES-2026.9',
+            'effective_from' => '2026-12-01',
+            'config' => ['made_up_knob' => 1],
+        ], ['Idempotency-Key' => 'rule-bad-key'])
+            ->assertStatus(422)
+            ->assertJsonPath('data.reason', 'RULE_CONFIG_UNKNOWN_KEY');
+
+        $this->assertDatabaseCount('attendance_rule_versions', 0);
+    }
+
+    public function test_a_non_effective_shift_template_cannot_be_scheduled(): void
+    {
+        $this->actAsAttendanceSpecialist();
+        $this->seedEmployment();
+        $expired = $this->shift(code: 'OLD', validFrom: '2020-01-01', validTo: '2026-01-01');
+
+        $this->postJson('/v1/time/shift-schedules', [
+            'employment_id' => 1,
+            'business_date' => '2026-11-25',
+            'shift_template_id' => $expired->id,
+        ], ['Idempotency-Key' => 'sch-expired'])
+            ->assertStatus(422)
+            ->assertJsonPath('data.reason', 'SHIFT_TEMPLATE_NOT_EFFECTIVE');
+    }
+
     private function actAsAttendanceSpecialist(): void
     {
         $this->actAsHttp(TimeTestFixtures::actor(

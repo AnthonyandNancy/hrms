@@ -1313,14 +1313,14 @@ return [
         'capability' => 'time.attendance.rule.manage',
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'immutable_rule_version', 'mfa_required'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'missing_idempotency_key', 'immutable_rule_version', 'unknown_rule_config_key', 'mfa_required'],
     ],
 
     'GET /v1/time/shift-schedules' => [
         'capability' => 'time.shift.schedule.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'no_active_employment'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
 
     'POST /v1/time/shift-schedules' => [
