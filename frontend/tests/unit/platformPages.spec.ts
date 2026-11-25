@@ -1749,7 +1749,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('reports/subscriptions', '/reports/subscriptions')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/definitions')
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/definitions', { page: 1, page_size: 100 })
     expect(resource.get).toHaveBeenCalledWith('/v1/reporting/subscriptions', { page: 1, page_size: 50 })
     expect(wrapper.text()).toContain('WORKFORCE_HEADCOUNT')
     expect(wrapper.text()).toContain('MONTHLY')

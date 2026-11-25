@@ -4310,7 +4310,6 @@ watch(selectedExportDefinition, () => {
             <div v-else class="panel__body"><p class="empty-inline">没有职责分离风险。</p></div>
           </section>
         </div>
-
       </template>
 
       <section v-if="config === null" class="panel">
