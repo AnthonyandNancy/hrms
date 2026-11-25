@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/errors'
-import { resourceGet, resourcePatch, resourcePost } from '@/api/resourceClient'
+import { resourceDelete, resourceGet, resourcePatch, resourcePost, resourcePut } from '@/api/resourceClient'
 import { legalEntityId } from '@/api/http'
 import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
@@ -61,6 +61,13 @@ const mfaEnrollment = ref<PlatformRow | null>(null)
 const recoveryCodes = ref<string[]>([])
 const users = ref<PlatformRow[]>([])
 const roles = ref<PlatformRow[]>([])
+const menuOverrides = ref<PlatformRow[]>([])
+const dataScopePolicies = ref<PlatformRow[]>([])
+const fieldPolicies = ref<PlatformRow[]>([])
+const dictionaryEntries = ref<PlatformRow[]>([])
+const systemParameters = ref<PlatformRow[]>([])
+const notificationTemplates = ref<PlatformRow[]>([])
+const notificationDeliveries = ref<PlatformRow[]>([])
 const permissionsData = ref<PlatformRow | null>(null)
 const capabilities = ref<PlatformRow[]>([])
 const tasks = ref<PlatformRow[]>([])
@@ -125,6 +132,76 @@ const bindingForm = reactive({
 const mfaForm = reactive({
   factorId: '',
   code: '',
+})
+
+const roleCreateForm = reactive({
+  code: '',
+  name: '',
+  purpose: '',
+  capability: '',
+  anchorType: 'LEGAL_ENTITY',
+  fieldProfile: 'P1_INTERNAL',
+  expiresAt: '',
+})
+
+const roleCapabilityForm = reactive({
+  roleCode: '',
+  capability: '',
+  anchorType: 'LEGAL_ENTITY',
+  fieldProfile: 'P1_INTERNAL',
+})
+
+const menuForm = reactive({
+  pageCode: '',
+  label: '',
+  visible: true,
+  sortOrder: 0,
+})
+
+const dataScopeForm = reactive({
+  template: '',
+  label: '',
+  active: true,
+  sortOrder: 0,
+})
+
+const fieldPolicyForm = reactive({
+  fieldKey: '',
+  fieldProfile: 'P1_INTERNAL',
+})
+
+const dictionaryForm = reactive({
+  type: '',
+  code: '',
+  label: '',
+  sortOrder: 0,
+  active: true,
+})
+
+const parameterForm = reactive({
+  key: '',
+  scope: 'TENANT',
+  value: '',
+  sensitive: false,
+})
+
+const templateForm = reactive({
+  code: '',
+  channel: 'IN_APP',
+  subject: '',
+  body: '',
+})
+
+const dispatchForm = reactive({
+  eventKey: '',
+  templateCode: '',
+  recipientUserId: '',
+})
+
+const calendarPublishForm = reactive({
+  timezone: 'Asia/Shanghai',
+  workweek: '1,2,3,4,5',
+  standardDayMinutes: 480,
 })
 
 const config = computed<PlatformPageConfig | null>(() => {
@@ -216,6 +293,13 @@ const payslips = computed(() => rowsFrom(workspaceData.value?.payslips))
 const workspaceRequests = computed(() => rowsFrom(workspaceData.value?.myRequests))
 const workspaceNotices = computed(() => rowsFrom(workspaceData.value?.notices))
 const holidays = computed(() => rowsFrom(calendarData.value, 'holidays'))
+const menuOverrideRows = computed(() => menuOverrides.value)
+const dataScopeRows = computed(() => dataScopePolicies.value)
+const fieldPolicyRows = computed(() => fieldPolicies.value)
+const dictionaryRows = computed(() => dictionaryEntries.value)
+const parameterRows = computed(() => systemParameters.value)
+const notificationTemplateRows = computed(() => notificationTemplates.value)
+const notificationDeliveryRows = computed(() => notificationDeliveries.value)
 const workweek = computed(() => {
   const value = calendarData.value?.workweek
   return Array.isArray(value) ? value.map((item) => textOf(item)).filter((item) => item !== '—') : []
@@ -246,12 +330,15 @@ const empty = computed(() => {
     case 'roles':
       return roles.value.length === 0
     case 'menus':
+      return menuOverrideRows.value.length === 0 && menus.value.length === 0
     case 'permissions':
-      return menus.value.length === 0 && permissionActions.value.length === 0 && capabilityRows.value.length === 0
+      return permissionActions.value.length === 0 && capabilityRows.value.length === 0
     case 'data-scopes':
+      return dataScopeRows.value.length === 0
     case 'field-policies':
+      return fieldPolicyRows.value.length === 0
     case 'settings':
-      return permissionActions.value.length === 0 && fieldCapabilities.value.length === 0 && scopeLabels.value.length === 0
+      return dictionaryRows.value.length === 0 && parameterRows.value.length === 0
     case 'workflow':
       return tasks.value.length === 0 && workflowTemplates.value.length === 0
     case 'self-service':
@@ -259,7 +346,7 @@ const empty = computed(() => {
     case 'calendars':
       return calendarData.value === null && leaveTypes.value.length === 0
     case 'notifications':
-      return tasks.value.length === 0 && notices.value.length === 0
+      return tasks.value.length === 0 && notices.value.length === 0 && notificationTemplateRows.value.length === 0 && notificationDeliveryRows.value.length === 0
     case 'audit':
       return auditEvents.value.length === 0 && unusedBindings.value.length === 0 && sodRisks.value.length === 0
     case 'benefits':
@@ -433,6 +520,50 @@ async function loadRoles(): Promise<void> {
   partial.value = partialFlag(payload)
 }
 
+async function loadMenuOverrides(): Promise<void> {
+  const payload = await resourceGet<unknown>('/v1/system/menus', { page: 1, page_size: 100 })
+  menuOverrides.value = rowsFrom(payload)
+  partial.value = partialFlag(payload)
+}
+
+async function loadDataScopes(): Promise<void> {
+  const payload = await resourceGet<unknown>('/v1/system/data-scopes', { page: 1, page_size: 100 })
+  dataScopePolicies.value = rowsFrom(payload)
+  const first = dataScopePolicies.value[0]
+  if (first && dataScopeForm.template === '') dataScopeForm.template = rowText(first, 'template', '')
+  partial.value = partialFlag(payload)
+}
+
+async function loadFieldPolicies(): Promise<void> {
+  const payload = await resourceGet<unknown>('/v1/system/field-policies', { page: 1, page_size: 100 })
+  fieldPolicies.value = rowsFrom(payload)
+  const first = fieldPolicies.value[0]
+  if (first && fieldPolicyForm.fieldKey === '') fieldPolicyForm.fieldKey = rowText(first, 'field_key', '')
+  partial.value = partialFlag(payload)
+}
+
+async function loadSettings(): Promise<void> {
+  const [dictionaryPayload, parameterPayload] = await settleReads([
+    resourceGet<unknown>('/v1/system/dictionaries', { page: 1, page_size: 100 }),
+    resourceGet<unknown>('/v1/system/parameters', { page: 1, page_size: 100 }),
+  ])
+  dictionaryEntries.value = rowsFrom(dictionaryPayload)
+  systemParameters.value = rowsFrom(parameterPayload)
+  partial.value = partialFlag(dictionaryPayload, parameterPayload)
+}
+
+async function loadNotificationAdmin(): Promise<void> {
+  const [templatePayload, deliveryPayload] = await settleReads([
+    resourceGet<unknown>('/v1/notification-templates', { page: 1, page_size: 100 }),
+    resourceGet<unknown>('/v1/notifications/deliveries', { page: 1, page_size: 100 }),
+  ])
+  notificationTemplates.value = rowsFrom(templatePayload)
+  notificationDeliveries.value = rowsFrom(deliveryPayload)
+  const first = notificationTemplates.value[0]
+  if (first && dispatchForm.templateCode === '') dispatchForm.templateCode = rowText(first, 'code', '')
+  partial.value = partialFlag(templatePayload, deliveryPayload)
+}
+
 async function loadPermissions(withCapabilities: boolean): Promise<void> {
   const [permissionPayload, capabilityPayload] = await settleReads([
     resourceGet<unknown>('/v1/me/permissions'),
@@ -524,13 +655,19 @@ async function load(): Promise<void> {
         await loadRoles()
         break
       case 'menus':
+        await Promise.all([loadPermissions(true), loadMenuOverrides()])
+        break
       case 'permissions':
         await loadPermissions(true)
         break
       case 'data-scopes':
+        await loadDataScopes()
+        break
       case 'field-policies':
+        await loadFieldPolicies()
+        break
       case 'settings':
-        await loadPermissions(false)
+        await loadSettings()
         break
       case 'workflow':
         await loadWorkflow()
@@ -542,7 +679,7 @@ async function load(): Promise<void> {
         await loadCalendars()
         break
       case 'notifications':
-        await loadNotifications()
+        await Promise.all([loadNotifications(), loadNotificationAdmin()])
         break
       case 'audit':
         await loadAudit()
@@ -973,6 +1110,337 @@ async function reloadCalendars(): Promise<void> {
   } finally {
     loading.value = false
     loaded.value = true
+  }
+}
+
+async function createRole(): Promise<void> {
+  resetFeedback()
+  if (roleCreateForm.code.trim() === '' || roleCreateForm.name.trim() === '' || roleCreateForm.purpose.trim() === '') {
+    actionError.value = { message: '角色编码、名称与用途为必填项。', requestId: null, reason: 'ROLE_FIELDS_REQUIRED' }
+    return
+  }
+  if (roleCreateForm.capability.trim() === '') {
+    actionError.value = { message: '至少选择一个代码拥有的能力码。', requestId: null, reason: 'ROLE_CAPABILITY_REQUIRED' }
+    return
+  }
+  const payload: Record<string, unknown> = {
+    code: roleCreateForm.code.trim().toUpperCase(),
+    name: roleCreateForm.name.trim(),
+    purpose: roleCreateForm.purpose.trim(),
+    capabilities: [
+      {
+        capability: roleCreateForm.capability.trim(),
+        anchor_type: roleCreateForm.anchorType,
+        field_profile: roleCreateForm.fieldProfile,
+      },
+    ],
+  }
+  if (paramDate(roleCreateForm.expiresAt) !== null) payload.expires_at = roleCreateForm.expiresAt
+  try {
+    await resourcePost<unknown>('/v1/roles', payload, {
+      idempotencyKey: nextIdempotencyKey('role-create'),
+      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+    })
+    successMessage.value = '例外角色已创建；能力码仍由代码目录拥有。'
+    roleCreateForm.code = ''
+    roleCreateForm.name = ''
+    roleCreateForm.purpose = ''
+    await loadRoles()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function replaceRoleCapabilities(): Promise<void> {
+  resetFeedback()
+  const code = roleCapabilityForm.roleCode.trim()
+  if (code === '' || roleCapabilityForm.capability.trim() === '') {
+    actionError.value = { message: '请选择角色并填写能力码。', requestId: null, reason: 'ROLE_CAPABILITY_FIELDS_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePut<unknown>(
+      `/v1/roles/${encodeURIComponent(code)}/capabilities`,
+      {
+        capabilities: [
+          {
+            capability: roleCapabilityForm.capability.trim(),
+            anchor_type: roleCapabilityForm.anchorType,
+            field_profile: roleCapabilityForm.fieldProfile,
+          },
+        ],
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('role-capabilities'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '角色能力包已替换并重放给已分配用户。'
+    await loadRoles()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function saveMenuOverride(): Promise<void> {
+  resetFeedback()
+  if (menuForm.pageCode.trim() === '') {
+    actionError.value = { message: '请选择一个已注册页面。', requestId: null, reason: 'MENU_PAGE_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePost<unknown>(
+      '/v1/system/menus',
+      {
+        page_code: menuForm.pageCode.trim(),
+        label: menuForm.label.trim() === '' ? null : menuForm.label.trim(),
+        visible: menuForm.visible,
+        sort_order: Number(menuForm.sortOrder),
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('menu-override-create'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '菜单覆盖已保存；只影响展示，不改变能力判定。'
+    await loadMenuOverrides()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function removeMenuOverride(row: PlatformRow): Promise<void> {
+  const pageCode = rowText(row, 'page_code', '')
+  if (pageCode === '' || pageCode === '—') return
+  resetFeedback()
+  try {
+    await resourceDelete<unknown>(`/v1/system/menus/${encodeURIComponent(pageCode)}`, {
+      idempotencyKey: nextIdempotencyKey('menu-override-delete'),
+      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+    })
+    menuOverrides.value = menuOverrides.value.filter((item) => rowText(item, 'page_code') !== pageCode)
+    successMessage.value = '菜单覆盖已删除，页面恢复代码拥有的默认呈现。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function saveDataScope(): Promise<void> {
+  resetFeedback()
+  if (dataScopeForm.template.trim() === '') {
+    actionError.value = { message: '请选择白名单数据范围模板。', requestId: null, reason: 'DATA_SCOPE_TEMPLATE_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePut<unknown>(
+      `/v1/system/data-scopes/${encodeURIComponent(dataScopeForm.template)}`,
+      {
+        label: dataScopeForm.label.trim() === '' ? undefined : dataScopeForm.label.trim(),
+        active: dataScopeForm.active,
+        sort_order: Number(dataScopeForm.sortOrder),
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('data-scope-update'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '数据范围模板已保存；服务端只接受代码白名单模板。'
+    await loadDataScopes()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function saveFieldPolicy(): Promise<void> {
+  resetFeedback()
+  if (fieldPolicyForm.fieldKey.trim() === '') {
+    actionError.value = { message: '请选择敏感字段。', requestId: null, reason: 'FIELD_POLICY_FIELD_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePut<unknown>(
+      `/v1/system/field-policies/${encodeURIComponent(fieldPolicyForm.fieldKey)}`,
+      { field_profile: fieldPolicyForm.fieldProfile },
+      {
+        idempotencyKey: nextIdempotencyKey('field-policy-update'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '字段策略已保存；放宽敏感字段档位的请求会被服务端拒绝。'
+    await loadFieldPolicies()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function saveDictionary(): Promise<void> {
+  resetFeedback()
+  if (dictionaryForm.type.trim() === '' || dictionaryForm.code.trim() === '' || dictionaryForm.label.trim() === '') {
+    actionError.value = { message: '字典类型、编码与标签为必填项。', requestId: null, reason: 'DICTIONARY_FIELDS_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePost<unknown>(
+      '/v1/system/dictionaries',
+      {
+        type: dictionaryForm.type.trim().toUpperCase(),
+        code: dictionaryForm.code.trim().toUpperCase(),
+        label: dictionaryForm.label.trim(),
+        sort_order: Number(dictionaryForm.sortOrder),
+        active: dictionaryForm.active,
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('dictionary-create'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '字典项已创建并通过 Platform 服务投影。'
+    dictionaryForm.code = ''
+    dictionaryForm.label = ''
+    await loadSettings()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function saveParameter(): Promise<void> {
+  resetFeedback()
+  if (parameterForm.key.trim() === '') {
+    actionError.value = { message: '参数键为必填项。', requestId: null, reason: 'PARAMETER_KEY_REQUIRED' }
+    return
+  }
+  let parsed: unknown = parameterForm.value.trim()
+  try {
+    parsed = JSON.parse(parameterForm.value)
+  } catch {
+    parsed = parameterForm.value
+  }
+  try {
+    await resourcePut<unknown>(
+      '/v1/system/parameters',
+      {
+        key: parameterForm.key.trim(),
+        scope: parameterForm.scope.trim(),
+        value: parsed,
+        sensitive: parameterForm.sensitive,
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('parameter-upsert'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '参数已保存；敏感值加密存储且只返回遮罩。'
+    await loadSettings()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function createNotificationTemplate(): Promise<void> {
+  resetFeedback()
+  if (templateForm.code.trim() === '' || templateForm.subject.trim() === '' || templateForm.body.trim() === '') {
+    actionError.value = { message: '模板编码、主题与正文为必填项。', requestId: null, reason: 'TEMPLATE_FIELDS_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePost<unknown>(
+      '/v1/notification-templates',
+      {
+        code: templateForm.code.trim().toUpperCase(),
+        channel: templateForm.channel,
+        subject: templateForm.subject.trim(),
+        body: templateForm.body.trim(),
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('notification-template'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '通知模板已创建。'
+    templateForm.code = ''
+    templateForm.subject = ''
+    templateForm.body = ''
+    await loadNotificationAdmin()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function dispatchNotification(): Promise<void> {
+  resetFeedback()
+  const recipient = Number(dispatchForm.recipientUserId)
+  if (dispatchForm.eventKey.trim() === '' || dispatchForm.templateCode.trim() === '' || !Number.isInteger(recipient) || recipient < 1) {
+    actionError.value = { message: '事件键、模板与接收人为必填项。', requestId: null, reason: 'DISPATCH_FIELDS_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePost<unknown>(
+      '/v1/notifications/dispatch',
+      {
+        event_key: dispatchForm.eventKey.trim(),
+        template_code: dispatchForm.templateCode.trim(),
+        recipient_user_id: recipient,
+        variables: {},
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('notification-dispatch'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '通知事件已派发；同一事件键只会产生一条投递记录。'
+    await loadNotificationAdmin()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function retryDelivery(row: PlatformRow): Promise<void> {
+  const deliveryId = idText(row.id)
+  if (deliveryId === '') return
+  resetFeedback()
+  try {
+    await resourcePost<unknown>(`/v1/notifications/deliveries/${deliveryId}/retry`, {}, {
+      idempotencyKey: nextIdempotencyKey('notification-retry'),
+      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+    })
+    successMessage.value = '失败投递已重试并记录新的尝试次数。'
+    await loadNotificationAdmin()
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function publishCalendar(): Promise<void> {
+  resetFeedback()
+  const workweek = parsePositiveIds(calendarPublishForm.workweek).filter((day) => day >= 1 && day <= 7)
+  if (workweek.length === 0) {
+    actionError.value = { message: '工作周至少包含一天（1-7）。', requestId: null, reason: 'CALENDAR_WORKWEEK_REQUIRED' }
+    return
+  }
+  try {
+    await resourcePost<unknown>(
+      `/v1/system/calendars/${entityId}/publish`,
+      {
+        timezone: calendarPublishForm.timezone.trim(),
+        workweek,
+        standard_day_minutes: Number(calendarPublishForm.standardDayMinutes),
+        holidays: holidays.value
+          .map((holiday) => ({
+            date: rowText(holiday, 'date', ''),
+            name: rowText(holiday, 'name', ''),
+            type: rowText(holiday, 'type', 'PUBLIC'),
+          }))
+          .filter((holiday) => holiday.date !== '' && holiday.date !== '—' && holiday.name !== '' && holiday.name !== '—'),
+      },
+      {
+        idempotencyKey: nextIdempotencyKey('calendar-publish'),
+        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      },
+    )
+    successMessage.value = '工作日历已发布新版本并写入审计。'
+    await loadCalendars()
+  } catch (reason) {
+    failAction(reason)
   }
 }
 
@@ -1883,10 +2351,94 @@ watch(selectedExportDefinition, () => {
         <div v-else class="panel"><div class="panel__body"><p class="empty-inline">角色目录没有返回角色。</p></div></div>
 
         <section class="panel">
-          <div class="panel__header"><h2 class="panel__title">创建角色</h2></div>
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: POST /v1/roles</p>
-            <p class="small muted">当前 checkout 只提供 GET /v1/roles。页面不提供创建表单，避免调用不存在的路由。</p>
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">创建例外角色</h2>
+              <p class="panel__subtitle">POST /v1/roles · 能力码来自只读目录，服务端校验锚点与字段上限。</p>
+            </div>
+          </div>
+          <div class="panel__body platform-form-grid">
+            <label class="platform-field">
+              <span>角色编码</span>
+              <input v-model="roleCreateForm.code" data-testid="role-create-code" placeholder="TEMP_REPORT_VIEWER" />
+            </label>
+            <label class="platform-field">
+              <span>角色名称</span>
+              <input v-model="roleCreateForm.name" data-testid="role-create-name" placeholder="临时报表查看" />
+            </label>
+            <label class="platform-field platform-field--wide">
+              <span>用途（至少 8 个字符）</span>
+              <input v-model="roleCreateForm.purpose" data-testid="role-create-purpose" placeholder="Synthetic quarterly reporting access." />
+            </label>
+            <label class="platform-field">
+              <span>能力码</span>
+              <input v-model="roleCreateForm.capability" data-testid="role-create-capability" list="capability-options" placeholder="reporting.export" />
+            </label>
+            <label class="platform-field">
+              <span>锚点类型</span>
+              <select v-model="roleCreateForm.anchorType" data-testid="role-create-anchor">
+                <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                <option value="ORG_UNIT">ORG_UNIT</option>
+                <option value="ORG_SUBTREE">ORG_SUBTREE</option>
+                <option value="SELF">SELF</option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>字段档位</span>
+              <select v-model="roleCreateForm.fieldProfile" data-testid="role-create-field-profile">
+                <option value="P0_PUBLIC">P0_PUBLIC</option>
+                <option value="P1_INTERNAL">P1_INTERNAL</option>
+                <option value="P2_SENSITIVE">P2_SENSITIVE</option>
+                <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>到期日（可选）</span>
+              <input v-model="roleCreateForm.expiresAt" type="date" data-testid="role-create-expires" />
+            </label>
+            <div class="platform-inline-actions">
+              <el-button type="primary" data-testid="role-create-submit" @click="createRole">创建角色</el-button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">替换角色能力包</h2>
+              <p class="panel__subtitle">PUT /v1/roles/{id}/capabilities · 模板角色由代码拥有，服务端返回 409。</p>
+            </div>
+          </div>
+          <div class="panel__body platform-form-grid">
+            <label class="platform-field">
+              <span>角色编码</span>
+              <input v-model="roleCapabilityForm.roleCode" data-testid="role-capability-code" placeholder="HR_SPECIALIST" />
+            </label>
+            <label class="platform-field">
+              <span>能力码</span>
+              <input v-model="roleCapabilityForm.capability" data-testid="role-capability-capability" placeholder="people.employee.read" />
+            </label>
+            <label class="platform-field">
+              <span>锚点类型</span>
+              <select v-model="roleCapabilityForm.anchorType" data-testid="role-capability-anchor">
+                <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                <option value="ORG_UNIT">ORG_UNIT</option>
+                <option value="ORG_SUBTREE">ORG_SUBTREE</option>
+                <option value="SELF">SELF</option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>字段档位</span>
+              <select v-model="roleCapabilityForm.fieldProfile" data-testid="role-capability-field-profile">
+                <option value="P0_PUBLIC">P0_PUBLIC</option>
+                <option value="P1_INTERNAL">P1_INTERNAL</option>
+                <option value="P2_SENSITIVE">P2_SENSITIVE</option>
+                <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+              </select>
+            </label>
+            <div class="platform-inline-actions">
+              <el-button data-testid="role-capability-submit" @click="replaceRoleCapabilities">替换能力包</el-button>
+            </div>
           </div>
         </section>
       </template>
@@ -1988,36 +2540,270 @@ watch(selectedExportDefinition, () => {
           </div>
         </section>
 
-        <section v-if="mode === 'menus'" class="panel">
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 菜单树 CRUD 与排序</p>
-            <p class="small muted">菜单可见性来自权限投影；菜单资源本身的创建、排序与启停没有本 checkout 路由。</p>
-          </div>
-        </section>
+        <template v-if="mode === 'menus'">
+          <section class="panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">菜单覆盖</h2>
+                <p class="panel__subtitle">GET/POST/DELETE /v1/system/menus · 仅影响展示标签、排序与可见性。</p>
+              </div>
+              <span class="plain-chip">{{ menuOverrideRows.length }} 条覆盖</span>
+            </div>
+            <div v-if="menuOverrideRows.length > 0" class="platform-table-wrap">
+              <table class="platform-table">
+                <caption class="visually-hidden">菜单覆盖</caption>
+                <thead><tr><th scope="col">页面</th><th scope="col">标签</th><th scope="col">可见</th><th scope="col">排序</th><th scope="col">操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in menuOverrideRows" :key="rowText(row, 'page_code')">
+                    <td class="mono">{{ rowText(row, 'page_code') }}</td>
+                    <td>{{ rowText(row, 'label') }}</td>
+                    <td>{{ row.visible === true ? '显示' : '隐藏' }}</td>
+                    <td>{{ rowText(row, 'sort_order') }}</td>
+                    <td><el-button size="small" data-testid="menu-override-delete" @click="removeMenuOverride(row)">删除覆盖</el-button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="panel__body"><p class="empty-inline">当前没有菜单覆盖。</p></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">新建/更新菜单覆盖</h2></div>
+            <div class="panel__body platform-form-grid">
+              <label class="platform-field">
+                <span>页面编码</span>
+                <input v-model="menuForm.pageCode" data-testid="menu-page-code" placeholder="system-roles" />
+              </label>
+              <label class="platform-field">
+                <span>展示标签（可选）</span>
+                <input v-model="menuForm.label" data-testid="menu-label" />
+              </label>
+              <label class="platform-field">
+                <span>排序</span>
+                <input v-model.number="menuForm.sortOrder" type="number" min="0" data-testid="menu-sort-order" />
+              </label>
+              <label class="platform-check">
+                <input v-model="menuForm.visible" type="checkbox" data-testid="menu-visible" />
+                页面可见
+              </label>
+              <div class="platform-inline-actions">
+                <el-button type="primary" data-testid="menu-submit" @click="saveMenuOverride">保存覆盖</el-button>
+              </div>
+            </div>
+          </section>
+        </template>
         <section v-if="mode === 'permissions'" class="panel">
           <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 角色能力覆盖写入与模拟</p>
-            <p class="small muted">当前仅能读取授权投影和能力目录，不能在界面里修改能力定义或绕过服务端校验。</p>
+            <p class="small muted">能力码与语义由代码拥有；角色能力包的写入入口在“角色管理”页面，通过 PUT /v1/roles/{id}/capabilities 完成。</p>
           </div>
         </section>
-        <section v-if="mode === 'data-scopes'" class="panel">
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 数据范围模板配置与成员预览</p>
-            <p class="small muted">页面展示真实绑定范围和标签；范围写入未提供，因此没有编辑表单。</p>
-          </div>
-        </section>
-        <section v-if="mode === 'field-policies'" class="panel">
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: P0–P3 字段策略配置与导出列约束</p>
-            <p class="small muted">当前只展示本人有效字段档位；字段策略写入与预览端点尚未提供。</p>
-          </div>
-        </section>
-        <section v-if="mode === 'settings'" class="panel">
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 字典、全局参数与文件密级</p>
-            <p class="small muted">系统设置接口未提供。本页只展示当前权限投影中的动作、字段和范围。</p>
-          </div>
-        </section>
+        <template v-if="mode === 'data-scopes'">
+          <section class="panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">数据范围模板</h2>
+                <p class="panel__subtitle">GET /v1/system/data-scopes · 只允许代码白名单模板，拒绝任意谓词。</p>
+              </div>
+            </div>
+            <div v-if="dataScopeRows.length > 0" class="platform-table-wrap">
+              <table class="platform-table">
+                <caption class="visually-hidden">数据范围模板</caption>
+                <thead><tr><th scope="col">模板</th><th scope="col">锚点</th><th scope="col">标签</th><th scope="col">启用</th><th scope="col">排序</th><th scope="col">说明</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in dataScopeRows" :key="rowText(row, 'template')">
+                    <td class="mono">{{ rowText(row, 'template') }}</td>
+                    <td>{{ rowText(row, 'anchor_type') }}</td>
+                    <td>{{ rowText(row, 'label') }}</td>
+                    <td>{{ row.active === true ? '是' : '否' }}</td>
+                    <td>{{ rowText(row, 'sort_order') }}</td>
+                    <td class="small">{{ rowText(row, 'description') }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="panel__body"><p class="empty-inline">没有返回数据范围模板。</p></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">调整模板呈现</h2></div>
+            <div class="panel__body platform-form-grid">
+              <label class="platform-field">
+                <span>模板</span>
+                <select v-model="dataScopeForm.template" data-testid="data-scope-template">
+                  <option v-for="row in dataScopeRows" :key="rowText(row, 'template')" :value="rowText(row, 'template')">
+                    {{ rowText(row, 'template') }} · {{ rowText(row, 'label') }}
+                  </option>
+                </select>
+              </label>
+              <label class="platform-field">
+                <span>标签</span>
+                <input v-model="dataScopeForm.label" data-testid="data-scope-label" />
+              </label>
+              <label class="platform-field">
+                <span>排序</span>
+                <input v-model.number="dataScopeForm.sortOrder" type="number" min="0" data-testid="data-scope-sort-order" />
+              </label>
+              <label class="platform-check">
+                <input v-model="dataScopeForm.active" type="checkbox" data-testid="data-scope-active" />
+                启用
+              </label>
+              <div class="platform-inline-actions">
+                <el-button type="primary" data-testid="data-scope-submit" @click="saveDataScope">保存</el-button>
+              </div>
+            </div>
+          </section>
+        </template>
+        <template v-if="mode === 'field-policies'">
+          <section class="panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">敏感字段策略</h2>
+                <p class="panel__subtitle">GET /v1/system/field-policies · 只允许收紧，放宽请求返回 409。</p>
+              </div>
+            </div>
+            <div v-if="fieldPolicyRows.length > 0" class="platform-table-wrap">
+              <table class="platform-table">
+                <caption class="visually-hidden">字段策略</caption>
+                <thead><tr><th scope="col">字段</th><th scope="col">生效档位</th><th scope="col">声明档位</th><th scope="col">可收紧</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in fieldPolicyRows" :key="rowText(row, 'field_key')">
+                    <td class="mono">{{ rowText(row, 'field_key') }}</td>
+                    <td>{{ rowText(row, 'profile') }}</td>
+                    <td>{{ rowText(row, 'declared_profile') }}</td>
+                    <td>{{ row.can_tighten === true ? '是' : '否' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="panel__body"><p class="empty-inline">没有返回字段策略。</p></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">收紧字段档位</h2></div>
+            <div class="panel__body platform-form-grid">
+              <label class="platform-field">
+                <span>字段</span>
+                <select v-model="fieldPolicyForm.fieldKey" data-testid="field-policy-field">
+                  <option v-for="row in fieldPolicyRows" :key="rowText(row, 'field_key')" :value="rowText(row, 'field_key')">
+                    {{ rowText(row, 'field_key') }}
+                  </option>
+                </select>
+              </label>
+              <label class="platform-field">
+                <span>目标档位</span>
+                <select v-model="fieldPolicyForm.fieldProfile" data-testid="field-policy-profile">
+                  <option value="P0_PUBLIC">P0_PUBLIC</option>
+                  <option value="P1_INTERNAL">P1_INTERNAL</option>
+                  <option value="P2_SENSITIVE">P2_SENSITIVE</option>
+                  <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+                </select>
+              </label>
+              <div class="platform-inline-actions">
+                <el-button type="primary" data-testid="field-policy-submit" @click="saveFieldPolicy">保存策略</el-button>
+              </div>
+            </div>
+          </section>
+        </template>
+        <template v-if="mode === 'settings'">
+          <section class="panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">字典项</h2>
+                <p class="panel__subtitle">GET/POST/PATCH /v1/system/dictionaries · 写入经 Platform 服务校验。</p>
+              </div>
+            </div>
+            <div v-if="dictionaryRows.length > 0" class="platform-table-wrap">
+              <table class="platform-table">
+                <caption class="visually-hidden">字典项</caption>
+                <thead><tr><th scope="col">类型</th><th scope="col">编码</th><th scope="col">标签</th><th scope="col">排序</th><th scope="col">启用</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in dictionaryRows" :key="`${rowText(row, 'type')}-${rowText(row, 'code')}`">
+                    <td class="mono">{{ rowText(row, 'type') }}</td>
+                    <td class="mono">{{ rowText(row, 'code') }}</td>
+                    <td>{{ rowText(row, 'label') }}</td>
+                    <td>{{ rowText(row, 'sort_order') }}</td>
+                    <td>{{ row.active === true ? '是' : '否' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="panel__body"><p class="empty-inline">没有字典项。</p></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">新建字典项</h2></div>
+            <div class="panel__body platform-form-grid">
+              <label class="platform-field">
+                <span>类型</span>
+                <input v-model="dictionaryForm.type" data-testid="dictionary-type" placeholder="EMPLOYEE_STATUS" />
+              </label>
+              <label class="platform-field">
+                <span>编码</span>
+                <input v-model="dictionaryForm.code" data-testid="dictionary-code" placeholder="PROBATION" />
+              </label>
+              <label class="platform-field">
+                <span>标签</span>
+                <input v-model="dictionaryForm.label" data-testid="dictionary-label" />
+              </label>
+              <label class="platform-field">
+                <span>排序</span>
+                <input v-model.number="dictionaryForm.sortOrder" type="number" min="0" data-testid="dictionary-sort-order" />
+              </label>
+              <div class="platform-inline-actions">
+                <el-button type="primary" data-testid="dictionary-submit" @click="saveDictionary">新增字典项</el-button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header">
+              <div>
+                <h2 class="panel__title">系统参数</h2>
+                <p class="panel__subtitle">GET/PUT /v1/system/parameters · 敏感值加密存储，投影只返回遮罩。</p>
+              </div>
+            </div>
+            <div v-if="parameterRows.length > 0" class="platform-table-wrap">
+              <table class="platform-table">
+                <caption class="visually-hidden">系统参数</caption>
+                <thead><tr><th scope="col">参数键</th><th scope="col">作用域</th><th scope="col">值</th><th scope="col">敏感</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in parameterRows" :key="`${rowText(row, 'key')}-${rowText(row, 'scope')}`">
+                    <td class="mono">{{ rowText(row, 'key') }}</td>
+                    <td class="mono">{{ rowText(row, 'scope') }}</td>
+                    <td>{{ row.masked === true ? '已遮罩' : rowText(row, 'value') }}</td>
+                    <td>{{ row.sensitive === true ? '是' : '否' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-else class="panel__body"><p class="empty-inline">没有系统参数。</p></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__header"><h2 class="panel__title">保存参数</h2></div>
+            <div class="panel__body platform-form-grid">
+              <label class="platform-field">
+                <span>参数键</span>
+                <input v-model="parameterForm.key" data-testid="parameter-key" placeholder="mail.password" />
+              </label>
+              <label class="platform-field">
+                <span>作用域</span>
+                <input v-model="parameterForm.scope" data-testid="parameter-scope" placeholder="TENANT" />
+              </label>
+              <label class="platform-field platform-field--wide">
+                <span>值（JSON 或纯文本）</span>
+                <input v-model="parameterForm.value" data-testid="parameter-value" />
+              </label>
+              <label class="platform-check">
+                <input v-model="parameterForm.sensitive" type="checkbox" data-testid="parameter-sensitive" />
+                敏感值（加密存储）
+              </label>
+              <div class="platform-inline-actions">
+                <el-button type="primary" data-testid="parameter-submit" @click="saveParameter">保存参数</el-button>
+              </div>
+            </div>
+          </section>
+        </template>
       </template>
 
       <!-- Workflow -->
@@ -2171,12 +2957,8 @@ watch(selectedExportDefinition, () => {
       <template v-else-if="mode === 'benefits'">
         <section class="panel">
           <div class="panel__header"><h2 class="panel__title">福利模块</h2></div>
-          <div class="panel__body stack--tight">
-            <p class="platform-gap__title">后端接口待补: 社保公积金与福利模块</p>
-            <p class="small muted">
-              本 checkout 没有基数方案、缴费项、月度增减员、福利项目或发放台账 API。页面不展示任何虚构的缴费金额或员工福利数据。
-            </p>
-            <p class="mono small">计划接口：GET /v1/benefits · GET /v1/benefits/contributions · GET /v1/benefits/ledger</p>
+          <div class="panel__body">
+            <p class="small muted">本模块由 Task D2 交付。当前页面不展示任何虚构的缴费金额或员工福利数据。</p>
           </div>
         </section>
       </template>
@@ -2249,6 +3031,33 @@ watch(selectedExportDefinition, () => {
           </div>
           <div v-else class="panel__body"><p class="empty-inline">没有假期类型。</p></div>
         </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">发布日历版本</h2>
+              <p class="panel__subtitle">POST /v1/system/calendars/{id}/publish · 版本递增并写审计，节假日按发布快照替换。</p>
+            </div>
+          </div>
+          <div class="panel__body platform-form-grid">
+            <label class="platform-field">
+              <span>时区</span>
+              <input v-model="calendarPublishForm.timezone" data-testid="calendar-timezone" placeholder="Asia/Shanghai" />
+            </label>
+            <label class="platform-field">
+              <span>工作周（1-7，逗号分隔）</span>
+              <input v-model="calendarPublishForm.workweek" data-testid="calendar-workweek" placeholder="1,2,3,4,5" />
+            </label>
+            <label class="platform-field">
+              <span>标准日分钟</span>
+              <input v-model.number="calendarPublishForm.standardDayMinutes" type="number" min="1" max="1440" data-testid="calendar-standard-day" />
+            </label>
+            <div class="platform-inline-actions">
+              <el-button type="primary" data-testid="calendar-publish-submit" @click="publishCalendar">发布新版本</el-button>
+            </div>
+            <p class="small muted">发布时会带上当前查询结果中的节假日；如需调整，请先在服务端维护后重新查询再发布。</p>
+          </div>
+        </section>
       </template>
 
       <!-- Notifications -->
@@ -2299,9 +3108,112 @@ watch(selectedExportDefinition, () => {
         </div>
 
         <section class="panel">
-          <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 通知投递日志与失败重试</p>
-            <p class="small muted">站内信投递记录、模板、失败重试与阅读状态管理没有本 checkout 路由，页面不伪造投递结果。</p>
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">通知模板</h2>
+              <p class="panel__subtitle">GET/POST /v1/notification-templates · 模板编码由租户维护，事件派发按 event_key 幂等。</p>
+            </div>
+          </div>
+          <div v-if="notificationTemplateRows.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">通知模板</caption>
+              <thead><tr><th scope="col">编码</th><th scope="col">渠道</th><th scope="col">主题</th><th scope="col">版本</th><th scope="col">启用</th></tr></thead>
+              <tbody>
+                <tr v-for="row in notificationTemplateRows" :key="rowText(row, 'code')">
+                  <td class="mono">{{ rowText(row, 'code') }}</td>
+                  <td>{{ rowText(row, 'channel') }}</td>
+                  <td>{{ rowText(row, 'subject') }}</td>
+                  <td>{{ rowText(row, 'version') }}</td>
+                  <td>{{ row.active === true ? '是' : '否' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">没有通知模板。</p></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header"><h2 class="panel__title">新建通知模板</h2></div>
+          <div class="panel__body platform-form-grid">
+            <label class="platform-field">
+              <span>模板编码</span>
+              <input v-model="templateForm.code" data-testid="template-code" placeholder="APPROVAL_PENDING" />
+            </label>
+            <label class="platform-field">
+              <span>渠道</span>
+              <select v-model="templateForm.channel" data-testid="template-channel">
+                <option value="IN_APP">IN_APP</option>
+                <option value="EMAIL">EMAIL</option>
+                <option value="WECHAT_WORK">WECHAT_WORK</option>
+              </select>
+            </label>
+            <label class="platform-field platform-field--wide">
+              <span>主题</span>
+              <input v-model="templateForm.subject" data-testid="template-subject" />
+            </label>
+            <label class="platform-field platform-field--wide">
+              <span>正文</span>
+              <input v-model="templateForm.body" data-testid="template-body" />
+            </label>
+            <div class="platform-inline-actions">
+              <el-button type="primary" data-testid="template-submit" @click="createNotificationTemplate">创建模板</el-button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">投递记录</h2>
+              <p class="panel__subtitle">GET /v1/notifications/deliveries · FAILED 记录可重试，重试递增 attempts 并保留证据。</p>
+            </div>
+            <span class="plain-chip">{{ notificationDeliveryRows.length }} 条投递</span>
+          </div>
+          <div v-if="notificationDeliveryRows.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">通知投递</caption>
+              <thead><tr><th scope="col">投递</th><th scope="col">模板</th><th scope="col">接收人</th><th scope="col">渠道</th><th scope="col">状态</th><th scope="col">尝试</th><th scope="col">错误</th><th scope="col">操作</th></tr></thead>
+              <tbody>
+                <tr v-for="row in notificationDeliveryRows" :key="idText(row.id)">
+                  <td class="mono">{{ rowText(row, 'id') }}</td>
+                  <td class="mono">{{ rowText(row, 'template_code') }}</td>
+                  <td>{{ rowText(row, 'recipient_user_id') }}</td>
+                  <td>{{ rowText(row, 'channel') }}</td>
+                  <td><span class="plain-chip">{{ statusText(rowText(row, 'status')) }}</span></td>
+                  <td>{{ rowText(row, 'attempts') }}</td>
+                  <td class="small">{{ rowText(row, 'last_error') }}</td>
+                  <td>
+                    <el-button v-if="row.status === 'FAILED'" size="small" data-testid="delivery-retry" @click="retryDelivery(row)">重试</el-button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">没有通知投递记录。</p></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header"><h2 class="panel__title">派发通知事件</h2></div>
+          <div class="panel__body platform-form-grid">
+            <label class="platform-field">
+              <span>事件键</span>
+              <input v-model="dispatchForm.eventKey" data-testid="dispatch-event-key" placeholder="case-1-created" />
+            </label>
+            <label class="platform-field">
+              <span>模板</span>
+              <select v-model="dispatchForm.templateCode" data-testid="dispatch-template">
+                <option v-for="row in notificationTemplateRows" :key="rowText(row, 'code')" :value="rowText(row, 'code')">
+                  {{ rowText(row, 'code') }}
+                </option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>接收人用户 ID</span>
+              <input v-model="dispatchForm.recipientUserId" type="number" min="1" data-testid="dispatch-recipient" />
+            </label>
+            <div class="platform-inline-actions">
+              <el-button type="primary" data-testid="dispatch-submit" @click="dispatchNotification">派发</el-button>
+            </div>
           </div>
         </section>
       </template>
@@ -2382,8 +3294,7 @@ watch(selectedExportDefinition, () => {
 
         <section class="panel">
           <div class="panel__body">
-            <p class="platform-gap__title">后端接口待补: 备份恢复与任务监控</p>
-            <p class="small muted">当前仅提供认证事件和访问复核只读投影；运维任务、备份与恢复操作没有本 checkout 路由。</p>
+            <p class="small muted">当前页面只展示认证事件和访问复核只读投影；备份恢复与任务监控不在本任务范围内。</p>
           </div>
         </section>
       </template>

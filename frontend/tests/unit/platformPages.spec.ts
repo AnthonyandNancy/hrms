@@ -11,12 +11,16 @@ const resource = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
 }))
 
 vi.mock('@/api/resourceClient', () => ({
   resourceGet: resource.get,
   resourcePost: resource.post,
   resourcePatch: resource.patch,
+  resourcePut: resource.put,
+  resourceDelete: resource.delete,
 }))
 
 import { PLATFORM_COMPONENT_KEYS, platformComponentFor } from '@/views/platform'
@@ -129,6 +133,8 @@ beforeEach(() => {
   resource.get.mockReset()
   resource.post.mockReset()
   resource.patch.mockReset()
+  resource.put.mockReset()
+  resource.delete.mockReset()
 })
 
 describe('Wave 5 platform and business pages', () => {
@@ -584,7 +590,7 @@ describe('Wave 5 platform and business pages', () => {
     )
   })
 
-  it('shows the exact role-create API gap and never posts an invented endpoint', async () => {
+  it('creates an exception role through POST /v1/roles with the real capability selection', async () => {
     resource.get.mockResolvedValue({
       roles: [
         {
@@ -599,14 +605,43 @@ describe('Wave 5 platform and business pages', () => {
         },
       ],
     })
+    resource.post.mockResolvedValue({
+      code: 'TEMP_REPORT_VIEWER',
+      name: 'Temporary report viewer',
+      is_template: false,
+      purpose: 'Synthetic quarterly reporting access.',
+      expires_at: null,
+      capabilities: [],
+    })
 
     const { wrapper } = await mountAt('system/system-roles', '/system/system-roles')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/roles', expect.objectContaining({ legal_entity_id: 1 }))
     expect(wrapper.text()).toContain('HR Specialist')
-    expect(wrapper.text()).toContain('后端接口待补: POST /v1/roles')
-    expect(resource.post).not.toHaveBeenCalled()
+
+    await wrapper.get('[data-testid="role-create-code"]').setValue('TEMP_REPORT_VIEWER')
+    await wrapper.get('[data-testid="role-create-name"]').setValue('Temporary report viewer')
+    await wrapper.get('[data-testid="role-create-purpose"]').setValue('Synthetic quarterly reporting access.')
+    await wrapper.get('[data-testid="role-create-capability"]').setValue('reporting.export')
+    await wrapper.get('[data-testid="role-create-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/roles',
+      expect.objectContaining({
+        code: 'TEMP_REPORT_VIEWER',
+        purpose: 'Synthetic quarterly reporting access.',
+        capabilities: [
+          { capability: 'reporting.export', anchor_type: 'LEGAL_ENTITY', field_profile: 'P1_INTERNAL' },
+        ],
+      }),
+      expect.objectContaining({
+        idempotencyKey: expect.any(String),
+        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
+      }),
+    )
+    expect(wrapper.text()).toContain('例外角色已创建')
   })
 
   it('loads the legal-entity calendar for 2026 and the real leave-type catalog', async () => {
@@ -752,7 +787,7 @@ describe('Wave 5 platform and business pages', () => {
     expect(wrapper.text()).not.toContain('{"')
   })
 
-  it('loads notifications from tasks and notices while exposing the delivery-log gap', async () => {
+  it('loads notification templates and delivery attempts from the real Platform endpoints', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/tasks/my') return Promise.resolve(listResponse([]))
       if (path === '/v1/engagement/notices') {
@@ -773,17 +808,62 @@ describe('Wave 5 platform and business pages', () => {
           },
         ])
       }
+      if (path === '/v1/notification-templates') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 3,
+              code: 'APPROVAL_PENDING',
+              channel: 'IN_APP',
+              subject: 'Approval pending',
+              body: 'You have a pending approval.',
+              version: 1,
+              active: true,
+            },
+          ]),
+        )
+      }
+      if (path === '/v1/notifications/deliveries') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 11,
+              delivery_id: 11,
+              template_code: 'APPROVAL_PENDING',
+              recipient_user_id: 1,
+              channel: 'IN_APP',
+              status: 'FAILED',
+              attempts: 1,
+              last_error: 'Synthetic transient failure',
+              sent_at: null,
+            },
+          ]),
+        )
+      }
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
+    resource.post.mockResolvedValue({ id: 11, status: 'SENT', attempts: 2 })
 
     const { wrapper } = await mountAt('notifications', '/notifications')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/tasks/my')
     expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices', { filter: 'all' })
+    expect(resource.get).toHaveBeenCalledWith('/v1/notification-templates', expect.objectContaining({ page: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/notifications/deliveries', expect.objectContaining({ page: 1 }))
     expect(wrapper.text()).toContain('Synthetic notification notice')
-    expect(wrapper.text()).toContain('后端接口待补: 通知投递日志与失败重试')
-    expect(wrapper.text()).not.toContain('{"')
+    expect(wrapper.text()).toContain('APPROVAL_PENDING')
+    expect(wrapper.text()).toContain('Synthetic transient failure')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+
+    await wrapper.get('[data-testid="delivery-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/notifications/deliveries/11/retry',
+      {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
   })
 
   it('renders a true empty state when the dashboard returns no metrics or panels', async () => {
@@ -1059,5 +1139,213 @@ describe('Wave 5 platform and business pages', () => {
 
     expect(wrapper.get('[data-testid="request-id"]').text()).toContain('req-audit-500')
     expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('loads menu overrides and deletes one through DELETE /v1/system/menus/{page_code}', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/me/permissions') {
+        return Promise.resolve({ menus: [], actions: [], field_capabilities: [], scope_labels: [], pages: [] })
+      }
+      if (path === '/v1/capabilities') return Promise.resolve({ capabilities: [], read_only: true })
+      if (path === '/v1/system/menus') {
+        return Promise.resolve(
+          listResponse([
+            { page_code: 'system-roles', label: '角色（隐藏）', visible: false, sort_order: 7 },
+          ]),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.delete.mockResolvedValue({ page_code: 'system-roles', deleted: true })
+
+    const { wrapper } = await mountAt('system/system-menus', '/system/system-menus')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('system-roles')
+    expect(wrapper.text()).toContain('角色（隐藏）')
+
+    await wrapper.get('[data-testid="menu-override-delete"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.delete).toHaveBeenCalledWith(
+      '/v1/system/menus/system-roles',
+      expect.objectContaining({
+        idempotencyKey: expect.any(String),
+        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
+      }),
+    )
+    expect(wrapper.text()).toContain('菜单覆盖已删除')
+  })
+
+  it('loads data scope templates and tightens one through PUT', async () => {
+    resource.get.mockResolvedValue(
+      listResponse([
+        {
+          template: 'ORG_SUBTREE',
+          anchor_type: 'ORG_SUBTREE',
+          label: '本组织及下级',
+          active: true,
+          sort_order: 3,
+          description: 'Synthetic scope template',
+        },
+      ]),
+    )
+    resource.put.mockResolvedValue({
+      template: 'ORG_SUBTREE',
+      anchor_type: 'ORG_SUBTREE',
+      label: '本组织及下级（收窄）',
+      active: true,
+      sort_order: 3,
+    })
+
+    const { wrapper } = await mountAt('system/system-data-scopes', '/system/system-data-scopes')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/system/data-scopes', expect.objectContaining({ page: 1 }))
+    expect(wrapper.text()).toContain('ORG_SUBTREE')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+
+    await wrapper.get('[data-testid="data-scope-label"]').setValue('本组织及下级（收窄）')
+    await wrapper.get('[data-testid="data-scope-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.put).toHaveBeenCalledWith(
+      '/v1/system/data-scopes/ORG_SUBTREE',
+      expect.objectContaining({ label: '本组织及下级（收窄）', active: true }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('loads field policies and writes only a tighter profile', async () => {
+    resource.get.mockResolvedValue(
+      listResponse([
+        { field_key: 'employee.salary', profile: 'P3_RESTRICTED', declared_profile: 'P3_RESTRICTED', can_tighten: false },
+      ]),
+    )
+    resource.put.mockResolvedValue({
+      field_key: 'employee.salary',
+      profile: 'P3_RESTRICTED',
+      declared_profile: 'P3_RESTRICTED',
+      can_tighten: false,
+    })
+
+    const { wrapper } = await mountAt('system/system-field-policies', '/system/system-field-policies')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('employee.salary')
+    expect(wrapper.text()).toContain('P3_RESTRICTED')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+
+    await wrapper.get('[data-testid="field-policy-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.put).toHaveBeenCalledWith(
+      '/v1/system/field-policies/employee.salary',
+      { field_profile: 'P1_INTERNAL' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('loads dictionaries and parameters and writes both through Platform services', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/system/dictionaries') {
+        return Promise.resolve(
+          listResponse([
+            { id: 2, type: 'EMPLOYEE_STATUS', code: 'PROBATION', label: '试用', sort_order: 1, active: true },
+          ]),
+        )
+      }
+      if (path === '/v1/system/parameters') {
+        return Promise.resolve(
+          listResponse([
+            { id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true },
+          ]),
+        )
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({ id: 3, type: 'EMPLOYEE_STATUS', code: 'ACTIVE', label: '在职' })
+    resource.put.mockResolvedValue({ id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true })
+
+    const { wrapper } = await mountAt('system/system-settings', '/system/system-settings')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('PROBATION')
+    expect(wrapper.text()).toContain('mail.password')
+    expect(wrapper.text()).toContain('已遮罩')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+
+    await wrapper.get('[data-testid="dictionary-type"]').setValue('EMPLOYEE_STATUS')
+    await wrapper.get('[data-testid="dictionary-code"]').setValue('ACTIVE')
+    await wrapper.get('[data-testid="dictionary-label"]').setValue('在职')
+    await wrapper.get('[data-testid="dictionary-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/system/dictionaries',
+      expect.objectContaining({ type: 'EMPLOYEE_STATUS', code: 'ACTIVE', label: '在职' }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await wrapper.get('[data-testid="parameter-key"]').setValue('mail.password')
+    await wrapper.get('[data-testid="parameter-value"]').setValue('synthetic-smtp-secret')
+    await wrapper.get('[data-testid="parameter-sensitive"]').setValue(true)
+    await wrapper.get('[data-testid="parameter-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.put).toHaveBeenCalledWith(
+      '/v1/system/parameters',
+      expect.objectContaining({ key: 'mail.password', scope: 'TENANT', value: 'synthetic-smtp-secret', sensitive: true }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('publishes a calendar version through POST /v1/system/calendars/{id}/publish', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/time/calendars/1') {
+        return Promise.resolve({
+          legal_entity_id: 1,
+          year: 2026,
+          timezone: 'Asia/Shanghai',
+          workweek: [1, 2, 3, 4, 5],
+          standard_day_minutes: 480,
+          version: 2,
+          holidays: [{ date: '2026-10-01', name: 'Synthetic National Day', type: 'PUBLIC', source: 'ADMIN' }],
+        })
+      }
+      if (path === '/v1/time/leave/types') return Promise.resolve(listResponse([]))
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({
+      legal_entity_id: 1,
+      version: 3,
+      timezone: 'Asia/Shanghai',
+      workweek: [1, 2, 3, 4, 5],
+      standard_day_minutes: 480,
+      holidays: [],
+    })
+
+    const { wrapper } = await mountAt('system/system-calendars', '/system/system-calendars')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('后端接口待补')
+
+    await wrapper.get('[data-testid="calendar-publish-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/system/calendars/1/publish',
+      expect.objectContaining({
+        timezone: 'Asia/Shanghai',
+        workweek: [1, 2, 3, 4, 5],
+        standard_day_minutes: 480,
+        holidays: [{ date: '2026-10-01', name: 'Synthetic National Day', type: 'PUBLIC' }],
+      }),
+      expect.objectContaining({
+        idempotencyKey: expect.any(String),
+        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
+      }),
+    )
+    expect(wrapper.text()).toContain('工作日历已发布新版本')
   })
 })

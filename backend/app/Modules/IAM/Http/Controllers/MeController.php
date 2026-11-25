@@ -11,6 +11,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Platform\Contracts\MenuOverrideReader;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\CapabilityWildcard;
@@ -24,6 +25,7 @@ final class MeController
     public function __construct(
         private readonly AuthenticationContext $context,
         private readonly Clock $clock,
+        private readonly MenuOverrideReader $menuOverrides,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -98,15 +100,31 @@ final class MeController
         $catalog = new PermissionResourceCatalog;
         $visiblePages = [];
 
+        $overrides = [];
+
+        foreach ($this->menuOverrides->overrides($principal->tenantId()) as $override) {
+            $overrides[$override['page_code']] = $override;
+        }
+
         foreach ($catalog->pages() as $page) {
             $required = (string) $page['required_capability'];
+            $override = $overrides[(string) $page['page_code']] ?? null;
 
             if ($required !== 'public' && ! isset($actions[$required])) {
                 continue;
             }
 
+            // Overrides are presentation-only and evaluated after the
+            // capability decision: hiding a menu never revokes the API
+            // capability, and showing one never grants it.
+            if ($override !== null && $override['visible'] === false) {
+                continue;
+            }
+
             $visiblePages[] = [
                 ...$page,
+                'label' => $override['label'] ?? $page['menu_label'],
+                'sort_order' => $override['sort_order'] ?? $page['order'],
                 'field_profile_max' => $required === 'public'
                     ? FieldProfile::P0_PUBLIC->value
                     : ($fieldProfilesByCapability[$required] ?? FieldProfile::P0_PUBLIC->value),
@@ -143,8 +161,33 @@ final class MeController
         $fieldCapabilities = array_keys($profiles);
         sort($fieldCapabilities);
 
+        $menus = $catalog->menusForCapabilities($actionCodes);
+
+        foreach ($menus as &$menu) {
+            $pages = [];
+
+            foreach ($menu['pages'] as $page) {
+                $override = $overrides[(string) $page['page_code']] ?? null;
+
+                if ($override !== null && $override['visible'] === false) {
+                    continue;
+                }
+
+                $pages[] = $override === null ? $page : [
+                    ...$page,
+                    'menu_label' => $override['label'] ?? $page['menu_label'],
+                    'order' => $override['sort_order'],
+                ];
+            }
+
+            $menu['pages'] = $pages;
+        }
+        unset($menu);
+
+        $menus = array_values(array_filter($menus, static fn (array $menu): bool => $menu['pages'] !== []));
+
         return ApiResponse::ok([
-            'menus' => $catalog->menusForCapabilities($actionCodes),
+            'menus' => $menus,
             'actions' => $actionCodes,
             'field_capabilities' => $fieldCapabilities,
             'scope_labels' => array_values($scopeLabels),

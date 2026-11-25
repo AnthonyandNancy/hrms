@@ -39,20 +39,31 @@ final class SystemParameter extends Model
      */
     public function decodedValue(): array
     {
-        $raw = $this->getAttribute('value_json');
+        // A plain JSON column is decoded by the cast into an array; a
+        // sensitive row is a ciphertext string and must not be JSON-decoded
+        // into a scalar before decryption.
+        $raw = $this->getRawOriginal('value_json');
+
+        if ($this->sensitive) {
+            $payload = is_string($raw) ? (string) \Illuminate\Support\Facades\Crypt::decryptString($raw) : '';
+
+            $decoded = json_decode($payload, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
 
         if (is_array($raw)) {
             return $raw;
         }
 
-        $payload = is_string($raw) ? $raw : '';
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
 
-        if ($this->sensitive) {
-            $payload = (string) \Illuminate\Support\Facades\Crypt::decryptString($payload);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
         }
 
-        $decoded = json_decode($payload, true);
-
-        return is_array($decoded) ? $decoded : [];
+        return [];
     }
 }

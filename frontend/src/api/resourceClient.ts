@@ -108,6 +108,37 @@ export async function resourcePatch<T = unknown>(
   }
 }
 
+export async function resourcePut<T = unknown>(
+  path: string,
+  body?: Record<string, unknown>,
+  options: ResourceRequestOptions = {},
+): Promise<T> {
+  try {
+    const headers: Record<string, string> = { ...(options.headers ?? {}) }
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
+
+    const response = await http().put<ApiEnvelope<T>>(apiPath(path), body ?? {}, { headers })
+    return response.data.data
+  } catch (error) {
+    translate(error)
+  }
+}
+
+export async function resourceDelete<T = unknown>(
+  path: string,
+  options: ResourceRequestOptions = {},
+): Promise<T> {
+  try {
+    const headers: Record<string, string> = { ...(options.headers ?? {}) }
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
+
+    const response = await http().delete<ApiEnvelope<T>>(apiPath(path), { headers })
+    return response.data.data
+  } catch (error) {
+    translate(error)
+  }
+}
+
 /** Test seam. */
 export function setResourceClient(next: AxiosInstance | null): void {
   client = next
