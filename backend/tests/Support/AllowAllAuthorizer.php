@@ -45,16 +45,34 @@ final class AllowAllAuthorizer implements Authorizer
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
         $profile = $this->fieldProfiles[$capability] ?? null;
-        $amounts = [
-            'gross' => FieldProfile::P3_RESTRICTED,
-            'net' => FieldProfile::P3_RESTRICTED,
-            'deductions' => FieldProfile::P3_RESTRICTED,
-            'taxable' => FieldProfile::P3_RESTRICTED,
-            'employer_cost' => FieldProfile::P3_RESTRICTED,
-            'employee_si' => FieldProfile::P3_RESTRICTED,
-            'employee_hf' => FieldProfile::P3_RESTRICTED,
-            'tax' => FieldProfile::P3_RESTRICTED,
+        $schemas = [
+            'payslip' => [
+                'gross' => FieldProfile::P3_RESTRICTED,
+                'net' => FieldProfile::P3_RESTRICTED,
+                'deductions' => FieldProfile::P3_RESTRICTED,
+                'taxable' => FieldProfile::P3_RESTRICTED,
+                'employer_cost' => FieldProfile::P3_RESTRICTED,
+                'employee_si' => FieldProfile::P3_RESTRICTED,
+                'employee_hf' => FieldProfile::P3_RESTRICTED,
+                'tax' => FieldProfile::P3_RESTRICTED,
+            ],
+            'employee_compensation' => [
+                'id' => FieldProfile::P0_PUBLIC,
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'effective_from' => FieldProfile::P0_PUBLIC,
+                'currency' => FieldProfile::P0_PUBLIC,
+                'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+            ],
+            'salary_adjustment' => [
+                'id' => FieldProfile::P0_PUBLIC,
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'effective_from' => FieldProfile::P0_PUBLIC,
+                'currency' => FieldProfile::P0_PUBLIC,
+                'case_id' => FieldProfile::P1_INTERNAL,
+                'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+            ],
         ];
+        $amounts = $schemas[$row->resourceType] ?? [];
 
         if ($profile === null) {
             throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -64,6 +82,31 @@ final class AllowAllAuthorizer implements Authorizer
             throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
         }
 
-        return new FieldSet($amounts, restrictedVisible: $profile->rank() >= FieldProfile::P3_RESTRICTED->rank());
+        $set = new FieldSet($amounts, restrictedVisible: $profile->rank() >= FieldProfile::P3_RESTRICTED->rank());
+
+        // Mirror production CapabilityAuthorizer::fields(): any P2/P3 field
+        // that is visible leaves field-name-only evidence.
+        $sensitive = [];
+
+        foreach ($amounts as $field => $sensitivity) {
+            if (in_array($sensitivity, [FieldProfile::P2_SENSITIVE, FieldProfile::P3_RESTRICTED], true)
+                && $set->isVisible($field)) {
+                $sensitive[] = $field;
+            }
+        }
+
+        if ($sensitive !== []) {
+            app(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class)->record(
+                tenantId: (int) $principal->tenantId(),
+                userId: (int) $principal->userId(),
+                resourceType: $row->resourceType,
+                resourceId: (string) $row->id,
+                capability: $capability,
+                fields: $sensitive,
+                context: ['profile' => $profile->value, 'access' => 'READ'],
+            );
+        }
+
+        return $set;
     }
 }

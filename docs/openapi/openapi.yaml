@@ -3841,6 +3841,260 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/PayrollRunEmployeePage"
+    EmployeeCompensationCreateRequest:
+      type: object
+      required: [employment_id, effective_from, base_salary_cents]
+      properties:
+        employment_id:
+          type: integer
+          minimum: 1
+        effective_from:
+          type: string
+          format: date
+        base_salary_cents:
+          type: integer
+          minimum: 0
+          description: Base salary in integer minor units; decimal values are rejected.
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          default: CNY
+        salary_scheme_code:
+          type:
+            - string
+            - "null"
+          maxLength: 64
+    SalaryAdjustmentCreateRequest:
+      type: object
+      required: [employment_id, effective_from, base_salary_cents, reason, case_id]
+      properties:
+        employment_id:
+          type: integer
+          minimum: 1
+        effective_from:
+          type: string
+          format: date
+        base_salary_cents:
+          type: integer
+          minimum: 0
+          description: Approved base salary in integer minor units; must match the workflow case.
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          default: CNY
+        reason:
+          type: string
+          maxLength: 500
+        case_id:
+          type: integer
+          minimum: 1
+          description: Approved salary-change workflow case.
+        salary_scheme_code:
+          type:
+            - string
+            - "null"
+          maxLength: 64
+    EmployeeCompensation:
+      type: object
+      description: Effective-dated compensation version. Amounts are integer minor units.
+      required:
+        - id
+        - employment_id
+        - legal_entity_id
+        - effective_from
+        - currency
+      properties:
+        id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        effective_from:
+          type: string
+          format: date
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        salary_scheme_code:
+          type:
+            - string
+            - "null"
+        base_salary_cents:
+          type: integer
+          description: Base salary in minor currency units. Omitted when the caller is not a P3 field holder.
+        created_by:
+          type: integer
+        created_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    SalaryAdjustment:
+      type: object
+      description: Case-approved salary adjustment linked to the resulting compensation version.
+      required:
+        - id
+        - employment_id
+        - legal_entity_id
+        - effective_from
+        - currency
+        - case_id
+        - compensation_id
+        - reason
+      properties:
+        id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        effective_from:
+          type: string
+          format: date
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        case_id:
+          type: integer
+        compensation_id:
+          type: integer
+        reason:
+          type: string
+        base_salary_cents:
+          type: integer
+          description: Approved base salary in minor currency units. Omitted when the caller is not a P3 field holder.
+        created_by:
+          type: integer
+        created_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    CompensationProjection:
+      type: object
+      description: Projection envelope per ADR-0029. P3 amount keys are missing, never zero, when not authorized.
+      required:
+        - items
+        - page
+        - page_size
+        - total
+        - as_of
+        - freshness
+        - source_hash
+        - partial
+        - partial_reason
+        - drilldown
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeCompensation"
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        as_of:
+          type: string
+          format: date
+        freshness:
+          type: string
+          enum: [LIVE, MATERIALIZED, STALE]
+        source_hash:
+          type: string
+        partial:
+          type: boolean
+        partial_reason:
+          type:
+            - string
+            - "null"
+        drilldown:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    SalaryAdjustmentProjection:
+      type: object
+      description: Projection envelope per ADR-0029. P3 amount keys are missing, never zero, when not authorized.
+      required:
+        - items
+        - page
+        - page_size
+        - total
+        - as_of
+        - freshness
+        - source_hash
+        - partial
+        - partial_reason
+        - drilldown
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalaryAdjustment"
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        as_of:
+          type: string
+          format: date
+        freshness:
+          type: string
+          enum: [LIVE, MATERIALIZED, STALE]
+        source_hash:
+          type: string
+        partial:
+          type: boolean
+        partial_reason:
+          type:
+            - string
+            - "null"
+        drilldown:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    EmployeeCompensationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/EmployeeCompensation"
+    SalaryAdjustmentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SalaryAdjustment"
+    CompensationProjectionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CompensationProjection"
+    SalaryAdjustmentProjectionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SalaryAdjustmentProjection"
     PayrollReconciliationEnvelope:
       allOf:
         - $ref: "#/components/schemas/Envelope"
@@ -8707,6 +8961,172 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+  /v1/payroll/employee-plans:
+    get:
+      operationId: payrollEmployeePlansIndex
+      summary: List effective-dated compensation versions
+      tags:
+        - Payroll
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: employment_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: legal_entity_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Projection of compensation versions; P3 amount keys are omitted unless authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompensationProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.compensation.read
+    post:
+      operationId: payrollEmployeePlansStore
+      summary: Append a compensation version
+      tags:
+        - Payroll
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeCompensationCreateRequest"
+      responses:
+        "201":
+          description: Compensation version created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeCompensationEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.compensation.manage
+  /v1/payroll/adjustments:
+    get:
+      operationId: payrollAdjustmentsIndex
+      summary: List case-approved salary adjustments
+      tags:
+        - Payroll
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: employment_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: legal_entity_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Projection of salary adjustments; P3 amount keys are omitted unless authorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryAdjustmentProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.compensation.read
+    post:
+      operationId: payrollAdjustmentsStore
+      summary: Apply an approved salary-change case
+      tags:
+        - Payroll
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalaryAdjustmentCreateRequest"
+      responses:
+        "201":
+          description: Salary adjustment and compensation version created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryAdjustmentEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.salary-adjustment.manage
   /v1/payroll/runs:
     get:
       operationId: payrollv1_payroll_runs_get

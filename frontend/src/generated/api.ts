@@ -1764,6 +1764,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payroll/employee-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective-dated compensation versions */
+        get: operations["payrollEmployeePlansIndex"];
+        put?: never;
+        /** Append a compensation version */
+        post: operations["payrollEmployeePlansStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payroll/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List case-approved salary adjustments */
+        get: operations["payrollAdjustmentsIndex"];
+        put?: never;
+        /** Apply an approved salary-change case */
+        post: operations["payrollAdjustmentsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payroll/runs": {
         parameters: {
             query?: never;
@@ -4350,6 +4386,107 @@ export interface components {
         };
         PayrollRunEmployeePageEnvelope: components["schemas"]["Envelope"] & {
             data?: components["schemas"]["PayrollRunEmployeePage"];
+        };
+        EmployeeCompensationCreateRequest: {
+            employment_id: number;
+            /** Format: date */
+            effective_from: string;
+            /** @description Base salary in integer minor units; decimal values are rejected. */
+            base_salary_cents: number;
+            /** @default CNY */
+            currency: string;
+            salary_scheme_code?: string | null;
+        };
+        SalaryAdjustmentCreateRequest: {
+            employment_id: number;
+            /** Format: date */
+            effective_from: string;
+            /** @description Approved base salary in integer minor units; must match the workflow case. */
+            base_salary_cents: number;
+            /** @default CNY */
+            currency: string;
+            reason: string;
+            /** @description Approved salary-change workflow case. */
+            case_id: number;
+            salary_scheme_code?: string | null;
+        };
+        /** @description Effective-dated compensation version. Amounts are integer minor units. */
+        EmployeeCompensation: {
+            id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            /** Format: date */
+            effective_from: string;
+            currency: string;
+            salary_scheme_code?: string | null;
+            /** @description Base salary in minor currency units. Omitted when the caller is not a P3 field holder. */
+            base_salary_cents?: number;
+            created_by?: number;
+            /** Format: date-time */
+            created_at?: string | null;
+        };
+        /** @description Case-approved salary adjustment linked to the resulting compensation version. */
+        SalaryAdjustment: {
+            id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            /** Format: date */
+            effective_from: string;
+            currency: string;
+            case_id: number;
+            compensation_id: number;
+            reason: string;
+            /** @description Approved base salary in minor currency units. Omitted when the caller is not a P3 field holder. */
+            base_salary_cents?: number;
+            created_by?: number;
+            /** Format: date-time */
+            created_at?: string | null;
+        };
+        /** @description Projection envelope per ADR-0029. P3 amount keys are missing, never zero, when not authorized. */
+        CompensationProjection: {
+            items: components["schemas"]["EmployeeCompensation"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description Projection envelope per ADR-0029. P3 amount keys are missing, never zero, when not authorized. */
+        SalaryAdjustmentProjection: {
+            items: components["schemas"]["SalaryAdjustment"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        EmployeeCompensationEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["EmployeeCompensation"];
+        };
+        SalaryAdjustmentEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["SalaryAdjustment"];
+        };
+        CompensationProjectionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["CompensationProjection"];
+        };
+        SalaryAdjustmentProjectionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["SalaryAdjustmentProjection"];
         };
         PayrollReconciliationEnvelope: components["schemas"]["Envelope"] & {
             data?: components["schemas"]["PayrollReconciliation"];
@@ -7989,6 +8126,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PayrollSchemeCreatedEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollEmployeePlansIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                employment_id?: number;
+                legal_entity_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projection of compensation versions; P3 amount keys are omitted unless authorized. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompensationProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollEmployeePlansStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmployeeCompensationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Compensation version created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmployeeCompensationEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollAdjustmentsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                employment_id?: number;
+                legal_entity_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projection of salary adjustments; P3 amount keys are omitted unless authorized. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalaryAdjustmentProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollAdjustmentsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SalaryAdjustmentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Salary adjustment and compensation version created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalaryAdjustmentEnvelope"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
