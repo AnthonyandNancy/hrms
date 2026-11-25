@@ -12,7 +12,7 @@
 
 | # | 方法 | 路径 | 能力 | 锚点 | 类型 | 迁移 Task |
 |---:|---|---|---|---|---|---|
-| 1 | `GET` | `/v1/access-review` | `iam.audit.read` | `LEGAL_ENTITY` | legacy | E3 |
+| 1 | `GET` | `/v1/access-review` | `iam.audit.read` | `LEGAL_ENTITY` | legacy | D1 |
 | 2 | `POST` | `/v1/auth/break-glass` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 3 | `POST` | `/v1/auth/break-glass/{id}/revoke` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 4 | `GET` | `/v1/auth/events` | `iam.audit.read` | `LEGAL_ENTITY` | legacy | E3 |
@@ -26,8 +26,8 @@
 | 12 | `POST` | `/v1/auth/password` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 13 | `POST` | `/v1/auth/webauthn/assert/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 14 | `POST` | `/v1/auth/webauthn/register/options` | `iam.session.manage` | `SELF` | legacy | E3 |
-| 15 | `DELETE` | `/v1/bindings/{id}` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 16 | `GET` | `/v1/capabilities` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | E3 |
+| 15 | `DELETE` | `/v1/bindings/{id}` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 16 | `GET` | `/v1/capabilities` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
 | 17 | `GET` | `/v1/cases` | `workflow.case.read` | `—` | legacy | E3 |
 | 18 | `POST` | `/v1/cases` | `workflow.case.create` | `—` | legacy | E3 |
 | 19 | `POST` | `/v1/cases/{caseId}/decisions` | `workflow.case.decide` | `—` | legacy | E3 |
@@ -37,10 +37,10 @@
 | 23 | `POST` | `/v1/cases/{id}/withdraw` | `workflow.case.create` | `—` | legacy | E3 |
 | 24 | `POST` | `/v1/delegations` | `workflow.case.decide` | `—` | legacy | E3 |
 | 25 | `DELETE` | `/v1/delegations/{id}` | `workflow.case.decide` | `—` | legacy | E3 |
-| 26 | `GET` | `/v1/departments` | `org.unit.read` | `—` | legacy | E3 |
-| 27 | `GET` | `/v1/departments/staffing` | `org.unit.read` | `—` | legacy | E3 |
-| 28 | `GET` | `/v1/departments/{id}/members` | `org.unit.read` | `—` | legacy | E3 |
-| 29 | `POST` | `/v1/departments/{id}/members` | `org.unit.manage` | `—` | legacy | E3 |
+| 26 | `GET` | `/v1/departments` | `org.unit.read` | `—` | legacy | C1 |
+| 27 | `GET` | `/v1/departments/staffing` | `org.unit.read` | `—` | legacy | C1 |
+| 28 | `GET` | `/v1/departments/{id}/members` | `org.unit.read` | `—` | legacy | C1 |
+| 29 | `POST` | `/v1/departments/{id}/members` | `org.unit.manage` | `—` | legacy | C1 |
 | 30 | `GET` | `/v1/documents/{document_id}/download` | `people.document.download` | `—` | legacy | C4 |
 | 31 | `POST` | `/v1/effects/{id}/retry` | `workflow.case.admin` | `—` | legacy | E3 |
 | 32 | `GET` | `/v1/employees` | `people.employee.read` | `LEGAL_ENTITY` | legacy | E3 |
@@ -67,11 +67,11 @@
 | 53 | `GET` | `/v1/employees/{employment_id}/onboarding-checklist` | `lifecycle.case.read` | `—` | legacy | E3 |
 | 54 | `POST` | `/v1/employments` | `people.employee.manage` | `—` | legacy | E3 |
 | 55 | `GET` | `/v1/employments/contracts/expiring` | `people.contract.read` | `—` | legacy | B1 |
-| 56 | `GET` | `/v1/employments/{employmentId}/contracts` | `people.contract.read` | `—` | legacy | B1 |
-| 57 | `POST` | `/v1/employments/{employmentId}/contracts` | `people.contract.manage` | `—` | legacy | B1 |
-| 58 | `GET` | `/v1/employments/{employmentId}/contracts/{id}` | `people.contract.read` | `—` | legacy | B1 |
+| 56 | `GET` | `/v1/employments/{employmentId}/contracts` | `people.contract.read` | `—` | legacy | E3 |
+| 57 | `POST` | `/v1/employments/{employmentId}/contracts` | `people.contract.manage` | `—` | legacy | E3 |
+| 58 | `GET` | `/v1/employments/{employmentId}/contracts/{id}` | `people.contract.read` | `—` | legacy | E3 |
 | 59 | `POST` | `/v1/employments/{employment_id}/assignments` | `people.assignment.manage` | `—` | legacy | E3 |
-| 60 | `POST` | `/v1/employments/{employment_id}/documents` | `people.contract.manage` | `—` | legacy | C4 |
+| 60 | `POST` | `/v1/employments/{employment_id}/documents` | `people.contract.manage` | `—` | legacy | E3 |
 | 61 | `POST` | `/v1/employments/{employment_id}/terms` | `people.contract.manage` | `—` | legacy | E3 |
 | 62 | `GET` | `/v1/employments/{employment_id}/timeline` | `people.employee.read` | `—` | legacy | E3 |
 | 63 | `POST` | `/v1/employments/{employment_id}/transfer` | `people.employee.manage` | `—` | legacy | E3 |
@@ -80,8 +80,8 @@
 | 66 | `GET` | `/v1/engagement/notices/{notice}` | `engagement.notice.read` | `—` | legacy | D1 |
 | 67 | `POST` | `/v1/engagement/notices/{notice}/acknowledge` | `engagement.notice.read` | `—` | legacy | D1 |
 | 68 | `POST` | `/v1/engagement/notices/{notice}/retract` | `engagement.notice.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 69 | `GET` | `/v1/engagement/notifications` | `engagement.notification.read` | `—` | legacy | D1 |
-| 70 | `POST` | `/v1/engagement/notifications/{notification}/read` | `engagement.notification.read` | `—` | legacy | D1 |
+| 69 | `GET` | `/v1/engagement/notifications` | `engagement.notification.read` | `—` | legacy | E3 |
+| 70 | `POST` | `/v1/engagement/notifications/{notification}/read` | `engagement.notification.read` | `—` | legacy | E3 |
 | 71 | `GET` | `/v1/health` | `—` | `—` | kernel | — |
 | 72 | `GET` | `/v1/health/live` | `—` | `—` | kernel | — |
 | 73 | `GET` | `/v1/health/ready` | `—` | `—` | kernel | — |
@@ -89,26 +89,26 @@
 | 75 | `GET` | `/v1/leave/ledger/{employment_id}` | `time.leave.ledger.read` | `—` | legacy | E3 |
 | 76 | `POST` | `/v1/leave/requests` | `time.leave.request` | `—` | legacy | E3 |
 | 77 | `POST` | `/v1/leave/requests/{caseId}/cancel` | `time.leave.request.cancel` | `—` | legacy | E3 |
-| 78 | `GET` | `/v1/lifecycle/cases` | `lifecycle.case.read` | `—` | legacy | E3 |
-| 79 | `GET` | `/v1/lifecycle/cases/{caseId}` | `lifecycle.case.read` | `—` | legacy | E3 |
-| 80 | `POST` | `/v1/lifecycle/contract-renewals` | `lifecycle.contract.manage` | `—` | legacy | E3 |
-| 81 | `POST` | `/v1/lifecycle/offboardings` | `lifecycle.offboard.manage` | `—` | legacy | E3 |
-| 82 | `POST` | `/v1/lifecycle/onboarding` | `lifecycle.onboarding.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 83 | `POST` | `/v1/lifecycle/probation-confirmations` | `lifecycle.probation.manage` | `—` | legacy | E3 |
-| 84 | `POST` | `/v1/lifecycle/rehires` | `lifecycle.rehire.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 85 | `POST` | `/v1/lifecycle/salary-changes` | `lifecycle.terms.manage` | `—` | legacy | E3 |
-| 86 | `POST` | `/v1/lifecycle/transfers` | `lifecycle.transfer.manage` | `LEGAL_ENTITY` | legacy | E3 |
+| 78 | `GET` | `/v1/lifecycle/cases` | `lifecycle.case.read` | `—` | legacy | C1 |
+| 79 | `GET` | `/v1/lifecycle/cases/{caseId}` | `lifecycle.case.read` | `—` | legacy | C1 |
+| 80 | `POST` | `/v1/lifecycle/contract-renewals` | `lifecycle.contract.manage` | `—` | legacy | C1 |
+| 81 | `POST` | `/v1/lifecycle/offboardings` | `lifecycle.offboard.manage` | `—` | legacy | C1 |
+| 82 | `POST` | `/v1/lifecycle/onboarding` | `lifecycle.onboarding.manage` | `LEGAL_ENTITY` | legacy | C1 |
+| 83 | `POST` | `/v1/lifecycle/probation-confirmations` | `lifecycle.probation.manage` | `—` | legacy | C1 |
+| 84 | `POST` | `/v1/lifecycle/rehires` | `lifecycle.rehire.manage` | `LEGAL_ENTITY` | legacy | C1 |
+| 85 | `POST` | `/v1/lifecycle/salary-changes` | `lifecycle.terms.manage` | `—` | legacy | C1 |
+| 86 | `POST` | `/v1/lifecycle/transfers` | `lifecycle.transfer.manage` | `LEGAL_ENTITY` | legacy | C1 |
 | 87 | `GET` | `/v1/me` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 88 | `GET` | `/v1/me/capabilities` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 89 | `GET` | `/v1/me/permissions` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 90 | `GET` | `/v1/me/workspace` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 91 | `GET` | `/v1/meta` | `—` | `—` | kernel | — |
 | 92 | `PATCH` | `/v1/onboarding-tasks/{id}` | `lifecycle.checklist.manage` | `—` | legacy | E3 |
-| 93 | `POST` | `/v1/org-units` | `org.unit.manage` | `—` | legacy | E3 |
-| 94 | `GET` | `/v1/org-units/tree` | `org.unit.read` | `—` | legacy | E3 |
-| 95 | `GET` | `/v1/org-units/{id}/impact` | `org.unit.manage` | `—` | legacy | E3 |
-| 96 | `POST` | `/v1/org-units/{id}/move` | `org.unit.manage` | `—` | legacy | E3 |
-| 97 | `POST` | `/v1/overtime/records/{recordId}/settlements` | `time.overtime.settle` | `—` | legacy | B2 |
+| 93 | `POST` | `/v1/org-units` | `org.unit.manage` | `—` | legacy | C1 |
+| 94 | `GET` | `/v1/org-units/tree` | `org.unit.read` | `—` | legacy | C1 |
+| 95 | `GET` | `/v1/org-units/{id}/impact` | `org.unit.manage` | `—` | legacy | C1 |
+| 96 | `POST` | `/v1/org-units/{id}/move` | `org.unit.manage` | `—` | legacy | C1 |
+| 97 | `POST` | `/v1/overtime/records/{recordId}/settlements` | `time.overtime.settle` | `—` | legacy | C2 |
 | 98 | `GET` | `/v1/payroll/items` | `payroll.run.read` | `LEGAL_ENTITY` | legacy | B5 |
 | 99 | `POST` | `/v1/payroll/items` | `payroll.run.prepare` | `LEGAL_ENTITY` | legacy | B5 |
 | 100 | `GET` | `/v1/payroll/payslips` | `payroll.payslip.read.self` | `SELF` | legacy | B5 |
@@ -144,8 +144,8 @@
 | 130 | `GET` | `/v1/performance/templates` | `performance.cycle.read` | `—` | legacy | B3 |
 | 131 | `POST` | `/v1/performance/templates` | `performance.cycle.manage` | `—` | legacy | B3 |
 | 132 | `POST` | `/v1/persons` | `people.employee.manage` | `—` | legacy | E3 |
-| 133 | `GET` | `/v1/platform/features` | `platform.feature.manage` | `—` | legacy | E3 |
-| 134 | `PUT` | `/v1/platform/features/{flag}` | `platform.feature.manage` | `—` | legacy | E3 |
+| 133 | `GET` | `/v1/platform/features` | `platform.feature.manage` | `—` | legacy | D1 |
+| 134 | `PUT` | `/v1/platform/features/{flag}` | `platform.feature.manage` | `—` | legacy | D1 |
 | 135 | `GET` | `/v1/positions` | `org.position.read` | `—` | legacy | C1 |
 | 136 | `POST` | `/v1/positions` | `org.position.manage` | `—` | legacy | C1 |
 | 137 | `GET` | `/v1/positions/{id}` | `org.position.read` | `—` | legacy | C1 |
@@ -174,7 +174,7 @@
 | 160 | `POST` | `/v1/time/attendance/corrections` | `time.attendance.correct.request` | `—` | legacy | C2 |
 | 161 | `POST` | `/v1/time/attendance/recalculate` | `time.attendance.manage` | `—` | legacy | C2 |
 | 162 | `GET` | `/v1/time/attendance/{employment_id}` | `time.attendance.read` | `—` | legacy | C2 |
-| 163 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | E3 |
+| 163 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | D1 |
 | 164 | `GET` | `/v1/time/leave/balances` | `time.leave.read` | `—` | legacy | E3 |
 | 165 | `GET` | `/v1/time/leave/ledger` | `time.leave.ledger.read` | `—` | legacy | E3 |
 | 166 | `GET` | `/v1/time/leave/policies` | `time.leave.read` | `—` | legacy | E3 |
@@ -185,7 +185,7 @@
 | 171 | `GET` | `/v1/time/leave/types` | `time.leave.read` | `—` | legacy | E3 |
 | 172 | `GET` | `/v1/time/overtime/policies` | `time.overtime.read` | `—` | legacy | B2 |
 | 173 | `GET` | `/v1/time/overtime/records` | `time.overtime.read` | `—` | legacy | B2 |
-| 174 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | E3 |
+| 174 | `POST` | `/v1/time/punches/import` | `time.punch.import` | `—` | legacy | C2 |
 | 175 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
 | 176 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
 | 177 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
@@ -197,12 +197,12 @@
 | 183 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | legacy | C3 |
 | 184 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | legacy | C3 |
 | 185 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | legacy | C3 |
-| 186 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | E3 |
-| 187 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 188 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 189 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 190 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | E3 |
-| 191 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | E3 |
+| 186 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
+| 187 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 188 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 189 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 190 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 191 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
 | 192 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
 | 193 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
 
@@ -212,3 +212,15 @@
 2. 集群 Task 完成后，该集群路由必须改为 `kernel`（CommandRunner 或 ProjectionResponder）。
 3. 任何新增 `/v1` 路由若未出现在本台账，`LegacyRouteInventoryTest` 失败。
 4. 台账中 `kernel` 条目只允许增加，不允许把已迁移路由改回 `legacy`。
+5. `E3` 仅用于“无集群归属的既有端点收敛”（auth/session、cases、Me、leave 读写等）；
+   它是验收阶段的迁移清扫，不新增能力集群。
+
+## 3. E3 范围（必须显式列出，避免变成垃圾桶）
+
+| 现有端点族 | 为何归 E3 | 迁移方式 |
+|---|---|---|
+| `/v1/auth/*`、`/v1/me/*`、`/v1/access-review`、`/v1/bindings`、`/v1/users` | IAM 会话与身份治理 | D1 完成后改为 ProjectionResponder；会话路由保持专用中间件 |
+| `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 内核既有端点 | E3 统一改为 ProjectionResponder/CommandRunner，不改语义 |
+| `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影，不重写账本 |
+| `/v1/employees*`、`/v1/employments*`、`/v1/persons`、`/v1/org-units*` | People/Org 既有读写 | C1 迁移岗位与组织部分；员工主档在 E3 收敛 |
+| `/v1/platform/features` | Feature flag 管理 | D1 迁移 |

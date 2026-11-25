@@ -19,6 +19,15 @@ final class LegacyRouteInventoryTest extends TestCase
     private const ALLOWED_MIGRATION_TASKS = ['B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3', 'D4', 'E3'];
 
     /**
+     * The legacy set is frozen: these are the endpoints that existed when the
+     * kernel was introduced. A new route may not be born legacy — it must use
+     * CommandRunner/ProjectionResponder and be classified `kernel`.
+     *
+     * @var list<string>|null
+     */
+    private static ?array $frozenLegacySet = null;
+
+    /**
      * @return array<string, array{kind: string, task: string}>
      */
     private function ledger(): array
@@ -37,7 +46,13 @@ final class LegacyRouteInventoryTest extends TestCase
             $uriKey = $matches[2];
 
             foreach (explode('/', $matches[1]) as $method) {
-                $rows["{$method} {$uriKey}"] = [
+                $key = "{$method} {$uriKey}";
+
+                if (array_key_exists($key, $rows)) {
+                    $this->fail("Duplicate ledger row for {$key}.");
+                }
+
+                $rows[$key] = [
                     'kind' => $matches[5],
                     'task' => trim($matches[6]),
                 ];
@@ -153,9 +168,9 @@ final class LegacyRouteInventoryTest extends TestCase
         $this->assertCount(193, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
     }
 
-    public function test_public_routes_never_claim_a_capability(): void
+    public function test_the_unguarded_routes_are_exactly_the_public_allowlist(): void
     {
-        $allowed = [
+        $allowlist = [
             'v1/health',
             'v1/health/live',
             'v1/health/ready',
@@ -164,11 +179,9 @@ final class LegacyRouteInventoryTest extends TestCase
             'v1/auth/mfa/challenge',
         ];
 
-        foreach ($this->v1Routes() as $route) {
-            if (! in_array($route->uri(), $allowed, true)) {
-                continue;
-            }
+        $unguarded = [];
 
+        foreach ($this->v1Routes() as $route) {
             $hasCapability = false;
 
             foreach ($route->gatherMiddleware() as $middleware) {
@@ -177,7 +190,76 @@ final class LegacyRouteInventoryTest extends TestCase
                 }
             }
 
-            $this->assertFalse($hasCapability, "Public route /{$route->uri()} must stay on the explicit allowlist.");
+            if (! $hasCapability) {
+                $unguarded[] = $route->uri();
+            }
         }
+
+        sort($unguarded);
+        sort($allowlist);
+
+        $this->assertSame($allowlist, $unguarded, 'Exactly the six public routes may be unguarded.');
+    }
+
+    public function test_every_public_allowlist_route_is_classified_kernel(): void
+    {
+        $ledger = $this->ledger();
+
+        foreach (['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login', 'v1/auth/mfa/challenge'] as $uri) {
+            $entries = array_filter(
+                $ledger,
+                static fn (array $entry, string $key): bool => str_ends_with($key, " /{$uri}"),
+                ARRAY_FILTER_USE_BOTH,
+            );
+
+            $this->assertNotEmpty($entries, "Public route /{$uri} is missing from the ledger.");
+
+            foreach ($entries as $key => $entry) {
+                $this->assertSame('kernel', $entry['kind'], "{$key} must be classified kernel.");
+            }
+        }
+    }
+
+    public function test_a_new_route_may_not_be_born_legacy(): void
+    {
+        $legacy = [];
+
+        foreach ($this->ledger() as $route => $entry) {
+            if ($entry['kind'] === 'legacy') {
+                $legacy[] = $route;
+            }
+        }
+
+        sort($legacy);
+        $frozen = self::frozenLegacySet();
+
+        $added = array_values(array_diff($legacy, $frozen));
+
+        $this->assertSame(
+            [],
+            $added,
+            'New routes must use CommandRunner/ProjectionResponder and be classified kernel. New legacy routes: '.implode(', ', $added),
+        );
+    }
+
+    /**
+     * Frozen baseline captured at commit 3274d7b. Regenerate only when a task
+     * deliberately adds a legacy endpoint (never for a new feature route).
+     *
+     * @return list<string>
+     */
+    private static function frozenLegacySet(): array
+    {
+        if (self::$frozenLegacySet !== null) {
+            return self::$frozenLegacySet;
+        }
+
+        $fixture = base_path('tests/Contract/fixtures/legacy-routes.frozen.txt');
+        $contents = (string) file_get_contents($fixture);
+
+        self::$frozenLegacySet = array_values(array_filter(array_map('trim', explode('
+', $contents))));
+
+        return self::$frozenLegacySet;
     }
 }
