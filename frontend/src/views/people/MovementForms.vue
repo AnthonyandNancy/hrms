@@ -33,6 +33,8 @@ type Draft = {
   termination_type: string
   reason_code: string
   final_payroll_required: string
+  host_org_unit_id: string
+  secondment_effective_to: string
 }
 
 const defaults: Record<string, Partial<Draft>> = {
@@ -58,6 +60,14 @@ const defaults: Record<string, Partial<Draft>> = {
     reason: '',
     legal_entity_id: '1',
   },
+  'movement-secondment': {
+    employment_id: '',
+    host_org_unit_id: '',
+    position_id: '',
+    effective_date: '',
+    secondment_effective_to: '',
+    reason: '',
+  },
   'movement-salary': {
     employment_id: '',
     effective_date: '',
@@ -79,6 +89,7 @@ const formKinds: readonly PeopleForm[] = [
   'movement-probation',
   'movement-transfer',
   'movement-salary',
+  'movement-secondment',
   'movement-offboarding',
 ]
 
@@ -106,6 +117,7 @@ function pathFor(form: PeopleForm): string {
   if (form === 'movement-probation') return '/v1/lifecycle/probation-confirmations'
   if (form === 'movement-transfer') return '/v1/lifecycle/transfers'
   if (form === 'movement-salary') return '/v1/lifecycle/salary-changes'
+  if (form === 'movement-secondment') return '/v1/lifecycle/secondments'
   return '/v1/lifecycle/offboardings'
 }
 
@@ -149,6 +161,19 @@ function bodyFor(form: PeopleForm): Record<string, unknown> | null {
       submit: true,
     }
   }
+  if (form === 'movement-secondment') {
+    const employmentId = numeric(draft.employment_id)
+    const hostOrgUnitId = numeric(draft.host_org_unit_id)
+    if (employmentId === null || hostOrgUnitId === null || draft['effective_date'] === '' || draft.secondment_effective_to === '' || draft.reason.trim() === '') return null
+    return {
+      employment_id: employmentId,
+      host_org_unit_id: hostOrgUnitId,
+      position_id: numeric(draft.position_id),
+      effective_from: draft.effective_date,
+      effective_to: draft.secondment_effective_to,
+      reason: draft.reason.trim(),
+    }
+  }
   if (form === 'movement-salary') {
     const employmentId = numeric(draft.employment_id)
     const amount = numeric(draft.base_salary_minor)
@@ -190,7 +215,11 @@ async function submit(): Promise<void> {
   submitting.value = true
   try {
     await postRow(pathFor(props.form), body, props.form)
-    ElMessage.success('异动案例已提交；审批通过后按生效日期执行。')
+    ElMessage.success(
+      props.form === 'movement-secondment'
+        ? '借调已登记为并行任职；主任职历史保持不变。'
+        : '异动案例已提交；审批通过后按生效日期执行。',
+    )
     for (const key of Object.keys(draft) as Array<keyof Draft>) delete draft[key]
     Object.assign(draft, defaults[props.form])
     emit('created')
@@ -207,7 +236,9 @@ async function submit(): Promise<void> {
     <header class="panel__header">
       <div>
         <h2 class="panel__title">发起异动</h2>
-        <p class="panel__subtitle">异动命令会创建审批案例；审批通过不等于立即生效。</p>
+        <p class="panel__subtitle">
+          {{ form === 'movement-secondment' ? '借调创建 assignment_type=SECONDMENT 的并行任职（POST /v1/lifecycle/secondments），不改写主任职。' : '异动命令会创建审批案例；审批通过不等于立即生效。' }}
+        </p>
       </div>
     </header>
     <div class="panel__body">
@@ -225,13 +256,17 @@ async function submit(): Promise<void> {
 
           <label v-if="form !== 'movement-onboarding'" class="people-field"><span>员工关系编号 *</span><input v-model="draft.employment_id" data-testid="movement-employment-id" inputmode="numeric" /></label>
           <label v-if="form === 'movement-probation'" class="people-field"><span>转正生效日 *</span><input v-model="draft.effective_date" data-testid="movement-effective-date" type="date" /></label>
-          <label v-if="form === 'movement-transfer' || form === 'movement-salary'" class="people-field"><span>生效日期 *</span><input v-model="draft.effective_date" data-testid="movement-effective-date" type="date" /></label>
+          <label v-if="form === 'movement-transfer' || form === 'movement-salary' || form === 'movement-secondment'" class="people-field"><span>生效日期 *</span><input v-model="draft.effective_date" data-testid="movement-effective-date" type="date" /></label>
           <label v-if="form === 'movement-transfer'" class="people-field"><span>目标组织编号 *</span><input v-model="draft.org_unit_id" data-testid="movement-target-org" inputmode="numeric" /></label>
           <label v-if="form === 'movement-transfer'" class="people-field"><span>目标岗位编号</span><input v-model="draft.position_id" inputmode="numeric" /></label>
-          <label v-if="form === 'movement-transfer' || form === 'movement-salary'" class="people-field people-field--wide"><span>原因 *</span><textarea v-model="draft.reason" data-testid="movement-reason" rows="2" /></label>
+          <label v-if="form === 'movement-transfer' || form === 'movement-salary' || form === 'movement-secondment'" class="people-field people-field--wide"><span>原因 *</span><textarea v-model="draft.reason" data-testid="movement-reason" rows="2" /></label>
           <label v-if="form === 'movement-salary'" class="people-field"><span>新基本工资（分）*</span><input v-model="draft.base_salary_minor" data-testid="movement-salary-minor" inputmode="numeric" /></label>
           <label v-if="form === 'movement-salary'" class="people-field"><span>币种</span><input v-model="draft.salary_currency" maxlength="3" /></label>
           <label v-if="form === 'movement-probation'" class="people-field people-field--wide"><span>意见</span><textarea v-model="draft.comment" rows="2" /></label>
+
+          <label v-if="form === 'movement-secondment'" class="people-field"><span>借调接收组织编号 *</span><input v-model="draft.host_org_unit_id" data-testid="movement-host-org" inputmode="numeric" /></label>
+          <label v-if="form === 'movement-secondment'" class="people-field"><span>借调岗位编号</span><input v-model="draft.position_id" data-testid="movement-secondment-position" inputmode="numeric" /></label>
+          <label v-if="form === 'movement-secondment'" class="people-field"><span>借调结束日 *</span><input v-model="draft.secondment_effective_to" data-testid="movement-secondment-to" type="date" /></label>
 
           <label v-if="form === 'movement-offboarding'" class="people-field"><span>最后工作日 *</span><input v-model="draft.last_working_date" data-testid="movement-last-working-date" type="date" /></label>
           <label v-if="form === 'movement-offboarding'" class="people-field"><span>离职类型 *</span><select v-model="draft.termination_type" data-testid="movement-termination-type"><option value="RESIGNATION">主动离职</option><option value="TERMINATION">公司解除</option><option value="RETIREMENT">退休</option><option value="CONTRACT_END">合同到期</option><option value="MUTUAL_AGREEMENT">协商一致</option></select></label>

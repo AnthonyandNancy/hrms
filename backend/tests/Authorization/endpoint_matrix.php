@@ -612,6 +612,18 @@ return ['GET /v1/documents/{document_id}/content' => [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
+    'GET /v1/lifecycle/secondments' => [
+        'capability' => 'lifecycle.secondment.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
+    ],
+    'POST /v1/lifecycle/secondments' => [
+        'capability' => 'lifecycle.secondment.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
     'POST /v1/org-units' => [
         'capability' => 'org.unit.manage',
         'anchor' => 'SELF',
@@ -1085,6 +1097,36 @@ return ['GET /v1/documents/{document_id}/content' => [
         'anchor' => 'LEGAL_ENTITY',
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/positions/grades' => [
+        'capability' => 'org.position.grade.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/positions/grades' => [
+        'capability' => 'org.position.grade.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/positions/{id}/requirements' => [
+        'capability' => 'org.position.qualification.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/positions/{id}/requirements' => [
+        'capability' => 'org.position.qualification.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/positions/{id}/staff' => [
+        'capability' => 'org.position.staff.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
     ],
     'GET /v1/positions' => [
         'capability' => 'org.position.read',

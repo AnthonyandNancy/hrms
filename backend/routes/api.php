@@ -13,8 +13,10 @@ use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\IAM\Http\Controllers\WorkspaceController;
 use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
+use App\Modules\Lifecycle\Http\Controllers\SecondmentController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
+use App\Modules\Organization\Http\Controllers\PositionCatalogController;
 use App\Modules\Organization\Http\Controllers\PositionController;
 use App\Modules\Payroll\Http\Controllers\CompensationController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
@@ -58,6 +60,7 @@ use App\Modules\Workflow\Http\Controllers\TaskController;
 use App\Modules\Workflow\Http\Controllers\TemplateController;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
 use App\Shared\Authorization\ResolveLegalEntityContext;
+use App\Shared\Authorization\ResolveResourceLegalEntityContext;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -323,6 +326,24 @@ Route::prefix('departments')->middleware('auth.session')->group(function (): voi
 });
 
 Route::prefix('positions')->middleware('auth.session')->group(function (): void {
+    Route::get('/grades', [PositionCatalogController::class, 'grades'])
+        ->middleware('capability:org.position.grade.manage,LEGAL_ENTITY,legal_entity_id')
+        ->name('positions.grades.index');
+    Route::post('/grades', [PositionCatalogController::class, 'storeGrade'])
+        ->middleware(['mfa.enrolled', 'capability:org.position.grade.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('positions.grades.store');
+    Route::get('/{id}/requirements', [PositionCatalogController::class, 'requirements'])
+        ->whereNumber('id')
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.qualification.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('positions.requirements.index');
+    Route::post('/{id}/requirements', [PositionCatalogController::class, 'storeRequirements'])
+        ->whereNumber('id')
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'mfa.enrolled', 'capability:org.position.qualification.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('positions.requirements.store');
+    Route::get('/{id}/staff', [PositionCatalogController::class, 'staff'])
+        ->whereNumber('id')
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.staff.read,LEGAL_ENTITY,legal_entity_id'])
+        ->name('positions.staff.index');
     Route::get('/', [PositionController::class, 'index'])
         ->middleware('capability:org.position.read')
         ->name('positions.index');
@@ -628,6 +649,12 @@ Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): voi
     Route::post('/rehires', [LifecycleController::class, 'rehire'])
         ->middleware('capability:lifecycle.rehire.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('lifecycle.rehires.store');
+    Route::get('/secondments', [SecondmentController::class, 'index'])
+        ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('lifecycle.secondments.index');
+    Route::post('/secondments', [SecondmentController::class, 'store'])
+        ->middleware([ResolveResourceLegalEntityContext::class.':employment', 'mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('lifecycle.secondments.store');
     Route::get('/cases', [LifecycleController::class, 'cases'])
         ->middleware('capability:lifecycle.case.read')
         ->name('lifecycle.cases.index');

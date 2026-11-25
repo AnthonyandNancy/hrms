@@ -30,6 +30,7 @@ final class Position extends Model
         'code',
         'title',
         'grade',
+        'status',
         'headcount_limit',
         'valid_from',
         'valid_to',

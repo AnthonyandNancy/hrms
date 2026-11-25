@@ -85,7 +85,7 @@ final class PositionService
                 if (($occupancy[$positionId] ?? 0) > 0) {
                     throw new ConflictException(
                         'A position with active incumbents cannot be disabled.',
-                        ['reason' => 'POSITION_HAS_INCUMBENTS', 'position_id' => $positionId],
+                        ['reason' => 'POSITION_STAFFED', 'position_id' => $positionId],
                     );
                 }
             }

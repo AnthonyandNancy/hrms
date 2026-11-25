@@ -84,6 +84,7 @@ const movementForms: readonly PeopleForm[] = [
   'movement-probation',
   'movement-transfer',
   'movement-salary',
+  'movement-secondment',
   'movement-offboarding',
 ]
 
@@ -232,6 +233,9 @@ onMounted(load)
           <span v-else-if="config.read.kind === 'contract-expiring'" class="people-table-panel__hint">
             60 / 30 / 7 天预警区间按服务端剩余天数计算。
           </span>
+          <span v-else-if="config.read.kind === 'secondments'" class="people-table-panel__hint">
+            借调是并行任职：主任职记录与历史保持不变，到期由流程关闭借调任职。
+          </span>
           <span v-else-if="config.selectable" class="people-table-panel__hint">
             选择一个岗位后可在下方表单调整编制。
           </span>
@@ -257,7 +261,7 @@ onMounted(load)
       />
 
       <PositionForms
-        v-if="config.form === 'position-editor' || config.form === 'position-headcount'"
+        v-if="config.form === 'position-editor' || config.form === 'position-headcount' || config.form === 'position-requirement' || config.form === 'position-grade'"
         :form="config.form"
         :rows="state.rows"
         :position-id="selectedId"
