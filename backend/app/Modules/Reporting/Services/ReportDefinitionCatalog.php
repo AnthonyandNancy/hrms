@@ -143,15 +143,222 @@ final class ReportDefinitionCatalog
     }
 
     /**
+     * Whitelisted projection fields, keyed by source projection. A custom
+     * definition may only select a subset of this map; it can never add a
+     * field or a predicate that is not declared here.
+     *
+     * @return array<string, array<string, array{key: string, label: string, profile: string, exportable: bool}>>
+     */
+    public static function whitelist(): array
+    {
+        $whitelist = [];
+
+        foreach (self::definitions() as $definition) {
+            $fields = [];
+
+            foreach ((array) $definition['fields_json'] as $field) {
+                $fields[(string) $field['key']] = $field;
+            }
+
+            $source = (string) $definition['source_projection'];
+            $whitelist[$source] = [...($whitelist[$source] ?? []), ...$fields];
+        }
+
+        return $whitelist;
+    }
+
+    /**
+     * Whitelisted filters, keyed by source projection.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function filterWhitelist(): array
+    {
+        $whitelist = [];
+
+        foreach (self::definitions() as $definition) {
+            $source = (string) $definition['source_projection'];
+            $keys = array_map(
+                static fn (array $filter): string => (string) $filter['key'],
+                (array) $definition['filters_json'],
+            );
+            $whitelist[$source] = array_values(array_unique([...($whitelist[$source] ?? []), ...$keys]));
+        }
+
+        return $whitelist;
+    }
+
+    /**
+     * Validate a custom definition against the approved whitelist. Requests
+     * containing SQL are rejected with a stable reason before field lookup so
+     * operators can tell an injection attempt from a typo.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{code: string, name: string, description: string, source_projection: string, fields_json: list<array<string, mixed>>, filters_json: list<array<string, mixed>>}
+     */
+    public function validateCustomDefinition(array $input): array
+    {
+        $filterInput = (array) ($input['filters'] ?? []);
+        $filterText = array_is_list($filterInput)
+            ? array_map('strval', $filterInput)
+            : array_map(
+                static fn (mixed $key, mixed $value): string => $key.'='.(is_scalar($value) ? (string) $value : ''),
+                array_keys($filterInput),
+                $filterInput,
+            );
+        $sqlPayload = [
+            (string) ($input['code'] ?? ''),
+            (string) ($input['name'] ?? ''),
+            (string) ($input['description'] ?? ''),
+            (string) ($input['source_projection'] ?? ''),
+            ...array_map('strval', (array) ($input['fields'] ?? [])),
+            ...$filterText,
+        ];
+        $sqlPattern = '/\b(select|insert|update|delete|drop|alter|union|join|where|exec|truncate|create|grant|revoke)\b|--|\/\*|\*\/|;|`|\bfrom\s+\w+|\b(?:sleep|benchmark)\s*\(/i';
+
+        foreach ($sqlPayload as $value) {
+            if (preg_match($sqlPattern, $value) === 1) {
+                throw new ValidationException(
+                    ['fields' => ['Custom report definitions may only reference approved whitelist fields; SQL and free-form predicates are not allowed.']],
+                    'The given data was invalid.',
+                    ['reason' => 'REPORT_SQL_NOT_ALLOWED'],
+                );
+            }
+        }
+
+        $source = (string) ($input['source_projection'] ?? '');
+        $whitelist = self::whitelist();
+
+        if (! isset($whitelist[$source])) {
+            throw new ValidationException(
+                ['source_projection' => ['Unknown report source projection.']],
+                'The given data was invalid.',
+                ['reason' => 'UNKNOWN_REPORT_SOURCE'],
+            );
+        }
+
+        $fieldKeys = array_values(array_map('strval', (array) ($input['fields'] ?? [])));
+
+        if ($fieldKeys === []) {
+            throw new ValidationException(
+                ['fields' => ['At least one whitelisted field is required.']],
+                'The given data was invalid.',
+                ['reason' => 'REPORT_FIELD_REQUIRED'],
+            );
+        }
+
+        $selectedFields = [];
+
+        foreach ($fieldKeys as $key) {
+            $field = $whitelist[$source][$key] ?? null;
+
+            if ($field === null) {
+                throw new ValidationException(
+                    ['fields' => ["Field {$key} is not in the approved whitelist for {$source}."]],
+                    'The given data was invalid.',
+                    ['reason' => 'UNKNOWN_REPORT_FIELD'],
+                );
+            }
+
+            $selectedFields[$key] = $field;
+        }
+
+        $filterKeys = array_is_list($filterInput)
+            ? array_values(array_map('strval', $filterInput))
+            : array_values(array_map('strval', array_keys($filterInput)));
+        $allowedFilters = self::filterWhitelist()[$source] ?? [];
+        $selectedFilters = [];
+
+        foreach ($filterKeys as $key) {
+            if (! in_array($key, $allowedFilters, true)) {
+                throw new ValidationException(
+                    ['filters' => ["Filter {$key} is not an approved filter for {$source}."]],
+                    'The given data was invalid.',
+                    ['reason' => 'UNKNOWN_REPORT_FILTER'],
+                );
+            }
+
+            $selectedFilters[] = ['key' => $key];
+        }
+
+        return [
+            'code' => strtoupper(trim((string) ($input['code'] ?? ''))),
+            'name' => trim((string) ($input['name'] ?? '')),
+            'description' => trim((string) ($input['description'] ?? '')),
+            'source_projection' => $source,
+            'fields_json' => array_values($selectedFields),
+            'filters_json' => $selectedFilters,
+        ];
+    }
+
+    /**
+     * Store a tenant-owned custom definition. Only the validated whitelist
+     * selection is persisted; no SQL, expression or free-form predicate can
+     * enter the row.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function createCustom(int $tenantId, int $actorUserId, array $input): array
+    {
+        $definition = $this->validateCustomDefinition($input);
+
+        if ($definition['code'] === '' || $definition['name'] === '') {
+            throw new ValidationException(['code' => ['Code and name are required.']], 'The given data was invalid.', ['reason' => 'INVALID_REPORT_DEFINITION']);
+        }
+
+        $this->syncForTenant($tenantId);
+
+        if (ReportDefinition::query()
+            ->where('tenant_id', $tenantId)
+            ->where('code', $definition['code'])
+            ->where('is_system', true)
+            ->exists()) {
+            throw new ConflictException('A system report definition with this code already exists.', ['reason' => 'REPORT_CODE_RESERVED']);
+        }
+
+        $row = ReportDefinition::query()->create([
+            'tenant_id' => $tenantId,
+            'is_system' => false,
+            'code' => $definition['code'],
+            'name' => $definition['name'],
+            'description' => $definition['description'] !== '' ? $definition['description'] : null,
+            'source_projection' => $definition['source_projection'],
+            'as_of_supported' => true,
+            'fields_json' => $definition['fields_json'],
+            'filters_json' => $definition['filters_json'],
+            'drilldown_route' => null,
+            'catalog_version' => 1,
+            'active' => true,
+            'created_by' => $actorUserId,
+            'updated_by' => $actorUserId,
+        ]);
+
+        return $this->payload($row);
+    }
+
+    /**
      * Synchronise code-owned definitions into the tenant read model.
      */
     public function syncForTenant(int $tenantId): void
     {
         DB::transaction(function () use ($tenantId): void {
             foreach (self::definitions() as $definition) {
+                $existing = ReportDefinition::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('code', $definition['code'])
+                    ->first();
+
+                // Tenant-authored definitions can never be shadowed by a
+                // code-owned definition added later with the same code.
+                if ($existing !== null && ! (bool) $existing->is_system) {
+                    continue;
+                }
+
                 ReportDefinition::query()->updateOrCreate(
                     ['tenant_id' => $tenantId, 'code' => $definition['code']],
                     [
+                        'is_system' => true,
                         'name' => $definition['name'],
                         'description' => $definition['description'],
                         'source_projection' => $definition['source_projection'],
@@ -179,27 +386,37 @@ final class ReportDefinitionCatalog
             ->where('active', true)
             ->orderBy('code')
             ->get()
-            ->map(static fn (ReportDefinition $definition): array => [
-                'id' => (int) $definition->id,
-                'code' => (string) $definition->code,
-                'name' => (string) $definition->name,
-                'description' => (string) ($definition->description ?? ''),
-                'asOfSupported' => (bool) $definition->as_of_supported,
-                'drilldownRoute' => $definition->drilldown_route,
-                'fields' => array_map(static function (mixed $field): array {
-                    /** @var array<string, mixed> $field */
-                    $field = (array) $field;
-
-                    return [
-                        'key' => (string) ($field['key'] ?? ''),
-                        'label' => (string) ($field['label'] ?? ''),
-                        'profile' => (string) ($field['profile'] ?? ''),
-                        'exportable' => (string) ($field['profile'] ?? '') !== FieldProfile::P3_RESTRICTED->value,
-                    ];
-                }, (array) $definition->fields_json),
-                'filters' => (array) $definition->filters_json,
-            ])
+            ->map(fn (ReportDefinition $definition): array => $this->payload($definition))
             ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payload(ReportDefinition $definition): array
+    {
+        return [
+            'id' => (int) $definition->id,
+            'code' => (string) $definition->code,
+            'name' => (string) $definition->name,
+            'description' => (string) ($definition->description ?? ''),
+            'sourceProjection' => (string) $definition->source_projection,
+            'isSystem' => (bool) $definition->is_system,
+            'asOfSupported' => (bool) $definition->as_of_supported,
+            'drilldownRoute' => $definition->drilldown_route,
+            'fields' => array_map(static function (mixed $field): array {
+                /** @var array<string, mixed> $field */
+                $field = (array) $field;
+
+                return [
+                    'key' => (string) ($field['key'] ?? ''),
+                    'label' => (string) ($field['label'] ?? ''),
+                    'profile' => (string) ($field['profile'] ?? ''),
+                    'exportable' => (string) ($field['profile'] ?? '') !== FieldProfile::P3_RESTRICTED->value,
+                ];
+            }, (array) $definition->fields_json),
+            'filters' => (array) $definition->filters_json,
+        ];
     }
 
     /**
