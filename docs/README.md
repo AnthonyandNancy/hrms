@@ -11,6 +11,7 @@
 | 提案 | 设计文档 | 修改计划 | 状态 |
 |---|---|---|---|
 | 最高权限完整性、生产基线数据与去演示化 | `superpowers/specs/2026-11-24-superuser-coverage-and-production-baseline-design.md` | `superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md` | 已批准，按 Subagent-Driven 执行 |
+| V1.1 生产完整性（17 菜单、140 业务页、14 平台模块、6 基础页、26 工作包） | `superpowers/specs/2026-11-25-v11-production-completion-design.md` | `superpowers/plans/2026-11-25-v11-production-completion-implementation-plan.md` | **已确认**；页面/权限蓝皮书 `audit/2026-11-25-v11-page-access-blueprint.md`；清单 `audit/2026-11-25-v11-page-inventory.md`；审计 `audit/2026-11-25-v11-gap-audit.md` |
 
 该提案修订（不重写）上述两份已批准交付件，涉及 ADR-0004 第 7 条与 ADR-0013 的表述边界，并新增 ADR-0016、ADR-0017。
 
@@ -42,3 +43,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File convert_final.ps1
 - [ADR-0016](adr/0016-wildcard-superuser-and-sod-layering.md)
 - [ADR-0017](adr/0017-production-install-baseline-and-mfa-login.md)
 - [ADR-0018](adr/0018-password-only-login.md)
+- [ADR-0024](adr/0024-superuser-full-authority-and-p3-audit.md)
+- [ADR-0025](adr/0025-intranet-mfa-and-operational-posture.md)
+- [ADR-0026](adr/0026-page-coverage-registry.md)
+- [ADR-0027](adr/0027-page-permission-and-role-allocation.md)
