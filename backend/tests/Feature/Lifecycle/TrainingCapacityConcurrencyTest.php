@@ -25,12 +25,18 @@ final class TrainingCapacityConcurrencyTest extends TalentTestCase
             'capacity' => 1,
         ]);
 
+        $employmentIds = [101, 102, 103, 104];
         $successes = 0;
         $failures = 0;
 
-        foreach ([101, 102, 103, 104] as $employmentId) {
+        foreach ($employmentIds as $employmentId) {
             try {
-                app(TrainingService::class)->enroll(1, 10, (int) $session['session_id'], $employmentId);
+                $enrolled = app(TrainingService::class)->enroll(1, 10, (int) $session['session_id'], $employmentId);
+                // A different Idempotency-Key must still be a replay (200)
+                // when this employment is already enrolled.
+                $replayed = app(TrainingService::class)->enroll(1, 10, (int) $session['session_id'], $employmentId);
+                $this->assertSame($enrolled['enrollment_id'], $replayed['enrollment_id']);
+                $this->assertSame('REPLAY', $replayed['outcome']);
                 $successes++;
             } catch (ConflictException $exception) {
                 $failures++;

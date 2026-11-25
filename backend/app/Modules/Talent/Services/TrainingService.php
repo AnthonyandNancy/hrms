@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Talent\Services;
 
+use App\Modules\Talent\Models\TrainingCourse;
 use App\Modules\Talent\Models\TrainingEnrollment;
 use App\Modules\Talent\Models\TrainingProgram;
 use App\Modules\Talent\Models\TrainingSession;
@@ -62,9 +63,28 @@ final class TrainingService
             throw new ValidationException(['program_id' => ['The training program does not exist.']]);
         }
 
+        $planId = isset($input['plan_id']) ? (int) $input['plan_id'] : null;
+        $courseId = isset($input['course_id']) ? (int) $input['course_id'] : null;
+
+        if ($courseId !== null) {
+            $course = TrainingCourse::query()->where('tenant_id', $tenantId)->whereKey($courseId)->first();
+
+            if ($course === null) {
+                throw new ValidationException(['course_id' => ['The training course does not exist.']]);
+            }
+
+            if ($planId !== null && (int) $course->plan_id !== $planId) {
+                throw new ValidationException(['course_id' => ['The training course does not belong to the selected plan.']]);
+            }
+
+            $planId = (int) $course->plan_id;
+        }
+
         $session = TrainingSession::query()->create([
             'tenant_id' => $tenantId,
             'program_id' => (int) $program->id,
+            'plan_id' => $planId,
+            'course_id' => $courseId,
             'starts_on' => (string) $input['starts_on'],
             'ends_on' => (string) $input['ends_on'],
             'starts_at' => (string) $input['starts_at'],
@@ -79,6 +99,9 @@ final class TrainingService
     }
 
     /**
+     * Re-enrolment is idempotent. A different Idempotency-Key still returns
+     * the existing row with outcome=REPLAY so the HTTP adapter can answer 200.
+     *
      * @return array<string, mixed>
      */
     public function enroll(int $tenantId, int $actorUserId, int $sessionId, int $employmentId): array
@@ -98,7 +121,7 @@ final class TrainingService
                 ->first();
 
             if ($existing !== null) {
-                return $this->enrollmentData($existing);
+                return [...$this->enrollmentData($existing), 'outcome' => 'REPLAY'];
             }
 
             $count = TrainingEnrollment::query()
@@ -139,7 +162,7 @@ final class TrainingService
                 'employment_id' => $employmentId,
             ]);
 
-            return $this->enrollmentData($enrollment);
+            return [...$this->enrollmentData($enrollment), 'outcome' => 'CREATED'];
         });
     }
 
@@ -183,9 +206,6 @@ final class TrainingService
     /**
      * @return list<array<string, mixed>>
      */
-    /**
-     * @return list<array<string, mixed>>
-     */
     public function sessions(int $tenantId, ?int $programId = null, ?string $status = null): array
     {
         return TrainingSession::query()
@@ -197,6 +217,8 @@ final class TrainingService
             ->map(fn (TrainingSession $session): array => [
                 'session_id' => (int) $session->id,
                 'program_id' => (int) $session->program_id,
+                'plan_id' => $session->plan_id !== null ? (int) $session->plan_id : null,
+                'course_id' => $session->course_id !== null ? (int) $session->course_id : null,
                 'starts_on' => (string) $session->starts_on,
                 'ends_on' => (string) $session->ends_on,
                 'starts_at' => $this->iso($session->starts_at),
@@ -242,6 +264,8 @@ final class TrainingService
         return [
             'session_id' => (int) $session->id,
             'program_id' => (int) $session->program_id,
+            'plan_id' => $session->plan_id !== null ? (int) $session->plan_id : null,
+            'course_id' => $session->course_id !== null ? (int) $session->course_id : null,
             'starts_on' => (string) $session->starts_on,
             'ends_on' => (string) $session->ends_on,
             'capacity' => (int) $session->capacity,

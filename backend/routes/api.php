@@ -738,7 +738,19 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
         ->name('performance.cycles.publish');
 });
 
-Route::prefix('training')->middleware(['auth.session'])->group(function (): void {
+Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
+    Route::get('/plans', [TrainingController::class, 'plans'])
+        ->middleware('capability:training.plan.manage,LEGAL_ENTITY')
+        ->name('training.plans.index');
+    Route::post('/plans', [TrainingController::class, 'storePlan'])
+        ->middleware('capability:training.plan.manage,LEGAL_ENTITY')
+        ->name('training.plans.store');
+    Route::get('/courses', [TrainingController::class, 'courses'])
+        ->middleware('capability:training.course.manage,LEGAL_ENTITY')
+        ->name('training.courses.index');
+    Route::post('/courses', [TrainingController::class, 'storeCourse'])
+        ->middleware('capability:training.course.manage,LEGAL_ENTITY')
+        ->name('training.courses.store');
     Route::get('/programs', [TrainingController::class, 'programs'])
         ->middleware('capability:training.program.read')
         ->name('training.programs.index');
@@ -751,6 +763,20 @@ Route::prefix('training')->middleware(['auth.session'])->group(function (): void
     Route::post('/sessions', [TrainingController::class, 'storeSession'])
         ->middleware('capability:training.session.manage')
         ->name('training.sessions.store');
+    Route::get('/sessions/{id}/checkins', [TrainingController::class, 'checkins'])
+        ->whereNumber('id')
+        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->name('training.sessions.checkins.index');
+    Route::post('/sessions/{id}/checkins', [TrainingController::class, 'storeCheckin'])
+        ->whereNumber('id')
+        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->name('training.sessions.checkins.store');
+    Route::get('/checkins', [TrainingController::class, 'checkins'])
+        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->name('training.checkins.index');
+    Route::get('/enrollments', [TrainingController::class, 'enrollments'])
+        ->middleware('capability:training.enrollment.manage')
+        ->name('training.enrollments.index');
     Route::post('/enrollments', [TrainingController::class, 'storeEnrollment'])
         ->middleware('capability:training.enrollment.manage')
         ->name('training.enrollments.store');
@@ -758,6 +784,31 @@ Route::prefix('training')->middleware(['auth.session'])->group(function (): void
         ->whereNumber('id')
         ->middleware('capability:training.completion.manage')
         ->name('training.enrollments.complete');
+    Route::get('/exams', [TrainingController::class, 'exams'])
+        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->name('training.exams.index');
+    Route::post('/exams', [TrainingController::class, 'storeExam'])
+        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->name('training.exams.store');
+    Route::post('/exams/{id}/publish', [TrainingController::class, 'publishExam'])
+        ->whereNumber('id')
+        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->name('training.exams.publish');
+    Route::get('/feedback', [TrainingController::class, 'feedback'])
+        ->middleware('capability:training.feedback.manage,LEGAL_ENTITY')
+        ->name('training.feedback.index');
+    Route::post('/feedback', [TrainingController::class, 'storeFeedback'])
+        ->middleware('capability:training.feedback.manage,LEGAL_ENTITY')
+        ->name('training.feedback.store');
+    Route::get('/records', [TrainingController::class, 'records'])
+        ->middleware('capability:training.record.read,LEGAL_ENTITY')
+        ->name('training.records.index');
+    Route::get('/records/export', [TrainingController::class, 'exportRecords'])
+        ->middleware('capability:training.record.read,LEGAL_ENTITY')
+        ->name('training.records.export');
+    Route::get('/reports', [TrainingController::class, 'reports'])
+        ->middleware('capability:training.report.read')
+        ->name('training.reports.index');
     Route::get('/report', [TrainingController::class, 'report'])
         ->middleware('capability:training.report.read')
         ->name('training.report.index');
