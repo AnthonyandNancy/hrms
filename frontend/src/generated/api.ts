@@ -167,6 +167,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employments/{employment_id}/document-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List employee document files
+         * @description Requires capability `people.document.read`. Returns the standard projection envelope.
+         */
+        get: operations["listEmploymentDocumentFiles"];
+        put?: never;
+        /**
+         * Upload an employee document file
+         * @description Requires capability `people.document.read` and an Idempotency-Key.
+         */
+        post: operations["uploadEmploymentDocumentFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}/signed-download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mint a short-lived signed download URL
+         * @description Requires capability `people.document.download`.
+         */
+        get: operations["signDocumentDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download document bytes through a signed URL
+         * @description Authorization is the short-lived signature minted by
+         *     `/v1/documents/{document_id}/signed-download`; the route additionally
+         *     requires the `people.document.download` capability, so it stays inside
+         *     the universal default-deny rule.
+         */
+        get: operations["downloadDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an employee document
+         * @description Requires capability `people.employee.manage`. Refused while a legal hold applies.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employments/{employment_id}/documents": {
         parameters: {
             query?: never;
@@ -695,7 +782,14 @@ export interface paths {
         /** List the ten templates and tenant exception roles */
         get: operations["listRoles"];
         put?: never;
-        post?: never;
+        /**
+         * Create a tenant exception role from code-owned capability codes
+         * @description Capability semantics are code-owned. The request may select known
+         *     capability codes with an anchor the capability allows and a field
+         *     profile no wider than the capability maximum. Requires an
+         *     Idempotency-Key.
+         */
+        post: operations["createRole"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3257,6 +3351,301 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/roles/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy a role and its capability selections */
+        post: operations["copyRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/roles/{id}/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace an exception role's capability selections
+         * @description Template roles are code-owned and return 409.
+         */
+        put: operations["replaceRoleCapabilities"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List presentation-only menu overrides */
+        get: operations["listMenuOverrides"];
+        put?: never;
+        /**
+         * Create a presentation-only menu override
+         * @description Unknown page codes are rejected. Display never grants capabilities.
+         */
+        post: operations["createMenuOverride"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/menus/{page_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a menu override */
+        delete: operations["deleteMenuOverride"];
+        options?: never;
+        head?: never;
+        /** Update a menu override */
+        patch: operations["updateMenuOverride"];
+        trace?: never;
+    };
+    "/v1/system/data-scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List code-owned data scope templates with tenant selections */
+        get: operations["listDataScopePolicies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/data-scopes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Select a whitelisted scope template and label
+         * @description Arbitrary predicates are rejected with 422.
+         */
+        put: operations["updateDataScopePolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/field-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List code-owned sensitive fields and their effective profiles */
+        get: operations["listFieldPolicies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/field-policies/{field_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tighten a sensitive field policy
+         * @description Widening a declared profile returns 409.
+         */
+        put: operations["updateFieldPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/dictionaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List tenant dictionary entries */
+        get: operations["listDictionaries"];
+        put?: never;
+        /** Create a dictionary entry */
+        post: operations["createDictionaryEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/dictionaries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a dictionary entry */
+        patch: operations["updateDictionaryEntry"];
+        trace?: never;
+    };
+    "/v1/system/parameters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List typed tenant parameters (sensitive values masked) */
+        get: operations["listSystemParameters"];
+        /**
+         * Upsert a typed parameter
+         * @description The stored payload must be a JSON object containing a value key; sensitive values are encrypted at rest.
+         */
+        put: operations["updateSystemParameter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/system/calendars/{legal_entity_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a legal-entity calendar version */
+        post: operations["publishCalendarVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notification-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List notification templates */
+        get: operations["listNotificationTemplates"];
+        put?: never;
+        /** Create a notification template */
+        post: operations["createNotificationTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch one notification event through the outbox
+         * @description The tenant event_key is unique; a repeated event returns the existing delivery.
+         */
+        post: operations["dispatchNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List notification delivery attempts */
+        get: operations["listNotificationDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/deliveries/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry a failed notification delivery */
+        post: operations["retryNotificationDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4004,6 +4393,15 @@ export interface components {
             body: string;
             /** Format: date-time */
             published_at: string | null;
+        };
+        DocumentReference: {
+            id: number;
+            version: number;
+        };
+        SignedDownload: {
+            document_id: number;
+            url: string;
+            expires_in_minutes: number;
         };
         ProjectionPagination: {
             items: unknown[];
@@ -5145,6 +5543,193 @@ export interface components {
             purpose: string;
             status: string;
         };
+        MenuOverride: {
+            page_code: string;
+            label: string | null;
+            visible: boolean;
+            sort_order: number;
+        };
+        DataScopePolicy: {
+            /** @enum {string} */
+            template: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            /** @enum {string} */
+            anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            label: string;
+            active: boolean;
+            sort_order: number;
+            description: string;
+        };
+        FieldPolicy: {
+            field_key: string;
+            /** @enum {string} */
+            profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+            /** @enum {string} */
+            declared_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+            can_tighten: boolean;
+        };
+        DictionaryEntry: {
+            id: number;
+            type: string;
+            code: string;
+            label: string;
+            sort_order: number;
+            active: boolean;
+        };
+        SystemParameter: {
+            id: number;
+            key: string;
+            scope: string;
+            value: unknown;
+            sensitive: boolean;
+            masked: boolean;
+        };
+        NotificationTemplate: {
+            id: number;
+            code: string;
+            /** @enum {string} */
+            channel: "IN_APP" | "EMAIL" | "WECHAT_WORK";
+            subject: string;
+            body: string;
+            version: number;
+            active: boolean;
+        };
+        NotificationDelivery: {
+            id: number;
+            delivery_id: number;
+            template_code: string;
+            recipient_user_id: number;
+            /** @enum {string} */
+            channel: "IN_APP" | "EMAIL" | "WECHAT_WORK";
+            /** @enum {string} */
+            status: "PENDING" | "SENT" | "FAILED";
+            attempts: number;
+            last_error: string | null;
+            /** Format: date-time */
+            sent_at: string | null;
+        };
+        CalendarVersion: {
+            legal_entity_id: number;
+            version: number;
+            timezone: string;
+            workweek: number[];
+            standard_day_minutes: number;
+            holidays: {
+                /** Format: date */
+                date: string;
+                name: string;
+                /** @enum {string} */
+                type: "PUBLIC" | "COMPANY" | "MAKEUP";
+            }[];
+        };
+        RoleCapabilitySelection: {
+            capability: string;
+            anchor_type: string;
+            /** @enum {string} */
+            field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+        };
+        RoleCreateRequest: {
+            code: string;
+            name: string;
+            purpose: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            capabilities: components["schemas"]["RoleCapabilitySelection"][];
+        };
+        RoleCopyRequest: {
+            code: string;
+            name: string;
+            purpose: string;
+        };
+        RoleCapabilitiesRequest: {
+            capabilities: components["schemas"]["RoleCapabilitySelection"][];
+        };
+        MenuOverrideCreateRequest: {
+            page_code: string;
+            label?: string | null;
+            visible?: boolean;
+            sort_order?: number;
+        };
+        MenuOverrideUpdateRequest: {
+            label?: string | null;
+            visible?: boolean;
+            sort_order?: number;
+        };
+        DataScopePolicyUpdateRequest: {
+            label?: string;
+            anchor_type?: string;
+            active?: boolean;
+            sort_order?: number;
+        };
+        FieldPolicyUpdateRequest: {
+            /** @enum {string} */
+            field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+        };
+        DictionaryCreateRequest: {
+            type: string;
+            code: string;
+            label: string;
+            sort_order?: number;
+            active?: boolean;
+        };
+        DictionaryUpdateRequest: {
+            label?: string;
+            sort_order?: number;
+            active?: boolean;
+        };
+        SystemParameterUpdateRequest: {
+            key: string;
+            scope?: string;
+            value: unknown;
+            sensitive?: boolean;
+        };
+        CalendarPublishRequest: {
+            timezone: string;
+            workweek: number[];
+            standard_day_minutes?: number;
+            holidays?: {
+                /** Format: date */
+                date: string;
+                name: string;
+                /** @enum {string} */
+                type: "PUBLIC" | "COMPANY" | "MAKEUP";
+            }[];
+        };
+        NotificationTemplateCreateRequest: {
+            code: string;
+            /** @enum {string} */
+            channel: "IN_APP" | "EMAIL" | "WECHAT_WORK";
+            subject: string;
+            body: string;
+        };
+        NotificationDispatchRequest: {
+            event_key: string;
+            template_code: string;
+            recipient_user_id: number;
+            variables?: {
+                [key: string]: unknown;
+            };
+        };
+        DictionaryProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["DictionaryEntry"][];
+        };
+        DataScopeProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["DataScopePolicy"][];
+        };
+        FieldPolicyProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["FieldPolicy"][];
+        };
+        MenuOverrideProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["MenuOverride"][];
+        };
+        SystemParameterProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["SystemParameter"][];
+        };
+        NotificationTemplateProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["NotificationTemplate"][];
+        };
+        NotificationDeliveryProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: components["schemas"]["NotificationDelivery"][];
+        };
     };
     responses: {
         /** @description Missing, expired, revoked or stale-auth-version session */
@@ -5497,6 +6082,177 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["Terms"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentDocumentFiles: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    uploadEmploymentDocumentFile: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    category: "CONTRACT" | "ID" | "EDUCATION" | "CERTIFICATE" | "OTHER";
+                    retention_class: string;
+                    legal_hold?: boolean;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Document created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DocumentReference"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    signDocumentDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SignedDownload"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    downloadDocumentContent: {
+        parameters: {
+            query: {
+                tenant_id: number;
+                expires: number;
+                signature: string;
+            };
+            header?: never;
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        /** Format: binary */
+                        data?: string;
+                    };
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            deleted?: boolean;
+                        };
                     };
                 };
             };
@@ -6515,6 +7271,41 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Role created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -12284,6 +13075,751 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    copyRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCopyRequest"];
+            };
+        };
+        responses: {
+            /** @description Role copied */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    replaceRoleCapabilities: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCapabilitiesRequest"];
+            };
+        };
+        responses: {
+            /** @description Capabilities replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMenuOverrides: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Menu override projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MenuOverrideProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createMenuOverride: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuOverrideCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Override created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MenuOverride"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteMenuOverride: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                page_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Override deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            page_code: string;
+                            deleted: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateMenuOverride: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                page_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MenuOverrideUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Override updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MenuOverride"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listDataScopePolicies: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scope template projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DataScopeProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateDataScopePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataScopePolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Scope template updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DataScopePolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listFieldPolicies: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Field policy projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["FieldPolicyProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateFieldPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                field_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldPolicyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Field policy updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["FieldPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listDictionaries: {
+        parameters: {
+            query?: {
+                type?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dictionary projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DictionaryProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createDictionaryEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictionaryCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Entry created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DictionaryEntry"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateDictionaryEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictionaryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Entry updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["DictionaryEntry"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listSystemParameters: {
+        parameters: {
+            query?: {
+                key?: string;
+                scope?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Parameter projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SystemParameterProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateSystemParameter: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemParameterUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Parameter updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["SystemParameter"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    publishCalendarVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                legal_entity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarPublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Calendar published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["CalendarVersion"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listNotificationTemplates: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationTemplateProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createNotificationTemplate: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplateCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationTemplate"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    dispatchNotification: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationDispatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing delivery returned for an already-consumed event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationDelivery"];
+                    };
+                };
+            };
+            /** @description Delivery created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationDelivery"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listNotificationDeliveries: {
+        parameters: {
+            query?: {
+                status?: "PENDING" | "SENT" | "FAILED";
+                page?: number;
+                page_size?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "X-Legal-Entity-Id": number;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationDeliveryProjection"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    retryNotificationDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-Legal-Entity-Id": number;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Delivery retried */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["NotificationDelivery"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
