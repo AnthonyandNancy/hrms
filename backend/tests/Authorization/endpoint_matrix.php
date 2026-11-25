@@ -1181,6 +1181,36 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
+    'POST /v1/travel/requests/{id}/approve' => [
+        'capability' => 'time.travel.approve',
+        'anchor' => 'MANAGED',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/travel/policies' => [
+        'capability' => 'time.travel.policy.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+    ],
+    'POST /v1/travel/policies' => [
+        'capability' => 'time.travel.policy.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/travel/expenses' => [
+        'capability' => 'time.travel.expense',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'mfa_required', 'field_or_export'],
+    ],
+    'POST /v1/travel/expenses' => [
+        'capability' => 'time.travel.expense.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
     'GET /v1/departments' => [
         'capability' => 'org.unit.read',
         'anchor' => 'LEGAL_ENTITY',

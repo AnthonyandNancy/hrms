@@ -159,6 +159,85 @@ abstract class TimeTestCase extends TestCase
         return $this;
     }
 
+    protected function actingAsTravelManager(): static
+    {
+        $this->app->instance(\App\Shared\Authorization\Authorizer::class, new TimeTestAuthorizer($this->actors));
+
+        $actor = TimeTestFixtures::actor(
+            tenantId: $this->tenantId,
+            employmentId: 1,
+            scope: 'MANAGED',
+            capabilities: [
+                'time.travel.read',
+                'time.travel.request',
+                'time.travel.policy.read',
+                'time.travel.policy.manage',
+                'time.travel.approve',
+                'time.travel.expense',
+                'time.travel.expense.manage',
+            ],
+            managedEmploymentIds: [1],
+            legalEntityIds: [$this->legalEntityId],
+        );
+        $this->actAsTimeActor($actor);
+
+        $principal = new \Tests\Support\TestPrincipal(
+            tenantId: $actor->tenantId,
+            userId: $actor->userId,
+            employmentId: $actor->employmentId,
+        );
+
+        $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
+        $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
+        $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+
+        return $this;
+    }
+
+    protected function createPendingTrip(): int
+    {
+        $trip = \App\Modules\Time\Models\BusinessTripRecord::query()->create([
+            'tenant_id' => $this->tenantId,
+            'employment_id' => 1,
+            'legal_entity_id' => $this->legalEntityId,
+            'from_date' => '2026-12-01',
+            'to_date' => '2026-12-02',
+            'destination' => 'Synthetic City',
+            'purpose' => 'Synthetic pending trip.',
+            'status' => 'PENDING_APPROVAL',
+            'created_at' => $this->clock->now(),
+        ]);
+
+        return (int) $trip->id;
+    }
+
+    protected function createApprovedTrip(): \App\Modules\Time\Models\BusinessTripRecord
+    {
+        $caseId = $this->workflow->createCase(
+            tenantId: $this->tenantId,
+            requesterUserId: 10,
+            type: 'TRAVEL_REQUEST',
+            subjectType: 'employment',
+            subjectId: 1,
+            payload: ['title' => 'Synthetic travel request'],
+            businessDate: '2026-12-01',
+        );
+        $this->workflow->approve($this->tenantId, $caseId);
+
+        return \App\Modules\Time\Models\BusinessTripRecord::query()->create([
+            'tenant_id' => $this->tenantId,
+            'employment_id' => 1,
+            'legal_entity_id' => $this->legalEntityId,
+            'from_date' => '2026-12-01',
+            'to_date' => '2026-12-02',
+            'destination' => 'Synthetic City',
+            'purpose' => 'Synthetic approved trip.',
+            'status' => 'APPROVED',
+            'case_id' => $caseId,
+            'created_at' => $this->clock->now(),
+        ]);
+    }
+
     /**
      * Bind the authenticated principal and the Time actor together for HTTP
      * tests. The capability engine is the same Time-scoped test authorizer so

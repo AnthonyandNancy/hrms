@@ -53,6 +53,7 @@ final class SeedWorkflowTemplatesCommand extends Command
         $codes = [
             'leave.request',
             'attendance.correction',
+            'travel.request',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',

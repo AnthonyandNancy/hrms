@@ -51,7 +51,7 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         return $case !== null && $case->tenantId === $tenantId ? $case : null;
     }
 
-    public function decide(int $tenantId, int $caseId, string $decision): void
+    private function decideCase(int $tenantId, int $caseId, string $decision, string $comment = ''): void
     {
         $case = $this->cases[$caseId] ?? null;
 
@@ -68,7 +68,7 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
             subjectId: $case->subjectId,
             status: $decision,
             effectStatus: 'SCHEDULED',
-            payload: $case->payload,
+            payload: $comment === '' ? $case->payload : [...$case->payload, 'last_decision_comment' => $comment],
             businessDate: $case->businessDate,
             caseNo: $case->caseNo,
             title: $case->title,
@@ -77,14 +77,19 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         );
     }
 
+    public function decide(int $tenantId, int $caseId, string $action, string $comment): void
+    {
+        $this->decideCase($tenantId, $caseId, strtoupper($action), $comment);
+    }
+
     public function requestCancel(int $tenantId, int $caseId, int $actorUserId, string $reason): void
     {
-        $this->decide($tenantId, $caseId, 'CANCELLED');
+        $this->decideCase($tenantId, $caseId, 'CANCELLED');
     }
 
     /** Test helper: approve the case so an effect may apply. */
     public function approve(int $tenantId, int $caseId): void
     {
-        $this->decide($tenantId, $caseId, 'APPROVED');
+        $this->decideCase($tenantId, $caseId, 'APPROVED');
     }
 }

@@ -26,6 +26,21 @@ interface CaseCommandPort
     ): array;
 
     /**
+     * Record one immutable Workflow Decision and return the resulting case
+     * application/effect state. Business modules never flip approval status
+     * themselves; this is the only cross-module decision command.
+     *
+     * @return array{case_id: int, application_status: string, effect_status: string}
+     */
+    public function decide(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $action,
+        string $comment,
+        ?string $reason = null,
+    ): array;
+
+    /**
      * Withdraw a case owned by the same requester. Idempotent when the case is
      * already withdrawn.
      *

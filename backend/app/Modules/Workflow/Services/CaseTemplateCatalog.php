@@ -21,6 +21,7 @@ final class CaseTemplateCatalog
     private const TEMPLATE_CODES = [
         'LEAVE_REQUEST' => 'leave.request',
         'ATTENDANCE_CORRECTION' => 'attendance.correction',
+        'TRAVEL_REQUEST' => 'travel.request',
         'TRANSFER_REQUEST' => 'transfer.request',
         'CONTRACT_RENEWAL' => 'contract.renewal',
         'ONBOARDING_REQUEST' => 'onboarding.request',

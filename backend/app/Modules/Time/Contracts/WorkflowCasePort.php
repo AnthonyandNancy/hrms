@@ -23,6 +23,12 @@ interface WorkflowCasePort
         string $businessDate,
     ): int;
 
+    /**
+     * Record an approval decision through Workflow. The decision action is
+     * APPROVE or REJECT; status is never written by the business module.
+     */
+    public function decide(int $tenantId, int $caseId, string $action, string $comment): void;
+
     public function case(int $tenantId, int $caseId): ?WorkflowCaseSnapshot;
 
     public function requestCancel(int $tenantId, int $caseId, int $actorUserId, string $reason): void;
