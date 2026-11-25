@@ -7,12 +7,12 @@
 # a per-table row-count checksum. It never writes to the source database.
 #
 # Usage:
-#   deploy/scripts/mysql_backup_restore.sh [--project factoryhrv11] [--service mysql] [--database factoryhr]
+#   deploy/scripts/mysql_backup_restore.sh [--project factoryhr] [--service mysql] [--database factoryhr]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-PROJECT="${COMPOSE_PROJECT_NAME:-factoryhrv11}"
+PROJECT="${COMPOSE_PROJECT_NAME:-factoryhr}"
 SERVICE="${MYSQL_SERVICE:-mysql}"
 DATABASE="${MYSQL_DATABASE:-factoryhr}"
 ROOT_USER="${MYSQL_ROOT_USER:-root}"

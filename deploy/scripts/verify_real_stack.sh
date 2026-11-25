@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 BASE_URL="${HRMS_FRONTEND_URL:-http://127.0.0.1:5184}"
-PROJECT="${COMPOSE_PROJECT_NAME:-factoryhrv11}"
+PROJECT="${COMPOSE_PROJECT_NAME:-factoryhr}"
 FAIL=0
 FAILED_GATES=()
 

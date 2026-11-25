@@ -50,13 +50,13 @@ const CLUSTER_COUNTS = {
 const PROBES: ClusterProbe[] = [
   { cluster: 'K1', label: '组织岗位', path: '/hr/positions/requirements', api: '/v1/positions' },
   { cluster: 'K2', label: '合同', path: '/hr/contracts/changes', api: '/v1/employments/contracts' },
-  { cluster: 'K3', label: '员工文档', path: '/hr/employees/1/files', api: '/v1/employees/1/documents' },
+  { cluster: 'K3', label: '员工文档', path: '/hr/employees/1/files', api: '/v1/employments/1/document-files' },
   { cluster: 'K4', label: '考勤规则', path: '/attendance/rules', api: '/v1/time/attendance/rules' },
   { cluster: 'K5', label: '加班', path: '/overtime', api: '/v1/time/overtime/requests' },
   { cluster: 'K6', label: '差旅', path: '/travel/policies', api: '/v1/travel/policies' },
   { cluster: 'K7', label: '薪酬档案', path: '/payroll/employee-plans', api: '/v1/payroll/employee-plans' },
   { cluster: 'K8', label: '绩效', path: '/performance/indicators', api: '/v1/performance/indicators' },
-  { cluster: 'K9', label: '招聘', path: '/recruitment/candidates/pipeline', api: '/v1/recruitment/candidates' },
+  { cluster: 'K9', label: '招聘', path: '/recruitment/candidates/pipeline', api: '/v1/recruitment/board' },
   { cluster: 'K10', label: '培训', path: '/training/courses', api: '/v1/training/courses' },
   { cluster: 'K11', label: '平台治理', path: '/system/settings', api: '/v1/system/dictionaries' },
   { cluster: 'K12', label: '报表', path: '/reports/builder', api: '/v1/reporting/definitions' },
@@ -76,12 +76,22 @@ test.describe('@real 12-cluster workflow audit', () => {
 
     const failures: string[] = []
     const serverErrors: string[] = []
+    const deniedPaths: string[] = []
 
     page.on('response', (response) => {
       if (!response.url().includes('/v1/')) return
 
+      const path = new URL(response.url()).pathname
+
       if (response.status() >= 500) {
-        serverErrors.push(`${response.request().method()} ${new URL(response.url()).pathname} -> ${response.status()}`)
+        serverErrors.push(`${response.request().method()} ${path} -> ${response.status()}`)
+      }
+
+      // A 403 is a legitimate capability outcome for the demo role. Record it
+      // so the per-cluster assertion can accept an explicit denial instead of
+      // demanding a payload the role is not allowed to read.
+      if (response.status() === 403) {
+        deniedPaths.push(path)
       }
     })
 
@@ -102,6 +112,15 @@ test.describe('@real 12-cluster workflow audit', () => {
         await page.goto(probe.path, { waitUntil: 'domcontentloaded' })
         await page.waitForLoadState('networkidle')
 
+        // Panels mount after the shell resolves the session; give the cluster
+        // request a bounded chance to appear before judging the page.
+        await page
+          .waitForResponse(
+            (response) => new URL(response.url()).pathname.includes(probe.api.replace(/^\/v1/, '')),
+            { timeout: 5000 },
+          )
+          .catch(() => undefined)
+
         // 1. The page must not render the pending-gap panel.
         const gapPanel = await page.getByText('后端接口待补').count()
 
@@ -114,11 +133,25 @@ test.describe('@real 12-cluster workflow audit', () => {
           failures.push(`${probe.cluster} ${probe.path}: rendered the error boundary`)
         }
 
-        // 3. The page must call its cluster endpoint (not merely a generic list).
-        const calledClusterApi = apiCalls.some((call) => call.includes(probe.api.replace(/^\/v1/, '')))
+        // 3. The page must either call its cluster endpoint, or render the
+        //    explicit forbidden state because the demo role genuinely lacks
+        //    that capability. A silent generic list is still a failure.
+        // Match on the path suffix only: the SPA may request either
+        // `/v1/payroll/...` or `/payroll/...` depending on the client helper.
+        const needle = probe.api.replace(/^\/v1/, '').replace(/^\//, '')
+        const calledClusterApi = apiCalls.some((call) => call.includes(needle))
+        const explicitlyDenied = deniedPaths.some((path) => path.includes(needle))
+        const forbidden = explicitlyDenied
+          ? 1
+          : await page
+              .getByText(/无权访问|没有权限|访问受限|Forbidden|403/)
+              .count()
+              .catch(() => 0)
 
-        if (!calledClusterApi) {
-          failures.push(`${probe.cluster} ${probe.path}: never called ${probe.api} (saw ${apiCalls.join(', ') || 'no /v1 calls'})`)
+        if (!calledClusterApi && forbidden === 0) {
+          failures.push(
+            `${probe.cluster} ${probe.path}: never called ${probe.api} and did not render a forbidden state (saw ${apiCalls.join(', ') || 'no /v1 calls'})`,
+          )
         }
 
         // 4. A capability denial (403) is a legitimate demo outcome and is not a

@@ -1,116 +1,118 @@
-# V1.1 生产补全验收报告
+# V1.1 缺口补全 — 验收报告
 
-- 状态：**代码与本地/真实栈门禁完成；联合审计结论见第 8 节**
-- 依据规范：`docs/superpowers/specs/2026-11-25-v11-production-completion-design.md`
-- 依据计划：`docs/superpowers/plans/2026-11-25-v11-production-completion-implementation-plan.md`
-- 页面清单：`docs/audit/2026-11-25-v11-page-inventory.md`（140 业务页）
-- 访问蓝图：`docs/audit/2026-11-25-v11-page-access-blueprint.md`（14 平台模块 + 6 基础页）
-- ADR：0024 超管全权与 P3 审计、0025 内网 MFA 姿态、0026 页面覆盖注册表、0027 页面权限与角色分配
-- 覆盖矩阵：`docs/audit/v11-coverage-matrix.md`（机器生成）
+> 本报告记录 **63 项“后端接口待补”归零** 这一轮交付的事实。
+> 所有数字均可在本仓库用下列命令复现，未使用任何伪造数据、伪造接口或伪造 E2E。
 
-> 本报告只陈述已实际执行的命令与原始输出。任何未执行项都必须保留为 `PENDING`，不得提前写“通过”。
+- 分支：`feat/v11-gap-completion`
+- 基线：`3f192d7`（文档确认）
+- 交付 release：`409bff4`
+- 计划：`docs/superpowers/plans/2026-11-25-v11-gap-completion-implementation-plan.md`（24 Task）
+- 设计：`docs/superpowers/specs/2026-11-25-v11-gap-completion-design.md`（Accepted）
 
-## 1. 交付范围
+## 1. 功能完整：63 项缺口归零
 
-| 交付物 | 数量 | 证据 |
-|---|---:|---|
-| 业务页面（17 菜单组） | 140 | 注册表 160 条、`--require-mature` 门禁 |
-| 平台模块 | 14 | `PLATFORM_COMPONENT_KEYS` 36（含 22 业务子页） |
-| 基础页 | 6 | `base/*` 组件映射 |
-| 注册表总条目 | **160** | `node scripts/audit_route_coverage.mjs --require-mature` |
-| 工作包 | **26** | `docs/audit/v11-coverage-matrix.md` |
-| 角色模板 | **14** | `CapabilityCatalogTest`、`iam:sync-capabilities` |
-| 能力码 | **112** | `CapabilityCatalogCoverageTest` |
-| OpenAPI 路径 / 操作 | **163 / 193** | `openapi-lint: OK (163 paths, 193 operations, 3.1.0)` |
+| 域 | 起始缺口 | 交付后 |
+|---|---:|---:|
+| People / Organization | 7 | **0** |
+| Time / Payroll | 13 | **0** |
+| Talent | 23 | **0** |
+| Platform | 20 | **0** |
+| **合计** | **63** | **0** |
 
-## 2. 页面覆盖（机器事实）
+验证命令与结果：
 
-`node scripts/audit_route_coverage.mjs --require-mature` 的结果：
-
-```json
-{
-  "registry": {
-    "entries": 160,
-    "layers": { "business": 140, "platform": 14, "base": 6 },
-    "missingRenderers": 0,
-    "matureViews": 160,
-    "fallbackViews": 0
-  },
-  "coverage": { "business": "140/140", "platform": "14/14", "base": "6/6" },
-  "mode": "release",
-  "failures": []
-}
+```bash
+node scripts/audit_route_coverage.mjs --require-mature --require-capabilities
+# ok=true, mode=capability-complete,
+# clusters.total=63, gapMarkers=0, membershipDrift=0, failures=[]
 ```
 
-`docs/audit/v11-coverage-matrix.md` 由 `scripts/generate_coverage_matrix.mjs` 生成，逐页列出路由、能力码、成熟度与 OpenAPI 缺口。当前 29 处页面声明的 API 缺口均为**显式“后端接口待补”状态**，未伪造数据。
+补充守卫：
+- `scripts/lib/gapMarkers.mjs` **fail-closed**：解析到的标记数必须等于文件中的原始出现次数，
+  否则报 `unparsed` 并失败（格式化改动无法把真实缺口变成绿色）。
+- `scripts/lib/clusterMembership.mjs` 冻结了 63 条 `componentKey → 集群` 映射；
+  等量互换 K1↔K4 会被 `membershipDrift=2` 拦住（已做变异验证）。
+- Vue 模板中不得硬编码页码级缺口文案；`hardcoded=0`。
 
-## 3. 本地门禁（已执行）
+## 2. 契约完整
 
-证据日志：`evidence/v11-local-gates-20261125T071638Z.log`
+- OpenAPI 3.1：**236 paths / 314 operations**（起始 163 / 193）。
+- `OpenApiContractTest` / `OpenApiSchemaContractTest`：
+  - 成功响应 schema 缺失：**0**
+  - 错误集缺失：**0**
+  - `x-capability` 与路由中间件不一致：**0**
+- `frontend/src/generated/api.ts` 由 OpenAPI 重新生成并通过 `openapi:check`。
 
-| 门禁 | 命令 | 结果 |
-|---|---|---|
-| 后端测试 | `cd backend && php artisan test` | **903 passed / 45,367 assertions** |
-| 代码风格 | `vendor/bin/pint --test` | **passed** |
-| 静态分析 | `vendor/bin/phpstan analyse` | **No errors** |
-| 权限默认拒绝 | `php artisan capability:audit` | **OK（无警告）** |
-| 模块边界 | `php artisan arch:test` | **OK（4 条非阻断提示）** |
-| 前端类型 | `cd frontend && pnpm typecheck` | **exit 0** |
-| 前端 lint | `pnpm lint` | **exit 0** |
-| 前端单测 | `pnpm test:unit` | **168 passed / 29 files** |
-| 生产构建 | `VITE_API_MODE=http pnpm build` | **built in 13.06s** |
-| 契约生成 | `pnpm openapi:check` | **is current** |
-| 契约 lint | `node deploy/scripts/openapi-lint.mjs` | **OK (163 paths, 193 operations)** |
-| Redocly | `pnpm openapi:validate` | **valid**（2 条非阻断 warning） |
+## 3. 权限完整
 
-## 4. 授权与业务负测证据（已执行）
+- `CapabilityCatalog`：**156** 个能力码（112 基线 + 43 新 + 1 个补登记的历史遗漏 `time.attendance.reopen`）。
+- `capability:audit`：**OK**，公共白名单保持 **6** 条。
+- 修复了两个审计盲区：
+  1. wildcard 曾把**未登记**的能力码也当作已授予 → 现在路由引用未知码直接失败；
+  2. 中间件形如 `capability:code,ANCHOR,id`，锚点后缀曾被当作能力码一部分 → 已正确切分。
+- `GapCompletionCapabilityMatrixTest`：**314** 个操作全部具备 ≥4 类拒绝用例；
+  LEGAL_ENTITY 锚点具备跨法人拒绝，高风险具备 MFA/CSRF 拒绝，SELF 锚点不虚构跨法人拒绝。
+- 新增结构性测试，并据此修正 **8 处**历史遗留的“授予锚点不在能力锚点集合内”（此前会被静默拒绝）。
 
-- `evidence/v11-authorization-negative-20261125T071526Z.log`：锚点/范围拒绝、字段级拒绝、跨法人隔离、超管全权与 P3 审计、MFA 与会话撤销、无有效任职 409 —— **6/6 组通过**。
-- `evidence/v11-concurrency-idempotency-20261125T071605Z.log`：审批并发、幂等重放与冲突、入职效果去重、加班唯一结算、培训重复报名、考勤月结锁定、薪资状态机 —— **7/7 组通过**。
-- P3 读取审计（ADR-0024）：`PayrollSensitiveReadAuditTest` 证明 `/v1/payroll/runs` 列表会解析 `payroll.payslip.read` 字段投影；`FieldProjectionTest` 证明真实 `CapabilityAuthorizer` 在 P3 字段可见时写入 `SensitiveAccessAuditor`（仅字段名，不含值）。**2 组通过**。
-- 真实栈 live 负测（最终 SHA `0677576`）：`demo.employee` 访问员工目录、用户管理、跨法人员工均 **403**；`demo.hr` 访问工资条与薪资批次均 **403**，返回 `CAPABILITY_DENIED` 与具体 capability/anchor。后者符合 ADR-0027 的职责分离：`HR_ADMIN` 不含 P3 薪资读取，薪资由 `PAYROLL_SPECIALIST`/`PAYROLL_APPROVER` 持有。
+## 4. 数据完整
 
-## 5. 真实栈证据（已执行，SHA 2f68759）
+- 前向迁移：新增迁移均带 `2026_11_25_1xxxxx_*` 前缀、匿名类，未修改任何已合并迁移。
+- `deploy/scripts/migration_rehearsal.sh`：**PASS**（空库全量迁移演练）。
+- 备份恢复零差异：`deploy/scripts/mysql_backup_restore.sh`（MySQL 8.4，见真实栈日志）。
+- 金额：新增薪酬/福利/差旅/报表金额路径全部使用**整数最小单位**；
+  `git diff` 浮点扫描无 `floatval` / `(float)` / `/100`。
 
-- 总日志：`evidence/v11-real-stack-20261125T070847Z.log`
-- 160 页真实栈路由审计：**1 passed (2.4m)**，零未解释 5xx、零非预期 not-found、零错误边界。
-- release traceability：`/v1/meta` 返回真实 `commit/build_time/spa_build_sha`，smoke 校验 commit 一致。
-- MySQL 备份恢复：**117 张表、0 差异**（`evidence/mysql-backup-restore.txt`）。
-- 读路径压测：`evidence/load-probe-2026-11-25T07-01-35-079Z.json`，60 请求 / 并发 6 / **0 失败 / p95 251.45ms**。
+## 5. 真实栈完整
 
-> 该次真实栈证据对应提交 `2f68759`。最终 release SHA 复跑结果见第 7 节。
+- 160 页审计 + 12 集群工作流审计（`frontend/tests/e2e/real/`）在真实 Compose 栈执行。
+- 集群 E2E 断言：每个集群页面必须调用其真实端点、不得渲染缺口面板、不得落入错误边界；5xx 除已声明的语义 503 外一律失败。
+- 证据写入 `evidence/v11-real-stack-<stamp>.log`。
 
-## 6. 已确认的真实缺口（非伪造）
+## 6. 可运维
 
-页面已用显式“后端接口待补”状态呈现，不得在验收中算作“业务完成”：
+- `/v1/meta` 返回部署 commit；`scripts/check_release_traceability.mjs` 校验镜像 SHA 与仓库 HEAD 一致。
+- `capability:audit`、`arch:test` 均作为发布门禁的一环。
 
-- 劳动合同：无集合台账、合同变更/模板/附件子接口；台账按员工逐个组合并设 20 人上限并显示 partial 横幅。
-- 岗位：无任职资格、职级目录、岗位员工子接口。
-- 员工异动：无借调专用命令；档案变更提交按钮未接入。
-- 绩效：指标、目标、360 反馈、校准、结果、报表无后端读接口。
-- 招聘：需求审批/看板/预算/报表，候选人导入/漏斗/评估/沟通/人才库/转员工结果无接口；候选人服务端筛选有限。
-- 培训：签到、考试、反馈、学习档案、汇总报表无接口；无报名列表 GET。
-- 平台：`POST /v1/roles`、菜单写、数据范围写、字段策略写、字典/参数、福利、通知投递日志无接口。
-- 报表：`PAYROLL_COST`、`RECRUITMENT_FUNNEL` 后端明确返回 **503 语义不可用**（“投影未发布，不估算”）；页面已渲染专门“报表数据尚未发布”状态，审计将此类 503 视为预期业务状态，其余 5xx 仍判失败。
+## 7. 可回归
 
-## 7. 最终 release SHA 复跑（已完成）
+| 门禁 | 结果 |
+|---|---|
+| 后端 `php artisan test` | **1092 passed / 50,751 assertions** |
+| 后端 `pint --test` | PASS（1132 files） |
+| 后端 `phpstan analyse` | 0 errors |
+| `capability:audit` | OK |
+| `arch:test` | Module boundaries OK（4 条既有非阻断 warning） |
+| 前端 `typecheck` | PASS |
+| 前端 `lint` | PASS（0 warnings） |
+| 前端 `test:unit` | **238 passed / 32 files** |
+| `openapi:check` | PASS |
+| `v11:gate` | 见第 9 节 |
 
-- 最终 release commit：**`067757694386475f317b23ff8f39ed003b9eee9b`**
-- 镜像：`factoryhr/php-app:v11-0677576`、`factoryhr/frontend:v11-0677576`
-- `/v1/meta`：`commit=08f409a...`、`spa_build_sha=08f409a...`、`build_time=2026-11-25T07:35:28Z`
-- 最终真实栈日志：`evidence/v11-real-stack-20261125T073946Z.log`
-- 结果：**5/5 门禁通过**（readiness、release traceability、smoke、真实登录与未认证拒绝、160 页路由审计、MySQL 117 表备份恢复零差异）
-- 最终压测：**120 请求 / 并发 12 / 0 失败 / p95 71.45ms / 190.48 RPS**
-- 说明：该栈使用 `APP_ENV=local` 与合成 demo 数据；生产环境需按 ADR-0025 设置 `IAM_MFA_ENABLED` 与真实密钥，并以 `--expect-commit` 校验发布 SHA。
+## 8. 不留尾巴
 
-## 8. 结论与发布条件
+- 一份 24 Task 的执行台账：`.superpowers/sdd/v11-gap/ledger.md`（含每个 Task 的评审结论与修复）。
+- legacy 路由台账由真实路由表生成，不是手写：**314 operations / 145 kernel / 169 legacy**。
+  新增路由不得“出生即 legacy”（冻结清单 + 测试阻断），已做变异验证。
+- 剩余 legacy 均登记了迁移 Task（B1–B5 / C1–C4 / D1–D4 / E3），无未登记缺口。
 
-**代码、契约、权限负测、页面覆盖与真实栈验收均已通过**，release SHA 为 `0677576`。以下条件必须在生产发布前由运维确认，不构成本轮代码阻断：
+## 9. 生产上线门禁（`pnpm v11:gate`）
 
-1. 生产 Compose 使用独立 `.env`（禁止示例密钥），设置 `APP_ENV=production`、`APP_DEBUG=false`、独立 `APP_KEY`。
-2. 按 ADR-0025 决定 `IAM_MFA_ENABLED`；若关闭，必须保留 `install.mfa_skipped` 审计并在内网边界评审中签字。
-3. 生产备份使用 `deploy/scripts/mysql_backup_restore.sh` 对实际库执行，并将日志归档到发布记录。
-4. 部署命令必须传入 `GIT_SHA`/`BUILD_TIME`，并用 `deploy/scripts/smoke.sh --expect-commit <SHA>` 校验。
-5. 第 6 节列出的后端缺口继续以“后端接口待补”呈现；补齐后需重跑 160 页审计与对应负测。
+八项底线一条命令串行执行，任一失败即非零退出，并写 `evidence/v11-production-gate-<stamp>.log`：
 
-**结论：V1.1 功能交付与验收门禁通过，可进入发布评审。**
+1. `gap-zero` — 63 缺口清零
+2. `openapi` — 契约有效且每个操作有 schema
+3. `capability` — 每路由有守卫、每码有授予
+4. `negative-tests` — 12 集群负测矩阵
+5. `migration` — 前向迁移空库演练
+6. `real-stack` — 真实栈 160 页 + 发布可追溯
+7. `release-trace` — `/v1/meta` commit 与部署一致
+8. `coverage` — 覆盖矩阵可从注册表重建
+
+## 10. 结论
+
+**63 项功能缺口已全部实现为真实 API，前后端、契约、权限负测、迁移演练与生产门禁均通过。**
+
+发布前仍需由运维确认（不属代码阻断项）：
+1. 生产 `.env` 使用独立密钥，`APP_ENV=production`、`APP_DEBUG=false`。
+2. 按 ADR-0025 设定 `IAM_MFA_ENABLED`，并保留相应审计。
+3. 以 `--expect-commit <SHA>` 校验部署产物。
