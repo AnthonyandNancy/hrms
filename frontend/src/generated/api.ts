@@ -2873,6 +2873,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recruitment/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live recruitment funnel board by requisition
+         * @description Every value is derived from requisitions, openings, interviews, offers and candidate conversions.
+         */
+        get: operations["recruitmentBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recruitment budget and headcount gap by requisition
+         * @description Monetary values are integer minor units; a null budget means no budget was configured.
+         */
+        get: operations["recruitmentBudget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recruitment conversion report by requisition
+         * @description Fill rate is expressed in basis points (10000 = 100%) and derived from live conversion rows.
+         */
+        get: operations["recruitmentReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import candidates with a per-row validation report
+         * @description Rejected rows are persisted in the report; they are never silently dropped.
+         */
+        post: operations["recruitmentCandidatesImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List structured candidate evaluations */
+        get: operations["recruitmentCandidateEvaluationsIndex"];
+        put?: never;
+        /** Record a structured candidate evaluation */
+        post: operations["recruitmentCandidateEvaluationsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List candidate communication records */
+        get: operations["recruitmentCandidateCommunicationsIndex"];
+        put?: never;
+        /** Log a candidate communication */
+        post: operations["recruitmentCandidateCommunicationsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/talent-pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List candidate talent-pool tags */
+        get: operations["recruitmentCandidateTalentPoolIndex"];
+        put?: never;
+        /** Tag a candidate in the talent pool */
+        post: operations["recruitmentCandidateTalentPoolStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert an accepted candidate into exactly one employment
+         * @description Business idempotency is keyed by candidate; a new Idempotency-Key returns the same employment.
+         */
+        post: operations["recruitmentCandidateConvert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recruitment/candidates": {
         parameters: {
             query?: never;
@@ -2880,7 +3034,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List candidates */
+        /**
+         * List candidates with minimized contact PII
+         * @description List responses expose only presence flags for email and mobile; sensitive field access is audited.
+         */
         get: operations["recruitmentCandidatesIndex"];
         put?: never;
         /** Create a candidate */
@@ -5484,6 +5641,178 @@ export interface components {
             /** Format: date-time */
             published_at: string | null;
         };
+        RecruitmentCandidateRow: {
+            candidate_id: number;
+            display_name: string;
+            status: string;
+            has_email: boolean;
+            has_mobile: boolean;
+            source: string | null;
+        };
+        RecruitmentBoardRow: {
+            requisition_id: number;
+            requisition_no: string;
+            title: string;
+            status: string;
+            legal_entity_id: number;
+            org_unit_id: number;
+            headcount: number;
+            openings_count: number;
+            candidate_count: number;
+            interview_count: number;
+            offer_count: number;
+            accepted_offers: number;
+            hired_count: number;
+            vacancy_count: number;
+            fill_rate_bps: number;
+        };
+        RecruitmentBudgetRow: {
+            requisition_id: number;
+            requisition_no: string;
+            title: string;
+            status: string;
+            legal_entity_id: number;
+            headcount: number;
+            /** @description Integer minor units; null when no budget was configured. */
+            budget_minor: number | null;
+            budget_currency: string | null;
+            committed_offer_minor: number;
+            budget_variance_minor: number | null;
+            filled_headcount: number;
+            vacancy_count: number;
+        };
+        RecruitmentReportRow: {
+            requisition_id: number;
+            requisition_no: string;
+            title: string;
+            status: string;
+            headcount: number;
+            openings_count: number;
+            candidate_count: number;
+            interview_count: number;
+            offer_count: number;
+            accepted_offers: number;
+            hired_count: number;
+            fill_rate_bps: number;
+            time_to_hire_days: number | null;
+        };
+        RecruitmentCandidateImportRequest: {
+            requisition_id?: number | null;
+            source?: string;
+            rows: {
+                display_name?: string;
+                email?: string;
+                mobile?: string;
+                source?: string;
+            }[];
+        };
+        RecruitmentCandidateImportRow: {
+            row_number: number;
+            /** @enum {string} */
+            status: "ACCEPTED" | "REJECTED";
+            reason: string | null;
+            errors: {
+                [key: string]: string[];
+            };
+            candidate_id: number | null;
+        };
+        RecruitmentCandidateImportResult: {
+            import_id: number;
+            requisition_id: number | null;
+            source: string;
+            row_count: number;
+            accepted_count: number;
+            rejected_count: number;
+            rows: components["schemas"]["RecruitmentCandidateImportRow"][];
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        RecruitmentCandidateEvaluationRequest: {
+            interview_id?: number | null;
+            rating: number;
+            /** @enum {string} */
+            recommendation: "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
+            strengths?: string | null;
+            concerns?: string | null;
+            comments?: string | null;
+        };
+        RecruitmentCandidateEvaluation: {
+            evaluation_id: number;
+            candidate_id: number;
+            interview_id: number | null;
+            evaluator_user_id: number;
+            rating: number;
+            /** @enum {string} */
+            recommendation: "STRONG_YES" | "YES" | "NO" | "STRONG_NO";
+            strengths: string | null;
+            concerns: string | null;
+            comments: string | null;
+            status: string;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        RecruitmentCandidateCommunicationRequest: {
+            /** @enum {string} */
+            channel: "EMAIL" | "PHONE" | "SMS" | "WECHAT" | "IN_PERSON" | "OTHER";
+            /** @enum {string} */
+            direction: "INBOUND" | "OUTBOUND";
+            subject?: string | null;
+            body: string;
+            consent_basis: string;
+            /** Format: date-time */
+            sent_at?: string | null;
+        };
+        RecruitmentCandidateCommunication: {
+            communication_id: number;
+            candidate_id: number;
+            channel: string;
+            direction: string;
+            subject: string | null;
+            body: string;
+            consent_basis: string;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        RecruitmentTalentPoolTagRequest: {
+            tag: string;
+            reason?: string | null;
+            /** Format: date */
+            retention_until?: string | null;
+        };
+        RecruitmentTalentPoolTag: {
+            tag_id: number;
+            candidate_id: number;
+            tag: string;
+            reason: string | null;
+            /** Format: date */
+            retention_until: string | null;
+            status: string;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        RecruitmentCandidateConversionRequest: {
+            legal_entity_id: number;
+            org_unit_id: number;
+            employee_no: string;
+            /** Format: date */
+            hire_date?: string | null;
+        };
+        RecruitmentCandidateConversion: {
+            conversion_id: number;
+            candidate_id: number;
+            employment_id: number;
+            person_id: number;
+            offer_id: number;
+            legal_entity_id: number;
+            org_unit_id: number;
+            employee_no: string;
+            status: string;
+            /** Format: date-time */
+            converted_at: string | null;
+            business_replayed: boolean;
+        };
         RequisitionOpening: {
             opening_id: number;
             requisition_id: number;
@@ -7167,6 +7496,7 @@ export interface components {
         IdempotencyKeyRequired: string;
         IfMatchOptional: string;
         CsrfToken: string;
+        RecruitmentCandidateId: number;
     };
     requestBodies: never;
     headers: {
@@ -13400,6 +13730,371 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    recruitmentBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recruitment board projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentBoardRow"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recruitment budget projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentBudgetRow"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recruitment report projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentReportRow"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidatesImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentCandidateImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Import completed with per-row status */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentCandidateImportResult"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateEvaluationsIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate evaluation projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentCandidateEvaluation"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateEvaluationsStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentCandidateEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Candidate evaluation recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentCandidateEvaluation"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateCommunicationsIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Candidate communication projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentCandidateCommunication"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateCommunicationsStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentCandidateCommunicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Candidate communication logged */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentCandidateCommunication"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateTalentPoolIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Talent-pool tag projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentTalentPoolTag"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateTalentPoolStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentTalentPoolTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Talent-pool tag created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentTalentPoolTag"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recruitmentCandidateConvert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["RecruitmentCandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecruitmentCandidateConversionRequest"];
+            };
+        };
+        responses: {
+            /** @description Business-idempotent conversion replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentCandidateConversion"];
+                    };
+                };
+            };
+            /** @description Candidate converted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RecruitmentCandidateConversion"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     recruitmentCandidatesIndex: {
         parameters: {
             query?: never;
@@ -13409,9 +14104,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["Envelope"];
+            /** @description Candidate projection with minimized PII */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["RecruitmentCandidateRow"][];
+                        };
+                    };
+                };
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -13543,7 +14253,22 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    legal_entity_id: number;
+                    org_unit_id: number;
+                    requisition_no: string;
+                    title: string;
+                    headcount: number;
+                    /** @description Integer minor units; never a float. */
+                    budget_minor?: number | null;
+                    budget_currency?: string | null;
+                    /** Format: date */
+                    target_start_date?: string | null;
+                };
+            };
+        };
         responses: {
             201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
