@@ -105,6 +105,42 @@ class CapabilityCatalogTest extends TestCase
         ], array_map(static fn ($template): string => $template->code, $templates));
     }
 
+    public function test_gap_completion_capabilities_are_issued_by_templates(): void
+    {
+        $issued = [];
+
+        foreach (RoleTemplateCatalog::templates() as $template) {
+            $codes = $template->capabilityCodes();
+            // A wildcard template issues every catalogued capability by
+            // definition; expand it so this assertion reflects real authority.
+            if (in_array(\App\Shared\Authorization\CapabilityWildcard::WILDCARD, $codes, true)) {
+                $codes = (new CapabilityCatalog)->codes();
+            }
+            $issued = [...$issued, ...$codes];
+        }
+
+        foreach ([
+            'org.position.qualification.manage',
+            'people.contract.terminate',
+            'time.overtime.confirm',
+            'payroll.compensation.manage',
+            'performance.result.publish',
+            'recruitment.candidate.convert',
+            'training.exam.manage',
+            'system.backup.manage',
+            'reporting.definition.manage',
+        ] as $code) {
+            $this->assertContains($code, $issued, "No role template issues {$code}.");
+        }
+    }
+
+    public function test_gap_completion_catalog_reaches_the_documented_total(): void
+    {
+        $catalog = new CapabilityCatalog;
+
+        $this->assertCount(155, $catalog->codes(), '112 baseline + 43 genuinely new codes; time.overtime.request already existed.');
+    }
+
     public function test_time_route_capabilities_are_issued_by_role_templates(): void
     {
         $codes = [];

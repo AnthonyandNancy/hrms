@@ -621,7 +621,7 @@ git commit -m "feat(v11): add platform kernel dictionaries and parameters"
 - Test: `backend/tests/Unit/Authorization/CapabilityCatalogTest.php`
 
 **Interfaces:**
-- Produces: `CapabilityCatalog::codes()` 长度 156；每个新码至少被一个模板授予
+- Produces: `CapabilityCatalog::codes()` 长度 155（112 基线 + 43 真实新增；清单第 14 行 `time.overtime.request` 已存在）；每个新码至少被一个模板授予
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2168,7 +2168,7 @@ Expected: 输出剩余 gap 页面清单。
 
 - [ ] **Step 3: 实现清零**
 
-逐集群删除前端 `gap`/`pending` 标记；矩阵输出 `cluster: K1..K12` 与 `CAPABILITY_COMPLETE`；验收报告更新 156 能力码、新增路由数、12 集群证据。
+逐集群删除前端 `gap`/`pending` 标记；矩阵输出 `cluster: K1..K12` 与 `CAPABILITY_COMPLETE`；验收报告更新 155 能力码、新增路由数、12 集群证据。
 
 - [ ] **Step 4: 验证**
 

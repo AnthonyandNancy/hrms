@@ -91,7 +91,9 @@ final class CapabilityCatalogCoverageTest extends TestCase
 
         foreach ($catalog->all() as $definition) {
             $this->assertNotSame('', $definition->code);
-            $this->assertMatchesRegularExpression('/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/', $definition->code);
+            // Segments are lower-case and may contain an internal hyphen
+            // (e.g. payroll.salary-adjustment.manage) but never start/end with one.
+            $this->assertMatchesRegularExpression('/^[a-z][a-z0-9_]*(\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?)+$/', $definition->code);
             $this->assertNotSame('', $definition->resource);
             $this->assertNotEmpty($definition->actions);
             $this->assertSame(array_values(array_unique($definition->actions)), $definition->actions);

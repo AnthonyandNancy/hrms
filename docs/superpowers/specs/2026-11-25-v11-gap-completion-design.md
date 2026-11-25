@@ -287,7 +287,7 @@ POST /v1/... (Idempotency-Key)
 > 原则：能复用现有能力码的不新增；新增必须代码拥有并分配至少一个角色模板，否则 `capability:audit` 的 G-COV-1 失败。
 
 
-### 5.3.1 能力码精确清单（新增 44 个，复用 8 组现有码）
+### 5.3.1 能力码精确清单（清单 44 行；真实新增 43 个，复用 9 个）
 
 > 原则：能复用现有能力码的不新增。下表为逐项核对后的最终清单；“复用”列表示不新增能力码，沿用现有码。
 
@@ -346,7 +346,9 @@ POST /v1/... (Idempotency-Key)
 | — | `engagement.notice.*` | K11 | 复用 | 已有 |
 | — | `reporting.report.read` / `reporting.report.create` / `reporting.subscription.manage` / `reporting.export` | K12 | 复用 | 已有 |
 
-**精确计数：新增 44 个能力码，复用 8 组现有码；能力码总数 112 → 156。**
+**精确计数（执行期校正，2026-11-25）：** 清单 44 行中有 1 行 `time.overtime.request` 在 112 基线中已存在，因此真实新增 **43** 个、复用 9 个（含该行）；能力码总数 **112 → 155**。
+
+> 命名规则补充：能力码段内允许连字符（如 `payroll.salary-adjustment.manage`、`recruitment.talent-pool.manage`），但每段必须以小写字母或数字开头/结尾。
 
 ### 5.3.2 新增表精确清单（新增 23 张主表，扩展 6 张）
 
