@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $org_unit_id
  * @property string $code
  * @property string $title
+ * @property string $status
+ * @property int|null $headcount_limit
  */
 final class Position extends Model
 {

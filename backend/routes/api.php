@@ -13,12 +13,16 @@ use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\IAM\Http\Controllers\WorkspaceController;
 use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
+use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
+use App\Modules\Organization\Http\Controllers\PositionController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
 use App\Modules\People\Http\Controllers\EmployeeController;
+use App\Modules\People\Http\Controllers\EmployeeProfileController;
+use App\Modules\People\Http\Controllers\EmploymentContractController;
 use App\Modules\People\Http\Controllers\EmploymentController;
 use App\Modules\People\Http\Controllers\PersonController;
 use App\Modules\Platform\Http\Controllers\FeatureFlagController;
@@ -112,6 +116,54 @@ Route::prefix('employees')->middleware('auth.session')->group(function (): void 
         ->name('employees.show');
 });
 
+Route::prefix('employees/{employmentId}')->middleware('auth.session')->group(function (): void {
+    foreach (['education', 'experiences', 'contacts', 'certificates', 'change_requests', 'imports'] as $profileResource) {
+        Route::get('/'.$profileResource, [EmployeeProfileController::class, 'index'])
+            ->whereNumber('employmentId')
+            ->defaults('profileResource', $profileResource)
+            ->middleware('capability:people.employee.read')
+            ->name('employees.profile.'.$profileResource.'.index');
+        Route::post('/'.$profileResource, [EmployeeProfileController::class, 'store'])
+            ->whereNumber('employmentId')
+            ->defaults('profileResource', $profileResource)
+            ->middleware('capability:people.employee.manage')
+            ->name('employees.profile.'.$profileResource.'.store');
+        Route::patch('/'.$profileResource.'/{id}', [EmployeeProfileController::class, 'update'])
+            ->whereNumber('employmentId')
+            ->whereNumber('id')
+            ->defaults('profileResource', $profileResource)
+            ->middleware('capability:people.employee.manage')
+            ->name('employees.profile.'.$profileResource.'.update');
+    }
+
+    Route::post('/change_requests/{id}/submit', [EmployeeProfileController::class, 'submit'])
+        ->whereNumber('employmentId')
+        ->whereNumber('id')
+        ->middleware('capability:people.employee.manage')
+        ->name('employees.profile.change_requests.submit');
+});
+
+Route::get('/employments/contracts/expiring', [EmploymentContractController::class, 'expiring'])
+    ->middleware('auth.session')
+    ->middleware('capability:people.contract.read')
+    ->name('employments.contracts.expiring');
+
+Route::prefix('employments/{employmentId}/contracts')->middleware('auth.session')->group(function (): void {
+    Route::get('/', [EmploymentContractController::class, 'index'])
+        ->whereNumber('employmentId')
+        ->middleware('capability:people.contract.read')
+        ->name('employments.contracts.index');
+    Route::post('/', [EmploymentContractController::class, 'store'])
+        ->whereNumber('employmentId')
+        ->middleware(['mfa.enrolled', 'capability:people.contract.manage'])
+        ->name('employments.contracts.store');
+    Route::get('/{id}', [EmploymentContractController::class, 'show'])
+        ->whereNumber('employmentId')
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.read')
+        ->name('employments.contracts.show');
+});
+
 Route::prefix('employments')->middleware('auth.session')->group(function (): void {
     Route::post('/', [EmploymentController::class, 'store'])
         ->middleware(IdempotentCommand::class)
@@ -172,6 +224,40 @@ Route::prefix('org-units')->middleware('auth.session')->group(function (): void 
         ->whereNumber('id')
         ->middleware('capability:org.unit.manage')
         ->name('org-units.impact');
+});
+
+Route::prefix('departments')->middleware('auth.session')->group(function (): void {
+    Route::get('/', [DepartmentController::class, 'index'])
+        ->middleware('capability:org.unit.read')
+        ->name('departments.index');
+    Route::get('/staffing', [DepartmentController::class, 'staffing'])
+        ->middleware('capability:org.unit.read')
+        ->name('departments.staffing');
+    Route::get('/{id}/members', [DepartmentController::class, 'members'])
+        ->whereNumber('id')
+        ->middleware('capability:org.unit.read')
+        ->name('departments.members.index');
+    Route::post('/{id}/members', [DepartmentController::class, 'addMember'])
+        ->whereNumber('id')
+        ->middleware(['mfa.enrolled', 'capability:org.unit.manage'])
+        ->name('departments.members.store');
+});
+
+Route::prefix('positions')->middleware('auth.session')->group(function (): void {
+    Route::get('/', [PositionController::class, 'index'])
+        ->middleware('capability:org.position.read')
+        ->name('positions.index');
+    Route::post('/', [PositionController::class, 'store'])
+        ->middleware(['mfa.enrolled', 'capability:org.position.manage'])
+        ->name('positions.store');
+    Route::get('/{id}', [PositionController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('capability:org.position.read')
+        ->name('positions.show');
+    Route::patch('/{id}', [PositionController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware(['mfa.enrolled', 'capability:org.position.manage'])
+        ->name('positions.update');
 });
 
 Route::middleware(['auth.session', 'capability:platform.feature.manage'])->group(function (): void {
