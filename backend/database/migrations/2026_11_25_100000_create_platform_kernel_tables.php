@@ -34,8 +34,12 @@ return new class extends Migration
             $table->string('key', 96);
             $table->json('value_json');
             $table->string('scope', 32)->default('TENANT');
+            // ADR-0031: sensitive parameters are encrypted at rest. The model
+            // uses Laravel's `encrypted:array` cast when this flag is true.
+            $table->boolean('sensitive')->default(false);
             $table->timestamps();
             $table->unique(['tenant_id', 'key', 'scope']);
+            $table->index(['tenant_id', 'key']);
         });
     }
 

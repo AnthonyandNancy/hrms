@@ -51,7 +51,7 @@ final class ModuleBoundaryScanner
         'Talent' => ['recruitment_requisitions', 'candidates', 'interviews', 'offers', 'performance_cycles', 'performance_templates', 'performance_reviews', 'performance_appeals', 'training_programs', 'training_sessions', 'training_enrollments'],
         'Engagement' => ['notices', 'notifications'],
         'Reporting' => ['report_definitions', 'export_jobs', 'projections'],
-        'Platform' => ['audit_events', 'outbox_events', 'idempotency_keys', 'file_objects', 'dictionaries', 'parameters', 'feature_flags', 'migration_runs', 'migration_issues', 'staging_rows', 'migration_shadow_rows', 'demo_datasets', 'retention_policies', 'legal_holds'],
+        'Platform' => ['audit_events', 'outbox_events', 'idempotency_keys', 'file_objects', 'dictionaries', 'parameters', 'sys_dictionaries', 'sys_parameters', 'feature_flags', 'migration_runs', 'migration_issues', 'staging_rows', 'migration_shadow_rows', 'demo_datasets', 'retention_policies', 'legal_holds'],
     ];
 
     private const FACADE_DB = 'Illuminate\Support\Facades\DB';

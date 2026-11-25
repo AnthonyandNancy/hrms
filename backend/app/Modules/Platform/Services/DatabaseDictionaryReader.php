@@ -27,28 +27,4 @@ final class DatabaseDictionaryReader implements DictionaryReader
                 'sort_order' => (int) $entry->sort_order,
             ])->all();
     }
-
-    /**
-     * @return array<string, string>
-     */
-    public function labels(int $tenantId, string $type): array
-    {
-        $labels = [];
-
-        foreach ($this->entries($tenantId, $type) as $entry) {
-            $labels[$entry['code']] = $entry['label'];
-        }
-
-        return $labels;
-    }
-
-    public function contains(int $tenantId, string $type, string $code): bool
-    {
-        return DictionaryEntry::query()
-            ->where('tenant_id', $tenantId)
-            ->where('type', $type)
-            ->where('code', $code)
-            ->where('active', true)
-            ->exists();
-    }
 }

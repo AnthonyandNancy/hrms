@@ -35,7 +35,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Talent | `recruitment_requisitions`, `candidates`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `training_programs`, `training_sessions`, `training_enrollments` | Lifecycle/People/Workflow Contracts, Shared |
 | Engagement | `notices`, `notifications` | Read-only Contracts from all modules, Shared |
 | Reporting | `report_definitions`, `export_jobs`, `projections` | Read-only projections/Contracts, Shared |
-| Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `dictionaries`, `parameters` | Shared only; **no business module** |
+| Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `sys_dictionaries`, `sys_parameters` | Shared only; **no business module** |
 
 The machine-readable ownership list lives in `App\Shared\Architecture\ModuleBoundaryScanner::TABLE_OWNERS`. Add a table there in the same migration commit that introduces it; an unowned table referenced through `DB::table()` is reported as a warning.
 
