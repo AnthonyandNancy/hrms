@@ -75,43 +75,77 @@ async function importsForEmployees(): Promise<PeopleReadState> {
   }
 }
 
-async function positionStaff(): Promise<PeopleReadState> {
-  const [positions, employees] = await Promise.all([
-    readPeopleList('/v1/positions', { ...ENTITY_SCOPE }),
-    employeePage(100),
-  ])
-  const byPosition = new Map<number, PeopleRow[]>()
+/**
+ * Position sub-resource pages are catalogue views: the position list is the
+ * page subject and each position's requirements/incumbents are read from its
+ * dedicated endpoint. No row is synthesised from employee data.
+ */
+async function positionsFor(asOf: string): Promise<PeopleListResult> {
+  return readPeopleList('/v1/positions', { ...ENTITY_SCOPE, as_of: asOf })
+}
 
-  for (const employee of employees.rows) {
-    const assignment = isRecord(employee.current_assignment) ? employee.current_assignment : null
-    const positionId = assignment ? Number(assignment.position_id ?? 0) : 0
-    if (positionId <= 0) continue
-    const list = byPosition.get(positionId) ?? []
-    list.push(employee)
-    byPosition.set(positionId, list)
-  }
-
+async function positionRequirements(asOf: string): Promise<PeopleReadState> {
+  const positions = await positionsFor(asOf)
   const rows: PeopleRow[] = []
-  for (const position of positions.rows) {
+  let total = 0
+  let partial = positions.partial
+
+  for (const position of positions.rows.slice(0, 20)) {
     const positionId = Number(position.id ?? 0)
-    for (const employee of byPosition.get(positionId) ?? []) {
+    if (positionId <= 0) continue
+    const requirements = await readPeopleList(`/v1/positions/${positionId}/requirements`, { as_of: asOf, page: 1, page_size: 100 })
+    total += requirements.total
+    partial = partial || requirements.partial
+    for (const row of requirements.rows) {
       rows.push({
+        ...row,
+        position_id: positionId,
         position_code: position.code ?? '',
         position_title: position.title ?? '',
-        employee_no: employee.employee_no ?? '',
-        person_name: employee.person_name ?? '',
-        employment_id: employee.employment_id ?? '',
+        requirements_summary: requirementsSummary(row.requirements_json),
       })
     }
   }
 
-  return {
-    rows,
-    total: rows.length,
-    partial: true,
-    primaryId: null,
-    partialNote: '后端没有按岗位查询员工的子接口；本列表从员工首页当前任职匹配，不覆盖未加载员工。',
+  return { rows, total, partial, primaryId: null, partialNote: '' }
+}
+
+function requirementsSummary(value: unknown): string {
+  if (!isRecord(value)) return '—'
+  const entries = Object.entries(value)
+  if (entries.length === 0) return '—'
+  return entries
+    .map(([key, item]) => `${key}: ${typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item)}`)
+    .join('；')
+}
+
+async function positionStaff(asOf: string): Promise<PeopleReadState> {
+  const positions = await positionsFor(asOf)
+  const rows: PeopleRow[] = []
+  let total = 0
+  let partial = positions.partial
+
+  for (const position of positions.rows.slice(0, 20)) {
+    const positionId = Number(position.id ?? 0)
+    if (positionId <= 0) continue
+    const staff = await readPeopleList(`/v1/positions/${positionId}/staff`, { as_of: asOf })
+    total += staff.total
+    partial = partial || staff.partial
+    rows.push(...staff.rows)
   }
+
+  return { rows, total, partial, primaryId: null, partialNote: '' }
+}
+
+async function positionGrades(asOf: string): Promise<PeopleReadState> {
+  const grades = await readPeopleList('/v1/positions/grades', { ...ENTITY_SCOPE, as_of: asOf, page: 1, page_size: 100 })
+  const rows = grades.rows.map((row) => ({ ...row, active: row.active === true ? '是' : '否' }))
+  return { rows, total: grades.total, partial: grades.partial, primaryId: null, partialNote: '' }
+}
+
+async function secondments(asOf: string): Promise<PeopleReadState> {
+  const result = await readPeopleList('/v1/lifecycle/secondments', { ...ENTITY_SCOPE, as_of: asOf, page: 1, page_size: 20 })
+  return { rows: result.rows, total: result.total, partial: result.partial, primaryId: null, partialNote: '' }
 }
 
 export async function loadPeoplePage(
@@ -153,8 +187,14 @@ export async function loadPeoplePage(
         return toReadState(await readPeopleList('/v1/departments/staffing', { ...ENTITY_SCOPE, as_of: asOf }))
       case 'positions':
         return toReadState(await readPeopleList('/v1/positions', { ...ENTITY_SCOPE, as_of: asOf }))
+      case 'position-requirements':
+        return await positionRequirements(asOf)
+      case 'position-grades':
+        return await positionGrades(asOf)
       case 'position-staff':
-        return await positionStaff()
+        return await positionStaff(asOf)
+      case 'secondments':
+        return await secondments(asOf)
       case 'lifecycle-cases':
         return toReadState(await readPeopleList('/v1/lifecycle/cases', {
           case_type: config.read.caseType,

@@ -9,11 +9,14 @@ import {
   EMPLOYEE_COLUMNS,
   EXPERIENCE_COLUMNS,
   GAP,
+  GRADE_COLUMNS,
   IMPORT_COLUMNS,
   MEMBER_COLUMNS,
   MOVEMENT_COLUMNS,
   POSITION_COLUMNS,
   POSITION_STAFF_COLUMNS,
+  REQUIREMENT_COLUMNS,
+  SECONDMENT_COLUMNS,
   STAFFING_COLUMNS,
   TEMPLATE_COLUMNS,
   TIMELINE_COLUMNS,
@@ -74,9 +77,9 @@ const POSITION_PAGES: PeoplePageConfig[] = [
   { ...POSITION_DOMAIN, key: 'hr/positions/index', title: '岗位目录', description: '查看生效岗位、职级、核定编制与实时占用。', readLabel: '岗位', read: { kind: 'positions' }, columns: POSITION_COLUMNS },
   { ...POSITION_DOMAIN, key: 'hr/positions/editor', title: '岗位编辑', description: '创建岗位，或修订已有岗位的职级、名称与编制上限。', readLabel: '岗位', read: { kind: 'positions' }, columns: POSITION_COLUMNS, form: 'position-editor', selectable: true },
   { ...POSITION_DOMAIN, key: 'hr/positions/headcount', title: '岗位编制', description: '以服务端占用数对比核定编制与空缺；调整编制通过岗位 PATCH 提交。', readLabel: '岗位编制', read: { kind: 'positions' }, columns: POSITION_COLUMNS, form: 'position-headcount', selectable: true },
-  { ...POSITION_DOMAIN, key: 'hr/positions/requirements', title: '岗位任职资格', description: '查看岗位职级并在后端资格接口就绪后配置任职条件。', readLabel: '岗位', read: { kind: 'positions' }, columns: POSITION_COLUMNS, gap: GAP.requirements },
-  { ...POSITION_DOMAIN, key: 'hr/positions/grades', title: '职级/职等', description: '按岗位现有 grade 字段聚合查看职级占用。', readLabel: '岗位职级', read: { kind: 'positions' }, columns: POSITION_COLUMNS, gap: GAP.grades },
-  { ...POSITION_DOMAIN, key: 'hr/positions/staff', title: '岗位任职人员', description: '读取岗位与员工当前任职；因后端无岗位员工子接口，只做员工列表的只读匹配。', readLabel: '岗位与当前任职', read: { kind: 'position-staff' }, columns: POSITION_STAFF_COLUMNS, gap: GAP.positionStaff },
+  { ...POSITION_DOMAIN, key: 'hr/positions/requirements', title: '岗位任职资格', description: '查看并追加岗位任职资格版本；历史版本只追加、不覆盖。', readLabel: '任职资格版本', read: { kind: 'position-requirements' }, columns: REQUIREMENT_COLUMNS, form: 'position-requirement' },
+  { ...POSITION_DOMAIN, key: 'hr/positions/grades', title: '职级/职等', description: '维护法人级职级目录；职级代码在法人内唯一，可停用而不删除。', readLabel: '职级', read: { kind: 'position-grades' }, columns: GRADE_COLUMNS, form: 'position-grade' },
+  { ...POSITION_DOMAIN, key: 'hr/positions/staff', title: '岗位任职人员', description: '按岗位与业务日期读取在岗任职，覆盖主任职与借调等并行任职。', readLabel: '岗位任职', read: { kind: 'position-staff' }, columns: POSITION_STAFF_COLUMNS },
 ]
 
 const MOVEMENT_PAGES: PeoplePageConfig[] = [
@@ -85,7 +88,7 @@ const MOVEMENT_PAGES: PeoplePageConfig[] = [
   { ...MOVEMENT_DOMAIN, key: 'hr/movements/probation', title: '转正管理', description: '发起试用期转正确认并查看审批状态。', readLabel: '转正案例', read: { kind: 'lifecycle-cases', caseType: 'PROBATION_CONFIRM' }, columns: MOVEMENT_COLUMNS, form: 'movement-probation' },
   { ...MOVEMENT_DOMAIN, key: 'hr/movements/transfer', title: '调岗/调部门', description: '发起未来生效的任职变更与部门调动。', readLabel: '调岗案例', read: { kind: 'lifecycle-cases', caseType: 'ASSIGNMENT_CHANGE' }, columns: MOVEMENT_COLUMNS, form: 'movement-transfer' },
   { ...MOVEMENT_DOMAIN, key: 'hr/movements/salary-change', title: '调薪管理', description: '调薪使用独立敏感审批，金额以最小货币单位提交。', readLabel: '调薪案例', read: { kind: 'lifecycle-cases', caseType: 'TERMS_CHANGE' }, columns: MOVEMENT_COLUMNS, form: 'movement-salary' },
-  { ...MOVEMENT_DOMAIN, key: 'hr/movements/secondment', title: '借调/兼岗', description: '查看调岗类案例；独立借调流程等待后端命令。', readLabel: '借调相关案例', read: { kind: 'lifecycle-cases', caseType: 'ASSIGNMENT_CHANGE' }, columns: MOVEMENT_COLUMNS, gap: GAP.secondment },
+  { ...MOVEMENT_DOMAIN, key: 'hr/movements/secondment', title: '借调/兼岗', description: '发起借调并查看并行任职；借调不改写主任职历史，到期由流程关闭。', readLabel: '借调任职', read: { kind: 'secondments' }, columns: SECONDMENT_COLUMNS, form: 'movement-secondment' },
   { ...MOVEMENT_DOMAIN, key: 'hr/movements/offboarding', title: '离职办理', description: '发起离职案例并记录离职类型、最后工作日与交接清单。', readLabel: '离职案例', read: { kind: 'lifecycle-cases', caseType: 'OFFBOARD' }, columns: MOVEMENT_COLUMNS, form: 'movement-offboarding' },
   {
     ...MOVEMENT_DOMAIN, key: 'hr/movements/by-id', title: '异动审批详情', description: '查看案例域状态、申请状态、生效状态与入职/离职清单。', readLabel: '异动案例', read: { kind: 'lifecycle-case-detail' }, columns: [],

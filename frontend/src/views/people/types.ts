@@ -42,7 +42,10 @@ export type PeopleRead =
   | { kind: 'department-members' }
   | { kind: 'department-staffing' }
   | { kind: 'positions' }
+  | { kind: 'position-requirements' }
+  | { kind: 'position-grades' }
   | { kind: 'position-staff' }
+  | { kind: 'secondments' }
   | { kind: 'lifecycle-cases'; caseType?: string }
   | { kind: 'lifecycle-case-detail' }
   | { kind: 'contracts-ledger' }
@@ -58,10 +61,13 @@ export type PeopleForm =
   | 'department-move'
   | 'position-editor'
   | 'position-headcount'
+  | 'position-requirement'
+  | 'position-grade'
   | 'movement-onboarding'
   | 'movement-probation'
   | 'movement-transfer'
   | 'movement-salary'
+  | 'movement-secondment'
   | 'movement-offboarding'
   | 'contract-editor'
   | 'contract-renewal'

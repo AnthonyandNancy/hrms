@@ -127,6 +127,29 @@ export const TEMPLATE_COLUMNS: readonly PeopleColumn[] = [
   { key: 'published_at', label: '发布时间', width: '165px' },
 ]
 
+export const REQUIREMENT_COLUMNS: readonly PeopleColumn[] = [
+  { key: 'position_code', label: '岗位编码', width: '125px' },
+  { key: 'version', label: '版本', width: '65px' },
+  { key: 'effective_from', label: '生效日期', width: '115px' },
+  { key: 'requirements_summary', label: '任职条件', minWidth: '260px' },
+]
+
+export const GRADE_COLUMNS: readonly PeopleColumn[] = [
+  { key: 'code', label: '职级代码', width: '110px' },
+  { key: 'name', label: '职级名称', minWidth: '180px' },
+  { key: 'level', label: '职等', width: '80px' },
+  { key: 'active', label: '启用', width: '80px' },
+]
+
+export const SECONDMENT_COLUMNS: readonly PeopleColumn[] = [
+  { key: 'employee_no', label: '工号', width: '110px' },
+  { key: 'person_name', label: '姓名', minWidth: '140px' },
+  { key: 'host_org_unit_id', label: '借调组织', width: '100px' },
+  { key: 'assignment_type', label: '任职类型', width: '115px' },
+  { key: 'valid_from', label: '开始日期', width: '115px' },
+  { key: 'valid_to', label: '结束日期', width: '115px' },
+]
+
 export const POSITION_STAFF_COLUMNS: readonly PeopleColumn[] = [
   { key: 'position_code', label: '岗位编码', width: '125px' },
   { key: 'position_title', label: '岗位名称', minWidth: '160px' },
@@ -140,25 +163,5 @@ export const GAP = {
     label: '员工附件',
     plannedPath: '/v1/employments/{employment_id}/documents',
     detail: '当前只提供合同类文档的元数据；通用员工附件上传、下载与删除接口尚未在 V1.1 后端开放。',
-  },
-  requirements: {
-    label: '岗位任职资格',
-    plannedPath: '/v1/positions/{id}/requirements',
-    detail: '岗位任职资格、技能条件与版本化配置接口尚未提供；页面只展示岗位目录中的职级信息。',
-  },
-  grades: {
-    label: '职级/职等',
-    plannedPath: '/v1/positions/grades',
-    detail: '独立职级目录接口尚未提供；当前仅按岗位的 grade 字段做只读查看，不写入新的职级主数据。',
-  },
-  secondment: {
-    label: '借调/兼岗',
-    plannedPath: '/v1/lifecycle/secondments',
-    detail: '后端目前只有 PRIMARY/SECONDMENT/MATRIX/PROJECT 任职类型与调岗命令，没有独立借调生命周期命令。页面只读展示调岗案例，不伪造借调审批。',
-  },
-  positionStaff: {
-    label: '岗位任职人员',
-    plannedPath: '/v1/positions/{id}/staff',
-    detail: '后端未提供按岗位查询员工的子接口；当前从员工列表当前任职中匹配已加载页数据，不保证覆盖全员，页面会显示部分数据标记。',
   },
 } satisfies Record<string, PeopleGap>

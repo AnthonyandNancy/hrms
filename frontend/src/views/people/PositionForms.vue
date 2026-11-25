@@ -25,11 +25,21 @@ type Draft = {
   valid_to: string
   position_id: string
   status: string
+  requirement_education: string
+  requirement_years: string
+  requirement_notes: string
+  requirement_effective_from: string
+  grade_code: string
+  grade_name: string
+  grade_level: string
+  grade_active: string
 }
 
 const defaults: Record<string, Partial<Draft>> = {
   'position-editor': { legal_entity_id: '1', org_unit_id: '', code: '', title: '', grade: '', headcount_limit: '', valid_from: '', valid_to: '' },
   'position-headcount': { position_id: '', headcount_limit: '', title: '', grade: '', status: 'ACTIVE' },
+  'position-requirement': { legal_entity_id: '1', position_id: '', requirement_education: '', requirement_years: '', requirement_notes: '', requirement_effective_from: '' },
+  'position-grade': { legal_entity_id: '1', grade_code: '', grade_name: '', grade_level: '', grade_active: 'true' },
 }
 
 const draft = reactive<Draft>({ ...(defaults[props.form] ?? {}) } as Draft)
@@ -56,6 +66,28 @@ watch(
     if (props.form === 'position-headcount' && id !== undefined) draft['position_id'] = id
   },
 )
+
+const formTitle = computed(() => {
+  if (props.form === 'position-requirement') return '配置岗位任职资格'
+  if (props.form === 'position-grade') return '维护职级目录'
+  return props.form === 'position-editor' ? '新建岗位' : '调整岗位编制'
+})
+
+const formSubtitle = computed(() => {
+  if (props.form === 'position-requirement') return '每次提交都会追加新的资格版本（POST /v1/positions/{id}/requirements），已有版本不被覆盖。'
+  if (props.form === 'position-grade') return '职级按法人维护（POST /v1/positions/grades）；同一法人内职级代码唯一，可停用而不删除。'
+  return props.form === 'position-editor'
+    ? '岗位目录当前不提供编辑既有岗位的完整字段；请新建岗位，或使用编制页更新。'
+    : '编制上限通过 PATCH /v1/positions/{id} 提交；服务端拒绝给有在岗人员的岗位停用。'
+})
+
+const positionOptions = computed(() => props.rows.filter((row) => row.id !== undefined && row.id !== null))
+
+const submitLabel = computed(() => {
+  if (props.form === 'position-requirement') return '追加资格版本'
+  if (props.form === 'position-grade') return '保存职级'
+  return props.form === 'position-editor' ? '创建岗位' : '保存编制'
+})
 
 const selectedPosition = computed(() => {
   const id = draft.position_id.trim()
@@ -122,6 +154,74 @@ async function submit(): Promise<void> {
     return
   }
 
+  if (props.form === 'position-requirement') {
+    const positionId = numeric(draft.position_id)
+    if (positionId === null) {
+      validation('请选择要配置任职资格的岗位。')
+      return
+    }
+    if (draft.requirement_effective_from === '') {
+      validation('请填写任职资格生效日期。')
+      return
+    }
+    const requirements: Record<string, unknown> = {
+      education: draft.requirement_education.trim() === '' ? null : draft.requirement_education.trim(),
+      years: numeric(draft.requirement_years),
+      notes: draft.requirement_notes.trim() === '' ? null : draft.requirement_notes.trim(),
+    }
+    submitting.value = true
+    try {
+      await postRow(
+        `/v1/positions/${positionId}/requirements`,
+        { requirements, effective_from: draft.requirement_effective_from },
+        'position-requirement',
+      )
+      ElMessage.success('任职资格已追加为新版本，历史版本保持不变。')
+      draft.requirement_education = ''
+      draft.requirement_years = ''
+      draft.requirement_notes = ''
+      draft.requirement_effective_from = ''
+      emit('saved')
+    } catch (error) {
+      formError.value = peopleErrorInfo(error)
+    } finally {
+      submitting.value = false
+    }
+    return
+  }
+
+  if (props.form === 'position-grade') {
+    const level = numeric(draft.grade_level)
+    if (draft.grade_code.trim() === '' || draft.grade_name.trim() === '' || level === null) {
+      validation('请填写职级代码、职级名称与职等。')
+      return
+    }
+    submitting.value = true
+    try {
+      await postRow(
+        '/v1/positions/grades',
+        {
+          legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
+          code: draft.grade_code.trim(),
+          name: draft.grade_name.trim(),
+          level,
+          active: draft.grade_active === 'true',
+        },
+        'position-grade',
+      )
+      ElMessage.success('职级已保存；同一法人内职级代码唯一。')
+      draft.grade_code = ''
+      draft.grade_name = ''
+      draft.grade_level = ''
+      emit('saved')
+    } catch (error) {
+      formError.value = peopleErrorInfo(error)
+    } finally {
+      submitting.value = false
+    }
+    return
+  }
+
   const positionId = numeric(draft.position_id)
   if (positionId === null) {
     validation('请选择要调整的岗位。')
@@ -153,10 +253,8 @@ async function submit(): Promise<void> {
   <section class="panel people-form-panel">
     <header class="panel__header">
       <div>
-        <h2 class="panel__title">{{ form === 'position-editor' ? '新建岗位' : '调整岗位编制' }}</h2>
-        <p class="panel__subtitle">
-          {{ form === 'position-editor' ? '岗位目录当前不提供编辑既有岗位的完整字段；请新建岗位，或使用编制页更新。' : '编制上限通过 PATCH /v1/positions/{id} 提交；服务端拒绝给有在岗人员的岗位停用。' }}
-        </p>
+        <h2 class="panel__title">{{ formTitle }}</h2>
+        <p class="panel__subtitle">{{ formSubtitle }}</p>
       </div>
     </header>
     <div class="panel__body">
@@ -171,8 +269,24 @@ async function submit(): Promise<void> {
             <label class="people-field"><span>核定编制</span><input v-model="draft.headcount_limit" data-testid="position-headcount-limit" inputmode="numeric" /></label>
           </template>
 
+          <template v-else-if="form === 'position-requirement'">
+            <label class="people-field"><span>岗位编号 *</span><input v-model="draft.position_id" data-testid="position-requirement-position" inputmode="numeric" /></label>
+            <label class="people-field"><span>生效日期 *</span><input v-model="draft.requirement_effective_from" data-testid="position-requirement-effective" type="date" /></label>
+            <label class="people-field"><span>学历要求</span><input v-model="draft.requirement_education" data-testid="position-requirement-education" /></label>
+            <label class="people-field"><span>年限要求</span><input v-model="draft.requirement_years" data-testid="position-requirement-years" inputmode="numeric" /></label>
+            <label class="people-field people-field--wide"><span>补充说明</span><textarea v-model="draft.requirement_notes" data-testid="position-requirement-notes" rows="2" /></label>
+          </template>
+
+          <template v-else-if="form === 'position-grade'">
+            <label class="people-field"><span>法人编号 *</span><input v-model="draft.legal_entity_id" data-testid="position-grade-legal-entity" inputmode="numeric" /></label>
+            <label class="people-field"><span>职级代码 *</span><input v-model="draft.grade_code" data-testid="position-grade-code" /></label>
+            <label class="people-field"><span>职级名称 *</span><input v-model="draft.grade_name" data-testid="position-grade-name" /></label>
+            <label class="people-field"><span>职等 *</span><input v-model="draft.grade_level" data-testid="position-grade-level" inputmode="numeric" /></label>
+            <label class="people-field"><span>启用</span><select v-model="draft.grade_active" data-testid="position-grade-active"><option value="true">是</option><option value="false">否</option></select></label>
+          </template>
+
           <template v-else>
-            <label class="people-field"><span>岗位 *</span><select v-model="draft.position_id" data-testid="position-select" @change="choosePosition"><option value="">请选择岗位</option><option v-for="row in rows" :key="String(row.id)" :value="String(row.id)">{{ rowText(row, 'code') }} · {{ rowText(row, 'title') }}</option></select></label>
+            <label class="people-field"><span>岗位 *</span><select v-model="draft.position_id" data-testid="position-select" @change="choosePosition"><option value="">请选择岗位</option><option v-for="row in positionOptions" :key="String(row.id)" :value="String(row.id)">{{ rowText(row, 'code') }} · {{ rowText(row, 'title') }}</option></select></label>
             <div v-if="selectedPosition" class="people-field people-field--wide people-inline-note">
               已占用 {{ rowNumber(selectedPosition, 'occupancy') ?? 0 }} 人；核定编制 {{ rowNumber(selectedPosition, 'headcount_limit') ?? '未设置' }}；空缺 {{ rowNumber(selectedPosition, 'vacancies') ?? '—' }}。
             </div>
@@ -190,7 +304,7 @@ async function submit(): Promise<void> {
 
         <div class="people-form__actions">
           <button type="submit" class="people-button" :disabled="submitting" data-testid="position-submit">
-            {{ submitting ? '提交中…' : form === 'position-editor' ? '创建岗位' : '保存编制' }}
+            {{ submitting ? '提交中…' : submitLabel }}
           </button>
         </div>
       </form>

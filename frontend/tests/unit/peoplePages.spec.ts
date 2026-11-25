@@ -117,6 +117,53 @@ const contractTemplate = {
   published_at: '2026-11-20T08:00:00Z',
 }
 
+const positionRequirement = {
+  id: 301,
+  position_id: 4,
+  version: 2,
+  requirements_json: { education: 'BACHELOR', years: 3 },
+  effective_from: '2026-12-01',
+  recorded_at: '2026-11-20T08:00:00Z',
+}
+
+const positionGrade = {
+  id: 71,
+  legal_entity_id: 1,
+  code: 'P5',
+  name: 'Professional 5',
+  level: 5,
+  active: true,
+}
+
+const secondment = {
+  assignment_id: 91,
+  employment_id: 1,
+  employee_no: 'E1001',
+  person_name: 'Synthetic Employee',
+  host_org_unit_id: 12,
+  position_id: null,
+  assignment_type: 'SECONDMENT',
+  is_primary: false,
+  valid_from: '2026-12-01',
+  valid_to: '2027-03-31',
+}
+
+const positionStaffRow = {
+  assignment_id: 11,
+  employment_id: 1,
+  legal_entity_id: 1,
+  employee_no: 'E1001',
+  person_name: 'Synthetic Employee',
+  org_unit_id: 10,
+  position_id: 4,
+  position_code: 'POS-004',
+  position_title: 'Synthetic Engineer',
+  assignment_type: 'PRIMARY',
+  is_primary: true,
+  valid_from: '2026-01-01',
+  valid_to: '9999-12-31',
+}
+
 function projectionResponse(items: unknown[] = []) {
   return {
     items,
@@ -414,6 +461,119 @@ describe('Wave 2 people domain components', () => {
     expect(resource.post).toHaveBeenCalledWith(
       '/v1/contract-templates/82/publish',
       {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+  it('reads position requirements from the versioned sub-resource and appends a new version', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/positions') return Promise.resolve(listResponse([position]))
+      if (path === '/v1/positions/4/requirements') return Promise.resolve(projectionResponse([positionRequirement]))
+      return Promise.resolve(listResponse())
+    })
+    resource.post.mockResolvedValue({ ...positionRequirement, id: 302, version: 3 })
+
+    const wrapper = await mountAt('hr/positions/requirements', '/hr/positions/requirements')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions/4/requirements', expect.any(Object))
+    expect(wrapper.text()).toContain('POS-004')
+    expect(wrapper.text()).toContain('BACHELOR')
+    expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="position-requirement-position"]').setValue('4')
+    await wrapper.get('[data-testid="position-requirement-effective"]').setValue('2027-01-01')
+    await wrapper.get('[data-testid="position-requirement-education"]').setValue('MASTER')
+    await wrapper.get('[data-testid="position-requirement-years"]').setValue('5')
+    await wrapper.get('.people-form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/positions/4/requirements',
+      expect.objectContaining({
+        effective_from: '2027-01-01',
+        requirements: expect.objectContaining({ education: 'MASTER', years: 5 }),
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('reads and upserts the legal-entity grade catalogue without a gap banner', async () => {
+    resource.get.mockResolvedValue(projectionResponse([positionGrade]))
+    resource.post.mockResolvedValue({ ...positionGrade, level: 6 })
+
+    const wrapper = await mountAt('hr/positions/grades', '/hr/positions/grades')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions/grades', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(wrapper.text()).toContain('P5')
+    expect(wrapper.text()).toContain('Professional 5')
+    expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="position-grade-code"]').setValue('P6')
+    await wrapper.get('[data-testid="position-grade-name"]').setValue('Professional 6')
+    await wrapper.get('[data-testid="position-grade-level"]').setValue('6')
+    await wrapper.get('.people-form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/positions/grades',
+      expect.objectContaining({ legal_entity_id: 1, code: 'P6', name: 'Professional 6', level: 6, active: true }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('reads position staff from the position sub-resource instead of matching the employee list', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/positions') return Promise.resolve(listResponse([position]))
+      if (path === '/v1/positions/4/staff') return Promise.resolve(projectionResponse([positionStaffRow]))
+      return Promise.resolve(listResponse())
+    })
+
+    const wrapper = await mountAt('hr/positions/staff', '/hr/positions/staff')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions/4/staff', expect.any(Object))
+    expect(resource.get).not.toHaveBeenCalledWith('/v1/employees', expect.anything())
+    expect(wrapper.text()).toContain('E1001')
+    expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
+  })
+
+  it('reads and starts secondments through the lifecycle command', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/lifecycle/secondments') return Promise.resolve(projectionResponse([secondment]))
+      return Promise.resolve(listResponse())
+    })
+    resource.post.mockResolvedValue({ ...secondment, assignment_id: 92 })
+
+    const wrapper = await mountAt('hr/movements/secondment', '/hr/movements/secondment')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/lifecycle/secondments', expect.objectContaining({
+      legal_entity_id: 1,
+      page: 1,
+      page_size: 20,
+    }))
+    expect(wrapper.text()).toContain('SECONDMENT')
+    expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="movement-employment-id"]').setValue('1')
+    await wrapper.get('[data-testid="movement-host-org"]').setValue('12')
+    await wrapper.get('[data-testid="movement-effective-date"]').setValue('2026-12-01')
+    await wrapper.get('[data-testid="movement-secondment-to"]').setValue('2027-03-31')
+    await wrapper.get('[data-testid="movement-reason"]').setValue('Synthetic secondment')
+    await wrapper.get('.people-form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/lifecycle/secondments',
+      {
+        employment_id: 1,
+        host_org_unit_id: 12,
+        position_id: null,
+        effective_from: '2026-12-01',
+        effective_to: '2027-03-31',
+        reason: 'Synthetic secondment',
+      },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })
