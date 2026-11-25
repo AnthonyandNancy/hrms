@@ -1,4 +1,4 @@
-import type { PeopleColumn, PeopleGap } from './types'
+import type { PeopleColumn } from './types'
 
 export const EMPLOYEE_COLUMNS: readonly PeopleColumn[] = [
   { key: 'employee_no', label: '工号', width: '110px' },
@@ -167,10 +167,3 @@ export const DOCUMENT_COLUMNS = [
   { key: 'created_at', label: '上传时间', width: '180px' },
 ]
 
-export const GAP = {
-  files: {
-    label: '员工附件',
-    plannedPath: '/v1/employments/{employment_id}/documents',
-    detail: '当前只提供合同类文档的元数据；通用员工附件上传、下载与删除接口尚未在 V1.1 后端开放。',
-  },
-} satisfies Record<string, PeopleGap>

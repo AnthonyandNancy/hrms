@@ -4,10 +4,10 @@
 > **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
 > 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 操作总数：**242**
-- 有能力的操作：**236**
+- v1 操作总数：**258**
+- 有能力的操作：**252**
 - 公共白名单操作：**6**
-- kernel 操作：**59**
+- kernel 操作：**82**
 
 ## 1. 台账
 
@@ -232,29 +232,45 @@
 | 217 | `GET` | `/v1/time/shift-schedules` | `time.shift.schedule.read` | `—` | kernel | — |
 | 218 | `POST` | `/v1/time/shift-schedules` | `time.shift.schedule.manage` | `—` | kernel | — |
 | 219 | `GET` | `/v1/time/shifts` | `time.shift.read` | `—` | legacy | C2 |
-| 220 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | legacy | D3 |
-| 221 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | legacy | D3 |
-| 222 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | legacy | D3 |
-| 223 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | legacy | D3 |
-| 224 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
-| 225 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 226 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 227 | `GET` | `/v1/travel/expenses` | `time.travel.expense` | `—` | kernel | — |
-| 228 | `POST` | `/v1/travel/expenses` | `time.travel.expense.manage` | `LEGAL_ENTITY` | kernel | — |
-| 229 | `GET` | `/v1/travel/policies` | `time.travel.policy.read` | `LEGAL_ENTITY` | kernel | — |
-| 230 | `POST` | `/v1/travel/policies` | `time.travel.policy.manage` | `LEGAL_ENTITY` | kernel | — |
-| 231 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | kernel | — |
-| 232 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | kernel | — |
-| 233 | `POST` | `/v1/travel/requests/{id}/approve` | `time.travel.approve` | `MANAGED` | kernel | — |
-| 234 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | kernel | — |
-| 235 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
-| 236 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 237 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 238 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 239 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 240 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 241 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
-| 242 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
+| 220 | `GET` | `/v1/training/checkins` | `training.checkin.manage` | `LEGAL_ENTITY` | kernel | — |
+| 221 | `GET` | `/v1/training/courses` | `training.course.manage` | `LEGAL_ENTITY` | kernel | — |
+| 222 | `POST` | `/v1/training/courses` | `training.course.manage` | `LEGAL_ENTITY` | kernel | — |
+| 223 | `GET` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | kernel | — |
+| 224 | `POST` | `/v1/training/enrollments` | `training.enrollment.manage` | `—` | kernel | — |
+| 225 | `POST` | `/v1/training/enrollments/{id}/complete` | `training.completion.manage` | `—` | kernel | — |
+| 226 | `GET` | `/v1/training/exams` | `training.exam.manage` | `LEGAL_ENTITY` | kernel | — |
+| 227 | `POST` | `/v1/training/exams` | `training.exam.manage` | `LEGAL_ENTITY` | kernel | — |
+| 228 | `POST` | `/v1/training/exams/{id}/publish` | `training.exam.manage` | `LEGAL_ENTITY` | kernel | — |
+| 229 | `GET` | `/v1/training/feedback` | `training.feedback.manage` | `LEGAL_ENTITY` | kernel | — |
+| 230 | `POST` | `/v1/training/feedback` | `training.feedback.manage` | `LEGAL_ENTITY` | kernel | — |
+| 231 | `GET` | `/v1/training/plans` | `training.plan.manage` | `LEGAL_ENTITY` | kernel | — |
+| 232 | `POST` | `/v1/training/plans` | `training.plan.manage` | `LEGAL_ENTITY` | kernel | — |
+| 233 | `GET` | `/v1/training/programs` | `training.program.read` | `—` | kernel | — |
+| 234 | `POST` | `/v1/training/programs` | `training.program.manage` | `—` | kernel | — |
+| 235 | `GET` | `/v1/training/records` | `training.record.read` | `LEGAL_ENTITY` | kernel | — |
+| 236 | `GET` | `/v1/training/records/export` | `training.record.read` | `LEGAL_ENTITY` | kernel | — |
+| 237 | `GET` | `/v1/training/report` | `training.report.read` | `—` | kernel | — |
+| 238 | `GET` | `/v1/training/reports` | `training.report.read` | `—` | kernel | — |
+| 239 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | kernel | — |
+| 240 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | kernel | — |
+| 241 | `GET` | `/v1/training/sessions/{id}/checkins` | `training.checkin.manage` | `LEGAL_ENTITY` | kernel | — |
+| 242 | `POST` | `/v1/training/sessions/{id}/checkins` | `training.checkin.manage` | `LEGAL_ENTITY` | kernel | — |
+| 243 | `GET` | `/v1/travel/expenses` | `time.travel.expense` | `—` | kernel | — |
+| 244 | `POST` | `/v1/travel/expenses` | `time.travel.expense.manage` | `LEGAL_ENTITY` | kernel | — |
+| 245 | `GET` | `/v1/travel/policies` | `time.travel.policy.read` | `LEGAL_ENTITY` | kernel | — |
+| 246 | `POST` | `/v1/travel/policies` | `time.travel.policy.manage` | `LEGAL_ENTITY` | kernel | — |
+| 247 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | kernel | — |
+| 248 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | kernel | — |
+| 249 | `POST` | `/v1/travel/requests/{id}/approve` | `time.travel.approve` | `MANAGED` | kernel | — |
+| 250 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | kernel | — |
+| 251 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
+| 252 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 253 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 254 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 255 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 256 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 257 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
+| 258 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
 
 ## 2. 迁移规则
 

@@ -9,7 +9,6 @@ const leaveAsOf = {}
 const listQuery = { page: 1, page_size: 20 }
 const payrollQuery = { page: 1, page_size: 20, legal_entity_id: 1 }
 
-const backendGap = (method: 'GET' | 'POST', path: string, reason: string) => ({ method, path, reason })
 
 export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
   {
