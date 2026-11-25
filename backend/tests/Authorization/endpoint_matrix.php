@@ -584,8 +584,8 @@ return [
     'GET /v1/lifecycle/secondments' => [
         'capability' => 'lifecycle.secondment.manage',
         'anchor' => 'LEGAL_ENTITY',
-        'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
     ],
     'POST /v1/lifecycle/secondments' => [
         'capability' => 'lifecycle.secondment.manage',

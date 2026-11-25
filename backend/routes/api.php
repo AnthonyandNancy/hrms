@@ -594,7 +594,7 @@ Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): voi
         ->middleware('capability:lifecycle.rehire.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('lifecycle.rehires.store');
     Route::get('/secondments', [SecondmentController::class, 'index'])
-        ->middleware('capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('lifecycle.secondments.index');
     Route::post('/secondments', [SecondmentController::class, 'store'])
         ->middleware([ResolveResourceLegalEntityContext::class.':employment', 'mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
