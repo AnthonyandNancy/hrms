@@ -5,7 +5,7 @@
 
 - 分支：`feat/v11-gap-completion`
 - 基线：`3f192d7`（文档确认）
-- 交付 release：`409bff4`
+- 交付 release：`25238c9`
 - 计划：`docs/superpowers/plans/2026-11-25-v11-gap-completion-implementation-plan.md`（24 Task）
 - 设计：`docs/superpowers/specs/2026-11-25-v11-gap-completion-design.md`（Accepted）
 
@@ -86,7 +86,7 @@ node scripts/audit_route_coverage.mjs --require-mature --require-capabilities
 | 前端 `lint` | PASS（0 warnings） |
 | 前端 `test:unit` | **238 passed / 32 files** |
 | `openapi:check` | PASS |
-| `v11:gate` | 见第 9 节 |
+| `v11:gate` | **PASS（8/8）** |
 
 ## 8. 不留尾巴
 
@@ -97,7 +97,8 @@ node scripts/audit_route_coverage.mjs --require-mature --require-capabilities
 
 ## 9. 生产上线门禁（`pnpm v11:gate`）
 
-八项底线一条命令串行执行，任一失败即非零退出，并写 `evidence/v11-production-gate-<stamp>.log`：
+八项底线一条命令串行执行，任一失败即非零退出，并写 `evidence/v11-production-gate-<stamp>.log`。
+**2026-11-25 最终一次运行：8/8 PASS**（`evidence/v11-production-gate-2026-11-25T13-28-25-436Z.log`）。
 
 1. `gap-zero` — 63 缺口清零
 2. `openapi` — 契约有效且每个操作有 schema
@@ -110,7 +111,12 @@ node scripts/audit_route_coverage.mjs --require-mature --require-capabilities
 
 ## 10. 结论
 
-**63 项功能缺口已全部实现为真实 API，前后端、契约、权限负测、迁移演练与生产门禁均通过。**
+**63 项功能缺口已全部实现为真实 API，前后端、契约、权限负测、迁移演练、真实栈 160 页 + 12 集群 E2E 与生产门禁均通过。**
+
+最终证据：
+- `pnpm v11:gate` → **RESULT PASS**（8/8，commit `25238c9`）
+- 真实栈：`evidence/v11-real-stack-20261125T131309Z.log` → **ALL REAL-STACK GATES PASSED**（readiness、release traceability、smoke、登录与未认证拒绝、160 页审计、MySQL 154 表备份恢复零差异）
+- 12 集群 E2E：`cluster-journeys.spec.ts` → **2 passed**（12 集群真实工作流 + 冻结成员表一致性）
 
 发布前仍需由运维确认（不属代码阻断项）：
 1. 生产 `.env` 使用独立密钥，`APP_ENV=production`、`APP_DEBUG=false`。
