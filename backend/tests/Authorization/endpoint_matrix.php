@@ -307,7 +307,19 @@ return ['GET /v1/documents/{document_id}/content' => [
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
     'GET /v1/reporting/definitions' => [
-        'capability' => 'reporting.dashboard.read',
+        'capability' => 'reporting.report.read',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+    ],
+    'GET /v1/reporting/subscriptions' => [
+        'capability' => 'reporting.subscription.manage',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+    ],
+    'GET /v1/reporting/exports' => [
+        'capability' => 'reporting.export.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
@@ -787,10 +799,34 @@ return ['GET /v1/documents/{document_id}/content' => [
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
     'POST /v1/reporting/run' => [
-        'capability' => 'reporting.dashboard.read',
+        'capability' => 'reporting.report.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
+    ],
+    'POST /v1/reporting/definitions' => [
+        'capability' => 'reporting.definition.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'POST /v1/reporting/subscriptions' => [
+        'capability' => 'reporting.subscription.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'PATCH /v1/reporting/subscriptions/{subscriptionId}' => [
+        'capability' => 'reporting.subscription.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
+    ],
+    'DELETE /v1/reporting/subscriptions/{subscriptionId}' => [
+        'capability' => 'reporting.subscription.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
     'POST /v1/time/attendance/corrections' => [
         'capability' => 'time.attendance.correct.request',
