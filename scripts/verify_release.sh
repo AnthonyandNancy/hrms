@@ -127,6 +127,20 @@ else
   skip_gate "payroll correctness" "backend/artisan missing"
 fi
 
+section "V1.1 acceptance evidence"
+if [[ "${1:-}" != "--quick" || "${V11_REAL_STACK:-0}" == "1" ]]; then
+  if [[ -n "${HRMS_DEMO_PASSWORD:-}" ]]; then
+    run_gate "authorization negative evidence" bash "$ROOT/deploy/scripts/authorization_negative_evidence.sh"
+    run_gate "concurrency idempotency evidence" bash "$ROOT/deploy/scripts/concurrency_evidence.sh"
+    run_gate "V1.1 real stack acceptance" bash "$ROOT/deploy/scripts/verify_real_stack.sh"
+  else
+    skip_gate "V1.1 real stack acceptance" "HRMS_DEMO_PASSWORD is not set (required for real login)"
+  fi
+  run_gate "route coverage release gate" node "$ROOT/scripts/audit_route_coverage.mjs" --require-mature
+else
+  skip_gate "V1.1 acceptance evidence" "--quick without V11_REAL_STACK=1"
+fi
+
 section "Summary"
 printf 'PASS=%d FAIL=%d SKIP=%d\n' "$PASS" "$FAIL" "$SKIP" | tee -a "$LOG"
 if [ "$FAIL" -gt 0 ]; then

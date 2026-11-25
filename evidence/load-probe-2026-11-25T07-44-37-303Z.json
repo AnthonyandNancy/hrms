@@ -1,0 +1,18 @@
+{
+  "base_url": "http://127.0.0.1:5184",
+  "requests": 120,
+  "concurrency": 12,
+  "elapsed_ms": 630,
+  "throughput_rps": 190.48,
+  "latency_ms": {
+    "p50": 58.26,
+    "p95": 71.45,
+    "p99": 95.46,
+    "max": 109.62
+  },
+  "status_counts": {
+    "200": 120
+  },
+  "failures": 0,
+  "failure_samples": []
+}

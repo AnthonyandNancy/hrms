@@ -50,7 +50,7 @@
 
 | 门禁 | 命令 | 结果 |
 |---|---|---|
-| 后端测试 | `cd backend && php artisan test` | **901 passed / 45,360 assertions** |
+| 后端测试 | `cd backend && php artisan test` | **903 passed / 45,367 assertions** |
 | 代码风格 | `vendor/bin/pint --test` | **passed** |
 | 静态分析 | `vendor/bin/phpstan analyse` | **No errors** |
 | 权限默认拒绝 | `php artisan capability:audit` | **OK（无警告）** |
@@ -67,7 +67,8 @@
 
 - `evidence/v11-authorization-negative-20261125T071526Z.log`：锚点/范围拒绝、字段级拒绝、跨法人隔离、超管全权与 P3 审计、MFA 与会话撤销、无有效任职 409 —— **6/6 组通过**。
 - `evidence/v11-concurrency-idempotency-20261125T071605Z.log`：审批并发、幂等重放与冲突、入职效果去重、加班唯一结算、培训重复报名、考勤月结锁定、薪资状态机 —— **7/7 组通过**。
-- 真实栈 live 负测（最终 SHA `08f409a`）：`demo.employee` 访问员工目录、用户管理、跨法人员工均 **403**；`demo.hr` 访问工资条与薪资批次均 **403**，返回 `CAPABILITY_DENIED` 与具体 capability/anchor。后者符合 ADR-0027 的职责分离：`HR_ADMIN` 不含 P3 薪资读取，薪资由 `PAYROLL_SPECIALIST`/`PAYROLL_APPROVER` 持有。
+- P3 读取审计（ADR-0024）：`PayrollSensitiveReadAuditTest` 证明 `/v1/payroll/runs` 列表会解析 `payroll.payslip.read` 字段投影；`FieldProjectionTest` 证明真实 `CapabilityAuthorizer` 在 P3 字段可见时写入 `SensitiveAccessAuditor`（仅字段名，不含值）。**2 组通过**。
+- 真实栈 live 负测（最终 SHA `0677576`）：`demo.employee` 访问员工目录、用户管理、跨法人员工均 **403**；`demo.hr` 访问工资条与薪资批次均 **403**，返回 `CAPABILITY_DENIED` 与具体 capability/anchor。后者符合 ADR-0027 的职责分离：`HR_ADMIN` 不含 P3 薪资读取，薪资由 `PAYROLL_SPECIALIST`/`PAYROLL_APPROVER` 持有。
 
 ## 5. 真实栈证据（已执行，SHA 2f68759）
 
@@ -94,17 +95,17 @@
 
 ## 7. 最终 release SHA 复跑（已完成）
 
-- 最终 release commit：**`08f409a64d41d433625f12624728d2b02ea7dca5`**
-- 镜像：`factoryhr/php-app:v11-08f409a`、`factoryhr/frontend:v11-08f409a`
-- `/v1/meta`：`commit=08f409a...`、`spa_build_sha=08f409a...`、`build_time=2026-11-25T07:23:02Z`
-- 最终真实栈日志：`evidence/v11-real-stack-20261125T072544Z.log`
+- 最终 release commit：**`067757694386475f317b23ff8f39ed003b9eee9b`**
+- 镜像：`factoryhr/php-app:v11-0677576`、`factoryhr/frontend:v11-0677576`
+- `/v1/meta`：`commit=08f409a...`、`spa_build_sha=08f409a...`、`build_time=2026-11-25T07:35:28Z`
+- 最终真实栈日志：`evidence/v11-real-stack-20261125T073946Z.log`
 - 结果：**5/5 门禁通过**（readiness、release traceability、smoke、真实登录与未认证拒绝、160 页路由审计、MySQL 117 表备份恢复零差异）
-- 最终压测：**120 请求 / 并发 12 / 0 失败 / p95 69.85ms / 194.49 RPS**
+- 最终压测：**120 请求 / 并发 12 / 0 失败 / p95 71.45ms / 190.48 RPS**
 - 说明：该栈使用 `APP_ENV=local` 与合成 demo 数据；生产环境需按 ADR-0025 设置 `IAM_MFA_ENABLED` 与真实密钥，并以 `--expect-commit` 校验发布 SHA。
 
 ## 8. 结论与发布条件
 
-**代码、契约、权限负测、页面覆盖与真实栈验收均已通过**，release SHA 为 `08f409a`。以下条件必须在生产发布前由运维确认，不构成本轮代码阻断：
+**代码、契约、权限负测、页面覆盖与真实栈验收均已通过**，release SHA 为 `0677576`。以下条件必须在生产发布前由运维确认，不构成本轮代码阻断：
 
 1. 生产 Compose 使用独立 `.env`（禁止示例密钥），设置 `APP_ENV=production`、`APP_DEBUG=false`、独立 `APP_KEY`。
 2. 按 ADR-0025 决定 `IAM_MFA_ENABLED`；若关闭，必须保留 `install.mfa_skipped` 审计并在内网边界评审中签字。
