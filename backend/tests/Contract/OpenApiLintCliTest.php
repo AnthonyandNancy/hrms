@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Contract;
 
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /**
  * Exercises the Node OpenAPI gate as a black box with temporary fixtures.
