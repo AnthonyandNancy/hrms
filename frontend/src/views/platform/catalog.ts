@@ -3,6 +3,9 @@ export type PlatformMode =
   | 'reports-index'
   | 'reports-detail'
   | 'reports-exports'
+  | 'reports-builder'
+  | 'reports-subscriptions'
+  | 'reports-talent'
   | 'notice-list'
   | 'notice-create'
   | 'notice-governance'
@@ -34,6 +37,13 @@ export type PlatformPageConfig = {
   /** A deliberately visible backend gap. Never replaced with synthetic data. */
   gap?: string
   gapPath?: string
+  /**
+   * A truthful capability boundary where the platform relies on operational
+   * tooling outside the HRMS API. Unlike `gap`, it is not an unfinished
+   * endpoint and never counts as an executable gap marker.
+   */
+  limitation?: string
+  limitationPath?: string
   /** Notice governance panel served by a real API. */
   noticePanel?: 'approval' | 'audience' | 'reads' | 'templates' | 'archive'
 }
@@ -111,11 +121,9 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'reports/attendance',
     title: '考勤假期报表',
     breadcrumb: '报表中心',
-    description: '先展示假期负债等真实可用报表。没有考勤专属定义时不生成考勤口径。',
+    description: '假期负债使用 LEAVE_LIABILITY 定义和统一运行接口；考勤汇总等未发布定义不会在页面推算。',
     mode: 'reports-detail',
     reportCode: 'LEAVE_LIABILITY',
-    gap: '后端接口待补: 考勤专属报表定义（考勤汇总、异常与假期交叉明细）',
-    gapPath: 'GET /v1/reporting/definitions (definition_code=ATTENDANCE_SUMMARY)',
   },
   {
     key: 'reports/payroll',
@@ -137,37 +145,29 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'reports/talent',
     title: '绩效培训报表',
     breadcrumb: '报表中心',
-    description: '当前报表目录没有绩效培训定义；保留真实目录并明确缺口。',
-    mode: 'reports-detail',
-    gap: '后端接口待补: 绩效培训报表定义',
-    gapPath: 'POST /v1/reporting/run (definition_code=PERFORMANCE_TRAINING)',
+    description: '绩效周期报表与培训计划报表来自 Talent 授权投影；金额为整数分，比率按基点展示。',
+    mode: 'reports-talent',
   },
   {
     key: 'reports/builder',
     title: '自定义报表',
     breadcrumb: '报表中心',
-    description: '展示真实报表定义及字段档位；保存自定义模板需要独立写入契约。',
-    mode: 'reports-index',
-    gap: '后端接口待补: 自定义报表定义保存与预览',
-    gapPath: 'POST /v1/reporting/definitions',
+    description: '自定义定义只能从服务端批准的投影、字段和筛选白名单保存；SQL 与自由条件由后端拒绝。',
+    mode: 'reports-builder',
   },
   {
     key: 'reports/subscriptions',
     title: '报表订阅',
     breadcrumb: '报表中心',
-    description: '展示可供订阅的真实报表目录；订阅生命周期接口尚未提供。',
-    mode: 'reports-index',
-    gap: '后端接口待补: 报表订阅列表与启停',
-    gapPath: 'GET/POST /v1/reporting/subscriptions',
+    description: '订阅只保存定义、收件人与频率；创建和每次执行都会重新校验收件人的报告读取权限。',
+    mode: 'reports-subscriptions',
   },
   {
     key: 'reports/exports',
     title: '导出任务',
     breadcrumb: '报表中心',
-    description: '可创建带目的与字段白名单的导出任务，并使用服务端返回的短效 token 下载。',
+    description: '导出历史返回 source_hash、字段白名单和审计轨迹；下载使用短效签名链接。',
     mode: 'reports-exports',
-    gap: '后端接口待补: 导出任务历史列表',
-    gapPath: 'GET /v1/reporting/exports',
   },
   {
     key: 'notices/index',
@@ -318,10 +318,10 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'system/system-audit',
     title: '日志审计与运维',
     breadcrumb: '系统管理',
-    description: '认证事件与访问复核使用 IAM 审计接口；备份恢复和任务监控接口尚未提供。',
+    description: '认证事件与访问复核使用 IAM 审计接口；备份恢复和任务监控由外部运维平台承担，HRMS API 尚未提供查询端点。',
     mode: 'audit',
-    gap: '后端接口待补: 备份恢复与任务监控',
-    gapPath: 'GET /v1/platform/operations',
+    limitation: '备份恢复与任务监控尚未提供',
+    limitationPath: 'GET /v1/auth/events · GET /v1/access-review',
   },
 ]
 

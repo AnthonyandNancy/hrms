@@ -11,6 +11,7 @@ import { useSessionStore } from '@/stores/session'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import MoneyText from '@/components/MoneyText.vue'
 import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import { platformPageConfig, platformPageConfigForPath } from './catalog'
 import type { PlatformPageConfig } from './catalog'
@@ -54,6 +55,10 @@ const definitions = ref<PlatformRow[]>([])
 const reportResult = ref<PlatformRow | null>(null)
 const reportUnavailable = ref('')
 const exportJob = ref<PlatformRow | null>(null)
+const exportHistory = ref<PlatformRow[]>([])
+const subscriptions = ref<PlatformRow[]>([])
+const talentPerformance = ref<PlatformRow | null>(null)
+const talentTraining = ref<PlatformRow | null>(null)
 const notices = ref<PlatformRow[]>([])
 const selectedNotice = ref<PlatformRow | null>(null)
 const meData = ref<PlatformRow | null>(null)
@@ -115,6 +120,21 @@ const calendarYear = ref(2026)
 const exportReportCode = ref('')
 const selectedExportFields = ref<string[]>([])
 const exportPurpose = ref('BUSINESS_OPERATION')
+
+const definitionForm = reactive({
+  code: '',
+  name: '',
+  description: '',
+  sourceProjection: '',
+  fields: [] as string[],
+  filters: [] as string[],
+})
+
+const subscriptionForm = reactive({
+  definitionCode: '',
+  recipientUserId: '',
+  frequency: 'MONTHLY',
+})
 
 const noticeForm = reactive({
   title: '',
@@ -250,6 +270,8 @@ const pageDescription = computed(() => config.value?.description ?? '当前路�
 const mode = computed(() => config.value?.mode ?? null)
 const gap = computed(() => config.value?.gap ?? null)
 const gapPath = computed(() => config.value?.gapPath ?? null)
+const limitation = computed(() => config.value?.limitation ?? null)
+const limitationPath = computed(() => config.value?.limitationPath ?? null)
 
 const dashboardMetrics = computed(() => rowsFrom(dashboardData.value, 'metrics'))
 const activeMetricKey = computed(() => {
@@ -281,7 +303,10 @@ const reportDefinition = computed(() =>
   definitions.value.find((definition) => rowText(definition, 'code') === config.value?.reportCode) ?? null,
 )
 const reportColumns = computed(() => nestedRows(reportResult.value, 'columns'))
-const reportRows = computed(() => rowsFrom(reportResult.value?.rows))
+const reportRows = computed(() => {
+  const rows = rowsFrom(reportResult.value?.rows)
+  return rows.length > 0 ? rows : rowsFrom(reportResult.value, 'items')
+})
 const definitionFields = computed(() => nestedRows(reportDefinition.value, 'fields'))
 const definitionFilters = computed(() => nestedRows(reportDefinition.value, 'filters'))
 const selectedExportDefinition = computed(
@@ -290,6 +315,36 @@ const selectedExportDefinition = computed(
 const selectedExportFieldsAvailable = computed(() =>
   nestedRows(selectedExportDefinition.value, 'fields').filter((field) => field.exportable !== false),
 )
+const sourceProjections = computed(() => {
+  const seen = new Map<string, string>()
+  for (const definition of definitions.value) {
+    const source = rowText(definition, 'sourceProjection', '')
+    if (source !== '' && source !== '—') seen.set(source, source)
+  }
+  return [...seen.keys()]
+})
+const builderFieldsAvailable = computed(() => {
+  const seen = new Map<string, PlatformRow>()
+  for (const definition of definitions.value) {
+    if (rowText(definition, 'sourceProjection', '') !== definitionForm.sourceProjection) continue
+    for (const field of nestedRows(definition, 'fields')) {
+      const key = rowText(field, 'key', '')
+      if (key !== '' && key !== '—' && !seen.has(key)) seen.set(key, field)
+    }
+  }
+  return [...seen.values()]
+})
+const builderFiltersAvailable = computed(() => {
+  const seen = new Map<string, PlatformRow>()
+  for (const definition of definitions.value) {
+    if (rowText(definition, 'sourceProjection', '') !== definitionForm.sourceProjection) continue
+    for (const filter of nestedRows(definition, 'filters')) {
+      const key = rowText(filter, 'key', '')
+      if (key !== '' && key !== '—' && !seen.has(key)) seen.set(key, filter)
+    }
+  }
+  return [...seen.values()]
+})
 const exportDownloadHref = computed(() => {
   if (exportJob.value === null) return ''
   const downloadUrl = rowText(exportJob.value, 'downloadUrl', '')
@@ -315,6 +370,8 @@ const bindingsRows = computed(() => bindings.value)
 const accessEvents = computed(() => auditEvents.value)
 const unusedBindings = computed(() => rowsFrom(accessReview.value, 'unused_high_risk_bindings'))
 const sodRisks = computed(() => rowsFrom(accessReview.value, 'sod_risks'))
+const talentPerformanceRows = computed(() => rowsFrom(talentPerformance.value, 'items'))
+const talentTrainingRows = computed(() => rowsFrom(talentTraining.value, 'items'))
 
 const profile = computed<PlatformRow | null>(() => recordFrom(workspaceData.value?.profile))
 const attendanceSummary = computed<PlatformRow | null>(() => recordFrom(workspaceData.value?.attendanceSummary))
@@ -346,10 +403,16 @@ const empty = computed(() => {
         metricRows.value.length === 0
       )
     case 'reports-index':
-    case 'reports-exports':
+    case 'reports-builder':
       return definitions.value.length === 0
+    case 'reports-subscriptions':
+      return definitions.value.length === 0 && subscriptions.value.length === 0
+    case 'reports-exports':
+      return definitions.value.length === 0 && exportHistory.value.length === 0 && exportJob.value === null
     case 'reports-detail':
       return definitions.value.length === 0 && reportResult.value === null
+    case 'reports-talent':
+      return talentPerformance.value === null && talentTraining.value === null
     case 'notice-list':
       return notices.value.length === 0
     case 'notice-governance':
@@ -499,6 +562,46 @@ async function loadDefinitions(): Promise<void> {
     .filter((field) => field.exportable !== false)
     .map((field) => rowText(field, 'key'))
     .filter((key) => key !== '—')
+}
+
+function todayAsOf(): string {
+  return todayBusinessDate()
+}
+
+async function loadTalentReports(): Promise<void> {
+  const asOf = todayAsOf()
+  const [performancePayload, trainingPayload] = await settleReads([
+    resourceGet<unknown>('/v1/performance/reports', { as_of: asOf }),
+    resourceGet<unknown>('/v1/training/reports', { as_of: asOf }),
+  ])
+  talentPerformance.value = recordFrom(performancePayload)
+  talentTraining.value = recordFrom(trainingPayload)
+  partial.value = partialFlag(performancePayload, trainingPayload)
+}
+
+async function loadBuilder(): Promise<void> {
+  await loadDefinitions()
+  if (definitionForm.sourceProjection === '') {
+    definitionForm.sourceProjection = sourceProjections.value[0] ?? ''
+  }
+}
+
+async function loadSubscriptions(): Promise<void> {
+  const [definitionsPayload, subscriptionsPayload] = await settleReads([
+    resourceGet<unknown>('/v1/reporting/definitions', { page: 1, page_size: 100 }),
+    resourceGet<unknown>('/v1/reporting/subscriptions', { page: 1, page_size: 50 }),
+  ])
+  definitions.value = rowsFrom(definitionsPayload)
+  subscriptions.value = rowsFrom(subscriptionsPayload)
+  const first = definitions.value[0]
+  subscriptionForm.definitionCode = rowText(first ?? {}, 'code', '')
+  partial.value = partialFlag(definitionsPayload, subscriptionsPayload)
+}
+
+async function loadExportHistory(): Promise<void> {
+  const payload = await resourceGet<unknown>('/v1/reporting/exports', { page: 1, page_size: 50 })
+  exportHistory.value = rowsFrom(payload)
+  partial.value ||= partialFlag(payload)
 }
 
 async function loadReportsDetail(): Promise<void> {
@@ -916,11 +1019,21 @@ async function load(): Promise<void> {
       case 'reports-index':
         await loadDefinitions()
         break
+      case 'reports-builder':
+        await loadBuilder()
+        break
+      case 'reports-subscriptions':
+        await loadSubscriptions()
+        break
+      case 'reports-talent':
+        await loadTalentReports()
+        break
       case 'reports-detail':
         await loadReportsDetail()
         break
       case 'reports-exports':
         await loadDefinitions()
+        await loadExportHistory()
         break
       case 'notice-list':
       case 'notice-create':
@@ -1348,6 +1461,137 @@ function changeExportReport(): void {
     .filter((key) => key !== '—')
 }
 
+function selectBuilderSource(): void {
+  definitionForm.fields = []
+  definitionForm.filters = []
+}
+
+function basisPoints(value: unknown): string {
+  const numeric = typeof value === 'number' && Number.isSafeInteger(value) ? value : null
+  return numeric === null ? '—' : `${(numeric / 100).toFixed(2)}%`
+}
+
+function cents(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) ? value : null
+}
+
+async function createDefinition(): Promise<void> {
+  resetFeedback()
+  if (definitionForm.code.trim() === '' || definitionForm.name.trim() === '' || definitionForm.fields.length === 0) {
+    actionError.value = {
+      message: '请填写定义编码、名称并至少选择一个批准字段。',
+      requestId: null,
+      reason: 'REPORT_FIELD_REQUIRED',
+    }
+    return
+  }
+  try {
+    const created = recordFrom(
+      await resourcePost<unknown>(
+        '/v1/reporting/definitions',
+        {
+          code: definitionForm.code.trim().toUpperCase(),
+          name: definitionForm.name.trim(),
+          description: definitionForm.description.trim(),
+          source_projection: definitionForm.sourceProjection,
+          fields: [...definitionForm.fields],
+          filters: [...definitionForm.filters],
+        },
+        {
+          idempotencyKey: nextIdempotencyKey('report-definition'),
+          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        },
+      ),
+    )
+    if (created !== null) definitions.value = [...definitions.value, created]
+    definitionForm.code = ''
+    definitionForm.name = ''
+    definitionForm.description = ''
+    definitionForm.fields = []
+    definitionForm.filters = []
+    successMessage.value = '自定义报表定义已保存，仅包含批准的白名单字段与筛选。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function createSubscription(): Promise<void> {
+  resetFeedback()
+  const recipient = Number(subscriptionForm.recipientUserId)
+  if (subscriptionForm.definitionCode === '' || !Number.isInteger(recipient) || recipient <= 0) {
+    actionError.value = {
+      message: '请选择报表定义并填写有效的收件人用户 ID。',
+      requestId: null,
+      reason: 'RECIPIENT_REQUIRED',
+    }
+    return
+  }
+  try {
+    const created = recordFrom(
+      await resourcePost<unknown>(
+        '/v1/reporting/subscriptions',
+        {
+          definition_code: subscriptionForm.definitionCode,
+          recipient_user_id: recipient,
+          frequency: subscriptionForm.frequency,
+          filters: {},
+        },
+        {
+          idempotencyKey: nextIdempotencyKey('report-subscription'),
+          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        },
+      ),
+    )
+    if (created !== null) subscriptions.value = [created, ...subscriptions.value]
+    subscriptionForm.recipientUserId = ''
+    successMessage.value = '报表订阅已创建；执行前会重新校验收件人的报表读取权限。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function toggleSubscription(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+  try {
+    const updated = recordFrom(
+      await resourcePatch<unknown>(
+        `/v1/reporting/subscriptions/${id}`,
+        { active: row.active !== true },
+        {
+          idempotencyKey: nextIdempotencyKey('report-subscription-toggle'),
+          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        },
+      ),
+    )
+    if (updated !== null) {
+      subscriptions.value = subscriptions.value.map((subscription) =>
+        idText(subscription.id) === id ? updated : subscription,
+      )
+    }
+    successMessage.value = '报表订阅状态已更新。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
+async function removeSubscription(row: PlatformRow): Promise<void> {
+  const id = idText(row.id)
+  if (id === '') return
+  resetFeedback()
+  try {
+    await resourceDelete<unknown>(`/v1/reporting/subscriptions/${id}`, {
+      idempotencyKey: nextIdempotencyKey('report-subscription-delete'),
+      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+    })
+    subscriptions.value = subscriptions.value.filter((subscription) => idText(subscription.id) !== id)
+    successMessage.value = '报表订阅已删除。'
+  } catch (reason) {
+    failAction(reason)
+  }
+}
+
 async function submitExport(): Promise<void> {
   resetFeedback()
   if (exportReportCode.value === '' || selectedExportFields.value.length === 0) {
@@ -1367,7 +1611,8 @@ async function submitExport(): Promise<void> {
         { idempotencyKey: nextIdempotencyKey('report-export'), headers: writeHeaders() },
       ),
     )
-    successMessage.value = '导出任务已创建；下载链接使用短效 token 并记录审计。'
+    await loadExportHistory()
+    successMessage.value = '导出任务已创建；下载链接短效签名并记录 source_hash 与审计轨迹。'
   } catch (reason) {
     failAction(reason)
   }
@@ -1813,6 +2058,19 @@ watch(selectedExportDefinition, () => {
         <span class="plain-chip">未提供接口</span>
       </section>
 
+      <section v-if="limitation" class="platform-gap" data-testid="platform-limitation">
+        <div>
+          <p class="platform-gap__kicker">运维边界</p>
+          <h2 class="platform-gap__title">{{ limitation }}</h2>
+          <p class="small">
+            当前只读展示 IAM 认证事件与访问复核；备份、恢复和调度任务由外部运维平台负责，
+            HRMS 没有可查询的运维接口，本页面不伪造任务或备份记录。
+          </p>
+          <p v-if="limitationPath" class="mono small">已接真实接口：{{ limitationPath }}</p>
+        </div>
+        <span class="plain-chip">外部运维</span>
+      </section>
+
       <!-- Dashboard -->
       <template v-if="mode === 'dashboard'">
         <section v-if="dashboardMetrics.length > 0" class="platform-metric-grid" aria-label="指标卡">
@@ -1978,7 +2236,7 @@ watch(selectedExportDefinition, () => {
       </template>
 
       <!-- Reports -->
-      <template v-else-if="mode === 'reports-index' || mode === 'reports-exports'">
+      <template v-else-if="mode === 'reports-index' || mode === 'reports-exports' || mode === 'reports-builder' || mode === 'reports-subscriptions'">
         <section class="panel">
           <div class="panel__header">
             <div>
@@ -2012,6 +2270,129 @@ watch(selectedExportDefinition, () => {
             </table>
           </div>
           <div v-else class="panel__body"><p class="empty-inline">报表目录没有返回定义。</p></div>
+        </section>
+
+        <section v-if="mode === 'reports-builder'" class="panel" data-testid="report-builder">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">自定义报表定义</h2>
+              <p class="panel__subtitle">只可选择服务端批准的投影、字段与筛选；SQL 和自由条件由后端拒绝。</p>
+            </div>
+            <span class="plain-chip">{{ sourceProjections.length }} 个投影</span>
+          </div>
+          <div class="panel__body platform-form">
+            <label class="platform-field">
+              <span>来源投影</span>
+              <select v-model="definitionForm.sourceProjection" data-testid="definition-source" @change="selectBuilderSource">
+                <option v-for="source in sourceProjections" :key="source" :value="source">{{ source }}</option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>定义编码</span>
+              <input v-model="definitionForm.code" data-testid="definition-code" maxlength="80" placeholder="CUSTOM_HEADCOUNT" />
+            </label>
+            <label class="platform-field">
+              <span>名称</span>
+              <input v-model="definitionForm.name" data-testid="definition-name" maxlength="160" placeholder="Synthetic custom report" />
+            </label>
+            <label class="platform-field">
+              <span>说明</span>
+              <input v-model="definitionForm.description" data-testid="definition-description" maxlength="500" />
+            </label>
+            <fieldset class="platform-fieldset">
+              <legend>批准字段</legend>
+              <label v-for="field in builderFieldsAvailable" :key="rowText(field, 'key')" class="platform-check">
+                <input v-model="definitionForm.fields" type="checkbox" :value="rowText(field, 'key')" :data-testid="`definition-field-${rowText(field, 'key')}`" />
+                {{ rowText(field, 'label') }}
+                <span class="mono small">{{ rowText(field, 'profile') }}</span>
+              </label>
+            </fieldset>
+            <fieldset class="platform-fieldset">
+              <legend>批准筛选</legend>
+              <label v-for="filter in builderFiltersAvailable" :key="rowText(filter, 'key')" class="platform-check">
+                <input v-model="definitionForm.filters" type="checkbox" :value="rowText(filter, 'key')" :data-testid="`definition-filter-${rowText(filter, 'key')}`" />
+                {{ rowText(filter, 'label') }}
+              </label>
+            </fieldset>
+            <el-button type="primary" data-testid="definition-submit" :disabled="definitions.length === 0" @click="createDefinition">保存定义</el-button>
+            <p v-if="definitionForm.sourceProjection !== '' && builderFieldsAvailable.length === 0" class="small muted">
+              该投影没有返回批准字段，无法保存自定义定义。
+            </p>
+          </div>
+        </section>
+
+        <section v-if="mode === 'reports-subscriptions'" class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">创建报表订阅</h2>
+              <p class="panel__subtitle">收件人必须在创建和每次执行时都持有 reporting.report.read。</p>
+            </div>
+          </div>
+          <div class="panel__body platform-form">
+            <label class="platform-field">
+              <span>报表定义</span>
+              <select v-model="subscriptionForm.definitionCode" data-testid="subscription-definition">
+                <option v-for="definition in definitions" :key="rowText(definition, 'code')" :value="rowText(definition, 'code')">
+                  {{ rowText(definition, 'name') }} · {{ rowText(definition, 'code') }}
+                </option>
+              </select>
+            </label>
+            <label class="platform-field">
+              <span>收件人用户 ID</span>
+              <input v-model="subscriptionForm.recipientUserId" data-testid="subscription-recipient" inputmode="numeric" />
+            </label>
+            <label class="platform-field">
+              <span>频率</span>
+              <select v-model="subscriptionForm.frequency" data-testid="subscription-frequency">
+                <option value="DAILY">每日</option>
+                <option value="WEEKLY">每周</option>
+                <option value="MONTHLY">每月</option>
+                <option value="QUARTERLY">每季度</option>
+              </select>
+            </label>
+            <el-button type="primary" data-testid="subscription-submit" :disabled="definitions.length === 0" @click="createSubscription">创建订阅</el-button>
+          </div>
+        </section>
+
+        <section v-if="mode === 'reports-subscriptions'" class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">我的报表订阅</h2>
+              <p class="panel__subtitle">只返回当前主体拥有的订阅；启停与删除均使用幂等命令。</p>
+            </div>
+            <span class="plain-chip">{{ subscriptions.length }} 个订阅</span>
+          </div>
+          <div v-if="subscriptions.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">报表订阅</caption>
+              <thead>
+                <tr>
+                  <th scope="col">定义</th>
+                  <th scope="col">收件人</th>
+                  <th scope="col">频率</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">下次执行</th>
+                  <th scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="subscription in subscriptions" :key="idText(subscription.id)">
+                  <td class="mono">{{ rowText(subscription, 'definitionCode') }}</td>
+                  <td>{{ rowText(subscription, 'recipientUserId') }}</td>
+                  <td>{{ rowText(subscription, 'frequency') }}</td>
+                  <td>{{ subscription.active === true ? '启用' : '已暂停' }}</td>
+                  <td class="small">{{ formatDateTimeInTimezone(rowText(subscription, 'nextRunAt', '')) }}</td>
+                  <td>
+                    <button type="button" class="platform-link" :data-testid="`subscription-toggle-${idText(subscription.id)}`" @click="toggleSubscription(subscription)">
+                      {{ subscription.active === true ? '暂停' : '恢复' }}
+                    </button>
+                    <button type="button" class="platform-link" @click="removeSubscription(subscription)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">当前没有报表订阅。</p></div>
         </section>
 
         <section v-if="mode === 'reports-exports'" class="panel">
@@ -2062,9 +2443,139 @@ watch(selectedExportDefinition, () => {
           <div class="panel__body stack--tight small">
             <p>行数：{{ rowText(exportJob, 'rowCount') }} · 下载次数：{{ rowText(exportJob, 'downloadCount') }} / {{ rowText(exportJob, 'maxDownloads') }}</p>
             <p>水印：{{ rowText(exportJob, 'watermark') }}</p>
-            <a v-if="exportDownloadHref" :href="exportDownloadHref" class="platform-link" data-testid="export-download">下载 CSV（短效 token）</a>
-            <p v-else class="muted">服务端未返回下载令牌。</p>
+            <a v-if="exportDownloadHref" :href="exportDownloadHref" class="platform-link" data-testid="export-download">下载 CSV（短效签名）</a>
+            <p v-else class="muted">服务端未返回下载链接。</p>
           </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">导出历史</h2>
+              <p class="panel__subtitle">GET /v1/reporting/exports 返回 source_hash、字段白名单与审计轨迹；下载链接短效签名。</p>
+            </div>
+            <span class="plain-chip">{{ exportHistory.length }} 个任务</span>
+          </div>
+          <div v-if="exportHistory.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">导出任务历史</caption>
+              <thead>
+                <tr>
+                  <th scope="col">任务</th>
+                  <th scope="col">报表</th>
+                  <th scope="col">目的</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">字段白名单</th>
+                  <th scope="col">source_hash</th>
+                  <th scope="col">审计</th>
+                  <th scope="col">下载</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="job in exportHistory" :key="rowText(job, 'id')">
+                  <td class="mono">{{ rowText(job, 'id') }}</td>
+                  <td>{{ rowText(job, 'reportCode') }}</td>
+                  <td>{{ rowText(job, 'purpose') }}</td>
+                  <td>{{ statusText(rowText(job, 'status')) }}</td>
+                  <td class="mono small">{{ textOf(job.fieldWhitelist) }}</td>
+                  <td class="mono small">{{ rowText(job, 'source_hash') }}</td>
+                  <td class="small">{{ nestedRows(job, 'auditTrail').map((entry) => rowText(entry, 'action')).join('、') || '—' }}</td>
+                  <td>
+                    <a
+                      v-if="rowText(job, 'downloadUrl', '') !== '' && rowText(job, 'downloadUrl', '') !== '—'"
+                      :href="rowText(job, 'downloadUrl')"
+                      class="platform-link"
+                      data-testid="export-history-download"
+                    >下载</a>
+                    <span v-else class="muted">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">当前没有导出任务。</p></div>
+        </section>
+      </template>
+
+      <template v-else-if="mode === 'reports-talent'">
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">绩效报表</h2>
+              <p class="panel__subtitle">来自 GET /v1/performance/reports 的授权投影；没有周期时只显示空状态。</p>
+            </div>
+            <span class="plain-chip">{{ talentPerformanceRows.length }} 个周期</span>
+          </div>
+          <div v-if="talentPerformanceRows.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">绩效报表</caption>
+              <thead>
+                <tr>
+                  <th scope="col">周期</th>
+                  <th scope="col">期间</th>
+                  <th scope="col">状态</th>
+                  <th scope="col">评价数</th>
+                  <th scope="col">已提交</th>
+                  <th scope="col">草稿</th>
+                  <th scope="col">已校准</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in talentPerformanceRows" :key="`perf-${rowText(row, 'cycle_id')}`">
+                  <td>{{ rowText(row, 'name') }}</td>
+                  <td class="small">{{ formatBusinessDate(rowText(row, 'period_from', '')) }} – {{ formatBusinessDate(rowText(row, 'period_to', '')) }}</td>
+                  <td><span class="plain-chip">{{ statusText(rowText(row, 'status')) }}</span></td>
+                  <td>{{ rowText(row, 'review_count') }}</td>
+                  <td>{{ rowText(row, 'submitted_reviews') }}</td>
+                  <td>{{ rowText(row, 'draft_reviews') }}</td>
+                  <td>{{ rowText(row, 'calibrated_reviews') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">绩效报表没有返回周期。</p></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">培训报表</h2>
+              <p class="panel__subtitle">来自 GET /v1/training/reports 的计划级完训、考试与反馈聚合；金额为整数分。</p>
+            </div>
+            <span class="plain-chip">{{ talentTrainingRows.length }} 个计划</span>
+          </div>
+          <div v-if="talentTrainingRows.length > 0" class="platform-table-wrap">
+            <table class="platform-table">
+              <caption class="visually-hidden">培训报表</caption>
+              <thead>
+                <tr>
+                  <th scope="col">计划</th>
+                  <th scope="col">年度</th>
+                  <th scope="col">预算</th>
+                  <th scope="col">培训成本</th>
+                  <th scope="col">报名</th>
+                  <th scope="col">完训</th>
+                  <th scope="col">完训率</th>
+                  <th scope="col">考试通过</th>
+                  <th scope="col">学习分钟</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in talentTrainingRows" :key="`training-${rowText(row, 'plan_id')}`">
+                  <td>{{ rowText(row, 'title') }} <span class="mono small">{{ rowText(row, 'code') }}</span></td>
+                  <td>{{ rowText(row, 'year') }}</td>
+                  <td><MoneyText v-if="cents(row.budget_cents) !== null" :cents="cents(row.budget_cents)" size="sm" /></td>
+                  <td><MoneyText v-if="cents(row.training_cost_cents) !== null" :cents="cents(row.training_cost_cents)" size="sm" /></td>
+                  <td>{{ rowText(row, 'enrolled_count') }}</td>
+                  <td>{{ rowText(row, 'completed_count') }}</td>
+                  <td>{{ basisPoints(row.completion_rate_bps) }}</td>
+                  <td>{{ rowText(row, 'exam_pass_count') }}</td>
+                  <td>{{ rowText(row, 'study_minutes_total') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="panel__body"><p class="empty-inline">培训报表没有返回计划。</p></div>
         </section>
       </template>
 
@@ -3800,11 +4311,6 @@ watch(selectedExportDefinition, () => {
           </section>
         </div>
 
-        <section class="panel">
-          <div class="panel__body">
-            <p class="small muted">当前页面只展示认证事件和访问复核只读投影；备份恢复与任务监控不在本任务范围内。</p>
-          </div>
-        </section>
       </template>
 
       <section v-if="config === null" class="panel">
