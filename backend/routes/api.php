@@ -16,6 +16,7 @@ use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\Organization\Http\Controllers\PositionController;
+use App\Modules\Payroll\Http\Controllers\BenefitController;
 use App\Modules\Payroll\Http\Controllers\CompensationController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
@@ -905,6 +906,38 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
     Route::post('/adjustments', [CompensationController::class, 'storeAdjustment'])
         ->middleware('capability:payroll.salary-adjustment.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('payroll.adjustments.store');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Benefits and statutory enrollment
+|--------------------------------------------------------------------------
+|
+| Plans are effective-dated versions; enrollment movements and monthly cost
+| ledger rows are append-only. Every write uses CommandRunner and therefore
+| requires an Idempotency-Key. Writes separately require benefit.manage so a
+| benefits administrator does not receive payroll authorization implicitly.
+|
+*/
+Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
+    Route::get('/plans', [BenefitController::class, 'plans'])
+        ->middleware('capability:benefit.read,SELF')
+        ->name('benefits.plans.index');
+    Route::post('/plans', [BenefitController::class, 'storePlan'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.plans.store');
+    Route::get('/enrollments', [BenefitController::class, 'enrollments'])
+        ->middleware('capability:benefit.read,SELF')
+        ->name('benefits.enrollments.index');
+    Route::post('/enrollments', [BenefitController::class, 'storeEnrollment'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.enrollments.store');
+    Route::get('/transactions', [BenefitController::class, 'transactions'])
+        ->middleware('capability:benefit.read,SELF')
+        ->name('benefits.transactions.index');
+    Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.transactions.store');
 });
 
 /*
