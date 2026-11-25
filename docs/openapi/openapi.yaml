@@ -15061,7 +15061,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: reporting.dashboard.read
+      x-capability: reporting.report.read
     post:
       operationId: reportingDefinitionsStore
       tags:
@@ -15255,7 +15255,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: reporting.dashboard.read
+      x-capability: reporting.report.read
   /v1/reporting/subscriptions:
     get:
       operationId: reportingSubscriptionsIndex

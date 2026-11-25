@@ -60,8 +60,6 @@ GET /v1/recruitment/requisitions
 GET /v1/recruitment/requisitions/{id}/openings
 GET /v1/reporting/dashboard
 GET /v1/reporting/dashboard/metrics/{metric}
-GET /v1/reporting/definitions
-GET /v1/reporting/exports/{jobId}/download
 GET /v1/tasks/my
 GET /v1/time/attendance
 GET /v1/time/attendance/{employment_id}
@@ -159,8 +157,6 @@ POST /v1/recruitment/offers
 POST /v1/recruitment/offers/{id}/accept
 POST /v1/recruitment/requisitions
 POST /v1/recruitment/requisitions/{id}/openings
-POST /v1/reporting/exports
-POST /v1/reporting/run
 POST /v1/time/attendance/closings/{id}/reopen
 POST /v1/time/attendance/corrections
 POST /v1/time/attendance/recalculate
