@@ -41,7 +41,7 @@ final class ModuleBoundaryScanner
      * @var array<string, list<string>>
      */
     public const TABLE_OWNERS = [
-        'IAM' => ['users', 'sessions', 'capabilities', 'authority_bindings', 'auth_events', 'roles', 'role_capabilities', 'user_roles'],
+        'IAM' => ['users', 'sessions', 'capabilities', 'authority_bindings', 'auth_events', 'roles', 'role_capabilities', 'user_roles', 'iam_data_scope_policies', 'iam_field_policies'],
         'People' => ['persons', 'employments', 'assignments', 'employment_terms', 'documents', 'employment_user_links', 'employment_contracts', 'contract_templates'],
         'Organization' => ['org_units', 'org_unit_closure', 'positions', 'legal_entities'],
         'Lifecycle' => ['cases', 'decisions', 'effects', 'lifecycle_tasks', 'lifecycle_intents', 'onboarding_checklist_templates', 'employment_contract_versions'],
@@ -51,7 +51,7 @@ final class ModuleBoundaryScanner
         'Talent' => ['recruitment_requisitions', 'candidates', 'interviews', 'offers', 'performance_cycles', 'performance_templates', 'performance_reviews', 'performance_appeals', 'performance_indicators', 'performance_goals', 'performance_feedback', 'performance_calibrations', 'training_programs', 'training_sessions', 'training_enrollments'],
         'Engagement' => ['notices', 'notifications'],
         'Reporting' => ['report_definitions', 'export_jobs', 'projections'],
-        'Platform' => ['audit_events', 'outbox_events', 'idempotency_keys', 'file_objects', 'dictionaries', 'parameters', 'sys_dictionaries', 'sys_parameters', 'feature_flags', 'migration_runs', 'migration_issues', 'staging_rows', 'migration_shadow_rows', 'demo_datasets', 'retention_policies', 'legal_holds'],
+        'Platform' => ['audit_events', 'outbox_events', 'idempotency_keys', 'file_objects', 'dictionaries', 'parameters', 'sys_dictionaries', 'sys_parameters', 'menu_overrides', 'notification_templates', 'notification_outbox', 'notification_deliveries', 'feature_flags', 'migration_runs', 'migration_issues', 'staging_rows', 'migration_shadow_rows', 'demo_datasets', 'retention_policies', 'legal_holds'],
     ];
 
     private const FACADE_DB = 'Illuminate\Support\Facades\DB';

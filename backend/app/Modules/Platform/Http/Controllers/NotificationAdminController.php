@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Http\Controllers;
 
-use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\Platform\Models\NotificationDelivery;
 use App\Modules\Platform\Models\NotificationOutbox;
 use App\Modules\Platform\Models\NotificationTemplate;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
@@ -18,13 +18,11 @@ use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\RequestContext;
 use App\Shared\Time\Clock;
 use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Notification templates, outbox dispatch and delivery retry.
@@ -36,7 +34,7 @@ use Illuminate\Support\Facades\DB;
 final class NotificationAdminController
 {
     public function __construct(
-        private readonly AuthenticationContext $context,
+        private readonly PrincipalResolver $principals,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
         private readonly TenantBusinessDate $businessDates,
@@ -45,7 +43,7 @@ final class NotificationAdminController
 
     public function templates(Request $request): JsonResponse
     {
-        $tenantId = $this->context->requirePrincipal()->tenantId();
+        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -86,7 +84,7 @@ final class NotificationAdminController
             definition: $this->definition('notification.template.create', 'notification.template.created'),
             payload: $data,
             operation: function () use ($data): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 $exists = NotificationTemplate::query()
                     ->where('tenant_id', $tenantId)
                     ->where('code', (string) $data['code'])
@@ -141,7 +139,7 @@ final class NotificationAdminController
             definition: $this->definition('notification.delivery.dispatch', 'notification.delivery.dispatched'),
             payload: $payload,
             operation: function () use ($payload): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var NotificationTemplate|null $template */
                 $template = NotificationTemplate::query()
                     ->where('tenant_id', $tenantId)
@@ -237,7 +235,7 @@ final class NotificationAdminController
 
     public function deliveries(Request $request): JsonResponse
     {
-        $tenantId = $this->context->requirePrincipal()->tenantId();
+        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'status' => ['sometimes', 'nullable', 'string', 'in:PENDING,SENT,FAILED'],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -277,7 +275,7 @@ final class NotificationAdminController
             definition: $this->definition('notification.delivery.retry', 'notification.delivery.retried'),
             payload: ['delivery_id' => $id],
             operation: function () use ($id): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var NotificationDelivery|null $delivery */
                 $delivery = NotificationDelivery::query()
                     ->where('tenant_id', $tenantId)

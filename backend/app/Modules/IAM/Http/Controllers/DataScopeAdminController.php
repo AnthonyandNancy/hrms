@@ -6,11 +6,9 @@ namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\DataScopeTemplateCatalog;
-use App\Modules\IAM\Models\DataScopePolicy;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
-use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
-use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Time\Models\Holiday;
 use App\Modules\Time\Models\LegalEntityCalendar;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
 final class CalendarAdminController
 {
     public function __construct(
-        private readonly AuthenticationContext $context,
+        private readonly PrincipalResolver $principals,
         private readonly OrganizationFacts $organization,
         private readonly BusinessCalendar $calendar,
         private readonly CommandRunner $commands,
@@ -39,7 +39,7 @@ final class CalendarAdminController
 
     public function publish(Request $request, int $legalEntityId): JsonResponse
     {
-        $principal = $this->context->requirePrincipal();
+        $principal = $this->principals->resolve();
 
         if ($this->organization->legalEntity($principal->tenantId(), $legalEntityId) === null) {
             throw new NotFoundOrForbiddenException;

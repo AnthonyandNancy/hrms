@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Http\Controllers;
 
-use App\Modules\IAM\Auth\AuthenticationContext;
-use App\Modules\Platform\Contracts\DictionaryReader;
 use App\Modules\Platform\Models\DictionaryEntry;
 use App\Modules\Platform\Models\SystemParameter;
 use App\Modules\Platform\Services\AuditService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ConflictException;
@@ -24,7 +23,6 @@ use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Dictionary and parameter authoring lives in Platform because Platform owns
@@ -34,7 +32,7 @@ use Illuminate\Support\Facades\DB;
 final class DictionaryAdminController
 {
     public function __construct(
-        private readonly AuthenticationContext $context,
+        private readonly PrincipalResolver $principals,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
         private readonly TenantBusinessDate $businessDates,
@@ -44,7 +42,7 @@ final class DictionaryAdminController
 
     public function dictionaries(Request $request): JsonResponse
     {
-        $tenantId = $this->context->requirePrincipal()->tenantId();
+        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'type' => ['sometimes', 'nullable', 'string', 'max:80'],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -97,7 +95,7 @@ final class DictionaryAdminController
             definition: $this->dictionaryDefinition('system.dictionary.create', 'system.dictionary.created'),
             payload: $data,
             operation: function () use ($data): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 $exists = DictionaryEntry::query()
                     ->where('tenant_id', $tenantId)
                     ->where('type', (string) $data['type'])
@@ -146,7 +144,7 @@ final class DictionaryAdminController
             definition: $this->dictionaryDefinition('system.dictionary.update', 'system.dictionary.updated'),
             payload: ['id' => $id, ...$data],
             operation: function () use ($data, $id): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var DictionaryEntry|null $entry */
                 $entry = DictionaryEntry::query()
                     ->where('tenant_id', $tenantId)
@@ -188,7 +186,7 @@ final class DictionaryAdminController
 
     public function parameters(Request $request): JsonResponse
     {
-        $tenantId = $this->context->requirePrincipal()->tenantId();
+        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'key' => ['sometimes', 'nullable', 'string', 'max:120'],
             'scope' => ['sometimes', 'nullable', 'string', 'max:80'],
@@ -272,7 +270,7 @@ final class DictionaryAdminController
             definition: $this->parameterDefinition(),
             payload: $payload,
             operation: function () use ($payload): array {
-                $tenantId = $this->context->requirePrincipal()->tenantId();
+                $tenantId = $this->principals->resolve()->tenantId();
                 $shape = ['value' => $payload['value']];
                 $stored = $payload['sensitive']
                     ? Crypt::encryptString(json_encode($shape, JSON_THROW_ON_ERROR))

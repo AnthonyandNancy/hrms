@@ -25,7 +25,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 
 | Module | Owned tables (reference names) | Allowed dependencies |
 | --- | --- | --- |
-| IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities` | Platform Contracts, Shared |
+| IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities`, `user_roles`, `iam_data_scope_policies`, `iam_field_policies` | Platform Contracts, Shared |
 | Organization | `org_units`, `org_unit_closure`, `positions` | People Contracts/IDs, Shared |
 | People | `persons`, `employments`, `assignments`, `employment_terms`, `documents`, `employment_user_links`, `employment_contracts`, `contract_templates` | Organization Contracts/IDs, IAM Contracts/IDs, Lifecycle `EmploymentContractVersionLedger` contract, Shared |
 | Lifecycle | `cases`, `decisions`, `effects`, `lifecycle_tasks`, `lifecycle_intents`, `onboarding_checklist_templates`, `employment_contract_versions` | People, Workflow Contracts, Time/IAM/Talent Contracts, Shared |
@@ -35,7 +35,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Talent | `recruitment_requisitions`, `candidates`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `performance_indicators`, `performance_goals`, `performance_feedback`, `performance_calibrations`, `training_programs`, `training_sessions`, `training_enrollments` | Lifecycle/People/Workflow Contracts, Shared |
 | Engagement | `notices`, `notifications` | Read-only Contracts from all modules, Shared |
 | Reporting | `report_definitions`, `export_jobs`, `projections` | Read-only projections/Contracts, Shared |
-| Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `sys_dictionaries`, `sys_parameters` | Shared only; **no business module** |
+| Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `sys_dictionaries`, `sys_parameters`, `menu_overrides`, `notification_templates`, `notification_outbox`, `notification_deliveries` | Shared only; **no business module** |
 
 The machine-readable ownership list lives in `App\Shared\Architecture\ModuleBoundaryScanner::TABLE_OWNERS`. Add a table there in the same migration commit that introduces it; an unowned table referenced through `DB::table()` is reported as a warning.
 
