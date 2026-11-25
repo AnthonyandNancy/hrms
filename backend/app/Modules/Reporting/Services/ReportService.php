@@ -6,9 +6,11 @@ namespace App\Modules\Reporting\Services;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Models\ReportRun;
+use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
 
 /**
@@ -22,9 +24,13 @@ final class ReportService
         private readonly MetricQueryBuilder $metrics,
         private readonly ProjectionBuilder $projections,
         private readonly Clock $clock,
+        private readonly SensitiveAccessAuditor $sensitiveAudit,
     ) {}
 
     /**
+     * Run a report definition. Rows use the ADR-0029 projection envelope;
+     * `columns` and `chart` are additive presentation fields only.
+     *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
@@ -34,10 +40,10 @@ final class ReportService
         $definition = $this->definition($principal->tenantId(), $code);
         $fields = (array) $definition['fields'];
         $visible = $this->fieldSet($fields);
-        $rows = $this->rows($principal, $code, $asOf, $filters, $fields);
+        $result = $this->rows($principal, $code, $asOf, $filters, $fields);
         $projected = [];
 
-        foreach ($rows as $row) {
+        foreach ($result['items'] as $row) {
             $projected[] = $visible->mask($row);
         }
 
@@ -53,18 +59,28 @@ final class ReportService
             'completed_at' => $this->clock->now(),
         ]);
 
+        $this->auditSensitive($principal, $run, $fields, $projected);
+
         return [
             'runId' => (int) $run->id,
             'definitionCode' => (string) $definition['code'],
             'title' => (string) $definition['name'],
-            'subtitle' => $asOf,
             'columns' => array_map(static fn (array $field): array => [
                 'key' => (string) $field['key'],
                 'label' => (string) $field['label'],
                 'profile' => (string) $field['profile'],
             ], $fields),
-            'rows' => $projected,
             'chart' => $this->chart($code, $projected, $fields),
+            'items' => $projected,
+            'page' => 1,
+            'page_size' => max(1, count($projected)),
+            'total' => count($projected),
+            'as_of' => $asOf,
+            'freshness' => ProjectionResult::FRESHNESS_MATERIALIZED,
+            'source_hash' => $result['source_hash'],
+            'partial' => false,
+            'partial_reason' => null,
+            'drilldown' => null,
             'totalRows' => count($projected),
             'generatedAt' => $this->clock->now()->toIso8601ZuluString(),
             'watermark' => null,
@@ -77,7 +93,7 @@ final class ReportService
      *
      * @param  array<string, mixed>  $filters
      * @param  list<string>  $requestedFields
-     * @return array{definition: array<string, mixed>, fields: list<array<string, mixed>>, rows: list<array<string, mixed>>}
+     * @return array{definition: array<string, mixed>, fields: list<array<string, mixed>>, rows: list<array<string, mixed>>, source_hash: string}
      */
     public function exportRows(Principal $principal, string $code, string $asOf, array $filters, array $requestedFields): array
     {
@@ -111,15 +127,22 @@ final class ReportService
             $fields[] = $field;
         }
 
-        $rows = $this->rows($principal, $code, $asOf, $filters, $fields);
+        $result = $this->rows($principal, $code, $asOf, $filters, $fields);
         $visible = $this->fieldSet($fields, exportUnlocked: true);
         $projected = [];
 
-        foreach ($rows as $row) {
+        foreach ($result['items'] as $row) {
             $projected[] = $visible->mask($row);
         }
 
-        return ['definition' => $definition, 'fields' => $fields, 'rows' => $projected];
+        $this->auditSensitive($principal, null, $fields, $projected, $code);
+
+        return [
+            'definition' => $definition,
+            'fields' => $fields,
+            'rows' => $projected,
+            'source_hash' => $result['source_hash'],
+        ];
     }
 
     /**
@@ -160,20 +183,28 @@ final class ReportService
      *
      * @param  array<string, mixed>  $filters
      * @param  list<array<string, mixed>>  $fields
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, source_hash: string}
      */
     private function rows(Principal $principal, string $code, string $asOf, array $filters, array $fields): array
     {
-        $result = match ($code) {
-            'WORKFORCE_HEADCOUNT' => $this->metrics->query($principal, 'headcount', $asOf, $filters),
-            'CONTRACT_EXPIRY' => $this->metrics->query($principal, 'contract_expiring', $asOf, $filters),
-            'PENDING_APPROVALS' => $this->metrics->query($principal, 'pending_approvals', $asOf, $filters),
-            'LEAVE_LIABILITY' => $this->metrics->query($principal, 'leave_liability', $asOf, $filters),
-            'PAYROLL_COST' => $this->metrics->query($principal, 'payroll_cost_by_entity', $asOf, $filters),
-            'RECRUITMENT_FUNNEL' => $this->metrics->query($principal, 'recruitment_funnel', $asOf, $filters),
-            'TURNOVER' => $this->metrics->query($principal, 'turnover', $asOf, $filters),
-            default => throw new ValidationException(['definition_code' => ['This report is not implemented.']], 'The given data was invalid.', ['reason' => 'REPORT_NOT_IMPLEMENTED']),
+        $metric = match ($code) {
+            'WORKFORCE_HEADCOUNT' => 'headcount',
+            'CONTRACT_EXPIRY' => 'contract_expiring',
+            'PENDING_APPROVALS' => 'pending_approvals',
+            'LEAVE_LIABILITY' => 'leave_liability',
+            'PAYROLL_COST' => 'payroll_cost_by_entity',
+            'RECRUITMENT_FUNNEL' => 'recruitment_funnel',
+            'TURNOVER' => 'turnover',
+            default => null,
         };
+
+        if ($metric === null) {
+            // A stored custom definition is only a subset over an approved
+            // metric/projection; it must not need report-specific PHP.
+            $metric = $this->metricForDefinition($principal->tenantId(), $code);
+        }
+
+        $result = $this->metrics->query($principal, $metric, $asOf, $filters);
 
         if ($result['status'] !== 'AVAILABLE') {
             throw new \App\Shared\Exceptions\ServiceUnavailableException((string) ($result['reason'] ?? 'This report is unavailable.'));
@@ -182,6 +213,7 @@ final class ReportService
         $rows = [];
 
         foreach ($result['items'] as $item) {
+            /** @var array<string, mixed> $item */
             $row = [];
 
             foreach ($fields as $field) {
@@ -192,7 +224,30 @@ final class ReportService
             $rows[] = $row;
         }
 
-        return $rows;
+        return [
+            'items' => $rows,
+            'source_hash' => hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)),
+        ];
+    }
+
+    /**
+     * Map a stored definition's source projection to the same metric query.
+     * Custom definitions cannot select a different data source at run time.
+     */
+    private function metricForDefinition(int $tenantId, string $code): string
+    {
+        $definition = $this->definition($tenantId, $code);
+        $source = (string) ($definition['sourceProjection'] ?? '');
+
+        return match ($source) {
+            'workforce' => 'headcount',
+            'leave_liability' => 'leave_liability',
+            'pending_approvals' => 'pending_approvals',
+            'payroll_cost' => 'payroll_cost_by_entity',
+            'recruitment_funnel' => 'recruitment_funnel',
+            'turnover' => 'turnover',
+            default => throw new ValidationException(['definition_code' => ['This report source is not implemented.']], 'The given data was invalid.', ['reason' => 'REPORT_NOT_IMPLEMENTED']),
+        };
     }
 
     /**
@@ -237,5 +292,45 @@ final class ReportService
         }
 
         return $charts;
+    }
+
+    /**
+     * P2/P3 report reads and exports must leave evidence without values.
+     *
+     * @param  list<array<string, mixed>>  $fields
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function auditSensitive(Principal $principal, ?ReportRun $run, array $fields, array $rows, ?string $definitionCode = null): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $sensitive = [];
+
+        foreach ($fields as $field) {
+            $profile = FieldProfile::from((string) $field['profile']);
+
+            if ($profile === FieldProfile::P2_SENSITIVE) {
+                $sensitive[] = (string) $field['key'];
+            }
+        }
+
+        if ($sensitive === []) {
+            return;
+        }
+
+        $this->sensitiveAudit->record(
+            tenantId: $principal->tenantId(),
+            userId: $principal->userId(),
+            resourceType: $definitionCode === null ? 'report_run' : 'report_export',
+            resourceId: $run !== null ? (string) $run->id : $definitionCode,
+            capability: $definitionCode === null ? 'reporting.report.read' : 'reporting.export',
+            fields: $sensitive,
+            context: [
+                'definition_code' => $definitionCode ?? ($run !== null ? (string) $run->definition_code : null),
+                'row_count' => count($rows),
+            ],
+        );
     }
 }

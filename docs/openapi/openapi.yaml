@@ -94,6 +94,175 @@ components:
       schema:
         type: string
   schemas:
+    ExportJobHistoryItem:
+      type: object
+      required:
+        - id
+        - reportCode
+        - reportName
+        - status
+        - purpose
+        - fields
+        - fieldWhitelist
+        - rowCount
+        - source_hash
+        - auditTrail
+        - createdAt
+        - expiresAt
+        - downloadCount
+        - maxDownloads
+        - watermark
+        - fileName
+        - downloadUrl
+      properties:
+        id: { type: string }
+        reportCode: { type: string }
+        reportName: { type: string }
+        status: { type: string }
+        purpose: { type: string }
+        fields:
+          type: array
+          items: { type: string }
+        fieldWhitelist:
+          type: array
+          items: { type: string }
+        rowCount: { type: integer, minimum: 0 }
+        source_hash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        auditTrail:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        createdAt:
+          type: [string, "null"]
+          format: date-time
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        downloadCount: { type: integer, minimum: 0 }
+        maxDownloads: { type: integer, minimum: 1 }
+        watermark: { type: string }
+        fileName: { type: string }
+        downloadUrl:
+          type: string
+          description: Short-lived, signed URL. It does not expose the stored token.
+    ReportSubscriptionProjection:
+      type: object
+      description: ADR-0029 projection envelope for owner-scoped subscriptions.
+      required: [items, page, page_size, total, as_of, freshness, source_hash, partial, partial_reason, drilldown]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportSubscription"
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date }
+        freshness: { type: string, enum: [LIVE, MATERIALIZED, STALE] }
+        source_hash: { type: string }
+        partial: { type: boolean }
+        partial_reason: { type: [string, "null"] }
+        drilldown: { type: [object, "null"], additionalProperties: true }
+    ReportSubscription:
+      type: object
+      required:
+        - id
+        - definitionCode
+        - recipientUserId
+        - frequency
+        - filters
+        - active
+        - lastRunAt
+        - nextRunAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+        definitionCode:
+          type: string
+        recipientUserId:
+          type: integer
+        frequency:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY, QUARTERLY]
+        filters:
+          type: object
+          additionalProperties: true
+        active:
+          type: boolean
+        lastRunAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        nextRunAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    ExportJobHistoryProjection:
+      type: object
+      description: ADR-0029 projection envelope for export history.
+      required: [items, page, page_size, total, as_of, freshness, source_hash, partial, partial_reason, drilldown]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExportJobHistoryItem"
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date }
+        freshness: { type: string, enum: [LIVE, MATERIALIZED, STALE] }
+        source_hash: { type: string }
+        partial: { type: boolean }
+        partial_reason: { type: [string, "null"] }
+        drilldown: { type: [object, "null"], additionalProperties: true }
+    ReportSubscriptionProjectionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ReportSubscriptionProjection"
+    ReportSubscriptionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ReportSubscription"
+    ReportSubscriptionDeletedEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [id, deleted]
+              properties:
+                id: { type: integer }
+                deleted: { type: boolean, const: true }
+    ReportDefinitionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ReportDefinition"
+    ExportJobHistoryEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/ExportJobHistoryProjection"
     LeaveTypeCatalog:
       type: object
       required: [id, code, name, unit, is_statutory, is_annual, annual_entitlement_days, requires_attachment, allow_negative, version]
@@ -14893,6 +15062,54 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.dashboard.read
+    post:
+      operationId: reportingDefinitionsStore
+      tags:
+        - Reporting
+      summary: Store a tenant custom definition over the approved whitelist
+      description: |
+        The request names a code-owned projection and approved field/filter keys
+        only. SQL, free-form predicates and unknown fields are rejected with a
+        stable 422 reason before anything is stored.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, source_projection, fields]
+              properties:
+                code: { type: string, maxLength: 80 }
+                name: { type: string, maxLength: 160 }
+                description: { type: string, maxLength: 500 }
+                source_projection: { type: string, maxLength: 80 }
+                fields:
+                  type: array
+                  minItems: 1
+                  items: { type: string, maxLength: 80 }
+                filters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Custom definition stored from the whitelist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportDefinitionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.definition.manage
   /v1/reporting/exports:
     post:
       operationId: reportingExportsStore
@@ -14937,6 +15154,34 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
       x-capability: reporting.export
+    get:
+      operationId: reportingExportsIndex
+      tags:
+        - Reporting
+      summary: Owner-scoped export history with source hash and audit trail
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Export-job projection with hashes, field whitelists and audit trail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJobHistoryEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.export.read
   /v1/reporting/exports/{jobId}/download:
     get:
       operationId: reportingExportsDownload
@@ -15011,6 +15256,148 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.dashboard.read
+  /v1/reporting/subscriptions:
+    get:
+      operationId: reportingSubscriptionsIndex
+      tags:
+        - Reporting
+      summary: List the caller-owned report subscriptions as a projection
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Owner-scoped subscription projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSubscriptionProjectionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.subscription.manage
+    post:
+      operationId: reportingSubscriptionsStore
+      tags:
+        - Reporting
+      summary: Create a subscription whose recipient must currently hold report read
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [definition_code, recipient_user_id, frequency]
+              properties:
+                definition_code: { type: string, maxLength: 80 }
+                recipient_user_id: { type: integer, minimum: 1 }
+                frequency:
+                  type: string
+                  enum: [DAILY, WEEKLY, MONTHLY, QUARTERLY]
+                filters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "201":
+          description: Subscription stored after live recipient authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSubscriptionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.subscription.manage
+  /v1/reporting/subscriptions/{subscriptionId}:
+    patch:
+      operationId: reportingSubscriptionsUpdate
+      tags:
+        - Reporting
+      summary: Pause, resume or retarget an owned subscription
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                active: { type: boolean }
+                definition_code: { type: string, maxLength: 80 }
+                recipient_user_id: { type: integer, minimum: 1 }
+                frequency:
+                  type: string
+                  enum: [DAILY, WEEKLY, MONTHLY, QUARTERLY]
+                filters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Updated subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSubscriptionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.subscription.manage
+    delete:
+      operationId: reportingSubscriptionsDelete
+      tags:
+        - Reporting
+      summary: Soft-delete an owned subscription
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Subscription deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSubscriptionDeletedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: reporting.subscription.manage
   /v1/roles:
     get:
       operationId: listRoles

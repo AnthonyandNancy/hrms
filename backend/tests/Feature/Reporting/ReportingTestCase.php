@@ -133,11 +133,19 @@ abstract class ReportingTestCase extends PeopleTestCase
         $narrowPrincipal = $this->authenticate((int) $narrowUser->id, (int) $a2->id, (int) $narrowUser->auth_version);
 
         $this->grant($broadUser, 'reporting.dashboard.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($broadUser, 'reporting.report.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($broadUser, 'reporting.definition.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($broadUser, 'reporting.subscription.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
         $this->grant($broadUser, 'reporting.export', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($broadUser, 'reporting.export.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
         $this->grant($narrowUser, 'reporting.dashboard.read', AnchorType::ORG_UNIT, (int) $orgA->id);
+        $this->grant($narrowUser, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $orgA->id);
+        $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::ORG_UNIT, (int) $orgA->id);
+        $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
         // The export route itself is legal-entity anchored; row scope for the
-        // exported report still comes from reporting.dashboard.read above.
+        // exported report still comes from reporting.report.read above.
         $this->grant($narrowUser, 'reporting.export', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($narrowUser, 'reporting.export.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
 
         return [
             'entity_id' => (int) $entity->id,
@@ -230,6 +238,22 @@ abstract class ReportingTestCase extends PeopleTestCase
             ]);
 
         return $binding;
+    }
+
+    /**
+     * Post an export command with the mandatory Idempotency-Key. The key is
+     * derived from the report/payload so a test retry is a true replay.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return \Illuminate\Testing\TestResponse<\Illuminate\Http\Response>
+     */
+    protected function postExport(string $reportCode, array $payload = []): \Illuminate\Testing\TestResponse
+    {
+        $body = $this->exportPayload($reportCode, $payload);
+
+        return $this->postJson('/v1/reporting/exports', $body, [
+            'Idempotency-Key' => 'export-'.hash('sha256', json_encode($body, JSON_THROW_ON_ERROR)),
+        ]);
     }
 
     /**

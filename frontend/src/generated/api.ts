@@ -3026,7 +3026,13 @@ export interface paths {
         /** Report definition catalog */
         get: operations["reportingDefinitions"];
         put?: never;
-        post?: never;
+        /**
+         * Store a tenant custom definition over the approved whitelist
+         * @description The request names a code-owned projection and approved field/filter keys
+         *     only. SQL, free-form predicates and unknown fields are rejected with a
+         *     stable 422 reason before anything is stored.
+         */
+        post: operations["reportingDefinitionsStore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3040,7 +3046,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Owner-scoped export history with source hash and audit trail */
+        get: operations["reportingExportsIndex"];
         put?: never;
         /** Create an async export job with purpose and field whitelist */
         post: operations["reportingExportsStore"];
@@ -3082,6 +3089,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/reporting/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the caller-owned report subscriptions as a projection */
+        get: operations["reportingSubscriptionsIndex"];
+        put?: never;
+        /** Create a subscription whose recipient must currently hold report read */
+        post: operations["reportingSubscriptionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reporting/subscriptions/{subscriptionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete an owned subscription */
+        delete: operations["reportingSubscriptionsDelete"];
+        options?: never;
+        head?: never;
+        /** Pause, resume or retarget an owned subscription */
+        patch: operations["reportingSubscriptionsUpdate"];
         trace?: never;
     };
     "/v1/roles": {
@@ -4319,6 +4362,100 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ExportJobHistoryItem: {
+            id: string;
+            reportCode: string;
+            reportName: string;
+            status: string;
+            purpose: string;
+            fields: string[];
+            fieldWhitelist: string[];
+            rowCount: number;
+            source_hash: string;
+            auditTrail: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            createdAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            downloadCount: number;
+            maxDownloads: number;
+            watermark: string;
+            fileName: string;
+            /** @description Short-lived, signed URL. It does not expose the stored token. */
+            downloadUrl: string;
+        };
+        /** @description ADR-0029 projection envelope for owner-scoped subscriptions. */
+        ReportSubscriptionProjection: {
+            items: components["schemas"]["ReportSubscription"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        ReportSubscription: {
+            id: number;
+            definitionCode: string;
+            recipientUserId: number;
+            /** @enum {string} */
+            frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+            filters: {
+                [key: string]: unknown;
+            };
+            active: boolean;
+            /** Format: date-time */
+            lastRunAt: string | null;
+            /** Format: date-time */
+            nextRunAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description ADR-0029 projection envelope for export history. */
+        ExportJobHistoryProjection: {
+            items: components["schemas"]["ExportJobHistoryItem"][];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        ReportSubscriptionProjectionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ReportSubscriptionProjection"];
+        };
+        ReportSubscriptionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ReportSubscription"];
+        };
+        ReportSubscriptionDeletedEnvelope: components["schemas"]["Envelope"] & {
+            data?: {
+                id: number;
+                /** @constant */
+                deleted: true;
+            };
+        };
+        ReportDefinitionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ReportDefinition"];
+        };
+        ExportJobHistoryEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["ExportJobHistoryProjection"];
+        };
         LeaveTypeCatalog: {
             id: number;
             code: string;
@@ -13562,6 +13699,73 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    reportingDefinitionsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    description?: string;
+                    source_projection: string;
+                    fields: string[];
+                    filters?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Custom definition stored from the whitelist */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportDefinitionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportingExportsIndex: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Export-job projection with hashes, field whitelists and audit trail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportJobHistoryEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     reportingExportsStore: {
         parameters: {
             query?: never;
@@ -13660,6 +13864,141 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportingSubscriptionsIndex: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner-scoped subscription projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSubscriptionProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportingSubscriptionsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    definition_code: string;
+                    recipient_user_id: number;
+                    /** @enum {string} */
+                    frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+                    filters?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Subscription stored after live recipient authorization */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSubscriptionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportingSubscriptionsDelete: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                subscriptionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subscription deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSubscriptionDeletedEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportingSubscriptionsUpdate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                subscriptionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active?: boolean;
+                    definition_code?: string;
+                    recipient_user_id?: number;
+                    /** @enum {string} */
+                    frequency?: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+                    filters?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Updated subscription */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSubscriptionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

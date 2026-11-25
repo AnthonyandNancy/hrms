@@ -139,7 +139,7 @@ class CapabilityCatalogTest extends TestCase
     {
         $catalog = new CapabilityCatalog;
 
-        $this->assertCount(156, $catalog->codes(), '112 baseline + 43 from the gap table + 1 historical omission (time.attendance.reopen).');
+        $this->assertCount(157, $catalog->codes(), '112 baseline + 43 from the gap table + 1 historical omission (time.attendance.reopen) + reporting.export.read.');
     }
 
     public function test_no_template_grant_exceeds_its_capability_field_profile(): void
