@@ -185,7 +185,11 @@ final class InstallCommand extends Command
 
         $this->printReport($report);
 
-        $this->info('Install complete. Sign in as '.$username.' and enrol the printed TOTP secret.');
+        if ((bool) config('iam.mfa.enabled', false)) {
+            $this->info('Install complete. Sign in as '.$username.' and enrol the printed TOTP secret.');
+        } else {
+            $this->info('Install complete. Sign in as '.$username.' with the password you supplied (MFA disabled).');
+        }
 
         return self::SUCCESS;
     }
