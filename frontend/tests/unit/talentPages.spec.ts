@@ -311,6 +311,21 @@ describe('Wave 4 talent domain components', () => {
       '/v1/training/sessions',
     )
 
+    const trainingLivePaths = new Map([
+      ['training/index', '/v1/training/plans'],
+      ['training/courses', '/v1/training/courses'],
+      ['training/checkins', '/v1/training/checkins'],
+      ['training/exams', '/v1/training/exams'],
+      ['training/feedback', '/v1/training/feedback'],
+      ['training/records', '/v1/training/records'],
+      ['training/reports', '/v1/training/reports'],
+    ])
+    for (const [key, readPath] of trainingLivePaths) {
+      const page = TALENT_PAGE_CONFIGS.find((candidate) => candidate.key === key)
+      expect(page?.readPath, key).toBe(readPath)
+      expect(page?.pending, key).toBeUndefined()
+    }
+
     expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/indicators')?.readPath).toBe(
       '/v1/performance/indicators',
     )
@@ -336,8 +351,6 @@ describe('Wave 4 talent domain components', () => {
       ['recruitment/candidates/communications', '/v1/recruitment/candidates/{id}/communications'],
       ['recruitment/candidates/talent-pool', '/v1/recruitment/candidates/talent-pool'],
       ['recruitment/candidates/convert', '/v1/recruitment/candidates/{id}/convert'],
-      ['training/exams', '/v1/training/exams'],
-      ['training/records', '/v1/training/records'],
     ])
     for (const [key, plannedPath] of plannedGaps) {
       const page = TALENT_PAGE_CONFIGS.find((candidate) => candidate.key === key)
@@ -529,4 +542,265 @@ describe('Wave 4 talent domain components', () => {
     )
     expect(wrapper.text()).toContain('自评与主管评分保持不变')
   })
+  it('loads training plans from the live plan ledger and creates one with integer-cents budget', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { plan_id: 141, code: 'PLAN-2027', title: 'Synthetic annual plan', year: 2027, budget_cents: 1250000, currency: 'CNY', status: 'ACTIVE' },
+    ]))
+    resource.post.mockResolvedValue({
+      plan_id: 142,
+      code: 'PLAN-2028',
+      title: 'Synthetic 2028 plan',
+      year: 2028,
+      budget_cents: 900000,
+      currency: 'CNY',
+      status: 'ACTIVE',
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
+    const wrapper = await mountWithRouter('training/index', '/training')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/plans', expect.any(Object))
+    expect(wrapper.text()).toContain('Synthetic annual plan')
+    expect(wrapper.text()).toContain('1250000')
+
+    await wrapper.get('[data-testid="plan-code"]').setValue('PLAN-2028')
+    await wrapper.get('[data-testid="plan-title"]').setValue('Synthetic 2028 plan')
+    await wrapper.get('[data-testid="plan-year"]').setValue('2028')
+    await wrapper.get('[data-testid="plan-budget-cents"]').setValue('900000')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/plans',
+      expect.objectContaining({
+        code: 'PLAN-2028',
+        title: 'Synthetic 2028 plan',
+        year: 2028,
+        budget_cents: 900000,
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('培训计划“Synthetic 2028 plan”已创建')
+    expect(wrapper.text()).toContain('预算与费用均以整数分提交')
+  })
+
+  it('loads the live course catalogue and creates a course linked to a plan', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { course_id: 51, plan_id: 141, code: 'COURSE-SAFE', title: 'Synthetic safety course', instructor: 'Synthetic Instructor', delivery_mode: 'ONSITE', duration_minutes: 180, cost_cents: 50000, status: 'ACTIVE' },
+    ]))
+    resource.post.mockResolvedValue({
+      course_id: 52,
+      plan_id: 141,
+      code: 'COURSE-NEW',
+      title: 'Synthetic new course',
+      instructor: 'Synthetic Instructor',
+      delivery_mode: 'ONLINE',
+      duration_minutes: 90,
+      cost_cents: 25000,
+      currency: 'CNY',
+      materials: null,
+      status: 'ACTIVE',
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
+    const wrapper = await mountWithRouter('training/courses', '/training/courses')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/courses', expect.any(Object))
+    expect(wrapper.text()).toContain('Synthetic safety course')
+
+    await wrapper.get('[data-testid="course-plan-id"]').setValue('141')
+    await wrapper.get('[data-testid="course-code"]').setValue('COURSE-NEW')
+    await wrapper.get('[data-testid="course-title"]').setValue('Synthetic new course')
+    await wrapper.get('[data-testid="course-instructor"]').setValue('Synthetic Instructor')
+    await wrapper.get('[data-testid="course-delivery-mode"]').setValue('ONLINE')
+    await wrapper.get('[data-testid="course-duration-minutes"]').setValue('90')
+    await wrapper.get('[data-testid="course-cost-cents"]').setValue('25000')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/courses',
+      expect.objectContaining({
+        plan_id: 141,
+        code: 'COURSE-NEW',
+        title: 'Synthetic new course',
+        delivery_mode: 'ONLINE',
+        duration_minutes: 90,
+        cost_cents: 25000,
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('课程“Synthetic new course”已创建')
+  })
+
+  it('loads check-ins with derived study minutes and records a check-in for a session', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { checkin_id: 61, session_id: 91, employment_id: 45, checked_in_at: '2026-12-01T09:00:00Z', checked_out_at: '2026-12-01T11:30:00Z', study_minutes: 150 },
+    ]))
+    resource.post.mockResolvedValue({
+      checkin_id: 61,
+      session_id: 91,
+      employment_id: 45,
+      checked_in_at: '2026-12-01T09:00:00Z',
+      checked_out_at: '2026-12-01T11:30:00Z',
+      study_minutes: 150,
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
+    const wrapper = await mountWithRouter('training/checkins', '/training/checkins')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/checkins', expect.any(Object))
+    expect(wrapper.text()).toContain('150')
+    expect(wrapper.text()).toContain('学时由签到/签退时间派生')
+    expect(wrapper.get('[data-testid="lifecycle-summary"]').text()).toContain('学时合计（分钟）')
+    expect(wrapper.get('[data-testid="lifecycle-summary"]').text()).toContain('150')
+
+    await wrapper.get('[data-testid="checkin-session-id"]').setValue('91')
+    await wrapper.get('[data-testid="checkin-employment-id"]').setValue('45')
+    await wrapper.get('[data-testid="checkin-in-time"]').setValue('2026-12-01T09:00')
+    await wrapper.get('[data-testid="checkin-out-time"]').setValue('2026-12-01T11:30')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/sessions/91/checkins',
+      expect.objectContaining({
+        employment_id: 45,
+        checked_in_at: '2026-12-01T09:00',
+        checked_out_at: '2026-12-01T11:30',
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('签到已记录')
+  })
+
+  it('creates and publishes versioned training exams through the real endpoints', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { exam_id: 71, course_id: 51, code: 'EXAM-SAFE', title: 'Synthetic safety exam', version: 1, passing_score: 60, max_score: 100, status: 'PUBLISHED' },
+    ]))
+    resource.post.mockResolvedValueOnce({
+      exam_id: 72,
+      course_id: 51,
+      code: 'EXAM-SAFE',
+      title: 'Synthetic safety exam v2',
+      version: 2,
+      passing_score: 70,
+      max_score: 100,
+      status: 'DRAFT',
+      published_at: null,
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+    resource.post.mockResolvedValueOnce({
+      exam_id: 72,
+      course_id: 51,
+      code: 'EXAM-SAFE',
+      title: 'Synthetic safety exam v2',
+      version: 2,
+      passing_score: 70,
+      max_score: 100,
+      status: 'PUBLISHED',
+      published_at: '2026-11-25T02:00:00Z',
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
+    const wrapper = await mountWithRouter('training/exams', '/training/exams')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/exams', expect.any(Object))
+    expect(wrapper.text()).toContain('PUBLISHED')
+
+    await wrapper.get('[data-testid="exam-course-id"]').setValue('51')
+    await wrapper.get('[data-testid="exam-code"]').setValue('EXAM-SAFE')
+    await wrapper.get('[data-testid="exam-title"]').setValue('Synthetic safety exam v2')
+    await wrapper.get('[data-testid="exam-passing-score"]').setValue('70')
+    await wrapper.get('[data-testid="exam-max-score"]').setValue('100')
+    const forms = wrapper.findAll('form')
+    const examForm = forms[0]
+    const publishForm = forms[1]
+    if (examForm === undefined || publishForm === undefined) throw new Error('Expected both exam forms')
+    await examForm.trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenNthCalledWith(
+      1,
+      '/v1/training/exams',
+      expect.objectContaining({ course_id: 51, code: 'EXAM-SAFE', title: 'Synthetic safety exam v2', passing_score: 70, max_score: 100 }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await wrapper.get('[data-testid="exam-publish-id"]').setValue('72')
+    await publishForm.trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenNthCalledWith(
+      2,
+      '/v1/training/exams/72/publish',
+      {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('考试版本 2 已发布并冻结')
+  })
+
+  it('appends training feedback per enrollment without rewriting prior rows', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { training_feedback_id: 81, enrollment_id: 77, session_id: 91, employment_id: 45, rating: 5, comments: 'Synthetic prior feedback', status: 'RECORDED' },
+    ]))
+    resource.post.mockResolvedValue({
+      training_feedback_id: 82,
+      enrollment_id: 77,
+      session_id: 91,
+      employment_id: 45,
+      rating: 4,
+      comments: 'Synthetic appended feedback',
+      questionnaire: null,
+      status: 'RECORDED',
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
+    const wrapper = await mountWithRouter('training/feedback', '/training/feedback')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/feedback', expect.any(Object))
+    expect(wrapper.text()).toContain('Synthetic prior feedback')
+
+    await wrapper.get('[data-testid="training-feedback-enrollment-id"]').setValue('77')
+    await wrapper.get('[data-testid="training-feedback-rating"]').setValue('4')
+    await wrapper.get('[data-testid="training-feedback-comments"]').setValue('Synthetic appended feedback')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/feedback',
+      expect.objectContaining({ enrollment_id: 77, rating: 4, comments: 'Synthetic appended feedback' }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('反馈已追加')
+    expect(wrapper.text()).toContain('反馈仅追加，不覆盖历史行')
+  })
+
+  it('loads personal training records and aggregate reports from live projections', async () => {
+    resource.get.mockResolvedValueOnce(listResponse([
+      { enrollment_id: 77, employment_id: 45, session_id: 91, course_code: 'COURSE-SAFE', course_title: 'Synthetic safety course', status: 'COMPLETED', completion_result: 'PASS', score: 88, study_minutes: 150, checkin_count: 1, feedback_count: 1, latest_exam_version: 1 },
+    ]))
+    const records = await mountWithRouter('training/records', '/training/records')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/records', expect.any(Object))
+    expect(records.text()).toContain('COURSE-SAFE')
+    expect(records.text()).toContain('150')
+    expect(records.text()).toContain('学时由签到/签退时间派生')
+
+    resource.get.mockResolvedValueOnce(listResponse([
+      { plan_id: 141, code: 'PLAN-2027', title: 'Synthetic annual plan', year: 2027, budget_cents: 1250000, training_cost_cents: 50000, currency: 'CNY', course_count: 1, session_count: 1, enrolled_count: 1, completed_count: 1, completion_rate_bps: 10000, exam_pass_count: 1, exam_pass_rate_bps: 10000, study_minutes_total: 90, feedback_count: 1, average_feedback_rating_bps: 10000 },
+    ]))
+    const reports = await mountWithRouter('training/reports', '/training/reports')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/reports', expect.any(Object))
+    expect(reports.text()).toContain('10000')
+    expect(reports.text()).toContain('报表比率以基点表示')
+  })
+
 })

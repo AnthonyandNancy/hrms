@@ -106,6 +106,31 @@ const form = reactive({
   completionResult: 'ATTENDED',
   completionScore: '',
   completedAttended: true,
+  planCode: '',
+  planTitle: '',
+  planYear: '2027',
+  planBudgetCents: '',
+  planCurrency: 'CNY',
+  coursePlanId: '',
+  courseCode: '',
+  courseTitle: '',
+  courseInstructor: '',
+  courseDeliveryMode: 'ONSITE',
+  courseDurationMinutes: '60',
+  courseCostCents: '',
+  checkinSessionId: '',
+  checkinEmploymentId: '',
+  checkinInTime: '',
+  checkinOutTime: '',
+  examCourseId: '',
+  examCode: '',
+  examTitle: '',
+  examPassingScore: '60',
+  examMaxScore: '100',
+  examPublishId: '',
+  trainingFeedbackEnrollmentId: '',
+  trainingFeedbackRating: '5',
+  trainingFeedbackComments: '',
 })
 
 const submitting = ref(false)
@@ -589,6 +614,141 @@ async function submitEnrollment(): Promise<void> {
   }
 }
 
+async function submitPlan(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/training/plans',
+      {
+        code: form.planCode.trim(),
+        title: form.planTitle.trim(),
+        year: numeric(form.planYear),
+        budget_cents: numeric(form.planBudgetCents) ?? 0,
+        currency: form.planCurrency.trim() || 'CNY',
+      },
+      { idempotencyKey: nextIdempotencyKey('training-plan') },
+    )
+    success(`培训计划“${form.planTitle.trim()}”已创建`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitCourse(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/training/courses',
+      {
+        plan_id: numeric(form.coursePlanId),
+        code: form.courseCode.trim(),
+        title: form.courseTitle.trim(),
+        instructor: form.courseInstructor.trim() || null,
+        delivery_mode: form.courseDeliveryMode,
+        duration_minutes: numeric(form.courseDurationMinutes) ?? 0,
+        cost_cents: numeric(form.courseCostCents) ?? 0,
+        currency: 'CNY',
+      },
+      { idempotencyKey: nextIdempotencyKey('training-course') },
+    )
+    success(`课程“${form.courseTitle.trim()}”已创建`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitCheckin(): Promise<void> {
+  resetFeedback()
+  const sessionId = numeric(form.checkinSessionId)
+  if (sessionId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/training/sessions/${sessionId}/checkins`,
+      {
+        employment_id: numeric(form.checkinEmploymentId),
+        checked_in_at: form.checkinInTime || null,
+        checked_out_at: form.checkinOutTime || null,
+      },
+      { idempotencyKey: nextIdempotencyKey('training-checkin') },
+    )
+    success(`签到已记录；该场次与任职共 ${String(row.study_minutes ?? 0)} 分钟学时为派生值`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitExam(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/training/exams',
+      {
+        course_id: numeric(form.examCourseId),
+        code: form.examCode.trim(),
+        title: form.examTitle.trim(),
+        passing_score: numeric(form.examPassingScore),
+        max_score: numeric(form.examMaxScore),
+      },
+      { idempotencyKey: nextIdempotencyKey('training-exam') },
+    )
+    success(`考试“${form.examTitle.trim()}”版本 ${String(row.version ?? '')} 已保存`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitExamPublish(): Promise<void> {
+  resetFeedback()
+  const examId = numeric(form.examPublishId)
+  if (examId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/training/exams/${examId}/publish`,
+      {},
+      { idempotencyKey: nextIdempotencyKey('training-exam-publish') },
+    )
+    success(`考试版本 ${String(row.version ?? '')} 已发布并冻结`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitTrainingFeedback(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/training/feedback',
+      {
+        enrollment_id: numeric(form.trainingFeedbackEnrollmentId),
+        rating: numeric(form.trainingFeedbackRating),
+        comments: form.trainingFeedbackComments.trim(),
+      },
+      { idempotencyKey: nextIdempotencyKey('training-feedback') },
+    )
+    success(`反馈已追加，编号 ${String(row.training_feedback_id ?? '')}`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
 async function submitCompletion(): Promise<void> {
   resetFeedback()
   const enrollmentId = numeric(form.completionEnrollmentId)
@@ -830,6 +990,62 @@ async function submitCompletion(): Promise<void> {
       <label class="talent-field">容量<input v-model="form.sessionCapacity" data-testid="session-capacity" inputmode="numeric" required /></label>
       <label class="talent-field">地点<input v-model="form.sessionLocation" maxlength="160" /></label>
       <button type="submit" :disabled="submitting" data-testid="session-submit">创建场次</button>
+    </form>
+
+    <form v-else-if="kind === 'plan-create'" class="talent-form" @submit.prevent="submitPlan">
+      <label class="talent-field">计划编码<input v-model="form.planCode" data-testid="plan-code" required maxlength="64" /></label>
+      <label class="talent-field">计划名称<input v-model="form.planTitle" data-testid="plan-title" required maxlength="160" /></label>
+      <label class="talent-field">年度<input v-model="form.planYear" data-testid="plan-year" inputmode="numeric" required /></label>
+      <label class="talent-field">预算（整数分）<input v-model="form.planBudgetCents" data-testid="plan-budget-cents" inputmode="numeric" /></label>
+      <label class="talent-field">币种<input v-model="form.planCurrency" required maxlength="3" /></label>
+      <button type="submit" :disabled="submitting" data-testid="plan-submit">创建培训计划</button>
+    </form>
+
+    <form v-else-if="kind === 'course-create'" class="talent-form" @submit.prevent="submitCourse">
+      <label class="talent-field">计划 ID<input v-model="form.coursePlanId" data-testid="course-plan-id" inputmode="numeric" /></label>
+      <label class="talent-field">课程编码<input v-model="form.courseCode" data-testid="course-code" required maxlength="64" /></label>
+      <label class="talent-field">课程名称<input v-model="form.courseTitle" data-testid="course-title" required maxlength="160" /></label>
+      <label class="talent-field">讲师<input v-model="form.courseInstructor" data-testid="course-instructor" maxlength="120" /></label>
+      <label class="talent-field">
+        形式
+        <select v-model="form.courseDeliveryMode" data-testid="course-delivery-mode">
+          <option value="ONSITE">现场</option>
+          <option value="ONLINE">线上</option>
+          <option value="HYBRID">混合</option>
+        </select>
+      </label>
+      <label class="talent-field">时长（分钟）<input v-model="form.courseDurationMinutes" data-testid="course-duration-minutes" inputmode="numeric" /></label>
+      <label class="talent-field">成本（整数分）<input v-model="form.courseCostCents" data-testid="course-cost-cents" inputmode="numeric" /></label>
+      <button type="submit" :disabled="submitting" data-testid="course-submit">创建课程</button>
+    </form>
+
+    <form v-else-if="kind === 'checkin-create'" class="talent-form" @submit.prevent="submitCheckin">
+      <label class="talent-field">场次 ID<input v-model="form.checkinSessionId" data-testid="checkin-session-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<input v-model="form.checkinEmploymentId" data-testid="checkin-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">签到时间<input v-model="form.checkinInTime" data-testid="checkin-in-time" type="datetime-local" /></label>
+      <label class="talent-field">签退时间<input v-model="form.checkinOutTime" data-testid="checkin-out-time" type="datetime-local" /></label>
+      <button type="submit" :disabled="submitting" data-testid="checkin-submit">记录签到</button>
+    </form>
+
+    <form v-else-if="kind === 'exam-create'" class="talent-form" @submit.prevent="submitExam">
+      <label class="talent-field">课程 ID<input v-model="form.examCourseId" data-testid="exam-course-id" inputmode="numeric" /></label>
+      <label class="talent-field">考试编码<input v-model="form.examCode" data-testid="exam-code" required maxlength="64" /></label>
+      <label class="talent-field">考试名称<input v-model="form.examTitle" data-testid="exam-title" required maxlength="200" /></label>
+      <label class="talent-field">合格分<input v-model="form.examPassingScore" data-testid="exam-passing-score" inputmode="numeric" required /></label>
+      <label class="talent-field">满分<input v-model="form.examMaxScore" data-testid="exam-max-score" inputmode="numeric" required /></label>
+      <button type="submit" :disabled="submitting" data-testid="exam-submit">保存考试草稿</button>
+    </form>
+
+    <form v-else-if="kind === 'exam-publish'" class="talent-form" @submit.prevent="submitExamPublish">
+      <label class="talent-field">考试版本 ID<input v-model="form.examPublishId" data-testid="exam-publish-id" inputmode="numeric" required /></label>
+      <button type="submit" :disabled="submitting" data-testid="exam-publish-submit">发布并冻结版本</button>
+    </form>
+
+    <form v-else-if="kind === 'training-feedback-create'" class="talent-form" @submit.prevent="submitTrainingFeedback">
+      <label class="talent-field">报名 ID<input v-model="form.trainingFeedbackEnrollmentId" data-testid="training-feedback-enrollment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">满意度<input v-model="form.trainingFeedbackRating" data-testid="training-feedback-rating" inputmode="numeric" min="1" max="5" /></label>
+      <label class="talent-field talent-field--wide">反馈内容<textarea v-model="form.trainingFeedbackComments" data-testid="training-feedback-comments" rows="3" required maxlength="10000" /></label>
+      <button type="submit" :disabled="submitting" data-testid="training-feedback-submit">追加反馈</button>
     </form>
 
     <div v-else-if="kind === 'enrollment-create'" class="talent-form">
