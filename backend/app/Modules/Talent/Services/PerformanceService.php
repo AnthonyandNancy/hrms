@@ -24,6 +24,7 @@ final class PerformanceService
         private readonly AuditRecorder $audit,
         private readonly WorkflowCaseGateway $workflow,
         private readonly PerformanceStateMachine $machine,
+        private readonly PerformanceCycleService $cycleDetails,
     ) {}
 
     /**
@@ -71,6 +72,12 @@ final class PerformanceService
             throw new ValidationException(['cycle_id' => ['The performance cycle does not exist.']]);
         }
 
+        if ((string) $cycle->status === 'PUBLISHED') {
+            throw new ConflictException('The performance cycle is published; reviews can no longer be created or edited.', [
+                'reason' => 'CYCLE_PUBLISHED',
+            ]);
+        }
+
         $review = PerformanceReview::query()->firstOrCreate(
             [
                 'tenant_id' => $tenantId,
@@ -97,6 +104,8 @@ final class PerformanceService
     public function submitReview(int $tenantId, int $actorUserId, int $reviewId, array $input): array
     {
         return DB::transaction(function () use ($tenantId, $actorUserId, $reviewId, $input): array {
+            $this->cycleDetails->assertReviewEditable($tenantId, $reviewId);
+
             $review = PerformanceReview::query()
                 ->where('tenant_id', $tenantId)
                 ->whereKey($reviewId)
