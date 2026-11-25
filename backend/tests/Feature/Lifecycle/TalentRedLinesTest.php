@@ -96,7 +96,12 @@ final class TalentRedLinesTest extends TalentTestCase
 
         $payload = ['session_id' => $session->id, 'employment_id' => 1];
         $first = $this->postJson('/v1/training/enrollments', $payload, ['Idempotency-Key' => 'enroll-1'])->assertCreated();
-        $second = $this->postJson('/v1/training/enrollments', $payload, ['Idempotency-Key' => 'enroll-2'])->assertCreated();
+
+        // Enrolling the same employment in the same session is idempotent at the
+        // business level: a NEW key still returns the existing enrolment with
+        // 200 rather than creating a duplicate row. This is stronger than
+        // idempotency-key replay, which would only dedupe the identical key.
+        $second = $this->postJson('/v1/training/enrollments', $payload, ['Idempotency-Key' => 'enroll-2'])->assertOk();
 
         $this->assertSame($first->json('data.enrollment_id'), $second->json('data.enrollment_id'));
         $this->assertSame(1, TrainingEnrollment::query()->count());
