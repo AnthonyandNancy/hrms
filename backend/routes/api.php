@@ -41,6 +41,7 @@ use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
 use App\Modules\Time\Http\Controllers\LeaveController;
 use App\Modules\Time\Http\Controllers\OvertimeController;
+use App\Modules\Time\Http\Controllers\OvertimeRequestController;
 use App\Modules\Time\Http\Controllers\TimeCatalogController;
 use App\Modules\Time\Http\Controllers\TravelController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
@@ -390,6 +391,19 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::get('/overtime/policies', [TimeCatalogController::class, 'overtimePolicies'])
         ->middleware('capability:time.overtime.read')
         ->name('time.overtime.policies.show');
+    Route::get('/overtime/requests', [OvertimeRequestController::class, 'index'])
+        ->middleware('capability:time.overtime.read')
+        ->name('time.overtime.requests.index');
+    Route::post('/overtime/requests', [OvertimeRequestController::class, 'store'])
+        ->middleware('capability:time.overtime.request')
+        ->name('time.overtime.requests.store');
+    Route::post('/overtime/requests/{id}/confirm', [OvertimeRequestController::class, 'confirm'])
+        ->whereNumber('id')
+        ->middleware('capability:time.overtime.confirm')
+        ->name('time.overtime.requests.confirm');
+    Route::get('/overtime/timeoff-balances', [OvertimeRequestController::class, 'timeoffBalances'])
+        ->middleware('capability:time.timeoff.read')
+        ->name('time.overtime.timeoff-balances');
     Route::get('/leave/balances', [LeaveController::class, 'balances'])
         ->middleware('capability:time.leave.read')
         ->name('time.leave.balances');
