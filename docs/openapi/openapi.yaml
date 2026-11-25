@@ -8797,6 +8797,38 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.read
+  /v1/payroll/runs/{id}/inputs:
+    get:
+      tags: [Payroll]
+      operationId: listPayrollRunInputs
+      summary: Immutable payroll input snapshots for a run
+      description: Requires capability `payroll.run.read` anchored to the run. Money keys are omitted unless the caller holds P3 payslip access.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, minimum: 1}
+      x-capability: payroll.run.read
+      responses:
+        "200":
+          description: Input snapshot page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Paginated"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/payroll/runs/{id}/lock-inputs:
     post:
       operationId: payrollv1_payroll_runs_id_lock_inputs_post

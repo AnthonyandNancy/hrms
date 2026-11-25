@@ -234,6 +234,50 @@ final class PayrollRunService
     }
 
     /**
+     * Immutable input evidence for a run, projected through the caller's
+     * payslip field set. Money keys disappear entirely when the caller does
+     * not hold P3; they are never replaced with zeroes or nulls.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function inputSnapshots(PayrollRun $run, FieldSet $fields): array
+    {
+        $moneyKeys = [
+            'base_salary_minor', 'gross_cents', 'net_cents', 'deductions_cents',
+            'taxable_cents', 'employer_cost_cents', 'employee_si_cents',
+            'employee_hf_cents', 'tax_cents',
+        ];
+        $showAmounts = $fields->isVisible('net');
+
+        return \App\Modules\Payroll\Models\PayrollInputSnapshot::query()
+            ->where('tenant_id', $run->tenant_id)
+            ->where('run_id', $run->id)
+            ->orderBy('employment_id')
+            ->orderBy('snapshot_type')
+            ->orderBy('snapshot_version')
+            ->get()
+            ->map(static function (\App\Modules\Payroll\Models\PayrollInputSnapshot $snapshot) use ($moneyKeys, $showAmounts): array {
+                $payload = (array) $snapshot->payload_json;
+
+                if (! $showAmounts) {
+                    foreach ($moneyKeys as $key) {
+                        unset($payload[$key]);
+                    }
+                }
+
+                return [
+                    'id' => (int) $snapshot->id,
+                    'employment_id' => (int) $snapshot->employment_id,
+                    'snapshot_type' => (string) $snapshot->snapshot_type,
+                    'snapshot_version' => (int) $snapshot->snapshot_version,
+                    'source_hash' => (string) $snapshot->source_hash,
+                    'payload' => $payload,
+                    'created_at' => $snapshot->created_at?->toIso8601ZuluString(),
+                ];
+            })->all();
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     public function employees(PayrollRun $run, FieldSet $fields): array

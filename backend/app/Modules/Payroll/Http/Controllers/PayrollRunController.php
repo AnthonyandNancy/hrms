@@ -122,6 +122,16 @@ final class PayrollRunController
         }
     }
 
+    public function inputs(int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
+        $rows = $this->runs->inputSnapshots($run, $fields);
+
+        return ApiResponse::ok(ApiResponse::list($rows, 1, max(1, count($rows)), count($rows)));
+    }
+
     public function store(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();

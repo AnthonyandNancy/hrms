@@ -1115,4 +1115,10 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
+    'GET /v1/payroll/runs/{id}/inputs' => [
+        'capability' => 'payroll.run.read',
+        'anchor' => 'PAYROLL_RUN',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_denied'],
+    ],
 ];

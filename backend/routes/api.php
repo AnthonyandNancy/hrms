@@ -678,6 +678,10 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')
         ->name('payroll.runs.employees');
+    Route::get('/runs/{id}/inputs', [PayrollRunController::class, 'inputs'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.read,PAYROLL_RUN')
+        ->name('payroll.runs.inputs');
     Route::get('/runs/{id}/reconciliation', [PayrollRunController::class, 'reconciliation'])
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')
