@@ -3257,6 +3257,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/travel/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record an APPROVE or REJECT Workflow decision for a travel request */
+        post: operations["approveTravelRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/travel/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective-dated travel policy versions for a legal entity */
+        get: operations["listTravelPolicies"];
+        put?: never;
+        /** Append a new effective-dated travel policy version */
+        post: operations["publishTravelPolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/travel/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List travel expense claims; amounts are integer minor units */
+        get: operations["listTravelExpenses"];
+        put?: never;
+        /**
+         * Register an expense claim against an APPROVED travel request
+         * @description The trip must be APPROVED and its Workflow case must be APPROVED. Expenses are claims only: this endpoint never creates a payment or payroll item.
+         */
+        post: operations["claimTravelExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5144,6 +5200,42 @@ export interface components {
             destination: string | null;
             purpose: string;
             status: string;
+            case_id?: number | null;
+            case_no?: string | null;
+            application_status?: string | null;
+        };
+        TravelPolicy: {
+            id: number;
+            legal_entity_id: number;
+            city_tier: string;
+            /** @description Hotel cap in integer minor units (cents). */
+            hotel_cap_cents: number;
+            /** @description Transport cap in integer minor units (cents). */
+            transport_cap_cents: number;
+            /** Format: date */
+            effective_from: string;
+            version: number;
+            /** @enum {string} */
+            status: "PUBLISHED";
+        };
+        TravelExpense: {
+            id: number;
+            travel_id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            /** @enum {string} */
+            category: "TRANSPORT" | "LODGING" | "MEALS" | "OTHER";
+            /** @description Claim amount in integer minor units (cents); never a float. */
+            amount_cents: number;
+            currency: string;
+            receipt_file_id?: number | null;
+            /** @enum {string} */
+            status: "CLAIMED";
+            /** @enum {string} */
+            payment_status: "CLAIM_ONLY";
+            note?: string | null;
+            /** Format: date-time */
+            claimed_at?: string | null;
         };
     };
     responses: {
@@ -12276,6 +12368,196 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["TravelRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    approveTravelRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "APPROVE" | "REJECT";
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Workflow decision recorded; trip status reflects application status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["TravelRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTravelPolicies: {
+        parameters: {
+            query: {
+                legal_entity_id: number;
+                city_tier?: string;
+                as_of?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Travel policy version projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            items?: components["schemas"]["TravelPolicy"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    publishTravelPolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    legal_entity_id: number;
+                    city_tier: string;
+                    /** @description Hotel cap in integer minor units (cents), never a float. */
+                    hotel_cap_cents: number;
+                    /** @description Transport cap in integer minor units (cents), never a float. */
+                    transport_cap_cents?: number;
+                    /** Format: date */
+                    effective_from: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Travel policy version published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["TravelPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTravelExpenses: {
+        parameters: {
+            query?: {
+                travel_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Travel expense claim projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            items?: components["schemas"]["TravelExpense"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    claimTravelExpense: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    travel_id: number;
+                    /** @description Claim amount in integer minor units (cents), never a float. */
+                    amount_cents: number;
+                    /** @enum {string} */
+                    category: "TRANSPORT" | "LODGING" | "MEALS" | "OTHER";
+                    receipt_file_id?: number;
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Travel expense claim recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["TravelExpense"];
                     };
                 };
             };

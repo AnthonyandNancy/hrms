@@ -71,6 +71,20 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         );
     }
 
+    public function decide(int $tenantId, int $caseId, string $action, string $comment): void
+    {
+        $principal = $this->principals->resolve();
+
+        if ($principal === null || $principal->tenantId !== $tenantId) {
+            throw new ConflictException(
+                'The workflow principal does not match the request actor.',
+                ['reason' => 'WORKFLOW_PRINCIPAL_MISMATCH'],
+            );
+        }
+
+        $this->cases->decide($principal, $caseId, $action, $comment);
+    }
+
     public function requestCancel(int $tenantId, int $caseId, int $actorUserId, string $reason): void
     {
         $case = $this->case($tenantId, $caseId);

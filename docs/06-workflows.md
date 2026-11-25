@@ -44,12 +44,13 @@ DRAFT ──submit──> SUBMITTED ──assign──> IN_REVIEW ──decide�
 ## 4. 模板解析是闭合映射
 
 业务模块拥有自己的 case type 词汇（`LEAVE_REQUEST`、`ATTENDANCE_CORRECTION`），模板目录使用点号编码
-（`leave.request`、`attendance.correction`）。二者通过 `CaseTemplateCatalog` **显式映射**：
+（`leave.request`、`attendance.correction`、`travel.request`）。三者通过 `CaseTemplateCatalog` **显式映射**：
 
 | Case type | 模板编码 |
 |---|---|
 | `LEAVE_REQUEST` | `leave.request` |
 | `ATTENDANCE_CORRECTION` | `attendance.correction` |
+| `TRAVEL_REQUEST` | `travel.request` |
 | `TRANSFER_REQUEST` | `transfer.request` |
 | `CONTRACT_RENEWAL` | `contract.renewal` |
 | `ONBOARDING_REQUEST` | `onboarding.request` |

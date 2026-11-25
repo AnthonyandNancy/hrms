@@ -48,6 +48,8 @@ use App\Modules\Time\Http\Controllers\OvertimeController;
 use App\Modules\Time\Http\Controllers\OvertimeRequestController;
 use App\Modules\Time\Http\Controllers\TimeCatalogController;
 use App\Modules\Time\Http\Controllers\TravelController;
+use App\Modules\Time\Http\Controllers\TravelExpenseController;
+use App\Modules\Time\Http\Controllers\TravelPolicyController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
 use App\Modules\Workflow\Http\Controllers\DecisionController;
 use App\Modules\Workflow\Http\Controllers\DelegationController;
@@ -501,7 +503,7 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->name('time.leave.ledger');
 });
 
-Route::prefix('travel')->middleware('auth.session')->group(function (): void {
+Route::prefix('travel')->middleware(['auth.session', 'csrf.header', ResolveLegalEntityContext::class])->group(function (): void {
     Route::get('/requests', [TravelController::class, 'index'])
         ->middleware('capability:time.travel.read')
         ->name('time.travel.requests.index');
@@ -512,6 +514,24 @@ Route::prefix('travel')->middleware('auth.session')->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:time.travel.request')
         ->name('time.travel.requests.cancel');
+    Route::post('/requests/{id}/approve', [TravelController::class, 'approve'])
+        ->whereNumber('id')
+        ->middleware(['mfa.enrolled', 'capability:time.travel.approve,MANAGED'])
+        ->name('time.travel.requests.approve');
+
+    Route::get('/policies', [TravelPolicyController::class, 'index'])
+        ->middleware('capability:time.travel.policy.read,LEGAL_ENTITY,legal_entity_id')
+        ->name('time.travel.policies.index');
+    Route::post('/policies', [TravelPolicyController::class, 'store'])
+        ->middleware(['mfa.enrolled', 'capability:time.travel.policy.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('time.travel.policies.store');
+
+    Route::get('/expenses', [TravelExpenseController::class, 'index'])
+        ->middleware('capability:time.travel.expense')
+        ->name('time.travel.expenses.index');
+    Route::post('/expenses', [TravelExpenseController::class, 'store'])
+        ->middleware(['mfa.enrolled', 'capability:time.travel.expense.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('time.travel.expenses.store');
 });
 
 Route::prefix('overtime')->middleware('auth.session')->group(function (): void {

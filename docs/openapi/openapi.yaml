@@ -4849,6 +4849,106 @@ components:
           type: string
         status:
           type: string
+        case_id:
+          type:
+            - integer
+            - "null"
+        case_no:
+          type:
+            - string
+            - "null"
+        application_status:
+          type:
+            - string
+            - "null"
+    TravelPolicy:
+      type: object
+      required:
+        - id
+        - legal_entity_id
+        - city_tier
+        - hotel_cap_cents
+        - transport_cap_cents
+        - effective_from
+        - version
+        - status
+      properties:
+        id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        city_tier:
+          type: string
+        hotel_cap_cents:
+          type: integer
+          description: Hotel cap in integer minor units (cents).
+        transport_cap_cents:
+          type: integer
+          description: Transport cap in integer minor units (cents).
+        effective_from:
+          type: string
+          format: date
+        version:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum:
+            - PUBLISHED
+    TravelExpense:
+      type: object
+      required:
+        - id
+        - travel_id
+        - employment_id
+        - legal_entity_id
+        - category
+        - amount_cents
+        - currency
+        - status
+        - payment_status
+      properties:
+        id:
+          type: integer
+        travel_id:
+          type: integer
+        employment_id:
+          type: integer
+        legal_entity_id:
+          type: integer
+        category:
+          type: string
+          enum:
+            - TRANSPORT
+            - LODGING
+            - MEALS
+            - OTHER
+        amount_cents:
+          type: integer
+          description: Claim amount in integer minor units (cents); never a float.
+        currency:
+          type: string
+        receipt_file_id:
+          type:
+            - integer
+            - "null"
+        status:
+          type: string
+          enum:
+            - CLAIMED
+        payment_status:
+          type: string
+          enum:
+            - CLAIM_ONLY
+        note:
+          type:
+            - string
+            - "null"
+        claimed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
   responses:
     Unauthenticated:
       description: Missing, expired, revoked or stale-auth-version session
@@ -14469,3 +14569,324 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+
+  /v1/travel/requests/{id}/approve:
+    post:
+      operationId: approveTravelRequest
+      tags:
+        - Time
+      summary: Record an APPROVE or REJECT Workflow decision for a travel request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - APPROVE
+                    - REJECT
+                comment:
+                  type: string
+                  maxLength: 4000
+      responses:
+        "200":
+          description: Workflow decision recorded; trip status reflects application status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TravelRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.approve
+  /v1/travel/policies:
+    get:
+      operationId: listTravelPolicies
+      tags:
+        - Time
+      summary: List effective-dated travel policy versions for a legal entity
+      parameters:
+        - name: legal_entity_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: city_tier
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 8
+        - name: as_of
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Travel policy version projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/TravelPolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.policy.read
+    post:
+      operationId: publishTravelPolicy
+      tags:
+        - Time
+      summary: Append a new effective-dated travel policy version
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - legal_entity_id
+                - city_tier
+                - hotel_cap_cents
+                - effective_from
+              properties:
+                legal_entity_id:
+                  type: integer
+                  minimum: 1
+                city_tier:
+                  type: string
+                  maxLength: 8
+                hotel_cap_cents:
+                  type: integer
+                  minimum: 0
+                  description: Hotel cap in integer minor units (cents), never a float.
+                transport_cap_cents:
+                  type: integer
+                  minimum: 0
+                  description: Transport cap in integer minor units (cents), never a float.
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "201":
+          description: Travel policy version published
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TravelPolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.policy.manage
+  /v1/travel/expenses:
+    get:
+      operationId: listTravelExpenses
+      tags:
+        - Time
+      summary: List travel expense claims; amounts are integer minor units
+      parameters:
+        - name: travel_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Travel expense claim projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/TravelExpense"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.expense
+    post:
+      operationId: claimTravelExpense
+      tags:
+        - Time
+      summary: Register an expense claim against an APPROVED travel request
+      description: >
+        The trip must be APPROVED and its Workflow case must be APPROVED.
+        Expenses are claims only: this endpoint never creates a payment or
+        payroll item.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - travel_id
+                - amount_cents
+                - category
+              properties:
+                travel_id:
+                  type: integer
+                  minimum: 1
+                amount_cents:
+                  type: integer
+                  minimum: 0
+                  description: Claim amount in integer minor units (cents), never a float.
+                category:
+                  type: string
+                  enum:
+                    - TRANSPORT
+                    - LODGING
+                    - MEALS
+                    - OTHER
+                receipt_file_id:
+                  type: integer
+                  minimum: 1
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        "201":
+          description: Travel expense claim recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TravelExpense"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.expense.manage

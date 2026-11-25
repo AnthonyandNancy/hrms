@@ -48,9 +48,9 @@ final class InstallCommandTest extends TestCase
             count(app(\App\Modules\IAM\Authorization\CapabilityCatalog::class)->codes()),
             Capability::query()->count(),
         );
-        $this->assertGreaterThanOrEqual(8, WorkflowTemplate::query()->count());
+        $this->assertGreaterThanOrEqual(9, WorkflowTemplate::query()->count());
 
-        foreach (['leave.request', 'attendance.correction', 'transfer.request', 'contract.renewal', 'onboarding.request', 'offboarding.request', 'payroll.approval', 'generic.approval'] as $code) {
+        foreach (['leave.request', 'attendance.correction', 'travel.request', 'transfer.request', 'contract.renewal', 'onboarding.request', 'offboarding.request', 'payroll.approval', 'generic.approval'] as $code) {
             $this->assertDatabaseHas('workflow_templates', ['tenant_id' => 1, 'code' => $code]);
         }
         $this->assertSame(3, LeaveType::query()->count());

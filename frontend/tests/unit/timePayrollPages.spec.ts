@@ -40,6 +40,11 @@ const ALL_CAPABILITIES = [
   'time.timeoff.read',
   'time.travel.read',
   'time.travel.request',
+  'time.travel.policy.read',
+  'time.travel.policy.manage',
+  'time.travel.approve',
+  'time.travel.expense',
+  'time.travel.expense.manage',
   'payroll.run.read',
   'payroll.run.prepare',
   'payroll.run.review',
@@ -193,6 +198,8 @@ describe('time/payroll registry mapping', () => {
       '/v1/time/overtime/requests',
       '/v1/time/overtime/timeoff-balances',
       '/v1/travel/requests',
+      '/v1/travel/policies',
+      '/v1/travel/expenses',
       '/v1/payroll/runs',
       '/v1/payroll/items',
       '/v1/payroll/schemes',
@@ -554,6 +561,198 @@ describe('representative time/payroll mounts', () => {
       },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
+  })
+
+  it('loads travel policies from the real versioned endpoint and renders integer cents through MoneyText', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 7,
+          legal_entity_id: 1,
+          city_tier: 'A',
+          hotel_cap_cents: 80000,
+          transport_cap_cents: 30000,
+          effective_from: '2026-01-01',
+          version: 1,
+          status: 'PUBLISHED',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('travel/policies', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/travel/policies', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="travel-policies"]').text()
+    expect(text).toContain('¥800.00')
+    expect(text).toContain('¥300.00')
+    expect(wrapper.findAllComponents(MoneyText).length).toBeGreaterThan(0)
+  })
+
+  it('publishes a travel policy as integer cents with an idempotency key', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({ id: 8, version: 2 })
+
+    const wrapper = await mountPage('travel/policies', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="travel-policy-legal-entity"]').setValue('1')
+    await wrapper.get('[data-testid="travel-policy-city-tier"]').setValue('A')
+    await wrapper.get('[data-testid="travel-policy-effective-from"]').setValue('2026-07-01')
+    await wrapper.get('[data-testid="travel-policy-hotel-cents"]').setValue('90000')
+    await wrapper.get('[data-testid="travel-policy-transport-cents"]').setValue('35000')
+    await wrapper.get('[data-testid="travel-policy-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/travel/policies',
+      {
+        legal_entity_id: 1,
+        city_tier: 'A',
+        hotel_cap_cents: 90000,
+        transport_cap_cents: 35000,
+        effective_from: '2026-07-01',
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('差旅政策版本已发布：v2')
+  })
+
+  it('approves a pending travel request through the workflow decision endpoint', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          travel_id: 12,
+          employment_id: 501,
+          from_date: '2026-12-01',
+          to_date: '2026-12-03',
+          destination: 'Synthetic City',
+          purpose: 'Supplier audit',
+          status: 'PENDING_APPROVAL',
+          case_id: 44,
+          case_no: 'CASE-000044',
+          application_status: 'SUBMITTED',
+        },
+      ],
+      total: 1,
+    })
+    resourcePost.mockResolvedValue({ travel_id: 12, status: 'APPROVED', application_status: 'APPROVED' })
+
+    const wrapper = await mountPage('travel/approval', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/travel/requests', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="travel-decision-comment-12"]').setValue('Synthetic approval')
+    await wrapper.get('[data-testid="travel-approve-12"]').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/travel/requests/12/approve',
+      { decision: 'APPROVE', comment: 'Synthetic approval' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('出差申请已批准并写入工作流决策')
+  })
+
+  it('registers and lists travel expenses as CLAIM_ONLY integer cents without a gap', async () => {
+    resourceGet.mockResolvedValue({
+      items: [
+        {
+          id: 21,
+          travel_id: 12,
+          employment_id: 501,
+          legal_entity_id: 1,
+          category: 'TRANSPORT',
+          amount_cents: 12050,
+          currency: 'CNY',
+          receipt_file_id: null,
+          status: 'CLAIMED',
+          payment_status: 'CLAIM_ONLY',
+          note: 'Synthetic airport transfer',
+          claimed_at: '2026-11-25T02:00:00Z',
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+    resourcePost.mockResolvedValue({ id: 22, travel_id: 12, amount_cents: 5000, payment_status: 'CLAIM_ONLY' })
+
+    const wrapper = await mountPage('travel/expenses', true)
+    await flushPromises()
+
+    expect(resourceGet).toHaveBeenCalledWith('/travel/expenses', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    const text = wrapper.get('[data-testid="travel-expenses"]').text()
+    expect(text).toContain('¥120.50')
+    expect(text).toContain('CLAIM_ONLY')
+    expect(wrapper.findAllComponents(MoneyText).length).toBeGreaterThan(0)
+
+    await wrapper.get('[data-testid="travel-expense-travel-id"]').setValue('12')
+    await wrapper.get('[data-testid="travel-expense-amount-cents"]').setValue('5000')
+    await wrapper.get('[data-testid="travel-expense-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/travel/expenses',
+      { travel_id: 12, amount_cents: 5000, category: 'TRANSPORT' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('出差费用已登记：22')
+  })
+
+  it('rejects a fractional travel expense before calling the server', async () => {
+    resourceGet.mockResolvedValue({
+      items: [],
+      page: 1,
+      page_size: 20,
+      total: 0,
+      as_of: '2026-11-25',
+      freshness: 'LIVE',
+      source_hash: '',
+      partial: false,
+      partial_reason: null,
+      drilldown: null,
+    })
+
+    const wrapper = await mountPage('travel/expenses', true)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="travel-expense-travel-id"]').setValue('12')
+    await wrapper.get('[data-testid="travel-expense-amount-cents"]').setValue('120.50')
+    await wrapper.get('[data-testid="travel-expense-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(resourcePost).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('整数分')
   })
 
   it('mounts payroll runs, renders integer cents through MoneyText, and posts a real transition action', async () => {

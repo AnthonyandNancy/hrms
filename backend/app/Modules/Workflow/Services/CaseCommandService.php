@@ -6,6 +6,7 @@ namespace App\Modules\Workflow\Services;
 
 use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
+use App\Modules\Workflow\Enums\DecisionAction;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\WorkflowTemplate;
 use App\Shared\Exceptions\NotFoundException;
@@ -19,6 +20,8 @@ final class CaseCommandService implements CaseCommandPort
 {
     public function __construct(
         private readonly CaseService $cases,
+        private readonly DecisionService $decisions,
+        private readonly CaseQueryService $queries,
     ) {}
 
     public function open(
@@ -60,6 +63,40 @@ final class CaseCommandService implements CaseCommandPort
         );
 
         return $this->summary($case);
+    }
+
+    public function decide(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $action,
+        string $comment,
+        ?string $reason = null,
+    ): array {
+        $decision = DecisionAction::tryFrom(strtoupper($action));
+
+        if ($decision === null || ! in_array($decision, [DecisionAction::APPROVE, DecisionAction::REJECT], true)) {
+            throw new ValidationException(
+                ['action' => ['Only APPROVE or REJECT decisions are supported for business work items.']],
+                'The decision action is not supported.',
+            );
+        }
+
+        $case = $this->decisions->decide(
+            principal: $principal,
+            caseId: $caseId,
+            action: $decision,
+            comment: $comment,
+            targetUserId: null,
+            reason: $reason,
+        );
+
+        $data = $this->queries->detail($principal, (int) $case->id);
+
+        return [
+            'case_id' => (int) $case->id,
+            'application_status' => (string) $data['application_status'],
+            'effect_status' => (string) $data['effect_status'],
+        ];
     }
 
     public function withdraw(WorkflowPrincipal $principal, int $caseId, string $reason): array
