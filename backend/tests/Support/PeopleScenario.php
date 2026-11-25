@@ -7,6 +7,7 @@ namespace Tests\Support;
 use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Models\OrgUnitClosure;
+use App\Modules\Organization\Models\Position;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\Employment;
@@ -163,6 +164,27 @@ final class PeopleScenario
             'manager_assignment_id' => null,
             'assignment_type' => 'PRIMARY',
             'is_primary' => true,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ], $overrides));
+    }
+
+    public function position(
+        LegalEntity $legalEntity,
+        ?OrgUnit $orgUnit,
+        string $code,
+        array $overrides = [],
+    ): Position {
+        return Position::query()->create(array_merge([
+            'tenant_id' => $this->tenantId,
+            'legal_entity_id' => $legalEntity->id,
+            'org_unit_id' => $orgUnit?->id,
+            'code' => $code,
+            'title' => 'Synthetic Position',
+            'grade' => 'P4',
+            'headcount_limit' => 2,
             'valid_from' => '2026-01-01',
             'valid_to' => '9999-12-31',
             'recorded_at' => $this->clock->now(),

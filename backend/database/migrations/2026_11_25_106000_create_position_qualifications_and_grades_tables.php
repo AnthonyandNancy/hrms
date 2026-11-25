@@ -36,6 +36,7 @@ return new class extends Migration
         Schema::create('position_grades', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('tenant_id')->index();
+            $table->unsignedBigInteger('legal_entity_id')->index();
             $table->string('code', 32);
             $table->string('name', 120);
             $table->unsignedSmallInteger('level');
@@ -43,8 +44,8 @@ return new class extends Migration
             $table->dateTime('created_at', 6)->nullable();
             $table->dateTime('updated_at', 6)->nullable();
 
-            $table->unique(['tenant_id', 'code'], 'position_grades_tenant_code_unique');
-            $table->index(['tenant_id', 'active', 'level'], 'position_grades_tenant_active_level_idx');
+            $table->unique(['tenant_id', 'legal_entity_id', 'code'], 'position_grades_tenant_entity_code_unique');
+            $table->index(['tenant_id', 'legal_entity_id', 'active', 'level'], 'position_grades_tenant_entity_active_level_idx');
         });
     }
 

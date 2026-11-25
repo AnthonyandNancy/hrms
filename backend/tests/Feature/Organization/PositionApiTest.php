@@ -62,7 +62,7 @@ final class PositionApiTest extends PeopleTestCase
 
         $this->patchJson("/v1/positions/{$position->id}", [
             'status' => 'DISABLED',
-        ])->assertConflict()->assertJsonPath('data.reason', 'POSITION_HAS_INCUMBENTS');
+        ])->assertConflict()->assertJsonPath('data.reason', 'POSITION_STAFFED');
     }
 
     public function test_cross_tenant_position_read_is_404(): void

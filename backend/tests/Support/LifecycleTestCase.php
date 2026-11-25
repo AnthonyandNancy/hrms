@@ -66,6 +66,20 @@ abstract class LifecycleTestCase extends TestCase
     }
 
     /**
+     * @return array{0: \App\Modules\People\Models\Employment, 1: \App\Modules\Organization\Models\OrgUnit, 2: \App\Modules\Organization\Models\OrgUnit}
+     */
+    protected function seedEmploymentWithOrg(): array
+    {
+        $entity = $this->peopleScenario->legalEntity();
+        $home = $this->peopleScenario->orgUnit($entity, 'HOME-ORG');
+        $host = $this->peopleScenario->orgUnit($entity, 'HOST-ORG');
+        $employment = $this->peopleScenario->employment($this->peopleScenario->person(), $entity, 'SEC-0001');
+        $this->peopleScenario->assignment($employment, $home);
+
+        return [$employment, $home, $host];
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
      */
