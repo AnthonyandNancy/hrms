@@ -1518,7 +1518,7 @@ const payslips: Payslip[] = [
 
 const roles = [
   {
-    id: 1,
+    id: '1',
     code: 'HR_ADMIN',
     name: 'HR 管理员',
     template: true,
@@ -1530,7 +1530,7 @@ const roles = [
     expiresOn: null,
   },
   {
-    id: 2,
+    id: '2',
     code: 'PAYROLL_SPECIALIST',
     name: '薪酬专员',
     template: true,
@@ -1542,7 +1542,7 @@ const roles = [
     expiresOn: null,
   },
   {
-    id: 3,
+    id: '3',
     code: 'DEPT_MANAGER',
     name: '部门经理',
     template: true,
@@ -1554,7 +1554,7 @@ const roles = [
     expiresOn: null,
   },
   {
-    id: 4,
+    id: '4',
     code: 'AUDITOR',
     name: '审计员',
     template: true,
@@ -1566,7 +1566,7 @@ const roles = [
     expiresOn: null,
   },
   {
-    id: 5,
+    id: '5',
     code: 'TEMP_REPORT_READER',
     name: '临时报表查看（例外）',
     template: false,
@@ -2134,15 +2134,9 @@ export function buildMoveImpact(sourceName: string, targetName: string, effectiv
     targetName,
     effectiveDate,
     affectedEmployees: 8,
-    affectedAssignments: 9,
-    affectedApprovalRoutes: 3,
-    affectedReportSnapshots: 4,
+    affectedManagers: 2,
     affectedPayrollCostCenters: 1,
-    warnings: [
-      '有 2 名员工的目标岗位在 2026-12-01 无有效编制，移动后会产生超编。',
-      '1 条在途审批的审批人将发生变化，系统会按模板重指派并记录决策。',
-      '历史工资成本中心不会重写；仅从生效日开始使用新组织。',
-    ],
+    crossEntityWarning: false,
   }
 }
 
@@ -2783,14 +2777,20 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
     },
     organization: {
       getOrgTree: () => current(orgTree()),
-      previewOrgMove: async (nodeId, targetId, effectiveDate) => {
+      previewOrgMove: async (nodeId, targetId) => {
         const tree = orgTree()
         const source = findOrgName(tree, nodeId)
         const target = findOrgName(tree, targetId)
         if (!source || !target) throw new ApiError('NOT_FOUND', '组织节点不存在或已过期')
-        return current(buildMoveImpact(source.name, target.name, effectiveDate))
+        const impact = buildMoveImpact(source.name, target.name, '')
+        return current({
+          affectedEmployees: impact.affectedEmployees,
+          affectedManagers: impact.affectedManagers,
+          affectedPayrollCostCenters: impact.affectedPayrollCostCenters,
+          crossEntityWarning: impact.crossEntityWarning,
+        })
       },
-      moveOrg: async (nodeId, targetId, effectiveDate) => {
+      moveOrg: async (nodeId, targetId) => {
         const tree = orgTree()
         const source = findOrgName(tree, nodeId)
         const target = findOrgName(tree, targetId)
@@ -2798,7 +2798,7 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
         if (target.children.some((child) => child.id === nodeId)) {
           throw new ApiError('VALIDATION_FAILED', '不能将组织移动到自己的下级节点')
         }
-        return current(buildMoveImpact(source.name, target.name, effectiveDate))
+        return current({ moved: true, oldOrgUnitId: nodeId })
       },
     },
     cases: {
@@ -3067,21 +3067,6 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
           riskLevel: 'HIGH',
         }
         return current(created)
-      },
-      reviewAccess: async (id, action) => {
-        if (role !== 'admin') throw new ApiError('FORBIDDEN', '需要管理员权限')
-        return current({
-          id,
-          principalName: id === 1 ? '许言川' : '宋一澄',
-          employmentNo: id === 1 ? 'DEMO-0115' : 'DEMO-0221',
-          roleName: id === 1 ? '临时报表查看' : '普通员工',
-          scope: id === 1 ? '财务与行政部' : '研发中心',
-          riskLevel: id === 1 ? 'HIGH' : 'LOW',
-          reason: id === 1 ? '年度预算复盘' : '90 天未使用',
-          lastUsedAt: id === 1 ? '2026-11-23T08:35:00Z' : null,
-          dueOn: '2026-12-31',
-          status: action === 'KEEP' ? 'KEEP' : 'REVOKED',
-        })
       },
     },
     notices: {

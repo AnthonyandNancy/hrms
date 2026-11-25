@@ -283,20 +283,10 @@ textarea {
   border-top: 1px solid rgb(255 255 255 / 9%);
 }
 
-.sidebar__meta-link {
-  color: #b5ccc9;
-}
-
-.sidebar__meta-build {
-  white-space: nowrap;
-}
-
 .app-shell--collapsed .sidebar__brand-copy,
 .app-shell--collapsed .sidebar__group-label,
 .app-shell--collapsed .nav-link__label,
-.app-shell--collapsed .nav-link__badge,
-.app-shell--collapsed .sidebar__meta-link,
-.app-shell--collapsed .sidebar__meta-build {
+.app-shell--collapsed .nav-link__badge {
   display: none;
 }
 
@@ -1400,9 +1390,7 @@ textarea {
   .app-shell--collapsed .sidebar__brand-copy,
   .app-shell--collapsed .sidebar__group-label,
   .app-shell--collapsed .nav-link__label,
-  .app-shell--collapsed .nav-link__badge,
-  .app-shell--collapsed .sidebar__meta-link,
-  .app-shell--collapsed .sidebar__meta-build {
+  .app-shell--collapsed .nav-link__badge {
     display: initial;
   }
 

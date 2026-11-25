@@ -177,16 +177,27 @@ export type OrgNode = {
   children: OrgNode[]
 }
 
-export type MoveImpact = {
+/**
+ * The server reports only the impact it can actually compute. Display names
+ * and the effective date are supplied by the caller from its own tree, so the
+ * adapter never invents them.
+ */
+export type MoveImpactFacts = {
+  affectedEmployees: number
+  affectedManagers: number
+  affectedPayrollCostCenters: number
+  crossEntityWarning: boolean
+}
+
+export type MoveImpact = MoveImpactFacts & {
   sourceName: string
   targetName: string
   effectiveDate: string
-  affectedEmployees: number
-  affectedAssignments: number
-  affectedApprovalRoutes: number
-  affectedReportSnapshots: number
-  affectedPayrollCostCenters: number
-  warnings: string[]
+}
+
+export type MoveOrgResult = {
+  moved: boolean
+  oldOrgUnitId: number
 }
 
 export type TimelineLane = 'APPLICATION' | 'EFFECT' | 'SYSTEM'
@@ -410,19 +421,25 @@ export type PayrollStateEvent = {
   note: string | null
 }
 
+export type ReconciliationSummary = {
+  sourceHeadcount: number
+  calculatedHeadcount: number
+  grossVarianceCents: number
+  netVarianceCents: number
+  blockedIssues: number
+  note: string
+}
+
 export type PayrollRunDetail = PayrollRunSummary & {
   inputLockedAt: string | null
   calculatedAt: string | null
   approvedAt: string | null
   publishedAt: string | null
-  reconciliation: {
-    sourceHeadcount: number
-    calculatedHeadcount: number
-    grossVarianceCents: number
-    netVarianceCents: number
-    blockedIssues: number
-    note: string
-  }
+  /**
+   * Null means the run has no reconciliation projection yet, so the view hides
+   * the panel instead of rendering an empty object.
+   */
+  reconciliation: ReconciliationSummary | null
   lines: PayrollLine[]
   history: PayrollStateEvent[]
   availableActions: Array<'LOCK_INPUT' | 'CALCULATE' | 'REVIEW' | 'APPROVE' | 'PUBLISH' | 'CREATE_CORRECTION'>
@@ -459,7 +476,8 @@ export type AdminUser = {
 }
 
 export type AdminRole = {
-  id: number
+  /** Roles are keyed by code; the table has no numeric primary key. */
+  id: string
   code: string
   name: string
   template: boolean
@@ -553,6 +571,10 @@ export type PublishNoticePayload = {
   body: string
   audience: 'ALL' | 'ORG' | 'ROLE'
   audienceLabel: string
+  /** Required when audience is ORG; the server rejects an empty list. */
+  orgUnitIds?: number[]
+  /** Required when audience is ROLE; the server rejects an empty list. */
+  roleCodes?: string[]
   publishAt: string
   requiresAck: boolean
 }
@@ -790,8 +812,8 @@ export type EmployeeApi = {
 
 export type OrganizationApi = {
   getOrgTree(asOf: string): Promise<OrgNode[]>
-  previewOrgMove(nodeId: number, targetId: number, effectiveDate: string): Promise<MoveImpact>
-  moveOrg(nodeId: number, targetId: number, effectiveDate: string): Promise<MoveImpact>
+  previewOrgMove(nodeId: number, targetId: number, effectiveDate: string): Promise<MoveImpactFacts>
+  moveOrg(nodeId: number, targetId: number, effectiveDate: string): Promise<MoveOrgResult>
 }
 
 export type CaseApi = {
@@ -827,7 +849,6 @@ export type AdminApi = {
   getAdminSnapshot(tab?: string): Promise<AdminSnapshot>
   loadUserBindings(userId: number): Promise<unknown>
   createBinding(payload: Omit<AuthorityBinding, 'id' | 'status' | 'riskLevel'>): Promise<AuthorityBinding>
-  reviewAccess(id: number, action: 'KEEP' | 'REVOKE'): Promise<AccessReviewItem>
 }
 
 export type NoticeApi = {

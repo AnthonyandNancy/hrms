@@ -147,13 +147,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
           </RouterLink>
         </div>
       </nav>
-
-      <div class="sidebar__footer">
-        <a class="sidebar__meta-link" href="/docs/05-ui-guidelines.md" target="_blank" rel="noopener noreferrer">
-          界面规范
-        </a>
-        <span class="sidebar__meta-build">v0.1 · 参考实现</span>
-      </div>
     </aside>
 
     <div class="main-area">
@@ -215,7 +208,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
       </main>
 
       <footer class="app-footer">
-        <span>澄明科技 HRMS · 参考实现</span>
+        <span>澄明科技 HRMS</span>
         <span>审计与导出操作会记录操作者、目的与时间</span>
       </footer>
     </div>

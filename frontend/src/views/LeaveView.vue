@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { CaseSummary, LeaveBalance, LeaveLedger, LeavePreview, LeaveRequestPayload } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
-import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
+import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { leaveRequestSchema, validate } from '@/utils/validation'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -15,10 +15,17 @@ const error = ref('')
 const balances = ref<LeaveBalance[]>([])
 const requests = ref<CaseSummary[]>([])
 const selectedType = ref('ANNUAL')
+
+function defaultLeaveStart(): string {
+  // Hard-coded demo dates become past dates once real time moves on, and the
+  // preview watch then fires an already-invalid request on page load.
+  return todayBusinessDate()
+}
+
 const form = reactive<LeaveRequestPayload>({
   leaveTypeCode: 'ANNUAL',
-  startDate: '2026-11-27',
-  endDate: '2026-11-28',
+  startDate: defaultLeaveStart(),
+  endDate: defaultLeaveStart(),
   halfDay: false,
   reason: '',
 })

@@ -10,7 +10,20 @@ import { correctionSchema, validate } from '@/utils/validation'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 
-const month = ref('2026-11')
+function recentMonths(count: number): string[] {
+  const today = todayBusinessDate()
+  const [year, month] = today.split('-').map(Number) as [number, number]
+  const months: string[] = []
+
+  for (let offset = 0; offset < count; offset += 1) {
+    const value = new Date(Date.UTC(year, month - 1 - offset, 1))
+    months.push(`${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`)
+  }
+
+  return months
+}
+
+const month = ref(recentMonths(1)[0] ?? todayBusinessDate().slice(0, 7))
 const loading = ref(true)
 const error = ref('')
 const data = ref<AttendanceMonth | null>(null)
@@ -26,11 +39,10 @@ const form = reactive<AttendanceCorrectionPayload>({
 })
 const fieldErrors = ref<Record<string, string>>({})
 
-const monthOptions = [
-  { label: '2026 年 11 月', value: '2026-11' },
-  { label: '2026 年 10 月', value: '2026-10' },
-  { label: '2026 年 9 月', value: '2026-09' },
-]
+const monthOptions = recentMonths(3).map((value) => ({
+  value,
+  label: value.replace('-', ' 年 ') + ' 月',
+}))
 
 const calendarCells = computed(() => {
   if (!data.value) return []

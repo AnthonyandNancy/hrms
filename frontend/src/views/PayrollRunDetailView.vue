@@ -7,6 +7,7 @@ import type { PayrollLine, PayrollRunDetail } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '@/utils/format'
+import { derivePayrollActions } from '@/api/normalise'
 import { PAYROLL_STATE } from '@/utils/status'
 import MoneyText from '@/components/MoneyText.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -24,6 +25,15 @@ const actionLoading = ref('')
 const activeTab = ref<'results' | 'reconciliation' | 'history'>('results')
 
 const canManage = computed(() => session.can('payroll.run.prepare'))
+
+// The server enforces every transition; this only decides which buttons to
+// offer, from the run state plus the caller's capabilities.
+const availableActions = computed(() =>
+  data.value ? derivePayrollActions(data.value.state, session.can) : [],
+)
+
+const hasReconciliation = computed(() => data.value?.reconciliation !== null)
+const hasHistory = computed(() => (data.value?.history.length ?? 0) > 0)
 
 const ACTION_LABEL: Record<PayrollRunDetail['availableActions'][number], string> = {
   LOCK_INPUT: '锁定输入',
@@ -136,11 +146,11 @@ onMounted(load)
           <span>实发合计</span>
           <MoneyText :cents="data.netCents" size="lg" />
         </div>
-        <div class="payroll-kpi">
+        <div v-if="data.reconciliation" class="payroll-kpi">
           <span>人头匹配</span>
           <strong>{{ data.reconciliation.calculatedHeadcount }} / {{ data.reconciliation.sourceHeadcount }}</strong>
         </div>
-        <div class="payroll-kpi">
+        <div v-if="data.reconciliation" class="payroll-kpi">
           <span>阻断问题</span>
           <strong :class="{ 'text-danger': data.reconciliation.blockedIssues > 0 }">
             {{ data.reconciliation.blockedIssues }}
@@ -148,7 +158,7 @@ onMounted(load)
         </div>
       </div>
 
-      <section v-if="data.availableActions.length" class="panel action-panel">
+      <section v-if="availableActions.length" class="panel action-panel">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">批次操作</h2>
@@ -161,7 +171,7 @@ onMounted(load)
         <div class="panel__body action-row">
           <template v-if="canManage">
             <el-button
-              v-for="action in data.availableActions"
+              v-for="action in availableActions"
               :key="action"
               :type="action === 'PUBLISH' || action === 'APPROVE' ? 'primary' : 'default'"
               :loading="actionLoading === action"
@@ -226,7 +236,7 @@ onMounted(load)
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="对账与差异" name="reconciliation">
+          <el-tab-pane v-if="hasReconciliation && data.reconciliation" label="对账与差异" name="reconciliation">
             <div class="reconciliation">
               <div class="reconciliation__summary">
                 <el-alert
@@ -259,7 +269,7 @@ onMounted(load)
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="状态历史" name="history">
+          <el-tab-pane v-if="hasHistory" label="状态历史" name="history">
             <ol class="history-list">
               <li v-for="event in data.history" :key="`${event.state}-${event.occurredAt}`" class="history-row">
                 <span class="history-row__state" :class="`payroll-state--${PAYROLL_STATE[event.state].tone}`">

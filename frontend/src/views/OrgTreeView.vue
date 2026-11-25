@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowRight, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { getApi } from '@/api'
-import type { MoveImpact, OrgNode } from '@/api/contracts'
+import type { MoveImpact, MoveImpactFacts, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { useSessionStore } from '@/stores/session'
@@ -20,7 +20,7 @@ const tree = ref<OrgNode[]>([])
 const expanded = ref(new Set<number>([1, 14, 11]))
 const selectedId = ref<number | null>(null)
 const targetId = ref<number | null>(null)
-const moveDate = ref('2026-12-01')
+const moveDate = ref(asOf.value)
 const previewOpen = ref(false)
 const previewLoading = ref(false)
 const impact = ref<MoveImpact | null>(null)
@@ -101,7 +101,17 @@ async function openPreview(): Promise<void> {
   impact.value = null
   impactError.value = ''
   try {
-    impact.value = await getApi().organization.previewOrgMove(selectedId.value, targetId.value, moveDate.value)
+    const facts: MoveImpactFacts = await getApi().organization.previewOrgMove(
+      selectedId.value,
+      targetId.value,
+      moveDate.value,
+    )
+    impact.value = {
+      ...facts,
+      sourceName: selected.value?.name ?? `组织 #${selectedId.value}`,
+      targetName: targetOptions.value.find((node) => node.id === targetId.value)?.name ?? `组织 #${targetId.value}`,
+      effectiveDate: moveDate.value,
+    }
   } catch (reason) {
     impactError.value = errorCopy(reason)
   } finally {
@@ -143,7 +153,7 @@ onMounted(load)
         <p class="page-header__breadcrumb">人员与组织</p>
         <h1 class="page-header__title">组织架构</h1>
         <p class="page-header__description">
-          组织关系按有效期保存。移动节点前先查看影响预览：员工、审批线、报表快照与工资成本中心分别会受什么影响。
+          组织关系按有效期保存。移动节点前先查看影响预览：受影响员工、主管与工资成本中心数量，以及是否跨法人。
         </p>
       </div>
       <div class="page-header__actions">
@@ -266,7 +276,7 @@ onMounted(load)
           </div>
           <div class="panel__body stack--tight small">
             <p><strong>历史不可覆盖：</strong>组织移动会结束旧版本有效期并新增版本；过去日期仍回答当时的组织关系。</p>
-            <p><strong>影响预览：</strong>员工数、审批线、报表快照和工资成本中心分别计算，不以“影响不大”模糊处理。</p>
+            <p><strong>影响预览：</strong>按生效日计算受影响员工、主管与工资成本中心，并标出跨法人移动；尚未实现的影响指标不在此展示。</p>
             <p><strong>生效前：</strong>组织移动通常以 Case 提交，审批通过不等于已经生效，需同时看生效状态。</p>
           </div>
         </section>
@@ -289,30 +299,17 @@ onMounted(load)
               <span>受影响员工</span>
             </div>
             <div class="impact-item">
-              <strong>{{ impact.affectedAssignments }}</strong>
-              <span>任职记录</span>
-            </div>
-            <div class="impact-item">
-              <strong>{{ impact.affectedApprovalRoutes }}</strong>
-              <span>审批线</span>
-            </div>
-            <div class="impact-item">
-              <strong>{{ impact.affectedReportSnapshots }}</strong>
-              <span>报表快照</span>
+              <strong>{{ impact.affectedManagers }}</strong>
+              <span>受影响主管</span>
             </div>
             <div class="impact-item">
               <strong>{{ impact.affectedPayrollCostCenters }}</strong>
-              <span>成本中心</span>
+              <span>工资成本中心</span>
             </div>
           </div>
-          <el-alert type="warning" :closable="false" show-icon>
-            <template #title>以下影响需要确认</template>
-            <ul class="warning-list">
-              <li v-for="warning in impact.warnings" :key="warning">
-                <el-icon aria-hidden="true"><WarningFilled /></el-icon>
-                {{ warning }}
-              </li>
-            </ul>
+          <el-alert v-if="impact.crossEntityWarning" type="warning" :closable="false" show-icon>
+            <template #title>将跨法人移动</template>
+            <p>目标上级组织属于另一个法人；移动后历史数据保留，新版本从生效日开始。</p>
           </el-alert>
           <p class="small muted">
             提交后系统会建立审批 Case；在获批并到达生效日之前，当前组织关系保持不变。
@@ -475,22 +472,6 @@ onMounted(load)
 .impact-item span {
   color: var(--color-ink-muted);
   font-size: 10px;
-}
-
-.warning-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 5px 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 11.5px;
-}
-
-.warning-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
 }
 
 @media (max-width: 1080px) {

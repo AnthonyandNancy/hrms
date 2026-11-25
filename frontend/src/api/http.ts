@@ -12,6 +12,12 @@ import type {
   AdminSnapshot,
 } from '@/api/contracts'
 import { ApiError } from '@/api/errors'
+import {
+  normaliseCasePage,
+  normalisePayrollLines,
+  normalisePayrollRun,
+  normaliseReconciliation,
+} from '@/api/normalise'
 
 /**
  * The employer (legal entity) the interface is currently acting for.
@@ -219,7 +225,7 @@ function normaliseRole(row: Record<string, unknown>): AdminSnapshot['roles'][num
   const capabilities = Array.isArray(row.capabilities) ? row.capabilities : []
 
   return {
-    id: Number(row.id ?? 0),
+    id: String(row.code ?? ''),
     code: String(row.code ?? ''),
     name: String(row.name ?? row.code ?? ''),
     template: Boolean(row.is_template),
@@ -518,30 +524,50 @@ export function createHttpAdapter(): ApiAdapter {
 
         return roots as never
       },
-      previewOrgMove: (nodeId, targetId, effectiveDate) =>
-        unwrap(
-          client.post(`/org-units/${nodeId}/impact`, {
-            new_parent_id: targetId,
-            effective_date: effectiveDate,
+      previewOrgMove: async (nodeId, targetId, effectiveDate) => {
+        const raw = (await unwrap(
+          client.get(`/org-units/${nodeId}/impact`, {
+            // `new_parent_id` is `present|nullable` on the server, so a root
+            // move must send the key explicitly rather than omitting it.
+            params: { new_parent_id: targetId, as_of: effectiveDate },
           }),
-        ) as never,
-      moveOrg: (nodeId, targetId, effectiveDate) =>
-        unwrap(
+        )) as { affected_employee_count?: number; affected_manager_count?: number; payroll_cost_center_count?: number; cross_entity_warning?: boolean }
+
+        return {
+          affectedEmployees: Number(raw.affected_employee_count ?? 0),
+          affectedManagers: Number(raw.affected_manager_count ?? 0),
+          affectedPayrollCostCenters: Number(raw.payroll_cost_center_count ?? 0),
+          crossEntityWarning: Boolean(raw.cross_entity_warning),
+        }
+      },
+      moveOrg: async (nodeId, targetId, effectiveDate) => {
+        const raw = (await unwrap(
           client.post(
             `/org-units/${nodeId}/move`,
-            { new_parent_id: targetId, effective_date: effectiveDate },
+            { new_parent_id: targetId, effective_from: effectiveDate },
             { headers: { 'Idempotency-Key': crypto.randomUUID() } },
           ),
-        ) as never,
+        )) as { moved?: boolean; old_org_unit_id?: number }
+
+        return { moved: Boolean(raw.moved), oldOrgUnitId: Number(raw.old_org_unit_id ?? nodeId) }
+      },
     },
 
     cases: {
-      listCases: ({ status, page, pageSize }) =>
-        unwrap(
+      listCases: async ({ scope, status, page, pageSize }) => {
+        const raw = (await unwrap(
           client.get('/cases', {
-            params: { status: status === 'ALL' ? undefined : status, page, page_size: pageSize },
+            params: {
+              view: scope === 'mine' ? 'my_requests' : scope === 'approvals' ? 'my_approvals' : undefined,
+              status: status === 'ALL' ? undefined : status,
+              page,
+              page_size: pageSize,
+            },
           }),
-        ) as never,
+        )) as Record<string, unknown>
+
+        return normaliseCasePage(raw, page, pageSize)
+      },
       getCase: (id) => unwrap(client.get(`/cases/${id}`)) as never,
       decideCase: (id, request) =>
         unwrap(
@@ -591,8 +617,40 @@ export function createHttpAdapter(): ApiAdapter {
     },
 
     payroll: {
-      listRuns: () => unwrap(client.get('/payroll/runs')) as never,
-      getRun: (id) => unwrap(client.get(`/payroll/runs/${id}`)) as never,
+      listRuns: async () => {
+        // The route gate is `capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id`,
+        // so the anchor must travel with every run request.
+        const raw = (await unwrap(client.get('/payroll/runs', {
+          params: { page: 1, page_size: 50, legal_entity_id: legalEntityId() },
+          headers: legalEntityHeaders(),
+        }))) as Record<string, unknown>
+        const items = Array.isArray(raw.items) ? raw.items : []
+
+        return items.map((row) => normalisePayrollRun(row as Record<string, unknown>))
+      },
+      getRun: async (id) => {
+        // Employees and reconciliation are separate endpoints; they are
+        // fetched together so the detail view never shows a half-loaded run.
+        const headers = legalEntityHeaders()
+        const [detail, reconciliation] = await Promise.all([
+          unwrap(client.get(`/payroll/runs/${id}`, { headers })) as Promise<Record<string, unknown>>,
+          (unwrap(client.get(`/payroll/runs/${id}/reconciliation`, { headers })) as Promise<unknown>).catch(() => null),
+        ])
+
+        return {
+          ...normalisePayrollRun(detail),
+          inputLockedAt: null,
+          calculatedAt: null,
+          approvedAt: null,
+          publishedAt: null,
+          reconciliation: normaliseReconciliation(reconciliation),
+          lines: normalisePayrollLines(detail.employees),
+          history: [],
+          // The view derives the offered actions from run state plus the
+          // caller's capabilities; the server still enforces every transition.
+          availableActions: [],
+        }
+      },
       runAction: (id, action) =>
         unwrap(
           client.post(
@@ -667,7 +725,6 @@ export function createHttpAdapter(): ApiAdapter {
             headers: { 'Idempotency-Key': crypto.randomUUID() },
           }),
         ) as never,
-      reviewAccess: () => unwrap(client.get('/auth/events')) as never,
     },
 
     notices: {

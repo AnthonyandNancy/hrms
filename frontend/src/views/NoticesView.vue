@@ -2,10 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
-import type { Notice, NoticeStatus } from '@/api/contracts'
+import type { Notice, NoticeStatus, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTimeInTimezone } from '@/utils/format'
+import { formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { publishNoticeSchema, validate } from '@/utils/validation'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -19,14 +19,26 @@ const notices = ref<Notice[]>([])
 const dialogOpen = ref(false)
 const submitting = ref(false)
 const formErrors = ref<Record<string, string>>({})
+function defaultPublishAt(): string {
+  // A hard-coded date silently becomes a past timestamp once the wall clock
+  // passes it, and the server then rejects the notice as already published.
+  return `${todayBusinessDate()} 09:00`
+}
+
 const form = reactive({
   title: '',
   body: '',
   audience: 'ALL' as 'ALL' | 'ORG' | 'ROLE',
   audienceLabel: '全体员工',
-  publishAt: '2026-11-24 09:00',
+  orgUnitIds: [] as number[],
+  roleCodes: [] as string[],
+  publishAt: defaultPublishAt(),
   requiresAck: true,
 })
+
+const orgOptions = ref<Array<{ id: number; label: string }>>([])
+const roleOptions = ref<Array<{ code: string; label: string }>>([])
+const audienceOptionsLoading = ref(false)
 
 const canManage = computed(() => session.can('engagement.notice.manage'))
 const filters = computed(() =>
@@ -87,7 +99,9 @@ function openPublish(): void {
   form.body = ''
   form.audience = 'ALL'
   form.audienceLabel = '全体员工'
-  form.publishAt = '2026-11-24 09:00'
+  form.orgUnitIds = []
+  form.roleCodes = []
+  form.publishAt = defaultPublishAt()
   form.requiresAck = true
   formErrors.value = {}
   dialogOpen.value = true
@@ -95,6 +109,17 @@ function openPublish(): void {
 
 async function submitPublish(): Promise<void> {
   formErrors.value = {}
+
+  if (form.audience === 'ORG' && form.orgUnitIds.length === 0) {
+    formErrors.value.orgUnitIds = '请选择至少一个组织单位；只填写受众说明不会送达任何人。'
+    return
+  }
+
+  if (form.audience === 'ROLE' && form.roleCodes.length === 0) {
+    formErrors.value.roleCodes = '请选择至少一个角色；只填写受众说明不会送达任何人。'
+    return
+  }
+
   const parsed = validate(publishNoticeSchema, form)
   if (!parsed.success) {
     for (const issue of parsed.issues) formErrors.value[issue.path] = issue.message
@@ -107,6 +132,8 @@ async function submitPublish(): Promise<void> {
       body: form.body,
       audience: form.audience,
       audienceLabel: form.audienceLabel,
+      orgUnitIds: form.audience === 'ORG' ? form.orgUnitIds : undefined,
+      roleCodes: form.audience === 'ROLE' ? form.roleCodes : undefined,
       publishAt: form.publishAt.replace(' ', 'T') + ':00+08:00',
       requiresAck: form.requiresAck,
     })
@@ -121,11 +148,45 @@ async function submitPublish(): Promise<void> {
   }
 }
 
+async function loadAudienceOptions(): Promise<void> {
+  if (audienceOptionsLoading.value) return
+  audienceOptionsLoading.value = true
+
+  try {
+    const tree = await getApi().organization.getOrgTree(todayBusinessDate())
+    const flat: Array<{ id: number; label: string }> = []
+    const walk = (nodes: OrgNode[], depth: number): void => {
+      for (const node of nodes) {
+        flat.push({ id: node.id, label: `${'　'.repeat(depth)}${node.name}` })
+        walk(node.children, depth + 1)
+      }
+    }
+    walk(tree, 0)
+    orgOptions.value = flat
+  } catch {
+    orgOptions.value = []
+  }
+
+  if (session.can('iam.role.manage')) {
+    try {
+      const snapshot = await getApi().admin.getAdminSnapshot('roles')
+      roleOptions.value = snapshot.roles.map((role) => ({ code: role.code, label: role.name }))
+    } catch {
+      roleOptions.value = []
+    }
+  }
+
+  audienceOptionsLoading.value = false
+}
+
 function statusLabel(status: NoticeStatus): string {
   return status === 'PUBLISHED' ? '已发布' : status === 'DRAFT' ? '草稿' : '已撤回'
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  void loadAudienceOptions()
+})
 </script>
 
 <template>
@@ -241,6 +302,22 @@ onMounted(load)
             <em v-if="formErrors.audienceLabel" class="field-error">{{ formErrors.audienceLabel }}</em>
           </label>
         </div>
+        <label v-if="form.audience === 'ORG'" class="field-label">
+          <span>目标组织（必选）</span>
+          <el-select v-model="form.orgUnitIds" multiple filterable :loading="audienceOptionsLoading" placeholder="选择至少一个组织单位">
+            <el-option v-for="option in orgOptions" :key="option.id" :label="option.label" :value="option.id" />
+          </el-select>
+          <em v-if="formErrors.orgUnitIds" class="field-error">{{ formErrors.orgUnitIds }}</em>
+          <em v-else-if="orgOptions.length === 0" class="field-error">当前没有可选择的组织单位，请先确认组织架构已建立。</em>
+        </label>
+        <label v-if="form.audience === 'ROLE'" class="field-label">
+          <span>目标角色（必选）</span>
+          <el-select v-model="form.roleCodes" multiple filterable :loading="audienceOptionsLoading" placeholder="选择至少一个角色">
+            <el-option v-for="option in roleOptions" :key="option.code" :label="option.label" :value="option.code" />
+          </el-select>
+          <em v-if="formErrors.roleCodes" class="field-error">{{ formErrors.roleCodes }}</em>
+          <em v-else-if="roleOptions.length === 0" class="field-error">当前无法读取角色目录，缺少 iam.role.manage 能力。</em>
+        </label>
         <div class="notice-form-grid">
           <label class="field-label">
             <span>发布时间（Asia/Shanghai）</span>

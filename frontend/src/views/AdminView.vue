@@ -6,7 +6,7 @@ import type { AdminSnapshot, AuthorityBinding, CapabilityDefinition } from '@/ap
 import { errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { FIELD_PROFILE_LABEL } from '@/utils/status'
-import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
+import { addDays, formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
@@ -30,7 +30,7 @@ const bindingForm = reactive({
   fieldProfiles: ['P0_PUBLIC'] as AuthorityBinding['fieldProfiles'],
   purpose: '',
   validFrom: todayBusinessDate(),
-  expiresOn: '2027-02-28',
+  expiresOn: addDays(todayBusinessDate(), 30),
 })
 
 const tabs = computed(() => [
@@ -53,7 +53,6 @@ const userColumns: DataTableColumn[] = [
 ]
 
 const canManageBindings = computed(() => session.can('iam.binding.manage'))
-const canReview = computed(() => session.can('iam.audit.read'))
 
 const filteredBindings = computed(() => {
   const list = snapshot.value?.bindings ?? []
@@ -125,13 +124,17 @@ async function submitBinding(): Promise<void> {
     bindingError.value = '请填写授权锚点（例如组织名称）。'
     return
   }
+  if (bindingForm.principalEmploymentNo.trim() === '') {
+    bindingError.value = '请填写被授权人的工号；系统不提供占位工号。'
+    return
+  }
   const capability = capabilityByCode(bindingForm.capabilityCode)
   bindingSubmitting.value = true
   bindingError.value = ''
   try {
     const created = await getApi().admin.createBinding({
       principalName: bindingForm.principalName || '新授权对象',
-      principalEmploymentNo: bindingForm.principalEmploymentNo || 'DEMO-0000',
+      principalEmploymentNo: bindingForm.principalEmploymentNo,
       capabilityCode: bindingForm.capabilityCode,
       capabilityName: capability?.name ?? bindingForm.capabilityCode,
       anchorType: bindingForm.anchorType,
@@ -148,18 +151,6 @@ async function submitBinding(): Promise<void> {
     bindingError.value = errorCopy(reason)
   } finally {
     bindingSubmitting.value = false
-  }
-}
-
-async function reviewAccess(id: number, action: 'KEEP' | 'REVOKE'): Promise<void> {
-  if (!snapshot.value) return
-  try {
-    const updated = await getApi().admin.reviewAccess(id, action)
-    const item = snapshot.value.accessReview.find((entry) => entry.id === id)
-    if (item) Object.assign(item, updated)
-    ElMessage.success(action === 'KEEP' ? '已保留访问，复核结论已记录。' : '已回收访问，下一次请求将被拒绝。')
-  } catch (reason) {
-    ElMessage.error(errorCopy(reason))
   }
 }
 
@@ -367,6 +358,9 @@ onMounted(load)
             <p class="panel__subtitle">高危季度复核、普通年度复核；离职、转岗与长休触发即时复核。</p>
           </div>
         </div>
+        <p class="small muted">
+          季度访问复核当前为只读报告：系统展示 90 天未使用的高风险绑定与职责分离风险，决策落库端点尚未实现，因此本页不提供保留/回收操作。
+        </p>
         <ul class="review-list">
           <li v-for="item in snapshot.accessReview" :key="item.id" class="review-row">
             <div class="review-row__main">
@@ -381,11 +375,7 @@ onMounted(load)
               <span class="plain-chip">截止 {{ formatBusinessDate(item.dueOn) }}</span>
               <span class="plain-chip">{{ item.riskLevel }}</span>
             </div>
-            <div v-if="item.status === 'PENDING' && canReview" class="review-row__actions">
-              <el-button size="small" @click="reviewAccess(item.id, 'KEEP')">保留</el-button>
-              <el-button size="small" type="danger" plain @click="reviewAccess(item.id, 'REVOKE')">回收</el-button>
-            </div>
-            <span v-else class="plain-chip">{{ item.status }}</span>
+            <span class="plain-chip">{{ item.status }}</span>
           </li>
         </ul>
       </section>
@@ -439,7 +429,7 @@ onMounted(load)
         <el-alert v-if="bindingError" :title="bindingError" type="error" :closable="false" show-icon />
         <div class="binding-form-grid">
           <label class="field-label"><span>授权对象</span><el-input v-model="bindingForm.principalName" placeholder="员工姓名" /></label>
-          <label class="field-label"><span>工号</span><el-input v-model="bindingForm.principalEmploymentNo" placeholder="DEMO-0000" /></label>
+          <label class="field-label"><span>工号</span><el-input v-model="bindingForm.principalEmploymentNo" placeholder="例：E1001" /></label>
         </div>
         <label class="field-label">
           <span>能力</span>
