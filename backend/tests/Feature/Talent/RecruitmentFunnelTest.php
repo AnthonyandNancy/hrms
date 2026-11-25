@@ -250,6 +250,25 @@ final class RecruitmentFunnelTest extends TalentTestCase
         ));
     }
 
+    public function test_offer_list_audits_each_p3_salary_read_without_exposing_other_pii(): void
+    {
+        $candidate = $this->createAcceptedCandidate('REQ-FUNNEL-OFFER-AUDIT', 7500000);
+
+        $response = $this->getJson('/v1/recruitment/offers')->assertOk();
+        $response->assertJsonPath('data.items.0.candidate_id', $candidate->id)
+            ->assertJsonPath('data.items.0.base_salary_minor', 7500000);
+
+        $offerAudits = array_values(array_filter(
+            $this->auditor->records,
+            static fn (array $record): bool => $record['resource_type'] === 'offer'
+                && $record['capability'] === 'recruitment.offer.manage',
+        ));
+
+        $this->assertNotEmpty($offerAudits);
+        $this->assertContains('base_salary_minor', $offerAudits[0]['fields']);
+        $this->assertArrayNotHasKey('email', $response->json('data.items.0'));
+    }
+
     public function test_evaluations_communications_and_talent_pool_round_trip_through_real_endpoints(): void
     {
         $candidate = $this->createAcceptedCandidate('REQ-FUNNEL-SUB', 9000000);

@@ -56,11 +56,6 @@ final class RecruitmentFunnelController
             'requisition_id' => ['nullable', 'integer', 'min:1'],
             'source' => ['nullable', 'string', 'max:32'],
             'rows' => ['required', 'array', 'min:1', 'max:500'],
-            'rows.*' => ['required', 'array'],
-            'rows.*.display_name' => ['nullable', 'string', 'max:120'],
-            'rows.*.email' => ['nullable', 'string', 'max:254'],
-            'rows.*.mobile' => ['nullable', 'string', 'max:40'],
-            'rows.*.source' => ['nullable', 'string', 'max:64'],
         ]);
 
         return $this->runCommand(

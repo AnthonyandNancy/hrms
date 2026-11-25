@@ -594,6 +594,15 @@ final class RecruitmentFunnelService
     private function importRow(int $tenantId, int $actorUserId, array $row, int $rowNumber): array
     {
         $errors = [];
+
+        foreach (['display_name', 'email', 'mobile', 'source'] as $field) {
+            $value = $row[$field] ?? null;
+
+            if ($value !== null && ! is_string($value)) {
+                $errors[$field][] = "The {$field} must be a string.";
+            }
+        }
+
         $displayName = is_string($row['display_name'] ?? null) ? trim($row['display_name']) : '';
         $email = is_string($row['email'] ?? null) ? mb_strtolower(trim($row['email'])) : '';
         $mobile = is_string($row['mobile'] ?? null) ? trim($row['mobile']) : '';
@@ -605,7 +614,9 @@ final class RecruitmentFunnelService
             $errors['display_name'][] = 'The display name may not be greater than 120 characters.';
         }
 
-        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        if ($email !== '' && mb_strlen($email) > 254) {
+            $errors['email'][] = 'The email may not be greater than 254 characters.';
+        } elseif ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'][] = 'The email must be a valid email address.';
         }
 
