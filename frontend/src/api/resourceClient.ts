@@ -70,6 +70,22 @@ export async function resourceGet<T = unknown>(path: string, params?: Record<str
   }
 }
 
+export async function resourceDelete<T = unknown>(
+  path: string,
+  body?: Record<string, unknown>,
+  options: ResourceRequestOptions = {},
+): Promise<T> {
+  try {
+    const headers: Record<string, string> = { ...(options.headers ?? {}) }
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
+
+    const response = await http().delete<ApiEnvelope<T>>(apiPath(path), { data: body ?? {}, headers })
+    return response.data.data
+  } catch (error) {
+    translate(error)
+  }
+}
+
 export type ResourceRequestOptions = {
   /** Required by every backend write command. */
   idempotencyKey?: string

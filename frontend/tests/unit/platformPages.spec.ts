@@ -11,12 +11,14 @@ const resource = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  delete: vi.fn(),
 }))
 
 vi.mock('@/api/resourceClient', () => ({
   resourceGet: resource.get,
   resourcePost: resource.post,
   resourcePatch: resource.patch,
+  resourceDelete: resource.delete,
 }))
 
 import { PLATFORM_COMPONENT_KEYS, platformComponentFor } from '@/views/platform'
@@ -129,6 +131,7 @@ beforeEach(() => {
   resource.get.mockReset()
   resource.post.mockReset()
   resource.patch.mockReset()
+  resource.delete.mockReset()
 })
 
 describe('Wave 5 platform and business pages', () => {
@@ -1060,4 +1063,170 @@ describe('Wave 5 platform and business pages', () => {
     expect(wrapper.get('[data-testid="request-id"]').text()).toContain('req-audit-500')
     expect(wrapper.text()).not.toContain('{"')
   })
+
+  it('creates a custom report definition only from approved fields and filters', async () => {
+    resource.get.mockResolvedValue([
+      {
+        id: 2,
+        code: 'WORKFORCE_HEADCOUNT',
+        name: 'Workforce headcount',
+        description: 'Synthetic whitelist definition',
+        sourceProjection: 'workforce',
+        isSystem: true,
+        asOfSupported: true,
+        drilldownRoute: null,
+        fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+        filters: [{ key: 'org_unit_id', label: 'Organization', type: 'ORG' }],
+      },
+    ])
+    resource.post.mockResolvedValue({
+      id: 9,
+      code: 'CUSTOM_SYNTH_REPORT',
+      name: 'Synthetic custom report',
+      description: 'Approved fields only',
+      sourceProjection: 'workforce',
+      isSystem: false,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+      filters: [],
+    })
+
+    const { wrapper } = await mountAt('reports/builder', '/reports/builder')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="definition-code"]').setValue('custom_synth_report')
+    await wrapper.get('[data-testid="definition-name"]').setValue('Synthetic custom report')
+    await wrapper.get('[data-testid="definition-field-employee_no"]').setValue(true)
+    await wrapper.get('[data-testid="definition-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/reporting/definitions',
+      expect.objectContaining({
+        code: 'CUSTOM_SYNTH_REPORT',
+        name: 'Synthetic custom report',
+        source_projection: 'workforce',
+        fields: ['employee_no'],
+        filters: [],
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('自定义报表定义已保存')
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('creates and pauses a subscription through the real lifecycle endpoints', async () => {
+    const definition = {
+      id: 2,
+      code: 'WORKFORCE_HEADCOUNT',
+      name: 'Workforce headcount',
+      description: 'Synthetic subscription definition',
+      sourceProjection: 'workforce',
+      isSystem: true,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [],
+      filters: [],
+    }
+    const subscription = {
+      id: 41,
+      definitionCode: 'WORKFORCE_HEADCOUNT',
+      recipientUserId: 7,
+      frequency: 'MONTHLY',
+      filters: {},
+      active: true,
+      lastRunAt: null,
+      nextRunAt: '2026-12-25T06:00:00Z',
+      createdAt: '2026-11-25T06:00:00Z',
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/reporting/definitions') return Promise.resolve([definition])
+      if (path === '/v1/reporting/subscriptions') return Promise.resolve(listResponse([subscription]))
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({ ...subscription, id: 42 })
+    resource.patch.mockResolvedValue({ ...subscription, active: false })
+
+    const { wrapper } = await mountAt('reports/subscriptions', '/reports/subscriptions')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="subscription-recipient"]').setValue('7')
+    await wrapper.get('[data-testid="subscription-frequency"]').setValue('MONTHLY')
+    await wrapper.get('[data-testid="subscription-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/reporting/subscriptions',
+      {
+        definition_code: 'WORKFORCE_HEADCOUNT',
+        recipient_user_id: 7,
+        frequency: 'MONTHLY',
+        filters: {},
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await wrapper.get('[data-testid="subscription-toggle-41"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.patch).toHaveBeenCalledWith(
+      '/v1/reporting/subscriptions/41',
+      { active: false },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('报表订阅状态已更新')
+  })
+
+  it('renders real export history with source hash, whitelist and audit trail', async () => {
+    const definition = {
+      id: 2,
+      code: 'WORKFORCE_HEADCOUNT',
+      name: 'Workforce headcount',
+      description: 'Synthetic export definition',
+      sourceProjection: 'workforce',
+      isSystem: true,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+      filters: [],
+    }
+    const history = {
+      id: '44',
+      reportCode: 'WORKFORCE_HEADCOUNT',
+      reportName: 'Workforce headcount',
+      status: 'COMPLETED',
+      purpose: 'AUDIT',
+      fields: ['employee_no'],
+      fieldWhitelist: ['employee_no'],
+      rowCount: 2,
+      source_hash: 'a'.repeat(64),
+      auditTrail: [{ action: 'reporting.export.requested', actor_user_id: 1, at: '2026-11-25T06:00:00Z' }],
+      createdAt: '2026-11-25T06:00:00Z',
+      expiresAt: '2026-11-26T06:00:00Z',
+      downloadCount: 0,
+      maxDownloads: 5,
+      watermark: 'synthetic-watermark',
+      fileName: 'workforce_headcount-44.csv',
+      downloadUrl: 'http://localhost/v1/reporting/exports/44/download?signature=synthetic',
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/reporting/definitions') return Promise.resolve([definition])
+      if (path === '/v1/reporting/subscriptions') return Promise.resolve(listResponse([]))
+      if (path === '/v1/reporting/exports') return Promise.resolve(listResponse([history]))
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+
+    const { wrapper } = await mountAt('reports/exports', '/reports/exports')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/exports', { page: 1, page_size: 50 })
+    expect(wrapper.text()).toContain('a'.repeat(64))
+    expect(wrapper.text()).toContain('employee_no')
+    expect(wrapper.text()).toContain('reporting.export.requested')
+    expect(wrapper.get('[data-testid="export-history-download"]').attributes('href')).toContain('signature=synthetic')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
 })

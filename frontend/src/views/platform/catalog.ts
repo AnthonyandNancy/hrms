@@ -3,6 +3,9 @@ export type PlatformMode =
   | 'reports-index'
   | 'reports-detail'
   | 'reports-exports'
+  | 'reports-builder'
+  | 'reports-subscriptions'
+  | 'reports-talent'
   | 'notice-list'
   | 'notice-create'
   | 'notice-gap'
@@ -109,11 +112,9 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'reports/attendance',
     title: '考勤假期报表',
     breadcrumb: '报表中心',
-    description: '先展示假期负债等真实可用报表。没有考勤专属定义时不生成考勤口径。',
+    description: '假期负债使用 LEAVE_LIABILITY 定义与统一授权投影；字段档位和可导出口径由服务端返回。',
     mode: 'reports-detail',
     reportCode: 'LEAVE_LIABILITY',
-    gap: '后端接口待补: 考勤专属报表定义（考勤汇总、异常与假期交叉明细）',
-    gapPath: 'GET /v1/reporting/definitions (definition_code=ATTENDANCE_SUMMARY)',
   },
   {
     key: 'reports/payroll',
@@ -135,37 +136,29 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     key: 'reports/talent',
     title: '绩效培训报表',
     breadcrumb: '报表中心',
-    description: '当前报表目录没有绩效培训定义；保留真实目录并明确缺口。',
-    mode: 'reports-detail',
-    gap: '后端接口待补: 绩效培训报表定义',
-    gapPath: 'POST /v1/reporting/run (definition_code=PERFORMANCE_TRAINING)',
+    description: '绩效与培训明细来自 Talent 的授权投影；报表目录同时展示可复用的 Reporting 定义。',
+    mode: 'reports-talent',
   },
   {
     key: 'reports/builder',
     title: '自定义报表',
     breadcrumb: '报表中心',
-    description: '展示真实报表定义及字段档位；保存自定义模板需要独立写入契约。',
-    mode: 'reports-index',
-    gap: '后端接口待补: 自定义报表定义保存与预览',
-    gapPath: 'POST /v1/reporting/definitions',
+    description: '自定义定义只能从服务端批准的投影、字段与筛选白名单中保存，禁止 SQL 或自由条件。',
+    mode: 'reports-builder',
   },
   {
     key: 'reports/subscriptions',
     title: '报表订阅',
     breadcrumb: '报表中心',
-    description: '展示可供订阅的真实报表目录；订阅生命周期接口尚未提供。',
-    mode: 'reports-index',
-    gap: '后端接口待补: 报表订阅列表与启停',
-    gapPath: 'GET/POST /v1/reporting/subscriptions',
+    description: '订阅仅保存定义、频率与收件人；执行前重新鉴权收件人的当前 reporting.report.read。',
+    mode: 'reports-subscriptions',
   },
   {
     key: 'reports/exports',
     title: '导出任务',
     breadcrumb: '报表中心',
-    description: '可创建带目的与字段白名单的导出任务，并使用服务端返回的短效 token 下载。',
+    description: '导出历史展示 source_hash、字段白名单与审计轨迹；下载使用短效签名链接。',
     mode: 'reports-exports',
-    gap: '后端接口待补: 导出任务历史列表',
-    gapPath: 'GET /v1/reporting/exports',
   },
   {
     key: 'notices/index',
@@ -306,7 +299,7 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     description: '当前 checkout 没有福利、社保基数或发放台账接口，因此不展示虚构的缴费数据。',
     mode: 'benefits',
     gap: '后端接口待补: 社保公积金与福利模块',
-    gapPath: 'GET /v1/benefits',
+    gapPath: 'GET /v1/benefits · GET /v1/benefits/contributions · GET /v1/benefits/ledger',
   },
   {
     key: 'system/system-calendars',
