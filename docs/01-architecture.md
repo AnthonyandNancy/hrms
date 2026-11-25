@@ -26,7 +26,7 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Module | Owned tables (reference names) | Allowed dependencies |
 | --- | --- | --- |
 | IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities` | Platform Contracts, Shared |
-| Organization | `org_units`, `org_unit_closure`, `positions` | People Contracts/IDs, Shared |
+| Organization | `org_units`, `org_unit_closure`, `positions`, `position_qualifications`, `position_grades` | People Contracts/IDs, Shared |
 | People | `persons`, `employments`, `assignments`, `employment_terms`, `documents`, `employment_user_links`, `employment_contracts`, `contract_templates` | Organization Contracts/IDs, IAM Contracts/IDs, Lifecycle `EmploymentContractVersionLedger` contract, Shared |
 | Lifecycle | `cases`, `decisions`, `effects`, `lifecycle_tasks`, `lifecycle_intents`, `onboarding_checklist_templates`, `employment_contract_versions` | People, Workflow Contracts, Time/IAM/Talent Contracts, Shared |
 | Workflow | `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_tasks`, `workflow_delegations` | IAM Contracts, Shared |
