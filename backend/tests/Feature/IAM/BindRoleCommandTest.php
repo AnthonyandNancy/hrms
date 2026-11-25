@@ -41,13 +41,17 @@ final class BindRoleCommandTest extends TestCase
             '--legal-entity' => 1,
         ])->assertExitCode(0);
 
-        $binding = AuthorityBinding::query()->where('principal_id', $user->id)->sole();
+        $version = (int) $user->fresh()->auth_version;
+        $binding = AuthorityBinding::query()
+            ->where('principal_id', $user->id)
+            ->where('auth_version', $version)
+            ->sole();
 
         $this->assertSame('*', $binding->capability_code);
         $this->assertSame('LEGAL_ENTITY', $binding->anchor_type);
         $this->assertSame(1, (int) $binding->anchor_id);
         $this->assertSame('P3_RESTRICTED', $binding->field_profile);
-        $this->assertSame(2, (int) $user->fresh()->auth_version);
+        $this->assertSame(2, $version);
         $this->assertLessThanOrEqual(366, (int) $binding->valid_from->diffInDays($binding->valid_to));
         // Validity is persisted at the day boundary so a grant created after
         // midnight is already effective on that business day.
@@ -80,7 +84,9 @@ final class BindRoleCommandTest extends TestCase
             '--legal-entity' => 1,
         ])->assertExitCode(0);
 
-        $binding = AuthorityBinding::query()->sole();
+        $binding = AuthorityBinding::query()
+            ->where('auth_version', (int) $user->fresh()->auth_version)
+            ->sole();
         $this->assertSame(30, (int) $binding->valid_from->diffInDays($binding->valid_to));
     }
 
@@ -92,7 +98,10 @@ final class BindRoleCommandTest extends TestCase
         $this->artisan('iam:bind-role', $arguments)->assertExitCode(0);
         $this->artisan('iam:bind-role', $arguments)->assertExitCode(0);
 
-        $this->assertSame(1, AuthorityBinding::query()->count());
+        $this->assertSame(1, AuthorityBinding::query()
+            ->where('auth_version', (int) $user->fresh()->auth_version)
+            ->count());
+        $this->assertSame(2, AuthorityBinding::query()->count());
     }
 
     public function test_it_refuses_an_unknown_role(): void
@@ -119,7 +128,10 @@ final class BindRoleCommandTest extends TestCase
         $this->app->instance(Clock::class, new FrozenClock('2026-11-26T09:00:00Z'));
         $this->artisan('iam:bind-role', $arguments)->assertExitCode(0);
 
-        $this->assertSame(1, AuthorityBinding::query()->count());
+        $this->assertSame(1, AuthorityBinding::query()
+            ->where('auth_version', $versionAfterFirst)
+            ->count());
+        $this->assertSame(2, AuthorityBinding::query()->count());
         $this->assertSame($versionAfterFirst, (int) $user->fresh()->auth_version);
     }
 

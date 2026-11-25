@@ -45,7 +45,7 @@ final class SessionRevocationTest extends AuthorizationTestSupport
         $this->getJson('/v1/me')->assertUnauthorized();
     }
 
-    public function test_logout_all_increments_auth_version_and_revokes_sessions(): void
+    public function test_logout_all_revokes_sessions_without_changing_authorization_generation(): void
     {
         $user = $this->userWithMfaAndBinding('iam.session.manage');
         $auth = $this->loginAs($user);
@@ -55,7 +55,7 @@ final class SessionRevocationTest extends AuthorizationTestSupport
         $this->withHeader('X-CSRF-Token', $auth['csrf']);
         $this->getJson('/v1/me')->assertUnauthorized();
 
-        $this->assertSame((int) $user->fresh()?->auth_version, 2);
+        $this->assertSame(1, (int) $user->fresh()?->auth_version);
         $this->assertSame(0, Session::query()->whereNull('revoked_at')->count());
     }
 

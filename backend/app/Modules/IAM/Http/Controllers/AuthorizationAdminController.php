@@ -12,6 +12,7 @@ use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\AuthorizationSnapshot;
 use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\SodRules;
@@ -29,6 +30,7 @@ final class AuthorizationAdminController
         private readonly AuthenticationContext $context,
         private readonly SecurityEventService $events,
         private readonly Clock $clock,
+        private readonly AuthorizationSnapshot $snapshot,
     ) {}
 
     public function roles(): JsonResponse
@@ -206,7 +208,7 @@ final class AuthorizationAdminController
 
         $binding = DB::transaction(function () use ($target, $principal, $validated, $anchor, $profile, $risks, $from, $to, $request): AuthorityBinding {
             $user = \App\Modules\IAM\Models\User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
-            $newVersion = (int) $user->auth_version + 1;
+            $currentVersion = (int) $user->auth_version;
 
             /** @var AuthorityBinding $created */
             $created = AuthorityBinding::query()->create([
@@ -222,11 +224,11 @@ final class AuthorizationAdminController
                 'valid_to' => $to,
                 'source_type' => 'MANUAL',
                 'source_id' => null,
-                'auth_version' => $newVersion,
+                'auth_version' => $currentVersion,
                 'created_at' => $this->clock->now(),
             ]);
 
-            $user->forceFill(['auth_version' => $newVersion])->save();
+            $this->snapshot->replay($user, 'binding.created');
 
             $this->events->record((int) $user->tenant_id, $principal->userId(), 'binding.created', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
@@ -281,8 +283,8 @@ final class AuthorizationAdminController
 
         DB::transaction(function () use ($binding, $principal, $request): void {
             $user = \App\Modules\IAM\Models\User::query()->whereKey($binding->principal_id)->lockForUpdate()->firstOrFail();
-            $user->forceFill(['auth_version' => (int) $user->auth_version + 1])->save();
             $binding->delete();
+            $this->snapshot->replay($user, 'binding.revoked');
 
             $this->events->record((int) $binding->tenant_id, $principal->userId(), 'binding.revoked', 'SUCCESS', [
                 'target_user_id' => (int) $binding->principal_id,

@@ -8,6 +8,7 @@ use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\EmploymentSnapshot;
 use App\Modules\Time\Contracts\TimeActor;
 use App\Modules\Time\Contracts\TimeActorResolver;
+use App\Shared\Exceptions\NoActiveEmploymentException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
@@ -40,6 +41,11 @@ final class TimeRequestScope
     public function employment(TimeActor $actor, int $employmentId, string $businessDate): EmploymentSnapshot
     {
         BusinessDate::parse($businessDate);
+
+        if ($actor->employmentId === null && $employmentId <= 0) {
+            throw new NoActiveEmploymentException('time.self');
+        }
+
         $snapshot = $this->employments->snapshot($actor->tenantId, $employmentId, $businessDate);
 
         if ($snapshot === null || ! $actor->canReadEmployment($employmentId, $snapshot->legalEntityId)) {
@@ -47,6 +53,22 @@ final class TimeRequestScope
         }
 
         return $snapshot;
+    }
+
+    /**
+     * Resolve the caller's own employment or fail with the explicit SELF
+     * business error. Never substitute 0: that turns a state problem into a
+     * misleading 404.
+     */
+    public function selfEmployment(TimeActor $actor, string $businessDate, ?int $requestedEmploymentId = null): EmploymentSnapshot
+    {
+        $employmentId = $requestedEmploymentId ?? $actor->employmentId;
+
+        if ($employmentId === null || $employmentId <= 0) {
+            throw new NoActiveEmploymentException('SELF');
+        }
+
+        return $this->employment($actor, $employmentId, $businessDate);
     }
 
     public function assertLegalEntity(TimeActor $actor, int $legalEntityId, string $businessDate): void

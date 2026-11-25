@@ -65,6 +65,7 @@ final class WorkspaceController
         $attendance = $this->attendance->currentMonth($tenantId, $employmentId, $month);
 
         return ApiResponse::ok([
+            'employment_linked' => true,
             'profile' => [
                 'employmentId' => $profile->employmentId,
                 'employeeNo' => $profile->employeeNo,
@@ -103,6 +104,7 @@ final class WorkspaceController
     private function emptyProjection(int $tenantId, int $userId): array
     {
         return [
+            'employment_linked' => false,
             'profile' => [
                 'employmentId' => null,
                 'employeeNo' => '',

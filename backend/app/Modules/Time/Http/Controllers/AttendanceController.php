@@ -64,7 +64,7 @@ final class AttendanceController
     {
         $actor = $this->scope->actor($request);
         $start = $this->monthStart((string) $request->query('month', ''));
-        $employment = $this->scope->employment($actor, (int) ($actor->employmentId ?? 0), $start->format('Y-m-d'));
+        $employment = $this->scope->selfEmployment($actor, $start->format('Y-m-d'));
         $timezone = $this->calendar->timezone($actor->tenantId, $employment->legalEntityId)
             ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
         $end = $start->endOfMonth();
@@ -187,9 +187,13 @@ final class AttendanceController
             'corrected_punches' => ['nullable', 'array'],
         ]);
 
-        $employmentId = (int) ($data['employment_id'] ?? $actor->employmentId ?? 0);
         $businessDate = (string) ($data['business_date'] ?? $data['date']);
-        $employment = $this->scope->employment($actor, $employmentId, $businessDate);
+        $employment = $this->scope->selfEmployment(
+            $actor,
+            $businessDate,
+            isset($data['employment_id']) ? (int) $data['employment_id'] : null,
+        );
+        $employmentId = $employment->employmentId;
         $timezone = $this->calendar->timezone($actor->tenantId, $employment->legalEntityId)
             ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
         $punches = (array) ($data['corrected_punches'] ?? []);

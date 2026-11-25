@@ -14,6 +14,7 @@ use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Authorization\ResourceRef;
+use App\Shared\Exceptions\NoActiveEmploymentException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +38,7 @@ final class PayrollPayslipController
             ?? $this->people->employmentForUser($principal->tenantId(), $principal->userId());
 
         if ($employmentId === null) {
-            return ApiResponse::ok(ApiResponse::list([], 1, 20, 0));
+            throw new NoActiveEmploymentException('payroll.payslip.read.self');
         }
 
         $query = Payslip::query()

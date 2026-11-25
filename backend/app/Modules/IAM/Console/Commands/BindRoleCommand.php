@@ -88,6 +88,7 @@ final class BindRoleCommand extends Command
             ->whereIn('capability_code', $template->capabilityCodes())
             ->where('anchor_type', $anchorType)
             ->where('anchor_id', $legalEntityId)
+            ->where('auth_version', (int) $user->auth_version)
             ->where('valid_to', '>', $now)
             ->exists();
 
@@ -100,7 +101,7 @@ final class BindRoleCommand extends Command
         DB::transaction(function () use ($user, $template, $legalEntityId, $from, $to, $clock): void {
             /** @var User $locked */
             $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            $newVersion = (int) $locked->auth_version + 1;
+            $currentVersion = (int) $locked->auth_version;
 
             UserRole::query()->firstOrCreate([
                 'tenant_id' => (int) $locked->tenant_id,
@@ -111,7 +112,7 @@ final class BindRoleCommand extends Command
                 'valid_to' => $to,
                 'granted_by' => null,
                 'reason' => 'CLI iam:bind-role',
-                'auth_version' => $newVersion,
+                'auth_version' => $currentVersion,
                 'created_at' => $clock->now(),
             ]);
 
@@ -125,6 +126,7 @@ final class BindRoleCommand extends Command
                     'anchor_type' => (string) $grant->anchorType->value,
                     'anchor_key' => $anchorId ?? 0,
                     'valid_from' => $from,
+                    'auth_version' => $currentVersion,
                 ], [
                     'anchor_id' => $anchorId,
                     'field_profile' => (string) $grant->fieldProfile->value,
@@ -132,12 +134,11 @@ final class BindRoleCommand extends Command
                     'valid_to' => $to,
                     'source_type' => 'CLI',
                     'source_id' => null,
-                    'auth_version' => $newVersion,
                     'created_at' => $clock->now(),
                 ]);
             }
 
-            $locked->forceFill(['auth_version' => $newVersion])->save();
+            app(\App\Shared\Authorization\AuthorizationSnapshot::class)->replay($locked, 'cli.role.bound');
         });
 
         $this->info("Bound {$template->code} to user {$user->id} for {$days} day(s).");

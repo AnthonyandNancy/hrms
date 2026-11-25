@@ -70,7 +70,11 @@ final class MfaService
         $now = $this->clock->now();
 
         $factor->forceFill(['confirmed_at' => $now])->save();
-        $user->forceFill(['mfa_enrolled_at' => $now, 'auth_version' => (int) $user->auth_version + 1])->save();
+        // Enrolling a second factor changes the session/authentication posture,
+        // not the set of authorization grants. Revoke sessions and replay the
+        // unchanged snapshot so the new generation is usable.
+        $user->forceFill(['mfa_enrolled_at' => $now])->save();
+        app(\App\Shared\Authorization\AuthorizationSnapshot::class)->replay($user, 'mfa.enrolled');
 
         RecoveryCode::query()->where('user_id', $user->id)->delete();
         $codes = [];

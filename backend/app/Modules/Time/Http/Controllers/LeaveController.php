@@ -28,9 +28,8 @@ final class LeaveController
     public function balances(Request $request, ?int $employmentId = null): JsonResponse
     {
         $actor = $this->scope->actor($request);
-        $employmentId = $employmentId ?? (int) ($actor->employmentId ?? 0);
         $asOf = $this->scope->validateDate($request->query('as_of') !== null ? (string) $request->query('as_of') : null, 'as_of', false);
-        $this->scope->employment($actor, $employmentId, $asOf);
+        $employmentId = $this->scope->selfEmployment($actor, $asOf, $employmentId)->employmentId;
 
         $items = array_map(
             fn (array $balance): array => $this->balancePayload($balance),
@@ -43,9 +42,8 @@ final class LeaveController
     public function requests(Request $request, ?int $employmentId = null): JsonResponse
     {
         $actor = $this->scope->actor($request);
-        $employmentId = $employmentId ?? (int) ($actor->employmentId ?? 0);
         $asOf = $this->scope->validateDate($request->query('as_of') !== null ? (string) $request->query('as_of') : null, 'as_of', false);
-        $this->scope->employment($actor, $employmentId, $asOf);
+        $employmentId = $this->scope->selfEmployment($actor, $asOf, $employmentId)->employmentId;
 
         $items = [];
 
@@ -94,8 +92,11 @@ final class LeaveController
             'employment_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $employmentId = (int) ($data['employment_id'] ?? $actor->employmentId ?? 0);
-        $this->scope->employment($actor, $employmentId, (string) $data['startDate']);
+        $employmentId = $this->scope->selfEmployment(
+            $actor,
+            (string) $data['startDate'],
+            isset($data['employment_id']) ? (int) $data['employment_id'] : null,
+        )->employmentId;
 
         $preview = $this->requests->preview(
             tenantId: $actor->tenantId,
@@ -134,8 +135,11 @@ final class LeaveController
             'employment_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $employmentId = (int) ($data['employment_id'] ?? $actor->employmentId ?? 0);
-        $this->scope->employment($actor, $employmentId, (string) $data['startDate']);
+        $employmentId = $this->scope->selfEmployment(
+            $actor,
+            (string) $data['startDate'],
+            isset($data['employment_id']) ? (int) $data['employment_id'] : null,
+        )->employmentId;
 
         $result = $this->requests->request(
             tenantId: $actor->tenantId,
@@ -196,9 +200,8 @@ final class LeaveController
     public function ledger(Request $request, ?int $employmentId = null): JsonResponse
     {
         $actor = $this->scope->actor($request);
-        $employmentId = $employmentId ?? (int) ($actor->employmentId ?? 0);
         $asOf = $this->scope->validateDate($request->query('as_of') !== null ? (string) $request->query('as_of') : null, 'as_of', false);
-        $this->scope->employment($actor, $employmentId, $asOf);
+        $employmentId = $this->scope->selfEmployment($actor, $asOf, $employmentId)->employmentId;
 
         $typeId = $request->query('leave_type_id');
         $typeCode = $request->query('leave_type');

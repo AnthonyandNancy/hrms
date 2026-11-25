@@ -49,8 +49,12 @@ final class EmploymentSessionRevoker implements SessionRevoker
             ->whereNull('revoked_at')
             ->update(['revoked_at' => $now]);
 
-        $version = (int) $user->auth_version + 1;
-        $user->forceFill(['auth_version' => $version])->save();
+        // Offboarding/employment termination is an authorization change: the
+        // SELF snapshot must be replayed so it no longer resolves a live
+        // employment, while unrelated grants keep their semantics. The new
+        // generation also invalidates any replayed session cookie.
+        $version = app(\App\Shared\Authorization\AuthorizationSnapshot::class)
+            ->replay($user, $reason);
 
         return ['user_id' => (int) $user->id, 'sessions_revoked' => $revoked, 'auth_version' => $version];
     }

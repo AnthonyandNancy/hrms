@@ -16,6 +16,7 @@ use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\AuthorizationSnapshot;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -34,6 +35,7 @@ final class UserAdminController
         private readonly SecurityEventService $events,
         private readonly SessionManager $sessions,
         private readonly Clock $clock,
+        private readonly AuthorizationSnapshot $snapshot,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -122,10 +124,10 @@ final class UserAdminController
             $old = $user->status;
             $user->forceFill([
                 'status' => (string) $validated['status'],
-                'auth_version' => (int) $user->auth_version + 1,
             ])->save();
 
             $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
+            $this->snapshot->replay($user, 'user.status.changed');
             $this->events->record((int) $user->tenant_id, $principal->userId(), 'user.status.changed', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'reason' => (string) $validated['reason'],
@@ -203,7 +205,7 @@ final class UserAdminController
 
         DB::transaction(function () use ($target, $principal, $role, $grants, $anchors, $validated, $risks, $from, $to, $request): void {
             $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
-            $newVersion = (int) $user->auth_version + 1;
+            $currentVersion = (int) $user->auth_version;
 
             UserRole::query()->create([
                 'tenant_id' => (int) $user->tenant_id,
@@ -213,7 +215,7 @@ final class UserAdminController
                 'valid_to' => $to,
                 'granted_by' => $principal->userId(),
                 'reason' => (string) $validated['reason'],
-                'auth_version' => $newVersion,
+                'auth_version' => $currentVersion,
                 'created_at' => $this->clock->now(),
             ]);
 
@@ -231,12 +233,12 @@ final class UserAdminController
                     'valid_to' => $to,
                     'source_type' => 'ROLE',
                     'source_id' => null,
-                    'auth_version' => $newVersion,
+                    'auth_version' => $currentVersion,
                     'created_at' => $this->clock->now(),
                 ]);
             }
 
-            $user->forceFill(['auth_version' => $newVersion])->save();
+            $this->snapshot->replay($user, 'role.assigned');
             $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
             $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.assigned', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,

@@ -135,7 +135,9 @@ final class AuthController
 
         DB::transaction(function () use ($principal, $request): void {
             $user = User::query()->whereKey($principal->userId())->lockForUpdate()->firstOrFail();
-            $user->forceFill(['auth_version' => (int) $user->auth_version + 1])->save();
+            // Logout is a session lifecycle event, not an authorization change.
+            // Bumping auth_version here would invalidate every binding snapshot
+            // while leaving its rows on the old generation.
             $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
             $this->events->record((int) $user->tenant_id, (int) $user->id, 'logout.all', 'SUCCESS', [], $request);
         });
@@ -162,9 +164,10 @@ final class AuthController
         DB::transaction(function () use ($user, $validated, $principal, $request): void {
             $user->forceFill([
                 'password_hash' => $this->passwords->hash((string) $validated['new_password']),
-                'auth_version' => (int) $user->auth_version + 1,
             ])->save();
 
+            // Password rotation revokes sessions only. Authorization remains
+            // the same snapshot until an actual grant/revocation occurs.
             $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
             $this->events->record((int) $user->tenant_id, (int) $user->id, 'password.change', 'SUCCESS', ['session_id' => $principal->sessionId()], $request);
         });

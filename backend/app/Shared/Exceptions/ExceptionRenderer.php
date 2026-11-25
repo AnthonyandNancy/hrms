@@ -25,6 +25,10 @@ final class ExceptionRenderer
 {
     public function render(Throwable $exception): \Illuminate\Http\JsonResponse
     {
+        if ($exception instanceof NoActiveEmploymentException) {
+            return $exception->render();
+        }
+
         if ($exception instanceof DomainException) {
             return ApiResponse::error(
                 $exception->errorCode()->value,
