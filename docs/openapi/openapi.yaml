@@ -4849,6 +4849,288 @@ components:
           type: string
         status:
           type: string
+    MenuOverride:
+      type: object
+      required: [page_code, label, visible, sort_order]
+      properties:
+        page_code: { type: string }
+        label: { type: [string, 'null'] }
+        visible: { type: boolean }
+        sort_order: { type: integer, minimum: 0 }
+    DataScopePolicy:
+      type: object
+      required: [template, anchor_type, label, active, sort_order, description]
+      properties:
+        template: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
+        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
+        label: { type: string }
+        active: { type: boolean }
+        sort_order: { type: integer, minimum: 0 }
+        description: { type: string }
+    FieldPolicy:
+      type: object
+      required: [field_key, profile, declared_profile, can_tighten]
+      properties:
+        field_key: { type: string }
+        profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+        declared_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+        can_tighten: { type: boolean }
+    DictionaryEntry:
+      type: object
+      required: [id, type, code, label, sort_order, active]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        code: { type: string }
+        label: { type: string }
+        sort_order: { type: integer, minimum: 0 }
+        active: { type: boolean }
+    SystemParameter:
+      type: object
+      required: [id, key, scope, value, sensitive, masked]
+      properties:
+        id: { type: integer }
+        key: { type: string }
+        scope: { type: string }
+        value: {}
+        sensitive: { type: boolean }
+        masked: { type: boolean }
+    NotificationTemplate:
+      type: object
+      required: [id, code, channel, subject, body, version, active]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        channel: { type: string, enum: [IN_APP, EMAIL, WECHAT_WORK] }
+        subject: { type: string }
+        body: { type: string }
+        version: { type: integer, minimum: 1 }
+        active: { type: boolean }
+    NotificationDelivery:
+      type: object
+      required: [id, delivery_id, template_code, recipient_user_id, channel, status, attempts, last_error, sent_at]
+      properties:
+        id: { type: integer }
+        delivery_id: { type: integer }
+        template_code: { type: string }
+        recipient_user_id: { type: integer }
+        channel: { type: string, enum: [IN_APP, EMAIL, WECHAT_WORK] }
+        status: { type: string, enum: [PENDING, SENT, FAILED] }
+        attempts: { type: integer, minimum: 0 }
+        last_error: { type: [string, 'null'] }
+        sent_at: { type: [string, 'null'], format: date-time }
+    CalendarVersion:
+      type: object
+      required: [legal_entity_id, version, timezone, workweek, standard_day_minutes, holidays]
+      properties:
+        legal_entity_id: { type: integer }
+        version: { type: integer, minimum: 1 }
+        timezone: { type: string }
+        workweek:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items: { type: integer, minimum: 1, maximum: 7 }
+        standard_day_minutes: { type: integer, minimum: 1, maximum: 1440 }
+        holidays:
+          type: array
+          items:
+            type: object
+            required: [date, name, type]
+            properties:
+              date: { type: string, format: date }
+              name: { type: string }
+              type: { type: string, enum: [PUBLIC, COMPANY, MAKEUP] }
+    RoleCapabilitySelection:
+      type: object
+      required: [capability, anchor_type, field_profile]
+      properties:
+        capability: { type: string }
+        anchor_type: { type: string }
+        field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+    RoleCreateRequest:
+      type: object
+      required: [code, name, purpose, capabilities]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 120 }
+        purpose: { type: string, minLength: 8, maxLength: 255 }
+        expires_at: { type: [string, 'null'], format: date-time }
+        capabilities:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            $ref: "#/components/schemas/RoleCapabilitySelection"
+    RoleCopyRequest:
+      type: object
+      required: [code, name, purpose]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 120 }
+        purpose: { type: string, minLength: 8, maxLength: 255 }
+    RoleCapabilitiesRequest:
+      type: object
+      required: [capabilities]
+      properties:
+        capabilities:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            $ref: "#/components/schemas/RoleCapabilitySelection"
+    MenuOverrideCreateRequest:
+      type: object
+      required: [page_code]
+      properties:
+        page_code: { type: string }
+        label: { type: [string, 'null'] }
+        visible: { type: boolean }
+        sort_order: { type: integer, minimum: 0 }
+    MenuOverrideUpdateRequest:
+      type: object
+      properties:
+        label: { type: [string, 'null'] }
+        visible: { type: boolean }
+        sort_order: { type: integer, minimum: 0 }
+    DataScopePolicyUpdateRequest:
+      type: object
+      properties:
+        label: { type: string }
+        anchor_type: { type: string }
+        active: { type: boolean }
+        sort_order: { type: integer, minimum: 0 }
+    FieldPolicyUpdateRequest:
+      type: object
+      required: [field_profile]
+      properties:
+        field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
+    DictionaryCreateRequest:
+      type: object
+      required: [type, code, label]
+      properties:
+        type: { type: string }
+        code: { type: string }
+        label: { type: string }
+        sort_order: { type: integer, minimum: 0 }
+        active: { type: boolean }
+    DictionaryUpdateRequest:
+      type: object
+      properties:
+        label: { type: string }
+        sort_order: { type: integer, minimum: 0 }
+        active: { type: boolean }
+    SystemParameterUpdateRequest:
+      type: object
+      required: [key, value]
+      properties:
+        key: { type: string }
+        scope: { type: string }
+        value: {}
+        sensitive: { type: boolean }
+    CalendarPublishRequest:
+      type: object
+      required: [timezone, workweek]
+      properties:
+        timezone: { type: string }
+        workweek:
+          type: array
+          minItems: 1
+          maxItems: 7
+          items: { type: integer, minimum: 1, maximum: 7 }
+        standard_day_minutes: { type: integer, minimum: 1, maximum: 1440 }
+        holidays:
+          type: array
+          maxItems: 500
+          items:
+            type: object
+            required: [date, name, type]
+            properties:
+              date: { type: string, format: date }
+              name: { type: string }
+              type: { type: string, enum: [PUBLIC, COMPANY, MAKEUP] }
+    NotificationTemplateCreateRequest:
+      type: object
+      required: [code, channel, subject, body]
+      properties:
+        code: { type: string }
+        channel: { type: string, enum: [IN_APP, EMAIL, WECHAT_WORK] }
+        subject: { type: string }
+        body: { type: string }
+    NotificationDispatchRequest:
+      type: object
+      required: [event_key, template_code, recipient_user_id]
+      properties:
+        event_key: { type: string }
+        template_code: { type: string }
+        recipient_user_id: { type: integer, minimum: 1 }
+        variables:
+          type: object
+          additionalProperties: true
+    DictionaryProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DictionaryEntry"
+    DataScopeProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DataScopePolicy"
+    FieldPolicyProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldPolicy"
+    MenuOverrideProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/MenuOverride"
+    SystemParameterProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SystemParameter"
+    NotificationTemplateProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/NotificationTemplate"
+    NotificationDeliveryProjection:
+      allOf:
+        - $ref: "#/components/schemas/ProjectionPagination"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/NotificationDelivery"
+
   responses:
     Unauthenticated:
       description: Missing, expired, revoked or stale-auth-version session
@@ -6735,6 +7017,53 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+    post:
+      operationId: createRole
+      tags:
+        - IAM Administration
+      summary: Create a tenant exception role from code-owned capability codes
+      description: |
+        Capability semantics are code-owned. The request may select known
+        capability codes with an anchor the capability allows and a field
+        profile no wider than the capability maximum. Requires an
+        Idempotency-Key.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCreateRequest"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
@@ -14469,3 +14798,949 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+  /v1/roles/{id}/copy:
+    post:
+      operationId: copyRole
+      tags:
+        - IAM Administration
+      summary: Copy a role and its capability selections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCopyRequest"
+      responses:
+        "201":
+          description: Role copied
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+  /v1/roles/{id}/capabilities:
+    put:
+      operationId: replaceRoleCapabilities
+      tags:
+        - IAM Administration
+      summary: Replace an exception role's capability selections
+      description: Template roles are code-owned and return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCapabilitiesRequest"
+      responses:
+        "200":
+          description: Capabilities replaced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+  /v1/system/menus:
+    get:
+      operationId: listMenuOverrides
+      tags:
+        - Platform Governance
+      summary: List presentation-only menu overrides
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Menu override projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MenuOverrideProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.menu.manage
+    post:
+      operationId: createMenuOverride
+      tags:
+        - Platform Governance
+      summary: Create a presentation-only menu override
+      description: Unknown page codes are rejected. Display never grants capabilities.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuOverrideCreateRequest"
+      responses:
+        "201":
+          description: Override created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MenuOverride"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.menu.manage
+  /v1/system/menus/{page_code}:
+    patch:
+      operationId: updateMenuOverride
+      tags:
+        - Platform Governance
+      summary: Update a menu override
+      parameters:
+        - name: page_code
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MenuOverrideUpdateRequest"
+      responses:
+        "200":
+          description: Override updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MenuOverride"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.menu.manage
+    delete:
+      operationId: deleteMenuOverride
+      tags:
+        - Platform Governance
+      summary: Delete a menu override
+      parameters:
+        - name: page_code
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Override deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [page_code, deleted]
+                        properties:
+                          page_code: { type: string }
+                          deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.menu.manage
+  /v1/system/data-scopes:
+    get:
+      operationId: listDataScopePolicies
+      tags:
+        - Platform Governance
+      summary: List code-owned data scope templates with tenant selections
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Scope template projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DataScopeProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.scope.manage
+  /v1/system/data-scopes/{id}:
+    put:
+      operationId: updateDataScopePolicy
+      tags:
+        - Platform Governance
+      summary: Select a whitelisted scope template and label
+      description: Arbitrary predicates are rejected with 422.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataScopePolicyUpdateRequest"
+      responses:
+        "200":
+          description: Scope template updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DataScopePolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.scope.manage
+  /v1/system/field-policies:
+    get:
+      operationId: listFieldPolicies
+      tags:
+        - Platform Governance
+      summary: List code-owned sensitive fields and their effective profiles
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Field policy projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FieldPolicyProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.field.manage
+  /v1/system/field-policies/{field_key}:
+    put:
+      operationId: updateFieldPolicy
+      tags:
+        - Platform Governance
+      summary: Tighten a sensitive field policy
+      description: Widening a declared profile returns 409.
+      parameters:
+        - name: field_key
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FieldPolicyUpdateRequest"
+      responses:
+        "200":
+          description: Field policy updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FieldPolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.field.manage
+  /v1/system/dictionaries:
+    get:
+      operationId: listDictionaries
+      tags:
+        - Platform Governance
+      summary: List tenant dictionary entries
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Dictionary projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DictionaryProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.dictionary.manage
+    post:
+      operationId: createDictionaryEntry
+      tags:
+        - Platform Governance
+      summary: Create a dictionary entry
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DictionaryCreateRequest"
+      responses:
+        "201":
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DictionaryEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.dictionary.manage
+  /v1/system/dictionaries/{id}:
+    patch:
+      operationId: updateDictionaryEntry
+      tags:
+        - Platform Governance
+      summary: Update a dictionary entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DictionaryUpdateRequest"
+      responses:
+        "200":
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DictionaryEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.dictionary.manage
+  /v1/system/parameters:
+    get:
+      operationId: listSystemParameters
+      tags:
+        - Platform Governance
+      summary: List typed tenant parameters (sensitive values masked)
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: key
+          in: query
+          schema: { type: string }
+        - name: scope
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Parameter projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SystemParameterProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.parameter.manage
+    put:
+      operationId: updateSystemParameter
+      tags:
+        - Platform Governance
+      summary: Upsert a typed parameter
+      description: The stored payload must be a JSON object containing a value key; sensitive values are encrypted at rest.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemParameterUpdateRequest"
+      responses:
+        "200":
+          description: Parameter updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SystemParameter"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.parameter.manage
+  /v1/system/calendars/{legal_entity_id}/publish:
+    post:
+      operationId: publishCalendarVersion
+      tags:
+        - Platform Governance
+      summary: Publish a legal-entity calendar version
+      parameters:
+        - name: legal_entity_id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarPublishRequest"
+      responses:
+        "200":
+          description: Calendar published
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CalendarVersion"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.calendar.manage
+  /v1/notification-templates:
+    get:
+      operationId: listNotificationTemplates
+      tags:
+        - Platform Governance
+      summary: List notification templates
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Template projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationTemplateProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: notification.template.manage
+    post:
+      operationId: createNotificationTemplate
+      tags:
+        - Platform Governance
+      summary: Create a notification template
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationTemplateCreateRequest"
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: notification.template.manage
+  /v1/notifications/dispatch:
+    post:
+      operationId: dispatchNotification
+      tags:
+        - Platform Governance
+      summary: Dispatch one notification event through the outbox
+      description: The tenant event_key is unique; a repeated event returns the existing delivery.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationDispatchRequest"
+      responses:
+        "201":
+          description: Delivery created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationDelivery"
+        "200":
+          description: Existing delivery returned for an already-consumed event
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: notification.delivery.manage
+  /v1/notifications/deliveries:
+    get:
+      operationId: listNotificationDeliveries
+      tags:
+        - Platform Governance
+      summary: List notification delivery attempts
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SENT, FAILED] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Delivery projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationDeliveryProjection"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: notification.delivery.manage
+  /v1/notifications/deliveries/{id}/retry:
+    post:
+      operationId: retryNotificationDelivery
+      tags:
+        - Platform Governance
+      summary: Retry a failed notification delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - name: X-Legal-Entity-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery retried
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: notification.delivery.manage

@@ -611,23 +611,23 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
 
 Route::prefix('notification-templates')->middleware(['auth.session'])->group(function (): void {
     Route::get('/', [NotificationAdminController::class, 'templates'])
-        ->middleware('capability:notification.template.manage')
+        ->middleware('capability:notification.template.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('notification-templates.index');
     Route::post('/', [NotificationAdminController::class, 'storeTemplate'])
-        ->middleware('capability:notification.template.manage')
+        ->middleware('capability:notification.template.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('notification-templates.store');
 });
 
 Route::prefix('notifications')->middleware(['auth.session'])->group(function (): void {
     Route::get('/deliveries', [NotificationAdminController::class, 'deliveries'])
-        ->middleware('capability:notification.delivery.manage')
+        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('notifications.deliveries.index');
     Route::post('/dispatch', [NotificationAdminController::class, 'dispatch'])
-        ->middleware('capability:notification.delivery.manage')
+        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('notifications.dispatch');
     Route::post('/deliveries/{id}/retry', [NotificationAdminController::class, 'retry'])
         ->whereNumber('id')
-        ->middleware('capability:notification.delivery.manage')
+        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('notifications.deliveries.retry');
 });
 
