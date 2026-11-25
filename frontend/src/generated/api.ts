@@ -1100,6 +1100,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/time/attendance/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List effective-dated attendance rule versions
+         * @description Returns every stored rule version newest first plus `is_effective` for the
+         *     requested business date. History is append-only; publishing a version
+         *     never rewrites an earlier row. Requires capability
+         *     `time.attendance.rule.read`.
+         */
+        get: operations["timeAttendanceRulesIndex"];
+        put?: never;
+        /**
+         * Publish a new effective-dated attendance rule version
+         * @description Append-only publish. Re-publishing an identical version is an idempotent
+         *     replay; re-using a version string with a different definition returns 409
+         *     `RULE_VERSION_IMMUTABLE`. Requires capability
+         *     `time.attendance.rule.manage`.
+         */
+        post: operations["timeAttendanceRulesPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time/shift-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List per-day shift schedules visible to the actor
+         * @description SELF actors see only their own schedules; MANAGED actors see their team;
+         *     entity-scoped actors see their legal entities. Requires capability
+         *     `time.shift.schedule.read`.
+         */
+        get: operations["timeShiftSchedulesIndex"];
+        put?: never;
+        /**
+         * Schedule one employment to one shift template for one business date
+         * @description Exactly one schedule row may exist per employment per business date. A
+         *     second template for the same day returns 409 `SCHEDULE_CONFLICT`; the
+         *     database unique index enforces the same invariant under concurrency. A
+         *     period that is already CLOSED rejects the write with 409 `PERIOD_CLOSED`
+         *     until it is reopened with an audited reason. Requires capability
+         *     `time.shift.schedule.manage`.
+         */
+        post: operations["timeShiftSchedulesStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/time/leave/balances": {
         parameters: {
             query?: never;
@@ -3161,7 +3222,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List attendance period closures for the actor's legal entities
+         * @description Read-only list of closed and reopened months with the reopen evidence.
+         *     Scoped to the actor's legal entities; a `legal_entity_id` outside that
+         *     scope returns 404. Requires capability `time.attendance.read`.
+         */
+        get: operations["timeAttendanceClosingsIndex"];
         put?: never;
         /** Close an attendance month for one legal entity */
         post: operations["closeAttendancePeriod"];
@@ -3199,6 +3266,29 @@ export interface paths {
         put?: never;
         /** Queue recalculation while the attendance period remains open */
         post: operations["recalculateAttendancePeriod"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time/attendance/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read-only attendance device inventory and health
+         * @description Device health is reported by the adapter pipeline. This endpoint is
+         *     deliberately read-only: there is no write surface that lets a client
+         *     assert health. Rows come from `attendance_devices` scoped to the actor's
+         *     legal entities. Requires capability `time.attendance.device.read`.
+         */
+        get: operations["timeAttendanceDevicesIndex"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5119,6 +5209,76 @@ export interface components {
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
             replayed: boolean;
+        };
+        AttendanceRuleConfig: {
+            /** @enum {string} */
+            late_grace_source?: "SHIFT" | "LEGAL_ENTITY" | "NONE";
+            count_break?: boolean;
+            overtime_after_scheduled?: boolean;
+            incomplete_threshold_minutes?: number;
+            rounding_minutes?: number;
+        };
+        AttendanceRuleVersion: {
+            id: number;
+            version: string;
+            /** Format: date */
+            effective_from: string;
+            checksum: string;
+            config: components["schemas"]["AttendanceRuleConfig"];
+            is_effective: boolean;
+            /** Format: date-time */
+            created_at?: string | null;
+        };
+        ShiftSchedule: {
+            id: number;
+            legal_entity_id: number;
+            employment_id: number;
+            /** Format: date */
+            business_date: string;
+            shift_template_id: number;
+            shift_code?: string | null;
+            shift_name?: string | null;
+            start_local_time?: string | null;
+            end_local_time?: string | null;
+            crosses_midnight?: boolean | null;
+            created_by: number;
+            /** Format: date-time */
+            created_at?: string | null;
+        };
+        ShiftScheduleWrite: {
+            schedule_id: number;
+            legal_entity_id: number;
+            employment_id: number;
+            /** Format: date */
+            business_date: string;
+            shift_template_id: number;
+            replayed: boolean;
+        };
+        AttendanceClosureRow: {
+            id: number;
+            legal_entity_id: number;
+            month: string;
+            /** @enum {string} */
+            status: "CLOSED" | "REOPENED";
+            closed_by?: number | null;
+            /** Format: date-time */
+            closed_at?: string | null;
+            reopened_by?: number | null;
+            /** Format: date-time */
+            reopened_at?: string | null;
+            reopen_reason?: string | null;
+        };
+        AttendanceDevice: {
+            id: number;
+            legal_entity_id: number;
+            code: string;
+            name: string;
+            adapter: string;
+            /** @enum {string} */
+            health: "ONLINE" | "DEGRADED" | "OFFLINE" | "UNKNOWN";
+            /** Format: date-time */
+            last_seen_at?: string | null;
+            active: boolean;
         };
         AttendanceRecalculationAccepted: {
             accepted: boolean;
@@ -7463,6 +7623,166 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeAttendanceRulesIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                /** @description Optional legal entity the caller must already be scoped to. */
+                legal_entity_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attendance rule versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            /** Format: date */
+                            as_of: string;
+                            /** @enum {string} */
+                            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+                            source_hash: string;
+                            items: components["schemas"]["AttendanceRuleVersion"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeAttendanceRulesPublish: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: string;
+                    /** Format: date */
+                    effective_from: string;
+                    config: components["schemas"]["AttendanceRuleConfig"];
+                };
+            };
+        };
+        responses: {
+            /** @description Rule version published or replayed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["AttendanceRuleVersion"] & {
+                            replayed: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeShiftSchedulesIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                employment_id?: number;
+                legal_entity_id?: number;
+                from?: string;
+                to?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shift schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            /** Format: date */
+                            as_of: string;
+                            /** @enum {string} */
+                            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+                            source_hash: string;
+                            items: components["schemas"]["ShiftSchedule"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeShiftSchedulesStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    employment_id: number;
+                    /** Format: date */
+                    business_date: string;
+                    shift_template_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Schedule created or replayed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ShiftScheduleWrite"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
@@ -12042,6 +12362,46 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    timeAttendanceClosingsIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                legal_entity_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attendance period closures */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            /** Format: date */
+                            as_of: string;
+                            /** @enum {string} */
+                            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+                            source_hash: string;
+                            items: components["schemas"]["AttendanceClosureRow"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     closeAttendancePeriod: {
         parameters: {
             query?: never;
@@ -12144,6 +12504,47 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeAttendanceDevicesIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                legal_entity_id?: number;
+                active?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attendance devices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Pagination"] & {
+                            /** Format: date */
+                            as_of: string;
+                            /** @enum {string} */
+                            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+                            source_hash: string;
+                            items: components["schemas"]["AttendanceDevice"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
