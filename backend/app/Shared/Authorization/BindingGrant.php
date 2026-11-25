@@ -26,8 +26,6 @@ final class BindingGrant
 
     public function isEffectiveOn(string $businessDate): bool
     {
-        $on = $businessDate.' 00:00:00';
-
-        return $this->validFrom <= $on && $on < $this->validTo;
+        return BindingValidity::isActiveOn($this->validFrom, $this->validTo, $businessDate);
     }
 }

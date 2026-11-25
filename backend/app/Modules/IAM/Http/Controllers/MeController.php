@@ -11,6 +11,7 @@ use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
@@ -40,11 +41,12 @@ final class MeController
             'auth_version' => $principal->authVersion(),
             'tenant_name' => $this->tenantName($principal->tenantId()),
             'legal_entity_name' => $this->tenantName($principal->tenantId()),
-            'roles' => UserRole::query()
-                ->where('tenant_id', $principal->tenantId())
-                ->where('user_id', $principal->userId())
-                ->where('valid_from', '<=', $this->clock->now())
-                ->where('valid_to', '>', $this->clock->now())
+            'roles' => BindingValidity::whereActiveOn(
+                UserRole::query()
+                    ->where('tenant_id', $principal->tenantId())
+                    ->where('user_id', $principal->userId()),
+                $this->clock->now()->toDateString(),
+            )
                 ->orderBy('role_code')
                 ->pluck('role_code')
                 ->all(),
@@ -56,12 +58,12 @@ final class MeController
         $principal = $this->context->requirePrincipal();
         $businessDate = $this->clock->now()->toDateString();
 
-        $bindings = AuthorityBinding::query()
+        $query = AuthorityBinding::query()
             ->where('tenant_id', $principal->tenantId())
             ->where('principal_id', $principal->userId())
-            ->where('auth_version', $principal->authVersion())
-            ->where('valid_from', '<=', $businessDate.' 23:59:59')
-            ->where('valid_to', '>', $businessDate.' 00:00:00')
+            ->where('auth_version', $principal->authVersion());
+
+        $bindings = BindingValidity::whereActiveOn($query, $businessDate)
             ->orderBy('capability_code')
             ->orderBy('anchor_type')
             ->orderBy('anchor_id')

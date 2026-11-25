@@ -7,6 +7,7 @@ namespace App\Modules\IAM\Services;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
+use App\Shared\Authorization\BindingValidity;
 
 /**
  * Tenant-scoped read model for notice audiences. IAM owns user and role rows;
@@ -36,14 +37,11 @@ final class EloquentUserAudienceDirectory implements UserAudienceDirectory
             return [];
         }
 
-        $dayStart = $businessDate.' 00:00:00';
-        $dayEnd = $businessDate.' 23:59:59';
-
-        return UserRole::query()
+        $query = UserRole::query()
             ->where('tenant_id', $tenantId)
-            ->whereIn('role_code', $roleCodes)
-            ->where('valid_from', '<=', $dayEnd)
-            ->where('valid_to', '>', $dayStart)
+            ->whereIn('role_code', $roleCodes);
+
+        return BindingValidity::whereActiveOn($query, $businessDate)
             ->orderBy('user_id')
             ->pluck('user_id')
             ->map(static fn ($id): int => (int) $id)
@@ -55,14 +53,11 @@ final class EloquentUserAudienceDirectory implements UserAudienceDirectory
     /** @return list<string> */
     public function roleCodesForUser(int $tenantId, int $userId, string $businessDate): array
     {
-        $dayStart = $businessDate.' 00:00:00';
-        $dayEnd = $businessDate.' 23:59:59';
-
-        return UserRole::query()
+        $query = UserRole::query()
             ->where('tenant_id', $tenantId)
-            ->where('user_id', $userId)
-            ->where('valid_from', '<=', $dayEnd)
-            ->where('valid_to', '>', $dayStart)
+            ->where('user_id', $userId);
+
+        return BindingValidity::whereActiveOn($query, $businessDate)
             ->orderBy('role_code')
             ->pluck('role_code')
             ->map(static fn ($code): string => (string) $code)

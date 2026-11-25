@@ -30,6 +30,24 @@ class DenyByDefaultTest extends AuthorizationTestSupport
             ->assertJsonPath('data.capability', 'iam.user.read');
     }
 
+    public function test_every_protected_route_requires_an_authenticated_session(): void
+    {
+        $public = ['v1/health', 'v1/health/live', 'v1/health/ready', 'v1/meta', 'v1/auth/login', 'v1/auth/mfa/challenge'];
+
+        foreach (app('router')->getRoutes()->getRoutes() as $route) {
+            $uri = $route->uri();
+            if (! str_starts_with($uri, 'v1/') || in_array($uri, $public, true)) {
+                continue;
+            }
+
+            $this->assertContains(
+                'auth.session',
+                $route->gatherMiddleware(),
+                "Route {$route->methods()[0]} {$uri} lacks auth.session.",
+            );
+        }
+    }
+
     public function test_capability_catalog_has_no_editable_surface(): void
     {
         $this->assertFalse(\Illuminate\Support\Facades\Route::has('capabilities.store'));

@@ -6,8 +6,8 @@ namespace App\Modules\IAM\Services;
 
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
+use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\Contracts\EmploymentManagerDirectory;
-use Carbon\CarbonImmutable;
 
 /**
  * Workflow assignee resolution backed by IAM role membership. The Workflow
@@ -41,13 +41,11 @@ final class IamAssigneeDirectory implements AssigneeDirectory
      */
     public function userIdsWithRole(int $tenantId, string $roleCode, string $businessDate): array
     {
-        $asOf = CarbonImmutable::parse($businessDate, 'UTC')->endOfDay();
-
-        return UserRole::query()
+        $query = UserRole::query()
             ->where('tenant_id', $tenantId)
-            ->where('role_code', $roleCode)
-            ->where('valid_from', '<=', $asOf)
-            ->where('valid_to', '>', $asOf)
+            ->where('role_code', $roleCode);
+
+        return BindingValidity::whereActiveOn($query, $businessDate)
             ->orderBy('user_id')
             ->pluck('user_id')
             ->map(static fn (mixed $id): int => (int) $id)

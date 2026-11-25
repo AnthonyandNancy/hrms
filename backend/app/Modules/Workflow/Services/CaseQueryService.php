@@ -22,7 +22,7 @@ final class CaseQueryService
     public function detail(WorkflowPrincipal $principal, int $caseId): array
     {
         $case = $this->visibleQuery($principal)
-            ->with(['instance', 'effects'])
+            ->with(['instance', 'effects', 'tasks'])
             ->whereKey($caseId)
             ->first();
 
@@ -30,7 +30,7 @@ final class CaseQueryService
             throw NotFoundException::forResource();
         }
 
-        return $this->caseData($case);
+        return $this->caseData($case, $principal);
     }
 
     /**
@@ -42,7 +42,14 @@ final class CaseQueryService
         $page = max(1, (int) ($filters['page'] ?? 1));
         $pageSize = min(100, max(1, (int) ($filters['page_size'] ?? 20)));
 
-        $query = $this->visibleQuery($principal)->with(['instance', 'effects']);
+        $query = $this->visibleQuery($principal)
+            ->with(['instance', 'effects'])
+            // Computed in SQL so the list keeps its fixed query budget; an
+            // eager load here would add a query per page for one boolean.
+            ->withExists(['tasks as is_awaiting_me' => function (Builder $taskQuery) use ($principal): void {
+                $taskQuery->where('assignee_user_id', $principal->userId)
+                    ->where('status', \App\Modules\Workflow\Enums\TaskStatus::PENDING->value);
+            }]);
 
         if (isset($filters['status']) && is_string($filters['status']) && $filters['status'] !== '') {
             $query->where('status', $filters['status']);
@@ -67,10 +74,14 @@ final class CaseQueryService
             });
         }
 
+        if (isset($filters['view']) && $filters['view'] === 'my_requests') {
+            $query->where('requester_user_id', $principal->userId);
+        }
+
         $total = (clone $query)->count();
         $cases = $query->orderByDesc('id')->forPage($page, $pageSize)->get();
 
-        $items = $cases->map(fn (CaseModel $case): array => $this->caseData($case))->all();
+        $items = $cases->map(fn (CaseModel $case): array => $this->caseData($case, $principal))->all();
 
         return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
     }
@@ -153,7 +164,7 @@ final class CaseQueryService
     /**
      * @return array<string, mixed>
      */
-    public function caseData(CaseModel $case): array
+    public function caseData(CaseModel $case, ?WorkflowPrincipal $principal = null): array
     {
         $case->loadMissing(['instance', 'effects']);
 
@@ -174,6 +185,8 @@ final class CaseQueryService
             'submitted_at' => $case->submitted_at?->toIso8601ZuluString(),
             'closed_at' => $case->closed_at?->toIso8601ZuluString(),
             'current_node_key' => $case->instance?->current_node_key,
+            'is_mine' => $principal !== null && (int) $case->requester_user_id === $principal->userId,
+            'is_awaiting_me' => $principal !== null && $this->isAwaitingPrincipal($case, $principal),
             'effects' => $case->effects->map(static fn (Effect $effect): array => [
                 'effect_id' => $effect->id,
                 'effect_type' => $effect->effect_type,
@@ -182,6 +195,27 @@ final class CaseQueryService
                 'requires_escalation' => $effect->requires_escalation,
             ])->all(),
         ];
+    }
+
+    /**
+     * The list query computes this in SQL (withExists) to keep its fixed query
+     * budget; the detail query eager loads tasks. Reading the relation must
+     * never fall back to a lazy load, or the list regains an N+1.
+     */
+    private function isAwaitingPrincipal(CaseModel $case, WorkflowPrincipal $principal): bool
+    {
+        if ((bool) ($case->is_awaiting_me ?? false)) {
+            return true;
+        }
+
+        if (! $case->relationLoaded('tasks')) {
+            return false;
+        }
+
+        return $case->tasks->contains(
+            static fn ($task): bool => (int) $task->assignee_user_id === $principal->userId
+                && $task->status === \App\Modules\Workflow\Enums\TaskStatus::PENDING,
+        );
     }
 
     public function resolveWritableCase(WorkflowPrincipal $principal, int $caseId): CaseModel

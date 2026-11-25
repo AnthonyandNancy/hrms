@@ -194,9 +194,15 @@ final class AuthorizationAdminController
             );
         }
 
+        // Bindings are evaluated per business day, so the stored window starts
+        // at the day boundary. A grant created at 00:42 must be usable today.
         $now = $this->clock->now();
-        $from = isset($validated['valid_from']) ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC') : $now;
-        $to = isset($validated['valid_to']) ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC') : $now->addYear();
+        $from = isset($validated['valid_from'])
+            ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC')->startOfDay()
+            : $now->startOfDay();
+        $to = isset($validated['valid_to'])
+            ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC')->startOfDay()
+            : $from->addYear();
 
         $binding = DB::transaction(function () use ($target, $principal, $validated, $anchor, $profile, $risks, $from, $to, $request): AuthorityBinding {
             $user = \App\Modules\IAM\Models\User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();

@@ -216,7 +216,7 @@ Route::prefix('effects')->middleware(['auth.session', WorkflowPrincipalContext::
 });
 
 Route::get('/tasks/my', [TaskController::class, 'my'])
-    ->middleware([WorkflowPrincipalContext::class, 'capability:workflow.case.read'])
+    ->middleware(['auth.session', WorkflowPrincipalContext::class, 'capability:workflow.case.read'])
     ->name('workflow.tasks.my');
 
 Route::prefix('workflow/templates')->middleware(['auth.session', WorkflowPrincipalContext::class])->group(function (): void {

@@ -187,13 +187,15 @@ final class UserAdminController
             );
         }
 
+        // Bindings are evaluated per business day, so the stored window starts
+        // at the day boundary. A grant created at 00:42 must be usable today.
         $now = $this->clock->now();
         $from = isset($validated['valid_from'])
-            ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC')
-            : $now;
+            ? CarbonImmutable::parse((string) $validated['valid_from'], 'UTC')->startOfDay()
+            : $now->startOfDay();
         $to = isset($validated['valid_to'])
-            ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC')
-            : $now->addYear();
+            ? CarbonImmutable::parse((string) $validated['valid_to'], 'UTC')->startOfDay()
+            : $from->addYear();
 
         if ($role->expires_at instanceof \Carbon\CarbonInterface && $role->expires_at->lessThan($to)) {
             $to = $role->expires_at;

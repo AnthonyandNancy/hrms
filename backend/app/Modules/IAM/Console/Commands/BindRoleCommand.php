@@ -75,7 +75,11 @@ final class BindRoleCommand extends Command
         }
 
         $now = $clock->now();
-        $to = $now->addDays($days);
+        // Validity is evaluated per business day, so persist the day boundary
+        // rather than the wall-clock instant. Otherwise a grant created at
+        // 00:42 is invisible until the next day (valid_from > day 00:00:00).
+        $from = $now->startOfDay();
+        $to = $from->addDays($days);
         $anchorType = (string) $template->grants[0]->anchorType->value;
 
         $alreadyBound = AuthorityBinding::query()
@@ -93,7 +97,7 @@ final class BindRoleCommand extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($user, $template, $legalEntityId, $now, $to, $clock): void {
+        DB::transaction(function () use ($user, $template, $legalEntityId, $from, $to, $clock): void {
             /** @var User $locked */
             $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $newVersion = (int) $locked->auth_version + 1;
@@ -102,7 +106,7 @@ final class BindRoleCommand extends Command
                 'tenant_id' => (int) $locked->tenant_id,
                 'user_id' => (int) $locked->id,
                 'role_code' => $template->code,
-                'valid_from' => $now,
+                'valid_from' => $from,
             ], [
                 'valid_to' => $to,
                 'granted_by' => null,
@@ -120,7 +124,7 @@ final class BindRoleCommand extends Command
                     'capability_code' => (string) $grant->capabilityCode,
                     'anchor_type' => (string) $grant->anchorType->value,
                     'anchor_key' => $anchorId ?? 0,
-                    'valid_from' => $now,
+                    'valid_from' => $from,
                 ], [
                     'anchor_id' => $anchorId,
                     'field_profile' => (string) $grant->fieldProfile->value,

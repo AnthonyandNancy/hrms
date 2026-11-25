@@ -6,6 +6,7 @@ namespace App\Modules\IAM\Services;
 
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
+use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;
@@ -42,22 +43,22 @@ final class MfaPolicy
             return self::REASON_PRIVILEGED;
         }
 
-        $now = $this->clock->now();
+        $businessDate = $this->clock->now()->toDateString();
         $profiles = [
             FieldProfile::P2_SENSITIVE->value,
             FieldProfile::P3_RESTRICTED->value,
         ];
 
-        $holdsSensitive = AuthorityBinding::query()
+        $query = AuthorityBinding::query()
             ->where('tenant_id', (int) $user->tenant_id)
             ->where('principal_id', (int) $user->id)
             ->where('auth_version', (int) $user->auth_version)
-            ->where('valid_from', '<=', $now)
-            ->where('valid_to', '>', $now)
             ->where(function ($query) use ($profiles): void {
                 $query->whereIn('field_profile', $profiles)
                     ->orWhere('capability_code', CapabilityWildcard::WILDCARD);
-            })
+            });
+
+        $holdsSensitive = BindingValidity::whereActiveOn($query, $businessDate)
             ->exists();
 
         return $holdsSensitive ? self::REASON_RESTRICTED_FIELDS : null;

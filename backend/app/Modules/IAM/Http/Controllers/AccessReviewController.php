@@ -8,6 +8,7 @@ use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\BindingValidity;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
@@ -38,12 +39,12 @@ final class AccessReviewController
             ),
         ));
 
-        $unused = AuthorityBinding::query()
+        $unusedQuery = AuthorityBinding::query()
             ->where('tenant_id', $tenantId)
             ->whereIn('capability_code', $highRiskCodes)
-            ->where('valid_from', '<=', $now)
-            ->where('created_at', '<', $cutoff)
-            ->where('valid_to', '>', $now)
+            ->where('created_at', '<', $cutoff);
+
+        $unused = BindingValidity::whereActiveOn($unusedQuery, $now->toDateString())
             ->orderBy('id')
             ->get()
             ->map(fn (AuthorityBinding $binding): array => [
@@ -55,8 +56,10 @@ final class AccessReviewController
             ])
             ->all();
 
+        $activeQuery = AuthorityBinding::query()->where('tenant_id', $tenantId);
+
         $byPrincipal = [];
-        foreach (AuthorityBinding::query()->where('tenant_id', $tenantId)->where('valid_from', '<=', $now)->where('valid_to', '>', $now)->get() as $binding) {
+        foreach (BindingValidity::whereActiveOn($activeQuery, $now->toDateString())->get() as $binding) {
             $byPrincipal[(int) $binding->principal_id][] = $binding->capability_code;
         }
 

@@ -33,6 +33,7 @@ final class WorkflowAuthSessionTest extends TestCase
         return [
             ['/v1/cases'],
             ['/v1/workflow/templates'],
+            ['/v1/tasks/my'],
         ];
     }
 

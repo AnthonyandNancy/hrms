@@ -49,6 +49,10 @@ final class BindRoleCommandTest extends TestCase
         $this->assertSame('P3_RESTRICTED', $binding->field_profile);
         $this->assertSame(2, (int) $user->fresh()->auth_version);
         $this->assertLessThanOrEqual(366, (int) $binding->valid_from->diffInDays($binding->valid_to));
+        // Validity is persisted at the day boundary so a grant created after
+        // midnight is already effective on that business day.
+        $this->assertSame('2026-11-24 00:00:00', $binding->valid_from->toDateTimeString());
+        $this->assertSame('2027-11-25 00:00:00', $binding->valid_to->toDateTimeString());
         $this->assertDatabaseHas('user_roles', ['user_id' => (int) $user->id, 'role_code' => 'SYSTEM_ADMIN']);
     }
 
