@@ -1055,6 +1055,17 @@ textarea {
   font-size: 11px;
 }
 
+.state-panel__request {
+  margin-top: 5px;
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.page-boundary {
+  margin-bottom: 20px;
+}
+
 .loading-state {
   padding: 18px;
 }

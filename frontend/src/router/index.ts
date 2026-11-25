@@ -86,6 +86,16 @@ const routes: RouteRecordRaw[] = [
         props: true,
       },
       {
+        path: 'hr/employees',
+        name: 'hr-employees-legacy',
+        redirect: '/employees',
+      },
+      {
+        path: 'system/users',
+        name: 'system-users-legacy',
+        redirect: '/admin',
+      },
+      {
         path: 'admin',
         name: 'admin',
         component: () => import('@/views/AdminView.vue'),

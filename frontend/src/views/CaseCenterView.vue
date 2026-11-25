@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { ApplicationStatus, CaseAction, CaseDetail, CaseSummary } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { APPLICATION_STATUS } from '@/utils/status'
 import { formatDateTimeInTimezone } from '@/utils/format'
@@ -20,7 +21,7 @@ const session = useSessionStore()
 const scope = ref<'mine' | 'approvals' | 'all'>('approvals')
 const status = ref<ApplicationStatus | 'ALL'>('ALL')
 const loading = ref(false)
-const error = ref('')
+const pageError = usePageError()
 const rows = ref<CaseSummary[]>([])
 const total = ref(0)
 
@@ -69,13 +70,13 @@ const visibleActions = computed(() =>
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     const result = await getApi().cases.listCases({ scope: scope.value, status: status.value, page: page.value, pageSize: pageSize.value })
     rows.value = result.items
     total.value = result.total
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
     rows.value = []
   } finally {
     loading.value = false
@@ -131,7 +132,7 @@ async function submitDecision(): Promise<void> {
     ElMessage.success(decision.action === 'APPROVE' ? '已通过申请；请同时查看生效状态。' : '决定已记录。')
     await load()
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     submitting.value = false
   }
@@ -154,7 +155,7 @@ async function retryEffect(): Promise<void> {
     ElMessage.success('生效任务重试完成，已刷新生效状态。')
     await load()
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     retrying.value = false
   }
@@ -213,7 +214,7 @@ onMounted(load)
         </button>
       </div>
 
-      <ErrorState v-if="error" description="审批列表暂时无法加载。" :code="error" @retry="load" />
+      <ErrorState v-if="pageError.message.value" description="审批列表暂时无法加载。" :code="pageError.code.value" @retry="load" />
       <LoadingState v-else-if="loading" :rows="5" label="正在加载审批案例" />
       <EmptyState
         v-else-if="rows.length === 0"

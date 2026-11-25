@@ -32,7 +32,10 @@ function statusForCode(code: ApiErrorCode): number {
       return 403
     case 'NOT_FOUND':
       return 404
+    case 'METHOD_NOT_ALLOWED':
+      return 405
     case 'CONFLICT':
+    case 'NO_ACTIVE_EMPLOYMENT':
       return 409
     case 'VALIDATION_FAILED':
       return 422
@@ -51,7 +54,9 @@ const ERROR_COPY: Record<ApiErrorCode, string> = {
   UNAUTHENTICATED: '登录状态已失效，请重新登录后继续。',
   FORBIDDEN: '你没有执行此操作的权限。如确需访问，请提交授权申请。',
   NOT_FOUND: '未找到该记录，可能已被撤回、移出你的数据范围，或链接有误。',
+  METHOD_NOT_ALLOWED: '此操作方式不受支持，请刷新页面后重试。',
   CONFLICT: '数据状态已发生变化，请刷新后重试。',
+  NO_ACTIVE_EMPLOYMENT: '当前账号未绑定员工，员工自助功能不可用。',
   VALIDATION_FAILED: '提交内容未通过校验，请检查标记的字段。',
   RATE_LIMITED: '操作过于频繁，请稍后再试。',
   INTERNAL: '系统暂时无法完成该操作，请稍后重试并联系管理员。',

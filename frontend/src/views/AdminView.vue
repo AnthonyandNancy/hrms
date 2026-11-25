@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { AdminSnapshot, AuthorityBinding, CapabilityDefinition } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { FIELD_PROFILE_LABEL } from '@/utils/status'
 import { addDays, formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
@@ -14,7 +15,7 @@ import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 const session = useSessionStore()
 const tab = ref('users')
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const snapshot = ref<AdminSnapshot | null>(null)
 const search = ref('')
 const bindingDialogOpen = ref(false)
@@ -76,7 +77,7 @@ const filteredAudit = computed(() => {
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     const next = await getApi().admin.getAdminSnapshot(tab.value)
 
@@ -93,7 +94,7 @@ async function load(): Promise<void> {
 
     snapshot.value = next
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -191,7 +192,7 @@ onMounted(load)
       </button>
     </div>
 
-    <ErrorState v-if="error" description="权限治理数据暂时无法加载。" :code="error" @retry="load" />
+    <ErrorState v-if="pageError.message.value" description="权限治理数据暂时无法加载。" :code="pageError.code.value" @retry="load" />
     <LoadingState v-else-if="loading" :rows="8" label="正在加载权限治理数据" />
 
     <template v-else-if="snapshot">

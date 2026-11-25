@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { Payslip } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatMonthLabel } from '@/utils/format'
 import MoneyText from '@/components/MoneyText.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -12,16 +12,16 @@ import ErrorState from '@/components/ErrorState.vue'
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const slip = ref<Payslip | null>(null)
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     slip.value = await getApi().payroll.getPayslip(Number(props.id))
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -37,7 +37,7 @@ onMounted(load)
     </div>
 
     <LoadingState v-if="loading" :rows="8" label="正在加载工资条" />
-    <ErrorState v-else-if="error" title="无法查看工资条" :description="error" @retry="load" />
+    <ErrorState v-else-if="pageError.message.value" title="无法查看工资条" :description="pageError.message.value" @retry="load" />
 
     <template v-else-if="slip">
       <header class="payslip-header">

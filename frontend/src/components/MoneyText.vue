@@ -4,7 +4,7 @@ import { formatMoney } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
-    cents: number
+    cents?: number | null
     size?: 'sm' | 'md' | 'lg'
     tone?: 'default' | 'muted' | 'negative' | 'strong'
     label?: string
@@ -13,7 +13,9 @@ const props = withDefaults(
 )
 
 const formatted = computed(() => formatMoney(props.cents))
-const isNegative = computed(() => props.cents < 0)
+const isNegative = computed(
+  () => typeof props.cents === 'number' && Number.isSafeInteger(props.cents) && props.cents < 0,
+)
 </script>
 
 <template>

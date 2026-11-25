@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { WorkspaceProjection } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '@/utils/format'
 import MoneyText from '@/components/MoneyText.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -11,16 +12,16 @@ import FreshnessNote from '@/components/FreshnessNote.vue'
 
 const router = useRouter()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const data = ref<WorkspaceProjection | null>(null)
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     data.value = await getApi().workspace.get()
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -63,8 +64,14 @@ onMounted(load)
       </div>
     </header>
 
-    <el-alert v-if="error" type="error" :title="error" show-icon :closable="false">
+    <NoActiveEmploymentState
+      v-if="pageError.noActiveEmployment.value"
+      :request-id="pageError.requestId.value"
+      :links="pageError.safeLinks.value"
+    />
+    <el-alert v-else-if="pageError.message.value" type="error" :title="pageError.message.value" show-icon :closable="false">
       <el-button text size="small" @click="load">重试</el-button>
+      <span v-if="pageError.requestId.value" class="mono">请求编号：{{ pageError.requestId.value }}</span>
     </el-alert>
 
     <el-skeleton v-if="loading" :rows="8" animated />

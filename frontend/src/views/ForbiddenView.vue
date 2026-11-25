@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+
+const requestId = computed(() => {
+  const value = route.query.request_id
+  return typeof value === 'string' && value.length > 0 ? value : null
+})
 </script>
 
 <template>
@@ -19,6 +25,9 @@ const router = useRouter()
     </header>
     <section class="panel panel__body">
       <p class="small muted">请求路径：<span class="mono">{{ route.query.from ?? '—' }}</span></p>
+      <p v-if="requestId" class="small muted">
+        请求编号：<span class="mono" data-testid="request-id">{{ requestId }}</span>
+      </p>
       <div class="row" style="margin-top: 16px">
         <el-button type="primary" @click="router.push('/workspace')">返回我的工作台</el-button>
         <el-button @click="router.back()">返回上一页</el-button>

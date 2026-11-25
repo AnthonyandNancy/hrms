@@ -5,6 +5,7 @@ import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { getApi } from '@/api'
 import type { MoveImpact, MoveImpactFacts, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { useSessionStore } from '@/stores/session'
 import AsOfDatePicker from '@/components/AsOfDatePicker.vue'
@@ -15,7 +16,7 @@ import ErrorState from '@/components/ErrorState.vue'
 const session = useSessionStore()
 const asOf = ref(todayBusinessDate())
 const loading = ref(false)
-const error = ref('')
+const pageError = usePageError()
 const tree = ref<OrgNode[]>([])
 const expanded = ref(new Set<number>([1, 14, 11]))
 const selectedId = ref<number | null>(null)
@@ -61,12 +62,12 @@ const targetOptions = computed(() =>
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     tree.value = await getApi().organization.getOrgTree(asOf.value)
     if (!selectedId.value) selectedId.value = tree.value[0]?.id ?? null
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -137,7 +138,7 @@ async function commitMove(): Promise<void> {
     previewOpen.value = false
     await load()
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     committing.value = false
   }
@@ -161,7 +162,7 @@ onMounted(load)
       </div>
     </header>
 
-    <ErrorState v-if="error" description="组织架构暂时无法加载。" :code="error" @retry="load" />
+    <ErrorState v-if="pageError.message.value" description="组织架构暂时无法加载。" :code="pageError.code.value" @retry="load" />
 
     <div v-else class="org-layout">
       <section class="panel org-tree-panel">

@@ -8,6 +8,7 @@ import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { ExportJob, ExportPurpose, ExportRequest, ReportDefinition, ReportResult } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { exportSchema, validate } from '@/utils/validation'
@@ -18,7 +19,7 @@ echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const session = useSessionStore()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const definitions = ref<ReportDefinition[]>([])
 const selectedCode = ref('')
 const result = ref<ReportResult | null>(null)
@@ -55,12 +56,12 @@ const filterValues = reactive<Record<string, string>>({})
 
 async function loadDefinitions(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     definitions.value = await getApi().reporting.getReportDefinitions()
     if (!selectedCode.value && definitions.value[0]) selectedCode.value = definitions.value[0].code
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -75,7 +76,7 @@ async function runReport(): Promise<void> {
     await nextTick()
     renderChart()
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     running.value = false
   }
@@ -165,7 +166,7 @@ async function download(): Promise<void> {
     exportJob.value.downloadCount += 1
     ElMessage.success('下载已开始；本次下载已写入审计日志。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   }
 }
 
@@ -205,7 +206,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <ErrorState v-if="error" description="报表定义暂时无法加载。" :code="error" @retry="loadDefinitions" />
+    <ErrorState v-if="pageError.message.value" description="报表定义暂时无法加载。" :code="pageError.code.value" @retry="loadDefinitions" />
     <LoadingState v-else-if="loading" :rows="7" label="正在加载报表中心" />
 
     <template v-else>

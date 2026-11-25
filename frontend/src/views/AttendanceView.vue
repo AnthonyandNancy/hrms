@@ -4,11 +4,13 @@ import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { AttendanceCorrectionPayload, AttendanceDay, AttendanceMonth } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatMonthLabel, todayBusinessDate, weekdayLabel } from '@/utils/format'
 import { ATTENDANCE_STATUS } from '@/utils/status'
 import { correctionSchema, validate } from '@/utils/validation'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 
 function recentMonths(count: number): string[] {
   const today = todayBusinessDate()
@@ -25,7 +27,7 @@ function recentMonths(count: number): string[] {
 
 const month = ref(recentMonths(1)[0] ?? todayBusinessDate().slice(0, 7))
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const data = ref<AttendanceMonth | null>(null)
 const correctionOpen = ref(false)
 const submitting = ref(false)
@@ -61,11 +63,11 @@ const openingDay = computed(() => data.value?.days.find((day) => day.exceptionLa
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     data.value = await getApi().attendance.getAttendance(month.value)
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -139,7 +141,18 @@ onMounted(load)
       </div>
     </header>
 
-    <ErrorState v-if="error" description="考勤数据暂时无法加载。" :code="error" @retry="load" />
+    <NoActiveEmploymentState
+      v-if="pageError.noActiveEmployment.value"
+      :request-id="pageError.requestId.value"
+      :links="pageError.safeLinks.value"
+    />
+    <ErrorState
+      v-else-if="pageError.message.value"
+      description="考勤数据暂时无法加载。"
+      :code="pageError.code.value"
+      :request-id="pageError.requestId.value"
+      @retry="load"
+    />
     <LoadingState v-else-if="loading" :rows="8" label="正在加载考勤" />
 
     <template v-else-if="data">

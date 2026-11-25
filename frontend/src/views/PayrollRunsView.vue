@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { PayrollRunSummary } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '@/utils/format'
 import { PAYROLL_STATE } from '@/utils/status'
 import MoneyText from '@/components/MoneyText.vue'
@@ -13,16 +13,16 @@ import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const runs = ref<PayrollRunSummary[]>([])
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     runs.value = await getApi().payroll.listRuns()
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -51,7 +51,7 @@ onMounted(load)
       </div>
     </header>
 
-    <ErrorState v-if="error" description="工资批次暂时无法加载。" :code="error" @retry="load" />
+    <ErrorState v-if="pageError.message.value" description="工资批次暂时无法加载。" :code="pageError.code.value" @retry="load" />
     <LoadingState v-else-if="loading" :rows="6" label="正在加载工资批次" />
     <EmptyState
       v-else-if="runs.length === 0"

@@ -2,12 +2,13 @@ const DEFAULT_LOCALE = 'zh-CN'
 const DEFAULT_TIMEZONE = 'Asia/Shanghai'
 
 /**
- * Money is always transported as integer minor units (cents). This formatter
- * never accepts a float derived from strings or percentages.
+ * Money is always transported as integer minor units (cents). Invalid server
+ * payloads must be rejected by adapter normalizers; this formatter is the last
+ * rendering guard and never throws, so one bad amount cannot blank a page.
  */
-export function formatMoney(cents: number): string {
-  if (!Number.isSafeInteger(cents)) {
-    throw new TypeError('Money must be an integer number of cents')
+export function formatMoney(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined || !Number.isSafeInteger(cents)) {
+    return '—'
   }
   const sign = cents < 0 ? '-' : ''
   const absolute = Math.abs(cents)

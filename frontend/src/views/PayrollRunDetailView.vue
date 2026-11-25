@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { PayrollLine, PayrollRunDetail } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '@/utils/format'
 import { derivePayrollActions } from '@/api/normalise'
@@ -19,7 +19,7 @@ const router = useRouter()
 const session = useSessionStore()
 
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const data = ref<PayrollRunDetail | null>(null)
 const actionLoading = ref('')
 const activeTab = ref<'results' | 'reconciliation' | 'history'>('results')
@@ -46,11 +46,11 @@ const ACTION_LABEL: Record<PayrollRunDetail['availableActions'][number], string>
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     data.value = await getApi().payroll.getRun(Number(props.id))
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -91,7 +91,7 @@ async function runAction(action: PayrollRunDetail['availableActions'][number]): 
           : '批次状态已更新。',
     )
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     actionLoading.value = ''
   }
@@ -113,7 +113,7 @@ onMounted(load)
     </div>
 
     <LoadingState v-if="loading" :rows="9" label="正在加载工资批次" />
-    <ErrorState v-else-if="error" title="无法打开工资批次" :description="error" @retry="load" />
+    <ErrorState v-else-if="pageError.message.value" title="无法打开工资批次" :description="pageError.message.value" @retry="load" />
 
     <template v-else-if="data">
       <header class="payroll-hero">

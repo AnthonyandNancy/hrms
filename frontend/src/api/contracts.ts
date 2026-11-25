@@ -28,11 +28,17 @@ export type Paged<T> = {
   total: number
 }
 
+/**
+ * Stable error codes decoded from the single API envelope. Business-specific
+ * codes still carry their envelope code, so callers can give actionable copy.
+ */
 export type ApiErrorCode =
   | 'UNAUTHENTICATED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'METHOD_NOT_ALLOWED'
   | 'CONFLICT'
+  | 'NO_ACTIVE_EMPLOYMENT'
   | 'VALIDATION_FAILED'
   | 'RATE_LIMITED'
   | 'INTERNAL'

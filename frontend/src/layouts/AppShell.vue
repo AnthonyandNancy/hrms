@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import PageErrorBoundary from '@/components/PageErrorBoundary.vue'
+import { isChunkLoadError } from '@/utils/renderErrors'
 import {
   ArrowDown,
   Bell,
@@ -27,6 +29,20 @@ import { GROUP_LABEL, type NavigationItem } from '@/router/navigation'
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
+
+const routeChunkLoadFailed = ref(false)
+let removeRouterErrorListener: (() => void) | null = null
+
+function reloadPage(): void {
+  window.location.reload()
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    routeChunkLoadFailed.value = false
+  },
+)
 
 const mfaEnabled = false
 const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
@@ -93,9 +109,18 @@ async function handleCommand(command: string): Promise<void> {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  // A lazy route component can fail in the router guard before RouterView
+  // renders. Keep that failure local to the shell instead of letting it reach
+  // the app-level boundary.
+  removeRouterErrorListener = router.onError((error) => {
+    if (isChunkLoadError(error)) routeChunkLoadFailed.value = true
+  })
   void app.loadShellCounters()
 })
-onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  removeRouterErrorListener?.()
+})
 </script>
 
 <template>
@@ -197,13 +222,25 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
       </div>
 
       <main id="main-content" class="main-content" tabindex="-1">
-        <RouterView v-slot="{ Component }">
-          <Suspense>
-            <component :is="Component" />
-            <template #fallback>
-              <div class="route-loading" role="status">正在加载页面…</div>
-            </template>
-          </Suspense>
+        <section v-if="routeChunkLoadFailed" class="state-panel error-state page-boundary" role="alert">
+          <div class="state-panel__mark" aria-hidden="true">!</div>
+          <div class="state-panel__content">
+            <h2 class="state-panel__title">页面版本已更新，请刷新</h2>
+            <p class="state-panel__body">
+              当前页面引用的资源版本已过期。刷新后会加载最新版本，不会影响已保存的数据。
+            </p>
+          </div>
+          <el-button type="primary" plain @click="reloadPage">刷新页面</el-button>
+        </section>
+        <RouterView v-else v-slot="{ Component }">
+          <PageErrorBoundary :key="route.fullPath">
+            <Suspense>
+              <component :is="Component" v-if="Component" />
+              <template #fallback>
+                <div class="route-loading" role="status">正在加载页面…</div>
+              </template>
+            </Suspense>
+          </PageErrorBoundary>
         </RouterView>
       </main>
 

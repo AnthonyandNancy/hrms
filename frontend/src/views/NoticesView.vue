@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { Notice, NoticeStatus, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { publishNoticeSchema, validate } from '@/utils/validation'
@@ -14,7 +15,7 @@ import EmptyState from '@/components/EmptyState.vue'
 const session = useSessionStore()
 const filter = ref<'all' | 'unread' | 'managed'>('all')
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const notices = ref<Notice[]>([])
 const dialogOpen = ref(false)
 const submitting = ref(false)
@@ -53,11 +54,11 @@ const unreadCount = computed(() => notices.value.filter((notice) => !notice.ackn
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     notices.value = await getApi().notices.listNotices(filter.value)
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -71,7 +72,7 @@ async function acknowledge(notice: Notice): Promise<void> {
     Object.assign(notice, updated)
     ElMessage.success('已确认阅读，确认记录已保存。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   }
 }
 
@@ -90,7 +91,7 @@ async function retract(notice: Notice): Promise<void> {
     Object.assign(notice, updated)
     ElMessage.success('公告已撤回。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   }
 }
 
@@ -221,7 +222,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <ErrorState v-if="error" description="公告暂时无法加载。" :code="error" @retry="load" />
+    <ErrorState v-if="pageError.message.value" description="公告暂时无法加载。" :code="pageError.code.value" @retry="load" />
     <LoadingState v-else-if="loading" :rows="6" label="正在加载公告" />
     <EmptyState
       v-else-if="notices.length === 0"

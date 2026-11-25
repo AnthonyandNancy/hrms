@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { CaseAction, CaseDetail } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTimeInTimezone, formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { decisionSchema, validate } from '@/utils/validation'
@@ -18,7 +18,7 @@ const router = useRouter()
 const session = useSessionStore()
 
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const detail = ref<CaseDetail | null>(null)
 const dialogOpen = ref(false)
 const submitting = ref(false)
@@ -33,11 +33,11 @@ const actions = computed(() => (detail.value ? session.caseActions(detail.value.
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     detail.value = await getApi().cases.getCase(Number(props.id))
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -67,7 +67,7 @@ async function submit(): Promise<void> {
     dialogOpen.value = false
     ElMessage.success('审批决定已记录。申请状态与生效状态已分别更新。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     submitting.value = false
   }
@@ -89,7 +89,7 @@ async function retry(): Promise<void> {
     detail.value = await getApi().cases.retryCaseEffect(detail.value.id)
     ElMessage.success('生效任务已重试，当前生效状态已刷新。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     retrying.value = false
   }
@@ -109,7 +109,7 @@ onMounted(load)
     </div>
 
     <LoadingState v-if="loading" :rows="9" label="正在加载案例" />
-    <ErrorState v-else-if="error" title="无法打开案例" :description="error" @retry="load" />
+    <ErrorState v-else-if="pageError.message.value" title="无法打开案例" :description="pageError.message.value" @retry="load" />
 
     <template v-else-if="detail">
       <header class="case-hero">

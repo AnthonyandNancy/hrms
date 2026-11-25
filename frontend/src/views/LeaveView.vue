@@ -4,14 +4,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getApi } from '@/api'
 import type { CaseSummary, LeaveBalance, LeaveLedger, LeavePreview, LeaveRequestPayload } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { leaveRequestSchema, validate } from '@/utils/validation'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const balances = ref<LeaveBalance[]>([])
 const requests = ref<CaseSummary[]>([])
 const selectedType = ref('ANNUAL')
@@ -48,7 +50,7 @@ const weekdayGuard = computed(() => {
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     const [loadedBalances, loadedRequests] = await Promise.all([
       getApi().leave.getLeaveBalances(),
@@ -57,7 +59,7 @@ async function load(): Promise<void> {
     balances.value = loadedBalances
     requests.value = loadedRequests
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -127,7 +129,7 @@ async function cancel(item: CaseSummary): Promise<void> {
     ElMessage.success('申请已撤回，账本占用已释放。')
     await load()
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   }
 }
 
@@ -174,7 +176,18 @@ onMounted(async () => {
       </div>
     </header>
 
-    <ErrorState v-if="error" description="假期数据暂时无法加载。" :code="error" @retry="load" />
+    <NoActiveEmploymentState
+      v-if="pageError.noActiveEmployment.value"
+      :request-id="pageError.requestId.value"
+      :links="pageError.safeLinks.value"
+    />
+    <ErrorState
+      v-else-if="pageError.message.value"
+      description="假期数据暂时无法加载。"
+      :code="pageError.code.value"
+      :request-id="pageError.requestId.value"
+      @retry="load"
+    />
     <LoadingState v-else-if="loading" :rows="7" label="正在加载假期数据" />
 
     <template v-else>

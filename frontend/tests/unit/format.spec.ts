@@ -18,9 +18,13 @@ describe('money formatting from integer cents', () => {
     expect(formatMoney(1)).toBe('¥0.01')
   })
 
-  it('rejects non-integer or unsafe money input', () => {
-    expect(() => formatMoney(12.5)).toThrow(TypeError)
-    expect(() => formatMoney(Number.MAX_SAFE_INTEGER + 2)).toThrow(TypeError)
+  it('renders an em dash for absent, non-finite, non-integer or unsafe money input', () => {
+    expect(formatMoney(null)).toBe('—')
+    expect(formatMoney(undefined)).toBe('—')
+    expect(formatMoney(Number.NaN)).toBe('—')
+    expect(formatMoney(Number.POSITIVE_INFINITY)).toBe('—')
+    expect(formatMoney(12.5)).toBe('—')
+    expect(formatMoney(Number.MAX_SAFE_INTEGER + 2)).toBe('—')
   })
 
   it('parses yuan strings to exact cents', () => {

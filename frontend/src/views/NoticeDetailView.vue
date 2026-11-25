@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getApi } from '@/api'
 import type { Notice } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatDateTimeInTimezone } from '@/utils/format'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -12,17 +12,17 @@ import ErrorState from '@/components/ErrorState.vue'
 const props = defineProps<{ id: string }>()
 const router = useRouter()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const notice = ref<Notice | null>(null)
 const acknowledging = ref(false)
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     notice.value = await getApi().notices.getNotice(Number(props.id))
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -35,7 +35,7 @@ async function acknowledge(): Promise<void> {
     notice.value = await getApi().notices.acknowledgeNotice(notice.value.id)
     ElMessage.success('已确认阅读。')
   } catch (reason) {
-    ElMessage.error(errorCopy(reason))
+    pageError.reject(reason)
   } finally {
     acknowledging.value = false
   }
@@ -51,7 +51,7 @@ onMounted(load)
     </div>
 
     <LoadingState v-if="loading" :rows="8" label="正在加载公告" />
-    <ErrorState v-else-if="error" title="无法打开公告" :description="error" @retry="load" />
+    <ErrorState v-else-if="pageError.message.value" title="无法打开公告" :description="pageError.message.value" @retry="load" />
 
     <article v-else-if="notice" class="panel notice-article">
       <header class="notice-article__header">

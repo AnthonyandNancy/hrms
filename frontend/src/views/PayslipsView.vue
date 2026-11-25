@@ -3,25 +3,26 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApi } from '@/api'
 import type { Payslip } from '@/api/contracts'
-import { errorCopy } from '@/api/errors'
+import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatMonthLabel } from '@/utils/format'
 import MoneyText from '@/components/MoneyText.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 
 const router = useRouter()
 const loading = ref(true)
-const error = ref('')
+const pageError = usePageError()
 const payslips = ref<Payslip[]>([])
 
 async function load(): Promise<void> {
   loading.value = true
-  error.value = ''
+  pageError.clear()
   try {
     payslips.value = await getApi().payroll.listPayslips()
   } catch (reason) {
-    error.value = errorCopy(reason)
+    pageError.capture(reason)
   } finally {
     loading.value = false
   }
@@ -45,7 +46,18 @@ onMounted(load)
       </div>
     </header>
 
-    <ErrorState v-if="error" description="工资条暂时无法加载。" :code="error" @retry="load" />
+    <NoActiveEmploymentState
+      v-if="pageError.noActiveEmployment.value"
+      :request-id="pageError.requestId.value"
+      :links="pageError.safeLinks.value"
+    />
+    <ErrorState
+      v-else-if="pageError.message.value"
+      description="工资条暂时无法加载。"
+      :code="pageError.code.value"
+      :request-id="pageError.requestId.value"
+      @retry="load"
+    />
     <LoadingState v-else-if="loading" :rows="5" label="正在加载工资条" />
     <EmptyState
       v-else-if="payslips.length === 0"
