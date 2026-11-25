@@ -8,7 +8,7 @@ x-app-common: &app-common
     args:
       GIT_SHA: ${GIT_SHA:-unknown}
       BUILD_TIME: ${BUILD_TIME:-unknown}
-  image: factoryhr/php-app:${RELEASE_TAG:-local}
+  image: factoryhr/php-app:${RELEASE_TAG:-v11-0677576}
   restart: unless-stopped
   env_file:
     - path: ../../backend/.env
@@ -77,7 +77,7 @@ services:
       args:
         GIT_SHA: ${GIT_SHA:-unknown}
         BUILD_TIME: ${BUILD_TIME:-unknown}
-    image: factoryhr/frontend:${RELEASE_TAG:-local}
+    image: factoryhr/frontend:${RELEASE_TAG:-v11-0677576}
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-5174}:80"
