@@ -4,10 +4,10 @@
 > **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
 > 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 操作总数：**224**
-- 有能力的操作：**218**
+- v1 操作总数：**229**
+- 有能力的操作：**223**
 - 公共白名单操作：**6**
-- kernel 操作：**37**
+- kernel 操作：**45**
 
 ## 1. 台账
 
@@ -226,17 +226,22 @@
 | 211 | `GET` | `/v1/training/report` | `training.report.read` | `—` | legacy | D3 |
 | 212 | `GET` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
 | 213 | `POST` | `/v1/training/sessions` | `training.session.manage` | `—` | legacy | D3 |
-| 214 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | legacy | C3 |
-| 215 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | legacy | C3 |
-| 216 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | legacy | C3 |
-| 217 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
-| 218 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 219 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 220 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 221 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 222 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
-| 223 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
-| 224 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
+| 214 | `GET` | `/v1/travel/expenses` | `time.travel.expense` | `—` | kernel | — |
+| 215 | `POST` | `/v1/travel/expenses` | `time.travel.expense.manage` | `LEGAL_ENTITY` | kernel | — |
+| 216 | `GET` | `/v1/travel/policies` | `time.travel.policy.read` | `LEGAL_ENTITY` | kernel | — |
+| 217 | `POST` | `/v1/travel/policies` | `time.travel.policy.manage` | `LEGAL_ENTITY` | kernel | — |
+| 218 | `GET` | `/v1/travel/requests` | `time.travel.read` | `—` | kernel | — |
+| 219 | `POST` | `/v1/travel/requests` | `time.travel.request` | `—` | kernel | — |
+| 220 | `POST` | `/v1/travel/requests/{id}/approve` | `time.travel.approve` | `MANAGED` | kernel | — |
+| 221 | `POST` | `/v1/travel/requests/{id}/cancel` | `time.travel.request` | `—` | kernel | — |
+| 222 | `GET` | `/v1/users` | `iam.user.read` | `LEGAL_ENTITY` | legacy | D1 |
+| 223 | `POST` | `/v1/users` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 224 | `PATCH` | `/v1/users/{id}` | `iam.user.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 225 | `GET` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 226 | `POST` | `/v1/users/{id}/bindings` | `iam.binding.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 227 | `POST` | `/v1/users/{id}/roles` | `iam.role.manage` | `LEGAL_ENTITY` | legacy | D1 |
+| 228 | `GET` | `/v1/workflow/templates` | `workflow.case.read` | `—` | legacy | E3 |
+| 229 | `POST` | `/v1/workflow/templates` | `workflow.case.admin` | `—` | legacy | E3 |
 
 ## 2. 迁移规则
 

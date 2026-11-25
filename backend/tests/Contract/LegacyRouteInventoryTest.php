@@ -165,7 +165,7 @@ final class LegacyRouteInventoryTest extends TestCase
 
     public function test_the_ledger_covers_every_registered_operation(): void
     {
-        $this->assertCount(224, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
+        $this->assertCount(229, $this->ledger(), 'Every registered /v1 operation must have exactly one ledger row.');
     }
 
     public function test_the_unguarded_routes_are_exactly_the_public_allowlist(): void

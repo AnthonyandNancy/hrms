@@ -78,7 +78,6 @@ GET /v1/time/shifts
 GET /v1/training/programs
 GET /v1/training/report
 GET /v1/training/sessions
-GET /v1/travel/requests
 GET /v1/users
 GET /v1/users/{id}/bindings
 GET /v1/workflow/templates
@@ -178,8 +177,6 @@ POST /v1/training/enrollments
 POST /v1/training/enrollments/{id}/complete
 POST /v1/training/programs
 POST /v1/training/sessions
-POST /v1/travel/requests
-POST /v1/travel/requests/{id}/cancel
 POST /v1/users
 POST /v1/users/{id}/bindings
 POST /v1/users/{id}/roles
