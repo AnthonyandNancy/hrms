@@ -18,6 +18,7 @@ use App\Modules\Reporting\Services\ProjectionBuilder;
 use App\Modules\Reporting\Services\QueueExportDispatcher;
 use App\Modules\Reporting\Services\ReportDefinitionCatalog;
 use App\Modules\Reporting\Services\ReportService;
+use App\Modules\Reporting\Services\ReportSubscriptionService;
 use App\Modules\Talent\Contracts\RecruitmentFunnelDirectory;
 use App\Modules\Time\Contracts\LeaveLiabilityDirectory;
 use App\Modules\Workflow\Contracts\ReportingApprovalDirectory;
@@ -57,6 +58,17 @@ final class ReportingServiceProvider extends ServiceProvider
             $app->make(ReportDefinitionCatalog::class),
             $app->make(MetricQueryBuilder::class),
             $app->make(ProjectionBuilder::class),
+            $app->make(\App\Shared\Time\Clock::class),
+            $app->make(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class),
+        ));
+
+        $this->app->bind(ReportSubscriptionService::class, fn ($app): ReportSubscriptionService => new ReportSubscriptionService(
+            $app->make(ReportService::class),
+            $app->make(ReportDefinitionCatalog::class),
+            $app->make(\App\Shared\Authorization\Authorizer::class),
+            $app->make(\App\Shared\Authorization\Contracts\AccessSubjectStateDirectory::class),
+            $app->make(\App\Shared\Observability\AuditRecorder::class),
+            $app->make(\App\Shared\Time\TenantBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
 

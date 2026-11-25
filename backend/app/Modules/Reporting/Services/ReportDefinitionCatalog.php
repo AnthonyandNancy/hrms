@@ -6,6 +6,8 @@ namespace App\Modules\Reporting\Services;
 
 use App\Modules\Reporting\Models\ReportDefinition;
 use App\Shared\Authorization\FieldProfile;
+use App\Shared\Exceptions\ConflictException;
+use App\Shared\Exceptions\ValidationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -199,12 +201,15 @@ final class ReportDefinitionCatalog
     public function validateCustomDefinition(array $input): array
     {
         $filterInput = (array) ($input['filters'] ?? []);
+        // Filter keys are validated against the approved filter whitelist
+        // below, so a key named `where` yields UNKNOWN_REPORT_FILTER rather
+        // than the ambiguous SQL reason. Values are still scanned: a value
+        // containing SQL remains a hard SQL rejection.
         $filterText = array_is_list($filterInput)
             ? array_map('strval', $filterInput)
             : array_map(
-                static fn (mixed $key, mixed $value): string => $key.'='.(is_scalar($value) ? (string) $value : ''),
-                array_keys($filterInput),
-                $filterInput,
+                static fn (mixed $value): string => is_scalar($value) ? (string) $value : '',
+                array_values($filterInput),
             );
         $sqlPayload = [
             (string) ($input['code'] ?? ''),
@@ -312,9 +317,8 @@ final class ReportDefinitionCatalog
         if (ReportDefinition::query()
             ->where('tenant_id', $tenantId)
             ->where('code', $definition['code'])
-            ->where('is_system', true)
             ->exists()) {
-            throw new ConflictException('A system report definition with this code already exists.', ['reason' => 'REPORT_CODE_RESERVED']);
+            throw new ConflictException('A report definition with this code already exists.', ['reason' => 'REPORT_CODE_RESERVED']);
         }
 
         $row = ReportDefinition::query()->create([

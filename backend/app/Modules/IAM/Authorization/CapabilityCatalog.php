@@ -180,6 +180,7 @@ final class CapabilityCatalog
 
             new CapabilityDefinition('reporting.dashboard.read', 'dashboard', ['read'], [AnchorType::SELF, AnchorType::MANAGED, AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'medium', null, 'Read role-scoped dashboards.'),
             new CapabilityDefinition('reporting.export', 'report', ['export'], [AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P2_SENSITIVE, 'high', null, 'Export reports with a field whitelist and row cap.'),
+            new CapabilityDefinition('reporting.export.read', 'export_job', ['read'], [AnchorType::SELF, AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'medium', null, 'Read export job history with hashes, field whitelists and audit trail.'),
 
             new CapabilityDefinition('reporting.report.read', 'report', ['read'], [AnchorType::SELF, AnchorType::MANAGED, AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P2_SENSITIVE, 'medium', null, 'Read report definitions and execute authorized report views.'),
             new CapabilityDefinition('reporting.report.create', 'report', ['create', 'update'], [AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE, AnchorType::LEGAL_ENTITY], FieldProfile::P1_INTERNAL, 'medium', 'report_create', 'Build and save custom report definitions from approved dimensions and metrics.'),

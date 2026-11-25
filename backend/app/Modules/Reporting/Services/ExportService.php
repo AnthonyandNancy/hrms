@@ -12,10 +12,12 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
+use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
 use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 final class ExportService
 {
@@ -79,16 +81,22 @@ final class ExportService
         $token = bin2hex(random_bytes(32));
         $now = $this->clock->now();
         $watermark = sprintf('%s · %s · %s', $principal->userId(), $now->toIso8601ZuluString(), $purpose);
+        $fieldWhitelist = array_values(array_map('strval', $fields));
 
-        $job = DB::transaction(function () use ($principal, $purpose, $code, $asOf, $fields, $filters, $token, $now, $watermark): ExportJob {
+        $job = DB::transaction(function () use ($principal, $purpose, $code, $asOf, $filters, $token, $now, $watermark, $fieldWhitelist, $preview): ExportJob {
             return ExportJob::query()->create([
                 'tenant_id' => $principal->tenantId(),
                 'report_code' => $code,
                 'purpose' => $purpose,
-                'fields_json' => array_values(array_map('strval', $fields)),
+                'fields_json' => $fieldWhitelist,
+                'field_whitelist_json' => $fieldWhitelist,
                 'filters_json' => [...$filters, '_as_of' => $asOf],
                 'status' => 'QUEUED',
                 'row_count' => 0,
+                'source_hash' => $preview['source_hash'],
+                'audit_trail_json' => [
+                    ['action' => 'reporting.export.requested', 'actor_user_id' => $principal->userId(), 'at' => $now->toIso8601ZuluString()],
+                ],
                 'file_object_id' => null,
                 'expires_at' => $now->addHours(self::EXPIRY_HOURS),
                 'download_count' => 0,
@@ -110,7 +118,6 @@ final class ExportService
         return [
             ...$this->payload($job),
             'downloadToken' => $token,
-            'downloadUrl' => '/v1/reporting/exports/'.$job->id.'/download?token='.$token,
         ];
     }
 
@@ -127,11 +134,11 @@ final class ExportService
     /**
      * @return array{contents: string, filename: string}
      */
-    public function download(Principal $principal, int $jobId, string $token): array
+    public function download(Principal $principal, int $jobId, string $token, bool $signedUrl = false): array
     {
         $job = $this->find(principal: $principal, jobId: $jobId, includeExpired: true);
 
-        if (! $this->tokenMatches($job, $token)) {
+        if (! $signedUrl && ! $this->tokenMatches($job, $token)) {
             throw new NotFoundOrForbiddenException;
         }
 
@@ -165,6 +172,14 @@ final class ExportService
                 'row_count' => (int) $job->row_count,
             ],
         );
+
+        $trail = (array) ($job->audit_trail_json ?? []);
+        $trail[] = [
+            'action' => 'reporting.export.downloaded',
+            'actor_user_id' => $principal->userId(),
+            'at' => $this->clock->now()->toIso8601ZuluString(),
+        ];
+        $job->forceFill(['audit_trail_json' => $trail])->save();
 
         return [
             'contents' => $contents,
@@ -213,13 +228,28 @@ final class ExportService
      */
     private function payload(ExportJob $job): array
     {
+        $catalog = $this->catalog->payloadForTenant((int) $job->tenant_id);
+        $name = (string) $job->report_code;
+        $fields = (array) ($job->field_whitelist_json ?? $job->fields_json);
+
+        foreach ($catalog as $definition) {
+            if (($definition['code'] ?? null) === $job->report_code) {
+                $name = (string) $definition['name'];
+                break;
+            }
+        }
+
         return [
             'id' => (string) $job->id,
             'reportCode' => (string) $job->report_code,
-            'reportName' => (string) ($this->catalog->payloadForTenant((int) $job->tenant_id)[0]['name'] ?? $job->report_code),
+            'reportName' => $name,
             'status' => (string) $job->status,
             'purpose' => (string) $job->purpose,
+            'fields' => array_values(array_map('strval', $fields)),
+            'fieldWhitelist' => array_values(array_map('strval', $fields)),
             'rowCount' => (int) $job->row_count,
+            'source_hash' => (string) ($job->source_hash ?? ''),
+            'auditTrail' => (array) ($job->audit_trail_json ?? []),
             'createdAt' => $job->created_at?->toIso8601ZuluString(),
             'expiresAt' => $job->expires_at instanceof \Carbon\CarbonInterface
                 ? $job->expires_at->toIso8601ZuluString()
@@ -228,6 +258,47 @@ final class ExportService
             'maxDownloads' => (int) $job->max_downloads,
             'watermark' => (string) $job->watermark,
             'fileName' => strtolower((string) $job->report_code).'-'.$job->id.'.csv',
+            'downloadUrl' => $this->downloadUrl($job),
         ];
+    }
+
+    /**
+     * History is owner-scoped and always returns the ADR-0029 envelope. Rows
+     * expose hashes and whitelists only; the raw token is never re-readable.
+     */
+    public function history(Principal $principal, int $page, int $pageSize): ProjectionResult
+    {
+        $query = ExportJob::query()
+            ->where('tenant_id', $principal->tenantId())
+            ->where('requested_by', $principal->userId())
+            ->orderByDesc('id');
+
+        $total = (int) $query->clone()->count();
+        $items = $query->forPage($page, $pageSize)
+            ->get()
+            ->map(fn (ExportJob $job): array => $this->payload($job))
+            ->all();
+
+        return new ProjectionResult(
+            items: $items,
+            page: $page,
+            pageSize: $pageSize,
+            total: $total,
+            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            freshness: ProjectionResult::FRESHNESS_LIVE,
+            sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
+            partial: false,
+            partialReason: null,
+            drilldown: null,
+        );
+    }
+
+    private function downloadUrl(ExportJob $job): string
+    {
+        return URL::temporarySignedRoute(
+            'reporting.exports.download',
+            \Carbon\CarbonImmutable::now('UTC')->addHours(self::EXPIRY_HOURS),
+            ['jobId' => (int) $job->id],
+        );
     }
 }

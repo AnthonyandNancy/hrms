@@ -98,7 +98,8 @@ final class ReportSubscriptionTest extends ReportingTestCase
 
         // A recipient who may read today but loses the grant tomorrow must not
         // receive a report from an already-stored subscription.
-        $this->grant($recipient, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $ids['org_a_id']);
+        $this->grant($recipient, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $ids['org_a_id'], \App\Shared\Authorization\FieldProfile::P2_SENSITIVE);
+        \Illuminate\Support\Facades\Cache::flush();
 
         $created = $this->postJson('/v1/reporting/subscriptions', [
             'definition_code' => 'WORKFORCE_HEADCOUNT',
@@ -193,9 +194,9 @@ final class ReportSubscriptionTest extends ReportingTestCase
             (int) $ids['broad_user']->auth_version,
         );
 
-        $created = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $created = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no', 'org_path'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $history = $this->getJson('/v1/reporting/exports?page=1&page_size=20')->assertOk();
         $history->assertJsonStructure(['data' => [
@@ -211,7 +212,7 @@ final class ReportSubscriptionTest extends ReportingTestCase
         $this->assertNotEmpty($history->json('data.items.0.downloadUrl'));
         $this->assertNotEmpty($history->json('data.items.0.auditTrail'));
 
-        $download = $this->getJson('/v1/reporting/exports/'.$created['id'].'/download?token='.$created['downloadToken'])
+        $download = $this->getJson((string) $created['downloadUrl'])
             ->assertOk();
         $this->assertStringStartsWith("\xEF\xBB\xBF", (string) $download->getContent());
         $this->assertDatabaseHas('audit_events', [
@@ -246,7 +247,7 @@ final class ReportSubscriptionTest extends ReportingTestCase
         \Illuminate\Support\Facades\Cache::flush();
 
         if ($authorized) {
-            $this->grant($recipient, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $ids['org_a_id']);
+            $this->grant($recipient, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $ids['org_a_id'], \App\Shared\Authorization\FieldProfile::P2_SENSITIVE);
         }
     }
 }

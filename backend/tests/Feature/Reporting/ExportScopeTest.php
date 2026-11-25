@@ -41,16 +41,16 @@ final class ExportScopeTest extends ReportingTestCase
         ])->assertOk()->json('data');
 
         $this->assertSame(2, $report['totalRows']);
-        $this->assertCount(2, $report['rows']);
+        $this->assertCount(2, $report['items']);
         $reportEmployees = array_values(array_map(
             static fn (array $row): string => (string) $row['employee_no'],
-            $report['rows'],
+            $report['items'],
         ));
 
-        $created = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $created = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no', 'org_path'],
             'filters' => $filters,
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $this->assertSame('COMPLETED', $created['status']);
         $this->assertSame(2, $created['rowCount']);
@@ -81,9 +81,9 @@ final class ExportScopeTest extends ReportingTestCase
             (int) $ids['employment_a1_id'],
             (int) $ids['broad_user']->auth_version,
         );
-        $broad = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $broad = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $this->authenticate(
             (int) $ids['narrow_user']->id,
@@ -95,9 +95,9 @@ final class ExportScopeTest extends ReportingTestCase
             'as_of' => self::BUSINESS_DATE,
         ])->assertOk()->json('data');
 
-        $narrow = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $narrow = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $this->assertSame(4, $broad['rowCount']);
         $this->assertSame(2, $narrowReport['totalRows']);
@@ -107,7 +107,7 @@ final class ExportScopeTest extends ReportingTestCase
         $narrowCsv = $this->downloadCsv((int) $narrow['id'], (string) $narrow['downloadToken']);
         $this->assertCount(2, $narrowCsv['rows']);
         $this->assertSame(
-            array_values(array_map(static fn (array $row): string => (string) $row['employee_no'], $narrowReport['rows'])),
+            array_values(array_map(static fn (array $row): string => (string) $row['employee_no'], $narrowReport['items'])),
             array_values(array_map(static fn (array $row): string => (string) $row[0], $narrowCsv['rows'])),
         );
 
@@ -125,18 +125,18 @@ final class ExportScopeTest extends ReportingTestCase
             (int) $ids['broad_user']->auth_version,
         );
 
-        $invalidPurpose = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $invalidPurpose = $this->postExport('WORKFORCE_HEADCOUNT', [
             'purpose' => 'MARKETING',
             'fields' => ['employee_no'],
-        ]))->assertStatus(422);
+        ])->assertStatus(422);
 
         $invalidPurpose->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonPath('data.reason', 'INVALID_EXPORT_PURPOSE');
         $this->assertDatabaseCount('export_jobs', 0);
 
-        $unknownField = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $unknownField = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no', 'attacker_field'],
-        ]))->assertStatus(422);
+        ])->assertStatus(422);
 
         $unknownField->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonPath('data.reason', 'EXPORT_FIELD_NOT_ALLOWED');
@@ -145,17 +145,17 @@ final class ExportScopeTest extends ReportingTestCase
         // P3 salary is part of the Payroll report's schema, but the export
         // contract classifies it as restricted; it must be rejected rather
         // than silently emitted or silently dropped.
-        $hiddenField = $this->postJson('/v1/reporting/exports', $this->exportPayload('PAYROLL_COST', [
+        $hiddenField = $this->postExport('PAYROLL_COST', [
             'fields' => ['salary'],
-        ]))->assertStatus(422);
+        ])->assertStatus(422);
 
         $hiddenField->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonPath('data.reason', 'EXPORT_FIELD_HIDDEN');
         $this->assertDatabaseCount('export_jobs', 0);
 
-        $valid = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $valid = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $csv = $this->downloadCsv((int) $valid['id'], (string) $valid['downloadToken']);
         $this->assertSame(['Employee no.', 'watermark'], $csv['header']);
@@ -172,12 +172,12 @@ final class ExportScopeTest extends ReportingTestCase
             (int) $ids['broad_user']->auth_version,
         );
 
-        $created = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $created = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
-        $otherJob = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        ])->assertAccepted()->json('data');
+        $otherJob = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['org_path'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $jobId = (int) $created['id'];
         $token = (string) $created['downloadToken'];
@@ -222,9 +222,9 @@ final class ExportScopeTest extends ReportingTestCase
 
         $this->seedProjectionRows(50_001, (int) $ids['org_a_id'], (int) $ids['entity_id']);
 
-        $response = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $response = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertStatus(422);
+        ])->assertStatus(422);
 
         $response->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonPath('data.reason', 'EXPORT_ROW_CAP_EXCEEDED');
@@ -240,9 +240,9 @@ final class ExportScopeTest extends ReportingTestCase
             (int) $ids['broad_user']->auth_version,
         );
 
-        $countCapped = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $countCapped = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         for ($download = 1; $download <= 5; $download++) {
             $this->getJson(
@@ -256,9 +256,9 @@ final class ExportScopeTest extends ReportingTestCase
             '/v1/reporting/exports/'.$countCapped['id'].'/download?token='.$countCapped['downloadToken'],
         )->assertStatus(409)->assertJsonPath('data.reason', 'EXPORT_DOWNLOAD_LIMIT_REACHED');
 
-        $expiring = $this->postJson('/v1/reporting/exports', $this->exportPayload('WORKFORCE_HEADCOUNT', [
+        $expiring = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
-        ]))->assertAccepted()->json('data');
+        ])->assertAccepted()->json('data');
 
         $this->clock->setNow(CarbonImmutable::parse('2026-11-24T03:00:00Z', 'UTC'));
 

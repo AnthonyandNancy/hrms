@@ -27,6 +27,9 @@ final class ReportDefinition extends Model
         'drilldown_route',
         'catalog_version',
         'active',
+        'is_system',
+        'created_by',
+        'updated_by',
     ];
 
     /** @return array<string, string> */
@@ -39,6 +42,9 @@ final class ReportDefinition extends Model
             'filters_json' => 'array',
             'catalog_version' => 'integer',
             'active' => 'boolean',
+            'is_system' => 'boolean',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
         ];
     }
 }

@@ -36,6 +36,7 @@ use App\Modules\Platform\Http\Controllers\ReadinessController;
 use App\Modules\Platform\Http\Middleware\IdempotentCommand;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use App\Modules\Reporting\Http\Controllers\ReportingController;
+use App\Modules\Reporting\Http\Controllers\ReportSubscriptionController;
 use App\Modules\Talent\Http\Controllers\PerformanceController;
 use App\Modules\Talent\Http\Controllers\PerformanceCycleController;
 use App\Modules\Talent\Http\Controllers\PerformanceTemplateController;
@@ -920,13 +921,33 @@ Route::prefix('reporting')->middleware('auth.session')->group(function (): void 
         ->middleware('capability:reporting.dashboard.read')
         ->name('reporting.dashboard.metric');
     Route::get('/definitions', [ReportingController::class, 'definitions'])
-        ->middleware('capability:reporting.dashboard.read')
+        ->middleware('capability:reporting.report.read')
         ->name('reporting.definitions.index');
+    Route::post('/definitions', [ReportingController::class, 'createDefinition'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.definition.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('reporting.definitions.store');
     Route::post('/run', [ReportingController::class, 'run'])
-        ->middleware('capability:reporting.dashboard.read')
+        ->middleware('capability:reporting.report.read')
         ->name('reporting.run');
+    Route::get('/subscriptions', [ReportSubscriptionController::class, 'index'])
+        ->middleware('capability:reporting.subscription.manage')
+        ->name('reporting.subscriptions.index');
+    Route::post('/subscriptions', [ReportSubscriptionController::class, 'store'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('reporting.subscriptions.store');
+    Route::patch('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'update'])
+        ->whereNumber('subscriptionId')
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('reporting.subscriptions.update');
+    Route::delete('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'destroy'])
+        ->whereNumber('subscriptionId')
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('reporting.subscriptions.destroy');
+    Route::get('/exports', [ReportingController::class, 'exports'])
+        ->middleware('capability:reporting.export.read')
+        ->name('reporting.exports.index');
     Route::post('/exports', [ReportingController::class, 'createExport'])
-        ->middleware(['throttle:10,1', ResolveLegalEntityContext::class, 'capability:reporting.export,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['throttle:10,1', 'mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.export,LEGAL_ENTITY,legal_entity_id'])
         ->name('reporting.exports.store');
     Route::get('/exports/{jobId}/download', [ReportingController::class, 'download'])
         ->whereNumber('jobId')

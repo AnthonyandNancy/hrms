@@ -110,6 +110,7 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'reporting.report.read', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'reporting.report.create', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'reporting.subscription.manage', $le, FieldProfile::P1_INTERNAL),
+                $grant('HR_ADMIN', 'reporting.export.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'system.settings.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'workflow.case.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'workflow.case.create', $le, FieldProfile::P1_INTERNAL),
@@ -420,6 +421,7 @@ final class RoleTemplateCatalog
             new RoleTemplate('REPORT_VIEWER', 'Report viewer', 'Read and export authorized reports within a department anchor and field profile.', [
                 $grant('REPORT_VIEWER', 'reporting.dashboard.read', $ou, FieldProfile::P1_INTERNAL),
                 $grant('REPORT_VIEWER', 'reporting.export', $ou, FieldProfile::P2_SENSITIVE),
+                $grant('REPORT_VIEWER', 'reporting.export.read', $ou, FieldProfile::P1_INTERNAL),
                 $grant('REPORT_VIEWER', 'reporting.report.read', $ou, FieldProfile::P2_SENSITIVE),
                 $grant('REPORT_VIEWER', 'org.tree.read', $ou, FieldProfile::P0_PUBLIC),
                 $grant('REPORT_VIEWER', 'people.employee.read', $ou, FieldProfile::P1_INTERNAL),
