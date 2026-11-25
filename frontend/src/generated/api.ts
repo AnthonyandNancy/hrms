@@ -2850,6 +2850,145 @@ export interface paths {
         patch: operations["updatePosition"];
         trace?: never;
     };
+    "/v1/performance/indicators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List performance indicators as a live projection */
+        get: operations["listPerformanceIndicators"];
+        put?: never;
+        /** Create a reusable performance indicator */
+        post: operations["createPerformanceIndicator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List performance goals as a live projection */
+        get: operations["listPerformanceGoals"];
+        put?: never;
+        /** Set a performance goal for an employee and cycle */
+        post: operations["createPerformanceGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List multi-source performance feedback as a live projection */
+        get: operations["listPerformanceFeedback"];
+        put?: never;
+        /** Record 360 performance feedback */
+        post: operations["createPerformanceFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List append-only calibration evidence */
+        get: operations["listPerformanceCalibrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/reviews/{id}/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calibrate a review without changing self or manager ratings */
+        post: operations["calibratePerformanceReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List frozen and pending performance results */
+        get: operations["listPerformanceResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/cycles/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a cycle only when every review is submitted */
+        post: operations["publishPerformanceCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/performance/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-cycle performance completion report derived from live rows */
+        get: operations["listPerformanceReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/performance/templates": {
         parameters: {
             query?: never;
@@ -3713,6 +3852,116 @@ export interface components {
             valid_from: string;
             /** Format: date */
             valid_to: string;
+        };
+        PerformanceReportRow: {
+            cycle_id: number;
+            name: string;
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "PUBLISHED";
+            review_count: number;
+            submitted_reviews: number;
+            draft_reviews: number;
+            calibrated_reviews: number;
+        };
+        PerformanceProjectionData: {
+            items: unknown[];
+            page: number;
+            page_size: number;
+            total: number;
+            /** Format: date */
+            as_of: string;
+            /** @enum {string} */
+            freshness: "LIVE" | "MATERIALIZED" | "STALE";
+            source_hash: string;
+            partial: boolean;
+            partial_reason: string | null;
+            drilldown: {
+                [key: string]: unknown;
+            } | null;
+        };
+        PerformanceProjectionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["PerformanceProjectionData"];
+        };
+        PerformanceIndicator: {
+            indicator_id: number;
+            code: string;
+            name: string;
+            category: string | null;
+            data_source: string | null;
+            description: string | null;
+            active: boolean;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        PerformanceGoal: {
+            goal_id: number;
+            cycle_id: number;
+            employment_id: number;
+            indicator_id: number | null;
+            title: string;
+            target_value: string;
+            weight: number;
+            /** Format: date */
+            due_on: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED";
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        PerformanceFeedback: {
+            feedback_id: number;
+            cycle_id: number;
+            review_id: number | null;
+            from_employment_id: number;
+            to_employment_id: number;
+            /** @enum {string} */
+            feedback_type: "PEER" | "MANAGER" | "SELF" | "UPWARD" | "CROSS";
+            rating: string | null;
+            comments: string;
+            anonymous: boolean;
+            status: string;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        PerformanceCalibration: {
+            calibration_id: number;
+            cycle_id: number;
+            review_id: number;
+            previous_rating: string | null;
+            calibrated_rating: string;
+            reason: string;
+            calibrated_by: number;
+            /** Format: date-time */
+            recorded_at: string | null;
+        };
+        PerformanceResult: {
+            review_id: number;
+            cycle_id: number;
+            employment_id: number;
+            /** @enum {string|null} */
+            cycle_status: "DRAFT" | "ACTIVE" | "PUBLISHED" | null;
+            /** @enum {string} */
+            status: "DRAFT" | "SUBMITTED" | "APPEALED";
+            self_rating: string | null;
+            manager_rating: string | null;
+            calibrated_rating: string | null;
+            /** Format: date-time */
+            submitted_at: string | null;
+        };
+        PerformanceCyclePublication: {
+            cycle_id: number;
+            name: string;
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ACTIVE" | "PUBLISHED";
+            review_count: number;
         };
         PerformanceTemplate: {
             template_id: number;
@@ -10563,6 +10812,384 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceIndicators: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicator projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceIndicator"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPerformanceIndicator: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    category?: string | null;
+                    data_source?: string | null;
+                    description?: string | null;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Indicator created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PerformanceIndicator"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceGoals: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Goal projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceGoal"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPerformanceGoal: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cycle_id: number;
+                    employment_id: number;
+                    indicator_id?: number | null;
+                    title: string;
+                    target_value: string;
+                    weight?: number;
+                    /** Format: date */
+                    due_on?: string | null;
+                    /** @enum {string} */
+                    status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED";
+                };
+            };
+        };
+        responses: {
+            /** @description Goal created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PerformanceGoal"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceFeedback: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Feedback projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceFeedback"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPerformanceFeedback: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cycle_id: number;
+                    review_id?: number | null;
+                    from_employment_id: number;
+                    to_employment_id: number;
+                    /** @enum {string} */
+                    feedback_type: "PEER" | "MANAGER" | "SELF" | "UPWARD" | "CROSS";
+                    rating?: string | null;
+                    comments: string;
+                    anonymous?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Feedback recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PerformanceFeedback"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceCalibrations: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Calibration projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceCalibration"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    calibratePerformanceReview: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    calibrated_rating: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Review calibrated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PerformanceCalibration"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceResults: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Result projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceResult"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    publishPerformanceCycle: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cycle published and reviews frozen */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["PerformanceCyclePublication"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPerformanceReports: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Performance report projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerformanceProjectionEnvelope"] & {
+                        data?: components["schemas"]["PerformanceProjectionData"] & {
+                            items?: components["schemas"]["PerformanceReportRow"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

@@ -1157,4 +1157,81 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export'],
     ],
+
+    'GET /v1/performance/indicators' => [
+        'capability' => 'performance.indicator.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/performance/indicators' => [
+        'capability' => 'performance.indicator.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+
+    'GET /v1/performance/goals' => [
+        'capability' => 'performance.goal.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/performance/goals' => [
+        'capability' => 'performance.goal.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+
+    'GET /v1/performance/feedback' => [
+        'capability' => 'performance.feedback.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/performance/feedback' => [
+        'capability' => 'performance.feedback.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+
+    'GET /v1/performance/calibration' => [
+        'capability' => 'performance.calibration.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/performance/reviews/{id}/calibration' => [
+        'capability' => 'performance.calibration.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+
+    'GET /v1/performance/results' => [
+        'capability' => 'performance.result.publish',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+
+    'POST /v1/performance/cycles/{id}/publish' => [
+        'capability' => 'performance.result.publish',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing'],
+    ],
+
+    'GET /v1/performance/reports' => [
+        'capability' => 'performance.report.read',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
 ];

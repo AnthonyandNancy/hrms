@@ -311,12 +311,26 @@ describe('Wave 4 talent domain components', () => {
       '/v1/training/sessions',
     )
 
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/indicators')?.readPath).toBe(
+      '/v1/performance/indicators',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/goals')?.readPath).toBe(
+      '/v1/performance/goals',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/feedback')?.readPath).toBe(
+      '/v1/performance/feedback',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/calibration')?.readPath).toBe(
+      '/v1/performance/calibration',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/results')?.readPath).toBe(
+      '/v1/performance/results',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/reports')?.readPath).toBe(
+      '/v1/performance/reports',
+    )
+
     const plannedGaps = new Map([
-      ['performance/indicators', '/v1/performance/indicators'],
-      ['performance/goals', '/v1/performance/goals'],
-      ['performance/feedback', '/v1/performance/feedback'],
-      ['performance/calibration', '/v1/performance/calibration'],
-      ['performance/results', '/v1/performance/results'],
       ['recruitment/candidates/imports', '/v1/recruitment/candidates/imports'],
       ['recruitment/candidates/pipeline', '/v1/recruitment/candidates/pipeline'],
       ['recruitment/candidates/communications', '/v1/recruitment/candidates/{id}/communications'],
@@ -414,12 +428,105 @@ describe('Wave 4 talent domain components', () => {
   it('shows an explicit backend-pending panel with the planned path for unbacked pages', async () => {
     resource.get.mockResolvedValue(listResponse())
 
+    const wrapper = await mountWithRouter('recruitment/candidates/imports', '/recruitment/candidates/imports')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates', expect.any(Object))
+    expect(wrapper.text()).toContain('后端接口待补')
+    expect(wrapper.text()).toContain('/v1/recruitment/candidates/imports')
+    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
+  })
+
+  it('loads performance indicators from the live endpoint and creates one with an idempotency key', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { indicator_id: 71, code: 'IND-QUALITY', name: 'Synthetic quality', category: 'DELIVERY', data_source: 'Ledger', active: true },
+    ]))
+    resource.post.mockResolvedValue({
+      indicator_id: 72,
+      code: 'IND-SPEED',
+      name: 'Synthetic speed',
+      category: null,
+      data_source: null,
+      description: null,
+      active: true,
+      recorded_at: '2026-11-25T01:00:00Z',
+    })
+
     const wrapper = await mountWithRouter('performance/indicators', '/performance/indicators')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/performance/cycles', expect.any(Object))
-    expect(wrapper.text()).toContain('后端接口待补')
-    expect(wrapper.text()).toContain('/v1/performance/indicators')
-    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
+    expect(resource.get).toHaveBeenCalledWith('/v1/performance/indicators', expect.any(Object))
+    expect(wrapper.text()).toContain('IND-QUALITY')
+
+    await wrapper.get('[data-testid="indicator-code"]').setValue('IND-SPEED')
+    await wrapper.get('[data-testid="indicator-name"]').setValue('Synthetic speed')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/performance/indicators',
+      expect.objectContaining({ code: 'IND-SPEED', name: 'Synthetic speed', active: true }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('指标“IND-SPEED”已创建')
+  })
+
+  it('shows REVIEWS_NOT_SUBMITTED when publishing an incomplete cycle without hiding the request id', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { review_id: 88, cycle_id: 5, employment_id: 12, cycle_status: 'ACTIVE', status: 'DRAFT', self_rating: '4', manager_rating: null, calibrated_rating: '4.5' },
+    ]))
+    resource.post.mockRejectedValue({
+      code: 'CONFLICT',
+      status: 409,
+      request_id: 'req-publish-incomplete',
+      data: { reason: 'REVIEWS_NOT_SUBMITTED', unsubmitted_reviews: 1 },
+    } as unknown as Error)
+
+    const wrapper = await mountWithRouter('performance/results', '/performance/results')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/performance/results', expect.any(Object))
+    await wrapper.get('[data-testid="publish-cycle-id"]').setValue('5')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/performance/cycles/5/publish',
+      {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('REVIEWS_NOT_SUBMITTED')
+    expect(wrapper.text()).toContain('req-publish-incomplete')
+  })
+
+  it('posts calibration without asking the client to alter self or manager ratings', async () => {
+    resource.get.mockResolvedValue(listResponse())
+    resource.post.mockResolvedValue({
+      calibration_id: 3,
+      review_id: 66,
+      cycle_id: 5,
+      previous_rating: null,
+      calibrated_rating: '3.5',
+      self_rating: '4',
+      manager_rating: '4',
+      reason: 'Synthetic calibration',
+    })
+
+    const wrapper = await mountWithRouter('performance/calibration', '/performance/calibration')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/performance/calibration', expect.any(Object))
+    await wrapper.get('[data-testid="calibration-review-id"]').setValue('66')
+    await wrapper.get('[data-testid="calibration-rating"]').setValue('3.5')
+    await wrapper.get('[data-testid="calibration-reason"]').setValue('Synthetic calibration')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/performance/reviews/66/calibration',
+      { calibrated_rating: '3.5', reason: 'Synthetic calibration' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('自评与主管评分保持不变')
   })
 })

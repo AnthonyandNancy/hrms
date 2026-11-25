@@ -1801,6 +1801,148 @@ components:
         valid_to:
           type: string
           format: date
+    PerformanceReportRow:
+      type: object
+      required: [cycle_id, name, period_from, period_to, status, review_count, submitted_reviews, draft_reviews, calibrated_reviews]
+      properties:
+        cycle_id: {type: integer}
+        name: {type: string}
+        period_from: {type: string, format: date}
+        period_to: {type: string, format: date}
+        status: {type: string, enum: [DRAFT, ACTIVE, PUBLISHED]}
+        review_count: {type: integer, minimum: 0}
+        submitted_reviews: {type: integer, minimum: 0}
+        draft_reviews: {type: integer, minimum: 0}
+        calibrated_reviews: {type: integer, minimum: 0}
+    PerformanceProjectionData:
+      type: object
+      required:
+        - items
+        - page
+        - page_size
+        - total
+        - as_of
+        - freshness
+        - source_hash
+        - partial
+        - partial_reason
+        - drilldown
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 1
+        page_size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        as_of:
+          type: string
+          format: date
+        freshness:
+          type: string
+          enum: [LIVE, MATERIALIZED, STALE]
+        source_hash:
+          type: string
+        partial:
+          type: boolean
+        partial_reason:
+          type:
+            - string
+            - "null"
+        drilldown:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    PerformanceProjectionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PerformanceProjectionData"
+    PerformanceIndicator:
+      type: object
+      required: [indicator_id, code, name, category, data_source, description, active, recorded_at]
+      properties:
+        indicator_id: {type: integer}
+        code: {type: string, maxLength: 64}
+        name: {type: string, maxLength: 160}
+        category: {type: [string, "null"], maxLength: 64}
+        data_source: {type: [string, "null"], maxLength: 120}
+        description: {type: [string, "null"]}
+        active: {type: boolean}
+        recorded_at: {type: [string, "null"], format: date-time}
+    PerformanceGoal:
+      type: object
+      required: [goal_id, cycle_id, employment_id, indicator_id, title, target_value, weight, due_on, status, recorded_at]
+      properties:
+        goal_id: {type: integer}
+        cycle_id: {type: integer}
+        employment_id: {type: integer}
+        indicator_id: {type: [integer, "null"]}
+        title: {type: string, maxLength: 200}
+        target_value: {type: string, maxLength: 120}
+        weight: {type: integer, minimum: 0, maximum: 100}
+        due_on: {type: [string, "null"], format: date}
+        status: {type: string, enum: [DRAFT, CONFIRMED, IN_PROGRESS, COMPLETED]}
+        recorded_at: {type: [string, "null"], format: date-time}
+    PerformanceFeedback:
+      type: object
+      required: [feedback_id, cycle_id, review_id, from_employment_id, to_employment_id, feedback_type, rating, comments, anonymous, status, recorded_at]
+      properties:
+        feedback_id: {type: integer}
+        cycle_id: {type: integer}
+        review_id: {type: [integer, "null"]}
+        from_employment_id: {type: integer}
+        to_employment_id: {type: integer}
+        feedback_type: {type: string, enum: [PEER, MANAGER, SELF, UPWARD, CROSS]}
+        rating: {type: [string, "null"], maxLength: 16}
+        comments: {type: string}
+        anonymous: {type: boolean}
+        status: {type: string}
+        recorded_at: {type: [string, "null"], format: date-time}
+    PerformanceCalibration:
+      type: object
+      required: [calibration_id, cycle_id, review_id, previous_rating, calibrated_rating, reason, calibrated_by, recorded_at]
+      properties:
+        calibration_id: {type: integer}
+        cycle_id: {type: integer}
+        review_id: {type: integer}
+        previous_rating: {type: [string, "null"], maxLength: 16}
+        calibrated_rating: {type: string, maxLength: 16}
+        reason: {type: string}
+        calibrated_by: {type: integer}
+        recorded_at: {type: [string, "null"], format: date-time}
+    PerformanceResult:
+      type: object
+      required: [review_id, cycle_id, employment_id, cycle_status, status, self_rating, manager_rating, calibrated_rating, submitted_at]
+      properties:
+        review_id: {type: integer}
+        cycle_id: {type: integer}
+        employment_id: {type: integer}
+        cycle_status: {type: [string, "null"], enum: [DRAFT, ACTIVE, PUBLISHED, null]}
+        status: {type: string, enum: [DRAFT, SUBMITTED, APPEALED]}
+        self_rating: {type: [string, "null"], maxLength: 16}
+        manager_rating: {type: [string, "null"], maxLength: 16}
+        calibrated_rating: {type: [string, "null"], maxLength: 16}
+        submitted_at: {type: [string, "null"], format: date-time}
+    PerformanceCyclePublication:
+      type: object
+      required: [cycle_id, name, period_from, period_to, status, review_count]
+      properties:
+        cycle_id: {type: integer}
+        name: {type: string}
+        period_from: {type: string, format: date}
+        period_to: {type: string, format: date}
+        status: {type: string, enum: [DRAFT, ACTIVE, PUBLISHED]}
+        review_count: {type: integer, minimum: 0}
     PerformanceTemplate:
       type: object
       required:
@@ -11987,6 +12129,419 @@ paths:
                   enum:
                     - ACTIVE
                     - DISABLED
+  /v1/performance/indicators:
+    get:
+      operationId: listPerformanceIndicators
+      tags: [Talent]
+      summary: List performance indicators as a live projection
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Indicator projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceIndicator"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.indicator.manage
+    post:
+      operationId: createPerformanceIndicator
+      tags: [Talent]
+      summary: Create a reusable performance indicator
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: {type: string, maxLength: 64}
+                name: {type: string, maxLength: 160}
+                category: {type: [string, "null"], maxLength: 64}
+                data_source: {type: [string, "null"], maxLength: 120}
+                description: {type: [string, "null"], maxLength: 4000}
+                active: {type: boolean}
+      responses:
+        "201":
+          description: Indicator created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PerformanceIndicator"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.indicator.manage
+  /v1/performance/goals:
+    get:
+      operationId: listPerformanceGoals
+      tags: [Talent]
+      summary: List performance goals as a live projection
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Goal projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceGoal"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.goal.manage
+    post:
+      operationId: createPerformanceGoal
+      tags: [Talent]
+      summary: Set a performance goal for an employee and cycle
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cycle_id, employment_id, title, target_value]
+              properties:
+                cycle_id: {type: integer, minimum: 1}
+                employment_id: {type: integer, minimum: 1}
+                indicator_id: {type: [integer, "null"], minimum: 1}
+                title: {type: string, maxLength: 200}
+                target_value: {type: string, maxLength: 120}
+                weight: {type: integer, minimum: 0, maximum: 100}
+                due_on: {type: [string, "null"], format: date}
+                status: {type: string, enum: [DRAFT, CONFIRMED, IN_PROGRESS, COMPLETED]}
+      responses:
+        "201":
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PerformanceGoal"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.goal.manage
+  /v1/performance/feedback:
+    get:
+      operationId: listPerformanceFeedback
+      tags: [Talent]
+      summary: List multi-source performance feedback as a live projection
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Feedback projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.feedback.manage
+    post:
+      operationId: createPerformanceFeedback
+      tags: [Talent]
+      summary: Record 360 performance feedback
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cycle_id, from_employment_id, to_employment_id, feedback_type, comments]
+              properties:
+                cycle_id: {type: integer, minimum: 1}
+                review_id: {type: [integer, "null"], minimum: 1}
+                from_employment_id: {type: integer, minimum: 1}
+                to_employment_id: {type: integer, minimum: 1}
+                feedback_type: {type: string, enum: [PEER, MANAGER, SELF, UPWARD, CROSS]}
+                rating: {type: [string, "null"], maxLength: 16}
+                comments: {type: string, maxLength: 10000}
+                anonymous: {type: boolean}
+      responses:
+        "201":
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PerformanceFeedback"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.feedback.manage
+  /v1/performance/calibration:
+    get:
+      operationId: listPerformanceCalibrations
+      tags: [Talent]
+      summary: List append-only calibration evidence
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Calibration projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceCalibration"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.calibration.manage
+  /v1/performance/reviews/{id}/calibration:
+    post:
+      operationId: calibratePerformanceReview
+      tags: [Talent]
+      summary: Calibrate a review without changing self or manager ratings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, minimum: 1}
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [calibrated_rating, reason]
+              properties:
+                calibrated_rating: {type: string, maxLength: 16}
+                reason: {type: string, minLength: 3, maxLength: 4000}
+      responses:
+        "200":
+          description: Review calibrated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PerformanceCalibration"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.calibration.manage
+  /v1/performance/results:
+    get:
+      operationId: listPerformanceResults
+      tags: [Talent]
+      summary: List frozen and pending performance results
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Result projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceResult"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+  /v1/performance/cycles/{id}/publish:
+    post:
+      operationId: publishPerformanceCycle
+      tags: [Talent]
+      summary: Publish a cycle only when every review is submitted
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, minimum: 1}
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Cycle published and reviews frozen
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PerformanceCyclePublication"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+  /v1/performance/reports:
+    get:
+      operationId: listPerformanceReports
+      tags: [Talent]
+      summary: Per-cycle performance completion report derived from live rows
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Performance report projection
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PerformanceProjectionEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/PerformanceProjectionData"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/PerformanceReportRow"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.report.read
   /v1/performance/templates:
     get:
       operationId: listPerformanceTemplates

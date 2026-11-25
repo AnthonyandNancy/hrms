@@ -34,6 +34,7 @@ use App\Modules\Platform\Http\Middleware\IdempotentCommand;
 use App\Modules\Reporting\Http\Controllers\DashboardController;
 use App\Modules\Reporting\Http\Controllers\ReportingController;
 use App\Modules\Talent\Http\Controllers\PerformanceController;
+use App\Modules\Talent\Http\Controllers\PerformanceCycleController;
 use App\Modules\Talent\Http\Controllers\PerformanceTemplateController;
 use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Http\Controllers\TrainingController;
@@ -629,6 +630,42 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
         ->whereNumber('id')
         ->middleware('capability:performance.appeal.manage')
         ->name('performance.reviews.appeals.store');
+
+    Route::get('/indicators', [PerformanceCycleController::class, 'indicators'])
+        ->middleware('capability:performance.indicator.manage')
+        ->name('performance.indicators.index');
+    Route::post('/indicators', [PerformanceCycleController::class, 'storeIndicator'])
+        ->middleware('capability:performance.indicator.manage')
+        ->name('performance.indicators.store');
+    Route::get('/goals', [PerformanceCycleController::class, 'goals'])
+        ->middleware('capability:performance.goal.manage')
+        ->name('performance.goals.index');
+    Route::post('/goals', [PerformanceCycleController::class, 'storeGoal'])
+        ->middleware('capability:performance.goal.manage')
+        ->name('performance.goals.store');
+    Route::get('/feedback', [PerformanceCycleController::class, 'feedback'])
+        ->middleware('capability:performance.feedback.manage')
+        ->name('performance.feedback.index');
+    Route::post('/feedback', [PerformanceCycleController::class, 'storeFeedback'])
+        ->middleware('capability:performance.feedback.manage')
+        ->name('performance.feedback.store');
+    Route::get('/calibration', [PerformanceCycleController::class, 'calibrations'])
+        ->middleware('capability:performance.calibration.manage')
+        ->name('performance.calibration.index');
+    Route::post('/reviews/{id}/calibration', [PerformanceCycleController::class, 'storeCalibration'])
+        ->whereNumber('id')
+        ->middleware('capability:performance.calibration.manage')
+        ->name('performance.reviews.calibration.store');
+    Route::get('/results', [PerformanceCycleController::class, 'results'])
+        ->middleware('capability:performance.result.publish')
+        ->name('performance.results.index');
+    Route::get('/reports', [PerformanceCycleController::class, 'reports'])
+        ->middleware('capability:performance.report.read')
+        ->name('performance.reports.index');
+    Route::post('/cycles/{id}/publish', [PerformanceCycleController::class, 'publishCycle'])
+        ->whereNumber('id')
+        ->middleware('capability:performance.result.publish')
+        ->name('performance.cycles.publish');
 });
 
 Route::prefix('training')->middleware(['auth.session'])->group(function (): void {
