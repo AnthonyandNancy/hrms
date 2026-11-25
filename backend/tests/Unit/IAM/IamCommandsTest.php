@@ -33,7 +33,7 @@ final class IamCommandsTest extends TestCase
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
         $this->assertSame($firstCount, Capability::query()->count());
-        $this->assertSame(10, Role::query()->where('is_template', true)->count());
+        $this->assertSame(14, Role::query()->where('is_template', true)->count());
 
         AuthorityBinding::factory()->create([
             'principal_id' => 1,

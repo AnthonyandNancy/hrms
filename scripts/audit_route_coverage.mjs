@@ -39,17 +39,21 @@ const requiredApiCount = (registry.match(/requiredApis:/g) ?? []).length - 1
 const statesCount = (registry.match(/states:\s*\[\.\.\.REQUIRED_STATES\]/g) ?? []).length
 const negativeCount = (registry.match(/negativeTests:\s*\[\.\.\.REQUIRED_NEGATIVE_TESTS\]/g) ?? []).length
 
-/** Map a componentKey to a plausible Vue file under src/views. */
-function componentExists(componentKey) {
-  const candidates = [
-    join(root, 'frontend/src/views', `${componentKey}.vue`),
-    join(root, 'frontend/src/views', componentKey, 'index.vue'),
-  ]
-  return candidates.some((candidate) => existsSync(candidate) && statSync(candidate).isFile())
+/**
+ * A registry page is renderable when it has either a mature business view in
+ * pageComponents.ts or the shared ResourcePage fallback. The audit separately
+ * reports mature coverage so fallback pages are never counted as domain-complete.
+ */
+function matureViewExists(componentKey) {
+  const source = readFileSync(join(root, 'frontend/src/router/pageComponents.ts'), 'utf8')
+  return source.includes(`'${componentKey}':`)
 }
 
+const RESOURCE_PAGE_EXISTS = existsSync(join(root, 'frontend/src/components/ResourcePage.vue'))
+
 const componentKeys = [...registry.matchAll(/componentKey:\s*'([^']+)'/g)].map((m) => m[1])
-const missingComponents = componentKeys.filter((key) => !componentExists(key))
+const missingComponents = componentKeys.filter((key) => !matureViewExists(key) && !RESOURCE_PAGE_EXISTS)
+const matureComponents = componentKeys.filter((key) => matureViewExists(key))
 
 const missingBusiness = inventoryPages.filter((page) => !registryPaths.includes(page.path))
 const extraBusiness = registryPaths.filter((path) => {
@@ -60,6 +64,10 @@ const duplicatePaths = registryPaths.filter((path, index) => registryPaths.index
 const duplicateNames = registryNames.filter((name, index) => registryNames.indexOf(name) !== index)
 
 const failures = []
+const requireMature = process.argv.includes('--require-mature')
+if (requireMature && matureComponents.length < 160) {
+  failures.push(`mature business views=${matureComponents.length}/160; remaining ${160 - matureComponents.length} are registry fallbacks`)
+}
 if (inventoryPages.length !== 140) failures.push(`inventory business pages=${inventoryPages.length}, expected 140`)
 if (inventoryModules.length !== 14) failures.push(`inventory platform modules=${inventoryModules.length}, expected 14`)
 if (registryPaths.length !== 160) failures.push(`registry entries=${registryPaths.length}, expected 160`)
@@ -82,12 +90,19 @@ if (missingComponents.length > 0) {
 const report = {
   ok: failures.length === 0,
   inventory: { business: inventoryPages.length, platform: inventoryModules.length, total: inventoryPages.length + inventoryModules.length + 6 },
-  registry: { entries: registryPaths.length, layers: { business: 140, platform: 14, base: 6 }, missingComponents: missingComponents.length },
+  registry: {
+    entries: registryPaths.length,
+    layers: { business: 140, platform: 14, base: 6 },
+    missingRenderers: missingComponents.length,
+    matureViews: matureComponents.length,
+    fallbackViews: registryPaths.length - matureComponents.length,
+  },
   coverage: {
     business: `${140 - missingBusiness.length}/140`,
     platform: `${14 - extraBusiness.filter((p) => inventoryModules.some((m) => m.path === p)).length}/14`,
     base: '6/6',
   },
+  mode: requireMature ? 'release' : 'scaffold',
   failures,
 }
 

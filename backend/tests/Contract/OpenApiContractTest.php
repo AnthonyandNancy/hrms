@@ -83,7 +83,7 @@ class OpenApiContractTest extends TestCase
             $schemas['HealthData']['required'],
         );
         $this->assertSame(
-            ['version', 'environment', 'server_time', 'supported_timezones', 'api_version'],
+            ['version', 'environment', 'server_time', 'supported_timezones', 'api_version', 'commit', 'build_time', 'spa_build_sha'],
             $schemas['MetaData']['required'],
         );
         $this->assertSame(

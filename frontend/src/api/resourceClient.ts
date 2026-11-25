@@ -58,9 +58,22 @@ export async function resourceGet<T = unknown>(path: string, params?: Record<str
   }
 }
 
-export async function resourcePost<T = unknown>(path: string, body?: Record<string, unknown>): Promise<T> {
+export type ResourceRequestOptions = {
+  /** Required by every backend write command. */
+  idempotencyKey?: string
+  headers?: Record<string, string>
+}
+
+export async function resourcePost<T = unknown>(
+  path: string,
+  body?: Record<string, unknown>,
+  options: ResourceRequestOptions = {},
+): Promise<T> {
   try {
-    const response = await http().post<ApiEnvelope<T>>(path, body ?? {})
+    const headers: Record<string, string> = { ...(options.headers ?? {}) }
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
+
+    const response = await http().post<ApiEnvelope<T>>(path, body ?? {}, { headers })
     return response.data.data
   } catch (error) {
     translate(error)

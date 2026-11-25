@@ -45,6 +45,14 @@ return [
             'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
         ],
         [
+            'method' => 'GET',
+            'path' => '/v1/me/permissions',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'low',
+            'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
+        ],
+        [
             'method' => 'POST',
             'path' => '/v1/auth/logout',
             'capability' => 'iam.session.manage',

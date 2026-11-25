@@ -82,11 +82,11 @@ class CapabilityCatalogTest extends TestCase
         }
     }
 
-    public function test_exactly_ten_role_templates_exist_and_are_code_owned(): void
+    public function test_exactly_fourteen_role_templates_exist_and_are_code_owned(): void
     {
         $templates = RoleTemplateCatalog::templates();
 
-        $this->assertCount(10, $templates);
+        $this->assertCount(14, $templates);
         $this->assertSame([
             'SUPER_ADMIN',
             'SYSTEM_ADMIN',
@@ -94,10 +94,14 @@ class CapabilityCatalogTest extends TestCase
             'HR_SPECIALIST',
             'RECRUITER',
             'PAYROLL_SPECIALIST',
+            'PAYROLL_APPROVER',
             'ATTENDANCE_SPECIALIST',
             'LINE_MANAGER',
             'EMPLOYEE',
             'AUDITOR',
+            'TRAINING_ADMIN',
+            'BENEFITS_ADMIN',
+            'REPORT_VIEWER',
         ], array_map(static fn ($template): string => $template->code, $templates));
     }
 
