@@ -1403,6 +1403,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/lifecycle/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paginated lifecycle intents with workflow status
+         * @description Requires capability `lifecycle.case.read`. Filter by type, status, employment or free text.
+         */
+        get: operations["listLifecycleCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/lifecycle/cases/{caseId}": {
         parameters: {
             query?: never;
@@ -7352,6 +7372,39 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listLifecycleCases: {
+        parameters: {
+            query?: {
+                case_type?: string;
+                status?: string;
+                employment_id?: number;
+                q?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lifecycle case page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Paginated"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

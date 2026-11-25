@@ -8001,6 +8001,52 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.rehire.manage
+  /v1/lifecycle/cases:
+    get:
+      tags: [Lifecycle]
+      operationId: listLifecycleCases
+      summary: Paginated lifecycle intents with workflow status
+      description: Requires capability `lifecycle.case.read`. Filter by type, status, employment or free text.
+      parameters:
+        - name: case_type
+          in: query
+          schema: {type: string, maxLength: 64}
+        - name: status
+          in: query
+          schema: {type: string, maxLength: 24}
+        - name: employment_id
+          in: query
+          schema: {type: integer, minimum: 1}
+        - name: q
+          in: query
+          schema: {type: string, maxLength: 120}
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      x-capability: lifecycle.case.read
+      responses:
+        "200":
+          description: Lifecycle case page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Paginated"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/lifecycle/cases/{caseId}:
     get:
       operationId: lifecycleCaseShow

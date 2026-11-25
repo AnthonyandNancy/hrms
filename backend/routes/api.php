@@ -523,6 +523,10 @@ Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): voi
     Route::post('/rehires', [LifecycleController::class, 'rehire'])
         ->middleware('capability:lifecycle.rehire.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('lifecycle.rehires.store');
+    Route::get('/cases', [LifecycleController::class, 'cases'])
+        ->middleware('capability:lifecycle.case.read')
+        ->name('lifecycle.cases.index');
+
     Route::get('/cases/{caseId}', [LifecycleController::class, 'showCase'])
         ->whereNumber('caseId')
         ->middleware('capability:lifecycle.case.read')

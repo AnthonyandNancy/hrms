@@ -7,6 +7,7 @@ namespace App\Modules\Lifecycle\Http\Controllers;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Lifecycle\Domain\LifecycleCaseType;
 use App\Modules\Lifecycle\Services\ChecklistService;
+use App\Modules\Lifecycle\Services\LifecycleCaseListService;
 use App\Modules\Lifecycle\Services\LifecycleProjectionService;
 use App\Modules\Lifecycle\Services\LifecycleService;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
@@ -31,6 +32,7 @@ final class LifecycleController
         private readonly TenantBusinessDate $businessDates,
         private readonly LifecycleService $lifecycle,
         private readonly LifecycleProjectionService $projection,
+        private readonly LifecycleCaseListService $caseList,
         private readonly ChecklistService $checklists,
         private readonly IdempotencyRunner $idempotency,
     ) {}
@@ -202,6 +204,33 @@ final class LifecycleController
         ]);
 
         return $this->command($request, 'rehires', $principal, $data, LifecycleCaseType::REHIRE, $today->value());
+    }
+
+    public function cases(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $today = $this->businessDates->today($principal->tenantId());
+        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::legalEntity(1), $today->value());
+        $data = $request->validate([
+            'case_type' => ['nullable', 'string', 'max:64'],
+            'status' => ['nullable', 'string', 'max:24'],
+            'employment_id' => ['nullable', 'integer', 'min:1'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return ApiResponse::ok($this->caseList->paginate(
+            $principal->tenantId(),
+            [
+                'case_type' => $data['case_type'] ?? null,
+                'status' => $data['status'] ?? null,
+                'employment_id' => $data['employment_id'] ?? null,
+                'q' => $data['q'] ?? null,
+            ],
+            (int) ($data['page'] ?? 1),
+            (int) ($data['page_size'] ?? 20),
+        ));
     }
 
     public function showCase(Request $request, int $caseId): JsonResponse
