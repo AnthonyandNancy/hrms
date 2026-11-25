@@ -12,7 +12,7 @@ final class TrainingSession extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'program_id', 'starts_on', 'ends_on', 'starts_at', 'ends_at',
+        'tenant_id', 'program_id', 'plan_id', 'course_id', 'starts_on', 'ends_on', 'starts_at', 'ends_at',
         'capacity', 'location', 'status', 'recorded_at',
     ];
 
@@ -24,6 +24,8 @@ final class TrainingSession extends Model
         return [
             'tenant_id' => 'integer',
             'program_id' => 'integer',
+            'plan_id' => 'integer',
+            'course_id' => 'integer',
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
             'capacity' => 'integer',
