@@ -44,6 +44,8 @@ final class RecruitmentService
                 'title' => (string) $input['title'],
                 'status' => 'PENDING_APPROVAL',
                 'headcount' => (int) $input['headcount'],
+                'budget_minor' => isset($input['budget_minor']) ? (int) $input['budget_minor'] : null,
+                'budget_currency' => isset($input['budget_currency']) ? mb_strtoupper((string) $input['budget_currency']) : null,
                 'target_start_date' => $input['target_start_date'] ?? null,
                 'recorded_at' => $this->clock->now(),
             ]);
@@ -77,6 +79,9 @@ final class RecruitmentService
                 'requisition_id' => (int) $requisition->id,
                 'requisition_no' => (string) $requisition->requisition_no,
                 'status' => (string) $requisition->status,
+                'headcount' => (int) $requisition->headcount,
+                'budget_minor' => $requisition->budget_minor !== null ? (int) $requisition->budget_minor : null,
+                'budget_currency' => $requisition->budget_currency !== null ? (string) $requisition->budget_currency : null,
                 'case_id' => $case->id,
             ];
         });

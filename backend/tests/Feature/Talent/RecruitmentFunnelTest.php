@@ -117,6 +117,32 @@ final class RecruitmentFunnelTest extends TalentTestCase
         $this->assertSame(1, RequisitionOpening::query()->where('requisition_id', $requisition->id)->count());
     }
 
+    public function test_requisition_creation_persists_integer_minor_budget_and_reads_it_back(): void
+    {
+        $entity = $this->peopleScenario->legalEntity();
+        $org = $this->peopleScenario->orgUnit($entity, 'FUNNEL-BUDGET-ORG');
+
+        $created = $this->postJson('/v1/recruitment/requisitions', [
+            'legal_entity_id' => $entity->id,
+            'org_unit_id' => $org->id,
+            'requisition_no' => 'REQ-FUNNEL-BUDGET',
+            'title' => 'Synthetic budget role',
+            'headcount' => 2,
+            'budget_minor' => 12000000,
+            'budget_currency' => 'CNY',
+        ], ['Idempotency-Key' => 'requisition-budget-1'])->assertCreated();
+
+        $requisitionId = (int) $created->json('data.requisition_id');
+        $this->assertSame(12000000, (int) Requisition::query()->findOrFail($requisitionId)->budget_minor);
+
+        $this->getJson('/v1/recruitment/budget')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.requisition_id', $requisitionId)
+            ->assertJsonPath('data.items.0.budget_minor', 12000000)
+            ->assertJsonPath('data.items.0.budget_currency', 'CNY')
+            ->assertJsonPath('data.items.0.committed_offer_minor', 0);
+    }
+
     public function test_candidate_import_returns_a_row_level_report_and_never_drops_rejected_rows(): void
     {
         $entity = $this->peopleScenario->legalEntity();

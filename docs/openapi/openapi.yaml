@@ -15573,6 +15573,30 @@ paths:
       tags:
         - Talent
       summary: Create a requisition approval Case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [legal_entity_id, org_unit_id, requisition_no, title, headcount]
+              properties:
+                legal_entity_id: {type: integer, minimum: 1}
+                org_unit_id: {type: integer, minimum: 1}
+                requisition_no: {type: string, maxLength: 64}
+                title: {type: string, maxLength: 160}
+                headcount: {type: integer, minimum: 1, maximum: 1000}
+                budget_minor:
+                  type: [integer, "null"]
+                  minimum: 0
+                  description: Integer minor units; never a float.
+                budget_currency:
+                  type: [string, "null"]
+                  minLength: 3
+                  maxLength: 3
+                target_start_date:
+                  type: [string, "null"]
+                  format: date
       responses:
         "201":
           $ref: "#/components/responses/Envelope"

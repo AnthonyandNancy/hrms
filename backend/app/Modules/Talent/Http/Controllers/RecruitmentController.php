@@ -62,6 +62,8 @@ final class RecruitmentController
             'requisition_no' => ['required', 'string', 'max:64'],
             'title' => ['required', 'string', 'max:160'],
             'headcount' => ['required', 'integer', 'min:1', 'max:1000'],
+            'budget_minor' => ['nullable', 'integer', 'min:0'],
+            'budget_currency' => ['nullable', 'string', 'size:3'],
             'target_start_date' => ['nullable', new BusinessDateRule],
         ]);
 
