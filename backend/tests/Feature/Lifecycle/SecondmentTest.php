@@ -46,7 +46,7 @@ final class SecondmentTest extends LifecycleTestCase
 
         $this->assertNotNull($secondment);
         $this->assertFalse((bool) $secondment->is_primary);
-        $this->assertSame((int) $primary->id, (int) $secondment->manager_assignment_id);
+        $this->assertNull($secondment->manager_assignment_id);
         $this->assertSame('2026-12-01', (string) $secondment->valid_from);
         $this->assertSame('2027-03-31', (string) $secondment->valid_to);
 

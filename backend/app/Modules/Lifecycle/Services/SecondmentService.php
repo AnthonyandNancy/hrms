@@ -88,7 +88,7 @@ final class SecondmentService
 
         $primary = $this->employments->assignmentAsOf($tenantId, $employmentId, $from->value());
 
-        if ($primary === null) {
+        if ($primary === null || $primary->assignmentType !== 'PRIMARY' || ! $primary->isPrimary) {
             throw new ConflictException('A secondment requires an active primary assignment.', ['reason' => 'SECONDMENT_PRIMARY_MISSING']);
         }
 
@@ -107,7 +107,7 @@ final class SecondmentService
             $assignmentId = $this->people->createAssignment($tenantId, $employmentId, [
                 'org_unit_id' => $hostOrgUnitId,
                 'position_id' => $positionId,
-                'manager_assignment_id' => $primary->id,
+                'manager_assignment_id' => null,
                 'assignment_type' => 'SECONDMENT',
                 'is_primary' => false,
                 'valid_from' => $from->value(),
