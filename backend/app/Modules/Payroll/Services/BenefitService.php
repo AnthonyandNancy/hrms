@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Modules\Payroll\Models\BenefitTransaction;
@@ -31,6 +32,7 @@ final class BenefitService
 
     public function __construct(
         private readonly Authorizer $authorizer,
+        private readonly PeopleDirectory $people,
         private readonly TenantBusinessDate $businessDates,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
@@ -181,14 +183,10 @@ final class BenefitService
             );
         }
 
-        $employment = $this->authorizer->constrain(
-            \App\Modules\People\Models\Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId),
-            $principal,
-            'benefit.manage',
-            $businessDate,
-        )->first();
+        $snapshot = $this->people->employmentSnapshot($tenantId, $employmentId, $businessDate);
 
-        if ($employment === null) {
+        if ($snapshot === null
+            || ! $this->authorizer->allows($principal, 'benefit.manage', \App\Shared\Authorization\AnchorRef::legalEntity($snapshot->legalEntityId), $businessDate)) {
             throw new NotFoundOrForbiddenException;
         }
 
@@ -212,11 +210,11 @@ final class BenefitService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $principal, $employment, $plan, $baseAmount, $effectiveFrom, $effectiveTo): BenefitEnrollment {
+        return DB::transaction(function () use ($tenantId, $principal, $snapshot, $plan, $baseAmount, $effectiveFrom, $effectiveTo): BenefitEnrollment {
             /** @var BenefitEnrollment|null $latest */
             $latest = BenefitEnrollment::query()
                 ->where('tenant_id', $tenantId)
-                ->where('employment_id', (int) $employment->id)
+                ->where('employment_id', $snapshot->employmentId)
                 ->where('plan_id', (int) $plan->id)
                 ->lockForUpdate()
                 ->orderByDesc('effective_from')
@@ -238,8 +236,8 @@ final class BenefitService
 
             $enrollment = BenefitEnrollment::query()->create([
                 'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $employment->legal_entity_id,
-                'employment_id' => (int) $employment->id,
+                'legal_entity_id' => $snapshot->legalEntityId,
+                'employment_id' => $snapshot->employmentId,
                 'plan_id' => (int) $plan->id,
                 'base_amount_cents' => $baseAmount,
                 'effective_from' => $effectiveFrom,
@@ -256,7 +254,7 @@ final class BenefitService
                 aggregateType: 'benefit_enrollment',
                 aggregateId: (int) $enrollment->id,
                 after: [
-                    'employment_id' => (int) $employment->id,
+                    'employment_id' => $snapshot->employmentId,
                     'plan_id' => (int) $plan->id,
                     'base_amount_cents' => $baseAmount,
                     'effective_from' => $effectiveFrom,

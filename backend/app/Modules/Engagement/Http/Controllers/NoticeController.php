@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Engagement\Http\Controllers;
 
+use App\Modules\Engagement\Services\NoticeGovernanceService;
 use App\Modules\Engagement\Services\NoticeService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\PrincipalResolver;
@@ -16,6 +17,7 @@ final class NoticeController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly NoticeService $notices,
+        private readonly NoticeGovernanceService $governance,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -58,12 +60,23 @@ final class NoticeController
             'publish_at' => ['nullable', 'date'],
             'requiresAck' => ['nullable', 'boolean'],
             'requires_ack' => ['nullable', 'boolean'],
+            'approvalRequired' => ['nullable', 'boolean'],
+            'approval_required' => ['nullable', 'boolean'],
+            'template_code' => ['nullable', 'string', 'max:64'],
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
 
-        return ApiResponse::created(
-            $this->notices->create($principal, $data, $data['business_date'] ?? null),
-        );
+        $created = $this->notices->create($principal, $data, $data['business_date'] ?? null);
+
+        if ((bool) ($data['approval_required'] ?? $data['approvalRequired'] ?? false)) {
+            $created = $this->governance->submit(
+                $principal,
+                (int) $created['id'],
+                (string) ($data['business_date'] ?? ''),
+            );
+        }
+
+        return ApiResponse::created($created);
     }
 
     public function acknowledge(Request $request, int $notice): JsonResponse

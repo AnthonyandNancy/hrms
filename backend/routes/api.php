@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Engagement\Http\Controllers\NoticeController;
+use App\Modules\Engagement\Http\Controllers\NoticeGovernanceController;
 use App\Modules\Engagement\Http\Controllers\NotificationController;
 use App\Modules\IAM\Http\Controllers\AccessReviewController;
 use App\Modules\IAM\Http\Controllers\AuthController;
@@ -567,6 +568,52 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->whereNumber('notice')
         ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('engagement.notices.retract');
+
+    // Notice approval is a Workflow Case decision, never a status write.
+    Route::post('/notices/{notice}/submit', [NoticeGovernanceController::class, 'submit'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.submit');
+    Route::post('/notices/{notice}/decision', [NoticeGovernanceController::class, 'decision'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.publish')
+        ->name('engagement.notices.decision');
+    Route::post('/notices/{notice}/publish', [NoticeGovernanceController::class, 'publish'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.publish')
+        ->name('engagement.notices.publish');
+    Route::get('/notices/{notice}/audience', [NoticeGovernanceController::class, 'audience'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.audience');
+    Route::get('/notices/{notice}/reads', [NoticeGovernanceController::class, 'reads'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notices.reads');
+    Route::get('/notices/{notice}/reads/export', [NoticeGovernanceController::class, 'exportReads'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.export')
+        ->name('engagement.notices.reads.export');
+
+    Route::get('/notice-templates', [NoticeGovernanceController::class, 'templates'])
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notice-templates.index');
+    Route::post('/notice-templates', [NoticeGovernanceController::class, 'storeTemplate'])
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notice-templates.store');
+
+    // Static archive path must be registered before /notices/{notice}.
+    Route::get('/notices/archive', [NoticeGovernanceController::class, 'archiveIndex'])
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.archive.index');
+    Route::post('/notices/{notice}/archive', [NoticeGovernanceController::class, 'archive'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.archive');
+    Route::post('/notices/{notice}/restore', [NoticeGovernanceController::class, 'restore'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.restore');
 
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->middleware('capability:engagement.notification.read')
