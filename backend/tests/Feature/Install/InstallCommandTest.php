@@ -42,7 +42,12 @@ final class InstallCommandTest extends TestCase
         $this->assertNull(User::query()->firstOrFail()->mfa_enrolled_at);
 
         $this->assertSame(14, Role::query()->where('is_template', true)->count());
-        $this->assertSame(112, Capability::query()->count());
+        // Derive from the code-owned catalog so adding a capability never
+        // silently leaves a stale installer assertion behind.
+        $this->assertSame(
+            count(app(\App\Modules\IAM\Authorization\CapabilityCatalog::class)->codes()),
+            Capability::query()->count(),
+        );
         $this->assertGreaterThanOrEqual(8, WorkflowTemplate::query()->count());
 
         foreach (['leave.request', 'attendance.correction', 'transfer.request', 'contract.renewal', 'onboarding.request', 'offboarding.request', 'payroll.approval', 'generic.approval'] as $code) {
