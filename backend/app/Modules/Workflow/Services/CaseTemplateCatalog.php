@@ -27,6 +27,7 @@ final class CaseTemplateCatalog
         'ONBOARDING_REQUEST' => 'onboarding.request',
         'OFFBOARDING_REQUEST' => 'offboarding.request',
         'PAYROLL_APPROVAL' => 'payroll.approval',
+        'NOTICE_APPROVAL' => 'notice.approval',
     ];
 
     public static function templateCodeFor(string $caseType): ?string

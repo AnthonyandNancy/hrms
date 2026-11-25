@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Engagement\Http\Controllers\NoticeController;
+use App\Modules\Engagement\Http\Controllers\NoticeGovernanceController;
 use App\Modules\Engagement\Http\Controllers\NotificationController;
 use App\Modules\IAM\Http\Controllers\AccessReviewController;
 use App\Modules\IAM\Http\Controllers\AuthController;
@@ -22,6 +23,7 @@ use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\Organization\Http\Controllers\PositionCatalogController;
 use App\Modules\Organization\Http\Controllers\PositionController;
+use App\Modules\Payroll\Http\Controllers\BenefitController;
 use App\Modules\Payroll\Http\Controllers\CompensationController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
@@ -666,6 +668,52 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
         ->name('engagement.notices.retract');
 
+    // Notice approval is a Workflow Case decision, never a status write.
+    Route::post('/notices/{notice}/submit', [NoticeGovernanceController::class, 'submit'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.submit');
+    Route::post('/notices/{notice}/decision', [NoticeGovernanceController::class, 'decision'])
+        ->whereNumber('notice')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:engagement.notice.publish'])
+        ->name('engagement.notices.decision');
+    Route::post('/notices/{notice}/publish', [NoticeGovernanceController::class, 'publish'])
+        ->whereNumber('notice')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:engagement.notice.publish'])
+        ->name('engagement.notices.publish');
+    Route::get('/notices/{notice}/audience', [NoticeGovernanceController::class, 'audience'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.audience');
+    Route::get('/notices/{notice}/reads', [NoticeGovernanceController::class, 'reads'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notices.reads');
+    Route::get('/notices/{notice}/reads/export', [NoticeGovernanceController::class, 'exportReads'])
+        ->whereNumber('notice')
+        ->middleware(['mfa.enrolled', 'capability:engagement.notice.export'])
+        ->name('engagement.notices.reads.export');
+
+    Route::get('/notice-templates', [NoticeGovernanceController::class, 'templates'])
+        ->middleware('capability:engagement.notice.read')
+        ->name('engagement.notice-templates.index');
+    Route::post('/notice-templates', [NoticeGovernanceController::class, 'storeTemplate'])
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notice-templates.store');
+
+    // Static archive path must be registered before /notices/{notice}.
+    Route::get('/notices/archive', [NoticeGovernanceController::class, 'archiveIndex'])
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.archive.index');
+    Route::post('/notices/{notice}/archive', [NoticeGovernanceController::class, 'archive'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.archive');
+    Route::post('/notices/{notice}/restore', [NoticeGovernanceController::class, 'restore'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage')
+        ->name('engagement.notices.restore');
+
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->middleware('capability:engagement.notification.read')
         ->name('engagement.notifications.index');
@@ -1083,6 +1131,38 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
     Route::post('/adjustments', [CompensationController::class, 'storeAdjustment'])
         ->middleware('capability:payroll.salary-adjustment.manage,LEGAL_ENTITY,legal_entity_id')
         ->name('payroll.adjustments.store');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Benefits and statutory enrollment
+|--------------------------------------------------------------------------
+|
+| Plans are effective-dated versions; enrollment movements and monthly cost
+| ledger rows are append-only. Every write uses CommandRunner and therefore
+| requires an Idempotency-Key. Writes separately require benefit.manage so a
+| benefits administrator does not receive payroll authorization implicitly.
+|
+*/
+Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
+    Route::get('/plans', [BenefitController::class, 'plans'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
+        ->name('benefits.plans.index');
+    Route::post('/plans', [BenefitController::class, 'storePlan'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.plans.store');
+    Route::get('/enrollments', [BenefitController::class, 'enrollments'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
+        ->name('benefits.enrollments.index');
+    Route::post('/enrollments', [BenefitController::class, 'storeEnrollment'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.enrollments.store');
+    Route::get('/transactions', [BenefitController::class, 'transactions'])
+        ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
+        ->name('benefits.transactions.index');
+    Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->name('benefits.transactions.store');
 });
 
 /*

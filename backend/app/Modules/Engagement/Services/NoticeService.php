@@ -41,6 +41,7 @@ final class NoticeService
         $publishAt = $this->instant((string) ($input['publishAt'] ?? $input['publish_at'] ?? $this->clock->now()->toIso8601ZuluString()));
         $title = trim((string) ($input['title'] ?? ''));
         $body = trim((string) ($input['body'] ?? ''));
+        $approvalRequired = (bool) ($input['approval_required'] ?? $input['approvalRequired'] ?? false);
 
         if ($title === '' || $body === '') {
             throw new ValidationException(
@@ -50,7 +51,7 @@ final class NoticeService
             );
         }
 
-        $notice = DB::transaction(function () use ($principal, $resolved, $publishAt, $title, $body, $input): Notice {
+        $notice = DB::transaction(function () use ($principal, $resolved, $publishAt, $title, $body, $input, $approvalRequired): Notice {
             $notice = Notice::query()->create([
                 'tenant_id' => $principal->tenantId(),
                 'title' => mb_substr($title, 0, 200),
@@ -59,20 +60,23 @@ final class NoticeService
                 'publish_at' => $publishAt,
                 'retract_at' => null,
                 'created_by' => $principal->userId(),
-                'status' => Notice::STATUS_PUBLISHED,
+                'status' => $approvalRequired ? Notice::STATUS_DRAFT : Notice::STATUS_PUBLISHED,
                 'requires_ack' => (bool) ($input['requiresAck'] ?? $input['requires_ack'] ?? false),
                 'audience_count' => $resolved['audience_count'],
+                'template_code' => isset($input['template_code']) ? (string) $input['template_code'] : null,
             ]);
 
-            $this->notifications->notify(
-                tenantId: $principal->tenantId(),
-                userIds: $resolved['recipients'],
-                type: 'NOTICE_PUBLISHED',
-                payload: [
-                    'notice_id' => (int) $notice->id,
-                    'requires_ack' => (bool) $notice->requires_ack,
-                ],
-            );
+            if (! $approvalRequired) {
+                $this->notifications->notify(
+                    tenantId: $principal->tenantId(),
+                    userIds: $resolved['recipients'],
+                    type: 'NOTICE_PUBLISHED',
+                    payload: [
+                        'notice_id' => (int) $notice->id,
+                        'requires_ack' => (bool) $notice->requires_ack,
+                    ],
+                );
+            }
 
             return $notice;
         });
@@ -99,8 +103,17 @@ final class NoticeService
 
         $query = Notice::query()
             ->where('tenant_id', $principal->tenantId())
-            ->where('status', Notice::STATUS_PUBLISHED)
-            ->where('publish_at', '<=', $this->clock->now())
+            ->when($filter !== 'managed', fn ($builder) => $builder
+                ->where('status', Notice::STATUS_PUBLISHED)
+                ->where('publish_at', '<=', $this->clock->now()))
+            ->when($filter === 'managed', fn ($builder) => $builder->whereIn('status', [
+                Notice::STATUS_DRAFT,
+                Notice::STATUS_PENDING_APPROVAL,
+                Notice::STATUS_APPROVED,
+                Notice::STATUS_REJECTED,
+                Notice::STATUS_PUBLISHED,
+                Notice::STATUS_RETRACTED,
+            ]))
             ->orderByDesc('publish_at')
             ->orderByDesc('id');
 
@@ -190,7 +203,7 @@ final class NoticeService
         return $this->payload($principal, $notice, $today);
     }
 
-    private function findVisible(Principal $principal, int $noticeId, string $today): Notice
+    public function findVisible(Principal $principal, int $noticeId, string $today): Notice
     {
         $notice = Notice::query()
             ->where('tenant_id', $principal->tenantId())
@@ -207,7 +220,7 @@ final class NoticeService
     /**
      * @return array<string, mixed>
      */
-    private function payload(Principal $principal, Notice $notice, string $today): array
+    public function payload(Principal $principal, Notice $notice, string $today): array
     {
         $acknowledgementCount = NoticeAcknowledgement::query()
             ->where('tenant_id', $principal->tenantId())
@@ -237,6 +250,12 @@ final class NoticeService
             'acknowledged' => $acknowledged,
             'acknowledgementCount' => $acknowledgementCount,
             'audienceCount' => (int) $notice->audience_count,
+            'approvalCaseId' => $notice->approval_case_id !== null ? (int) $notice->approval_case_id : null,
+            'approval_case_id' => $notice->approval_case_id !== null ? (int) $notice->approval_case_id : null,
+            'approvedAt' => $notice->approved_at?->toIso8601ZuluString(),
+            'archivedAt' => $notice->archived_at?->toIso8601ZuluString(),
+            'templateCode' => $notice->template_code !== null ? (string) $notice->template_code : null,
+            'templateVersion' => $notice->template_version !== null ? (int) $notice->template_version : null,
         ];
     }
 

@@ -32,9 +32,6 @@ D
 | Lifecycle | `cases`, `decisions`, `effects`, `lifecycle_tasks`, `lifecycle_intents`, `onboarding_checklist_templates`, `employment_contract_versions` | People, Workflow Contracts, Time/IAM/Talent Contracts, Shared |
 | Workflow | `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_tasks`, `workflow_delegations` | IAM Contracts, Shared |
 | Time | `shifts`, `schedules`, `punch_records`, `attendance_days`, `attendance_corrections`, `attendance_rule_versions`, `attendance_period_closures`, `attendance_devices`, `shift_schedules`, `leave_accounts`, `leave_ledger_entries`, `leave_types`, `leave_balances`, `leave_requests`, `overtime_records`, `overtime_settlements`, `overtime_requests`, `business_trip_records`, `travel_policies`, `travel_expenses` | People, Workflow Contracts, Shared |
-| Payroll | `payroll_items`, `payroll_schemes`, `payroll_runs`, `payslips`, `payslip_lines`, `payroll_input_snapshots`, `employee_compensations`, `salary_adjustments` | Time, People, Workflow Contracts, Shared |
-| Talent | `recruitment_requisitions`, `candidates`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `performance_indicators`, `performance_goals`, `performance_feedback`, `performance_calibrations`, `training_programs`, `training_sessions`, `training_enrollments`, `training_plans`, `training_courses`, `training_checkins`, `training_exams`, `training_feedback` | Lifecycle/People/Workflow Contracts, Shared |
-| Engagement | `notices`, `notifications` | Read-only Contracts from all modules, Shared |
 | Reporting | `report_definitions`, `export_jobs`, `projections` | Read-only projections/Contracts, Shared |
 | Platform | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects`, `sys_dictionaries`, `sys_parameters`, `menu_overrides`, `notification_templates`, `notification_outbox`, `notification_deliveries` | Shared only; **no business module** |
 

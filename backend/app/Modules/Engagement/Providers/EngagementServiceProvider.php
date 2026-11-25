@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Engagement\Providers;
 
+use App\Modules\Engagement\Adapters\NoticeApprovalWorkflowAdapter;
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
+use App\Modules\Engagement\Contracts\NoticeApprovalPort;
 use App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory;
 use App\Modules\Engagement\Services\EloquentNoticeWorkspaceDirectory;
 use App\Modules\Engagement\Services\LogExternalNotificationChannel;
 use App\Modules\Engagement\Services\NoticeAccessPolicy;
 use App\Modules\Engagement\Services\NoticeAudienceService;
+use App\Modules\Engagement\Services\NoticeGovernanceService;
 use App\Modules\Engagement\Services\NoticeService;
 use App\Modules\Engagement\Services\NotificationService;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
@@ -48,6 +51,23 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(NoticeAudienceService::class),
             $app->make(NoticeAccessPolicy::class),
             $app->make(NotificationService::class),
+            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\Clock::class),
+        ));
+
+        $this->app->bind(NoticeApprovalPort::class, fn ($app): NoticeApprovalWorkflowAdapter => new NoticeApprovalWorkflowAdapter(
+            $app->make(\App\Modules\Workflow\Contracts\CaseCommandPort::class),
+            $app->make(\App\Modules\Workflow\Contracts\CaseDecisionPort::class),
+            $app->make(\App\Modules\Workflow\Contracts\WorkflowCaseGateway::class),
+        ));
+
+        $this->app->bind(NoticeGovernanceService::class, fn ($app): NoticeGovernanceService => new NoticeGovernanceService(
+            $app->make(NoticeAudienceService::class),
+            $app->make(NoticeAccessPolicy::class),
+            $app->make(NotificationService::class),
+            $app->make(NoticeApprovalPort::class),
+            $app->make(\App\Shared\Observability\AuditRecorder::class),
+            $app->make(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class),
             $app->make(\App\Shared\Time\TenantBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));

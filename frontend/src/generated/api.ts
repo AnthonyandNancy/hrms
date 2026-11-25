@@ -242,6 +242,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/benefits/enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List append-only statutory enrollment versions */
+        get: operations["benefitsEnrollmentsIndex"];
+        put?: never;
+        /** Append a statutory base movement */
+        post: operations["benefitsEnrollmentsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/benefits/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective-dated benefit plan versions */
+        get: operations["benefitsPlansIndex"];
+        put?: never;
+        /** Append a benefit plan version */
+        post: operations["benefitsPlansStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/benefits/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List monthly statutory contribution ledger rows */
+        get: operations["benefitsTransactionsIndex"];
+        put?: never;
+        /** Record a monthly contribution and optional payroll link */
+        post: operations["benefitsTransactionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bindings/{id}": {
         parameters: {
             query?: never;
@@ -1141,6 +1195,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/engagement/notice-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List versioned notice templates */
+        get: operations["engagementNoticeTemplatesIndex"];
+        put?: never;
+        /** Publish a notice template version */
+        post: operations["engagementNoticeTemplatesStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/engagement/notices": {
         parameters: {
             query?: never;
@@ -1153,6 +1225,23 @@ export interface paths {
         put?: never;
         /** Publish a notice to an org, role or all audience */
         post: operations["engagementNoticesStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List archived notices */
+        get: operations["engagementNoticesArchiveIndex"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1193,6 +1282,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/engagement/notices/{notice}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a notice and retain its previous status */
+        post: operations["engagementNoticesArchive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve the live audience membership for a notice */
+        get: operations["engagementNoticesAudience"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record an APPROVE or REJECT decision on the notice case */
+        post: operations["engagementNoticesDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a notice only after its Workflow Case is approved */
+        post: operations["engagementNoticesPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List acknowledgement evidence for a notice */
+        get: operations["engagementNoticesReads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/reads/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export whitelisted acknowledgement fields with sensitive-access audit */
+        get: operations["engagementNoticesReadsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived notice to its previous status */
+        post: operations["engagementNoticesRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/engagement/notices/{notice}/retract": {
         parameters: {
             query?: never;
@@ -1204,6 +1412,23 @@ export interface paths {
         put?: never;
         /** Retract a published notice */
         post: operations["engagementNoticesRetract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/engagement/notices/{notice}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a draft notice to its Workflow approval case */
+        post: operations["engagementNoticesSubmit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2869,14 +3094,7 @@ export interface paths {
         /** List the ten templates and tenant exception roles */
         get: operations["listRoles"];
         put?: never;
-        /**
-         * Create a tenant exception role from code-owned capability codes
-         * @description Capability semantics are code-owned. The request may select known
-         *     capability codes with an anchor the capability allows and a field
-         *     profile no wider than the capability maximum. Requires an
-         *     Idempotency-Key.
-         */
-        post: operations["createRole"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6604,6 +6822,116 @@ export interface components {
         NotificationDeliveryProjection: components["schemas"]["ProjectionPagination"] & {
             items?: components["schemas"]["NotificationDelivery"][];
         };
+        BenefitPlan: {
+            id: number;
+            code: string;
+            name: string;
+            legal_entity_id: number | null;
+            employer_rate: string;
+            employee_rate: string;
+            /** Format: date */
+            effective_from: string;
+            /** Format: date */
+            effective_to: string | null;
+            version: number;
+        };
+        BenefitEnrollment: {
+            id: number;
+            plan_id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            base_amount_cents: number;
+            employee_rate: string;
+            employer_rate: string;
+            employee_contribution_cents: number;
+            employer_contribution_cents: number;
+            /** Format: date */
+            effective_from: string;
+            /** Format: date */
+            effective_to: string | null;
+            version: number;
+        };
+        BenefitTransaction: {
+            id: number;
+            enrollment_id: number;
+            employment_id: number;
+            legal_entity_id: number;
+            period: string;
+            base_amount_cents: number;
+            employee_amount_cents: number;
+            employer_amount_cents: number;
+            total_amount_cents: number;
+            payroll_run_id: number | null;
+            /** @enum {string} */
+            status: "RECORDED";
+        };
+        BenefitProjection: components["schemas"]["ProjectionPagination"] & {
+            items?: unknown[];
+        };
+        NoticeAudiencePreview: {
+            notice_id: number;
+            /** @enum {string} */
+            audienceType: "ALL" | "ORG" | "ROLE";
+            audienceLabel: string;
+            orgUnitIds: number[];
+            roleCodes: string[];
+            recipientUserIds: number[];
+            recipientCount: number;
+            /** Format: date */
+            resolvedOn: string;
+        };
+        NoticeTemplate: {
+            id: number;
+            code: string;
+            name: string;
+            version: number;
+            body_template: string;
+            variables: string[];
+            /** @enum {string} */
+            status: "PUBLISHED";
+        };
+        NoticeReadExport: {
+            fields: string[];
+            rows: {
+                [key: string]: unknown;
+            }[];
+            row_count: number;
+            /** Format: date */
+            as_of: string;
+        };
+        NoticeDecision: {
+            id: number;
+            status: string;
+            /** @enum {string} */
+            notice_status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+            /** @enum {string} */
+            application_status: "IN_REVIEW" | "APPROVED" | "REJECTED";
+            case_id: number;
+        };
+        BenefitPlanEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["BenefitPlan"];
+        };
+        BenefitEnrollmentEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["BenefitEnrollment"];
+        };
+        BenefitTransactionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["BenefitTransaction"];
+        };
+        BenefitProjectionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["BenefitProjection"];
+        };
+        NoticeAudiencePreviewEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["NoticeAudiencePreview"];
+        };
+        NoticeTemplateEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["NoticeTemplate"];
+        };
+        NoticeReadExportEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["NoticeReadExport"];
+        };
+        NoticeDecisionEnvelope: components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["NoticeDecision"];
+        };
     };
     responses: {
         /** @description Missing, expired, revoked or stale-auth-version session */
@@ -7146,6 +7474,245 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             419: components["responses"]["CsrfFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsEnrollmentsIndex: {
+        parameters: {
+            query?: {
+                employment_id?: number;
+                plan_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enrollment projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsEnrollmentsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    plan_id: number;
+                    employment_id: number;
+                    base_amount_cents: number;
+                    /** Format: date */
+                    effective_from: string;
+                    /** Format: date */
+                    effective_to?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitEnrollmentEnvelope"];
+                };
+            };
+            /** @description Enrollment version created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitEnrollmentEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsPlansIndex: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+                code?: string;
+                legal_entity_id?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Benefit plan projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsPlansStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    employer_rate: string;
+                    employee_rate: string;
+                    /** Format: date */
+                    effective_from: string;
+                    /** Format: date */
+                    effective_to?: string | null;
+                    legal_entity_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitPlanEnvelope"];
+                };
+            };
+            /** @description Plan version created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitPlanEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsTransactionsIndex: {
+        parameters: {
+            query?: {
+                employment_id?: number;
+                enrollment_id?: number;
+                payroll_run_id?: number;
+                period?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transaction projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitProjectionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsTransactionsStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrollment_id: number;
+                    period: string;
+                    payroll_run_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            /** @description Transaction recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -9277,6 +9844,70 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    engagementNoticeTemplatesIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notice template projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["NoticeTemplate"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticeTemplatesStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    name: string;
+                    body_template: string;
+                    variables?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Template version published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeTemplateEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     engagementNoticesIndex: {
         parameters: {
             query?: {
@@ -9341,6 +9972,37 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    engagementNoticesArchiveIndex: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived notice projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: components["schemas"]["Notice"][];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     engagementNoticesShow: {
         parameters: {
             query?: never;
@@ -9394,6 +10056,245 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    engagementNoticesArchive: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                    /** Format: date */
+                    business_date?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Notice archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesAudience: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live audience preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeAudiencePreviewEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesDecision: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "APPROVE" | "REJECT";
+                    comment?: string;
+                    /** Format: date */
+                    business_date?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Decision recorded by Workflow */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeDecisionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesPublish: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notice published */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesReads: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Acknowledgement projection */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["ProjectionPagination"] & {
+                            items?: {
+                                user_id: number;
+                                /** Format: date-time */
+                                acknowledged_at: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesReadsExport: {
+        parameters: {
+            query?: {
+                fields?: string;
+            };
+            header?: never;
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Whitelisted acknowledgement export */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeReadExportEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesRestore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notice restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     engagementNoticesRetract: {
         parameters: {
             query?: never;
@@ -9417,6 +10318,37 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    engagementNoticesSubmit: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                notice: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notice submitted for approval */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticeEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -12750,41 +13682,6 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalError"];
-        };
-    };
-    createRole: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Role created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["RoleDefinition"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
