@@ -17,6 +17,7 @@ const root = resolve(here, '..')
 const registryPath = join(root, 'frontend/src/router/registry.ts')
 const inventoryPath = join(root, 'docs/audit/2026-11-25-v11-page-inventory.md')
 const allowMissing = process.argv.includes('--allow-missing')
+const requireCapabilities = process.argv.includes('--require-capabilities')
 
 const registry = readFileSync(registryPath, 'utf8')
 const inventory = readFileSync(inventoryPath, 'utf8')
@@ -83,6 +84,20 @@ const extraBusiness = registryPaths.filter((path) => {
 const duplicatePaths = registryPaths.filter((path, index) => registryPaths.indexOf(path) !== index)
 const duplicateNames = registryNames.filter((name, index) => registryNames.indexOf(name) !== index)
 
+// Cluster membership comes from the registry; the page count contract is 63.
+const clusterMatches = [...registry.matchAll(/cluster:\s*'(K(?:[1-9]|1[0-2]))'/g)]
+const clusterCounts = clusterMatches.reduce((counts, match) => {
+  counts[match[1]] = (counts[match[1]] ?? 0) + 1
+  return counts
+}, {})
+const CLUSTER_CONTRACT = { K1: 4, K2: 2, K3: 1, K4: 4, K5: 4, K6: 3, K7: 2, K8: 6, K9: 10, K10: 7, K11: 15, K12: 5 }
+const clusterTotal = clusterMatches.length
+
+// Executable "backend endpoint pending" markers, resolved to componentKeys.
+const { readGapMarkers } = await import('./lib/gapMarkers.mjs')
+const gapMarkers = readGapMarkers(root)
+const gappedComponentKeys = [...gapMarkers.keys]
+
 const failures = []
 const requireMature = process.argv.includes('--require-mature')
 if (requireMature && matureComponents.length < 160) {
@@ -98,6 +113,24 @@ if (statesCount !== 160) failures.push(`entries missing five-state declaration=$
 if (negativeCount !== 160) failures.push(`entries missing negative-test declaration=${160 - negativeCount}`)
 if (missingBusiness.length > 0) failures.push(`inventory pages missing from registry: ${missingBusiness.map((p) => p.path).join(', ')}`)
 if (extraBusiness.length > 0) failures.push(`extra registry paths not in inventory: ${extraBusiness.join(', ')}`)
+if (clusterTotal !== 63) failures.push(`registry cluster pages=${clusterTotal}, expected 63`)
+for (const [cluster, expected] of Object.entries(CLUSTER_CONTRACT)) {
+  if ((clusterCounts[cluster] ?? 0) !== expected) {
+    failures.push(`cluster ${cluster} pages=${clusterCounts[cluster] ?? 0}, expected ${expected}`)
+  }
+}
+if (gapMarkers.hardcoded.length > 0) {
+  // Scaffold/release mode reports this as debt; the capability gate rejects it.
+  const message = `hardcoded pending panels must be catalog-driven: ${gapMarkers.hardcoded.join(', ')}`
+  if (requireCapabilities) failures.push(message)
+  else console.warn(`WARN ${message}`)
+}
+if (requireCapabilities) {
+  const stillGapped = gappedComponentKeys.length
+  if (stillGapped > 0) {
+    failures.push(`--require-capabilities: ${stillGapped} page(s) still declare a backend gap: ${gappedComponentKeys.join(', ')}`)
+  }
+}
 if (missingComponents.length > 0) {
   const message = `registry entries without a component file: ${missingComponents.length}`
   if (allowMissing) {
@@ -122,7 +155,14 @@ const report = {
     platform: `${14 - extraBusiness.filter((p) => inventoryModules.some((m) => m.path === p)).length}/14`,
     base: '6/6',
   },
-  mode: requireMature ? 'release' : 'scaffold',
+  clusters: {
+    total: clusterTotal,
+    counts: clusterCounts,
+    expected: CLUSTER_CONTRACT,
+    gapMarkers: gappedComponentKeys.length,
+    gapByDomain: Object.fromEntries(Object.entries(gapMarkers.byStyle).map(([domain, keys]) => [domain, keys.length])),
+  },
+  mode: requireCapabilities ? 'capability-complete' : requireMature ? 'release' : 'scaffold',
   failures,
 }
 

@@ -9,14 +9,16 @@ const openapi = readFileSync(join(root, 'docs/openapi/openapi.yaml'), 'utf8')
 
 // Split on the single-line generated entries and the multiline base entries.
 // Every entry contains exactly one "path:" property.
-const marker = "path: '"
-const chunks = []
-let cursor = registry.indexOf(marker)
-while (cursor !== -1) {
-  const next = registry.indexOf(marker, cursor + marker.length)
-  chunks.push(registry.slice(cursor, next === -1 ? registry.length : next))
-  cursor = next
-}
+// Entries start with `{cluster: 'K..', path: ...` when they belong to a gap
+// cluster, otherwise with `{path: ...`. Base entries are multiline and put
+// `path:` on the next line, so split on the entry boundary, not on path alone.
+// Two-space open brace at line start is an entry boundary for both single-line
+// generated entries and multiline base entries; nested objects are indented deeper.
+const entryStart = new RegExp(String.fromCharCode(10) + ' {2}\{', 'g')
+const boundaries = [...registry.matchAll(entryStart)].map((match) => match.index + 1)
+const chunks = boundaries.map((start, index) =>
+  registry.slice(start, index + 1 < boundaries.length ? boundaries[index + 1] : registry.length),
+)
 
 function first(source, pattern) {
   return source.match(pattern)?.[1] ?? ''
@@ -29,9 +31,10 @@ const entries = chunks
     const name = first(chunk, /name: '([^']+)'/)
     const componentKey = first(chunk, /componentKey: '([^']+)'/)
     const capability = first(chunk, /capability: '([^']+)'/)
+    const cluster = first(chunk, /cluster: '(K(?:[1-9]|1[0-2]))'/)
     const apiBlock = chunk.slice(chunk.indexOf('requiredApis:'), chunk.indexOf(']', chunk.indexOf('requiredApis:')) + 1)
     const apis = [...apiBlock.matchAll(/'([^']+)'/g)].map((match) => match[1])
-    return { path, name, componentKey, capability, apis }
+    return { path, name, componentKey, capability, cluster, apis }
   })
   .filter((entry) => entry.path !== '')
 
@@ -68,6 +71,27 @@ const counts = rows.reduce((acc, row) => {
   acc[row.status] = (acc[row.status] ?? 0) + 1
   return acc
 }, {})
+
+const CLUSTER_NAMES = {
+  K1: '组织岗位完整性', K2: '合同全生命周期', K3: '员工文档', K4: '考勤规则与排班',
+  K5: '加班与调休', K6: '差旅与费用', K7: '薪酬档案与调薪', K8: '绩效全周期',
+  K9: '招聘全漏斗', K10: '培训全周期', K11: '平台治理与公告', K12: '报表与订阅',
+}
+const { readGapMarkers } = await import('./lib/gapMarkers.mjs')
+const gapMarkers = readGapMarkers(root)
+const clusterByComponentKey = new Map(rows.map((row) => [row.componentKey, row.cluster]))
+
+const clusterRows = Object.entries(CLUSTER_NAMES).map(([cluster, name]) => {
+  const pages = rows.filter((row) => row.cluster === cluster)
+  return {
+    cluster,
+    name,
+    pages: pages.length,
+    mature: pages.filter((row) => row.status === 'MATURE').length,
+    apiGaps: pages.reduce((total, row) => total + row.apiGaps.length, 0),
+    backendGaps: [...gapMarkers.keys].filter((key) => clusterByComponentKey.get(key) === cluster).length,
+  }
+})
 
 const wp = {
   WP01: ['DONE', 'DONE', 'DONE', 'n/a', 'PENDING', '基础工程与契约生成本地门禁通过，真实栈待最终验证'],
@@ -123,18 +147,37 @@ for (const [code, values] of Object.entries(wp)) {
   lines.push(`| ${code} | ${values[0]} | ${values[1]} | ${values[2]} | ${values[3]} | ${values[4]} | ${values[5]} |`)
 }
 
-lines.push('', '## 3. 页面逐项状态', '', '| # | 页面 | 路由 | 能力 | 状态 | 缺失 API 声明 |', '|---:|---|---|---|---|---|')
+lines.push(
+  '',
+  '## 3. 能力集群（K1–K12）',
+  '',
+  '| 集群 | 名称 | 页面数 | 成熟视图 | 后端缺口页 | 缺失 API 声明 |',
+  '|---|---|---:|---:|---:|---:|',
+)
+for (const row of clusterRows) {
+  lines.push(`| ${row.cluster} | ${row.name} | ${row.pages} | ${row.mature} | ${row.backendGaps} | ${row.apiGaps} |`)
+}
+lines.push(
+  '',
+  `- 集群页面合计：**${clusterRows.reduce((total, row) => total + row.pages, 0)}**（契约 63）。`,
+  `- 仍有后端缺口标记的页面：**${gapMarkers.total}**（目标 0；按域 ${Object.entries(gapMarkers.byStyle).map(([domain, keys]) => `${domain} ${keys.length}`).join('、')}）。`,
+  `- 仍有缺失 API 声明的集群：**${clusterRows.filter((row) => row.apiGaps > 0).map((row) => row.cluster).join(', ') || '无'}**。`,
+  '',
+)
+
+lines.push('', '## 4. 页面逐项状态', '', '| # | 页面 | 路由 | 能力 | 集群 | 状态 | 缺失 API 声明 |', '|---:|---|---|---|---|---|---|')
 rows.forEach((row, index) => {
-  lines.push(`| ${index + 1} | ${row.name} | \`${row.path}\` | \`${row.capability}\` | ${row.status} | ${row.apiGaps.join('<br>') || '—'} |`)
+  lines.push(`| ${index + 1} | ${row.name} | \`${row.path}\` | \`${row.capability}\` | ${row.cluster || '—'} | ${row.status} | ${row.apiGaps.join('<br>') || '—'} |`)
 })
 
 lines.push(
   '',
-  '## 4. 验收口径',
+  '## 5. 验收口径',
   '',
   '- `--require-mature` 必须在 160/160 成熟视图时通过；当前通过前不得声称页面 100%。',
   '- 真实栈 E2E 与备份恢复演练必须在 Compose 栈执行并保留日志。',
   '- 任何 API gap 必须对应显式“后端接口待补”页面状态，不得伪造数据。',
+  '- 集群页面数之和必须恒等于 63；任一集群的 `gap`/`pending` 标记清零才可标记完成。',
   '',
 )
 
