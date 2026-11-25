@@ -74,6 +74,30 @@ const form = reactive({
   candidateEmail: '',
   candidateMobile: '',
   candidateSource: '',
+  candidateImportRequisitionId: '',
+  candidateImportRows: 'Synthetic Imported, imported@example.test, CSV\nSynthetic Invalid,, not-an-email',
+  evaluationCandidateId: '',
+  evaluationInterviewId: '',
+  evaluationRating: '4',
+  evaluationRecommendation: 'YES',
+  evaluationStrengths: '',
+  evaluationConcerns: '',
+  evaluationComments: '',
+  communicationCandidateId: '',
+  communicationChannel: 'EMAIL',
+  communicationDirection: 'OUTBOUND',
+  communicationSubject: '',
+  communicationBody: '',
+  communicationConsentBasis: 'APPLICATION',
+  talentPoolCandidateId: '',
+  talentPoolTag: 'FUTURE_FIT',
+  talentPoolReason: '',
+  talentPoolRetentionUntil: '',
+  convertCandidateId: '',
+  convertLegalEntityId: '1',
+  convertOrgUnitId: '1',
+  convertEmployeeNo: '',
+  convertHireDate: '',
   interviewCandidateId: '',
   interviewRequisitionId: '',
   interviewScheduledAt: '',
@@ -136,10 +160,21 @@ const form = reactive({
 const submitting = ref(false)
 const formError = ref<TalentErrorInfo | null>(null)
 const successMessage = ref('')
+const importReport = ref<TalentRow[]>([])
 
 function resetFeedback(): void {
   formError.value = null
   successMessage.value = ''
+  importReport.value = []
+}
+
+function importReportCell(row: TalentRow, field: string): string {
+  const value = row[field]
+  if (typeof value === 'string') return value === '' ? '—' : value
+  if (typeof value === 'number') return String(value)
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function fail(error: unknown): void {
@@ -469,6 +504,158 @@ async function submitCandidate(): Promise<void> {
       { idempotencyKey: nextIdempotencyKey('candidate') },
     )
     success(`候选人“${form.candidateName.trim()}”已创建`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+type CandidateImportDraft = {
+  display_name: string
+  email?: string
+  mobile?: string
+  source?: string
+}
+
+function candidateImportRows(): CandidateImportDraft[] {
+  return form.candidateImportRows
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .map((line) => {
+      const [displayName = '', email = '', mobile = '', source = ''] = line.split(',').map((part) => part.trim())
+      return {
+        display_name: displayName,
+        ...(email !== '' ? { email } : {}),
+        ...(mobile !== '' ? { mobile } : {}),
+        ...(source !== '' ? { source } : {}),
+      }
+    })
+}
+
+async function submitCandidateImport(): Promise<void> {
+  resetFeedback()
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      '/v1/recruitment/candidates/imports',
+      {
+        requisition_id: numeric(form.candidateImportRequisitionId),
+        source: 'CSV',
+        rows: candidateImportRows(),
+      },
+      { idempotencyKey: nextIdempotencyKey('candidate-import') },
+    )
+    importReport.value = Array.isArray(row.rows)
+      ? row.rows.filter((item): item is TalentRow => typeof item === 'object' && item !== null && !Array.isArray(item))
+      : []
+    success(
+      `导入完成：接受 ${String(row.accepted_count ?? 0)} 行，拒绝 ${String(row.rejected_count ?? 0)} 行，拒绝原因已保留在逐行报告`,
+      row,
+    )
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+function scopedCandidateId(explicit: string): number | null {
+  return numeric(explicit) ?? numeric(props.routeId ?? '')
+}
+
+async function submitEvaluation(): Promise<void> {
+  resetFeedback()
+  const candidateId = scopedCandidateId(form.evaluationCandidateId)
+  if (candidateId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/recruitment/candidates/${candidateId}/evaluations`,
+      {
+        interview_id: numeric(form.evaluationInterviewId),
+        rating: numeric(form.evaluationRating),
+        recommendation: form.evaluationRecommendation,
+        strengths: form.evaluationStrengths.trim() || null,
+        concerns: form.evaluationConcerns.trim() || null,
+        comments: form.evaluationComments.trim() || null,
+      },
+      { idempotencyKey: nextIdempotencyKey('evaluation') },
+    )
+    success(`候选人 ${candidateId} 的面试评价已记录`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitCommunication(): Promise<void> {
+  resetFeedback()
+  const candidateId = scopedCandidateId(form.communicationCandidateId)
+  if (candidateId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/recruitment/candidates/${candidateId}/communications`,
+      {
+        channel: form.communicationChannel,
+        direction: form.communicationDirection,
+        subject: form.communicationSubject.trim() || null,
+        body: form.communicationBody.trim(),
+        consent_basis: form.communicationConsentBasis.trim(),
+      },
+      { idempotencyKey: nextIdempotencyKey('communication') },
+    )
+    success(`候选人 ${candidateId} 的沟通记录已保存`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitTalentPoolTag(): Promise<void> {
+  resetFeedback()
+  const candidateId = scopedCandidateId(form.talentPoolCandidateId)
+  if (candidateId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/recruitment/candidates/${candidateId}/talent-pool`,
+      {
+        tag: form.talentPoolTag.trim(),
+        reason: form.talentPoolReason.trim() || null,
+        retention_until: form.talentPoolRetentionUntil || null,
+      },
+      { idempotencyKey: nextIdempotencyKey('talent-pool') },
+    )
+    success(`候选人 ${candidateId} 已加入人才库标签 ${form.talentPoolTag.trim()}`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitConvertCandidate(): Promise<void> {
+  resetFeedback()
+  const candidateId = scopedCandidateId(form.convertCandidateId)
+  if (candidateId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/recruitment/candidates/${candidateId}/convert`,
+      {
+        legal_entity_id: numeric(form.convertLegalEntityId),
+        org_unit_id: numeric(form.convertOrgUnitId),
+        employee_no: form.convertEmployeeNo.trim(),
+        hire_date: form.convertHireDate || null,
+      },
+      { idempotencyKey: nextIdempotencyKey('candidate-convert') },
+    )
+    success(`候选人 ${candidateId} 已转为任职 ${String(row.employment_id ?? '')}；幂等重放不会生成第二个任职`, row)
   } catch (error) {
     fail(error)
   } finally {
@@ -937,6 +1124,90 @@ async function submitCompletion(): Promise<void> {
       <label class="talent-field">手机号<input v-model="form.candidateMobile" maxlength="40" /></label>
       <label class="talent-field">来源<input v-model="form.candidateSource" maxlength="64" /></label>
       <button type="submit" :disabled="submitting" data-testid="candidate-submit">创建候选人</button>
+    </form>
+
+    <form v-else-if="kind === 'candidate-import'" class="talent-form" @submit.prevent="submitCandidateImport">
+      <label class="talent-field">需求 ID（可选）<input v-model="form.candidateImportRequisitionId" data-testid="candidate-import-requisition-id" inputmode="numeric" /></label>
+      <label class="talent-field talent-field--wide">
+        候选人行（每行：姓名,邮箱,手机,来源）
+        <textarea v-model="form.candidateImportRows" data-testid="candidate-import-rows" rows="5" required />
+      </label>
+      <button type="submit" :disabled="submitting" data-testid="candidate-import-submit">导入候选人</button>
+      <table v-if="importReport.length > 0" class="talent-table" data-testid="candidate-import-report">
+        <thead>
+          <tr><th>row_number</th><th>status</th><th>reason</th><th>candidate_id</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in importReport" :key="`import-${importReportCell(row, 'row_number')}`">
+            <td>{{ importReportCell(row, 'row_number') }}</td>
+            <td>{{ importReportCell(row, 'status') }}</td>
+            <td>{{ importReportCell(row, 'reason') }}</td>
+            <td>{{ importReportCell(row, 'candidate_id') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </form>
+
+    <form v-else-if="kind === 'evaluation-create'" class="talent-form" @submit.prevent="submitEvaluation">
+      <label class="talent-field">候选人 ID<input v-model="form.evaluationCandidateId" data-testid="evaluation-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">面试 ID（可选）<input v-model="form.evaluationInterviewId" inputmode="numeric" /></label>
+      <label class="talent-field">评分（1-5）<input v-model="form.evaluationRating" data-testid="evaluation-rating" inputmode="numeric" min="1" max="5" required /></label>
+      <label class="talent-field">
+        录用建议
+        <select v-model="form.evaluationRecommendation" data-testid="evaluation-recommendation">
+          <option value="STRONG_YES">强烈推荐</option>
+          <option value="YES">推荐</option>
+          <option value="NO">不推荐</option>
+          <option value="STRONG_NO">强烈不推荐</option>
+        </select>
+      </label>
+      <label class="talent-field">优势<input v-model="form.evaluationStrengths" maxlength="4000" /></label>
+      <label class="talent-field">顾虑<input v-model="form.evaluationConcerns" maxlength="4000" /></label>
+      <label class="talent-field talent-field--wide">评语<textarea v-model="form.evaluationComments" rows="3" maxlength="4000" /></label>
+      <button type="submit" :disabled="submitting" data-testid="evaluation-submit">保存面试评价</button>
+    </form>
+
+    <form v-else-if="kind === 'communication-create'" class="talent-form" @submit.prevent="submitCommunication">
+      <label class="talent-field">候选人 ID<input v-model="form.communicationCandidateId" data-testid="communication-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">
+        渠道
+        <select v-model="form.communicationChannel" data-testid="communication-channel">
+          <option value="EMAIL">邮件</option>
+          <option value="PHONE">电话</option>
+          <option value="SMS">短信</option>
+          <option value="WECHAT">微信</option>
+          <option value="IN_PERSON">当面</option>
+          <option value="OTHER">其他</option>
+        </select>
+      </label>
+      <label class="talent-field">
+        方向
+        <select v-model="form.communicationDirection" data-testid="communication-direction">
+          <option value="OUTBOUND">去电/发出</option>
+          <option value="INBOUND">来电/收到</option>
+        </select>
+      </label>
+      <label class="talent-field">主题<input v-model="form.communicationSubject" maxlength="200" /></label>
+      <label class="talent-field talent-field--wide">内容<textarea v-model="form.communicationBody" data-testid="communication-body" rows="3" maxlength="10000" required /></label>
+      <label class="talent-field">同意基础<input v-model="form.communicationConsentBasis" data-testid="communication-consent-basis" maxlength="64" required /></label>
+      <button type="submit" :disabled="submitting" data-testid="communication-submit">保存沟通记录</button>
+    </form>
+
+    <form v-else-if="kind === 'talent-pool-tag'" class="talent-form" @submit.prevent="submitTalentPoolTag">
+      <label class="talent-field">候选人 ID<input v-model="form.talentPoolCandidateId" data-testid="talent-pool-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">标签<input v-model="form.talentPoolTag" data-testid="talent-pool-tag" maxlength="64" required /></label>
+      <label class="talent-field">原因<input v-model="form.talentPoolReason" maxlength="500" /></label>
+      <label class="talent-field">留存截止日<input v-model="form.talentPoolRetentionUntil" type="date" /></label>
+      <button type="submit" :disabled="submitting" data-testid="talent-pool-submit">加入人才库</button>
+    </form>
+
+    <form v-else-if="kind === 'candidate-convert'" class="talent-form" @submit.prevent="submitConvertCandidate">
+      <label class="talent-field">候选人 ID<input v-model="form.convertCandidateId" data-testid="convert-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">法人 ID<input v-model="form.convertLegalEntityId" data-testid="convert-legal-entity-id" inputmode="numeric" required /></label>
+      <label class="talent-field">组织单元 ID<input v-model="form.convertOrgUnitId" data-testid="convert-org-unit-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工编号<input v-model="form.convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" required /></label>
+      <label class="talent-field">入职日期<input v-model="form.convertHireDate" type="date" /></label>
+      <button type="submit" :disabled="submitting" data-testid="convert-submit">转为员工任职</button>
     </form>
 
     <form v-else-if="kind === 'interview-schedule'" class="talent-form" @submit.prevent="submitInterview">
