@@ -60,6 +60,19 @@ final class TrainingController
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
 
+    public function sessions(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'training.session.manage');
+        $items = $this->training->sessions(
+            $principal->tenantId(),
+            $request->query('program_id') !== null ? (int) $request->query('program_id') : null,
+            is_string($request->query('status')) ? $request->query('status') : null,
+        );
+
+        return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
+    }
+
     public function storeSession(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();

@@ -6,6 +6,8 @@ const REQUISITION_COLUMNS = ['requisition_id', 'requisition_no', 'title', 'statu
 const CANDIDATE_COLUMNS = ['candidate_id', 'display_name', 'status', 'has_email'] as const
 const PROGRAM_COLUMNS = ['program_id', 'code', 'title', 'status'] as const
 const OFFER_COLUMNS = ['offer_id', 'candidate_id', 'requisition_id', 'version', 'status', 'start_date'] as const
+const REVIEW_COLUMNS = ['review_id', 'cycle_id', 'employment_id', 'manager_employment_id', 'status', 'self_rating', 'manager_rating'] as const
+const SESSION_COLUMNS = ['session_id', 'program_id', 'starts_on', 'ends_on', 'capacity', 'location', 'status'] as const
 const ENROLLMENT_COLUMNS = ['enrollment_id', 'session_id', 'employment_id', 'status', 'completion_result'] as const
 
 const PERFORMANCE_CREATES: readonly TalentFormKind[] = ['cycle-create']
@@ -143,9 +145,9 @@ const PERFORMANCE_PAGES: TalentPageConfig[] = [
     key: 'performance/reviews',
     title: '自评/主管评分',
     description: '创建评审、提交自评与主管评分；提交后记录不可直接改写。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '关联周期',
-    columns: CYCLE_COLUMNS,
+    readPath: '/v1/performance/reviews',
+    readLabel: '绩效评审',
+    columns: REVIEW_COLUMNS,
     forms: REVIEW_CREATES,
     panels: [PANEL.reviews],
   },
@@ -202,9 +204,9 @@ const PERFORMANCE_PAGES: TalentPageConfig[] = [
     key: 'performance/appeals',
     title: '绩效申诉',
     description: '按已提交评审发起绩效申诉；重复申诉由服务端阻断。',
-    readPath: '/v1/performance/cycles',
-    readLabel: '关联周期',
-    columns: CYCLE_COLUMNS,
+    readPath: '/v1/performance/reviews',
+    readLabel: '绩效评审',
+    columns: REVIEW_COLUMNS,
     forms: ['review-appeal'],
     panels: [PANEL.reviews],
   },
@@ -507,10 +509,10 @@ const TRAINING_PAGES: TalentPageConfig[] = [
     ...TRAINING_BASE,
     key: 'training/sessions',
     title: '培训场次',
-    description: '创建场次，维护时间、容量与地点；场次列表接口尚未提供。',
-    readPath: '/v1/training/programs',
-    readLabel: '培训项目',
-    columns: PROGRAM_COLUMNS,
+    description: '创建场次并查看实时场次台账，维护时间、容量与地点。',
+    readPath: '/v1/training/sessions',
+    readLabel: '培训场次',
+    columns: SESSION_COLUMNS,
     forms: SESSION_CREATES,
     panels: [PANEL.training],
   },

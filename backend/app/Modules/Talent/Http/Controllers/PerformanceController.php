@@ -37,6 +37,19 @@ final class PerformanceController
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
 
+    public function reviews(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'performance.review.manage');
+        $items = $this->performance->reviews(
+            $principal->tenantId(),
+            $request->query('cycle_id') !== null ? (int) $request->query('cycle_id') : null,
+            is_string($request->query('status')) ? $request->query('status') : null,
+        );
+
+        return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
+    }
+
     public function storeCycle(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();

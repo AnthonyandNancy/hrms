@@ -1121,4 +1121,16 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_denied'],
     ],
+    'GET /v1/performance/reviews' => [
+        'capability' => 'performance.review.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'GET /v1/training/sessions' => [
+        'capability' => 'training.session.manage',
+        'anchor' => 'LEGAL_ENTITY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
 ];

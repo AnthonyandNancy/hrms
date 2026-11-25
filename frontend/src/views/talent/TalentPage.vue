@@ -44,6 +44,7 @@ const domainCopy = {
 
       <div class="talent-workspace__main">
         <slot name="states" />
+        <slot name="partial" />
         <slot name="data" />
         <slot name="forms" />
         <slot name="panels" />

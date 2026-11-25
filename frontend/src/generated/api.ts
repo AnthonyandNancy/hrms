@@ -1590,7 +1590,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List performance reviews
+         * @description Requires capability `performance.review.manage`.
+         */
+        get: operations["performanceReviewsList"];
         put?: never;
         /** Create a performance review */
         post: operations["performanceReviewsStore"];
@@ -1659,7 +1663,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List training sessions
+         * @description Requires capability `training.session.manage`.
+         */
+        get: operations["trainingSessionsList"];
         put?: never;
         /** Create a training session */
         post: operations["trainingSessionsStore"];
@@ -7675,6 +7683,34 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    performanceReviewsList: {
+        parameters: {
+            query?: {
+                cycle_id?: number;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Review page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Paginated"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     performanceReviewsStore: {
         parameters: {
             query?: never;
@@ -7760,6 +7796,34 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingSessionsList: {
+        parameters: {
+            query?: {
+                program_id?: number;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["Paginated"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

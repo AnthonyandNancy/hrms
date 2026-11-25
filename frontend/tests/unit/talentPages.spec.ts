@@ -28,10 +28,11 @@ function listResponse(items: unknown[] = [], partial = false) {
 async function mountWithRouter(key: string, path: string) {
   const pinia = createPinia()
   setActivePinia(pinia)
+  const routePattern = path.replace(/\/\d+(?=\/|$)/g, '/:id')
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path, name: 'talent-page', component: { template: '<div />' } },
+      { path: routePattern, name: 'talent-page', component: { template: '<div />' } },
       { path: '/login', name: 'login', component: { template: '<div />' } },
       { path: '/forbidden', name: 'forbidden', component: { template: '<div />' } },
     ],
@@ -166,6 +167,20 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
   })
 
+  it('filters the candidate detail page to the candidate id in the route', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { candidate_id: 31, display_name: 'Synthetic Candidate 31', status: 'NEW', has_email: true },
+      { candidate_id: 32, display_name: 'Synthetic Candidate 32', status: 'INTERVIEW', has_email: false },
+    ]))
+
+    const wrapper = await mountWithRouter('recruitment/candidates/by-id', '/recruitment/candidates/31')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates', { candidate_id: 31 })
+    expect(wrapper.text()).toContain('Synthetic Candidate 31')
+    expect(wrapper.text()).not.toContain('Synthetic Candidate 32')
+  })
+
   it('loads the live Offer ledger now that GET /v1/recruitment/offers exists', async () => {
     resource.get.mockResolvedValue(listResponse([
       {
@@ -189,11 +204,89 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.text()).not.toContain('Offer 台账读取：后端接口待补')
   })
 
+  it('loads the live performance review ledger now that GET /v1/performance/reviews exists', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        review_id: 66,
+        cycle_id: 5,
+        employment_id: 12,
+        manager_employment_id: 13,
+        status: 'DRAFT',
+        self_rating: 'B',
+        manager_rating: null,
+      },
+    ]))
+
+    const wrapper = await mountWithRouter('performance/reviews', '/performance/reviews')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/performance/reviews', expect.any(Object))
+    expect(wrapper.text()).toContain('66')
+    expect(wrapper.text()).toContain('DRAFT')
+  })
+
+  it('loads the live training session ledger now that GET /v1/training/sessions exists', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        session_id: 91,
+        program_id: 3,
+        starts_on: '2026-12-01',
+        ends_on: '2026-12-01',
+        capacity: 20,
+        location: 'Synthetic room',
+        status: 'SCHEDULED',
+      },
+    ]))
+
+    const wrapper = await mountWithRouter('training/sessions', '/training/sessions')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/sessions', expect.any(Object))
+    expect(wrapper.text()).toContain('91')
+    expect(wrapper.text()).toContain('Synthetic room')
+    expect(wrapper.text()).toContain('SCHEDULED')
+  })
+
+  it('creates a training session with real fields and an idempotency key', async () => {
+    resource.get.mockResolvedValue(listResponse())
+    resource.post.mockResolvedValue({ session_id: 92, program_id: 3, capacity: 20, status: 'SCHEDULED' })
+
+    const wrapper = await mountWithRouter('training/sessions', '/training/sessions')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="session-program-id"]').setValue('3')
+    await wrapper.get('[data-testid="session-starts-on"]').setValue('2026-12-02')
+    await wrapper.get('[data-testid="session-ends-on"]').setValue('2026-12-02')
+    await wrapper.get('[data-testid="session-starts-at"]').setValue('2026-12-02T09:00')
+    await wrapper.get('[data-testid="session-ends-at"]').setValue('2026-12-02T12:00')
+    await wrapper.get('[data-testid="session-capacity"]').setValue('20')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/sessions',
+      expect.objectContaining({
+        program_id: 3,
+        starts_on: '2026-12-02',
+        ends_on: '2026-12-02',
+        capacity: 20,
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('培训场次已创建')
+  })
+
   it('declares a live GET path and explicit backend gaps for every Wave 4 page config', () => {
     expect(TALENT_PAGE_CONFIGS).toHaveLength(36)
     for (const page of TALENT_PAGE_CONFIGS) {
       expect(page.readPath, page.key).toMatch(/^\/v1\//)
     }
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'performance/reviews')?.readPath).toBe(
+      '/v1/performance/reviews',
+    )
+    expect(TALENT_PAGE_CONFIGS.find((page) => page.key === 'training/sessions')?.readPath).toBe(
+      '/v1/training/sessions',
+    )
 
     const plannedGaps = new Map([
       ['performance/indicators', '/v1/performance/indicators'],
@@ -304,5 +397,6 @@ describe('Wave 4 talent domain components', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/performance/cycles', expect.any(Object))
     expect(wrapper.text()).toContain('后端接口待补')
     expect(wrapper.text()).toContain('/v1/performance/indicators')
+    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
   })
 })

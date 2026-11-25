@@ -182,6 +182,30 @@ final class TrainingService
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function sessions(int $tenantId, ?int $programId = null, ?string $status = null): array
+    {
+        return \App\Modules\Talent\Models\TrainingSession::query()
+            ->where('tenant_id', $tenantId)
+            ->when($programId !== null, fn ($builder) => $builder->where('program_id', $programId))
+            ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
+            ->orderByDesc('id')
+            ->get()
+            ->map(static fn (\App\Modules\Talent\Models\TrainingSession $session): array => [
+                'session_id' => (int) $session->id,
+                'program_id' => (int) $session->program_id,
+                'starts_on' => (string) $session->starts_on,
+                'ends_on' => (string) $session->ends_on,
+                'starts_at' => $session->starts_at?->toIso8601ZuluString(),
+                'ends_at' => $session->ends_at?->toIso8601ZuluString(),
+                'capacity' => (int) $session->capacity,
+                'location' => $session->location,
+                'status' => (string) $session->status,
+            ])->all();
+    }
+
     public function report(int $tenantId, ?int $programId = null, ?int $employmentId = null): array
     {
         return TrainingEnrollment::query()

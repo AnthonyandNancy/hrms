@@ -45,8 +45,28 @@ const negativeCount = (registry.match(/negativeTests:\s*\[\.\.\.REQUIRED_NEGATIV
  * reports mature coverage so fallback pages are never counted as domain-complete.
  */
 function matureViewExists(componentKey) {
-  const source = readFileSync(join(root, 'frontend/src/router/pageComponents.ts'), 'utf8')
-  return source.includes(`'${componentKey}':`)
+  const router = readFileSync(join(root, 'frontend/src/router/pageComponents.ts'), 'utf8')
+  if (router.includes(`'${componentKey}':`)) return true
+
+  // Domain barrels expose one mapping function per domain. The audit verifies
+  // the key is actually present in that domain's catalog/definitions instead
+  // of trusting a static list in pageComponents.ts.
+  const domains = [
+    { prefixes: ['hr/'], dir: 'frontend/src/views/people' },
+    { prefixes: ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'], dir: 'frontend/src/views/timepay' },
+    { prefixes: ['performance/', 'recruitment/', 'training/'], dir: 'frontend/src/views/talent' },
+    { prefixes: ['dashboard/', 'reports/', 'notices/', 'account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'], dir: 'frontend/src/views/platform' },
+  ]
+  const domain = domains.find((candidate) => candidate.prefixes.some((prefix) => componentKey === prefix || componentKey.startsWith(prefix)))
+  if (domain === undefined) return false
+
+  const directory = join(root, domain.dir)
+  if (!existsSync(directory)) return false
+  const sources = readdirSync(directory)
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => readFileSync(join(directory, name), 'utf8'))
+    .join('\n')
+  return sources.includes(`'${componentKey}'`) || sources.includes(`"${componentKey}"`)
 }
 
 const RESOURCE_PAGE_EXISTS = existsSync(join(root, 'frontend/src/components/ResourcePage.vue'))

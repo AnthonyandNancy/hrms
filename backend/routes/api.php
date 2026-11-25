@@ -601,6 +601,9 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
     Route::post('/cycles', [PerformanceController::class, 'storeCycle'])
         ->middleware('capability:performance.cycle.manage')
         ->name('performance.cycles.store');
+    Route::get('/reviews', [PerformanceController::class, 'reviews'])
+        ->middleware('capability:performance.review.manage')
+        ->name('performance.reviews.index');
     Route::post('/reviews', [PerformanceController::class, 'storeReview'])
         ->middleware('capability:performance.review.manage')
         ->name('performance.reviews.store');
@@ -621,6 +624,9 @@ Route::prefix('training')->middleware(['auth.session'])->group(function (): void
     Route::post('/programs', [TrainingController::class, 'storeProgram'])
         ->middleware('capability:training.program.manage')
         ->name('training.programs.store');
+    Route::get('/sessions', [TrainingController::class, 'sessions'])
+        ->middleware('capability:training.session.manage')
+        ->name('training.sessions.index');
     Route::post('/sessions', [TrainingController::class, 'storeSession'])
         ->middleware('capability:training.session.manage')
         ->name('training.sessions.store');

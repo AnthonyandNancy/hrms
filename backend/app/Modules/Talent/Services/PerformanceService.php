@@ -209,6 +209,31 @@ final class PerformanceService
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function reviews(int $tenantId, ?int $cycleId = null, ?string $status = null): array
+    {
+        return \App\Modules\Talent\Models\PerformanceReview::query()
+            ->where('tenant_id', $tenantId)
+            ->when($cycleId !== null, fn ($builder) => $builder->where('cycle_id', $cycleId))
+            ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
+            ->orderByDesc('id')
+            ->get()
+            ->map(static fn (\App\Modules\Talent\Models\PerformanceReview $review): array => [
+                'review_id' => (int) $review->id,
+                'cycle_id' => (int) $review->cycle_id,
+                'employment_id' => (int) $review->employment_id,
+                'manager_employment_id' => $review->manager_employment_id !== null ? (int) $review->manager_employment_id : null,
+                'status' => (string) $review->status,
+                'self_rating' => $review->self_rating,
+                'manager_rating' => $review->manager_rating,
+                'calibrated_rating' => $review->calibrated_rating,
+                'submitted_at' => $review->submitted_at?->toIso8601ZuluString(),
+                'recorded_at' => $review->recorded_at?->toIso8601ZuluString(),
+            ])->all();
+    }
+
     public function cycles(int $tenantId): array
     {
         return PerformanceCycle::query()

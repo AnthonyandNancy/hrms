@@ -8349,6 +8349,37 @@ paths:
           $ref: "#/components/responses/Conflict"
       x-capability: performance.cycle.manage
   /v1/performance/reviews:
+    get:
+      operationId: performanceReviewsList
+      tags: [Talent]
+      summary: List performance reviews
+      description: Requires capability `performance.review.manage`.
+      parameters:
+        - name: cycle_id
+          in: query
+          schema: {type: integer, minimum: 1}
+        - name: status
+          in: query
+          schema: {type: string, maxLength: 24}
+      responses:
+        "200":
+          description: Review page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Paginated"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.review.manage
     post:
       operationId: performanceReviewsStore
       tags:
@@ -8458,6 +8489,37 @@ paths:
           $ref: "#/components/responses/Conflict"
       x-capability: training.program.manage
   /v1/training/sessions:
+    get:
+      operationId: trainingSessionsList
+      tags: [Talent]
+      summary: List training sessions
+      description: Requires capability `training.session.manage`.
+      parameters:
+        - name: program_id
+          in: query
+          schema: {type: integer, minimum: 1}
+        - name: status
+          in: query
+          schema: {type: string, maxLength: 24}
+      responses:
+        "200":
+          description: Session page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Paginated"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.session.manage
     post:
       operationId: trainingSessionsStore
       tags:

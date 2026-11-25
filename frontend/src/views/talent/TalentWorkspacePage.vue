@@ -44,6 +44,7 @@ const routeFilter = computed<Record<string, unknown>>(() => {
 })
 
 const columns = computed(() => config.value?.columns ?? [])
+const isPartial = computed(() => partial.value || config.value?.pending !== undefined)
 const routeId = computed(() => {
   const value = route.params.id
   return typeof value === 'string' ? value : undefined
@@ -79,8 +80,14 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     const result = await readTalentList(current.readPath, routeFilter.value, normalisedRow)
-    rows.value = result.rows
-    total.value = result.total
+    const filterKey = current.routeFilterKey
+    const filterValue = filterKey === undefined ? null : routeFilter.value[filterKey]
+    const filteredRows =
+      filterKey !== undefined && typeof filterValue === 'number'
+        ? result.rows.filter((row) => rowId(row, filterKey) === String(filterValue))
+        : result.rows
+    rows.value = filteredRows
+    total.value = filterKey !== undefined && typeof filterValue === 'number' ? filteredRows.length : result.total
     partial.value = result.partial
   } catch (reason) {
     pageError.capture(reason)
@@ -175,9 +182,9 @@ onMounted(load)
             </table>
           </div>
         </div>
-        <footer v-if="partial" class="panel__footer">
+        <footer v-if="isPartial" class="panel__footer">
           <span class="talent-partial" data-testid="talent-partial">
-            部分数据：服务端标记本次响应不完整，请结合请求编号联系管理员。
+            部分数据：{{ config.pending ? '本页存在尚未上线的后端能力，停用区域不会展示伪造数据。' : '服务端标记本次响应不完整，请结合请求编号联系管理员。' }}
           </span>
         </footer>
       </section>
@@ -209,6 +216,12 @@ onMounted(load)
           </ul>
         </div>
       </section>
+    </template>
+
+    <template #partial>
+      <p v-if="isPartial && rows.length === 0" class="talent-partial talent-partial--standalone" data-testid="talent-partial">
+        部分数据：本页存在尚未上线的后端能力，停用区域不会展示伪造数据。
+      </p>
     </template>
 
     <template #forms>
@@ -340,6 +353,14 @@ onMounted(load)
   color: var(--color-warning);
   font-size: 12px;
   font-weight: 600;
+}
+
+.talent-partial--standalone {
+  margin: 0;
+  padding: 11px 14px;
+  background: var(--color-warning-soft);
+  border: 1px solid #e6cf9f;
+  border-radius: var(--radius-sm);
 }
 
 .talent-pending {

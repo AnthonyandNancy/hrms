@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -36,7 +36,24 @@ const entries = chunks
   .filter((entry) => entry.path !== '')
 
 const openapiPaths = new Set([...openapi.matchAll(/^  (\/v1\/[^:]+):$/gm)].map((match) => match[1]))
-const matureKeys = new Set([...components.matchAll(/'([^']+)': \(\) => import/g)].map((match) => match[1]))
+const DOMAINS = [
+  { prefixes: ['hr/'], dir: 'frontend/src/views/people' },
+  { prefixes: ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'], dir: 'frontend/src/views/timepay' },
+  { prefixes: ['performance/', 'recruitment/', 'training/'], dir: 'frontend/src/views/talent' },
+  { prefixes: ['dashboard/', 'reports/', 'notices/', 'account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'], dir: 'frontend/src/views/platform' },
+]
+const domainSources = new Map(
+  DOMAINS.map((domain) => [
+    domain.dir,
+    readdirSync(join(root, domain.dir)).filter((name) => name.endsWith('.ts')).map((name) => readFileSync(join(root, domain.dir, name), 'utf8')).join('\n'),
+  ]),
+)
+function matureKey(key) {
+  if (components.includes(`'${key}':`)) return true
+  const domain = DOMAINS.find((candidate) => candidate.prefixes.some((prefix) => key === prefix || key.startsWith(prefix)))
+  return domain !== undefined && (domainSources.get(domain.dir) ?? '').includes(`'${key}'`)
+}
+const matureKeys = { has: matureKey }
 
 const rows = entries.map((entry) => {
   const status = matureKeys.has(entry.componentKey) ? 'MATURE' : 'FALLBACK'

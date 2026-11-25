@@ -632,12 +632,12 @@ async function submitCompletion(): Promise<void> {
     </form>
 
     <form v-else-if="kind === 'session-create'" class="talent-form" @submit.prevent="submitSession">
-      <label class="talent-field">培训项目 ID<input v-model="form.sessionProgramId" inputmode="numeric" required /></label>
-      <label class="talent-field">开始日期<input v-model="form.sessionStartsOn" type="date" required /></label>
-      <label class="talent-field">结束日期<input v-model="form.sessionEndsOn" type="date" required /></label>
-      <label class="talent-field">开始时间<input v-model="form.sessionStartsAt" type="datetime-local" required /></label>
-      <label class="talent-field">结束时间<input v-model="form.sessionEndsAt" type="datetime-local" required /></label>
-      <label class="talent-field">容量<input v-model="form.sessionCapacity" inputmode="numeric" required /></label>
+      <label class="talent-field">培训项目 ID<input v-model="form.sessionProgramId" data-testid="session-program-id" inputmode="numeric" required /></label>
+      <label class="talent-field">开始日期<input v-model="form.sessionStartsOn" data-testid="session-starts-on" type="date" required /></label>
+      <label class="talent-field">结束日期<input v-model="form.sessionEndsOn" data-testid="session-ends-on" type="date" required /></label>
+      <label class="talent-field">开始时间<input v-model="form.sessionStartsAt" data-testid="session-starts-at" type="datetime-local" required /></label>
+      <label class="talent-field">结束时间<input v-model="form.sessionEndsAt" data-testid="session-ends-at" type="datetime-local" required /></label>
+      <label class="talent-field">容量<input v-model="form.sessionCapacity" data-testid="session-capacity" inputmode="numeric" required /></label>
       <label class="talent-field">地点<input v-model="form.sessionLocation" maxlength="160" /></label>
       <button type="submit" :disabled="submitting" data-testid="session-submit">创建场次</button>
     </form>
