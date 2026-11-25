@@ -42,7 +42,7 @@ final class ModuleBoundaryScanner
      */
     public const TABLE_OWNERS = [
         'IAM' => ['users', 'sessions', 'capabilities', 'authority_bindings', 'auth_events', 'roles', 'role_capabilities', 'user_roles'],
-        'People' => ['persons', 'employments', 'assignments', 'employment_terms', 'documents', 'employment_user_links'],
+        'People' => ['persons', 'employments', 'assignments', 'employment_terms', 'documents', 'employment_user_links', 'employment_contracts', 'contract_templates'],
         'Organization' => ['org_units', 'org_unit_closure', 'positions', 'legal_entities'],
         'Lifecycle' => ['cases', 'decisions', 'effects', 'lifecycle_tasks', 'lifecycle_intents', 'onboarding_checklist_templates', 'employment_contract_versions'],
         'Workflow' => ['workflow_definitions', 'workflow_versions', 'workflow_instances', 'workflow_tasks', 'workflow_delegations'],

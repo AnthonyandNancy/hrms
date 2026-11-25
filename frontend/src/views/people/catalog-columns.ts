@@ -119,6 +119,14 @@ export const CONTRACT_COLUMNS: readonly PeopleColumn[] = [
   { key: 'days_to_expiry', label: '剩余天数', width: '90px' },
 ]
 
+export const TEMPLATE_COLUMNS: readonly PeopleColumn[] = [
+  { key: 'code', label: '模板编码', width: '145px' },
+  { key: 'name', label: '模板名称', minWidth: '180px' },
+  { key: 'version', label: '版本', width: '65px' },
+  { key: 'status', label: '状态', width: '100px' },
+  { key: 'published_at', label: '发布时间', width: '165px' },
+]
+
 export const POSITION_STAFF_COLUMNS: readonly PeopleColumn[] = [
   { key: 'position_code', label: '岗位编码', width: '125px' },
   { key: 'position_title', label: '岗位名称', minWidth: '160px' },
@@ -147,16 +155,6 @@ export const GAP = {
     label: '借调/兼岗',
     plannedPath: '/v1/lifecycle/secondments',
     detail: '后端目前只有 PRIMARY/SECONDMENT/MATRIX/PROJECT 任职类型与调岗命令，没有独立借调生命周期命令。页面只读展示调岗案例，不伪造借调审批。',
-  },
-  contractChanges: {
-    label: '合同变更/终止',
-    plannedPath: '/v1/employments/{employment_id}/contracts/{id}',
-    detail: '合同台账仅支持读取与创建新版本；合同变更、终止与附件接口尚未提供，页面不伪造变更按钮。',
-  },
-  contractTemplates: {
-    label: '合同模板',
-    plannedPath: '/v1/contract-templates',
-    detail: '合同模板、模板版本与发布权限接口尚未提供；页面只展示到期合同只读列表，不提供模板编辑。',
   },
   positionStaff: {
     label: '岗位任职人员',

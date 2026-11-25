@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $employment_id
  * @property string $contract_no
  * @property string $status
+ * @property string $end_date
+ * @property string|null $terminated_on
  * @property int|null $renewed_by_id
  * @property int|null $previous_contract_id
  */
@@ -32,6 +34,7 @@ final class EmploymentContract extends Model
         'start_date',
         'end_date',
         'signed_on',
+        'terminated_on',
         'status',
         'version',
         'previous_contract_id',

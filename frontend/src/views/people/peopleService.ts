@@ -46,38 +46,6 @@ async function employeePage(pageSize = 20): Promise<PeopleReadState> {
   }))
 }
 
-async function contractsForEmployees(limit: number): Promise<PeopleReadState> {
-  const employees = await employeePage(limit)
-  const rows: PeopleRow[] = []
-  let total = 0
-
-  for (const employee of employees.rows) {
-    const id = Number(employee.employment_id ?? 0)
-    if (id <= 0) continue
-    const contracts = await readPeopleList(`/v1/employments/${id}/contracts`)
-    for (const contract of contracts.rows) {
-      rows.push({
-        ...contract,
-        employee_name: employee.person_name ?? `员工 #${id}`,
-        employee_no: employee.employee_no ?? '',
-        employment_id: id,
-      })
-    }
-    total += contracts.total
-  }
-
-  return {
-    rows,
-    total,
-    partial: employees.total > employees.rows.length,
-    primaryId: employees.rows[0] ? Number(employees.rows[0].employment_id ?? 0) || null : null,
-    partialNote:
-      employees.total > employees.rows.length
-        ? `仅加载前 ${employees.rows.length} 名员工的合同；员工总数为 ${employees.total}。`
-        : '',
-  }
-}
-
 async function importsForEmployees(): Promise<PeopleReadState> {
   const employees = await employeePage(30)
   const rows: PeopleRow[] = []
@@ -197,7 +165,12 @@ export async function loadPeoplePage(
         if (id === null) return emptyState()
         return single(await resourceGet<unknown>(`/v1/lifecycle/cases/${id}`))
       case 'contracts-ledger':
-        return await contractsForEmployees(20)
+        return toReadState(await readPeopleList('/v1/employments/contracts', {
+          ...ENTITY_SCOPE,
+          as_of: asOf,
+          page: 1,
+          page_size: 20,
+        }))
       case 'contract-expiring':
         return toReadState(await readPeopleList('/v1/employments/contracts/expiring', {
           ...ENTITY_SCOPE,
@@ -206,12 +179,32 @@ export async function loadPeoplePage(
         }))
       case 'contract-detail': {
         if (id === null) return emptyState()
-        const ledger = await contractsForEmployees(20)
+        const ledger = await readPeopleList('/v1/employments/contracts', {
+          ...ENTITY_SCOPE,
+          as_of: asOf,
+          page: 1,
+          page_size: 100,
+        })
+        const ledgerState = toReadState(ledger)
         const match = ledger.rows.find((row) => rowId(row) === String(id))
         return match
-          ? { ...ledger, rows: [match], total: 1, partialNote: '' }
-          : { ...ledger, rows: [], total: 0, partial: true, partialNote: '未能在已加载员工的合同中定位该合同；员工记录可能超出首页范围。' }
+          ? { ...ledgerState, rows: [match], total: 1, partialNote: '' }
+          : { ...ledgerState, rows: [], total: 0, partial: true, partialNote: '未能在当前合同台账页中定位该合同；记录可能超出前 100 行范围。' }
       }
+      case 'contract-templates':
+        return toReadState(await readPeopleList('/v1/contract-templates', {
+          as_of: asOf,
+          status: config.read.status,
+          page: 1,
+          page_size: 20,
+        }))
+      case 'contract-amendments':
+        if (id === null) return emptyState()
+        return toReadState(await readPeopleList(`/v1/employment-contracts/${id}/amendments`, {
+          as_of: asOf,
+          page: 1,
+          page_size: 20,
+        }))
     }
   } catch (error) {
     return serviceError(error, `加载${config.title}失败`)

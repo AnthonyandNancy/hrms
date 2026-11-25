@@ -48,6 +48,8 @@ export type PeopleRead =
   | { kind: 'contracts-ledger' }
   | { kind: 'contract-expiring'; withinDays?: number }
   | { kind: 'contract-detail' }
+  | { kind: 'contract-templates'; status?: string }
+  | { kind: 'contract-amendments'; contractIdParam?: string }
 
 export type PeopleForm =
   | 'employee-create'
@@ -63,6 +65,8 @@ export type PeopleForm =
   | 'movement-offboarding'
   | 'contract-editor'
   | 'contract-renewal'
+  | 'contract-changes'
+  | 'contract-template-editor'
 
 export type PeoplePageConfig = {
   key: string

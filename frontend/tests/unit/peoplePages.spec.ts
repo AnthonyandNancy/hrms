@@ -107,6 +107,31 @@ const contract = {
   days_to_expiry: 36,
 }
 
+const contractTemplate = {
+  id: 81,
+  code: 'CN-FIXED',
+  name: 'Synthetic fixed-term template',
+  version: 2,
+  status: 'PUBLISHED',
+  body: 'Synthetic template body',
+  published_at: '2026-11-20T08:00:00Z',
+}
+
+function projectionResponse(items: unknown[] = []) {
+  return {
+    items,
+    page: 1,
+    page_size: 20,
+    total: items.length,
+    as_of: '2026-11-25',
+    freshness: 'LIVE',
+    source_hash: 'a'.repeat(64),
+    partial: false,
+    partial_reason: null,
+    drilldown: null,
+  }
+}
+
 async function mountAt(key: string, path: string) {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -238,18 +263,17 @@ describe('Wave 2 people domain components', () => {
     expect(wrapper.text()).toContain('ASSIGNMENT_CHANGE')
   })
 
-  it('loads the contract ledger for real employees from per-employment contract endpoints', async () => {
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/employees') return Promise.resolve(listResponse([employee]))
-      if (path === '/v1/employments/1/contracts') return Promise.resolve(listResponse([contract]))
-      return Promise.resolve(listResponse())
-    })
+  it('loads the server-side contract ledger projection', async () => {
+    resource.get.mockResolvedValue(projectionResponse([contract]))
 
     const wrapper = await mountAt('hr/contracts/index', '/hr/contracts')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/employees', expect.any(Object))
-    expect(resource.get).toHaveBeenCalledWith('/v1/employments/1/contracts', {})
+    expect(resource.get).toHaveBeenCalledWith('/v1/employments/contracts', expect.objectContaining({
+      legal_entity_id: 1,
+      page: 1,
+      page_size: 20,
+    }))
     expect(wrapper.text()).toContain('CON-2026-0031')
   })
 
@@ -303,14 +327,94 @@ describe('Wave 2 people domain components', () => {
     expect(wrapper.text()).not.toContain('当前账号未绑定员工')
   })
 
-  it('shows an honest API-gap banner for a page whose backend endpoint does not exist', async () => {
-    resource.get.mockResolvedValue(listResponse([contract]))
+  it('loads contract templates from the versioned template endpoint without a gap banner', async () => {
+    resource.get.mockResolvedValue(projectionResponse([contractTemplate]))
 
     const wrapper = await mountAt('hr/contracts/templates', '/hr/contracts/templates')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/employments/contracts/expiring', expect.any(Object))
-    expect(wrapper.text()).toContain('接口缺口')
-    expect(wrapper.text()).toContain('合同模板')
+    expect(resource.get).toHaveBeenCalledWith('/v1/contract-templates', expect.objectContaining({ page: 1, page_size: 20 }))
+    expect(wrapper.text()).toContain('CN-FIXED')
+    expect(wrapper.text()).not.toContain('接口缺口')
+  })
+
+  it('creates, publishes, amends and terminates contracts through idempotent write endpoints', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/employments/contracts') return Promise.resolve(projectionResponse([contract]))
+      if (path === '/v1/employment-contracts/31/amendments') return Promise.resolve(projectionResponse([]))
+      if (path === '/v1/contract-templates') return Promise.resolve(projectionResponse([contractTemplate]))
+      return Promise.resolve(projectionResponse())
+    })
+    resource.post.mockImplementation((path: string) => {
+      if (path === '/v1/employment-contracts/31/amendments') {
+        return Promise.resolve({ contract, version: { id: 101, change_type: 'AMENDMENT' } })
+      }
+      if (path === '/v1/employment-contracts/31/terminate') {
+        return Promise.resolve({ contract: { ...contract, status: 'TERMINATED' }, version: { id: 102, change_type: 'TERMINATION' } })
+      }
+      if (path === '/v1/contract-templates') {
+        return Promise.resolve({ ...contractTemplate, id: 82, version: 3, status: 'DRAFT', published_at: null })
+      }
+      if (path === '/v1/contract-templates/82/publish') {
+        return Promise.resolve({ ...contractTemplate, id: 82, version: 3, status: 'PUBLISHED' })
+      }
+      return Promise.resolve({})
+    })
+
+    const changes = await mountAt('hr/contracts/changes', '/hr/contracts/changes')
+    await flushPromises()
+
+    await changes.get('[data-testid="contract-amend-id"]').setValue('31')
+    await changes.get('[data-testid="contract-amend-effective"]').setValue('2026-06-01')
+    await changes.get('[data-testid="contract-amend-reason"]').setValue('Synthetic amendment')
+    await changes.get('[data-testid="contract-amend-type"]').setValue('OPEN_ENDED')
+    await changes.get('[data-testid="contract-amend-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/employment-contracts/31/amendments',
+      expect.objectContaining({
+        effective_date: '2026-06-01',
+        reason: 'Synthetic amendment',
+        changes: expect.objectContaining({ contract_type: 'OPEN_ENDED' }),
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await changes.get('[data-testid="contract-amend-effective"]').setValue('2026-09-30')
+    await changes.get('[data-testid="contract-amend-reason"]').setValue('Synthetic termination')
+    await changes.get('[data-testid="contract-terminate-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/employment-contracts/31/terminate',
+      { effective_date: '2026-09-30', reason: 'Synthetic termination' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    const templates = await mountAt('hr/contracts/templates', '/hr/contracts/templates')
+    await flushPromises()
+
+    await templates.get('[data-testid="contract-template-code"]').setValue('CN-FIXED')
+    await templates.get('[data-testid="contract-template-name"]').setValue('Synthetic fixed-term template')
+    await templates.get('[data-testid="contract-template-body"]').setValue('Synthetic template body')
+    await templates.get('[data-testid="contract-template-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/contract-templates',
+      { code: 'CN-FIXED', name: 'Synthetic fixed-term template', body: 'Synthetic template body' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await templates.get('[data-testid="contract-template-publish-id"]').setValue('82')
+    await templates.get('[data-testid="contract-template-publish"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/contract-templates/82/publish',
+      {},
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
   })
 })
