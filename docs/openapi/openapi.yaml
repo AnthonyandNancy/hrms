@@ -5052,6 +5052,24 @@ components:
           items:
             type: object
             additionalProperties: true
+    TrainingRecordExportProjection:
+      allOf:
+        - $ref: "#/components/schemas/TrainingProjectionData"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            drilldown:
+              type: object
+              required: [fields]
+              properties:
+                fields:
+                  type: array
+                  items: { type: string }
+              additionalProperties: true
     TrainingPlanListEnvelope:
       allOf:
         - $ref: "#/components/schemas/Envelope"
@@ -5191,7 +5209,7 @@ components:
         - type: object
           properties:
             data:
-              $ref: "#/components/schemas/TrainingRecordExport"
+              $ref: "#/components/schemas/TrainingRecordExportProjection"
     TravelRequest:
       type: object
       required:

@@ -5628,6 +5628,16 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        TrainingRecordExportProjection: components["schemas"]["TrainingProjectionData"] & {
+            items?: {
+                [key: string]: unknown;
+            }[];
+            drilldown?: {
+                fields: string[];
+            } & {
+                [key: string]: unknown;
+            };
+        };
         TrainingPlanListEnvelope: components["schemas"]["Envelope"] & {
             data?: components["schemas"]["TrainingProjectionData"] & {
                 items?: components["schemas"]["TrainingPlan"][];
@@ -5679,7 +5689,7 @@ export interface components {
             data?: components["schemas"]["TrainingFeedback"];
         };
         TrainingRecordExportEnvelope: components["schemas"]["Envelope"] & {
-            data?: components["schemas"]["TrainingRecordExport"];
+            data?: components["schemas"]["TrainingRecordExportProjection"];
         };
         TravelRequest: {
             travel_id: number;

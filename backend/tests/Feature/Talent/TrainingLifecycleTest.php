@@ -161,11 +161,12 @@ final class TrainingLifecycleTest extends TalentTestCase
 
         $this->seedTrainingSession();
 
-        $export = $this->getJson('/v1/training/records/export?fields[]=employment_id&fields[]=study_minutes')
+        $exportResponse = $this->getJson('/v1/training/records/export?fields[]=employment_id&fields[]=study_minutes')
             ->assertOk()
-            ->json('data');
+            ->assertJsonStructure(['data' => ['items', 'total', 'as_of', 'freshness', 'source_hash']]);
+        $export = $exportResponse->json('data');
 
-        $this->assertSame(['employment_id', 'study_minutes'], $export['fields']);
+        $this->assertSame(['employment_id', 'study_minutes'], $export['drilldown']['fields']);
         $this->assertSame(['employment_id', 'study_minutes'], array_keys($export['items'][0]));
 
         $denied = $this->getJson('/v1/training/records/export?fields[]=national_id')

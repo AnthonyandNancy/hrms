@@ -319,7 +319,9 @@ final class TrainingController
             is_array($fields) ? array_values(array_map('strval', $fields)) : [],
         );
 
-        return ApiResponse::ok($result);
+        return $this->projections->ok(
+            $this->projection($result['items'], $this->asOf($request), ['fields' => $result['fields']]),
+        );
     }
 
     public function reports(Request $request): JsonResponse
@@ -394,7 +396,11 @@ final class TrainingController
     /**
      * @param  list<array<string, mixed>>  $items
      */
-    private function projection(array $items, string $asOf): ProjectionResult
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @param  array<string, mixed>|null  $drilldown
+     */
+    private function projection(array $items, string $asOf, ?array $drilldown = null): ProjectionResult
     {
         return new ProjectionResult(
             items: $items,
@@ -406,7 +412,7 @@ final class TrainingController
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
             partialReason: null,
-            drilldown: null,
+            drilldown: $drilldown,
         );
     }
 

@@ -515,9 +515,17 @@ final class TrainingLifecycleService
                 ->map(static fn (mixed $id): int => (int) $id)
                 ->all();
 
+            // A session may be linked to the plan directly or through one of
+            // the plan's courses. Both belong to the same live report.
             $sessionIds = TrainingSession::query()
                 ->where('tenant_id', $tenantId)
-                ->whereIn('course_id', $courseIds === [] ? [-1] : $courseIds)
+                ->where(function ($query) use ($plan, $courseIds): void {
+                    $query->where('plan_id', (int) $plan->id);
+
+                    if ($courseIds !== []) {
+                        $query->orWhereIn('course_id', $courseIds);
+                    }
+                })
                 ->pluck('id')
                 ->map(static fn (mixed $id): int => (int) $id)
                 ->all();
