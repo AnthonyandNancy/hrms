@@ -16,6 +16,7 @@ use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 final class RecruitmentService
@@ -323,7 +324,7 @@ final class RecruitmentService
             ->orderBy('version');
 
         $total = (int) (clone $query)->count();
-        $items = $query->forPage($page, $pageSize)->get()->map(static fn (Offer $offer): array => [
+        $items = $query->forPage($page, $pageSize)->get()->map(fn (Offer $offer): array => [
             'offer_id' => (int) $offer->id,
             'candidate_id' => (int) $offer->candidate_id,
             'requisition_id' => (int) $offer->requisition_id,
@@ -334,11 +335,20 @@ final class RecruitmentService
             'start_date' => (string) $offer->start_date,
             'case_id' => $offer->case_id !== null ? (int) $offer->case_id : null,
             'onboarding_case_id' => $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,
-            'accepted_at' => $offer->accepted_at?->toIso8601ZuluString(),
-            'declined_at' => $offer->declined_at?->toIso8601ZuluString(),
-        ])->all();
+            'accepted_at' => $this->iso($offer->accepted_at),
+            'declined_at' => $this->iso($offer->declined_at),
+        ])->values()->all();
 
         return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
+    }
+
+    private function iso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
     }
 
     private function ensureWorkflowTemplate(int $tenantId): void

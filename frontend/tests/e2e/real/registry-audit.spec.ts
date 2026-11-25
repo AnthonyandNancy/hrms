@@ -54,13 +54,14 @@ test.describe('@real 160-page registry audit', () => {
 
       const heading = page.locator('h1').first()
       const hasHeading = await heading.isVisible().catch(() => false)
+      const isNotFoundPage = entry.path === '/not-found'
       const isLogin = entry.path === '/login'
       const notFound = await page.getByText(/页面不存在|Page not found/).count()
 
-      if (!isLogin && !hasHeading) {
+      if (!isLogin && !isNotFoundPage && !hasHeading) {
         failures.push(`${entry.path}: no visible h1`)
       }
-      if (notFound > 0) {
+      if (notFound > 0 && !isNotFoundPage) {
         failures.push(`${entry.path}: rendered not-found state`)
       }
       if (await page.getByText('页面暂时无法渲染').count()) {

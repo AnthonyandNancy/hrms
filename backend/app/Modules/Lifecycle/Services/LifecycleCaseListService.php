@@ -6,6 +6,7 @@ namespace App\Modules\Lifecycle\Services;
 
 use App\Modules\Lifecycle\Models\LifecycleIntent;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
+use Carbon\CarbonImmutable;
 
 /**
  * Read model for the lifecycle case list. Lifecycle owns intent facts;
@@ -52,11 +53,20 @@ final class LifecycleCaseListService
                 'subject_id' => $intent->subject_id !== null ? (int) $intent->subject_id : null,
                 'employment_id' => $intent->employment_id !== null ? (int) $intent->employment_id : null,
                 'result_employment_id' => $intent->result_employment_id !== null ? (int) $intent->result_employment_id : null,
-                'effective_at' => $intent->effective_at?->toIso8601ZuluString(),
-                'recorded_at' => $intent->recorded_at?->toIso8601ZuluString(),
+                'effective_at' => $this->iso($intent->effective_at),
+                'recorded_at' => $this->iso($intent->recorded_at),
             ];
         }
 
         return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
+    }
+
+    private function iso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
     }
 }

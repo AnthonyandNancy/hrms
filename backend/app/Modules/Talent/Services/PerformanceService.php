@@ -14,6 +14,7 @@ use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 final class PerformanceService
@@ -214,13 +215,13 @@ final class PerformanceService
      */
     public function reviews(int $tenantId, ?int $cycleId = null, ?string $status = null): array
     {
-        return \App\Modules\Talent\Models\PerformanceReview::query()
+        return PerformanceReview::query()
             ->where('tenant_id', $tenantId)
             ->when($cycleId !== null, fn ($builder) => $builder->where('cycle_id', $cycleId))
             ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
             ->orderByDesc('id')
             ->get()
-            ->map(static fn (\App\Modules\Talent\Models\PerformanceReview $review): array => [
+            ->map(fn (PerformanceReview $review): array => [
                 'review_id' => (int) $review->id,
                 'cycle_id' => (int) $review->cycle_id,
                 'employment_id' => (int) $review->employment_id,
@@ -229,11 +230,23 @@ final class PerformanceService
                 'self_rating' => $review->self_rating,
                 'manager_rating' => $review->manager_rating,
                 'calibrated_rating' => $review->calibrated_rating,
-                'submitted_at' => $review->submitted_at?->toIso8601ZuluString(),
-                'recorded_at' => $review->recorded_at?->toIso8601ZuluString(),
-            ])->all();
+                'submitted_at' => $this->iso($review->submitted_at),
+                'recorded_at' => $this->iso($review->recorded_at),
+            ])->values()->all();
     }
 
+    private function iso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function cycles(int $tenantId): array
     {
         return PerformanceCycle::query()
@@ -246,7 +259,7 @@ final class PerformanceService
                 'period_from' => (string) $cycle->period_from,
                 'period_to' => (string) $cycle->period_to,
                 'status' => (string) $cycle->status,
-            ])->all();
+            ])->values()->all();
     }
 
     /**
@@ -265,7 +278,7 @@ final class PerformanceService
             'manager_rating' => $review->manager_rating,
             'calibrated_rating' => $review->calibrated_rating,
             'status' => (string) $review->status,
-            'submitted_at' => $review->submitted_at !== null ? \Carbon\CarbonImmutable::parse((string) $review->submitted_at)->toIso8601ZuluString() : null,
+            'submitted_at' => $review->submitted_at !== null ? CarbonImmutable::parse((string) $review->submitted_at)->toIso8601ZuluString() : null,
         ];
     }
 

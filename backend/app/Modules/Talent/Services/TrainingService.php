@@ -12,6 +12,7 @@ use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -187,25 +188,37 @@ final class TrainingService
      */
     public function sessions(int $tenantId, ?int $programId = null, ?string $status = null): array
     {
-        return \App\Modules\Talent\Models\TrainingSession::query()
+        return TrainingSession::query()
             ->where('tenant_id', $tenantId)
             ->when($programId !== null, fn ($builder) => $builder->where('program_id', $programId))
             ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
             ->orderByDesc('id')
             ->get()
-            ->map(static fn (\App\Modules\Talent\Models\TrainingSession $session): array => [
+            ->map(fn (TrainingSession $session): array => [
                 'session_id' => (int) $session->id,
                 'program_id' => (int) $session->program_id,
                 'starts_on' => (string) $session->starts_on,
                 'ends_on' => (string) $session->ends_on,
-                'starts_at' => $session->starts_at?->toIso8601ZuluString(),
-                'ends_at' => $session->ends_at?->toIso8601ZuluString(),
+                'starts_at' => $this->iso($session->starts_at),
+                'ends_at' => $this->iso($session->ends_at),
                 'capacity' => (int) $session->capacity,
                 'location' => $session->location,
                 'status' => (string) $session->status,
-            ])->all();
+            ])->values()->all();
     }
 
+    private function iso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
     public function report(int $tenantId, ?int $programId = null, ?int $employmentId = null): array
     {
         return TrainingEnrollment::query()
@@ -249,7 +262,7 @@ final class TrainingService
             'attended' => (bool) $enrollment->attended,
             'completion_result' => $enrollment->completion_result,
             'score' => $enrollment->score,
-            'completed_at' => $enrollment->completed_at !== null ? \Carbon\CarbonImmutable::parse((string) $enrollment->completed_at)->toIso8601ZuluString() : null,
+            'completed_at' => $enrollment->completed_at !== null ? CarbonImmutable::parse((string) $enrollment->completed_at)->toIso8601ZuluString() : null,
         ];
     }
 }

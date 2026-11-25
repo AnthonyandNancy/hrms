@@ -276,6 +276,29 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.text()).toContain('培训场次已创建')
   })
 
+  it('keeps unbacked candidate convert data out of the offer accept workflow', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        offer_id: 44,
+        candidate_id: 31,
+        requisition_id: 8,
+        version: 1,
+        status: 'APPROVED',
+        base_salary_minor: 2000000,
+        salary_currency: 'CNY',
+        start_date: '2026-12-01',
+      },
+    ]))
+
+    const wrapper = await mountWithRouter('recruitment/candidates/convert', '/recruitment/candidates/convert')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/offers', expect.any(Object))
+    expect(wrapper.find('[data-testid="backend-pending"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('/v1/recruitment/candidates/{id}/convert')
+    expect(wrapper.find('[data-testid="offer-accept-submit"]').exists()).toBe(true)
+  })
+
   it('declares a live GET path and explicit backend gaps for every Wave 4 page config', () => {
     expect(TALENT_PAGE_CONFIGS).toHaveLength(36)
     for (const page of TALENT_PAGE_CONFIGS) {
