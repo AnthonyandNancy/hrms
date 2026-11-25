@@ -17,12 +17,12 @@ vi.mock('@/api/resourceClient', () => ({
   resourcePost: resource.post,
 }))
 
-import { TALENT_COMPONENT_KEYS, talentComponentFor } from '@/views/talent'
+import { TALENT_COMPONENT_KEYS, TALENT_PAGE_CONFIGS, talentComponentFor } from '@/views/talent'
 
 const wave4Keys = PAGE_REGISTRY.filter((page) => page.wave === 'Wave 4').map((page) => page.componentKey)
 
-function listResponse(items: unknown[] = []) {
-  return { items, page: 1, page_size: 20, total: items.length }
+function listResponse(items: unknown[] = [], partial = false) {
+  return { items, page: 1, page_size: 20, total: items.length, ...(partial ? { partial: true } : {}) }
 }
 
 async function mountWithRouter(key: string, path: string) {
@@ -153,7 +153,7 @@ describe('Wave 4 talent domain components', () => {
   it('loads candidates from the live candidate list endpoint without exposing contact values', async () => {
     resource.get.mockResolvedValue(listResponse([
       { candidate_id: 31, display_name: 'Synthetic Candidate', status: 'NEW', has_email: true },
-    ]))
+    ], true))
 
     const wrapper = await mountWithRouter('recruitment/candidates/index', '/recruitment/candidates')
     await flushPromises()
@@ -163,6 +163,84 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.text()).toContain('NEW')
     expect(wrapper.text()).toContain('已登记')
     expect(wrapper.text()).not.toContain('@')
+    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
+  })
+
+  it('loads the live Offer ledger now that GET /v1/recruitment/offers exists', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        offer_id: 44,
+        candidate_id: 31,
+        requisition_id: 8,
+        version: 2,
+        status: 'APPROVED',
+        base_salary_minor: 2000000,
+        salary_currency: 'CNY',
+        start_date: '2026-12-01',
+      },
+    ]))
+
+    const wrapper = await mountWithRouter('recruitment/candidates/offers', '/recruitment/candidates/offers')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/offers', expect.any(Object))
+    expect(wrapper.text()).toContain('44')
+    expect(wrapper.text()).toContain('APPROVED')
+    expect(wrapper.text()).not.toContain('Offer 台账读取：后端接口待补')
+  })
+
+  it('declares a live GET path and explicit backend gaps for every Wave 4 page config', () => {
+    expect(TALENT_PAGE_CONFIGS).toHaveLength(36)
+    for (const page of TALENT_PAGE_CONFIGS) {
+      expect(page.readPath, page.key).toMatch(/^\/v1\//)
+    }
+
+    const plannedGaps = new Map([
+      ['performance/indicators', '/v1/performance/indicators'],
+      ['performance/goals', '/v1/performance/goals'],
+      ['performance/feedback', '/v1/performance/feedback'],
+      ['performance/calibration', '/v1/performance/calibration'],
+      ['performance/results', '/v1/performance/results'],
+      ['recruitment/candidates/imports', '/v1/recruitment/candidates/imports'],
+      ['recruitment/candidates/pipeline', '/v1/recruitment/candidates/pipeline'],
+      ['recruitment/candidates/communications', '/v1/recruitment/candidates/{id}/communications'],
+      ['recruitment/candidates/talent-pool', '/v1/recruitment/candidates/talent-pool'],
+      ['recruitment/candidates/convert', '/v1/recruitment/candidates/{id}/convert'],
+      ['training/exams', '/v1/training/exams'],
+      ['training/records', '/v1/training/records'],
+    ])
+    for (const [key, plannedPath] of plannedGaps) {
+      const page = TALENT_PAGE_CONFIGS.find((candidate) => candidate.key === key)
+      expect(page?.pending?.plannedPath, key).toBe(plannedPath)
+    }
+  })
+
+  it('routes a forbidden page-load failure to the safe forbidden page with its request id', async () => {
+    resource.get.mockRejectedValue(
+      new ApiError('FORBIDDEN', 'Forbidden.', { status: 403, requestId: 'req-talent-403' }),
+    )
+
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/performance', name: 'talent-page', component: { template: '<div />' } },
+        { path: '/login', name: 'login', component: { template: '<div />' } },
+        { path: '/forbidden', name: 'forbidden', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/performance')
+    await router.isReady()
+
+    const component = talentComponentFor('performance/index')
+    if (component === null) throw new Error('Missing performance/index component')
+    mount(component as Component, { global: { plugins: [pinia, router, ElementPlus] } })
+    await flushPromises()
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('forbidden')
+    expect(router.currentRoute.value.query.request_id).toBe('req-talent-403')
   })
 
   it('keeps one enrollment row and the existing server id when duplicate enrollment is submitted', async () => {

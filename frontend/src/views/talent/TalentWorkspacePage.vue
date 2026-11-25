@@ -65,8 +65,9 @@ function normaliseCandidate(row: TalentRow): TalentRow {
 }
 
 function normalisedRow(row: TalentRow): TalentRow {
-  if (config.value?.domain === 'recruitment-candidates') return normaliseCandidate(row)
-  return row
+  if (config.value?.domain !== 'recruitment-candidates') return row
+  if (config.value.columns.includes('offer_id')) return row
+  return normaliseCandidate(row)
 }
 
 async function load(): Promise<void> {

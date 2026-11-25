@@ -27,6 +27,17 @@ function http(): AxiosInstance {
   return client
 }
 
+/**
+ * Registry pages declare absolute API paths (`/v1/...`) while the axios
+ * instance already has `/v1` as its base URL. Normalise both spellings so a
+ * page can never accidentally produce `/v1/v1/...` (a real 404 found by the
+ * Compose route audit).
+ */
+function apiPath(path: string): string {
+  const trimmed = path.startsWith('/v1/') ? path.slice(3) : path
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+}
+
 function translate(error: unknown): never {
   if (error instanceof ApiError) throw error
   const axiosError = error as AxiosError<{
@@ -52,7 +63,7 @@ function translate(error: unknown): never {
 
 export async function resourceGet<T = unknown>(path: string, params?: Record<string, unknown>): Promise<T> {
   try {
-    const response = await http().get<ApiEnvelope<T>>(path, { params })
+    const response = await http().get<ApiEnvelope<T>>(apiPath(path), { params })
     return response.data.data
   } catch (error) {
     translate(error)
@@ -74,7 +85,7 @@ export async function resourcePost<T = unknown>(
     const headers: Record<string, string> = { ...(options.headers ?? {}) }
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
 
-    const response = await http().post<ApiEnvelope<T>>(path, body ?? {}, { headers })
+    const response = await http().post<ApiEnvelope<T>>(apiPath(path), body ?? {}, { headers })
     return response.data.data
   } catch (error) {
     translate(error)
@@ -90,7 +101,7 @@ export async function resourcePatch<T = unknown>(
     const headers: Record<string, string> = { ...(options.headers ?? {}) }
     if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
 
-    const response = await http().patch<ApiEnvelope<T>>(path, body ?? {}, { headers })
+    const response = await http().patch<ApiEnvelope<T>>(apiPath(path), body ?? {}, { headers })
     return response.data.data
   } catch (error) {
     translate(error)

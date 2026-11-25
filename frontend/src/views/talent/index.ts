@@ -1,6 +1,6 @@
 import { defineComponent, h, type Component } from 'vue'
 import TalentWorkspacePage from './TalentWorkspacePage.vue'
-import { talentPageConfig } from './catalog'
+import { TALENT_PAGES, talentPageConfig } from './catalog'
 import type { TalentPageConfig } from './types'
 
 function pageComponent(config: TalentPageConfig): Component {
@@ -58,6 +58,7 @@ for (const key of [
 }
 
 export const TALENT_COMPONENT_KEYS = [...COMPONENTS.keys()]
+export const TALENT_PAGE_CONFIGS = TALENT_PAGES
 
 export function talentComponentFor(key: string): Component | null {
   return COMPONENTS.get(key) ?? null

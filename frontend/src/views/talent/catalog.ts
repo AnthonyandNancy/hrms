@@ -5,6 +5,7 @@ const TEMPLATE_COLUMNS = ['template_id', 'code', 'name', 'weight_total', 'versio
 const REQUISITION_COLUMNS = ['requisition_id', 'requisition_no', 'title', 'status', 'headcount', 'case_id'] as const
 const CANDIDATE_COLUMNS = ['candidate_id', 'display_name', 'status', 'has_email'] as const
 const PROGRAM_COLUMNS = ['program_id', 'code', 'title', 'status'] as const
+const OFFER_COLUMNS = ['offer_id', 'candidate_id', 'requisition_id', 'version', 'status', 'start_date'] as const
 const ENROLLMENT_COLUMNS = ['enrollment_id', 'session_id', 'employment_id', 'status', 'completion_result'] as const
 
 const PERFORMANCE_CREATES: readonly TalentFormKind[] = ['cycle-create']
@@ -413,16 +414,11 @@ const CANDIDATE_PAGES: TalentPageConfig[] = [
     key: 'recruitment/candidates/offers',
     title: 'Offer 管理',
     description: '创建 Offer 版本并按服务端流程审批，查看实时 Offer 台账。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '候选人（Offer 台账读取接口待补）',
-    columns: CANDIDATE_COLUMNS,
+    readPath: '/v1/recruitment/offers',
+    readLabel: 'Offer 台账',
+    columns: OFFER_COLUMNS,
     forms: OFFER_CREATES,
     panels: [PANEL.offers],
-    pending: {
-      label: 'Offer 台账读取',
-      plannedPath: '/v1/recruitment/offers',
-      detail: '当前后端只注册了 POST /v1/recruitment/offers，没有 Offer 列表 GET；本页用候选人实时列表作为候选上下文，创建与接受仍调用真实 Offer 接口。',
-    },
   },
   {
     ...RECRUITMENT_CANDIDATE_BASE,
@@ -461,15 +457,15 @@ const CANDIDATE_PAGES: TalentPageConfig[] = [
     key: 'recruitment/candidates/convert',
     title: '录用转入职',
     description: '接受 Offer 并生成唯一入职草稿；不在此页伪造员工主档。',
-    readPath: '/v1/recruitment/candidates',
-    readLabel: '候选人（Offer 台账读取接口待补）',
-    columns: CANDIDATE_COLUMNS,
+    readPath: '/v1/recruitment/offers',
+    readLabel: 'Offer 台账',
+    columns: OFFER_COLUMNS,
     forms: ['offer-accept'],
     panels: [PANEL.offers],
     pending: {
-      label: 'Offer 台账读取',
-      plannedPath: '/v1/recruitment/offers',
-      detail: '当前后端只注册了 POST /v1/recruitment/offers 与接受动作，没有 Offer 列表 GET；接受动作仍调用真实接口。',
+      label: '录用转入职映射确认',
+      plannedPath: '/v1/recruitment/candidates/{id}/convert',
+      detail: '真实接受动作 /v1/recruitment/offers/{id}/accept 已上线并会生成入职草稿；候选人到员工主档的转换结果查询与附件交接接口尚未提供。',
     },
   },
 ]
