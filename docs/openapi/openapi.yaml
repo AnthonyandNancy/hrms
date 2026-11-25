@@ -4820,6 +4820,378 @@ components:
           type: integer
         replayed:
           type: boolean
+    TrainingProgram:
+      type: object
+      required: [program_id, code, title, status]
+      properties:
+        program_id: { type: integer, minimum: 1 }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 160 }
+        status: { type: string }
+    TrainingSession:
+      type: object
+      required: [session_id, program_id, plan_id, course_id, starts_on, ends_on, starts_at, ends_at, capacity, location, status]
+      properties:
+        session_id: { type: integer, minimum: 1 }
+        program_id: { type: integer, minimum: 1 }
+        plan_id: { type: [integer, "null"], minimum: 1 }
+        course_id: { type: [integer, "null"], minimum: 1 }
+        starts_on: { type: string, format: date }
+        ends_on: { type: string, format: date }
+        starts_at: { type: [string, "null"], format: date-time }
+        ends_at: { type: [string, "null"], format: date-time }
+        capacity: { type: integer, minimum: 1, maximum: 10000 }
+        location: { type: [string, "null"], maxLength: 160 }
+        status: { type: string, enum: [SCHEDULED, CANCELLED, COMPLETED] }
+    TrainingEnrollment:
+      type: object
+      required: [enrollment_id, session_id, employment_id, status, attended, completion_result, score, completed_at]
+      properties:
+        enrollment_id: { type: integer, minimum: 1 }
+        session_id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        status: { type: string, enum: [ENROLLED, ATTENDED, COMPLETED] }
+        attended: { type: boolean }
+        completion_result: { type: [string, "null"], enum: [PASS, FAIL, ATTENDED, null] }
+        score: { type: [integer, "null"], minimum: 0, maximum: 100 }
+        completed_at: { type: [string, "null"], format: date-time }
+    TrainingProgramListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingProgram"
+    TrainingSessionListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingSession"
+    TrainingEnrollmentListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingEnrollment"
+    TrainingProgramEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingProgram"
+    TrainingSessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingSession"
+    TrainingEnrollmentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingEnrollment"
+    TrainingProjectionData:
+      type: object
+      required: [items, page, page_size, total, as_of, freshness, source_hash, partial, partial_reason, drilldown]
+      properties:
+        items:
+          type: array
+          items: {}
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+        as_of: { type: string, format: date }
+        freshness: { type: string, enum: [LIVE, MATERIALIZED, STALE] }
+        source_hash: { type: string }
+        partial: { type: boolean }
+        partial_reason: { type: [string, "null"] }
+        drilldown: { type: [object, "null"], additionalProperties: true }
+    TrainingPlan:
+      type: object
+      required: [plan_id, code, title, year, budget_cents, currency, status, recorded_at]
+      properties:
+        plan_id: { type: integer, minimum: 1 }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 160 }
+        year: { type: integer, minimum: 2000, maximum: 2100 }
+        budget_cents: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        status: { type: string, enum: [ACTIVE, ARCHIVED] }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TrainingCourse:
+      type: object
+      required: [course_id, plan_id, code, title, instructor, delivery_mode, duration_minutes, cost_cents, currency, materials, status, recorded_at]
+      properties:
+        course_id: { type: integer, minimum: 1 }
+        plan_id: { type: [integer, "null"], minimum: 1 }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 160 }
+        instructor: { type: [string, "null"], maxLength: 120 }
+        delivery_mode: { type: string, enum: [ONSITE, ONLINE, HYBRID] }
+        duration_minutes: { type: integer, minimum: 0 }
+        cost_cents: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        materials: { type: [string, "null"] }
+        status: { type: string, enum: [ACTIVE, ARCHIVED] }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TrainingCheckin:
+      type: object
+      required: [checkin_id, session_id, employment_id, checked_in_at, checked_out_at, study_minutes, recorded_at]
+      properties:
+        checkin_id: { type: integer, minimum: 1 }
+        session_id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        checked_in_at: { type: [string, "null"], format: date-time }
+        checked_out_at: { type: [string, "null"], format: date-time }
+        study_minutes: { type: integer, minimum: 0, description: Derived from check-in/check-out; never stored. }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TrainingExam:
+      type: object
+      required: [exam_id, course_id, code, title, version, passing_score, max_score, status, published_at, recorded_at]
+      properties:
+        exam_id: { type: integer, minimum: 1 }
+        course_id: { type: [integer, "null"], minimum: 1 }
+        code: { type: string, maxLength: 64 }
+        title: { type: string, maxLength: 200 }
+        version: { type: integer, minimum: 1 }
+        passing_score: { type: integer, minimum: 0 }
+        max_score: { type: integer, minimum: 1 }
+        status: { type: string, enum: [DRAFT, PUBLISHED] }
+        published_at: { type: [string, "null"], format: date-time }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TrainingFeedback:
+      type: object
+      required: [training_feedback_id, enrollment_id, session_id, employment_id, rating, comments, questionnaire, status, recorded_at]
+      properties:
+        training_feedback_id: { type: integer, minimum: 1 }
+        enrollment_id: { type: integer, minimum: 1 }
+        session_id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        rating: { type: [integer, "null"], minimum: 1, maximum: 5 }
+        comments: { type: string, maxLength: 10000 }
+        questionnaire: { type: [object, "null"], additionalProperties: true }
+        status: { type: string, const: RECORDED }
+        recorded_at: { type: [string, "null"], format: date-time }
+    TrainingRecord:
+      type: object
+      required: [enrollment_id, employment_id, session_id, course_code, course_title, session_starts_on, status, attended, completion_result, score, completed_at, checkin_count, study_minutes, feedback_count, latest_exam_version]
+      properties:
+        enrollment_id: { type: integer, minimum: 1 }
+        employment_id: { type: integer, minimum: 1 }
+        session_id: { type: integer, minimum: 1 }
+        course_code: { type: [string, "null"] }
+        course_title: { type: [string, "null"] }
+        session_starts_on: { type: [string, "null"], format: date }
+        status: { type: string }
+        attended: { type: boolean }
+        completion_result: { type: [string, "null"], enum: [PASS, FAIL, ATTENDED, null] }
+        score: { type: [integer, "null"], minimum: 0, maximum: 100 }
+        completed_at: { type: [string, "null"], format: date-time }
+        checkin_count: { type: integer, minimum: 0 }
+        study_minutes: { type: integer, minimum: 0, description: Derived from check-in/check-out; never stored. }
+        feedback_count: { type: integer, minimum: 0 }
+        latest_exam_version: { type: [integer, "null"], minimum: 1 }
+    TrainingReport:
+      type: object
+      required: [plan_id, code, title, year, budget_cents, training_cost_cents, currency, course_count, session_count, enrolled_count, completed_count, completion_rate_bps, exam_pass_count, exam_pass_rate_bps, study_minutes_total, feedback_count, average_feedback_rating_bps]
+      properties:
+        plan_id: { type: integer, minimum: 1 }
+        code: { type: string }
+        title: { type: string }
+        year: { type: integer, minimum: 2000, maximum: 2100 }
+        budget_cents: { type: integer, minimum: 0 }
+        training_cost_cents: { type: integer, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        course_count: { type: integer, minimum: 0 }
+        session_count: { type: integer, minimum: 0 }
+        enrolled_count: { type: integer, minimum: 0 }
+        completed_count: { type: integer, minimum: 0 }
+        completion_rate_bps: { type: integer, minimum: 0, maximum: 10000 }
+        exam_pass_count: { type: integer, minimum: 0 }
+        exam_pass_rate_bps: { type: integer, minimum: 0, maximum: 10000 }
+        study_minutes_total: { type: integer, minimum: 0 }
+        feedback_count: { type: integer, minimum: 0 }
+        average_feedback_rating_bps: { type: integer, minimum: 0, maximum: 10000 }
+    TrainingRecordExport:
+      type: object
+      required: [fields, items]
+      properties:
+        fields:
+          type: array
+          items: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    TrainingPlanListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingPlan"
+    TrainingCourseListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingCourse"
+    TrainingCheckinListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingCheckin"
+    TrainingExamListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingExam"
+    TrainingFeedbackListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingFeedback"
+    TrainingRecordListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingRecord"
+    TrainingReportListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              allOf:
+                - $ref: "#/components/schemas/TrainingProjectionData"
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/TrainingReport"
+    TrainingPlanEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingPlan"
+    TrainingCourseEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingCourse"
+    TrainingCheckinEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingCheckin"
+    TrainingExamEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingExam"
+    TrainingFeedbackEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingFeedback"
+    TrainingRecordExportEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/TrainingRecordExport"
     TravelRequest:
       type: object
       required:
@@ -9518,32 +9890,84 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.appeal.manage
-  /v1/training/programs:
+  /v1/training/plans:
     get:
-      operationId: trainingProgramsIndex
-      tags:
-        - Talent
-      summary: List training programs
+      operationId: trainingPlansIndex
+      tags: [Talent]
+      summary: List the tenant training plan ledger
+      description: Requires capability `training.plan.manage`. Live projection envelope with as-of and source hash.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Training plan projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingPlanListEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-        "409":
-          $ref: "#/components/responses/Conflict"
-      x-capability: training.program.read
+      x-capability: training.plan.manage
     post:
-      operationId: trainingProgramsStore
-      tags:
-        - Talent
-      summary: Create a training program
+      operationId: trainingPlansStore
+      tags: [Talent]
+      summary: Create an annual or monthly training plan with an integer-cents budget
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, title, year]
+              properties:
+                code: { type: string, minLength: 1, maxLength: 64 }
+                title: { type: string, minLength: 1, maxLength: 160 }
+                year: { type: integer, minimum: 2000, maximum: 2100 }
+                budget_cents: { type: integer, minimum: 0 }
+                currency: { type: string, pattern: "^[A-Z]{3}$", default: CNY }
+                status: { type: string, enum: [ACTIVE, ARCHIVED] }
       responses:
         "201":
-          $ref: "#/components/responses/Envelope"
+          description: Training plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingPlanEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.plan.manage
+  /v1/training/courses:
+    get:
+      operationId: trainingCoursesIndex
+      tags: [Talent]
+      summary: List the course catalogue
+      description: Requires capability `training.course.manage`. Optional plan filter is applied before projection.
+      parameters:
+        - name: plan_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Training course projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCourseListEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -9552,8 +9976,104 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+      x-capability: training.course.manage
+    post:
+      operationId: trainingCoursesStore
+      tags: [Talent]
+      summary: Create a course with instructor, delivery mode, duration and integer-cents cost
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, title]
+              properties:
+                plan_id: { type: [integer, "null"], minimum: 1 }
+                code: { type: string, minLength: 1, maxLength: 64 }
+                title: { type: string, minLength: 1, maxLength: 160 }
+                instructor: { type: [string, "null"], maxLength: 120 }
+                delivery_mode: { type: string, enum: [ONSITE, ONLINE, HYBRID] }
+                duration_minutes: { type: integer, minimum: 0 }
+                cost_cents: { type: integer, minimum: 0 }
+                currency: { type: string, pattern: "^[A-Z]{3}$", default: CNY }
+                materials: { type: [string, "null"], maxLength: 20000 }
+                status: { type: string, enum: [ACTIVE, ARCHIVED] }
+      responses:
+        "201":
+          description: Training course created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCourseEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.course.manage
+  /v1/training/programs:
+    get:
+      operationId: trainingProgramsIndex
+      tags: [Talent]
+      summary: List training programs
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Training program projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingProgramListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.program.read
+    post:
+      operationId: trainingProgramsStore
+      tags: [Talent]
+      summary: Create a training program
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, title]
+              properties:
+                code: { type: string, minLength: 1, maxLength: 64 }
+                title: { type: string, minLength: 1, maxLength: 160 }
+                default_capacity: { type: [integer, "null"], minimum: 0, maximum: 10000 }
+      responses:
+        "201":
+          description: Training program created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingProgramEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
       x-capability: training.program.manage
   /v1/training/sessions:
     get:
@@ -9564,22 +10084,18 @@ paths:
       parameters:
         - name: program_id
           in: query
-          schema: {type: integer, minimum: 1}
+          schema: { type: integer, minimum: 1 }
         - name: status
           in: query
-          schema: {type: string, maxLength: 24}
+          schema: { type: string, maxLength: 24 }
+        - $ref: "#/components/parameters/AsOf"
       responses:
         "200":
           description: Session page
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/Paginated"
+                $ref: "#/components/schemas/TrainingSessionListEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -9589,32 +10105,207 @@ paths:
       x-capability: training.session.manage
     post:
       operationId: trainingSessionsStore
-      tags:
-        - Talent
-      summary: Create a training session
+      tags: [Talent]
+      summary: Create a training session with capacity and optional plan/course links
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [program_id, starts_on, ends_on, starts_at, ends_at, capacity]
+              properties:
+                program_id: { type: integer, minimum: 1 }
+                plan_id: { type: [integer, "null"], minimum: 1 }
+                course_id: { type: [integer, "null"], minimum: 1 }
+                starts_on: { type: string, format: date }
+                ends_on: { type: string, format: date }
+                starts_at: { type: string, format: date-time }
+                ends_at: { type: string, format: date-time }
+                capacity: { type: integer, minimum: 1, maximum: 10000 }
+                location: { type: [string, "null"], maxLength: 160 }
       responses:
         "201":
-          $ref: "#/components/responses/Envelope"
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSessionEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+      x-capability: training.session.manage
+  /v1/training/sessions/{id}/checkins:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      operationId: trainingSessionCheckinsIndex
+      tags: [Talent]
+      summary: List check-ins recorded for one training session
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Session check-in projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCheckinListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.checkin.manage
+    post:
+      operationId: trainingSessionCheckinsStore
+      tags: [Talent]
+      summary: Record an idempotent check-in for an enrolled employment
+      description: |
+        Idempotent per (session, employment). A repeat returns the same
+        check-in row as 200; the first call returns 201. Study minutes are
+        derived from check-in/check-out and never accepted from the client.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employment_id]
+              properties:
+                employment_id: { type: integer, minimum: 1 }
+                checked_in_at: { type: [string, "null"], format: date-time }
+                checked_out_at: { type: [string, "null"], format: date-time }
+      responses:
+        "200":
+          description: Existing check-in replayed without changing times
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCheckinEnvelope"
+        "201":
+          description: Check-in recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCheckinEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-      x-capability: training.session.manage
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.checkin.manage
+  /v1/training/checkins:
+    get:
+      operationId: trainingCheckinsIndex
+      tags: [Talent]
+      summary: List training attendance check-ins with derived study minutes
+      parameters:
+        - name: session_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Check-in projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingCheckinListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.checkin.manage
   /v1/training/enrollments:
+    get:
+      operationId: trainingEnrollmentsIndex
+      tags: [Talent]
+      summary: List the live enrollment ledger
+      parameters:
+        - name: session_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Enrollment projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEnrollmentListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.enrollment.manage
     post:
       operationId: trainingEnrollmentsStore
-      tags:
-        - Talent
+      tags: [Talent]
       summary: Enrol an employment in a training session
+      description: |
+        Capacity is enforced under a session row lock. Re-enrolling the same
+        employment in the same session is idempotent and returns 200 with the
+        existing enrollment; a full session returns 409 with reason
+        TRAINING_CAPACITY_REACHED.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id, employment_id]
+              properties:
+                session_id: { type: integer, minimum: 1 }
+                employment_id: { type: integer, minimum: 1 }
       responses:
+        "200":
+          description: Existing enrollment returned idempotently
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEnrollmentEnvelope"
         "201":
-          $ref: "#/components/responses/Envelope"
+          description: Enrollment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEnrollmentEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -9629,18 +10320,32 @@ paths:
   /v1/training/enrollments/{id}/complete:
     post:
       operationId: trainingEnrollmentsComplete
-      tags:
-        - Talent
-      summary: Record training completion
+      tags: [Talent]
+      summary: Record training completion and exam score
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: integer
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completion_result]
+              properties:
+                attended: { type: boolean }
+                completion_result: { type: string, enum: [PASS, FAIL, ATTENDED] }
+                score: { type: [integer, "null"], minimum: 0, maximum: 100 }
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Completion recorded or replayed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEnrollmentEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -9649,18 +10354,274 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.completion.manage
+  /v1/training/exams:
+    get:
+      operationId: trainingExamsIndex
+      tags: [Talent]
+      summary: List exam versions including draft and published status
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Exam version projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingExamListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.exam.manage
+    post:
+      operationId: trainingExamsStore
+      tags: [Talent]
+      summary: Create a draft exam or the next immutable version after publication
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, title, passing_score, max_score]
+              properties:
+                course_id: { type: [integer, "null"], minimum: 1 }
+                code: { type: string, minLength: 1, maxLength: 64 }
+                title: { type: string, minLength: 1, maxLength: 200 }
+                passing_score: { type: integer, minimum: 0, maximum: 1000 }
+                max_score: { type: integer, minimum: 1, maximum: 1000 }
+                publish: { type: boolean }
+      responses:
+        "201":
+          description: Exam version created or draft updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingExamEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.exam.manage
+  /v1/training/exams/{id}/publish:
+    post:
+      operationId: trainingExamsPublish
+      tags: [Talent]
+      summary: Publish a draft exam version, permanently freezing its content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Exam version published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingExamEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.exam.manage
+  /v1/training/feedback:
+    get:
+      operationId: trainingFeedbackIndex
+      tags: [Talent]
+      summary: List append-only training feedback rows
+      parameters:
+        - name: enrollment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Training feedback projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingFeedbackListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.feedback.manage
+    post:
+      operationId: trainingFeedbackStore
+      tags: [Talent]
+      summary: Append feedback for an enrollment
+      description: Feedback rows are append-only; a post never rewrites an earlier row.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enrollment_id, comments]
+              properties:
+                enrollment_id: { type: integer, minimum: 1 }
+                rating: { type: [integer, "null"], minimum: 1, maximum: 5 }
+                comments: { type: string, minLength: 1, maxLength: 10000 }
+                questionnaire: { type: [object, "null"], additionalProperties: true }
+      responses:
+        "201":
+          description: Feedback appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingFeedbackEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.feedback.manage
+  /v1/training/records:
+    get:
+      operationId: trainingRecordsIndex
+      tags: [Talent]
+      summary: Read personal training records aggregated from enrollments, check-ins, exams and feedback
+      parameters:
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Personal training record projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRecordListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.record.read
+  /v1/training/records/export:
+    get:
+      operationId: trainingRecordsExport
+      tags: [Talent]
+      summary: Export personal training records using an explicit field whitelist
+      description: |
+        Every export writes field-name-only evidence through
+        SensitiveAccessAuditor. An unknown field is rejected with 422 and
+        reason EXPORT_FIELD_NOT_ALLOWED.
+      parameters:
+        - name: fields
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 12
+            items:
+              type: string
+              enum: [employment_id, session_id, enrollment_id, course_code, course_title, status, completion_result, score, study_minutes, checkin_count, feedback_count, latest_exam_version]
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Whitelisted training record export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingRecordExportEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.record.read
+  /v1/training/reports:
+    get:
+      operationId: trainingReportsIndex
+      tags: [Talent]
+      summary: Plan-level attendance, completion, exam-pass, study-time and feedback aggregates
+      parameters:
+        - name: plan_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Training report projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingReportListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.report.read
   /v1/training/report:
     get:
       operationId: trainingReportIndex
-      tags:
-        - Talent
+      tags: [Talent]
       summary: Read the training attendance report
+      parameters:
+        - name: program_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/AsOf"
       responses:
         "200":
-          $ref: "#/components/responses/Envelope"
+          description: Legacy attendance report projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEnrollmentListEnvelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
