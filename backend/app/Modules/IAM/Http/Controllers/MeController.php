@@ -176,7 +176,7 @@ final class MeController
                 $pages[] = $override === null ? $page : [
                     ...$page,
                     'menu_label' => $override['label'] ?? $page['menu_label'],
-                    'order' => $override['sort_order'] ?? $page['order'],
+                    'order' => $override['sort_order'],
                 ];
             }
 

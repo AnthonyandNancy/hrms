@@ -267,7 +267,9 @@ final class RoleAdminService
             'name' => (string) $role->name,
             'is_template' => (bool) $role->is_template,
             'purpose' => (string) $role->purpose,
-            'expires_at' => $role->expires_at?->toIso8601ZuluString(),
+            'expires_at' => $role->getAttribute('expires_at') instanceof \Carbon\CarbonInterface
+                ? $role->getAttribute('expires_at')->toIso8601ZuluString()
+                : null,
             'capabilities' => RoleCapability::query()
                 ->where('role_code', (string) $role->code)
                 ->orderBy('capability_code')

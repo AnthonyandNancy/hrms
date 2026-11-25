@@ -377,7 +377,9 @@ final class NotificationAdminController
             'status' => (string) $delivery->status,
             'attempts' => (int) $delivery->attempts,
             'last_error' => $delivery->last_error !== null ? (string) $delivery->last_error : null,
-            'sent_at' => $delivery->sent_at?->toIso8601ZuluString(),
+            'sent_at' => $delivery->getAttribute('sent_at') instanceof \Carbon\CarbonInterface
+                ? $delivery->getAttribute('sent_at')->toIso8601ZuluString()
+                : null,
         ];
     }
 

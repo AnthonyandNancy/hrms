@@ -18,7 +18,6 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\RequestContext;
-use App\Shared\Time\Clock;
 use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +36,6 @@ final class DictionaryAdminController
         private readonly ProjectionResponder $projections,
         private readonly TenantBusinessDate $businessDates,
         private readonly AuditService $audit,
-        private readonly Clock $clock,
     ) {}
 
     public function dictionaries(Request $request): JsonResponse
