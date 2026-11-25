@@ -16,6 +16,7 @@ export type TalentFormKind =
   | 'requisition-create'
   | 'opening-publish'
   | 'candidate-create'
+  | 'requisition-approve'
   | 'candidate-import'
   | 'evaluation-create'
   | 'communication-create'

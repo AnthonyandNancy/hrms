@@ -516,7 +516,36 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.text()).toContain('拒绝 1 行')
   })
 
+  it('approves a requisition through the real workflow decision endpoint', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      { requisition_id: 8, requisition_no: 'REQ-008', title: 'Synthetic engineer', status: 'PENDING_APPROVAL', headcount: 2, case_id: 10 },
+    ]))
+    resource.post.mockResolvedValue({
+      case_id: 10,
+      application_status: 'APPROVED',
+      effect_status: 'APPLIED',
+      effects: [],
+    })
+
+    const wrapper = await mountWithRouter('recruitment/requests/approval', '/recruitment/requests/approval')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/requisitions', expect.any(Object))
+    await wrapper.get('[data-testid="requisition-approval-case-id"]').setValue('10')
+    await wrapper.get('[data-testid="requisition-approval-comment"]').setValue('Synthetic approval')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/cases/10/decisions',
+      { action: 'APPROVE', comment: 'Synthetic approval' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('Case 10 已批准')
+  })
+
   it('loads funnel board and budget projections from their live endpoints', async () => {
+
     const boardRow = {
       requisition_id: 8,
       requisition_no: 'REQ-BOARD-1',

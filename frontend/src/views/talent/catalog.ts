@@ -37,6 +37,7 @@ const RESULT_CREATES: readonly TalentFormKind[] = ['cycle-publish']
 const TEMPLATE_CREATES: readonly TalentFormKind[] = ['template-create']
 const REVIEW_CREATES: readonly TalentFormKind[] = ['review-create', 'review-submit', 'review-appeal']
 const REQUISITION_CREATES: readonly TalentFormKind[] = ['requisition-create']
+const APPROVAL_CREATES: readonly TalentFormKind[] = ['requisition-approve']
 const IMPORT_CREATES: readonly TalentFormKind[] = ['candidate-import']
 const OPENING_CREATES: readonly TalentFormKind[] = ['opening-publish']
 const CANDIDATE_CREATES: readonly TalentFormKind[] = ['candidate-create']
@@ -331,7 +332,7 @@ const REQUEST_PAGES: TalentPageConfig[] = [
     readPath: '/v1/recruitment/requisitions',
     readLabel: '待审批招聘需求',
     columns: REQUISITION_COLUMNS,
-    forms: [],
+    forms: APPROVAL_CREATES,
     panels: [PANEL.openings],
   },
   {

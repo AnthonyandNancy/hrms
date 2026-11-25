@@ -63,6 +63,8 @@ const form = reactive({
   calibrationReason: '',
   publishCycleId: '',
   requisitionNo: '',
+  approvalCaseId: '',
+  approvalComment: '',
   requisitionTitle: '',
   legalEntityId: '1',
   orgUnitId: '',
@@ -463,6 +465,25 @@ async function submitRequisition(): Promise<void> {
       { idempotencyKey: nextIdempotencyKey('requisition') },
     )
     success(`招聘需求“${form.requisitionNo.trim()}”已创建并提交审批`, row)
+  } catch (error) {
+    fail(error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function submitRequisitionApproval(): Promise<void> {
+  resetFeedback()
+  const caseId = numeric(form.approvalCaseId)
+  if (caseId === null) return
+  submitting.value = true
+  try {
+    const row = await resourcePost<TalentRow>(
+      `/v1/cases/${caseId}/decisions`,
+      { action: 'APPROVE', comment: form.approvalComment.trim() || null },
+      { idempotencyKey: nextIdempotencyKey('requisition-approval') },
+    )
+    success(`招聘需求审批 Case ${caseId} 已批准`, row)
   } catch (error) {
     fail(error)
   } finally {
@@ -1102,6 +1123,12 @@ async function submitCompletion(): Promise<void> {
       <label class="talent-field">招聘人数<input v-model="form.headcount" inputmode="numeric" required /></label>
       <label class="talent-field">计划入职日<input v-model="form.targetStartDate" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="requisition-submit">创建并提交审批</button>
+    </form>
+
+    <form v-else-if="kind === 'requisition-approve'" class="talent-form" @submit.prevent="submitRequisitionApproval">
+      <label class="talent-field">审批 Case ID<input v-model="form.approvalCaseId" data-testid="requisition-approval-case-id" inputmode="numeric" required /></label>
+      <label class="talent-field talent-field--wide">审批意见<textarea v-model="form.approvalComment" data-testid="requisition-approval-comment" rows="3" maxlength="4000" /></label>
+      <button type="submit" :disabled="submitting" data-testid="requisition-approval-submit">批准招聘需求</button>
     </form>
 
     <form v-else-if="kind === 'opening-publish'" class="talent-form" @submit.prevent="submitOpening">
