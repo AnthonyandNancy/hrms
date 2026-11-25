@@ -24,6 +24,7 @@ vi.mock('@/api/resourceClient', () => ({
 }))
 
 import { PLATFORM_COMPONENT_KEYS, platformComponentFor } from '@/views/platform'
+import { platformPageConfig } from '@/views/platform/catalog'
 
 const wave5Keys = PAGE_REGISTRY.filter((page) => page.wave === 'Wave 5').map((page) => page.componentKey)
 
@@ -1535,4 +1536,338 @@ describe('Wave 5 platform and business pages', () => {
     )
     expect(wrapper.text()).toContain('工作日历已发布新版本')
   })
+  it('loads the six K12 pages without executable backend gap markers', () => {
+    for (const key of [
+      'reports/attendance',
+      'reports/talent',
+      'reports/builder',
+      'reports/subscriptions',
+      'reports/exports',
+      'system/system-audit',
+    ]) {
+      expect(platformPageConfig(key)?.gap, key).toBeUndefined()
+    }
+    expect(platformPageConfig('system/system-audit')?.limitation).toBe('备份恢复与任务监控尚未提供')
+  })
+
+  it('runs the attendance leave-liability report with the real reporting endpoints', async () => {
+    resource.get.mockResolvedValue([
+      {
+        id: 4,
+        code: 'LEAVE_LIABILITY',
+        name: 'Leave liability',
+        description: 'Synthetic leave liability definition',
+        sourceProjection: 'leave_liability',
+        isSystem: true,
+        asOfSupported: true,
+        drilldownRoute: null,
+        fields: [
+          { key: 'employee', label: 'Employee', profile: 'P1_INTERNAL', exportable: true },
+          { key: 'balance_minutes', label: 'Balance (minutes)', profile: 'P1_INTERNAL', exportable: true },
+        ],
+        filters: [],
+      },
+    ])
+    resource.post.mockResolvedValue({
+      runId: 21,
+      definitionCode: 'LEAVE_LIABILITY',
+      title: 'Leave liability',
+      columns: [
+        { key: 'employee', label: 'Employee', profile: 'P1_INTERNAL' },
+        { key: 'balance_minutes', label: 'Balance (minutes)', profile: 'P1_INTERNAL' },
+      ],
+      items: [{ employee: 'Synthetic Attendance Employee', balance_minutes: 480 }],
+      totalRows: 1,
+      as_of: '2026-11-25',
+      generatedAt: '2026-11-25T07:00:00Z',
+    })
+
+    const { wrapper } = await mountAt('reports/attendance', '/reports/attendance')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/definitions')
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/reporting/run',
+      { definition_code: 'LEAVE_LIABILITY', filters: {} },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('Synthetic Attendance Employee')
+    expect(wrapper.text()).toContain('480')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('renders performance and training report rows from the Talent reporting endpoints', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/performance/reports') {
+        return Promise.resolve({
+          items: [
+            {
+              cycle_id: 3,
+              name: 'Synthetic 2026 cycle',
+              period_from: '2026-01-01',
+              period_to: '2026-12-31',
+              status: 'ACTIVE',
+              review_count: 9,
+              submitted_reviews: 5,
+              draft_reviews: 4,
+              calibrated_reviews: 2,
+            },
+          ],
+          total: 1,
+          as_of: '2026-11-25',
+        })
+      }
+      if (path === '/v1/training/reports') {
+        return Promise.resolve({
+          items: [
+            {
+              plan_id: 7,
+              code: 'TRAIN-2026',
+              title: 'Synthetic safety plan',
+              year: 2026,
+              budget_cents: 123400,
+              training_cost_cents: 56700,
+              enrolled_count: 8,
+              completed_count: 6,
+              completion_rate_bps: 7500,
+              exam_pass_count: 5,
+              exam_pass_rate_bps: 8333,
+              study_minutes_total: 480,
+              feedback_count: 4,
+              average_feedback_rating_bps: 8800,
+            },
+          ],
+          total: 1,
+          as_of: '2026-11-25',
+        })
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+
+    const { wrapper } = await mountAt('reports/talent', '/reports/talent')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/performance/reports', expect.objectContaining({ as_of: expect.any(String) }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/training/reports', expect.objectContaining({ as_of: expect.any(String) }))
+    expect(wrapper.text()).toContain('Synthetic 2026 cycle')
+    expect(wrapper.text()).toContain('9')
+    expect(wrapper.text()).toContain('Synthetic safety plan')
+    expect(wrapper.text()).toContain('75.00%')
+    expect(wrapper.text()).toContain('¥1,234.00')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('creates a custom report definition from the approved server whitelist', async () => {
+    resource.get.mockResolvedValue([
+      {
+        id: 2,
+        code: 'WORKFORCE_HEADCOUNT',
+        name: 'Workforce headcount',
+        description: 'Synthetic whitelist definition',
+        sourceProjection: 'workforce',
+        isSystem: true,
+        asOfSupported: true,
+        drilldownRoute: null,
+        fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+        filters: [{ key: 'org_unit_id', label: 'Organization', type: 'ORG' }],
+      },
+    ])
+    resource.post.mockResolvedValue({
+      id: 9,
+      code: 'CUSTOM_SYNTH_REPORT',
+      name: 'Synthetic custom report',
+      description: 'Approved fields only',
+      sourceProjection: 'workforce',
+      isSystem: false,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+      filters: [],
+    })
+
+    const { wrapper } = await mountAt('reports/builder', '/reports/builder')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="definition-code"]').setValue('custom_synth_report')
+    await wrapper.get('[data-testid="definition-name"]').setValue('Synthetic custom report')
+    await wrapper.get('[data-testid="definition-field-employee_no"]').setValue(true)
+    await wrapper.get('[data-testid="definition-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/definitions')
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/reporting/definitions',
+      expect.objectContaining({
+        code: 'CUSTOM_SYNTH_REPORT',
+        name: 'Synthetic custom report',
+        source_projection: 'workforce',
+        fields: ['employee_no'],
+        filters: [],
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('自定义报表定义已保存')
+    expect(wrapper.text()).toContain('Synthetic custom report')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('lists and pauses report subscriptions through the real lifecycle endpoints', async () => {
+    const definition = {
+      id: 2,
+      code: 'WORKFORCE_HEADCOUNT',
+      name: 'Workforce headcount',
+      description: 'Synthetic subscription definition',
+      sourceProjection: 'workforce',
+      isSystem: true,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [],
+      filters: [],
+    }
+    const subscription = {
+      id: 41,
+      definitionCode: 'WORKFORCE_HEADCOUNT',
+      recipientUserId: 7,
+      frequency: 'MONTHLY',
+      filters: {},
+      active: true,
+      lastRunAt: null,
+      nextRunAt: '2026-12-25T06:00:00Z',
+      createdAt: '2026-11-25T06:00:00Z',
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/reporting/definitions') return Promise.resolve([definition])
+      if (path === '/v1/reporting/subscriptions') return Promise.resolve(listResponse([subscription]))
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+    resource.post.mockResolvedValue({ ...subscription, id: 42 })
+    resource.patch.mockResolvedValue({ ...subscription, active: false })
+
+    const { wrapper } = await mountAt('reports/subscriptions', '/reports/subscriptions')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/definitions')
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/subscriptions', { page: 1, page_size: 50 })
+    expect(wrapper.text()).toContain('WORKFORCE_HEADCOUNT')
+    expect(wrapper.text()).toContain('MONTHLY')
+    expect(wrapper.text()).toContain('启用')
+
+    await wrapper.get('[data-testid="subscription-recipient"]').setValue('7')
+    await wrapper.get('[data-testid="subscription-frequency"]').setValue('MONTHLY')
+    await wrapper.get('[data-testid="subscription-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/reporting/subscriptions',
+      {
+        definition_code: 'WORKFORCE_HEADCOUNT',
+        recipient_user_id: 7,
+        frequency: 'MONTHLY',
+        filters: {},
+      },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+
+    await wrapper.get('[data-testid="subscription-toggle-41"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.patch).toHaveBeenCalledWith(
+      '/v1/reporting/subscriptions/41',
+      { active: false },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.text()).toContain('报表订阅状态已更新')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+  })
+
+  it('renders export history from GET /v1/reporting/exports', async () => {
+    const definition = {
+      id: 2,
+      code: 'WORKFORCE_HEADCOUNT',
+      name: 'Workforce headcount',
+      description: 'Synthetic export definition',
+      sourceProjection: 'workforce',
+      isSystem: true,
+      asOfSupported: true,
+      drilldownRoute: null,
+      fields: [{ key: 'employee_no', label: 'Employee no.', profile: 'P0_PUBLIC', exportable: true }],
+      filters: [],
+    }
+    const history = {
+      id: '44',
+      reportCode: 'WORKFORCE_HEADCOUNT',
+      reportName: 'Workforce headcount',
+      status: 'COMPLETED',
+      purpose: 'AUDIT',
+      fields: ['employee_no'],
+      fieldWhitelist: ['employee_no'],
+      rowCount: 2,
+      source_hash: 'a'.repeat(64),
+      auditTrail: [{ action: 'reporting.export.requested', actor_user_id: 1, at: '2026-11-25T06:00:00Z' }],
+      createdAt: '2026-11-25T06:00:00Z',
+      expiresAt: '2026-11-26T06:00:00Z',
+      downloadCount: 0,
+      maxDownloads: 5,
+      watermark: 'synthetic-watermark',
+      fileName: 'workforce_headcount-44.csv',
+      downloadUrl: 'http://localhost/v1/reporting/exports/44/download?signature=synthetic',
+    }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/reporting/definitions') return Promise.resolve([definition])
+      if (path === '/v1/reporting/exports') return Promise.resolve(listResponse([history]))
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+
+    const { wrapper } = await mountAt('reports/exports', '/reports/exports')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/exports', { page: 1, page_size: 50 })
+    expect(wrapper.text()).toContain('a'.repeat(64))
+    expect(wrapper.text()).toContain('employee_no')
+    expect(wrapper.text()).toContain('reporting.export.requested')
+    expect(wrapper.get('[data-testid="export-history-download"]').attributes('href')).toContain('signature=synthetic')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('{"')
+  })
+
+  it('renders the catalog-driven audit operations limitation without a hardcoded pending panel', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/auth/events') {
+        return Promise.resolve(
+          listResponse([
+            {
+              id: 71,
+              user_id: 1,
+              event_type: 'role.assigned',
+              result: 'SUCCESS',
+              metadata: { role_code: 'AUDITOR' },
+              request_id: 'req-audit-limitation-71',
+              occurred_at: '2026-11-25T06:40:00Z',
+            },
+          ]),
+        )
+      }
+      if (path === '/v1/access-review') {
+        return Promise.resolve({
+          generated_at: '2026-11-25T06:40:00Z',
+          unused_high_risk_bindings: [],
+          sod_risks: [],
+        })
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`))
+    })
+
+    const { wrapper } = await mountAt('system/system-audit', '/system/system-audit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('role.assigned')
+    expect(wrapper.get('[data-testid="platform-limitation"]').text()).toContain('备份恢复与任务监控尚未提供')
+    expect(wrapper.get('[data-testid="platform-limitation"]').text()).toContain('GET /v1/auth/events')
+    expect(wrapper.text()).not.toContain('后端接口待补')
+    expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
+  })
+
 })
