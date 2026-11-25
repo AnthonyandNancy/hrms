@@ -136,7 +136,7 @@ if [[ "${1:-}" != "--quick" || "${V11_REAL_STACK:-0}" == "1" ]]; then
   else
     skip_gate "V1.1 real stack acceptance" "HRMS_DEMO_PASSWORD is not set (required for real login)"
   fi
-  run_gate "route coverage release gate" node "$ROOT/scripts/audit_route_coverage.mjs" --require-mature
+  run_gate "route coverage release gate" node "$ROOT/scripts/audit_route_coverage.mjs" --require-mature --require-capabilities
 else
   skip_gate "V1.1 acceptance evidence" "--quick without V11_REAL_STACK=1"
 fi

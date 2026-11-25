@@ -157,8 +157,11 @@ lines.push(
 for (const row of clusterRows) {
   lines.push(`| ${row.cluster} | ${row.name} | ${row.pages} | ${row.mature} | ${row.backendGaps} | ${row.apiGaps} |`)
 }
+const clustersComplete = gapMarkers.total === 0 && gapMarkers.unparsed.length === 0 && gapMarkers.hardcoded.length === 0
+
 lines.push(
   '',
+  `- 集群状态：**${clustersComplete ? 'CAPABILITY_COMPLETE' : 'IN_PROGRESS'}**`,
   `- 集群页面合计：**${clusterRows.reduce((total, row) => total + row.pages, 0)}**（契约 63）。`,
   `- 仍有后端缺口标记的页面：**${gapMarkers.total}**（目标 0；按域 ${Object.entries(gapMarkers.byStyle).map(([domain, keys]) => `${domain} ${keys.length}`).join('、')}）。`,
   `- 解析失败（fail-closed 计数）：**${gapMarkers.unparsed.length}**；Vue 中硬编码缺口面板：**${gapMarkers.hardcoded.length}**。`,
