@@ -14,5 +14,6 @@ final readonly class FileMetadata
         public int $sizeBytes,
         public string $retentionClass,
         public bool $legalHold,
+        public string $originalName = '',
     ) {}
 }

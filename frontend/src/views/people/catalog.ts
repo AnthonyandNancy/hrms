@@ -2,6 +2,7 @@ import type { PeoplePageConfig } from './types'
 import {
   CERTIFICATE_COLUMNS,
   CHANGE_COLUMNS,
+  DOCUMENT_COLUMNS,
   CONTACT_COLUMNS,
   CONTRACT_COLUMNS,
   DEPARTMENT_COLUMNS,
@@ -48,15 +49,7 @@ const EMPLOYEE_PAGES: PeoplePageConfig[] = [
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/contacts', title: '家庭/紧急联系人', description: '联系人电话属于 P2 敏感字段；页面只渲染服务端遮罩结果，不展示明文。', readLabel: '联系人', read: { kind: 'employee-profile', resource: 'contacts' }, columns: CONTACT_COLUMNS, resource: 'contacts' },
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/credentials', title: '证照与资格', description: '维护证书类型、编号、签发机构与有效期。', readLabel: '证照', read: { kind: 'employee-profile', resource: 'certificates' }, columns: CERTIFICATE_COLUMNS, resource: 'certificates' },
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/history', title: '任职/异动履历', description: '按生效日期查看雇佣、任职与条款版本事件。', readLabel: '履历事件', read: { kind: 'employee-timeline' }, columns: TIMELINE_COLUMNS },
-  {
-    ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/files', title: '员工附件', description: '查看员工档案中已登记的合同文档元数据；通用附件能力等待后端接口。', readLabel: '合同文档', read: { kind: 'employee-detail' },
-    columns: [
-      { key: 'employment_id', label: '员工关系', width: '100px' },
-      { key: 'employee_no', label: '工号', width: '110px' },
-      { key: 'status', label: '状态', width: '90px' },
-    ],
-    gap: GAP.files,
-  },
+  { ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/files', title: '员工附件', description: '上传、列出、签名下载并删除员工文档；受法律保留保护的文档不可删除。', readLabel: '员工文档', read: { kind: 'employee-documents' }, columns: DOCUMENT_COLUMNS },
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id/changes', title: '员工档案变更审批', description: '发起档案更正申请并查看状态；提交后进入审批。', readLabel: '变更申请', read: { kind: 'employee-profile', resource: 'change_requests' }, columns: CHANGE_COLUMNS, resource: 'change_requests' },
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/imports', title: '导入校验结果', description: '按员工选择导入批次，查看逐行校验汇总；不渲染原始错误 JSON。', readLabel: '导入批次', read: { kind: 'employee-imports' }, columns: IMPORT_COLUMNS },
 ]

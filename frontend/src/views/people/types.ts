@@ -34,6 +34,7 @@ export type PeopleProfileResource =
 export type PeopleRead =
   | { kind: 'employee-list' }
   | { kind: 'employee-detail' }
+  | { kind: 'employee-documents' }
   | { kind: 'employee-profile'; resource: PeopleProfileResource }
   | { kind: 'employee-timeline' }
   | { kind: 'employee-imports' }

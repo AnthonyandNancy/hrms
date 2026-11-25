@@ -5216,6 +5216,146 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+  /v1/employments/{employment_id}/document-files:
+    get:
+      tags:
+        - People
+      operationId: listEmploymentDocumentFiles
+      summary: List employee document files
+      description: Requires capability `people.document.read`. Returns the standard projection envelope.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Document projection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectionPagination'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - People
+      operationId: uploadEmploymentDocumentFile
+      summary: Upload an employee document file
+      description: Requires capability `people.document.read` and an Idempotency-Key.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [category, retention_class, file]
+              properties:
+                category:
+                  type: string
+                  enum: [CONTRACT, ID, EDUCATION, CERTIFICATE, OTHER]
+                retention_class:
+                  type: string
+                  maxLength: 32
+                legal_hold:
+                  type: boolean
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Created
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /v1/documents/{document_id}/signed-download:
+    get:
+      tags:
+        - People
+      operationId: signDocumentDownload
+      summary: Mint a short-lived signed download URL
+      description: Requires capability `people.document.download`.
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Signed URL
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/documents/{document_id}:
+    delete:
+      tags:
+        - People
+      operationId: deleteDocument
+      summary: Delete an employee document
+      description: Requires capability `people.employee.manage`. Refused while a legal hold applies.
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      responses:
+        '200':
+          description: Deleted
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /v1/employments/{employment_id}/documents:
     post:
       tags:

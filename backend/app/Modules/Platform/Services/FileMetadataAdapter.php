@@ -29,6 +29,7 @@ final class FileMetadataAdapter implements FileMetadataReader
             sizeBytes: (int) $file->size_bytes,
             retentionClass: (string) $file->retention_class,
             legalHold: (bool) $file->legal_hold,
+            originalName: (string) $file->original_name,
         );
     }
 }
