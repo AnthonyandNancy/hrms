@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/errors'
-import { resourceGet, resourcePost } from '@/api/resourceClient'
+import { resourceGet, resourcePatch, resourcePost } from '@/api/resourceClient'
 import { legalEntityId } from '@/api/http'
 import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
@@ -52,6 +52,7 @@ const dashboardData = ref<PlatformRow | null>(null)
 const metricData = ref<PlatformRow | null>(null)
 const definitions = ref<PlatformRow[]>([])
 const reportResult = ref<PlatformRow | null>(null)
+const reportUnavailable = ref('')
 const exportJob = ref<PlatformRow | null>(null)
 const notices = ref<PlatformRow[]>([])
 const selectedNotice = ref<PlatformRow | null>(null)
@@ -144,6 +145,13 @@ const gap = computed(() => config.value?.gap ?? null)
 const gapPath = computed(() => config.value?.gapPath ?? null)
 
 const dashboardMetrics = computed(() => rowsFrom(dashboardData.value, 'metrics'))
+const activeMetricKey = computed(() => {
+  if (config.value?.metricKey) return config.value.metricKey
+  if (config.value?.key === 'dashboard/workforce') return 'probation'
+  if (config.value?.key === 'dashboard/tasks') return 'pending_approvals'
+  if (config.value?.key === 'dashboard/changes') return 'contract_expiring'
+  return null
+})
 const pendingApprovals = computed(() => rowsFrom(dashboardData.value?.pendingApprovals))
 const contractAlerts = computed(() => rowsFrom(dashboardData.value?.contractAlerts))
 const recentNotices = computed(() => rowsFrom(dashboardData.value?.recentNotices))
@@ -344,8 +352,8 @@ async function loadDashboard(): Promise<void> {
   const asOf = todayBusinessDate()
   const [dashboardPayload, metricPayload] = await settleReads([
     resourceGet<unknown>('/v1/reporting/dashboard', { as_of: asOf }),
-    config.value?.metricKey
-      ? resourceGet<unknown>(`/v1/reporting/dashboard/metrics/${config.value.metricKey}`, { as_of: asOf })
+    activeMetricKey.value
+      ? resourceGet<unknown>(`/v1/reporting/dashboard/metrics/${activeMetricKey.value}`, { as_of: asOf })
       : Promise.resolve(null),
   ])
   dashboardData.value = recordFrom(dashboardPayload)
@@ -353,7 +361,7 @@ async function loadDashboard(): Promise<void> {
   partial.value = partialFlag(dashboardPayload, metricPayload)
   const returnedAsOf = rowText(dashboardData.value ?? {}, 'asOf', asOf)
 
-  if (config.value?.metricKey && config.value.metricKey === 'contract_expiring') {
+  if (activeMetricKey.value === 'contract_expiring') {
     const payload = await resourceGet<unknown>('/v1/reporting/dashboard/metrics/contract_expiring', {
       as_of: returnedAsOf,
       window: 30,
@@ -377,15 +385,28 @@ async function loadDefinitions(): Promise<void> {
 
 async function loadReportsDetail(): Promise<void> {
   await loadDefinitions()
+  reportUnavailable.value = ''
   const reportCode = config.value?.reportCode
   if (reportCode === undefined || reportDefinition.value === null) return
-  const payload = await resourcePost<unknown>(
-    '/v1/reporting/run',
-    { definition_code: reportCode, filters: {} },
-    { idempotencyKey: nextIdempotencyKey('report-run'), headers: writeHeaders() },
-  )
-  reportResult.value = recordFrom(payload)
-  partial.value ||= partialFlag(payload)
+  try {
+    const payload = await resourcePost<unknown>(
+      '/v1/reporting/run',
+      { definition_code: reportCode, filters: {} },
+      { idempotencyKey: nextIdempotencyKey('report-run'), headers: writeHeaders() },
+    )
+    reportResult.value = recordFrom(payload)
+    partial.value ||= partialFlag(payload)
+  } catch (reason) {
+    // 503 is the Reporting module's explicit "this projection is not
+    // published" contract. It is an expected unavailable state, not a crash,
+    // and must never be rendered as a generic page failure.
+    if (reason instanceof ApiError && reason.code === 'SERVICE_UNAVAILABLE') {
+      reportUnavailable.value = reason.message
+      reportResult.value = null
+      return
+    }
+    throw reason
+  }
 }
 
 async function loadNotices(): Promise<void> {
@@ -773,12 +794,12 @@ async function updateUserStatus(): Promise<void> {
   resetFeedback()
   try {
     const updated = recordFrom(
-      await resourcePost<unknown>(
+      await resourcePatch<unknown>(
         `/v1/users/${userId}`,
         { status: userStatusForm.status, reason: userStatusForm.reason.trim() },
         {
           idempotencyKey: nextIdempotencyKey('user-status'),
-          headers: writeHeaders({ 'X-HTTP-Method-Override': 'PATCH', 'X-Legal-Entity-Id': String(entityId) }),
+          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
         },
       ),
     )
@@ -1060,7 +1081,7 @@ watch(selectedExportDefinition, () => {
         <section v-if="metricData" class="panel">
           <div class="panel__header">
             <div>
-              <h2 class="panel__title">{{ rowText(metricData, 'label', config?.metricKey ?? '指标明细') }}</h2>
+              <h2 class="panel__title">{{ rowText(metricData, 'label', activeMetricKey ?? '指标明细') }}</h2>
               <p class="panel__subtitle">
                 {{ rowText(metricData, 'predicate') }} · as-of {{ rowText(metricData, 'asOf') }}
               </p>
@@ -1338,8 +1359,18 @@ watch(selectedExportDefinition, () => {
           <div class="panel__footer small muted">生成于 {{ formatDateTimeInTimezone(rowText(reportResult, 'generatedAt', '')) }}</div>
         </section>
 
-        <section v-else-if="config?.reportCode && reportDefinition" class="panel">
-          <div class="panel__body"><p class="empty-inline">报表已定义但尚未返回运行结果。</p></div>
+        <section v-else-if="config?.reportCode && reportDefinition" class="panel" data-testid="report-unavailable">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">报表数据尚未发布</h2>
+              <p class="panel__subtitle">后端明确拒绝在缺少已发布投影时估算数据。</p>
+            </div>
+            <span class="plain-chip plain-chip--warning">服务不可用 · 503</span>
+          </div>
+          <div class="panel__body">
+            <p class="small">{{ reportUnavailable || '该报表的投影尚未发布。请联系报表管理员完成数据发布后再运行。' }}</p>
+            <p class="small muted">这是数据可用性状态，不代表页面或接口故障。</p>
+          </div>
         </section>
       </template>
 

@@ -32,9 +32,14 @@ final class EmployeeProfileService
     public function list(string $resource, int $tenantId, int $employmentId): array
     {
         $model = $this->model($resource);
-        $query = $model::query()
-            ->where('tenant_id', $tenantId)
-            ->where('employment_id', $employmentId);
+        $query = $model::query()->where('tenant_id', $tenantId);
+
+        // Import batches are tenant-level evidence, not employment-scoped.
+        // Filtering them by employment_id referenced a non-existent column and
+        // produced a real 500 in the Compose route audit.
+        if ($resource !== 'imports') {
+            $query->where('employment_id', $employmentId);
+        }
 
         if ($this->hasColumn($model, 'superseded_at')) {
             $query->whereNull('superseded_at');
@@ -55,7 +60,10 @@ final class EmployeeProfileService
         $model = $this->model($resource);
         $normalized = $this->normalize($resource, $data);
         $normalized['tenant_id'] = $tenantId;
-        $normalized['employment_id'] = $employmentId;
+
+        if ($resource !== 'imports') {
+            $normalized['employment_id'] = $employmentId;
+        }
 
         if ($this->hasColumn($model, 'recorded_at')) {
             $normalized['recorded_at'] = $this->clock->now();
@@ -91,8 +99,11 @@ final class EmployeeProfileService
         return DB::transaction(function () use ($resource, $tenantId, $employmentId, $id, $data, $model): array {
             $query = $model::query()
                 ->where('tenant_id', $tenantId)
-                ->where('employment_id', $employmentId)
                 ->whereKey($id);
+
+            if ($resource !== 'imports') {
+                $query->where('employment_id', $employmentId);
+            }
 
             if ($this->hasColumn($model, 'superseded_at')) {
                 $query->whereNull('superseded_at');
@@ -225,10 +236,11 @@ final class EmployeeProfileService
      */
     private function payload(string $resource, Model $row): array
     {
-        $base = [
-            'id' => (int) $row->getKey(),
-            'employment_id' => (int) $row->getAttribute('employment_id'),
-        ];
+        $base = ['id' => (int) $row->getKey()];
+
+        if ($resource !== 'imports') {
+            $base['employment_id'] = (int) $row->getAttribute('employment_id');
+        }
 
         $payload = match ($resource) {
             'education' => [
