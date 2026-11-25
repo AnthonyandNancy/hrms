@@ -15,7 +15,7 @@ final class Requisition extends Model
     /** @var list<string> */
     protected $fillable = [
         'tenant_id', 'legal_entity_id', 'org_unit_id', 'requisition_no', 'title', 'status',
-        'headcount', 'case_id', 'target_start_date', 'recorded_at',
+        'headcount', 'budget_minor', 'budget_currency', 'case_id', 'target_start_date', 'recorded_at',
     ];
 
     /**
@@ -28,6 +28,7 @@ final class Requisition extends Model
             'legal_entity_id' => 'integer',
             'org_unit_id' => 'integer',
             'headcount' => 'integer',
+            'budget_minor' => 'integer',
             'case_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
         ];
