@@ -3427,6 +3427,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/roles/{id}/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save page, action, scope and field authorization atomically
+         * @description One transactional save for the role workbench. Page grants control view access only; action capabilities are granted explicitly and must belong to a granted page. Template roles are code-owned and return 409.
+         */
+        put: operations["replaceRoleAuthorization"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/roles/{id}/copy": {
         parameters: {
             query?: never;
@@ -7382,6 +7402,19 @@ export interface components {
             code: string;
             name: string;
             purpose: string;
+        };
+        RoleAuthorizationRequest: {
+            pages: string[];
+            capabilities: {
+                capability: string;
+                /** @enum {string} */
+                anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
+                /** @enum {string} */
+                field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+                /** @description Required when the capability is a page action. */
+                page_code?: string;
+            }[];
+            reason?: string | null;
         };
         RoleCapabilitiesRequest: {
             capabilities: components["schemas"]["RoleCapabilitySelection"][];
@@ -15200,6 +15233,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    replaceRoleAuthorization: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Authorization replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            role: components["schemas"]["RoleDefinition"];
+                            pages: string[];
+                        };
                     };
                 };
             };
