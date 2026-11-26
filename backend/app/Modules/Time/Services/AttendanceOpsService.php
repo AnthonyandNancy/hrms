@@ -15,6 +15,7 @@ use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
@@ -28,6 +29,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
  */
 final class AttendanceOpsService
 {
+    /** Platform audit evidence keeps its compatibility scope column. */
     public function __construct(
         private readonly Clock $clock,
         private readonly AttendanceCalculator $calculator,
@@ -42,12 +44,11 @@ final class AttendanceOpsService
      *
      * @return list<array<string, mixed>>
      */
-    public function ruleVersions(int $tenantId, string $asOf): array
+    public function ruleVersions(string $asOf): array
     {
-        $effectiveVersion = $this->calculator->ruleVersionFor($tenantId, $asOf);
+        $effectiveVersion = $this->calculator->ruleVersionFor($asOf);
 
         return AttendanceRuleVersion::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('effective_from')
             ->orderByDesc('id')
             ->get()
@@ -73,12 +74,11 @@ final class AttendanceOpsService
      * @param  array<string, mixed>  $config
      * @return array{row: AttendanceRuleVersion, replayed: bool}
      */
-    public function publishRuleVersion(int $tenantId, int $actorUserId, string $version, string $effectiveFrom, array $config): array
+    public function publishRuleVersion(int $actorUserId, string $version, string $effectiveFrom, array $config): array
     {
         $normalised = $this->normaliseConfig($config);
 
         $existing = AttendanceRuleVersion::query()
-            ->where('tenant_id', $tenantId)
             ->where('version', $version)
             ->first();
 
@@ -96,10 +96,9 @@ final class AttendanceOpsService
             return ['row' => $existing, 'replayed' => true];
         }
 
-        $row = $this->calculator->registerRuleVersion($tenantId, $version, $effectiveFrom, $normalised);
+        $row = $this->calculator->registerRuleVersion($version, $effectiveFrom, $normalised);
 
         $this->audit->record(
-            $tenantId,
             $actorUserId,
             'time.attendance.rule.published',
             'attendance_rule_version',
@@ -113,20 +112,14 @@ final class AttendanceOpsService
     /**
      * One page of schedules visible to the actor.
      *
-     * @param  array{employment_id?: int|null, legal_entity_id?: int|null, from?: string|null, to?: string|null}  $filters
+     * @param  array{employment_id?: int|null, from?: string|null, to?: string|null}  $filters
      * @return array{items: list<array<string, mixed>>, total: int, page: int, page_size: int}
      */
     public function schedules(TimeActor $actor, array $filters, int $page, int $pageSize): array
     {
-        $query = ShiftSchedule::query()->where('tenant_id', $actor->tenantId);
+        $query = ShiftSchedule::query();
 
         $this->applyScheduleScope($query, $actor);
-
-        $legalEntityId = $filters['legal_entity_id'] ?? null;
-
-        if ($legalEntityId !== null) {
-            $query->where('legal_entity_id', $legalEntityId);
-        }
 
         if (($filters['employment_id'] ?? null) !== null) {
             $query->where('employment_id', $filters['employment_id']);
@@ -157,7 +150,6 @@ final class AttendanceOpsService
 
         /** @var array<int, ShiftTemplate> $templates */
         $templates = ShiftTemplate::query()
-            ->where('tenant_id', $actor->tenantId)
             ->whereIn('id', $templateIds)
             ->get()
             ->keyBy(static fn (ShiftTemplate $template): int => (int) $template->id)
@@ -168,7 +160,6 @@ final class AttendanceOpsService
 
             return [
                 'id' => (int) $row->id,
-                'legal_entity_id' => (int) $row->legal_entity_id,
                 'employment_id' => (int) $row->employment_id,
                 'business_date' => $row->business_date->format('Y-m-d'),
                 'shift_template_id' => (int) $row->shift_template_id,
@@ -191,18 +182,14 @@ final class AttendanceOpsService
      * @return array{row: ShiftSchedule, replayed: bool}
      */
     public function scheduleShift(
-        int $tenantId,
-        int $legalEntityId,
         int $employmentId,
         string $businessDate,
         int $shiftTemplateId,
         int $actorUserId,
     ): array {
-        $this->closings->assertOpen($tenantId, $legalEntityId, substr($businessDate, 0, 7));
+        $this->closings->assertOpen(substr($businessDate, 0, 7));
 
         $template = ShiftTemplate::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->whereKey($shiftTemplateId)
             ->first();
 
@@ -219,7 +206,6 @@ final class AttendanceOpsService
         }
 
         $existing = ShiftSchedule::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', $businessDate)
             ->first();
@@ -237,8 +223,6 @@ final class AttendanceOpsService
 
         try {
             $row = ShiftSchedule::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $legalEntityId,
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'shift_template_id' => $shiftTemplateId,
@@ -255,13 +239,11 @@ final class AttendanceOpsService
         }
 
         $this->audit->record(
-            $tenantId,
             $actorUserId,
             'time.shift.schedule.created',
             'shift_schedule',
             (int) $row->id,
             after: [
-                'legal_entity_id' => $legalEntityId,
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'shift_template_id' => $shiftTemplateId,
@@ -272,19 +254,16 @@ final class AttendanceOpsService
     }
 
     /**
-     * One page of attendance period closures for the actor's legal entities.
+     * One page of attendance period closures.
      *
-     * @param  list<int>  $legalEntityIds
      * @return array{items: list<array<string, mixed>>, total: int, page: int, page_size: int}
      */
-    public function closures(int $tenantId, array $legalEntityIds, ?int $legalEntityId, int $page, int $pageSize): array
+    public function closures(string $month, int $page, int $pageSize): array
     {
-        $query = AttendancePeriodClosure::query()
-            ->where('tenant_id', $tenantId)
-            ->whereIn('legal_entity_id', $legalEntityIds === [] ? [-1] : $legalEntityIds);
+        $query = AttendancePeriodClosure::query();
 
-        if ($legalEntityId !== null) {
-            $query->where('legal_entity_id', $legalEntityId);
+        if ($month !== '') {
+            $query->where('month', $month);
         }
 
         $total = (clone $query)->count();
@@ -299,7 +278,6 @@ final class AttendanceOpsService
 
         $items = array_map(static fn (AttendancePeriodClosure $row): array => [
             'id' => (int) $row->id,
-            'legal_entity_id' => (int) $row->legal_entity_id,
             'month' => (string) $row->month,
             'status' => (string) $row->status,
             'closed_by' => $row->closed_by !== null ? (int) $row->closed_by : null,
@@ -316,24 +294,14 @@ final class AttendanceOpsService
      * Read-only device inventory. There is intentionally no write method: a
      * browser cannot assert device health.
      *
-     * @param  list<int>  $legalEntityIds
      * @return array{items: list<array<string, mixed>>, total: int, page: int, page_size: int}
      */
     public function devices(
-        int $tenantId,
-        array $legalEntityIds,
-        ?int $legalEntityId,
         ?bool $active,
         int $page,
         int $pageSize,
     ): array {
-        $query = AttendanceDevice::query()
-            ->where('tenant_id', $tenantId)
-            ->whereIn('legal_entity_id', $legalEntityIds === [] ? [-1] : $legalEntityIds);
-
-        if ($legalEntityId !== null) {
-            $query->where('legal_entity_id', $legalEntityId);
-        }
+        $query = AttendanceDevice::query();
 
         if ($active !== null) {
             $query->where('active', $active);
@@ -343,7 +311,6 @@ final class AttendanceOpsService
 
         /** @var list<AttendanceDevice> $rows */
         $rows = $query
-            ->orderBy('legal_entity_id')
             ->orderBy('code')
             ->forPage($page, $pageSize)
             ->get()
@@ -351,7 +318,6 @@ final class AttendanceOpsService
 
         $items = array_map(static fn (AttendanceDevice $row): array => [
             'id' => (int) $row->id,
-            'legal_entity_id' => (int) $row->legal_entity_id,
             'code' => (string) $row->code,
             'name' => (string) $row->name,
             'adapter' => (string) $row->adapter,
@@ -391,12 +357,12 @@ final class AttendanceOpsService
 
     /**
      * SELF actors only see their own schedule; MANAGED actors see their team;
-     * entity-scoped actors see their legal entities. Never widen a row scope
+     * company-scoped actors see the whole company. Never widen a row scope
      * because the route guard happened to accept a broader grant.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<ShiftSchedule>  $query
+     * @param  Builder<ShiftSchedule>  $query
      */
-    private function applyScheduleScope(\Illuminate\Database\Eloquent\Builder $query, TimeActor $actor): void
+    private function applyScheduleScope(Builder $query, TimeActor $actor): void
     {
         $scope = strtoupper($actor->scope);
 
@@ -404,8 +370,6 @@ final class AttendanceOpsService
             $query->where('employment_id', $actor->employmentId ?? -1);
         } elseif ($scope === 'MANAGED') {
             $query->whereIn('employment_id', $actor->managedEmploymentIds === [] ? [-1] : $actor->managedEmploymentIds);
-        } else {
-            $query->whereIn('legal_entity_id', $actor->legalEntityIds === [] ? [-1] : $actor->legalEntityIds);
         }
     }
 }

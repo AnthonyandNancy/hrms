@@ -13,8 +13,6 @@ use Illuminate\Database\Eloquent\Model;
  * invariant behind the service's SCHEDULE_CONFLICT check.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $business_date
  * @property int $shift_template_id
@@ -28,8 +26,6 @@ final class ShiftSchedule extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'employment_id',
         'business_date',
         'shift_template_id',
@@ -43,8 +39,6 @@ final class ShiftSchedule extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'employment_id' => 'integer',
             'business_date' => 'immutable_date:Y-m-d',
             'shift_template_id' => 'integer',

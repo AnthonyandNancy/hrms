@@ -11,8 +11,6 @@ use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\PunchService;
 use App\Shared\ApiResponse;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\BusinessDate;
-use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +22,6 @@ final class AttendanceController
         private readonly PunchService $punches,
         private readonly AttendanceCorrectionService $corrections,
         private readonly BusinessCalendar $calendar,
-        private readonly Clock $clock,
     ) {}
 
     public function importPunches(Request $request): JsonResponse
@@ -40,10 +37,10 @@ final class AttendanceController
             'punches.*.raw_payload_hash' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $today = BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), $this->clock)->value();
+        $today = $this->scope->today()->value();
         $this->scope->employment($actor, (int) $data['employment_id'], $today);
 
-        $records = $this->punches->import($actor->tenantId, (int) $data['employment_id'], (array) $data['punches']);
+        $records = $this->punches->import((int) $data['employment_id'], (array) $data['punches']);
         $created = count(array_filter($records, static fn ($record): bool => (bool) $record->wasRecentlyCreated));
 
         return ApiResponse::ok([
@@ -65,12 +62,11 @@ final class AttendanceController
         $actor = $this->scope->actor($request);
         $start = $this->monthStart((string) $request->query('month', ''));
         $employment = $this->scope->selfEmployment($actor, $start->format('Y-m-d'));
-        $timezone = $this->calendar->timezone($actor->tenantId, $employment->legalEntityId)
+        $timezone = $this->calendar->timezone()
             ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
         $end = $start->endOfMonth();
 
         $rows = AttendanceDay::query()
-            ->where('tenant_id', $actor->tenantId)
             ->where('employment_id', $employment->employmentId)
             ->where('business_date', '>=', $start->format('Y-m-d'))
             ->where('business_date', '<=', $end->format('Y-m-d'))
@@ -83,7 +79,7 @@ final class AttendanceController
         for ($date = $start; $date->lessThanOrEqualTo($end); $date = $date->addDay()) {
             $key = $date->format('Y-m-d');
             $row = $rows->get($key);
-            $isRest = $this->calendar->isRestDay($actor->tenantId, $employment->legalEntityId, $key);
+            $isRest = $this->calendar->isRestDay($key);
             $status = $row?->status;
 
             if ($status === null) {
@@ -146,7 +142,6 @@ final class AttendanceController
         $toExclusive = CarbonImmutable::parse($to, 'UTC')->addDay()->format('Y-m-d');
 
         $rows = AttendanceDay::query()
-            ->where('tenant_id', $actor->tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '>=', $from)
             ->where('business_date', '<', $toExclusive)
@@ -194,7 +189,7 @@ final class AttendanceController
             isset($data['employment_id']) ? (int) $data['employment_id'] : null,
         );
         $employmentId = $employment->employmentId;
-        $timezone = $this->calendar->timezone($actor->tenantId, $employment->legalEntityId)
+        $timezone = $this->calendar->timezone()
             ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
         $punches = (array) ($data['corrected_punches'] ?? []);
 
@@ -209,7 +204,6 @@ final class AttendanceController
         }
 
         $correction = $this->corrections->request(
-            tenantId: $actor->tenantId,
             employmentId: $employmentId,
             businessDate: $businessDate,
             requestedBy: $actor->userId,

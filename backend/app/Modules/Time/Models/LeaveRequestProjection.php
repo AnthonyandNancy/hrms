@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Model;
 final class LeaveRequestProjection extends Model
 {
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'leave_type_id',
         'case_id',

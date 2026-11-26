@@ -60,7 +60,6 @@ final class OvertimeRequestTest extends TimeTestCase
         $this->assertGreaterThan(0, $recordId);
         $this->assertDatabaseHas('overtime_records', [
             'id' => $recordId,
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-21',
             'minutes' => 75,
@@ -78,7 +77,6 @@ final class OvertimeRequestTest extends TimeTestCase
     {
         $this->actingAsTimeEmployee();
         $request = OvertimeRequest::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-22',
             'declared_minutes' => 60,
@@ -115,7 +113,6 @@ final class OvertimeRequestTest extends TimeTestCase
 
         $this->expectException(UniqueConstraintViolationException::class);
         OvertimeRequest::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-23',
             'declared_minutes' => 10,
@@ -166,7 +163,6 @@ final class OvertimeRequestTest extends TimeTestCase
 
         $this->expectException(UniqueConstraintViolationException::class);
         OvertimeSettlement::query()->create([
-            'tenant_id' => 1,
             'overtime_record_id' => $recordId,
             'employment_id' => 1,
             'method' => 'PAY',
@@ -176,7 +172,7 @@ final class OvertimeRequestTest extends TimeTestCase
         ]);
     }
 
-    public function test_overtime_write_requires_idempotency_key_capability_and_tenant_scope(): void
+    public function test_overtime_write_requires_idempotency_key_capability_and_employment_scope(): void
     {
         $this->actingAsTimeEmployee(['time.overtime.read']);
 
@@ -194,20 +190,19 @@ final class OvertimeRequestTest extends TimeTestCase
         ])->assertStatus(422)
             ->assertJsonPath('data.reason', 'IDEMPOTENCY_KEY_REQUIRED');
 
-        $otherTenant = OvertimeRequest::query()->create([
-            'tenant_id' => 2,
+        $outOfScope = OvertimeRequest::query()->create([
             'employment_id' => 99,
             'business_date' => '2026-11-25',
             'declared_minutes' => 60,
             'confirmed_minutes' => null,
             'status' => 'APPROVED',
-            'reason' => 'Synthetic other tenant',
+            'reason' => 'Synthetic out-of-scope employment',
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->postJson("/v1/time/overtime/requests/{$otherTenant->id}/confirm", [
+        $this->postJson("/v1/time/overtime/requests/{$outOfScope->id}/confirm", [
             'confirmed_minutes' => 60,
-        ], ['Idempotency-Key' => 'ot-cross-tenant'])->assertNotFound();
+        ], ['Idempotency-Key' => 'ot-out-of-scope'])->assertNotFound();
     }
 
     public function test_unauthenticated_overtime_request_is_rejected(): void

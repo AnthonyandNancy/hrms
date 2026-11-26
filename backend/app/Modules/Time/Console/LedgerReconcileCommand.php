@@ -22,7 +22,6 @@ final class LedgerReconcileCommand extends Command
     protected $signature = 'ledger:reconcile
         {--as-of= : Business date to reconcile (YYYY-MM-DD, default today)}
         {--date= : Backwards-compatible alias for --as-of}
-        {--tenant= : Restrict to one tenant id}
         {--rebuild : Repair mismatched LeaveBalance projections and re-check}';
 
     protected $description = 'Reconcile leave balance projections against the append-only ledger';
@@ -37,86 +36,58 @@ final class LedgerReconcileCommand extends Command
             return 2;
         }
 
-        $tenantOption = $this->option('tenant');
-        $tenantIds = [];
-
-        if ($tenantOption !== null && $tenantOption !== '') {
-            if (! is_string($tenantOption) || preg_match('/^[1-9]\d*$/', $tenantOption) !== 1) {
-                $this->error("Invalid --tenant: {$tenantOption}. Expected a positive integer tenant id.");
-
-                return 2;
-            }
-
-            $tenantIds = [(int) $tenantOption];
-        } else {
-            $tenantIds = LeaveAccount::query()
-                ->distinct()
-                ->orderBy('tenant_id')
-                ->pluck('tenant_id')
-                ->map(static fn (mixed $id): int => (int) $id)
-                ->all();
-        }
-
         $checked = 0;
         $differences = [];
         $rebuilt = 0;
         $mismatches = [];
 
-        foreach ($tenantIds as $tenantId) {
-            $accounts = LeaveAccount::query()
-                ->where('tenant_id', $tenantId)
-                ->orderBy('employment_id')
-                ->orderBy('leave_type_id')
+        $accounts = LeaveAccount::query()
+            ->orderBy('employment_id')
+            ->orderBy('leave_type_id')
+            ->get();
+
+        foreach ($accounts as $account) {
+            $checked++;
+            $summary = $balances->forType(
+                (int) $account->employment_id,
+                (int) $account->leave_type_id,
+                $asOf,
+            );
+            $stored = LeaveBalance::query()
+                ->where('employment_id', $account->employment_id)
+                ->where('leave_type_id', $account->leave_type_id)
+                ->first();
+            $ledgerEntries = LeaveLedgerEntry::query()
+                ->where('employment_id', $account->employment_id)
+                ->where('leave_type_id', $account->leave_type_id)
+                ->where('effective_on', '<=', $asOf)
                 ->get();
+            $recomputed = LeaveEquation::summarize($ledgerEntries);
+            $projectionBalance = $stored !== null ? (int) $stored->balance : null;
 
-            foreach ($accounts as $account) {
-                $checked++;
-                $summary = $balances->forType(
-                    $tenantId,
-                    (int) $account->employment_id,
-                    (int) $account->leave_type_id,
-                    $asOf,
-                );
-                $stored = LeaveBalance::query()
-                    ->where('tenant_id', $tenantId)
-                    ->where('employment_id', $account->employment_id)
-                    ->where('leave_type_id', $account->leave_type_id)
-                    ->first();
-                $ledgerEntries = LeaveLedgerEntry::query()
-                    ->where('tenant_id', $tenantId)
-                    ->where('employment_id', $account->employment_id)
-                    ->where('leave_type_id', $account->leave_type_id)
-                    ->where('effective_on', '<=', $asOf)
-                    ->get();
-                $recomputed = LeaveEquation::summarize($ledgerEntries);
-                $projectionBalance = $stored !== null ? (int) $stored->balance : null;
+            if ($summary['unexplained_difference'] !== 0) {
+                $differences[] = [
+                    'employment_id' => (int) $account->employment_id,
+                    'leave_type_id' => (int) $account->leave_type_id,
+                    'reason' => 'LEDGER_EQUATION_UNEXPLAINED',
+                    'ledger_balance' => $recomputed['balance'],
+                    'recomputed_balance' => $summary['balance'],
+                    'stored_balance' => $projectionBalance,
+                ];
+            }
 
-                if ($summary['unexplained_difference'] !== 0) {
-                    $differences[] = [
-                        'tenant_id' => $tenantId,
-                        'employment_id' => (int) $account->employment_id,
-                        'leave_type_id' => (int) $account->leave_type_id,
-                        'reason' => 'LEDGER_EQUATION_UNEXPLAINED',
-                        'ledger_balance' => $recomputed['balance'],
-                        'recomputed_balance' => $summary['balance'],
-                        'stored_balance' => $projectionBalance,
-                    ];
-                }
+            if ($projectionBalance !== $summary['balance']) {
+                $mismatches[] = [
+                    'employment_id' => (int) $account->employment_id,
+                    'leave_type_id' => (int) $account->leave_type_id,
+                    'stored' => $projectionBalance,
+                    'expected' => $summary['balance'],
+                    'difference' => $projectionBalance === null ? null : $projectionBalance - $summary['balance'],
+                ];
 
-                if ($projectionBalance !== $summary['balance']) {
-                    $mismatches[] = [
-                        'tenant_id' => $tenantId,
-                        'employment_id' => (int) $account->employment_id,
-                        'leave_type_id' => (int) $account->leave_type_id,
-                        'stored' => $projectionBalance,
-                        'expected' => $summary['balance'],
-                        'difference' => $projectionBalance === null ? null : $projectionBalance - $summary['balance'],
-                    ];
-
-                    if ((bool) $this->option('rebuild')) {
-                        $balances->project($tenantId, (int) $account->employment_id, (int) $account->leave_type_id, $summary);
-                        $rebuilt++;
-                    }
+                if ((bool) $this->option('rebuild')) {
+                    $balances->project((int) $account->employment_id, (int) $account->leave_type_id, $summary);
+                    $rebuilt++;
                 }
             }
         }
@@ -129,8 +100,7 @@ final class LedgerReconcileCommand extends Command
 
         foreach ($mismatches as $mismatch) {
             $this->line(sprintf(
-                'DIFF tenant=%d employment=%d leave_type=%d stored=%s expected=%d difference=%s',
-                $mismatch['tenant_id'],
+                'DIFF employment=%d leave_type=%d stored=%s expected=%d difference=%s',
                 $mismatch['employment_id'],
                 $mismatch['leave_type_id'],
                 $mismatch['stored'] === null ? 'missing' : (string) $mismatch['stored'],
@@ -141,8 +111,7 @@ final class LedgerReconcileCommand extends Command
 
         foreach ($differences as $difference) {
             $this->line(sprintf(
-                'EQUATION tenant=%d employment=%d leave_type=%d ledger=%d recomputed=%d',
-                $difference['tenant_id'],
+                'EQUATION employment=%d leave_type=%d ledger=%d recomputed=%d',
                 $difference['employment_id'],
                 $difference['leave_type_id'],
                 $difference['ledger_balance'],
@@ -155,9 +124,8 @@ final class LedgerReconcileCommand extends Command
             $remaining = 0;
 
             foreach ($mismatches as $mismatch) {
-                $expected = $balances->forType($mismatch['tenant_id'], $mismatch['employment_id'], $mismatch['leave_type_id'], $asOf)['balance'];
+                $expected = $balances->forType($mismatch['employment_id'], $mismatch['leave_type_id'], $asOf)['balance'];
                 $storedNow = LeaveBalance::query()
-                    ->where('tenant_id', $mismatch['tenant_id'])
                     ->where('employment_id', $mismatch['employment_id'])
                     ->where('leave_type_id', $mismatch['leave_type_id'])
                     ->value('balance');

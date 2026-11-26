@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Time\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Time\Http\TimeRequestScope;
 use App\Modules\Time\Services\AttendanceClosingService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +19,7 @@ final class AttendanceClosingController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly TimeRequestScope $scope,
         private readonly AttendanceClosingService $closings,
     ) {}
 
@@ -29,12 +29,9 @@ final class AttendanceClosingController
         $this->allow($principal, 'time.attendance.manage');
         $data = $request->validate([
             'month' => ['required', 'string', 'regex:/^\d{4}-\d{2}$/'],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
         ]);
 
         return ApiResponse::created($this->closings->close(
-            $principal->tenantId(),
-            (int) $data['legal_entity_id'],
             (string) $data['month'],
             $principal->userId(),
         ));
@@ -49,7 +46,6 @@ final class AttendanceClosingController
         ]);
 
         return ApiResponse::ok($this->closings->reopen(
-            $principal->tenantId(),
             $id,
             (string) $data['reason'],
             $principal->userId(),
@@ -62,11 +58,10 @@ final class AttendanceClosingController
         $this->allow($principal, 'time.attendance.manage');
         $data = $request->validate([
             'month' => ['required', 'string', 'regex:/^\d{4}-\d{2}$/'],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'employment_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $this->closings->assertOpen($principal->tenantId(), (int) $data['legal_entity_id'], (string) $data['month']);
+        $this->closings->assertOpen((string) $data['month']);
 
         return ApiResponse::accepted([
             'accepted' => true,
@@ -77,7 +72,7 @@ final class AttendanceClosingController
 
     private function allow(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->scope->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');

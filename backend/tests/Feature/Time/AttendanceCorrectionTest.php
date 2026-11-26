@@ -16,14 +16,13 @@ class AttendanceCorrectionTest extends TimeTestCase
         $this->calendar();
         $shift = $this->shift();
         $this->assignShift(1, $shift);
-        $raw = app(PunchService::class)->record($this->tenantId, 1, '2026-11-23T01:10:00Z', 'DEVICE', 'late-in', 'D1', '+08:00');
-        app(PunchService::class)->record($this->tenantId, 1, '2026-11-23T10:30:00Z', 'DEVICE', 'shift-out', 'D1', '+08:00');
-        $before = app(\App\Modules\Time\Services\AttendanceCalculator::class)->recalculate(1, 1, '2026-11-23');
+        $raw = app(PunchService::class)->record(1, '2026-11-23T01:10:00Z', 'DEVICE', 'late-in', 'D1', '+08:00');
+        app(PunchService::class)->record(1, '2026-11-23T10:30:00Z', 'DEVICE', 'shift-out', 'D1', '+08:00');
+        $before = app(\App\Modules\Time\Services\AttendanceCalculator::class)->recalculate(1, '2026-11-23');
         $this->assertGreaterThan(0, $before->late_minutes);
         $rawSnapshot = $raw->toArray();
 
         $correction = app(AttendanceCorrectionService::class)->request(
-            tenantId: 1,
             employmentId: 1,
             businessDate: '2026-11-23',
             requestedBy: 10,
@@ -32,11 +31,11 @@ class AttendanceCorrectionTest extends TimeTestCase
         );
 
         $this->assertGreaterThan(0, $correction->case_id);
-        $this->assertSame('SUBMITTED', $this->workflow->case(1, $correction->case_id)?->status);
+        $this->assertSame('SUBMITTED', $this->workflow->case($correction->case_id)?->status);
         $this->assertSame($rawSnapshot['punched_at_utc'], $raw->fresh()?->toArray()['punched_at_utc']);
 
-        $this->workflow->approve(1, $correction->case_id);
-        $result = app(AttendanceCorrectionService::class)->applyEffect(1, $correction->case_id);
+        $this->workflow->approve($correction->case_id);
+        $result = app(AttendanceCorrectionService::class)->applyEffect($correction->case_id);
 
         $this->assertTrue($result['applied']);
         $recalculated = \App\Modules\Time\Models\AttendanceDay::query()
@@ -53,12 +52,12 @@ class AttendanceCorrectionTest extends TimeTestCase
         $this->calendar();
         $shift = $this->shift();
         $this->assignShift(1, $shift);
-        app(PunchService::class)->record(1, 1, '2026-11-23T01:00:00Z', 'DEVICE', 'in', 'D1', '+08:00');
-        app(PunchService::class)->record(1, 1, '2026-11-23T10:00:00Z', 'DEVICE', 'out', 'D1', '+08:00');
+        app(PunchService::class)->record(1, '2026-11-23T01:00:00Z', 'DEVICE', 'in', 'D1', '+08:00');
+        app(PunchService::class)->record(1, '2026-11-23T10:00:00Z', 'DEVICE', 'out', 'D1', '+08:00');
 
         $calculator = app(\App\Modules\Time\Services\AttendanceCalculator::class);
-        $first = $calculator->recalculate(1, 1, '2026-11-23');
-        $second = $calculator->recalculate(1, 1, '2026-11-23');
+        $first = $calculator->recalculate(1, '2026-11-23');
+        $second = $calculator->recalculate(1, '2026-11-23');
 
         $this->assertSame($first->id, $second->id);
         $this->assertSame($first->source_hash, $second->source_hash);
@@ -69,10 +68,9 @@ class AttendanceCorrectionTest extends TimeTestCase
     {
         $this->calendar();
         $this->assignShift(1, $this->shift());
-        app(PunchService::class)->record(1, 1, '2026-11-23T01:10:00Z', 'DEVICE', 'raw', 'D1', '+08:00');
+        app(PunchService::class)->record(1, '2026-11-23T01:10:00Z', 'DEVICE', 'raw', 'D1', '+08:00');
 
         $correction = app(AttendanceCorrectionService::class)->request(
-            1,
             1,
             '2026-11-23',
             10,

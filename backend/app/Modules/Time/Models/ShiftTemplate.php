@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $code
  * @property string $start_local_time
  * @property string $end_local_time
@@ -21,8 +19,6 @@ use Illuminate\Database\Eloquent\Model;
 final class ShiftTemplate extends Model
 {
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'code',
         'name',
         'start_local_time',

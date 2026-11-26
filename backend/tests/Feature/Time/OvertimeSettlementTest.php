@@ -14,7 +14,6 @@ final class OvertimeSettlementTest extends TimeHttpTestCase
     {
         $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
         $record = OvertimeRecord::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-20',
             'minutes' => 120,
@@ -39,7 +38,6 @@ final class OvertimeSettlementTest extends TimeHttpTestCase
     {
         $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
         $record = OvertimeRecord::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-21',
             'minutes' => 60,
@@ -61,21 +59,12 @@ final class OvertimeSettlementTest extends TimeHttpTestCase
         $this->assertDatabaseCount('overtime_settlements', 1);
     }
 
-    public function test_cross_tenant_overtime_cannot_be_settled(): void
+    public function test_unknown_overtime_record_cannot_be_settled(): void
     {
-        $this->actAsHttp(TimeTestFixtures::actor(tenantId: 1, employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
-        $record = OvertimeRecord::query()->create([
-            'tenant_id' => 2,
-            'employment_id' => 9,
-            'business_date' => '2026-11-20',
-            'minutes' => 60,
-            'status' => 'APPROVED',
-            'created_at' => $this->clock->now(),
-        ]);
-
-        $this->postJson("/v1/overtime/records/{$record->id}/settlements", [
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
+        $this->postJson('/v1/overtime/records/999999/settlements', [
             'method' => 'PAY',
-            'reason' => 'Cross tenant attempt.',
-        ], ['Idempotency-Key' => 'ot-cross'])->assertNotFound();
+            'reason' => 'Unknown record attempt.',
+        ], ['Idempotency-Key' => 'ot-unknown'])->assertNotFound();
     }
 }

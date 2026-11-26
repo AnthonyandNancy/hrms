@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
-use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Time\Http\TimeRequestScope;
 use App\Modules\Time\Services\AttendanceOpsService;
 use App\Shared\ApiResponse;
@@ -12,10 +11,10 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\TenantBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,7 +32,6 @@ final class AttendanceOpsController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly TimeRequestScope $scope,
-        private readonly TenantBusinessDate $businessDates,
         private readonly AttendanceOpsService $operations,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -41,15 +39,12 @@ final class AttendanceOpsController
 
     public function rules(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
-        $asOf = $this->businessDates->resolve(
+        $this->principals->resolve();
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $principal->tenantId(),
-        )->value();
+        );
 
-        $this->assertRequestedLegalEntity($request, $principal, $asOf);
-
-        $items = $this->operations->ruleVersions($principal->tenantId(), $asOf);
+        $items = $this->operations->ruleVersions($asOf);
 
         return $this->projections->ok(new ProjectionResult(
             items: $items,
@@ -74,8 +69,6 @@ final class AttendanceOpsController
             'config' => ['required', 'array'],
         ]);
 
-        $this->assertRequestedLegalEntity($request, $principal, (string) $data['effective_from']);
-
         $payload = [
             'version' => (string) $data['version'],
             'effective_from' => (string) $data['effective_from'],
@@ -95,7 +88,6 @@ final class AttendanceOpsController
             $payload,
             function () use ($principal, $payload): array {
                 $published = $this->operations->publishRuleVersion(
-                    tenantId: $principal->tenantId(),
                     actorUserId: $principal->userId(),
                     version: (string) $payload['version'],
                     effectiveFrom: (string) $payload['effective_from'],
@@ -117,16 +109,14 @@ final class AttendanceOpsController
 
     public function schedules(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
+        $this->principals->resolve();
         $actor = $this->scope->actor($request);
-        $asOf = $this->businessDates->resolve(
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $principal->tenantId(),
-        )->value();
+        );
 
         $data = $request->validate([
             'employment_id' => ['nullable', 'integer', 'min:1'],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
             'from' => ['nullable', new BusinessDateRule],
             'to' => ['nullable', new BusinessDateRule],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -140,12 +130,6 @@ final class AttendanceOpsController
             throw new ValidationException(['to' => ['The end date must not precede the start date.']]);
         }
 
-        $legalEntityId = isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null;
-
-        if ($legalEntityId !== null) {
-            $this->scope->assertLegalEntity($actor, $legalEntityId, $asOf);
-        }
-
         $page = isset($data['page']) ? (int) $data['page'] : 1;
         $pageSize = isset($data['page_size']) ? (int) $data['page_size'] : 20;
 
@@ -153,7 +137,6 @@ final class AttendanceOpsController
             actor: $actor,
             filters: [
                 'employment_id' => isset($data['employment_id']) ? (int) $data['employment_id'] : null,
-                'legal_entity_id' => $legalEntityId,
                 'from' => $from,
                 'to' => $to,
             ],
@@ -193,7 +176,6 @@ final class AttendanceOpsController
 
         $payload = [
             'employment_id' => $employment->employmentId,
-            'legal_entity_id' => $employment->legalEntityId,
             'business_date' => (string) $data['business_date'],
             'shift_template_id' => (int) $data['shift_template_id'],
         ];
@@ -211,8 +193,6 @@ final class AttendanceOpsController
             $payload,
             function () use ($principal, $payload): array {
                 $scheduled = $this->operations->scheduleShift(
-                    tenantId: $principal->tenantId(),
-                    legalEntityId: (int) $payload['legal_entity_id'],
                     employmentId: (int) $payload['employment_id'],
                     businessDate: (string) $payload['business_date'],
                     shiftTemplateId: (int) $payload['shift_template_id'],
@@ -223,7 +203,6 @@ final class AttendanceOpsController
                     'http_status' => 201,
                     'body' => ApiResponse::created([
                         'schedule_id' => (int) $scheduled['row']->id,
-                        'legal_entity_id' => (int) $scheduled['row']->legal_entity_id,
                         'employment_id' => (int) $scheduled['row']->employment_id,
                         'business_date' => $scheduled['row']->business_date->format('Y-m-d'),
                         'shift_template_id' => (int) $scheduled['row']->shift_template_id,
@@ -241,32 +220,28 @@ final class AttendanceOpsController
 
     public function closings(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
+        $this->principals->resolve();
         $actor = $this->scope->actor($request);
-        $asOf = $this->businessDates->resolve(
+
+        if (! $this->scope->canReadCompanyScope($actor)) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $principal->tenantId(),
-        )->value();
+        );
 
         $data = $request->validate([
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
+            'month' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
-
-        $legalEntityId = isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null;
-
-        if ($legalEntityId !== null) {
-            $this->scope->assertLegalEntity($actor, $legalEntityId, $asOf);
-        }
 
         $page = isset($data['page']) ? (int) $data['page'] : 1;
         $pageSize = isset($data['page_size']) ? (int) $data['page_size'] : 20;
 
         $result = $this->operations->closures(
-            tenantId: $principal->tenantId(),
-            legalEntityIds: $this->scope->legalEntityIds($actor, $asOf),
-            legalEntityId: $legalEntityId,
+            month: isset($data['month']) ? (string) $data['month'] : '',
             page: $page,
             pageSize: $pageSize,
         );
@@ -287,33 +262,27 @@ final class AttendanceOpsController
 
     public function devices(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
+        $this->principals->resolve();
         $actor = $this->scope->actor($request);
-        $asOf = $this->businessDates->resolve(
+
+        if (! $this->scope->canReadCompanyScope($actor)) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $principal->tenantId(),
-        )->value();
+        );
 
         $data = $request->validate([
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
             'active' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $legalEntityId = isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null;
-
-        if ($legalEntityId !== null) {
-            $this->scope->assertLegalEntity($actor, $legalEntityId, $asOf);
-        }
-
         $page = isset($data['page']) ? (int) $data['page'] : 1;
         $pageSize = isset($data['page_size']) ? (int) $data['page_size'] : 20;
 
         $result = $this->operations->devices(
-            tenantId: $principal->tenantId(),
-            legalEntityIds: $this->scope->legalEntityIds($actor, $asOf),
-            legalEntityId: $legalEntityId,
             active: array_key_exists('active', $data) ? (bool) $data['active'] : null,
             page: $page,
             pageSize: $pageSize,
@@ -331,27 +300,6 @@ final class AttendanceOpsController
             partialReason: null,
             drilldown: ['resource' => 'attendance_devices'],
         ));
-    }
-
-    /**
-     * Rules are tenant-wide rows, so the caller must still prove they can read
-     * the legal entity they are asking about. Without an explicit
-     * legal_entity_id the actor's own scope is used.
-     */
-    private function assertRequestedLegalEntity(Request $request, Principal $principal, string $businessDate): void
-    {
-        $requested = $request->query('legal_entity_id');
-
-        if ($requested === null || $requested === '') {
-            return;
-        }
-
-        if (! is_numeric($requested) || (int) $requested < 1) {
-            throw new ValidationException(['legal_entity_id' => ['The legal_entity_id must be a positive integer.']]);
-        }
-
-        $actor = $this->scope->actor($request);
-        $this->scope->assertLegalEntity($actor, (int) $requested, $businessDate);
     }
 
     /**

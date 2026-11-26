@@ -13,7 +13,6 @@ use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\TenantBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +21,6 @@ final class OvertimeRequestController
 {
     public function __construct(
         private readonly TimeRequestScope $scope,
-        private readonly TenantBusinessDate $businessDates,
         private readonly OvertimeRequestService $requests,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -31,10 +29,9 @@ final class OvertimeRequestController
     public function index(Request $request): JsonResponse
     {
         $actor = $this->scope->actor($request);
-        $asOf = $this->businessDates->resolve(
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $actor->tenantId,
-        )->value();
+        );
 
         $data = $request->validate([
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
@@ -48,7 +45,6 @@ final class OvertimeRequestController
             : $this->scope->selfEmployment($actor, $asOf)->employmentId;
 
         $result = $this->requests->project(
-            tenantId: $actor->tenantId,
             employmentId: $employmentId,
             asOf: $asOf,
             status: isset($data['status']) ? (string) $data['status'] : null,
@@ -93,7 +89,6 @@ final class OvertimeRequestController
             payload: $payload,
             operation: function () use ($actor, $payload): array {
                 $created = $this->requests->apply(
-                    tenantId: $actor->tenantId,
                     employmentId: (int) $payload['employment_id'],
                     businessDate: (string) $payload['business_date'],
                     declaredMinutes: (int) $payload['declared_minutes'],
@@ -121,7 +116,7 @@ final class OvertimeRequestController
             'confirmed_minutes' => ['required', 'integer', 'min:1', 'max:10080'],
         ]);
 
-        $existing = $this->requests->find($actor->tenantId, $id);
+        $existing = $this->requests->find($id);
 
         if ($existing === null) {
             throw new NotFoundOrForbiddenException;
@@ -153,7 +148,6 @@ final class OvertimeRequestController
             payload: $payload,
             operation: function () use ($actor, $payload): array {
                 $confirmed = $this->requests->confirm(
-                    tenantId: $actor->tenantId,
                     overtimeRequestId: (int) $payload['overtime_request_id'],
                     confirmedMinutes: (int) $payload['confirmed_minutes'],
                     actorUserId: $actor->userId,
@@ -175,10 +169,9 @@ final class OvertimeRequestController
     public function timeoffBalances(Request $request): JsonResponse
     {
         $actor = $this->scope->actor($request);
-        $asOf = $this->businessDates->resolve(
+        $asOf = $this->scope->resolveDate(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $actor->tenantId,
-        )->value();
+        );
 
         $data = $request->validate([
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
@@ -188,7 +181,7 @@ final class OvertimeRequestController
             ? $this->scope->employment($actor, (int) $data['employment_id'], $asOf)->employmentId
             : $this->scope->selfEmployment($actor, $asOf)->employmentId;
 
-        $result = $this->requests->timeoffBalances($actor->tenantId, $employmentId, $asOf);
+        $result = $this->requests->timeoffBalances($employmentId, $asOf);
         $available = array_reduce(
             $result->items,
             static fn (int $total, array $item): int => $total + (int) $item['minutes'],

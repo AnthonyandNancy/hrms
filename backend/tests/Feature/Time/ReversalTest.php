@@ -15,13 +15,12 @@ class ReversalTest extends TimeTestCase
         $type = $this->leaveType();
         $this->leaveAccount($type);
         $ledger = app(LeaveLedgerService::class);
-        $ledger->grant(1, 1, $type->id, 480, '2026-01-01', 'ACCRUAL', '2026', 'One day');
-        $reserve = $ledger->reserve(1, 1, $type->id, 480, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Leave');
-        $consume = $ledger->consume(1, 1, $type->id, 480, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Approved');
-        $this->assertSame(0, app(LeaveBalanceService::class)->available(1, 1, $type->id, '2026-11-23'));
+        $ledger->grant(1, $type->id, 480, '2026-01-01', 'ACCRUAL', '2026', 'One day');
+        $reserve = $ledger->reserve(1, $type->id, 480, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Leave');
+        $consume = $ledger->consume(1, $type->id, 480, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Approved');
+        $this->assertSame(0, app(LeaveBalanceService::class)->available(1, $type->id, '2026-11-23'));
 
         $first = $ledger->reverse(
-            tenantId: 1,
             employmentId: 1,
             leaveTypeId: $type->id,
             minutes: 480,
@@ -33,7 +32,6 @@ class ReversalTest extends TimeTestCase
             targetAccount: 'CONSUME',
         );
         $replay = $ledger->reverse(
-            tenantId: 1,
             employmentId: 1,
             leaveTypeId: $type->id,
             minutes: 480,
@@ -46,7 +44,7 @@ class ReversalTest extends TimeTestCase
         );
 
         $this->assertSame($first->id, $replay->id);
-        $this->assertSame(480, app(LeaveBalanceService::class)->available(1, 1, $type->id, '2026-11-23'));
+        $this->assertSame(480, app(LeaveBalanceService::class)->available(1, $type->id, '2026-11-23'));
         $this->assertSame(1, \App\Modules\Time\Models\LeaveLedgerEntry::query()->where('account', 'REVERSE')->count());
     }
 
@@ -55,11 +53,11 @@ class ReversalTest extends TimeTestCase
         $type = $this->leaveType();
         $this->leaveAccount($type);
         $ledger = app(LeaveLedgerService::class);
-        $ledger->grant(1, 1, $type->id, 480, '2026-01-01', 'ACCRUAL', '2026', 'One day');
+        $ledger->grant(1, $type->id, 480, '2026-01-01', 'ACCRUAL', '2026', 'One day');
         $grant = \App\Modules\Time\Models\LeaveLedgerEntry::query()->where('account', 'GRANT')->firstOrFail();
 
-        $ledger->reverse(1, 1, $type->id, -480, '2026-11-23', 'LEAVE_REVERSAL', 'grant-reversal', 'Wrong grant', $grant->id, 'GRANT');
+        $ledger->reverse(1, $type->id, -480, '2026-11-23', 'LEAVE_REVERSAL', 'grant-reversal', 'Wrong grant', $grant->id, 'GRANT');
 
-        $this->assertSame(0, app(LeaveBalanceService::class)->available(1, 1, $type->id, '2026-11-23'));
+        $this->assertSame(0, app(LeaveBalanceService::class)->available(1, $type->id, '2026-11-23'));
     }
 }

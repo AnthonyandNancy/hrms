@@ -28,7 +28,6 @@ final class LeaveLedgerService
     ) {}
 
     public function grant(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -40,7 +39,6 @@ final class LeaveLedgerService
         ?string $effectiveOn = null,
     ): LeaveLedgerEntry {
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'GRANT',
@@ -56,7 +54,6 @@ final class LeaveLedgerService
     }
 
     public function reserve(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -68,7 +65,6 @@ final class LeaveLedgerService
         ?string $effectiveOn = null,
     ): LeaveLedgerEntry {
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'RESERVE',
@@ -83,7 +79,6 @@ final class LeaveLedgerService
     }
 
     public function consume(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -94,10 +89,9 @@ final class LeaveLedgerService
         ?int $caseId = null,
         ?string $effectiveOn = null,
     ): LeaveLedgerEntry {
-        return DB::transaction(function () use ($tenantId, $employmentId, $leaveTypeId, $minutes, $businessDate, $sourceType, $sourceId, $reason, $caseId, $effectiveOn): LeaveLedgerEntry {
-            $this->lockAccount($tenantId, $employmentId, $leaveTypeId);
+        return DB::transaction(function () use ($employmentId, $leaveTypeId, $minutes, $businessDate, $sourceType, $sourceId, $reason, $caseId, $effectiveOn): LeaveLedgerEntry {
+            $this->lockAccount($employmentId, $leaveTypeId);
             $this->releaseReservationIfOutstanding(
-                $tenantId,
                 $employmentId,
                 $leaveTypeId,
                 $businessDate,
@@ -109,7 +103,6 @@ final class LeaveLedgerService
             );
 
             return $this->append(
-                $tenantId,
                 $employmentId,
                 $leaveTypeId,
                 'CONSUME',
@@ -125,7 +118,6 @@ final class LeaveLedgerService
     }
 
     public function release(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -137,7 +129,6 @@ final class LeaveLedgerService
         ?string $effectiveOn = null,
     ): LeaveLedgerEntry {
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'RELEASE',
@@ -153,7 +144,6 @@ final class LeaveLedgerService
     }
 
     public function expire(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -165,7 +155,6 @@ final class LeaveLedgerService
         ?string $effectiveOn = null,
     ): LeaveLedgerEntry {
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'EXPIRE',
@@ -180,7 +169,6 @@ final class LeaveLedgerService
     }
 
     public function adjust(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -196,7 +184,6 @@ final class LeaveLedgerService
         }
 
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'ADJUST',
@@ -211,7 +198,6 @@ final class LeaveLedgerService
     }
 
     public function reverse(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         int $minutes,
@@ -226,7 +212,6 @@ final class LeaveLedgerService
     ): LeaveLedgerEntry {
         if ($reversedEntryId !== null) {
             $target = LeaveLedgerEntry::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($reversedEntryId)
                 ->firstOrFail();
 
@@ -246,7 +231,6 @@ final class LeaveLedgerService
         }
 
         return $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'REVERSE',
@@ -261,7 +245,6 @@ final class LeaveLedgerService
     }
 
     private function append(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         string $account,
@@ -282,9 +265,8 @@ final class LeaveLedgerService
             throw LeaveBalanceException::invalidQuantity($account, $minutes);
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
+        return DB::transaction(function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
             $existing = LeaveLedgerEntry::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('leave_type_id', $leaveTypeId)
                 ->where('source_type', $sourceType)
@@ -296,10 +278,9 @@ final class LeaveLedgerService
                 return $existing;
             }
 
-            $this->lockAccount($tenantId, $employmentId, $leaveTypeId);
-            $type = $this->type($tenantId, $leaveTypeId);
+            $this->lockAccount($employmentId, $leaveTypeId);
+            $type = $this->type($leaveTypeId);
             $entry = new LeaveLedgerEntry([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'leave_type_id' => $leaveTypeId,
                 'account' => $account,
@@ -311,7 +292,6 @@ final class LeaveLedgerService
                 'case_id' => $caseId,
                 'reason' => $reason,
                 'entry_hash' => hash('sha256', implode('|', [
-                    $tenantId,
                     $employmentId,
                     $leaveTypeId,
                     $account,
@@ -329,7 +309,6 @@ final class LeaveLedgerService
                 $entry->save();
             } catch (UniqueConstraintViolationException) {
                 return LeaveLedgerEntry::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('employment_id', $employmentId)
                     ->where('leave_type_id', $leaveTypeId)
                     ->where('source_type', $sourceType)
@@ -338,8 +317,8 @@ final class LeaveLedgerService
                     ->firstOrFail();
             }
 
-            $summary = $this->balances->forType($tenantId, $employmentId, $leaveTypeId, $businessDate);
-            $this->balances->project($tenantId, $employmentId, $leaveTypeId, $summary);
+            $summary = $this->balances->forType($employmentId, $leaveTypeId, $businessDate);
+            $this->balances->project($employmentId, $leaveTypeId, $summary);
 
             if (! $allowNegative && ! $type->allow_negative && $summary['available'] < 0) {
                 throw LeaveBalanceException::negativeNotAllowed($summary['available']);
@@ -350,7 +329,6 @@ final class LeaveLedgerService
     }
 
     private function releaseReservationIfOutstanding(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         string $businessDate,
@@ -361,7 +339,6 @@ final class LeaveLedgerService
         ?string $effectiveOn,
     ): void {
         $reserve = LeaveLedgerEntry::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->where('source_type', $sourceType)
@@ -374,7 +351,6 @@ final class LeaveLedgerService
         }
 
         $alreadyReleased = LeaveLedgerEntry::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->where('source_type', $sourceType)
@@ -387,7 +363,6 @@ final class LeaveLedgerService
         }
 
         $this->append(
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'RELEASE',
@@ -402,10 +377,9 @@ final class LeaveLedgerService
         );
     }
 
-    private function lockAccount(int $tenantId, int $employmentId, int $leaveTypeId): LeaveAccount
+    private function lockAccount(int $employmentId, int $leaveTypeId): LeaveAccount
     {
         $account = LeaveAccount::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->whereNull('closed_on')
@@ -419,10 +393,9 @@ final class LeaveLedgerService
         return $account;
     }
 
-    private function type(int $tenantId, int $leaveTypeId): LeaveType
+    private function type(int $leaveTypeId): LeaveType
     {
         return LeaveType::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($leaveTypeId)
             ->firstOrFail();
     }

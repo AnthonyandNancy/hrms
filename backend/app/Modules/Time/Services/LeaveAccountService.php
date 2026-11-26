@@ -22,7 +22,7 @@ final class LeaveAccountService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createType(int $tenantId, array $data): LeaveType
+    public function createType(array $data): LeaveType
     {
         $code = strtoupper(trim((string) ($data['code'] ?? '')));
 
@@ -47,7 +47,6 @@ final class LeaveAccountService
         }
 
         return LeaveType::query()->create([
-            'tenant_id' => $tenantId,
             'code' => $code,
             'name' => (string) ($data['name'] ?? $code),
             'is_statutory' => $isStatutory,
@@ -65,7 +64,6 @@ final class LeaveAccountService
     }
 
     public function ensureAccount(
-        int $tenantId,
         int $employmentId,
         int $leaveTypeId,
         ?string $openedOn = null,
@@ -73,14 +71,13 @@ final class LeaveAccountService
         $openedOn ??= $this->clock->now()->format('Y-m-d');
         BusinessDate::parse($openedOn);
 
-        $type = LeaveType::query()->where('tenant_id', $tenantId)->whereKey($leaveTypeId)->first();
+        $type = LeaveType::query()->whereKey($leaveTypeId)->first();
 
         if ($type === null) {
             throw new ConflictException('The leave type does not exist in this tenant.');
         }
 
         $existing = LeaveAccount::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->whereNull('closed_on')
@@ -91,7 +88,6 @@ final class LeaveAccountService
         }
 
         return LeaveAccount::query()->create([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'opened_on' => $openedOn,
@@ -100,16 +96,16 @@ final class LeaveAccountService
         ]);
     }
 
-    public function standardDayMinutes(int $tenantId, int $employmentId, ?string $businessDate = null): int
+    public function standardDayMinutes(int $employmentId, ?string $businessDate = null): int
     {
         $businessDate ??= $this->clock->now()->format('Y-m-d');
         $snapshot = app(\App\Modules\Time\Contracts\EmploymentDirectory::class)
-            ->snapshot($tenantId, $employmentId, $businessDate);
+            ->snapshot($employmentId, $businessDate);
 
         if ($snapshot === null) {
             return 480;
         }
 
-        return $this->calendar->standardDayMinutes($tenantId, $snapshot->legalEntityId);
+        return $this->calendar->standardDayMinutes();
     }
 }

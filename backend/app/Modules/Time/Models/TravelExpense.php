@@ -12,8 +12,6 @@ use Illuminate\Database\Eloquent\Model;
  * CLAIM_ONLY.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $employment_id
  * @property int $travel_id
  * @property string $category
@@ -36,8 +34,6 @@ final class TravelExpense extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'employment_id',
         'travel_id',
         'category',
@@ -55,8 +51,6 @@ final class TravelExpense extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'employment_id' => 'integer',
             'travel_id' => 'integer',
             'amount_cents' => 'integer',

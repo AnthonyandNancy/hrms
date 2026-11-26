@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
-use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Time\Models\Holiday;
 use App\Modules\Time\Models\LegalEntityCalendar;
 use App\Modules\Time\Services\BusinessCalendar;
@@ -13,7 +12,6 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
-use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
@@ -22,28 +20,24 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Publishes one full legal-entity calendar version. The version is the
- * optimistic concurrency token; holidays are replaced by the published
- * snapshot in the same transaction and the change is audited.
+ * Publishes the single company calendar version. The version is the optimistic
+ * concurrency token; holidays are replaced by the published snapshot in the
+ * same transaction and the change is audited.
  */
 final class CalendarAdminController
 {
+    /** Platform audit evidence keeps its compatibility scope column. */
     public function __construct(
         private readonly PrincipalResolver $principals,
-        private readonly OrganizationFacts $organization,
         private readonly BusinessCalendar $calendar,
         private readonly CommandRunner $commands,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
     ) {}
 
-    public function publish(Request $request, int $legalEntityId): JsonResponse
+    public function publish(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
-
-        if ($this->organization->legalEntity($principal->tenantId(), $legalEntityId) === null) {
-            throw new NotFoundOrForbiddenException;
-        }
+        $this->principals->resolve();
 
         $data = $request->validate([
             'timezone' => ['required', 'string', 'max:64'],
@@ -57,7 +51,6 @@ final class CalendarAdminController
         ]);
 
         $payload = [
-            'legal_entity_id' => $legalEntityId,
             'timezone' => (string) $data['timezone'],
             'workweek' => array_values(array_map('intval', (array) $data['workweek'])),
             'standard_day_minutes' => (int) ($data['standard_day_minutes'] ?? 480),
@@ -75,7 +68,7 @@ final class CalendarAdminController
                 auditAction: 'time.calendar.published',
             ),
             payload: $payload,
-            operation: fn (): array => $this->publishSnapshot($principal->tenantId(), $payload),
+            operation: fn (): array => $this->publishSnapshot($payload),
             idempotencyKey: (string) $request->header('Idempotency-Key', ''),
         );
 
@@ -89,7 +82,7 @@ final class CalendarAdminController
     }
 
     /**
-     * @param  array{legal_entity_id: int, timezone: string, workweek: list<int>, standard_day_minutes: int, holidays: list<array{date: string, name: string, type: string}>}  $payload
+     * @param  array{timezone: string, workweek: list<int>, standard_day_minutes: int, holidays: list<array{date: string, name: string, type: string}>}  $payload
      */
     private function assertCalendarConfiguration(array $payload): void
     {
@@ -103,22 +96,18 @@ final class CalendarAdminController
     }
 
     /**
-     * @param  array{legal_entity_id: int, timezone: string, workweek: list<int>, standard_day_minutes: int, holidays: list<array{date: string, name: string, type: string}>}  $payload
+     * @param  array{timezone: string, workweek: list<int>, standard_day_minutes: int, holidays: list<array{date: string, name: string, type: string}>}  $payload
      * @return array{http_status: int, body: array<string, mixed>, resource_type: string, resource_id: string}
      */
-    private function publishSnapshot(int $tenantId, array $payload): array
+    private function publishSnapshot(array $payload): array
     {
-        $legalEntityId = $payload['legal_entity_id'];
-
-        return DB::transaction(function () use ($tenantId, $legalEntityId, $payload): array {
+        return DB::transaction(function () use ($payload): array {
             // Validate the configuration before the first row exists so an
             // invalid publish does not leave a half-created calendar.
             $this->assertCalendarConfiguration($payload);
 
             /** @var LegalEntityCalendar|null $existing */
             $existing = LegalEntityCalendar::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
                 ->lockForUpdate()
                 ->first();
 
@@ -129,8 +118,6 @@ final class CalendarAdminController
             ];
 
             $this->calendar->configure(
-                $tenantId,
-                $legalEntityId,
                 $payload['timezone'],
                 $payload['workweek'],
                 $payload['standard_day_minutes'],
@@ -138,8 +125,6 @@ final class CalendarAdminController
 
             /** @var LegalEntityCalendar $calendar */
             $calendar = LegalEntityCalendar::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -151,15 +136,10 @@ final class CalendarAdminController
                 'updated_at' => $this->clock->now(),
             ])->save();
 
-            Holiday::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
-                ->delete();
+            Holiday::query()->delete();
 
             foreach ($payload['holidays'] as $holiday) {
                 $this->calendar->addHoliday(
-                    $tenantId,
-                    $legalEntityId,
                     (string) $holiday['date'],
                     (string) $holiday['name'],
                     (string) $holiday['type'],
@@ -168,11 +148,10 @@ final class CalendarAdminController
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
-                actorUserId: \App\Shared\RequestContext::userId(),
-                action: 'time.calendar.published',
-                aggregateType: 'legal_entity_calendar',
-                aggregateId: (string) $legalEntityId,
+                \App\Shared\RequestContext::userId(),
+                'time.calendar.published',
+                'company_calendar',
+                (string) $calendar->id,
                 before: $before,
                 after: [
                     'version' => (int) $calendar->version,
@@ -183,8 +162,6 @@ final class CalendarAdminController
             );
 
             $holidays = Holiday::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
                 ->orderBy('date')
                 ->get()
                 ->map(static fn (Holiday $row): array => [
@@ -196,15 +173,14 @@ final class CalendarAdminController
             return [
                 'http_status' => 200,
                 'body' => [
-                    'legal_entity_id' => $legalEntityId,
                     'version' => (int) $calendar->version,
                     'timezone' => (string) $calendar->timezone,
                     'workweek' => array_values((array) $calendar->workweek_json),
                     'standard_day_minutes' => (int) $calendar->standard_day_minutes,
                     'holidays' => $holidays,
                 ],
-                'resource_type' => 'legal_entity_calendar',
-                'resource_id' => (string) $legalEntityId,
+                'resource_type' => 'company_calendar',
+                'resource_id' => (string) $calendar->id,
             ];
         });
     }

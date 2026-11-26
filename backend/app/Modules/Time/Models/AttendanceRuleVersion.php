@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $version
  * @property array<string, mixed> $config_json
  * @property \Carbon\CarbonImmutable $effective_from
@@ -20,7 +19,6 @@ final class AttendanceRuleVersion extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'version',
         'config_json',
         'effective_from',

@@ -11,9 +11,8 @@ use App\Modules\Time\Services\ShiftService;
 use Illuminate\Console\Command;
 
 /**
- * A tenant with no calendar cannot add holidays, create shifts or compute a
- * business date, and there was previously no supported way to create one
- * outside tests. This is the reference-data command the installer calls.
+ * A company with no calendar cannot add holidays, create shifts or compute a
+ * business date. This is the reference-data command the installer calls.
  */
 final class SeedCalendarCommand extends Command
 {
@@ -27,24 +26,20 @@ final class SeedCalendarCommand extends Command
 
     public function handle(BusinessCalendar $calendar, ShiftService $shifts): int
     {
-        $tenantId = 1;
         $profile = app(CompanyProfileReader::class)->current();
-        $calendarId = 1;
         $timezone = (string) ($this->option('timezone') ?: $profile->timezone);
         $workweek = array_map('intval', explode(',', (string) $this->option('workweek')));
         $minutes = (int) $this->option('standard-day-minutes');
 
-        $calendar->configure($tenantId, $calendarId, $timezone, $workweek, $minutes);
-        $this->info("Calendar configured for the single company ({$timezone}).");
+        $calendar->configure($timezone, $workweek, $minutes);
+        $this->info("Company calendar configured ({$timezone}).");
 
         $existing = ShiftTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', 'STANDARD')
             ->exists();
 
         if (! $existing) {
-            $shifts->createTemplate($tenantId, [
-                'legal_entity_id' => $calendarId,
+            $shifts->createTemplate([
                 'code' => 'STANDARD',
                 'name' => 'Standard day',
                 'start_local_time' => '09:00',
@@ -78,8 +73,6 @@ final class SeedCalendarCommand extends Command
                 }
 
                 $calendar->addHoliday(
-                    $tenantId,
-                    $calendarId,
                     $date,
                     $name,
                     $type,

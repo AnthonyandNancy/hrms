@@ -18,7 +18,7 @@ final class AttendanceWorkspaceReaderService implements AttendanceWorkspaceReade
     /**
      * @return array{month: string, summary: array{expectedDays: int, presentDays: int, lateCount: int, absentCount: int, leaveDays: int, remoteDays: int}, latestException: array{date: string, label: string}|null}
      */
-    public function currentMonth(int $tenantId, int $employmentId, string $month): array
+    public function currentMonth(int $employmentId, string $month): array
     {
         if (preg_match('/^\d{4}-\d{2}$/', $month) !== 1) {
             return [
@@ -32,7 +32,6 @@ final class AttendanceWorkspaceReaderService implements AttendanceWorkspaceReade
         $end = $start->endOfMonth();
 
         $rows = AttendanceDay::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '>=', $start->format('Y-m-d'))
             ->where('business_date', '<=', $end->format('Y-m-d'))

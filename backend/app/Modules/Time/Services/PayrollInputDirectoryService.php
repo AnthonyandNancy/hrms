@@ -14,7 +14,7 @@ use Carbon\CarbonImmutable;
 
 final class PayrollInputDirectoryService implements PayrollInputDirectory
 {
-    public function attendanceForPeriod(int $tenantId, int $employmentId, string $period): ?PayrollAttendanceExport
+    public function attendanceForPeriod(int $employmentId, string $period): ?PayrollAttendanceExport
     {
         if (preg_match('/^\d{4}-\d{2}$/', $period) !== 1) {
             return null;
@@ -24,7 +24,6 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         $end = BusinessDate::from(CarbonImmutable::parse($start->value(), 'UTC')->endOfMonth()->format('Y-m-d'));
 
         $days = AttendanceDay::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '>=', $start->value())
             ->where('business_date', '<=', $end->value())
@@ -44,7 +43,6 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         // Leave consumption is read from the append-only ledger for the period.
         // Paid vs unpaid is a property of the leave type, not the account.
         $leaveRows = LeaveLedgerEntry::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('account', 'CONSUME')
             ->where('effective_on', '>=', $start->value())
@@ -57,7 +55,6 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         $consumption = [];
 
         $types = LeaveType::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $leaveRows->pluck('leave_type_id')->unique()->all())
             ->get()
             ->keyBy('id');
@@ -110,7 +107,7 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         );
     }
 
-    public function hasRecordedAttendance(int $tenantId, int $employmentId, string $period): bool
+    public function hasRecordedAttendance(int $employmentId, string $period): bool
     {
         if (preg_match('/^\d{4}-\d{2}$/', $period) !== 1) {
             return false;
@@ -120,13 +117,11 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
         $end = BusinessDate::from(CarbonImmutable::parse($start->value(), 'UTC')->endOfMonth()->format('Y-m-d'));
 
         return AttendanceDay::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '>=', $start->value())
             ->where('business_date', '<=', $end->value())
             ->exists()
             || LeaveLedgerEntry::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('account', 'CONSUME')
                 ->where('effective_on', '>=', $start->value())

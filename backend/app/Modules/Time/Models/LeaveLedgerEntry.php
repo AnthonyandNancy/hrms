@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Model;
  * ADJUST may be either sign. See docs/07-business-rules-time.md.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property int $leave_type_id
  * @property string $account
@@ -34,7 +33,6 @@ final class LeaveLedgerEntry extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'leave_type_id',
         'account',

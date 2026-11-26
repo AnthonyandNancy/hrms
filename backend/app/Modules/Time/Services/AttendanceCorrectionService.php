@@ -6,11 +6,14 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Models\AttendanceCorrection;
+use App\Modules\Time\Models\AttendanceDay;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class AttendanceCorrectionService
 {
@@ -27,7 +30,6 @@ final class AttendanceCorrectionService
      * @param  list<string>  $correctedPunches
      */
     public function request(
-        int $tenantId,
         int $employmentId,
         string $businessDate,
         int $requestedBy,
@@ -42,14 +44,13 @@ final class AttendanceCorrectionService
 
         foreach ($correctedPunches as $punch) {
             try {
-                \Carbon\CarbonImmutable::parse($punch, 'UTC');
-            } catch (\Throwable) {
+                CarbonImmutable::parse($punch, 'UTC');
+            } catch (Throwable) {
                 throw new ValidationException(['corrected_punches' => ['Each punch must be an ISO-8601 UTC timestamp.']]);
             }
         }
 
         $existing = AttendanceCorrection::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', $businessDate)
             ->whereNull('applied_at')
@@ -62,9 +63,8 @@ final class AttendanceCorrectionService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $businessDate, $requestedBy, $reason, $correctedPunches): AttendanceCorrection {
+        return DB::transaction(function () use ($employmentId, $businessDate, $requestedBy, $reason, $correctedPunches): AttendanceCorrection {
             $caseId = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $requestedBy,
                 type: 'ATTENDANCE_CORRECTION',
                 subjectType: 'employment',
@@ -79,7 +79,6 @@ final class AttendanceCorrectionService
             );
 
             return AttendanceCorrection::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'requested_by' => $requestedBy,
@@ -94,17 +93,16 @@ final class AttendanceCorrectionService
     /**
      * @return array{applied: bool, business_date: string, attendance_status: string, replayed: bool}
      */
-    public function applyEffect(int $tenantId, int $caseId): array
+    public function applyEffect(int $caseId): array
     {
-        return DB::transaction(function () use ($tenantId, $caseId): array {
-            $case = $this->workflow->case($tenantId, $caseId);
+        return DB::transaction(function () use ($caseId): array {
+            $case = $this->workflow->case($caseId);
 
             if ($case === null) {
                 throw new ConflictException('The correction case was not found.');
             }
 
             $correction = AttendanceCorrection::query()
-                ->where('tenant_id', $tenantId)
                 ->where('case_id', $caseId)
                 ->lockForUpdate()
                 ->first();
@@ -118,8 +116,7 @@ final class AttendanceCorrectionService
             }
 
             if ($correction->applied_at !== null) {
-                $day = \App\Modules\Time\Models\AttendanceDay::query()
-                    ->where('tenant_id', $tenantId)
+                $day = AttendanceDay::query()
                     ->where('employment_id', $correction->employment_id)
                     ->where('business_date', $correction->business_date->format('Y-m-d'))
                     ->first();
@@ -134,8 +131,7 @@ final class AttendanceCorrectionService
 
             $correction->forceFill(['applied_at' => $this->clock->now()])->save();
             $day = $this->calculator->recalculate(
-                $tenantId,
-                $correction->employment_id,
+                (int) $correction->employment_id,
                 $correction->business_date->format('Y-m-d'),
             );
 

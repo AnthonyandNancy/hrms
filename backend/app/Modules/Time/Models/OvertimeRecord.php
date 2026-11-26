@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $business_date
  * @property int $minutes
@@ -21,7 +20,6 @@ final class OvertimeRecord extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'business_date',
         'minutes',

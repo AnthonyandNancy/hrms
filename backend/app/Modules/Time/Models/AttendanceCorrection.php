@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $business_date
  * @property int $case_id
@@ -19,7 +18,6 @@ final class AttendanceCorrection extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'business_date',
         'requested_by',

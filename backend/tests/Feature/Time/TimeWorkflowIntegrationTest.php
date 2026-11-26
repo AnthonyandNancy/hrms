@@ -38,7 +38,7 @@ final class TimeWorkflowIntegrationTest extends TestCase
 
     public function test_real_adapter_open_resolves_a_published_template_for_a_leave_request_case_type(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->bindWorkflowPrincipal();
         [$employmentId] = $this->seedManagerChain();
         $this->useProductionPeopleAdapters();
@@ -73,7 +73,7 @@ final class TimeWorkflowIntegrationTest extends TestCase
 
     public function test_real_adapter_open_resolves_a_published_template_for_an_attendance_correction_case_type(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->bindWorkflowPrincipal();
         [$employmentId] = $this->seedManagerChain();
         $this->useProductionPeopleAdapters();
@@ -106,7 +106,7 @@ final class TimeWorkflowIntegrationTest extends TestCase
 
     public function test_an_unmapped_case_type_still_fails_closed(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->bindWorkflowPrincipal();
 
         $this->expectException(\App\Shared\Exceptions\ValidationException::class);
@@ -124,7 +124,7 @@ final class TimeWorkflowIntegrationTest extends TestCase
 
     public function test_time_submits_a_leave_request_through_the_real_workflow_adapter(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->bindWorkflowPrincipal();
         [$employmentId] = $this->seedManagerChain();
         $this->useProductionPeopleAdapters();
@@ -133,7 +133,6 @@ final class TimeWorkflowIntegrationTest extends TestCase
         $this->app->forgetInstance(WorkflowCasePort::class);
 
         $type = \App\Modules\Time\Models\LeaveType::query()->create([
-            'tenant_id' => 1,
             'code' => 'ANNUAL',
             'name' => 'Annual leave',
             'is_statutory' => true,
@@ -147,11 +146,10 @@ final class TimeWorkflowIntegrationTest extends TestCase
             'created_at' => $this->clock->now(),
         ]);
 
-        app(LeaveAccountService::class)->ensureAccount(1, $employmentId, (int) $type->id, '2026-01-01');
-        app(LeaveLedgerService::class)->grant(1, $employmentId, (int) $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        app(LeaveAccountService::class)->ensureAccount($employmentId, (int) $type->id, '2026-01-01');
+        app(LeaveLedgerService::class)->grant($employmentId, (int) $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 
         $result = app(\App\Modules\Time\Services\LeaveRequestService::class)->request(
-            tenantId: 1,
             employmentId: $employmentId,
             userId: 10,
             leaveTypeCode: 'ANNUAL',
@@ -174,7 +172,7 @@ final class TimeWorkflowIntegrationTest extends TestCase
 
     public function test_manager_approval_resolves_the_subjects_real_manager(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->bindWorkflowPrincipal();
 
         [$employmentId] = $this->seedManagerChain();
@@ -209,19 +207,106 @@ final class TimeWorkflowIntegrationTest extends TestCase
      */
     private function seedManagerChain(): array
     {
-        $scenario = new \Tests\Support\PeopleScenario(1, $this->clock);
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'WF-UNIT');
+        // The cutover schema carries no company-entity columns, so this
+        // Time-owned integration fixture seeds the company org directly.
+        $unit = \App\Modules\Organization\Models\OrgUnit::query()->create([
+            'code' => 'WF-UNIT',
+            'name' => 'WF-UNIT',
+            'type' => 'DEPARTMENT',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
 
-        $managerPerson = $scenario->person(['legal_name' => 'Synthetic Manager']);
-        $managerEmployment = $scenario->employment($managerPerson, $entity, 'WF-0001');
-        $managerAssignment = $scenario->assignment($managerEmployment, $unit);
-        $scenario->userLink(20, $managerEmployment);
+        \Illuminate\Support\Facades\DB::table('org_unit_closure')->insert([
+            'ancestor_id' => $unit->id,
+            'descendant_id' => $unit->id,
+            'depth' => 0,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
 
-        $employeePerson = $scenario->person(['legal_name' => 'Synthetic Employee']);
-        $employeeEmployment = $scenario->employment($employeePerson, $entity, 'WF-0002');
-        $scenario->assignment($employeeEmployment, $unit, ['manager_assignment_id' => $managerAssignment->id]);
-        $scenario->userLink(10, $employeeEmployment);
+        $managerPerson = \App\Modules\People\Models\Person::query()->create([
+            'legal_name' => 'Synthetic Manager',
+            'birth_date' => '1990-01-01',
+            'gender' => 'FEMALE',
+            'nationality' => 'CN',
+            'email' => 'manager@example.test',
+        ]);
+        $managerEmployment = \App\Modules\People\Models\Employment::query()->create([
+            'person_id' => $managerPerson->id,
+            'employee_no' => 'WF-0001',
+            'employment_type' => 'FULL_TIME',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'hire_date' => '2026-01-01',
+            'seniority_start_date' => '2026-01-01',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
+        $managerAssignment = \App\Modules\People\Models\Assignment::query()->create([
+            'employment_id' => $managerEmployment->id,
+            'org_unit_id' => $unit->id,
+            'manager_assignment_id' => null,
+            'assignment_type' => 'PRIMARY',
+            'is_primary' => true,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
+        \App\Modules\People\Models\EmploymentUserLink::query()->create([
+            'user_id' => 20,
+            'employment_id' => $managerEmployment->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
+
+        $employeePerson = \App\Modules\People\Models\Person::query()->create([
+            'legal_name' => 'Synthetic Employee',
+            'birth_date' => '1990-01-01',
+            'gender' => 'FEMALE',
+            'nationality' => 'CN',
+            'email' => 'employee@example.test',
+        ]);
+        $employeeEmployment = \App\Modules\People\Models\Employment::query()->create([
+            'person_id' => $employeePerson->id,
+            'employee_no' => 'WF-0002',
+            'employment_type' => 'FULL_TIME',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'hire_date' => '2026-01-01',
+            'seniority_start_date' => '2026-01-01',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
+        \App\Modules\People\Models\Assignment::query()->create([
+            'employment_id' => $employeeEmployment->id,
+            'org_unit_id' => $unit->id,
+            'manager_assignment_id' => $managerAssignment->id,
+            'assignment_type' => 'PRIMARY',
+            'is_primary' => true,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
+        \App\Modules\People\Models\EmploymentUserLink::query()->create([
+            'user_id' => 10,
+            'employment_id' => $employeeEmployment->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => $this->clock->now(),
+            'source_type' => 'TEST',
+        ]);
 
         return [(int) $employeeEmployment->id, 20];
     }
@@ -257,7 +342,6 @@ final class TimeWorkflowIntegrationTest extends TestCase
     private function principal(): WorkflowPrincipal
     {
         return new WorkflowPrincipal(
-            tenantId: 1,
             userId: 10,
             employmentId: 1,
             authVersion: 1,

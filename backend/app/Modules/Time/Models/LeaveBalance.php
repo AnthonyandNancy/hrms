@@ -17,7 +17,6 @@ final class LeaveBalance extends Model
     public const CREATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'leave_type_id',
         'as_of',

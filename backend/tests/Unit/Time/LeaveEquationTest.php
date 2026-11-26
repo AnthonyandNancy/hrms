@@ -78,7 +78,6 @@ class LeaveEquationTest extends TestCase
         $entry = new LeaveLedgerEntry([
             'account' => $account,
             'quantity_minutes' => $quantity,
-            'tenant_id' => 1,
             'employment_id' => 1,
             'leave_type_id' => 1,
             'business_date' => '2026-11-23',

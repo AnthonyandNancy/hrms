@@ -15,7 +15,6 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
     private int $nextId = 1001;
 
     public function createCase(
-        int $tenantId,
         int $requesterUserId,
         string $type,
         string $subjectType,
@@ -26,7 +25,6 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         $id = $this->nextId++;
         $this->cases[$id] = new WorkflowCaseSnapshot(
             id: $id,
-            tenantId: $tenantId,
             requesterUserId: $requesterUserId,
             type: $type,
             subjectType: $subjectType,
@@ -44,24 +42,21 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         return $id;
     }
 
-    public function case(int $tenantId, int $caseId): ?WorkflowCaseSnapshot
+    public function case(int $caseId): ?WorkflowCaseSnapshot
     {
-        $case = $this->cases[$caseId] ?? null;
-
-        return $case !== null && $case->tenantId === $tenantId ? $case : null;
+        return $this->cases[$caseId] ?? null;
     }
 
-    private function decideCase(int $tenantId, int $caseId, string $decision, string $comment = ''): void
+    private function decideCase(int $caseId, string $decision, string $comment = ''): void
     {
         $case = $this->cases[$caseId] ?? null;
 
-        if ($case === null || $case->tenantId !== $tenantId) {
+        if ($case === null) {
             return;
         }
 
         $this->cases[$caseId] = new WorkflowCaseSnapshot(
             id: $case->id,
-            tenantId: $case->tenantId,
             requesterUserId: $case->requesterUserId,
             type: $case->type,
             subjectType: $case->subjectType,
@@ -77,19 +72,19 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         );
     }
 
-    public function decide(int $tenantId, int $caseId, string $action, string $comment): void
+    public function decide(int $caseId, string $action, string $comment): void
     {
-        $this->decideCase($tenantId, $caseId, strtoupper($action), $comment);
+        $this->decideCase($caseId, strtoupper($action), $comment);
     }
 
-    public function requestCancel(int $tenantId, int $caseId, int $actorUserId, string $reason): void
+    public function requestCancel(int $caseId, int $actorUserId, string $reason): void
     {
-        $this->decideCase($tenantId, $caseId, 'CANCELLED');
+        $this->decideCase($caseId, 'CANCELLED');
     }
 
     /** Test helper: approve the case so an effect may apply. */
-    public function approve(int $tenantId, int $caseId): void
+    public function approve(int $caseId): void
     {
-        $this->decideCase($tenantId, $caseId, 'APPROVED');
+        $this->decideCase($caseId, 'APPROVED');
     }
 }

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Contracts\EmploymentDirectory;
+use App\Modules\Time\Models\AttendanceCorrection;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\AttendanceRuleVersion;
 use App\Modules\Time\Models\LegalEntityCalendar;
+use App\Modules\Time\Models\PunchRecord;
 use App\Modules\Time\Models\ShiftAssignment;
 use App\Modules\Time\Models\ShiftTemplate;
 use App\Shared\Exceptions\ConflictException;
@@ -31,34 +34,33 @@ final class AttendanceCalculator
         private readonly Clock $clock,
         private readonly BusinessCalendar $calendar,
         private readonly ShiftWindow $windows,
+        private readonly EmploymentDirectory $employments,
     ) {}
 
-    public function recalculate(int $tenantId, int $employmentId, string $businessDate): AttendanceDay
+    public function recalculate(int $employmentId, string $businessDate): AttendanceDay
     {
         BusinessDate::parse($businessDate);
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $businessDate): AttendanceDay {
-            $snapshot = app(\App\Modules\Time\Contracts\EmploymentDirectory::class)
-                ->snapshot($tenantId, $employmentId, $businessDate);
+        return DB::transaction(function () use ($employmentId, $businessDate): AttendanceDay {
+            $snapshot = $this->employments->snapshot($employmentId, $businessDate);
 
             if ($snapshot === null) {
                 throw new ConflictException('The employment is not active on the requested business date.');
             }
 
-            $calendar = $this->calendar->calendar($tenantId, $snapshot->legalEntityId);
-            $shift = $this->shiftAssignment($tenantId, $employmentId, $businessDate);
+            $calendar = $this->calendar->calendar();
+            $shift = $this->shiftAssignment($employmentId, $businessDate);
             $existing = AttendanceDay::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('business_date', $businessDate)
                 ->first();
 
-            $ruleVersion = $existing->rule_version ?? $this->ruleVersionFor($tenantId, $businessDate);
-            $config = $this->ruleConfig($tenantId, $ruleVersion);
+            $ruleVersion = $existing->rule_version ?? $this->ruleVersionFor($businessDate);
+            $config = $this->ruleConfig($ruleVersion);
 
-            $isRest = ! $this->calendar->isWorkingDay($tenantId, $snapshot->legalEntityId, $businessDate);
-            $holiday = $this->calendar->holiday($tenantId, $snapshot->legalEntityId, $businessDate);
-            $punches = $this->effectivePunches($tenantId, $employmentId, $businessDate, $calendar, $shift);
+            $isRest = ! $this->calendar->isWorkingDay($businessDate);
+            $holiday = $this->calendar->holiday($businessDate);
+            $punches = $this->effectivePunches($employmentId, $businessDate, $calendar, $shift);
             $scheduled = $this->scheduledMinutes($calendar, $shift, $businessDate);
             $break = $shift->break_minutes ?? 0;
 
@@ -129,13 +131,11 @@ final class AttendanceCalculator
             }
 
             $day = $existing ?? new AttendanceDay([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
             ]);
 
             $day->forceFill([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'shift_template_id' => $shift?->id,
@@ -159,7 +159,6 @@ final class AttendanceCalculator
      * @return list<CarbonImmutable>
      */
     private function effectivePunches(
-        int $tenantId,
         int $employmentId,
         string $businessDate,
         ?LegalEntityCalendar $calendar,
@@ -170,16 +169,14 @@ final class AttendanceCalculator
         $from = $center->subDays(2)->utc();
         $to = $center->addDays(2)->utc();
 
-        $raw = \App\Modules\Time\Models\PunchRecord::query()
-            ->where('tenant_id', $tenantId)
+        $raw = PunchRecord::query()
             ->where('employment_id', $employmentId)
             ->where('punched_at_utc', '>=', $from)
             ->where('punched_at_utc', '<', $to)
             ->orderBy('punched_at_utc')
             ->get();
 
-        $correction = \App\Modules\Time\Models\AttendanceCorrection::query()
-            ->where('tenant_id', $tenantId)
+        $correction = AttendanceCorrection::query()
             ->where('employment_id', $employmentId)
             ->where('business_date', $businessDate)
             ->whereNotNull('applied_at')
@@ -249,10 +246,9 @@ final class AttendanceCalculator
         return max(0, $this->windows->elapsedMinutes($start, $end) - $shift->break_minutes);
     }
 
-    public function shiftAssignment(int $tenantId, int $employmentId, string $businessDate): ?ShiftTemplate
+    public function shiftAssignment(int $employmentId, string $businessDate): ?ShiftTemplate
     {
         $assignment = ShiftAssignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('valid_from', '<=', $businessDate)
             ->where('valid_to', '>', $businessDate)
@@ -264,17 +260,15 @@ final class AttendanceCalculator
         }
 
         return ShiftTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($assignment->shift_template_id)
             ->where('valid_from', '<=', $businessDate)
             ->where('valid_to', '>', $businessDate)
             ->first();
     }
 
-    public function ruleVersionFor(int $tenantId, string $businessDate): string
+    public function ruleVersionFor(string $businessDate): string
     {
         $version = AttendanceRuleVersion::query()
-            ->where('tenant_id', $tenantId)
             ->where('effective_from', '<=', $businessDate)
             ->orderByDesc('effective_from')
             ->orderByDesc('id')
@@ -286,10 +280,9 @@ final class AttendanceCalculator
     /**
      * @return array<string, mixed>
      */
-    public function ruleConfig(int $tenantId, string $version): array
+    public function ruleConfig(string $version): array
     {
         $row = AttendanceRuleVersion::query()
-            ->where('tenant_id', $tenantId)
             ->where('version', $version)
             ->first();
 
@@ -299,12 +292,12 @@ final class AttendanceCalculator
     /**
      * @param  array<string, mixed>  $config
      */
-    public function registerRuleVersion(int $tenantId, string $version, string $effectiveFrom, array $config): AttendanceRuleVersion
+    public function registerRuleVersion(string $version, string $effectiveFrom, array $config): AttendanceRuleVersion
     {
         BusinessDate::parse($effectiveFrom);
 
         return AttendanceRuleVersion::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'version' => $version],
+            ['version' => $version],
             [
                 'config_json' => $config,
                 'effective_from' => $effectiveFrom,

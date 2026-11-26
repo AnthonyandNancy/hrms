@@ -40,15 +40,13 @@ final class LeaveBalanceService
      *   unexplained_difference: int
      * }
      */
-    public function forType(int $tenantId, int $employmentId, int $leaveTypeId, string $asOf): array
+    public function forType(int $employmentId, int $leaveTypeId, string $asOf): array
     {
         $type = LeaveType::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($leaveTypeId)
             ->firstOrFail();
 
         $entries = LeaveLedgerEntry::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->where('effective_on', '<=', $asOf)
@@ -56,7 +54,7 @@ final class LeaveBalanceService
             ->get();
 
         $summary = LeaveEquation::summarize($entries);
-        $standardDay = $this->accounts->standardDayMinutes($tenantId, $employmentId, $asOf);
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $asOf);
 
         return [
             'leave_type_id' => $leaveTypeId,
@@ -71,9 +69,9 @@ final class LeaveBalanceService
         ];
     }
 
-    public function available(int $tenantId, int $employmentId, int $leaveTypeId, string $asOf): int
+    public function available(int $employmentId, int $leaveTypeId, string $asOf): int
     {
-        return $this->forType($tenantId, $employmentId, $leaveTypeId, $asOf)['available'];
+        return $this->forType($employmentId, $leaveTypeId, $asOf)['available'];
     }
 
     /**
@@ -81,12 +79,11 @@ final class LeaveBalanceService
      *
      * @return list<array<string, mixed>>
      */
-    public function outstanding(int $tenantId, int $employmentId, string $asOf): array
+    public function outstanding(int $employmentId, string $asOf): array
     {
         BusinessDate::parse($asOf);
 
         $typeIds = LeaveAccount::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('opened_on', '<=', $asOf)
             ->where(function ($query) use ($asOf): void {
@@ -100,7 +97,7 @@ final class LeaveBalanceService
         $balances = [];
 
         foreach ($typeIds as $typeId) {
-            $balances[] = $this->forType($tenantId, $employmentId, (int) $typeId, $asOf);
+            $balances[] = $this->forType($employmentId, (int) $typeId, $asOf);
         }
 
         return $balances;
@@ -112,11 +109,10 @@ final class LeaveBalanceService
     /**
      * @param  array<string, mixed>  $summary
      */
-    public function project(int $tenantId, int $employmentId, int $leaveTypeId, array $summary): LeaveBalance
+    public function project(int $employmentId, int $leaveTypeId, array $summary): LeaveBalance
     {
         return LeaveBalance::query()->updateOrCreate(
             [
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'leave_type_id' => $leaveTypeId,
             ],
@@ -140,10 +136,9 @@ final class LeaveBalanceService
      *
      * @return array{rebuilt: int, mismatches: list<array<string, mixed>>}
      */
-    public function rebuild(int $tenantId, string $asOf): array
+    public function rebuild(string $asOf): array
     {
         $accounts = LeaveAccount::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('employment_id')
             ->orderBy('leave_type_id')
             ->get();
@@ -152,9 +147,8 @@ final class LeaveBalanceService
         $rebuilt = 0;
 
         foreach ($accounts as $account) {
-            $summary = $this->forType($tenantId, $account->employment_id, $account->leave_type_id, $asOf);
+            $summary = $this->forType((int) $account->employment_id, (int) $account->leave_type_id, $asOf);
             $existing = LeaveBalance::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $account->employment_id)
                 ->where('leave_type_id', $account->leave_type_id)
                 ->first();
@@ -168,7 +162,7 @@ final class LeaveBalanceService
                 ];
             }
 
-            $this->project($tenantId, $account->employment_id, $account->leave_type_id, $summary);
+            $this->project((int) $account->employment_id, (int) $account->leave_type_id, $summary);
             $rebuilt++;
         }
 

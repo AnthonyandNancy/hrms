@@ -11,10 +11,9 @@ use Tests\Support\Time\TimeTestFixtures;
 
 final class TimeCatalogsTest extends TimeHttpTestCase
 {
-    public function test_leave_types_are_listed_for_the_tenant(): void
+    public function test_leave_types_are_listed_for_the_company(): void
     {
         LeaveType::query()->create([
-            'tenant_id' => 1,
             'code' => 'ANNUAL',
             'name' => 'Annual leave',
             'is_statutory' => true,
@@ -38,7 +37,6 @@ final class TimeCatalogsTest extends TimeHttpTestCase
     public function test_overtime_records_list_settlement_state(): void
     {
         $record = OvertimeRecord::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-20',
             'minutes' => 120,

@@ -14,18 +14,16 @@ final class EloquentLeaveLiabilityDirectory implements LeaveLiabilityDirectory
     /**
      * @return list<LeaveLiabilityRow>
      */
-    public function balances(int $tenantId, string $asOf): array
+    public function balances(string $asOf): array
     {
         $balances = LeaveLedgerEntry::query()
             ->selectRaw('employment_id, leave_type_id, SUM(quantity_minutes) AS balance_minutes')
-            ->where('tenant_id', $tenantId)
             ->where('effective_on', '<=', $asOf)
             ->groupBy('employment_id', 'leave_type_id')
             ->orderBy('employment_id')
             ->orderBy('leave_type_id')
             ->get();
         $types = LeaveType::query()
-            ->where('tenant_id', $tenantId)
             ->get()
             ->keyBy('id');
         $rows = [];
