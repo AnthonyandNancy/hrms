@@ -42,9 +42,8 @@ final class OrganizationBootstrapService implements OrganizationBootstrap
         }
 
         $root = OrgUnit::query()->firstOrCreate(
-            ['tenant_id' => 1, 'code' => $code.'-HQ'],
+            ['code' => $code.'-HQ'],
             [
-                'legal_entity_id' => 1,
                 'parent_id' => null,
                 'name' => $name.' Headquarters',
                 'type' => 'COMPANY',
@@ -57,7 +56,7 @@ final class OrganizationBootstrapService implements OrganizationBootstrap
         );
 
         OrgUnitClosure::query()->firstOrCreate(
-            ['tenant_id' => 1, 'ancestor_id' => (int) $root->id, 'descendant_id' => (int) $root->id, 'valid_from' => $validFrom],
+            ['ancestor_id' => (int) $root->id, 'descendant_id' => (int) $root->id, 'valid_from' => $validFrom],
             ['depth' => 0, 'valid_to' => '9999-12-31', 'recorded_at' => $this->clock->now(), 'source_type' => 'INSTALL'],
         );
 

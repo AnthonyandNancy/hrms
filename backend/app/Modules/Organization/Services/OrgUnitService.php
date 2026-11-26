@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Services;
 
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Models\OrgUnitClosure;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
@@ -15,6 +14,7 @@ use App\Shared\Observability\AuditRecorder;
 use App\Shared\Observability\OutboxRecorder;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Time\DateRange;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +22,7 @@ final class OrgUnitService
 {
     public function __construct(
         private readonly Clock $clock,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly AuditRecorder $audit,
         private readonly OutboxRecorder $outbox,
         private readonly OrgAssignmentImpactDirectory $assignmentImpact,
@@ -30,44 +31,30 @@ final class OrgUnitService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function open(int $tenantId, array $input, ?int $actorUserId): OrgUnit
+    public function open(array $input, ?int $actorUserId): OrgUnit
     {
-        return DB::transaction(function () use ($tenantId, $input, $actorUserId): OrgUnit {
-            $legalEntity = LegalEntity::query()
-                ->where('tenant_id', $tenantId)
-                ->whereKey((int) $input['legal_entity_id'])
-                ->first();
-
-            if ($legalEntity === null) {
-                throw new ValidationException(['legal_entity_id' => ['The legal entity does not exist in this tenant.']]);
-            }
-
+        return DB::transaction(function () use ($input, $actorUserId): OrgUnit {
             $parentId = (int) ($input['parent_id'] ?? 0) ?: null;
-            if (OrgUnit::query()->where('tenant_id', $tenantId)->where('code', (string) $input['code'])->exists()) {
+            if (OrgUnit::query()->where('code', (string) $input['code'])->exists()) {
                 throw new ConflictException(
-                    'Organization unit code must be unique within the tenant.',
+                    'Organization unit code must be unique within the company.',
                     ['reason' => 'ORG_UNIT_CODE_DUPLICATE'],
                 );
             }
 
             $now = $this->clock->now();
-            $validFrom = (string) ($input['valid_from'] ?? BusinessDate::today($legalEntity->timezone, $this->clock)->value());
+            $validFrom = (string) ($input['valid_from'] ?? $this->businessDates->today()->value());
             $range = new DateRange($validFrom, (string) ($input['valid_to'] ?? BusinessDate::OPEN_END));
 
             if ($parentId !== null) {
-                $parent = OrgUnit::query()
-                    ->where('tenant_id', $tenantId)
-                    ->whereKey($parentId)
-                    ->first();
+                $parent = OrgUnit::query()->whereKey($parentId)->first();
 
-                if ($parent === null || (int) $parent->legal_entity_id !== (int) $legalEntity->id) {
-                    throw new ValidationException(['parent_id' => ['The parent organization must belong to the same legal entity.']]);
+                if ($parent === null) {
+                    throw new ValidationException(['parent_id' => ['The parent organization does not exist.']]);
                 }
             }
 
             $unit = OrgUnit::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $legalEntity->id,
                 'parent_id' => $parentId,
                 'code' => (string) $input['code'],
                 'name' => (string) $input['name'],
@@ -79,31 +66,27 @@ final class OrgUnitService
                 'source_type' => 'API',
             ]);
 
-            $this->appendClosure($tenantId, $unit, $range, $now);
+            $this->appendClosure($unit, $range, $now);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'org.unit.created',
                 aggregateType: 'org_unit',
                 aggregateId: $unit->id,
                 after: [
                     'code' => (string) $unit->code,
-                    'legal_entity_id' => (int) $unit->legal_entity_id,
                     'parent_id' => $parentId,
                     'valid_from' => (string) $unit->valid_from,
                 ],
             );
 
             $this->outbox->record(
-                tenantId: $tenantId,
                 eventType: 'organization.unit.changed.v1',
                 aggregateType: 'org_unit',
                 aggregateId: (string) $unit->id,
                 aggregateVersion: 1,
                 payload: [
                     'org_unit_id' => (int) $unit->id,
-                    'legal_entity_id' => (int) $unit->legal_entity_id,
                     'valid_from' => (string) $unit->valid_from,
                 ],
             );
@@ -120,15 +103,14 @@ final class OrgUnitService
      * @param  array<string, mixed>  $input
      * @return array{org_unit: OrgUnit, moved: bool, old_id: int}
      */
-    public function move(int $tenantId, int $orgUnitId, array $input, ?int $actorUserId): array
+    public function move(int $orgUnitId, array $input, ?int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $orgUnitId, $input, $actorUserId): array {
+        return DB::transaction(function () use ($orgUnitId, $input, $actorUserId): array {
             $effectiveFrom = BusinessDate::from((string) $input['effective_from']);
             $newParentId = (int) ($input['new_parent_id'] ?? 0) ?: null;
 
             /** @var OrgUnit|null $unit */
             $unit = OrgUnit::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($orgUnitId)
                 ->lockForUpdate()
                 ->first();
@@ -150,7 +132,6 @@ final class OrgUnitService
 
             if ($newParentId !== null) {
                 $parent = OrgUnit::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey($newParentId)
                     ->where('valid_from', '<=', $effectiveFrom->value())
                     ->where('valid_to', '>', $effectiveFrom->value())
@@ -160,17 +141,12 @@ final class OrgUnitService
                     throw new ValidationException(['new_parent_id' => ['The new parent is not active on the effective date.']]);
                 }
 
-                if ((int) $parent->legal_entity_id !== (int) $unit->legal_entity_id) {
-                    throw new ValidationException(['new_parent_id' => ['The new parent must belong to the same legal entity.']]);
-                }
-
-                if (in_array($orgUnitId, $this->ancestorIds($tenantId, $newParentId, $effectiveFrom->value()), true)) {
+                if (in_array($orgUnitId, $this->ancestorIds($newParentId, $effectiveFrom->value()), true)) {
                     throw new ValidationException(['new_parent_id' => ['The move would create an organization cycle.']]);
                 }
             }
 
             $latestClosureFrom = OrgUnitClosure::query()
-                ->where('tenant_id', $tenantId)
                 ->where(function ($query) use ($unit): void {
                     $query->where('ancestor_id', $unit->id)->orWhere('descendant_id', $unit->id);
                 })
@@ -187,7 +163,6 @@ final class OrgUnitService
             // closure is the effective-dated hierarchy fact; org_units keeps
             // stable identity so external references never churn on a move.
             DB::table('org_unit_closure')
-                ->where('tenant_id', $tenantId)
                 ->where(function ($query) use ($unit): void {
                     $query->where('ancestor_id', $unit->id)->orWhere('descendant_id', $unit->id);
                 })
@@ -199,10 +174,9 @@ final class OrgUnitService
             $unit->save();
 
             $range = new DateRange($effectiveFrom->value(), $currentTo->value());
-            $this->appendClosure($tenantId, $unit, $range, $now);
+            $this->appendClosure($unit, $range, $now);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'org.unit.moved',
                 aggregateType: 'org_unit',
@@ -212,7 +186,6 @@ final class OrgUnitService
             );
 
             $this->outbox->record(
-                tenantId: $tenantId,
                 eventType: 'organization.unit.moved.v1',
                 aggregateType: 'org_unit',
                 aggregateId: (string) $unit->id,
@@ -233,29 +206,21 @@ final class OrgUnitService
      * @param  array<string, mixed>  $input
      * @return array{affected_employee_count: int, affected_manager_count: int, payroll_cost_center_count: int, cross_entity_warning: bool}
      */
-    public function impact(int $tenantId, int $orgUnitId, array $input, string $on): array
+    public function impact(int $orgUnitId, array $input, string $on): array
     {
-        $unit = OrgUnit::query()->where('tenant_id', $tenantId)->whereKey($orgUnitId)->first();
+        $unit = OrgUnit::query()->whereKey($orgUnitId)->first();
 
         if ($unit === null) {
             throw new NotFoundOrForbiddenException;
         }
 
         $newParentId = (int) ($input['new_parent_id'] ?? 0) ?: null;
-        $crossEntity = false;
 
-        if ($newParentId !== null) {
-            $parent = OrgUnit::query()->where('tenant_id', $tenantId)->whereKey($newParentId)->first();
-
-            if ($parent === null) {
-                throw new NotFoundOrForbiddenException;
-            }
-
-            $crossEntity = (int) $parent->legal_entity_id !== (int) $unit->legal_entity_id;
+        if ($newParentId !== null && ! OrgUnit::query()->whereKey($newParentId)->exists()) {
+            throw new NotFoundOrForbiddenException;
         }
 
         $descendantIds = OrgUnitClosure::query()
-            ->where('tenant_id', $tenantId)
             ->where('ancestor_id', $orgUnitId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -264,7 +229,6 @@ final class OrgUnitService
             ->all();
 
         $impact = $this->assignmentImpact->impactCounts(
-            $tenantId,
             $descendantIds !== [] ? $descendantIds : [$orgUnitId],
             $on,
         );
@@ -273,14 +237,13 @@ final class OrgUnitService
             'affected_employee_count' => $impact->employeeCount,
             'affected_manager_count' => $impact->managerCount,
             'payroll_cost_center_count' => 0,
-            'cross_entity_warning' => $crossEntity,
+            'cross_entity_warning' => false,
         ];
     }
 
-    private function appendClosure(int $tenantId, OrgUnit $unit, DateRange $range, \Carbon\CarbonImmutable $now): void
+    private function appendClosure(OrgUnit $unit, DateRange $range, \Carbon\CarbonImmutable $now): void
     {
         $rows = [[
-            'tenant_id' => $tenantId,
             'ancestor_id' => (int) $unit->id,
             'descendant_id' => (int) $unit->id,
             'depth' => 0,
@@ -292,7 +255,6 @@ final class OrgUnitService
 
         if ($unit->parent_id !== null) {
             $ancestors = OrgUnitClosure::query()
-                ->where('tenant_id', $tenantId)
                 ->where('descendant_id', (int) $unit->parent_id)
                 ->where('valid_from', '<=', $range->validFrom()->value())
                 ->where('valid_to', '>', $range->validFrom()->value())
@@ -300,7 +262,6 @@ final class OrgUnitService
 
             foreach ($ancestors as $ancestor) {
                 $rows[] = [
-                    'tenant_id' => $tenantId,
                     'ancestor_id' => (int) $ancestor->ancestor_id,
                     'descendant_id' => (int) $unit->id,
                     'depth' => (int) $ancestor->depth + 1,
@@ -318,10 +279,9 @@ final class OrgUnitService
     /**
      * @return list<int>
      */
-    private function ancestorIds(int $tenantId, int $orgId, string $on): array
+    private function ancestorIds(int $orgId, string $on): array
     {
         return OrgUnitClosure::query()
-            ->where('tenant_id', $tenantId)
             ->where('descendant_id', $orgId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)

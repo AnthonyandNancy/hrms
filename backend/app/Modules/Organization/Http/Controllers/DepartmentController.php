@@ -12,7 +12,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +23,7 @@ final class DepartmentController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly DepartmentStaffingDirectory $staffing,
         private readonly DepartmentMembershipPort $membership,
     ) {}
@@ -33,15 +33,12 @@ final class DepartmentController
         $principal = $this->principals->resolve();
         $this->assertCapability($principal, 'org.unit.read');
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'as_of' => ['nullable', new BusinessDateRule],
             'q' => ['nullable', 'string', 'max:160'],
         ]);
-        $on = $data['as_of'] ?? $this->businessDates->today($principal->tenantId())->value();
+        $on = $data['as_of'] ?? $this->businessDates->today()->value();
 
         $query = OrgUnit::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->where('legal_entity_id', (int) $data['legal_entity_id'])
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
             ->orderBy('code');
@@ -55,7 +52,7 @@ final class DepartmentController
 
         $units = $query->get();
         $ids = $units->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
-        $headcount = $this->staffing->activeHeadcount($principal->tenantId(), $ids, $on);
+        $headcount = $this->staffing->activeHeadcount($ids, $on);
 
         $items = $units->map(fn (OrgUnit $unit): array => $this->payload(
             $unit,
@@ -69,11 +66,11 @@ final class DepartmentController
     {
         $principal = $this->principals->resolve();
         $this->assertCapability($principal, 'org.unit.read');
-        $this->assertUnit($principal, $id);
+        $this->assertUnit($id);
         $data = $request->validate(['as_of' => ['nullable', new BusinessDateRule]]);
-        $on = $data['as_of'] ?? $this->businessDates->today($principal->tenantId())->value();
+        $on = $data['as_of'] ?? $this->businessDates->today()->value();
 
-        $items = $this->staffing->members($principal->tenantId(), $id, $on);
+        $items = $this->staffing->members($id, $on);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -82,7 +79,7 @@ final class DepartmentController
     {
         $principal = $this->principals->resolve();
         $this->assertCapability($principal, 'org.unit.manage');
-        $this->assertUnit($principal, $id);
+        $this->assertUnit($id);
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -91,7 +88,6 @@ final class DepartmentController
         ]);
 
         $result = $this->membership->moveMember(
-            $principal->tenantId(),
             $id,
             (int) $data['employment_id'],
             (string) $data['effective_from'],
@@ -106,21 +102,18 @@ final class DepartmentController
         $principal = $this->principals->resolve();
         $this->assertCapability($principal, 'org.unit.read');
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'as_of' => ['nullable', new BusinessDateRule],
         ]);
-        $on = $data['as_of'] ?? $this->businessDates->today($principal->tenantId())->value();
+        $on = $data['as_of'] ?? $this->businessDates->today()->value();
 
         $units = OrgUnit::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->where('legal_entity_id', (int) $data['legal_entity_id'])
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
             ->orderBy('code')
             ->get();
 
         $ids = $units->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
-        $headcount = $this->staffing->activeHeadcount($principal->tenantId(), $ids, $on);
+        $headcount = $this->staffing->activeHeadcount($ids, $on);
 
         $items = $units->map(static function (OrgUnit $unit) use ($headcount): array {
             $staffed = $headcount[(int) $unit->id] ?? 0;
@@ -140,12 +133,9 @@ final class DepartmentController
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
 
-    private function assertUnit(Principal $principal, int $id): OrgUnit
+    private function assertUnit(int $id): OrgUnit
     {
-        $unit = OrgUnit::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->whereKey($id)
-            ->first();
+        $unit = OrgUnit::query()->whereKey($id)->first();
 
         if ($unit === null) {
             throw new NotFoundOrForbiddenException;
@@ -156,7 +146,7 @@ final class DepartmentController
 
     private function assertCapability(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');
@@ -170,7 +160,6 @@ final class DepartmentController
     {
         return [
             'id' => (int) $unit->id,
-            'legal_entity_id' => (int) $unit->legal_entity_id,
             'parent_id' => $unit->parent_id !== null ? (int) $unit->parent_id : null,
             'code' => (string) $unit->code,
             'name' => (string) $unit->name,

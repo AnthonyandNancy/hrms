@@ -11,10 +11,9 @@ final class PositionCatalogTest extends PeopleTestCase
     public function test_position_cannot_be_disabled_while_staffed_and_staff_list_is_authorized(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'POS-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'POS-0001');
-        $position = $scenario->position($entity, $org, 'POS-001');
+        $org = $scenario->orgUnit('POS-ORG');
+        $employment = $scenario->employment($scenario->person(), 'POS-0001');
+        $position = $scenario->position($org, 'POS-001');
         $scenario->assignment($employment, $org, ['position_id' => $position->id]);
 
         $this->getJson("/v1/positions/{$position->id}/staff")
@@ -29,9 +28,8 @@ final class PositionCatalogTest extends PeopleTestCase
     public function test_requirement_versions_are_append_only_and_idempotent(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'REQ-ORG');
-        $position = $scenario->position($entity, $org, 'REQ-001');
+        $org = $scenario->orgUnit('REQ-ORG');
+        $position = $scenario->position($org, 'REQ-001');
 
         $first = $this->postJson("/v1/positions/{$position->id}/requirements", [
             'requirements' => ['education' => 'BACHELOR', 'years' => 3],
@@ -76,13 +74,11 @@ final class PositionCatalogTest extends PeopleTestCase
         ])->assertStatus(422)->assertJsonPath('data.reason', 'IDEMPOTENCY_KEY_REQUIRED');
     }
 
-    public function test_grade_catalogue_upserts_per_legal_entity_and_lists(): void
+    public function test_grade_catalogue_upserts_and_lists(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
 
         $this->postJson('/v1/positions/grades', [
-            'legal_entity_id' => $entity->id,
             'code' => 'P5',
             'name' => 'Professional 5',
             'level' => 5,
@@ -91,7 +87,6 @@ final class PositionCatalogTest extends PeopleTestCase
             ->assertJsonPath('data.active', true);
 
         $this->postJson('/v1/positions/grades', [
-            'legal_entity_id' => $entity->id,
             'code' => 'P5',
             'name' => 'Professional 5 (revised)',
             'level' => 6,
@@ -102,37 +97,30 @@ final class PositionCatalogTest extends PeopleTestCase
 
         $this->assertDatabaseCount('position_grades', 1);
 
-        $this->getJson('/v1/positions/grades?legal_entity_id='.$entity->id.'&active=false')
+        $this->getJson('/v1/positions/grades?active=false')
             ->assertOk()
             ->assertJsonPath('data.items.0.code', 'P5')
             ->assertJsonPath('data.items.0.level', 6);
 
-        $this->getJson('/v1/positions/grades?legal_entity_id='.$entity->id.'&active=true')
+        $this->getJson('/v1/positions/grades?active=true')
             ->assertOk()
             ->assertJsonPath('data.total', 0);
     }
 
-    public function test_position_subresources_are_tenant_scoped(): void
+    public function test_position_subresources_require_an_existing_position(): void
     {
-        $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $position = $scenario->position($entity, $scenario->orgUnit($entity, 'SCOPE-ORG'), 'SCOPE-001');
-
-        $this->actAs(tenantId: 2, userId: 999);
-
-        $this->getJson("/v1/positions/{$position->id}/staff")->assertNotFound();
-        $this->getJson("/v1/positions/{$position->id}/requirements")->assertNotFound();
-        $this->postJson("/v1/positions/{$position->id}/requirements", [
+        $this->getJson('/v1/positions/999999/staff')->assertNotFound();
+        $this->getJson('/v1/positions/999999/requirements')->assertNotFound();
+        $this->postJson('/v1/positions/999999/requirements', [
             'requirements' => ['education' => 'BACHELOR'],
             'effective_from' => '2026-12-01',
-        ], ['Idempotency-Key' => 'cross-tenant'])->assertNotFound();
+        ], ['Idempotency-Key' => 'unknown-position'])->assertNotFound();
     }
 
     public function test_position_subresources_require_their_capabilities(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $position = $scenario->position($entity, $scenario->orgUnit($entity, 'CAP-ORG'), 'CAP-001');
+        $position = $scenario->position($scenario->orgUnit('CAP-ORG'), 'CAP-001');
 
         $this->authorizer->deniedCapabilities = [
             'org.position.staff.read',
@@ -142,6 +130,6 @@ final class PositionCatalogTest extends PeopleTestCase
 
         $this->getJson("/v1/positions/{$position->id}/staff")->assertForbidden();
         $this->getJson("/v1/positions/{$position->id}/requirements")->assertForbidden();
-        $this->getJson("/v1/positions/grades?legal_entity_id={$entity->id}")->assertForbidden();
+        $this->getJson('/v1/positions/grades')->assertForbidden();
     }
 }

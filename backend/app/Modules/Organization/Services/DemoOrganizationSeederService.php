@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Organization\Services;
 
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Models\OrgUnitClosure;
 use App\Shared\Time\Clock;
@@ -16,40 +15,28 @@ final class DemoOrganizationSeederService implements DemoOrganizationSeeder
     public function __construct(private readonly Clock $clock) {}
 
     /**
-     * @return array{legal_entity_id: int, org_unit_ids: array<string, int>}
+     * @return array{org_unit_ids: array<string, int>}
      */
     public function seedDemo(): array
     {
-        $entity = LegalEntity::query()->firstOrCreate(
-            ['tenant_id' => 1, 'code' => 'DEMO-CN'],
-            [
-                'name' => 'Demo China Co Ltd',
-                'country_code' => 'CN',
-                'timezone' => 'Asia/Shanghai',
-                'currency_code' => 'CNY',
-                'status' => 'ACTIVE',
-            ],
-        );
-
         $ids = [];
-        $root = $this->orgUnit($entity, 'DEMO-HQ', null, 'Demo Headquarters', 'COMPANY');
+        $root = $this->orgUnit('DEMO-HQ', null, 'Demo Headquarters', 'COMPANY');
         $ids['root'] = (int) $root->id;
-        $engineering = $this->orgUnit($entity, 'DEMO-ENG', $root, 'Engineering', 'DIVISION');
+        $engineering = $this->orgUnit('DEMO-ENG', $root, 'Engineering', 'DIVISION');
         $ids['engineering'] = (int) $engineering->id;
-        $platform = $this->orgUnit($entity, 'DEMO-PLATFORM', $engineering, 'Platform', 'TEAM');
+        $platform = $this->orgUnit('DEMO-PLATFORM', $engineering, 'Platform', 'TEAM');
         $ids['platform'] = (int) $platform->id;
-        $sales = $this->orgUnit($entity, 'DEMO-SALES', $root, 'Sales', 'DIVISION');
+        $sales = $this->orgUnit('DEMO-SALES', $root, 'Sales', 'DIVISION');
         $ids['sales'] = (int) $sales->id;
 
-        return ['legal_entity_id' => (int) $entity->id, 'org_unit_ids' => $ids];
+        return ['org_unit_ids' => $ids];
     }
 
-    private function orgUnit(LegalEntity $entity, string $code, ?OrgUnit $parent, string $name, string $type): OrgUnit
+    private function orgUnit(string $code, ?OrgUnit $parent, string $name, string $type): OrgUnit
     {
         $unit = OrgUnit::query()->firstOrCreate(
-            ['tenant_id' => (int) $entity->tenant_id, 'code' => $code],
+            ['code' => $code],
             [
-                'legal_entity_id' => (int) $entity->id,
                 'parent_id' => $parent?->id,
                 'name' => $name,
                 'type' => $type,
@@ -73,7 +60,6 @@ final class DemoOrganizationSeederService implements DemoOrganizationSeeder
         }
 
         DB::table('org_unit_closure')->insert([
-            'tenant_id' => (int) $entity->tenant_id,
             'ancestor_id' => (int) $unit->id,
             'descendant_id' => (int) $unit->id,
             'depth' => 0,
@@ -92,7 +78,6 @@ final class DemoOrganizationSeederService implements DemoOrganizationSeeder
 
             foreach ($ancestors as $ancestor) {
                 DB::table('org_unit_closure')->insert([
-                    'tenant_id' => (int) $entity->tenant_id,
                     'ancestor_id' => (int) $ancestor->ancestor_id,
                     'descendant_id' => (int) $unit->id,
                     'depth' => (int) $ancestor->depth + 1,

@@ -7,7 +7,6 @@ namespace App\Modules\Organization\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * @property int $tenant_id
  * @property int $ancestor_id
  * @property int $descendant_id
  * @property int $depth
@@ -26,7 +25,6 @@ final class OrgUnitClosure extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'ancestor_id',
         'descendant_id',
         'depth',
@@ -44,7 +42,6 @@ final class OrgUnitClosure extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'ancestor_id' => 'integer',
             'descendant_id' => 'integer',
             'depth' => 'integer',

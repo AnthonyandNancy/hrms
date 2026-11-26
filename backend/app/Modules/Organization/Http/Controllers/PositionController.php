@@ -11,7 +11,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +22,7 @@ final class PositionController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly PositionService $positions,
     ) {}
 
@@ -32,15 +32,12 @@ final class PositionController
         $this->assertPermits($principal, 'org.position.read');
 
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'as_of' => ['nullable', new BusinessDateRule],
             'q' => ['nullable', 'string', 'max:160'],
         ]);
-        $on = $data['as_of'] ?? $this->businessDates->today($principal->tenantId())->value();
+        $on = $data['as_of'] ?? $this->businessDates->today()->value();
 
         $query = Position::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->where('legal_entity_id', (int) $data['legal_entity_id'])
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
             ->orderBy('code');
@@ -52,7 +49,7 @@ final class PositionController
             });
         }
 
-        $items = $this->positions->payloads($principal->tenantId(), $query->get()->all(), $on);
+        $items = $this->positions->payloads($query->get()->all(), $on);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -63,7 +60,6 @@ final class PositionController
         $this->assertPermits($principal, 'org.position.manage');
 
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'org_unit_id' => ['nullable', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:64'],
             'title' => ['required', 'string', 'max:160'],
@@ -73,12 +69,11 @@ final class PositionController
             'valid_to' => ['nullable', new BusinessDateRule],
         ]);
 
-        $position = $this->positions->open($principal->tenantId(), $data, $principal->userId());
+        $position = $this->positions->open($data, $principal->userId());
 
         return ApiResponse::created($this->positions->payloads(
-            $principal->tenantId(),
             [$position],
-            $this->businessDates->today($principal->tenantId())->value(),
+            $this->businessDates->today()->value(),
         )[0]);
     }
 
@@ -94,12 +89,11 @@ final class PositionController
             'status' => ['sometimes', 'string', 'in:ACTIVE,DISABLED'],
         ]);
 
-        $position = $this->positions->revise($principal->tenantId(), $id, $data, $principal->userId());
+        $position = $this->positions->revise($id, $data, $principal->userId());
 
         return ApiResponse::ok($this->positions->payloads(
-            $principal->tenantId(),
             [$position],
-            $this->businessDates->today($principal->tenantId())->value(),
+            $this->businessDates->today()->value(),
         )[0]);
     }
 
@@ -109,7 +103,6 @@ final class PositionController
         $this->assertPermits($principal, 'org.position.read');
 
         $position = Position::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($id)
             ->first();
 
@@ -118,15 +111,14 @@ final class PositionController
         }
 
         return ApiResponse::ok($this->positions->payloads(
-            $principal->tenantId(),
             [$position],
-            $this->businessDates->today($principal->tenantId())->value(),
+            $this->businessDates->today()->value(),
         )[0]);
     }
 
     private function assertPermits(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');

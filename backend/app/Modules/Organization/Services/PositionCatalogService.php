@@ -30,10 +30,9 @@ final class PositionCatalogService
         private readonly AssignmentDirectory $assignments,
     ) {}
 
-    public function findPosition(int $tenantId, int $positionId): ?Position
+    public function findPosition(int $positionId): ?Position
     {
         return Position::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($positionId)
             ->first();
     }
@@ -45,15 +44,13 @@ final class PositionCatalogService
      * @param  array<string, mixed>  $requirements
      */
     public function versionQualification(
-        int $tenantId,
         int $positionId,
         array $requirements,
         string $effectiveFrom,
         ?int $actorUserId,
     ): PositionQualification {
-        return DB::transaction(function () use ($tenantId, $positionId, $requirements, $effectiveFrom, $actorUserId): PositionQualification {
+        return DB::transaction(function () use ($positionId, $requirements, $effectiveFrom, $actorUserId): PositionQualification {
             $position = Position::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($positionId)
                 ->lockForUpdate()
                 ->first();
@@ -63,13 +60,11 @@ final class PositionCatalogService
             }
 
             $next = (int) PositionQualification::query()
-                ->where('tenant_id', $tenantId)
                 ->where('position_id', $positionId)
                 ->max('version') + 1;
 
             /** @var PositionQualification $qualification */
             $qualification = PositionQualification::query()->create([
-                'tenant_id' => $tenantId,
                 'position_id' => $positionId,
                 'version' => $next,
                 'requirements_json' => $requirements,
@@ -78,7 +73,6 @@ final class PositionCatalogService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'org.position.qualification.versioned',
                 aggregateType: 'position_qualification',
@@ -95,14 +89,12 @@ final class PositionCatalogService
     }
 
     public function qualificationsProjection(
-        int $tenantId,
         int $positionId,
         string $asOf,
         int $page,
         int $pageSize,
     ): ProjectionResult {
         $query = PositionQualification::query()
-            ->where('tenant_id', $tenantId)
             ->where('position_id', $positionId)
             ->where('effective_from', '<=', $asOf);
 
@@ -125,15 +117,13 @@ final class PositionCatalogService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function upsertGrade(int $tenantId, int $legalEntityId, array $input, ?int $actorUserId): PositionGrade
+    public function upsertGrade(array $input, ?int $actorUserId): PositionGrade
     {
-        return DB::transaction(function () use ($tenantId, $legalEntityId, $input, $actorUserId): PositionGrade {
+        return DB::transaction(function () use ($input, $actorUserId): PositionGrade {
             $code = (string) $input['code'];
 
             /** @var PositionGrade|null $grade */
             $grade = PositionGrade::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
                 ->where('code', $code)
                 ->lockForUpdate()
                 ->first();
@@ -143,8 +133,6 @@ final class PositionCatalogService
             if ($grade === null) {
                 /** @var PositionGrade $grade */
                 $grade = PositionGrade::query()->create([
-                    'tenant_id' => $tenantId,
-                    'legal_entity_id' => $legalEntityId,
                     'code' => $code,
                     'name' => (string) $input['name'],
                     'level' => (int) $input['level'],
@@ -159,7 +147,6 @@ final class PositionCatalogService
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: $before === [] ? 'org.position.grade.created' : 'org.position.grade.updated',
                 aggregateType: 'position_grade',
@@ -173,16 +160,12 @@ final class PositionCatalogService
     }
 
     public function gradesProjection(
-        int $tenantId,
-        int $legalEntityId,
         string $asOf,
         ?bool $active,
         int $page,
         int $pageSize,
     ): ProjectionResult {
-        $query = PositionGrade::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId);
+        $query = PositionGrade::query();
 
         if ($active !== null) {
             $query->where('active', $active);
@@ -200,18 +183,17 @@ final class PositionCatalogService
 
         return $this->projection($items, $page, $pageSize, $total, $asOf, [
             'resource' => 'position_grades',
-            'filters' => ['legal_entity_id' => $legalEntityId, 'active' => $active],
+            'filters' => ['active' => $active],
         ]);
     }
 
-    public function staffProjection(int $tenantId, Position $position, string $asOf): ProjectionResult
+    public function staffProjection(Position $position, string $asOf): ProjectionResult
     {
-        $occupants = $this->assignments->positionIncumbents($tenantId, (int) $position->id, $asOf);
+        $occupants = $this->assignments->positionIncumbents((int) $position->id, $asOf);
 
         $items = array_map(static fn (AssignmentOccupant $occupant): array => [
             'assignment_id' => $occupant->assignmentId,
             'employment_id' => $occupant->employmentId,
-            'legal_entity_id' => $occupant->legalEntityId,
             'employee_no' => $occupant->employeeNo,
             'person_name' => $occupant->personName,
             'org_unit_id' => $occupant->orgUnitId,
@@ -252,7 +234,6 @@ final class PositionCatalogService
     {
         return [
             'id' => (int) $grade->id,
-            'legal_entity_id' => (int) $grade->legal_entity_id,
             'code' => (string) $grade->code,
             'name' => (string) $grade->name,
             'level' => (int) $grade->level,
