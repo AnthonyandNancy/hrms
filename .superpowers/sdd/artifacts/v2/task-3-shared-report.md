@@ -101,9 +101,9 @@ Module boundaries OK.
 The four warnings are the pre-existing Platform dynamic-table warnings
 (`DatabaseMigrationTarget`, `RetentionService` x3), unrelated to this task.
 
-### `vendor/bin/pint --test` — FULL TREE FAIL (93 files), OWNED FILES PASS
+### `vendor/bin/pint --test` — FULL TREE FAIL (94 files), OWNED FILES PASS
 
-Full-tree output currently reports 93 style failures, dominated by line-ending
+Full-tree output currently reports 94 style failures, dominated by line-ending
 churn and stale imports in other agents' in-flight files (People/Org/Workflow
 tests, etc.). Scoped to this task's files it is clean:
 
@@ -119,17 +119,21 @@ $ ../.tools/php/php.exe -d memory_limit=1G vendor/bin/pint --test app/Shared \
 PASS ... 83 files
 ```
 
-### `vendor/bin/phpstan analyse --no-progress` — FULL TREE FAIL (90 errors), SHARED CLEAN
+### `vendor/bin/phpstan analyse --no-progress` — FULL TREE FAIL (2 errors), SHARED CLEAN
 
-Full-tree PHPStan now completes (no fatal) and reports **90 errors in 6 files**;
-**none reference `app/Shared` or any Shared contract signature**. Breakdown:
+Full-tree PHPStan completes and reports **2 errors in one file**; **none
+reference `app/Shared` or any Shared contract signature**:
 
-- `tests/Integration/DirectoryContractTest.php` — 46
-- `tests/Integration/AsOfConsistencyTest.php` — 18
-- `tests/Integration/ModuleContractBoundaryTest.php` — 14
-- `tests/Contract/PeopleOrgApiContractTest.php` — 8
-- `tests/Feature/CapabilityGuardTest.php` — 2
-- `app/Modules/People/Commands/SeedPeopleDemoCommand.php` — 2
+```text
+tests\Feature\CapabilityGuardTest.php:69:Parameter #3 $authVersion of class
+  Tests\Support\TestPrincipal constructor expects int, null given.
+tests\Feature\CapabilityGuardTest.php:69:Parameter #4 $privileged of class
+  Tests\Support\TestPrincipal constructor expects bool, int given.
+```
+
+Cause: `TestPrincipal`'s old positional argument list began with `tenantId`;
+removing it shifts the call `new TestPrincipal(1, userId, null, 2)`. Owner:
+core/IAM test sweep; the test itself is not a Shared file.
 
 Scoped PHPStan over `app/Shared` plus the Shared-owned fakes/tests:
 
@@ -138,22 +142,12 @@ $ phpstan analyse ... app/Shared tests/Unit/Shared tests/Fakes/... ...
 [OK] No errors
 ```
 
-The full-tree failure is stale integration-test call sites and one People call
-site (below), not a Shared signature mismatch.
-
-### Required filtered suite — NOT GREEN (7 failed, 330 passed, 34,870 assertions)
+### Required filtered suite — PASS
 
 ```text
-$ artisan test --compact --filter='Tests\\Unit|Tests\\Integration'
-Tests: 7 failed, 330 passed (34870 assertions)
+$ artisan test --compact --filter='Tests\Unit|Tests\Integration'
+Tests: 337 passed (34907 assertions)
 ```
-
-All 7 failures are `Tests\Integration` files owned by other sweeps and fail
-because they still call the removed `PeopleScenario::legalEntity()` helper:
-
-- `AsOfConsistencyTest` — 2 failures (`legalEntity()` at lines 16, 48)
-- `DirectoryContractTest` — 5 failures (`legalEntity()` at lines 26, 43, 58,
-  79, 97)
 
 The Shared-owned unit suite is green:
 
@@ -172,32 +166,18 @@ Tests: 316 passed (34816 assertions)
 ## Module implementations that must adapt
 
 All explicit implementations of the changed Shared contracts currently satisfy
-the new signatures. The only remaining **app-level** PHPStan failure against a
-changed port is:
+the new signatures. The only remaining app-code call-site mismatch visible to
+PHPStan was resolved by the People/IAM sweep. One non-Shared test call site
+remains:
 
-- `app/Modules/People/Commands/SeedPeopleDemoCommand.php:75` — calls
-  `EloquentDemoUserDirectory::userIdForUsername()` with 2 arguments; the IAM
-  port now takes 1 (`string $username`). Owner: People/IAM sweep.
-
-Stale module **test** call sites that must adapt (not implementations; PHPStan
-and/or integration failures):
-
-- `tests/Integration/DirectoryContractTest.php:26,43,58,79,97` and
-  `:25` (`PeopleTestCase::scenario()` arity), `:32-37`, `:65-73`, `:84-91`,
-  `:105-127` — stale PeopleScenario/OrganizationDirectory/PeopleDirectory
-  signatures.
-- `tests/Integration/AsOfConsistencyTest.php:16,48` and `:36-42` — stale
-  `legalEntity()`, `employmentSnapshot()`, `subtreeIds()`,
-  `employmentIdsForLegalEntities()`.
-- `tests/Integration/ModuleContractBoundaryTest.php:17-61` — stale
-  `legalEntity()`, `OrganizationFacts::orgUnit()`, `OrgUnitInfo::$legalEntityId`,
-  org impact and demo seeder result shape.
-- `tests/Contract/PeopleOrgApiContractTest.php:25-56` — stale
-  `PeopleScenario::legalEntity()` / `orgUnit()` / `employment()` arguments.
 - `tests/Feature/CapabilityGuardTest.php:69` — `TestPrincipal` positional args
-  after `tenantId` removal (`authVersion`/`privileged` shifted).
-- `tests/Support/PeopleScenario.php` — uncommitted helper rewrite to single
-  company; stale callers above must be updated to its tenant-free signatures.
+  after `tenantId` removal (`authVersion`/`privileged` shifted). Owner:
+  core/IAM test sweep.
+
+No implementation under `Modules/**` still fails to satisfy a Shared contract
+signature. If a later merge reintroduces one, the first fatal will name the
+implementation and missing method directly (as the Organization adapter did
+before it was fixed in the org sweep).
 
 Notable implementations verified against the final contracts:
 
