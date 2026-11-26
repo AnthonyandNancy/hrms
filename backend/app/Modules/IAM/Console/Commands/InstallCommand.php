@@ -160,8 +160,23 @@ final class InstallCommand extends Command
                 $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, "factors={$factors}");
             }
 
-            foreach (array_filter(array_map('trim', explode(',', (string) $this->option('enable')))) as $flag) {
-                $this->runStep($report, "feature:{$flag}", 'feature:set', [$flag, 'on', '--tenant' => $tenantId, '--reason' => 'installer baseline', '--actor' => (int) $admin->id]);
+            $flagNames = [
+                'payroll' => 'payroll_enabled',
+                'time' => 'time_enabled',
+                'self_service' => 'self_service_enabled',
+                'recruitment' => 'recruitment_enabled',
+                'export' => 'export_enabled',
+            ];
+            $requested = array_values(array_filter(array_map('trim', explode(',', (string) $this->option('enable')))));
+
+            foreach ($requested as $requestedFlag) {
+                $flag = $flagNames[$requestedFlag] ?? $requestedFlag;
+
+                if (! in_array($flag, array_values($flagNames), true)) {
+                    throw new \RuntimeException("Unknown feature flag '{$requestedFlag}'. Known: ".implode(', ', array_keys($flagNames)));
+                }
+
+                $this->runStep($report, "feature:{$requestedFlag}", 'feature:set', ['flag' => $flag, 'state' => 'on', '--tenant' => $tenantId, '--reason' => 'installer baseline', '--actor' => (int) $admin->id]);
             }
 
             $audit->record(
@@ -204,6 +219,8 @@ final class InstallCommand extends Command
      */
     private function runStep(InstallReport $report, string $name, string $command, array $arguments = []): void
     {
+        // Laravel treats numeric keys as positional arguments and string keys
+        // as options. The feature flag command needs both.
         $exit = Artisan::call($command, $arguments);
         $output = trim(Artisan::output());
 
