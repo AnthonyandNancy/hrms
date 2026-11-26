@@ -323,7 +323,7 @@ ADR-0018 保持有效；修订 ADR-0025 的默认开启措辞。MFA 开关关闭
 ```text
 1. 创建/校验 company_profile 单例，明确保留公司的名称、时区、币种、日历
 2. 新增 COMPANY 锚点；把 LEGAL_ENTITY 绑定迁移为 COMPANY
-3. 合并重复业务键，重建不含 tenant/legal_entity 的唯一索引
+3. 系统尚未上线：删除旧库并 `migrate:fresh --seed` 重建；不合并旧数据，只重建不含 tenant/legal_entity 的唯一索引
 4. 代码切换到 COMPANY 与 company_profile 上下文
 5. 删除 X-Legal-Entity-Id、tenant_id、legal_entity_id 列与 legal_entities 表
 6. 删除旧模型、Contracts、中间件、前端状态与表单字段
@@ -431,7 +431,7 @@ ADR-0018 保持有效；修订 ADR-0025 的默认开启措辞。MFA 开关关闭
 ### 11.3 单公司验收
 
 1. 运行代码、OpenAPI、种子、部署脚本中旧概念零引用（迁移文件仅允许删除旧列的语句）。
-2. 测试库 `migrate:fresh --seed` 成功；历史数据迁移演练通过。
+2. 测试库 `migrate:fresh --seed` 成功；旧库重建与快照恢复演练通过（不要求保留旧业务数据）。
 3. 删除列后备份可恢复，关键表行数与校验和一致。
 4. 唯一索引与业务键在单公司模型下正确；无跨法人同键冲突残留。
 5. 工资、合同、请假、审计历史可追溯，无丢失。

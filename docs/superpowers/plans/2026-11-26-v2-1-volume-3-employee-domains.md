@@ -104,7 +104,8 @@ final class CreateEmployeeCommandTest extends \Tests\Support\PeopleTestCase
      * EmployeeDomainScenario provides real fixtures; this test class uses them.
      * Required: hrAdmin(), hrReadOnly(), employee(), employeeIn(int),
      * deptA(), deptB(), validOnboardPayload(), closePeriod(string),
-     * approvedOvertime(int), annualLeave(), activeCycle(), trainingSession(),
+     * approvedOvertime(int), annualLeave(), userWithRole(string), deptManager(),
+     * manager(), menuAdmin(), auditAdmin(), activeCycle(), trainingSession(),
      * enroll(Employment, object), publishedNoticeFor(int).
      */
 
@@ -1218,7 +1219,9 @@ public function test_candidate_conversion_is_idempotent_and_atomic(): void
     $candidate = $this->offerAcceptedCandidate();
     $key = 'convert-'.Str::uuid();
 
-    $payload = ['legal_entity_id' => 1, 'org_unit_id' => $this->deptA(), 'employee_no' => 'CONV-SYNTH-0001'];
+    // Single-company contract: no legal_entity_id. The controller, OpenAPI and
+    // action manifest must drop it in the same task (Volume 2 removed the column).
+    $payload = ['org_unit_id' => $this->deptA(), 'employee_no' => 'CONV-SYNTH-0001'];
     $first = $this->actingAs($this->hrAdmin())->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", $payload, ['Idempotency-Key' => $key])->assertCreated();
     $second = $this->actingAs($this->hrAdmin())->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", $payload, ['Idempotency-Key' => $key])->assertOk();
 
@@ -1374,6 +1377,9 @@ git commit -m "feat(talent): rebuild training workspace"
 ```php
 public function test_report_export_respects_scope_and_field_policy(): void
 {
+    // A permitted export capability with a forbidden field is a validation
+    // failure (422). 403 is reserved for a missing reporting.export grant; the
+    // capability-denial case is covered separately in Volume 2's role matrix.
     $this->actingAs($this->deptManager())
         ->postJson('/v1/reporting/exports', [
             'reportCode' => 'WORKFORCE_HEADCOUNT',
@@ -1381,7 +1387,8 @@ public function test_report_export_respects_scope_and_field_policy(): void
             'fields' => ['employee_no', 'org_path'],
             'filters' => ['org_unit_id' => $this->deptB()],
         ], ['Idempotency-Key' => 'export-scope-negative'])
-        ->assertStatus(403);
+        ->assertStatus(422)
+        ->assertJsonPath('data.reason', 'EXPORT_FIELD_NOT_ALLOWED');
 }
 ```
 

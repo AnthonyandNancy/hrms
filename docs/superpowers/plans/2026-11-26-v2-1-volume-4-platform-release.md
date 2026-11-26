@@ -56,6 +56,7 @@ Task 12 发布检查单、UAT 签认与最终结论
 **Files:**
 - Create: `docs/audit/2026-11-26-platform-module-disposition.md`
 - Create: `frontend/src/modules/platform/README.md`
+- Create: `backend/tests/Support/PlatformScenario.php`（`userWithRole(string)`、`manager()`、`auditAdmin()`、`settingsAdmin()`；真实 User + Role + AuthorityBinding）
 - Modify: `frontend/src/modules/platform/catalog.ts`
 - Modify: `frontend/src/modules/platform/pages/index.ts`
 - Test: `frontend/tests/unit/platformCatalog.spec.ts`
@@ -203,7 +204,7 @@ git commit -m "feat(platform): rebuild account security page"
 - Verify: `frontend/src/modules/platform/workflow/components/CaseTimeline.vue`
 - Modify（仅补缺口）: `backend/app/Modules/Workflow/Http/Controllers/CaseController.php`
 - Modify（仅补缺口）: `backend/app/Modules/Workflow/Http/Controllers/DecisionController.php`
-- Test: `backend/tests/Feature/Workflow/WorkflowCenterTest.php`
+- Test: `backend/tests/Feature/Workflow/WorkflowCenterTest.php`（extends `Tests\Support\WorkflowCenterScenario`）
 - Test: `frontend/tests/e2e/real/workflow-center.spec.ts`
 
 **Interfaces:**
@@ -363,6 +364,10 @@ public function test_calendar_publish_uses_single_company_profile_without_legal_
         ->assertOk()
         ->assertJsonPath('data.timezone', 'Asia/Shanghai')
         ->assertJsonMissingPath('data.legal_entity_id');
+
+    // The response change is owned by V2 Task 4: CalendarVersion must drop the
+    // required legal_entity_id and CalendarAdminController must stop returning it.
+    // OpenAPI and the generated frontend types must be updated in that task.
 
     $this->assertFalse(Schema::hasTable('legal_entities'));
 }

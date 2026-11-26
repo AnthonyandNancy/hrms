@@ -84,3 +84,42 @@ Final review: initial verdict "No" with 2 Critical + 16 Important. Fixed Critica
 - Verified on merged `main`: backend 818 passed / 37,064 assertions.
 - Stale branches still outstanding (see the merge report): `feat/task-2-iam`,
   `feat/task-6b-time-api`, `feat/task-7b-payroll`, `feat/task-9-ops`.
+
+---
+
+# Plan 3: FactoryHR V2.1 full remediation (2026-11-26)
+
+Plan source:
+- docs/superpowers/specs/2026-11-26-factoryhr-v2-1-full-remediation-design.md
+- docs/superpowers/plans/2026-11-26-v2-1-remediation-master-plan.md
+- Volumes 1-4 (2026-11-26-v2-1-volume-*.md)
+
+## Status
+- 2026-11-26: user approved spec + four-volume plan; order 1→2→3→4, each volume closed and reviewed before the next.
+- Planning baseline commit on main: 4fadd0c (approval status recorded).
+- Isolated worktree: .worktrees/v2.1-remediation, branch feat/v2.1-remediation, based on 4fadd0c.
+- Pre-flight plan review: 10 findings.
+  - 4 Critical: frozen PageSpec dropped fields; action-manifest pipeline unbuildable; single-company drop list 13 of 139 tables; runtime legacy sweep under-scoped.
+  - 6 Important: Volume 2→3 dependency cycle; ADR acceptance ordering; wrong endpoints; unpassable tests; wrong operational commands; red-gate contradiction.
+  - Resolution: plans revised (not product decisions). Independent re-review pending.
+- Baseline before Volume 1:
+  - backend (PHPUnit direct, memory_limit=1G): 1123 tests, 51283 assertions, 1 failure = Contract\NoTenantNoLegalEntityTest (expected pre-cutover).
+  - Artisan test wrapper OOM at 128M (environment limit); direct PHPUnit is the recorded method.
+  - Pint --test: PASS (1168 files).
+  - PHPStan: OK, no errors.
+  - capability:audit: OK (6 public allowlisted routes).
+  - arch:test: OK, 4 non-blocking dynamic-table warnings.
+  - Frontend typecheck: PASS. Frontend lint: PASS.
+  - page-components / frontend-modules / action-manifest / openapi-lint / openapi:validate (2 warnings): PASS.
+- Environment: PHP 8.4.28 at .tools/php/php.exe; Node 24.19.0; pnpm 10.34.5; Laravel 13.17; SQLite in-memory for tests.
+- Note: AGENTS.md line 10 still says "legal entity's timezone"; Volume 1 Task 1 Step 6 changes it to single company profile. Do not treat pre-change wording as authoritative for V2.1.
+
+## Review ledger
+(no V2.1 tasks complete yet)
+
+## Pre-flight review history (2026-11-26)
+- Round 1: 10 findings (4 Critical, 6 Important). Patched plan set.
+- Round 2 verification: 8 partial + 12 new findings (2 Critical: unique-index loss, non-autoloadable/MySQL-only preflight).
+- Round 3 patch: single-company unique rebuild, autoloaded driver-neutral preflight, explicit scan roots, generated TS action module, real Playwright config, single-company gate, helper contracts, real endpoints.
+- Round 3 independent verification: in progress before Task 1 dispatch.
+- 2026-11-26 user decision: system not live; migration may delete all data and rebuild. Volume 2 Task 2 is now schema-only cutover + `migrate:fresh --seed`; no duplicate resolution or data preservation. Unique indexes must still be rebuilt; a snapshot restore drill remains.

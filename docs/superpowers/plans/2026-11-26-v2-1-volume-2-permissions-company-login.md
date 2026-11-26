@@ -162,6 +162,8 @@ final class CompanyPreflightCommand extends Command
     public function buildReport(): array
     {
         // Driver-neutral: Schema::getTables works on SQLite (tests) and MySQL 8.4.
+        /** @var array<string, list<list<string>>> $keysBefore */
+        $keysBefore = [];
         $tables = collect(Schema::getTables())
             ->pluck('name')
             ->map(static fn (mixed $name): string => (string) $name)
@@ -234,7 +236,7 @@ cd backend && ../.tools/php/php.exe artisan company:preflight --json > ../docs/a
 （逐表列出 tenant_id / legal_entity_id）
 
 ## 冲突清单
-（业务键重复、空值、跨法人同键；没有则写 none）
+（系统未上线，旧库将删除重建；此处只记录将被丢弃的现有数据量与来源，不做去重裁定）
 
 ## 授权绑定
 - LEGAL_ENTITY 数量：
@@ -242,7 +244,7 @@ cd backend && ../.tools/php/php.exe artisan company:preflight --json > ../docs/a
 - 受影响的 user/role：
 
 ## 阻断项
-（任何无法判定归属的数据必须列此；有阻断则停止 Task 2）
+（无。用户已裁定删除旧库并全量重建；唯一阻断是迁移脚本无法在 MySQL 8.4 执行）
 ```
 
 - [ ] **Step 6: Commit**
@@ -254,11 +256,10 @@ git commit -m "feat(org): add single-company cutover preflight"
 
 ---
 
-### Task 2: 单公司数据合并与 COMPANY 锚点迁移
+### Task 2: 单公司 schema cutover 与 COMPANY 锚点迁移
 
 **Files:**
 - Create: `backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php`
-- Create: `backend/database/migrations/2026_11_26_000310_merge_single_company_duplicates.php`
 - Create: `backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php`
 - Create: `backend/tests/Feature/Organization/SingleCompanyMigrationTest.php`
 - Modify: `backend/database/migrations/2026_11_26_000050_create_company_profile.php`：**不得修改**；所有变更走新迁移。
@@ -267,6 +268,7 @@ git commit -m "feat(org): add single-company cutover preflight"
 **Interfaces:**
 - Consumes: Task 1 预检报告、`company_profile` 单例、`authority_bindings`。
 - Produces: 可重复演练的 forward 迁移；`LEGAL_ENTITY` → `COMPANY`；旧列删除；唯一索引重建。
+- **数据裁决（用户 2026-11-26）：** 系统尚未上线，不接受为保留旧数据而做去重/合并。迁移只负责把 schema 收敛到单公司；测试库、预发库与真实栈一律删除旧库后用 `migrate:fresh --seed` 全量重建。生产式演练只验证“快照 → 迁移 → 回滚到快照”的机制，不验证旧业务数据保留。
 
 - [ ] **Step 1: 写迁移失败测试**
 
@@ -307,6 +309,20 @@ final class SingleCompanyMigrationTest extends TestCase
     public function test_company_profile_is_singleton(): void
     {
         $this->assertSame(1, DB::table('company_profile')->count());
+    }
+
+    public function test_single_company_business_keys_are_unique(): void
+    {
+        foreach ([['users', 'username'], ['org_units', 'code'], ['employments', 'employee_no']] as [$table, $column]) {
+            $this->assertTrue(
+                Schema::hasIndex($table, [$column], 'unique'),
+                "{$table}.{$column} must be unique after cutover",
+            );
+        }
+
+        DB::table('users')->insert(['username' => 'unique.probe', 'password_hash' => 'x', 'status' => 'ACTIVE', 'auth_version' => 1, 'is_privileged' => false]);
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        DB::table('users')->insert(['username' => 'unique.probe', 'password_hash' => 'x', 'status' => 'ACTIVE', 'auth_version' => 1, 'is_privileged' => false]);
     }
 }
 ```
@@ -358,46 +374,11 @@ return new class extends Migration
 };
 ```
 
-- [ ] **Step 4: 写冲突合并迁移**
+- [ ] **Step 4: 删除旧的冲突合并迁移**
 
-创建 `2026_11_26_000310_merge_single_company_duplicates.php`。迁移必须只处理 Task 1 报告已确认的重复键，不得静默合并：
+系统未上线，用户已裁定删除旧库并全量重建，因此**不创建** `2026_11_26_000310_merge_single_company_duplicates.php`。迁移不得包含 `firstOrCreate`、去重、数据搬运或“冲突即停”的业务逻辑。
 
-```php
-<?php
-
-declare(strict_types=1);
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        if (! Schema::hasTable('company_profile') || DB::table('company_profile')->count() !== 1) {
-            throw new RuntimeException('Single company profile must exist exactly once before merge.');
-        }
-
-        $duplicates = DB::table('org_units')
-            ->select('code', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('code')
-            ->having('aggregate', '>', 1)
-            ->get();
-
-        if ($duplicates->isNotEmpty()) {
-            throw new RuntimeException('Duplicate org unit codes require manual resolution: '.$duplicates->pluck('code')->implode(', '));
-        }
-    }
-
-    public function down(): void
-    {
-        // Forward-only: duplicate resolution is not reversible.
-    }
-};
-```
-
-按预检报告为每个有业务键的表重复该检查；禁止用 `firstOrCreate` 或删除重复行“自动修复”。
+在 `2026_11_26_000300_migrate_legal_entity_bindings_to_company.php` 中保留绑定类型转换，因为它属于 schema/授权语义收敛；若目标库是空库，该迁移自然无行可更新。
 
 - [ ] **Step 5: 写删列与唯一索引重建迁移**
 
@@ -410,54 +391,13 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Single-company business keys. Every legacy unique index whose columns
-     * intersect this list must be replaced by the corresponding key below.
-     *
-     * @var array<string, list<list<string>>>
-     */
-    private const REBUILT_UNIQUES = [
-        'users' => [['username']],
-        'org_units' => [['code']],
-        'positions' => [['code']],
-        'position_grades' => [['code']],
-        'employments' => [['employee_no']],
-        'employment_contracts' => [['contract_no']],
-        'leave_types' => [['code']],
-        'calendar_versions' => [['year']],
-        'holidays' => [['date']],
-        'shift_templates' => [['code', 'version', 'valid_from']],
-        'payroll_items' => [['code']],
-        'payroll_schemes' => [['code', 'version']],
-        'attendance_devices' => [['code']],
-        'attendance_period_closures' => [['month']],
-        'report_definitions' => [['code']],
-        'benefit_plans' => [['code', 'version']],
-        'contract_templates' => [['code', 'version']],
-        'notice_templates' => [['code', 'version']],
-        'travel_policies' => [['city_tier', 'version']],
-        'performance_indicators' => [['code']],
-        'training_plans' => [['code']],
-        'training_courses' => [['code']],
-        'training_exams' => [['code', 'version']],
-        'feature_flags' => [['flag']],
-        'menu_overrides' => [['page_code']],
-        'notification_templates' => [['code']],
-        'iam_scope_templates' => [['template_code']],
-        'iam_field_policies' => [['field_key']],
-        'idempotency_keys' => [['principal_id', 'scope', 'key']],
-        'demo_datasets' => [['dataset']],
-        'attendance_rules' => [['version']],
-        'overtime_requests' => [['employment_id', 'business_date']],
-    ];
-
     public function up(): void
     {
-        // Never hardcode the legacy column list: enumerate the live schema.
         $tables = collect(Schema::getTables())
             ->pluck('name')
             ->map(static fn (mixed $name): string => (string) $name)
@@ -465,16 +405,20 @@ return new class extends Migration
                 || Schema::hasColumn($table, 'legal_entity_id'))
             ->values();
 
-        foreach ($tables as $table) {
-            $this->assertNoDuplicates($table);
+        /** @var array<string, list<list<string>>> $keysBefore */
+        $keysBefore = [];
 
-            // Drop dependent foreign keys first, then non-primary indexes.
+        foreach ($tables as $table) {
+            // Derive the replacement keys BEFORE any index or column is dropped.
+            $keysBefore[$table] = $this->uniqueKeysWithoutLegacyColumns($table);
+
             foreach (Schema::getForeignKeys($table) as $foreign) {
                 $columns = array_map(static fn (mixed $column): string => (string) $column, $foreign['columns']);
                 if (array_intersect($columns, ['tenant_id', 'legal_entity_id']) !== []) {
                     Schema::table($table, static fn (Blueprint $blueprint) => $blueprint->dropForeign($foreign['name']));
                 }
             }
+
             foreach (Schema::getIndexes($table) as $index) {
                 if (($index['primary'] ?? false) === true) {
                     continue; // Never drop the primary key.
@@ -493,8 +437,7 @@ return new class extends Migration
                 }
             });
 
-            // Rebuild the single-company unique keys that the drop removed.
-            foreach (self::REBUILT_UNIQUES[$table] ?? [] as $columns) {
+            foreach ($keysBefore[$table] as $columns) {
                 Schema::table($table, static fn (Blueprint $blueprint) => $blueprint->unique($columns));
             }
         }
@@ -502,21 +445,42 @@ return new class extends Migration
         Schema::dropIfExists('legal_entities');
     }
 
-    private function assertNoDuplicates(string $table): void
+    /**
+     * For each unique index led by tenant_id/legal_entity_id, return the
+     * remaining columns. Deriving from the live schema prevents the map from
+     * drifting and prevents silently dropping a business uniqueness rule.
+     *
+     * @return list<list<string>>
+     */
+    private function uniqueKeysWithoutLegacyColumns(string $table): array
     {
-        foreach (self::REBUILT_UNIQUES[$table] ?? [] as $columns) {
-            $duplicates = \Illuminate\Support\Facades\DB::table($table)
-                ->select($columns)
-                ->selectRaw('COUNT(*) AS aggregate')
-                ->groupBy($columns)
-                ->havingRaw('COUNT(*) > 1')
-                ->limit(5)
-                ->get();
+        $keys = [];
 
-            if ($duplicates->isNotEmpty()) {
-                throw new RuntimeException("Duplicate business key in {$table}(" . implode(',', $columns) . '): ' . $duplicates->toJson());
+        foreach (Schema::getIndexes($table) as $index) {
+            if (($index['unique'] ?? false) !== true || ($index['primary'] ?? false) === true) {
+                continue;
+            }
+
+            $columns = array_values(array_map(
+                static fn (mixed $column): string => (string) $column,
+                $index['columns'],
+            ));
+
+            if (! in_array($columns[0] ?? '', ['tenant_id', 'legal_entity_id'], true)) {
+                continue;
+            }
+
+            $single = array_values(array_filter(
+                $columns,
+                static fn (string $column): bool => ! in_array($column, ['tenant_id', 'legal_entity_id'], true),
+            ));
+
+            if ($single !== [] && ! in_array($single, $keys, true)) {
+                $keys[] = $single;
             }
         }
+
+        return $keys;
     }
 
     public function down(): void
@@ -526,7 +490,7 @@ return new class extends Migration
 };
 ```
 
-若某张表的单公司业务键无法从现有唯一索引推导，必须先在预检报告中列明并由人裁定；**不得用“跳过该表”换取绿灯**。实际删列前必须对新键做重复检查，并在 MySQL 8.4 测试库执行，不得只在 SQLite 验证。
+单公司业务唯一键从现有唯一索引推导，不手写表清单。旧数据将被删除重建，因此迁移不做去重；但重建后必须证明唯一索引存在并能拒绝重复插入。迁移必须在 MySQL 8.4 测试库执行，不得只在 SQLite 验证。
 
 - [ ] **Step 6: 在测试库运行迁移**
 
@@ -538,7 +502,7 @@ cd backend
 ../.tools/php/php.exe artisan test --compact --filter=SingleCompanyMigrationTest
 ```
 
-Expected: 迁移成功；3 tests PASS；`company_profile` 恰好 1 行；旧列与 `legal_entities` 不存在；`users.username`、`org_units.code`、`employments.employee_no` 等单公司唯一索引存在。
+Expected: `migrate:fresh --seed` 成功；4 tests PASS；`company_profile` 恰好 1 行；旧列与 `legal_entities` 不存在；`users.username`、`org_units.code`、`employments.employee_no` 等单公司唯一索引存在。
 
 - [ ] **Step 7: 实现 ADR-0037 承诺的 `single-company:check` 门禁**
 
@@ -566,7 +530,7 @@ node --test scripts/tests/audit_single_company.test.mjs
 
 Expected: 本步结束时真实仓库仍 FAIL（`app/` 尚未清理）；测试自身 PASS。本步只建立门禁，由本册 Task 3/4 清零。
 
-- [ ] **Step 8: 验证迁移可重复与失败即停**
+- [ ] **Step 8: 验证迁移可重复**
 
 Run:
 
@@ -576,12 +540,12 @@ cd backend
 ../.tools/php/php.exe artisan migrate --force
 ```
 
-Expected: 回滚/重跑无异常；冲突数据存在时迁移必须失败并输出表与键，不得成功。
+Expected: 回滚/重跑无异常。数据由 seeder 重建，因此不再验证“冲突即停”。
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php backend/database/migrations/2026_11_26_000310_merge_single_company_duplicates.php backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php backend/tests/Feature/Organization/SingleCompanyMigrationTest.php scripts/audit_single_company.mjs scripts/tests/audit_single_company.test.mjs package.json
+git add backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php backend/tests/Feature/Organization/SingleCompanyMigrationTest.php scripts/audit_single_company.mjs scripts/tests/audit_single_company.test.mjs package.json
 git commit -m "feat(db): cut over to single-company schema"
 ```
 
@@ -776,6 +740,7 @@ Expected: FAIL，列出仍含旧引用的文件。
 
 - 删除所有 `tenant_id`、`legal_entity_id`、`legal_entity_name`、`X-Legal-Entity-Id`。
 - 日历路径移除 `{legal_entity_id}`。
+- `CalendarAdminController::publish` 返回值删除 `legal_entity_id`；`CalendarVersion` schema 删除该必填字段；前端生成类型同步更新。
 - `anchor_type` 枚举删除 `LEGAL_ENTITY`，加入/保留 `COMPANY`。
 - `late_grace_source` 枚举删除 `LEGAL_ENTITY`。
 
@@ -1577,8 +1542,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-PHP_BIN="${PHP_BINARY:-$REPO_ROOT/.tools/php/php.exe}"
-IMAGE_PHP="/var/www/html/backend/artisan"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup="$BACKUP_DIR/pre-single-company-$timestamp.sql"
 mkdir -p "$BACKUP_DIR"
@@ -1587,12 +1550,15 @@ docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$(docker compose -p "$COMPOSE_P
   sh -c "mysqldump -uroot --single-transaction --routines --triggers --set-gtid-purged=OFF $MYSQL_DATABASE" > "$backup"
 [ -s "$backup" ] || { echo "empty backup" >&2; exit 1; }
 
-"$PHP_BIN" "$REPO_ROOT/backend/artisan" company:preflight --json > "$BACKUP_DIR/preflight-$timestamp.json"
-"$PHP_BIN" "$REPO_ROOT/backend/artisan" migrate --force
-"$PHP_BIN" "$REPO_ROOT/backend/artisan" test --compact --filter=SingleCompanyMigrationTest
+# Run artisan inside the php-app container so it uses the compose MySQL DSN,
+# never the host .env SQLite database.
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan company:preflight --json > "$BACKUP_DIR/preflight-$timestamp.json"
+# The system is not live: rebuild the schema and synthetic data from scratch.
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan migrate:fresh --seed --force
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan test --compact --filter=SingleCompanyMigrationTest
 docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$(docker compose -p "$COMPOSE_PROJECT_NAME" ps -q mysql)" \
   mysql -uroot "$MYSQL_DATABASE" < "$backup"
-"$PHP_BIN" "$REPO_ROOT/backend/artisan" company:preflight --json > "$BACKUP_DIR/restored-$timestamp.json"
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan company:preflight --json > "$BACKUP_DIR/restored-$timestamp.json"
 diff -u "$BACKUP_DIR/preflight-$timestamp.json" "$BACKUP_DIR/restored-$timestamp.json"
 echo "single-company rehearsal OK: $timestamp"
 ```
@@ -1611,7 +1577,7 @@ BACKUP_DIR=evidence/single-company \
 bash deploy/scripts/single_company_rehearsal.sh
 ```
 
-Expected: 备份生成；迁移成功；合同测试通过；恢复后预检 JSON 与迁移前一致；脚本输出 `single-company rehearsal OK`。
+Expected: 备份生成；`migrate:fresh --seed` 成功；合同测试通过；恢复快照后数据库可再次查询；脚本输出 `single-company rehearsal OK`。不要求恢复后的行数与迁移前一致（旧数据被有意丢弃）。
 
 - [ ] **Step 3: 运行第 2 册门禁**
 
@@ -1654,8 +1620,8 @@ git commit -m "docs(plan): accept V2.1 volume 2 permissions and cutover"
 ## 第 2 册退出条件
 
 - 单公司 schema 完成：旧列、旧表、旧上下文中间件、旧请求头、旧前端字段零运行引用。
-- `LEGAL_ENTITY` 授权绑定全部迁移为 `COMPANY`；预检冲突均有裁定。
-- 迁移在测试库演练成功，备份可恢复，关键表行数与校验和一致。
+- `LEGAL_ENTITY` 授权绑定全部迁移为 `COMPANY`；旧库删除重建，无需数据裁定。
+- 迁移在 MySQL 8.4 测试库演练成功；快照可恢复；重建后的 schema 无旧列、唯一索引齐全。
 - 所有可写页面有真实动作；动作—能力—API 双向门禁通过。
 - 用户、角色、菜单、数据范围、字段权限五个工作台可操作，保存事务与审计完整。
 - 密码登录主流程无 MFA/验证码前置；关闭 MFA 时管理员、HR、工资专员合法 API 均通过。
