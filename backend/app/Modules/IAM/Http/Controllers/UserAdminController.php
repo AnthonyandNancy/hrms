@@ -14,13 +14,18 @@ use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
+use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\People\Contracts\PeopleEmploymentWriter;
+use App\Modules\People\Contracts\PeopleWorkspaceDirectory;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\AuthorizationSnapshot;
 use App\Shared\Authorization\SodRules;
+use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +41,10 @@ final class UserAdminController
         private readonly SessionManager $sessions,
         private readonly Clock $clock,
         private readonly AuthorizationSnapshot $snapshot,
+        private readonly PeopleDirectory $people,
+        private readonly PeopleWorkspaceDirectory $workspaceProfiles,
+        private readonly PeopleEmploymentWriter $employments,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -43,16 +52,50 @@ final class UserAdminController
         $validated = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'q' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'nullable', 'string', Rule::in(User::STATUS_ACTIVE, User::STATUS_LOCKED, User::STATUS_DISABLED)],
+            'role_code' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'tenant_id' => ['prohibited'],
+            'legal_entity_id' => ['prohibited'],
         ]);
         $page = (int) ($validated['page'] ?? 1);
         $pageSize = (int) ($validated['page_size'] ?? 20);
-        $principal = $this->context->requirePrincipal();
 
         $query = User::query()->orderBy('id');
-        $total = (int) (clone $query)->count();
+
+        $search = isset($validated['q']) ? trim((string) $validated['q']) : '';
+        if ($search !== '') {
+            $term = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
+            $query->where(function ($inner) use ($term): void {
+                $inner->where('username', 'like', $term)
+                    ->orWhere('email', 'like', $term);
+            });
+        }
+
+        if (isset($validated['status'])) {
+            $query->where('status', (string) $validated['status']);
+        }
+
         $now = $this->clock->now();
+        $businessDate = $this->businessDates->today()->value();
+
+        $roleCode = isset($validated['role_code']) ? strtoupper(trim((string) $validated['role_code'])) : '';
+        if ($roleCode !== '') {
+            $query->whereExists(function ($sub) use ($roleCode, $now): void {
+                $sub->selectRaw('1')
+                    ->from('user_roles')
+                    ->whereColumn('user_roles.user_id', 'users.id')
+                    ->where('user_roles.role_code', $roleCode)
+                    ->whereColumn('user_roles.auth_version', 'users.auth_version')
+                    ->where('user_roles.valid_from', '<=', $now)
+                    ->where('user_roles.valid_to', '>', $now);
+            });
+        }
+
+        $total = (int) (clone $query)->count();
         /** @var list<array<string, mixed>> $items */
         $items = [];
+
         foreach ($query->forPage($page, $pageSize)->get() as $user) {
             /** @var list<array{role_code: string, valid_from: string|null, valid_to: string|null}> $roles */
             $roles = [];
@@ -73,15 +116,39 @@ final class UserAdminController
                 ];
             }
 
+            $employmentId = $this->people->employmentForUser((int) $user->id);
+            $binding = null;
+            $displayName = (string) $user->username;
+
+            if ($employmentId !== null) {
+                $snapshot = $this->people->employmentSnapshot($employmentId, $businessDate);
+
+                if ($snapshot !== null) {
+                    $profile = $this->workspaceProfiles->profile($employmentId, $businessDate);
+                    $personName = $profile === null ? null : $profile->personName;
+                    $binding = [
+                        'employment_id' => $snapshot->employmentId,
+                        'employee_no' => $snapshot->employeeNo,
+                        'person_name' => $personName ?? $snapshot->personName,
+                    ];
+                    $displayName = $personName ?? $snapshot->personName ?? $displayName;
+                }
+            }
+
             $items[] = [
                 'id' => (int) $user->id,
                 'username' => $user->username,
+                'display_name' => $displayName,
                 'email' => $user->email,
                 'status' => $user->status,
                 'is_privileged' => (bool) $user->is_privileged,
                 'mfa_enrolled' => $user->hasConfirmedMfa(),
                 'auth_version' => (int) $user->auth_version,
+                'last_login_at' => $user->last_login_at instanceof \Carbon\CarbonInterface
+                    ? $user->last_login_at->toIso8601ZuluString()
+                    : null,
                 'roles' => $roles,
+                'employment_binding' => $binding,
             ];
         }
 
@@ -94,9 +161,18 @@ final class UserAdminController
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:80', 'regex:/^[a-zA-Z0-9._-]+$/'],
             'email' => ['nullable', 'email', 'max:255'],
+            'display_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'password' => ['required', 'string', 'min:12', 'max:1024'],
             'is_privileged' => ['sometimes', 'boolean'],
+            'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:255'],
+            'tenant_id' => ['prohibited'],
+            'legal_entity_id' => ['prohibited'],
         ]);
+
+        // The cutover removed tenant/legal-entity dimensions from the user
+        // workbench. The rules above reject any stale client payload that still
+        // tries to choose a scope instead of silently ignoring it.
 
         $username = mb_strtolower((string) $validated['username']);
 
@@ -104,7 +180,15 @@ final class UserAdminController
             throw new ValidationException(['username' => ['The username has already been taken.']]);
         }
 
-        $user = DB::transaction(function () use ($validated, $username, $principal, $request): User {
+        $employmentId = isset($validated['employment_id']) ? (int) $validated['employment_id'] : null;
+
+        if ($employmentId !== null && ! $this->people->employmentExistsInTenant($employmentId)) {
+            throw new ValidationException(['employment_id' => ['The selected employment does not exist.']]);
+        }
+
+        $displayName = isset($validated['display_name']) ? trim((string) $validated['display_name']) : '';
+
+        $user = DB::transaction(function () use ($validated, $username, $principal, $request, $employmentId, $displayName): User {
             /** @var User $created */
             $created = User::query()->create([
                 'username' => $username,
@@ -115,8 +199,19 @@ final class UserAdminController
                 'is_privileged' => (bool) ($validated['is_privileged'] ?? false),
             ]);
 
+            if ($employmentId !== null) {
+                $this->employments->linkUser(
+                    userId: (int) $created->id,
+                    employmentId: $employmentId,
+                    validFrom: $this->businessDates->today()->value(),
+                    validTo: null,
+                    actorUserId: $principal->userId(),
+                );
+            }
+
             $this->events->record($principal->userId(), 'user.created', 'SUCCESS', [
                 'target_user_id' => (int) $created->id,
+                'reason' => $displayName !== '' ? $displayName : $username,
             ], $request);
 
             return $created;
@@ -125,7 +220,9 @@ final class UserAdminController
         return ApiResponse::created([
             'id' => (int) $user->id,
             'username' => $user->username,
+            'display_name' => $displayName !== '' ? $displayName : $user->username,
             'status' => $user->status,
+            'employment_id' => $employmentId,
         ]);
     }
 
@@ -144,25 +241,33 @@ final class UserAdminController
             throw new NotFoundOrForbiddenException;
         }
 
-        DB::transaction(function () use ($user, $validated, $principal, $request): void {
-            $old = $user->status;
-            $user->forceFill([
+        /** @var array{status: string, auth_version: int} $result */
+        $result = DB::transaction(function () use ($user, $validated, $principal, $request): array {
+            /** @var User $locked */
+            $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $this->assertNotLastActiveAdmin($locked, (string) $validated['status']);
+
+            $old = $locked->status;
+            $locked->forceFill([
                 'status' => (string) $validated['status'],
             ])->save();
 
-            $this->sessions->revokeAllForUser((int) $user->id);
-            $this->snapshot->replay($user, 'user.status.changed');
+            $this->sessions->revokeAllForUser((int) $locked->id);
+            $version = $this->snapshot->replay($locked, 'user.status.changed');
             $this->events->record($principal->userId(), 'user.status.changed', 'SUCCESS', [
-                'target_user_id' => (int) $user->id,
+                'target_user_id' => (int) $locked->id,
                 'reason' => (string) $validated['reason'],
-                'role_code' => $old.'->'.$user->status,
+                'role_code' => $old.'->'.$locked->status,
             ], $request);
+
+            return ['status' => (string) $locked->status, 'auth_version' => $version];
         });
 
         return ApiResponse::ok([
             'id' => (int) $user->id,
-            'status' => $user->status,
-            'auth_version' => (int) $user->auth_version,
+            'status' => $result['status'],
+            'auth_version' => $result['auth_version'],
         ]);
     }
 
@@ -307,6 +412,8 @@ final class UserAdminController
             $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $currentVersion = (int) $user->auth_version;
 
+            $this->assertNotLastAdminRoleRemoval($user, $roleCode);
+
             $deleted = UserRole::query()
                 ->where('user_id', (int) $user->id)
                 ->where('role_code', $roleCode)
@@ -338,6 +445,119 @@ final class UserAdminController
             'role_code' => $roleCode,
             'revoked' => true,
         ]);
+    }
+
+    /**
+     * The single company must retain at least one usable system administrator.
+     * Administrator identity is live authority, not the display-only
+     * `is_privileged` flag: only an ENABLED user holding a COMPANY-scoped
+     * admin capability counts, and disabling the last one is a business
+     * conflict rather than a silent lockout.
+     */
+    private function assertNotLastActiveAdmin(User $user, string $nextStatus): void
+    {
+        if ($nextStatus === User::STATUS_ACTIVE || ! $user->isActive()) {
+            return;
+        }
+
+        $now = $this->clock->now();
+        $adminCapabilities = ['iam.role.manage', 'iam.binding.manage', '*'];
+
+        $heldCapabilities = AuthorityBinding::query()
+            ->where('principal_id', (int) $user->id)
+            ->where('auth_version', (int) $user->auth_version)
+            ->where('anchor_type', AnchorType::COMPANY->value)
+            ->whereNull('anchor_id')
+            ->where('valid_from', '<=', $now)
+            ->where('valid_to', '>', $now)
+            ->whereIn('capability_code', $adminCapabilities)
+            ->exists();
+
+        if (! $heldCapabilities) {
+            return;
+        }
+
+        $otherActiveAdmins = User::query()
+            ->where('status', User::STATUS_ACTIVE)
+            ->whereKeyNot((int) $user->id)
+            ->whereExists(function ($sub) use ($now, $adminCapabilities): void {
+                $sub->selectRaw('1')
+                    ->from('authority_bindings')
+                    ->whereColumn('authority_bindings.principal_id', 'users.id')
+                    ->whereColumn('authority_bindings.auth_version', 'users.auth_version')
+                    ->where('authority_bindings.anchor_type', AnchorType::COMPANY->value)
+                    ->whereNull('authority_bindings.anchor_id')
+                    ->where('authority_bindings.valid_from', '<=', $now)
+                    ->where('authority_bindings.valid_to', '>', $now)
+                    ->whereIn('authority_bindings.capability_code', $adminCapabilities);
+            })
+            ->count();
+
+        if ($otherActiveAdmins === 0) {
+            throw new ConflictException(
+                'The last active administrator cannot be disabled.',
+                ['reason' => 'LAST_ACTIVE_ADMIN'],
+            );
+        }
+    }
+
+    /**
+     * Revoking the only live administrator role from the only enabled
+     * administrator would leave the company with no manageable authority.
+     * The role catalog decides which grants carry admin authority.
+     */
+    private function assertNotLastAdminRoleRemoval(User $user, string $roleCode): void
+    {
+        $grants = RoleCapability::query()
+            ->where('role_code', $roleCode)
+            ->whereIn('capability_code', ['iam.role.manage', 'iam.binding.manage', '*'])
+            ->exists();
+
+        if (! $grants) {
+            return;
+        }
+
+        $now = $this->clock->now();
+        $adminRoleCodes = RoleCapability::query()
+            ->whereIn('capability_code', ['iam.role.manage', 'iam.binding.manage', '*'])
+            ->distinct()
+            ->pluck('role_code')
+            ->map(static fn (mixed $code): string => (string) $code)
+            ->all();
+
+        $remainingAdminRoles = UserRole::query()
+            ->where('user_id', (int) $user->id)
+            ->where('auth_version', (int) $user->auth_version)
+            ->whereIn('role_code', $adminRoleCodes)
+            ->where('valid_from', '<=', $now)
+            ->where('valid_to', '>', $now)
+            ->where('role_code', '!=', $roleCode)
+            ->count();
+
+        if ($remainingAdminRoles > 0) {
+            return;
+        }
+
+        $otherActiveAdmins = User::query()
+            ->where('status', User::STATUS_ACTIVE)
+            ->whereKeyNot((int) $user->id)
+            ->whereExists(function ($sub) use ($now, $adminRoleCodes): void {
+                $sub->selectRaw('1')
+                    ->from('user_roles')
+                    ->whereColumn('user_roles.user_id', 'users.id')
+                    ->whereColumn('user_roles.auth_version', 'users.auth_version')
+                    ->whereIn('user_roles.role_code', $adminRoleCodes)
+                    ->where('user_roles.valid_from', '<=', $now)
+                    ->where('user_roles.valid_to', '>', $now);
+            })
+            ->count();
+
+        if ($otherActiveAdmins === 0) {
+            throw new ConflictException(
+                'The last active administrator role cannot be revoked.',
+                ['reason' => 'LAST_ACTIVE_ADMIN'],
+            );
+        }
     }
 
     /**
