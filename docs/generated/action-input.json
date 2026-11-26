@@ -64,6 +64,66 @@
       "confirm": "none"
     },
     {
+      "pageCode": "system-data-scopes",
+      "key": "system.data.scopes.save",
+      "label": "保存数据范围",
+      "capability": "iam.scope.manage",
+      "api": "PUT /v1/system/data-scopes/{id}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "DataScopePolicyService::upsert"
+      ]
+    },
+    {
+      "pageCode": "system-field-policies",
+      "key": "system.field.policies.save",
+      "label": "保存字段策略",
+      "capability": "iam.field.manage",
+      "api": "PUT /v1/system/field-policies/{field_key}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "FieldPolicyService::update"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.create",
+      "label": "新增菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "POST /v1/system/menus",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::create"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.delete",
+      "label": "删除菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "DELETE /v1/system/menus/{page_code}",
+      "ui": "danger",
+      "confirm": "danger",
+      "services": [
+        "MenuOverrideService::delete"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.update",
+      "label": "编辑菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "PATCH /v1/system/menus/{page_code}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::update"
+      ]
+    },
+    {
       "pageCode": "system-roles",
       "key": "system.roles.create",
       "label": "新增角色",
@@ -74,20 +134,20 @@
     },
     {
       "pageCode": "system-roles",
-      "key": "system.roles.save.capabilities",
-      "label": "保存动作授权",
+      "key": "system.roles.save-authorization",
+      "label": "保存角色授权",
       "capability": "iam.role.manage",
-      "api": "PUT /v1/roles/{id}/capabilities",
+      "api": "PUT /v1/roles/{id}/authorization",
       "ui": "primary",
       "confirm": "none"
     },
     {
       "pageCode": "system-roles",
-      "key": "system.roles.save.field.policy",
-      "label": "保存字段策略",
-      "capability": "iam.field.manage",
-      "api": "PUT /v1/system/field-policies/{field_key}",
-      "ui": "primary",
+      "key": "system.roles.save.capabilities",
+      "label": "保存动作授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/capabilities",
+      "ui": "secondary",
       "confirm": "none"
     },
     {
@@ -96,16 +156,7 @@
       "label": "保存页面授权",
       "capability": "iam.role.manage",
       "api": "PUT /v1/roles/{id}/pages",
-      "ui": "primary",
-      "confirm": "none"
-    },
-    {
-      "pageCode": "system-roles",
-      "key": "system.roles.save.scope",
-      "label": "保存数据范围",
-      "capability": "iam.scope.manage",
-      "api": "PUT /v1/system/data-scopes/{id}",
-      "ui": "primary",
+      "ui": "secondary",
       "confirm": "none"
     },
     {
@@ -134,66 +185,6 @@
       "api": "PATCH /v1/users/{id}",
       "ui": "secondary",
       "confirm": "none"
-    },
-    {
-      "pageCode": "system-menus",
-      "key": "system.menus.create",
-      "label": "新增菜单覆盖",
-      "capability": "iam.menu.manage",
-      "api": "POST /v1/system/menus",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "MenuOverrideService::create"
-      ]
-    },
-    {
-      "pageCode": "system-menus",
-      "key": "system.menus.update",
-      "label": "编辑菜单覆盖",
-      "capability": "iam.menu.manage",
-      "api": "PATCH /v1/system/menus/{page_code}",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "MenuOverrideService::update"
-      ]
-    },
-    {
-      "pageCode": "system-menus",
-      "key": "system.menus.delete",
-      "label": "删除菜单覆盖",
-      "capability": "iam.menu.manage",
-      "api": "DELETE /v1/system/menus/{page_code}",
-      "ui": "danger",
-      "confirm": "danger",
-      "services": [
-        "MenuOverrideService::delete"
-      ]
-    },
-    {
-      "pageCode": "system-data-scopes",
-      "key": "system.data.scopes.save",
-      "label": "保存数据范围",
-      "capability": "iam.scope.manage",
-      "api": "PUT /v1/system/data-scopes/{id}",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "DataScopePolicyService::upsert"
-      ]
-    },
-    {
-      "pageCode": "system-field-policies",
-      "key": "system.field.policies.save",
-      "label": "保存字段策略",
-      "capability": "iam.field.manage",
-      "api": "PUT /v1/system/field-policies/{field_key}",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "FieldPolicyService::update"
-      ]
     }
   ]
 }

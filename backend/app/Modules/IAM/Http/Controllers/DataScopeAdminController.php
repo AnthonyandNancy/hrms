@@ -36,7 +36,7 @@ final class DataScopeAdminController
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules([]),
         ]);
 
         $page = (int) ($data['page'] ?? 1);
@@ -61,17 +61,41 @@ final class DataScopeAdminController
     public function update(Request $request, string $id): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
+
+        $arbitrary = array_values(array_filter(
+            ['predicate', 'sql', 'condition'],
+            static fn (string $field): bool => array_key_exists($field, $request->all()),
+        ));
+
+        if ($arbitrary !== []) {
+            throw new ValidationException(
+                [$arbitrary[0] => ['Arbitrary predicates are not accepted. Select a code-owned scope template instead.']],
+                'The given data was invalid.',
+                ['reason' => 'ARBITRARY_PREDICATE_FORBIDDEN'],
+            );
+        }
+
         $data = $request->validate([
             'label' => ['sometimes', 'string', 'min:1', 'max:120'],
             'anchor_type' => ['sometimes', 'string', 'max:24'],
             'active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
-            ...$this->singleCompanyRules(),
+            'org_unit_ids' => ['sometimes', 'array', 'max:200'],
+            'org_unit_ids.*' => ['integer', 'min:1'],
+            'include_descendants' => ['sometimes', 'boolean'],
+            ...$this->singleCompanyRules(['label', 'anchor_type', 'active', 'sort_order', 'org_unit_ids', 'include_descendants']),
         ]);
 
-        if (array_key_exists('predicate', $request->all()) || array_key_exists('sql', $request->all()) || array_key_exists('condition', $request->all())) {
+        // Arbitrary predicates are refused with a specific reason code before
+        // the whitelist rule turns them into a generic 422.
+        $arbitrary = array_values(array_filter(
+            ['predicate', 'sql', 'condition'],
+            static fn (string $field): bool => array_key_exists($field, $request->all()),
+        ));
+
+        if ($arbitrary !== []) {
             throw new ValidationException(
-                ['predicate' => ['Arbitrary predicates are not accepted. Select a code-owned scope template instead.']],
+                [$arbitrary[0] => ['Arbitrary predicates are not accepted. Select a code-owned scope template instead.']],
                 'The given data was invalid.',
                 ['reason' => 'ARBITRARY_PREDICATE_FORBIDDEN'],
             );
@@ -131,19 +155,23 @@ final class DataScopeAdminController
     }
 
     /**
-     * Single-company deployment: a client must never send a tenant, company or
-     * legal-entity dimension. Reject these parameters instead of silently
-     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     * Single-company deployment: the request BODY is whitelisted, so any field
+     * outside that whitelist is rejected. Query-string parameters are governed
+     * by their own explicit rules above and are never inspected here.
      *
+     * @param  list<string>  $allowed
      * @return array<string, list<string>>
      */
-    private function singleCompanyRules(): array
+    private function singleCompanyRules(array $allowed): array
     {
-        return [
-            'tenant_id' => ['prohibited'],
-            'company_id' => ['prohibited'],
-            'legal_entity_id' => ['prohibited'],
-        ];
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 
     private function definition(): CommandDefinition

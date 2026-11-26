@@ -82,7 +82,7 @@ return [
             'capability' => 'iam.user.read',
             'anchor' => 'COMPANY',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'stale_auth_version', 'field_denied'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'stale_auth_version', 'field_denied'],
         ],
         [
             'method' => 'POST',
@@ -90,7 +90,7 @@ return [
             'capability' => 'iam.user.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'csrf_missing', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'stale_auth_version'],
         ],
         [
             'method' => 'PATCH',
@@ -98,7 +98,7 @@ return [
             'capability' => 'iam.user.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'csrf_missing', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'idor', 'csrf_missing', 'stale_auth_version'],
         ],
         [
             'method' => 'GET',
@@ -130,7 +130,7 @@ return [
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'sod_conflict', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'idor', 'sod_conflict', 'stale_auth_version'],
         ],
         [
             'method' => 'GET',
@@ -138,7 +138,7 @@ return [
             'capability' => 'iam.binding.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'idor', 'stale_auth_version'],
         ],
         [
             'method' => 'POST',
@@ -146,7 +146,7 @@ return [
             'capability' => 'iam.binding.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'sod_conflict', 'invalid_anchor', 'field_profile_over_max', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'idor', 'sod_conflict', 'invalid_anchor', 'field_profile_over_max', 'stale_auth_version'],
         ],
         [
             'method' => 'DELETE',
@@ -154,7 +154,7 @@ return [
             'capability' => 'iam.binding.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'idor', 'stale_auth_version'],
         ],
         [
             'method' => 'GET',
@@ -178,7 +178,7 @@ return [
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'stale_auth_version'],
         ],
         [
             'method' => 'POST',
@@ -186,7 +186,7 @@ return [
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'csrf_missing', 'invalid_capability', 'invalid_anchor', 'field_profile_over_max', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'invalid_capability', 'invalid_anchor', 'field_profile_over_max', 'stale_auth_version'],
         ],
         [
             'method' => 'POST',
@@ -194,7 +194,15 @@ return [
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'csrf_missing', 'idor', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'idor', 'stale_auth_version'],
+        ],
+        [
+            'method' => 'PUT',
+            'path' => '/v1/roles/{id}/authorization',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'critical',
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'idor', 'template_role_immutable', 'invalid_capability', 'page_required_for_action', 'stale_auth_version'],
         ],
         [
             'method' => 'PUT',
@@ -202,15 +210,15 @@ return [
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',
             'risk' => 'critical',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'csrf_missing', 'idor', 'template_role_immutable', 'invalid_capability', 'stale_auth_version'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'idor', 'template_role_immutable', 'invalid_capability', 'stale_auth_version'],
         ],
         [
             'method' => 'GET',
             'path' => '/v1/capabilities',
-            'capability' => 'iam.role.manage',
+            'capability' => 'iam.permission.read',
             'anchor' => 'COMPANY',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor'],
         ],
         [
             'method' => 'GET',
@@ -218,7 +226,7 @@ return [
             'capability' => 'iam.audit.read',
             'anchor' => 'COMPANY',
             'risk' => 'high',
-            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'stale_auth_version', 'field_denied'],
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'stale_auth_version', 'field_denied'],
         ],
         [
             'method' => 'POST',

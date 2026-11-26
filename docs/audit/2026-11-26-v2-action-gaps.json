@@ -913,15 +913,6 @@
       "reason": "Notification administration operation is absent; templates carry notification.template.manage and deliveries carry notification.delivery.manage."
     },
     {
-      "capability": "iam.permission.read",
-      "pages": [
-        "system-permissions"
-      ],
-      "missing": "GET /v1/capabilities is guarded by iam.role.manage; no operation carries iam.permission.read.",
-      "owner": "Volume 3 Task 17",
-      "reason": "GET /v1/capabilities is guarded by iam.role.manage; no operation carries iam.permission.read."
-    },
-    {
       "capability": "system.settings.manage",
       "pages": [
         "system-settings"

@@ -354,3 +354,4 @@
 | 321 | `DELETE` | `/v1/users/{id}/roles/{roleCode}` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 322 | `GET` | `/v1/users/{id}/permissions-preview` | `iam.user.read` | `COMPANY` | kernel | — |
 | 323 | `GET` | `/v1/pages/catalog` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 258 | `PUT` | `/v1/roles/{id}/authorization` | `iam.role.manage` | `COMPANY` | kernel | — |

@@ -6275,6 +6275,36 @@ components:
         code: { type: string, maxLength: 64 }
         name: { type: string, maxLength: 120 }
         purpose: { type: string, minLength: 8, maxLength: 255 }
+    RoleAuthorizationRequest:
+      type: object
+      required: [pages, capabilities]
+      properties:
+        pages:
+          type: array
+          maxItems: 160
+          items:
+            type: string
+        capabilities:
+          type: array
+          maxItems: 64
+          items:
+            type: object
+            required: [capability, anchor_type, field_profile]
+            properties:
+              capability:
+                type: string
+              anchor_type:
+                type: string
+                enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN]
+              field_profile:
+                type: string
+                enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED]
+              page_code:
+                type: string
+                description: Required when the capability is a page action.
+        reason:
+          type: [string, "null"]
+          maxLength: 255
     RoleCapabilitiesRequest:
       type: object
       required: [capabilities]
@@ -7748,7 +7778,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: iam.role.manage
+      x-capability: iam.permission.read
   /v1/cases:
     get:
       operationId: workflowCasesIndex
@@ -16540,6 +16570,64 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
       x-action-label: 保存角色动作权限
+  /v1/roles/{id}/authorization:
+    put:
+      operationId: replaceRoleAuthorization
+      tags:
+        - IAM Administration
+      summary: Save page, action, scope and field authorization atomically
+      description: >
+        One transactional save for the role workbench. Page grants control view
+        access only; action capabilities are granted explicitly and must belong
+        to a granted page. Template roles are code-owned and return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleAuthorizationRequest"
+      responses:
+        "200":
+          description: Authorization replaced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [role, pages]
+                        properties:
+                          role:
+                            $ref: "#/components/schemas/RoleDefinition"
+                          pages:
+                            type: array
+                            items:
+                              type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 保存角色授权
   /v1/roles/{id}/copy:
     post:
       operationId: copyRole

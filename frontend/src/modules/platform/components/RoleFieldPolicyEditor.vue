@@ -12,14 +12,14 @@ export type FieldPolicyCapability = {
   field_profile_max?: string
 }
 
-const PROFILES = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_HIGH_SENSITIVE'] as const
+const PROFILES = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_RESTRICTED'] as const
 type FieldProfile = (typeof PROFILES)[number]
 
 const PROFILE_LABELS: Record<FieldProfile, string> = {
   P0_PUBLIC: 'P0 公开',
   P1_INTERNAL: 'P1 内部',
   P2_SENSITIVE: 'P2 敏感',
-  P3_HIGH_SENSITIVE: 'P3 高敏',
+  P3_RESTRICTED: 'P3 受限',
 }
 
 const props = defineProps<{
@@ -68,7 +68,7 @@ function normalize(value: string): FieldProfile {
   if ((PROFILES as readonly string[]).includes(value)) return value as FieldProfile
   // P3_RESTRICTED predates the Volume 2 decision; render it as the single
   // high-sensitivity profile without writing the legacy spelling.
-  return value === 'P3_RESTRICTED' ? 'P3_HIGH_SENSITIVE' : 'P0_PUBLIC'
+  return value === 'P3_RESTRICTED' ? 'P3_RESTRICTED' : 'P0_PUBLIC'
 }
 
 function ceilingOf(capability: string): FieldProfile {

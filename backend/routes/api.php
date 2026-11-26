@@ -16,6 +16,7 @@ use App\Modules\IAM\Http\Controllers\MenuAdminController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\PermissionPreviewController;
 use App\Modules\IAM\Http\Controllers\RoleAdminController;
+use App\Modules\IAM\Http\Controllers\RoleAuthorizationController;
 use App\Modules\IAM\Http\Controllers\RolePageController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\IAM\Http\Controllers\WorkspaceController;
@@ -123,11 +124,12 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.index');
     Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.store');
     Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.copy');
+    Route::put('/roles/{id}/authorization', [RoleAuthorizationController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.authorization.replace');
     Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.capabilities.replace');
     Route::get('/roles/{id}/pages', [RolePageController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.index');
     Route::get('/pages/catalog', [RolePageController::class, 'catalog'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('pages.catalog');
     Route::put('/roles/{id}/pages', [RolePageController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.replace');
-    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('capabilities.index');
+    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.permission.read,COMPANY'])->name('capabilities.index');
 
     Route::get('/system/menus', [MenuAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.index');
     Route::post('/system/menus', [MenuAdminController::class, 'store'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.store');

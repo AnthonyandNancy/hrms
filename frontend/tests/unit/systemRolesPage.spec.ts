@@ -252,12 +252,12 @@ describe('role authorization workbench', () => {
       },
     })
 
-    await wrapper.get('[data-testid="field-profile-people.employee.read"]').setValue('P3_HIGH_SENSITIVE')
+    await wrapper.get('[data-testid="field-profile-people.employee.read"]').setValue('P3_RESTRICTED')
     expect(wrapper.text()).toContain('超过能力上限')
     expect(wrapper.emitted('update-field-profile')?.[0]?.[0]).toEqual({
       capability: 'people.employee.read',
       field_key: 'people.employee.read',
-      field_profile: 'P3_HIGH_SENSITIVE',
+      field_profile: 'P3_RESTRICTED',
     })
     expect(wrapper.text()).not.toContain('LEGAL_ENTITY')
   })

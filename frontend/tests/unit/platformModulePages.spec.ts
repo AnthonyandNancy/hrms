@@ -45,7 +45,16 @@ const platformRegistryKeys = PAGE_REGISTRY.map((page) => page.componentKey)
 
 // Pages that have a purpose-built module implementation instead of the shared
 // config-driven workspace. They must not regress into the generic shell.
-const DEDICATED_PAGES = new Set(['system/system-users', 'system/system-roles'])
+const DEDICATED_PAGES = new Set([
+  'system/system-users',
+  'system/system-roles',
+  // Volume 2 Task 8 replaced the generic workspace with purpose-built
+  // governance screens; they must not regress into the shared shell.
+  'system/system-menus',
+  'system/system-permissions',
+  'system/system-data-scopes',
+  'system/system-field-policies',
+])
 
 function listResponse(items: unknown[] = []) {
   return { items, page: 1, page_size: 20, total: items.length }

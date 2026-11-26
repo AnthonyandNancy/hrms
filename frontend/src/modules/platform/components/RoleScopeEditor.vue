@@ -120,7 +120,7 @@ function onOrgUnit(grant: ScopeGrant, event: Event): void {
 <template>
   <section class="role-scope-editor" data-testid="role-scope-editor">
     <p class="muted small">
-      每个动作只能使用能力目录声明的数据锚点；单公司部署，不提供租户或法人实体（LEGAL_ENTITY）选项。
+      每个动作只能使用能力目录声明的数据锚点；单公司部署，不提供租户或法人实体维度的锚点选项。
     </p>
 
     <p v-if="props.grants.length === 0" class="empty-inline">尚未选择动作，暂无数据范围可配置。</p>

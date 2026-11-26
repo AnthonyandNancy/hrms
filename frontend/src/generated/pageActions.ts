@@ -224,10 +224,10 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "system-roles",
-      "key": "system.roles.save.capabilities",
-      "label": "保存动作授权",
+      "key": "system.roles.save-authorization",
+      "label": "保存角色授权",
       "capability": "iam.role.manage",
-      "api": "PUT /v1/roles/{id}/capabilities",
+      "api": "PUT /v1/roles/{id}/authorization",
       "ui": "primary",
       "confirm": "none",
       "anchorTypes": [
@@ -237,16 +237,16 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "system-roles",
-      "key": "system.roles.save.field.policy",
-      "label": "保存字段策略",
-      "capability": "iam.field.manage",
-      "api": "PUT /v1/system/field-policies/{field_key}",
-      "ui": "primary",
+      "key": "system.roles.save.capabilities",
+      "label": "保存动作授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/capabilities",
+      "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
         "COMPANY"
       ],
-      "fieldProfileMax": "P2_SENSITIVE"
+      "fieldProfileMax": "P1_INTERNAL"
     },
     {
       "pageCode": "system-roles",
@@ -254,25 +254,12 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "label": "保存页面授权",
       "capability": "iam.role.manage",
       "api": "PUT /v1/roles/{id}/pages",
-      "ui": "primary",
+      "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
         "COMPANY"
       ],
       "fieldProfileMax": "P1_INTERNAL"
-    },
-    {
-      "pageCode": "system-roles",
-      "key": "system.roles.save.scope",
-      "label": "保存数据范围",
-      "capability": "iam.scope.manage",
-      "api": "PUT /v1/system/data-scopes/{id}",
-      "ui": "primary",
-      "confirm": "none",
-      "anchorTypes": [
-        "COMPANY"
-      ],
-      "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
   "system-users": [

@@ -37,7 +37,7 @@ final class MenuAdminController
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'page_code' => ['sometimes', 'nullable', 'string', 'max:120'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules([]),
         ]);
 
         $rows = $this->overrides->overrides();
@@ -73,7 +73,7 @@ final class MenuAdminController
             'label' => ['sometimes', 'nullable', 'string', 'max:160'],
             'visible' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules(['page_code', 'label', 'visible', 'sort_order']),
         ]);
 
         $this->assertKnownPage((string) $data['page_code']);
@@ -110,7 +110,7 @@ final class MenuAdminController
             'label' => ['sometimes', 'nullable', 'string', 'max:160'],
             'visible' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules(['page_code', 'label', 'visible', 'sort_order']),
         ]);
 
         $this->assertKnownPage($pageCode);
@@ -141,7 +141,7 @@ final class MenuAdminController
     public function destroy(Request $request, string $pageCode): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
-        $request->validate($this->singleCompanyRules());
+        $request->validate($this->singleCompanyRules([]));
         $this->assertKnownPage($pageCode);
 
         $result = $this->commands->run(
@@ -164,19 +164,23 @@ final class MenuAdminController
     }
 
     /**
-     * Single-company deployment: a client must never send a tenant, company or
-     * legal-entity dimension. Reject these parameters instead of silently
-     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     * Single-company deployment: the request BODY is whitelisted, so any field
+     * outside that whitelist is rejected. Query-string parameters are governed
+     * by their own explicit rules above and are never inspected here.
      *
+     * @param  list<string>  $allowed
      * @return array<string, list<string>>
      */
-    private function singleCompanyRules(): array
+    private function singleCompanyRules(array $allowed): array
     {
-        return [
-            'tenant_id' => ['prohibited'],
-            'company_id' => ['prohibited'],
-            'legal_entity_id' => ['prohibited'],
-        ];
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 
     private function assertKnownPage(string $pageCode): void

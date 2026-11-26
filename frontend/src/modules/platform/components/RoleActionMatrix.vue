@@ -26,12 +26,12 @@ const ANCHOR_LABELS: Record<string, string> = {
 }
 
 const ANCHOR_ORDER = ['SELF', 'MANAGED', 'ORG_UNIT', 'ORG_SUBTREE', 'COMPANY', 'CASE', 'PAYROLL_RUN']
-const PROFILE_ORDER = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_HIGH_SENSITIVE']
+const PROFILE_ORDER = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_RESTRICTED']
 const PROFILE_LABELS: Record<string, string> = {
   P0_PUBLIC: 'P0 公开',
   P1_INTERNAL: 'P1 内部',
   P2_SENSITIVE: 'P2 敏感',
-  P3_HIGH_SENSITIVE: 'P3 高敏',
+  P3_RESTRICTED: 'P3 受限',
 }
 
 const props = defineProps<{

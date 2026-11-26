@@ -35,7 +35,7 @@ final class FieldPolicyAdminController
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules([]),
         ]);
 
         $page = (int) ($data['page'] ?? 1);
@@ -61,7 +61,7 @@ final class FieldPolicyAdminController
         $principal = $this->context->requirePrincipal();
         $data = $request->validate([
             'field_profile' => ['required', 'string', 'max:24'],
-            ...$this->singleCompanyRules(),
+            ...$this->singleCompanyRules(['field_profile']),
         ]);
 
         if (SensitiveFieldCatalog::declared($fieldKey) === null) {
@@ -116,18 +116,22 @@ final class FieldPolicyAdminController
     }
 
     /**
-     * Single-company deployment: a client must never send a tenant, company or
-     * legal-entity dimension. Reject these parameters instead of silently
-     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     * Single-company deployment: the request BODY is whitelisted, so any field
+     * outside that whitelist is rejected. Query-string parameters are governed
+     * by their own explicit rules above and are never inspected here.
      *
+     * @param  list<string>  $allowed
      * @return array<string, list<string>>
      */
-    private function singleCompanyRules(): array
+    private function singleCompanyRules(array $allowed): array
     {
-        return [
-            'tenant_id' => ['prohibited'],
-            'company_id' => ['prohibited'],
-            'legal_entity_id' => ['prohibited'],
-        ];
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 }

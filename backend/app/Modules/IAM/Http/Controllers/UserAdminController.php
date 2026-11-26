@@ -55,8 +55,7 @@ final class UserAdminController
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
             'status' => ['sometimes', 'nullable', 'string', Rule::in(User::STATUS_ACTIVE, User::STATUS_LOCKED, User::STATUS_DISABLED)],
             'role_code' => ['sometimes', 'nullable', 'string', 'max:64'],
-            'tenant_id' => ['prohibited'],
-            'legal_entity_id' => ['prohibited'],
+            ...$this->scopeFieldRules(['page', 'page_size', 'q', 'status', 'role_code']),
         ]);
         $page = (int) ($validated['page'] ?? 1);
         $pageSize = (int) ($validated['page_size'] ?? 20);
@@ -166,8 +165,10 @@ final class UserAdminController
             'is_privileged' => ['sometimes', 'boolean'],
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:255'],
-            'tenant_id' => ['prohibited'],
-            'legal_entity_id' => ['prohibited'],
+            ...$this->scopeFieldRules([
+                'username', 'email', 'display_name', 'password',
+                'is_privileged', 'employment_id', 'reason',
+            ]),
         ]);
 
         // The cutover removed tenant/legal-entity dimensions from the user
@@ -599,6 +600,27 @@ final class UserAdminController
         }
 
         return $resolved;
+    }
+
+    /**
+     * Single-company deployment: request bodies are whitelisted, so a stale
+     * multi-company client payload is rejected instead of being silently
+     * ignored. Query-string values are excluded from this check because they
+     * are governed by their own rules above.
+     *
+     * @param  list<string>  $allowed
+     * @return array<string, list<string>>
+     */
+    private function scopeFieldRules(array $allowed): array
+    {
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 
     /**

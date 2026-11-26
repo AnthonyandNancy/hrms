@@ -31,7 +31,6 @@ final class ActionManifestParityTest extends TestCase
         'time.travel.manage' => 'Volume 3 Task 11',
         'workflow.template.manage' => 'Volume 3 Task 17',
         'notification.manage' => 'Volume 3 Task 16',
-        'iam.permission.read' => 'Volume 3 Task 17',
         'system.settings.manage' => 'Volume 3 Task 17',
         'notification.read' => 'Volume 3 Task 16',
         'reporting.report.create' => 'Volume 3 Task 16',
