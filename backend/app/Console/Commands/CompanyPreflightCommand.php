@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Organization\Commands;
+namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Organization;
 
-use App\Modules\Organization\Commands\CompanyPreflightCommand;
+use App\Console\Commands\CompanyPreflightCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

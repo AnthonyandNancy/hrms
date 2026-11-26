@@ -42,9 +42,13 @@ describe('V1.1 controlled page registry', () => {
 
   it('covers every of the 17 V1.1 menu groups', () => {
     const groups = new Set(
-      PAGE_REGISTRY.filter((page) => page.layer === 'business').map((page) => page.menu?.group),
+      PAGE_REGISTRY
+        .filter((page) => page.layer === 'business' && page.menu !== null)
+        .map((page) => page.menu?.group),
     )
 
+    // ADR-0035: detail routes are deep links with menu: null and must not
+    // contribute an `undefined` menu group.
     expect(groups.size).toBe(17)
   })
 })
