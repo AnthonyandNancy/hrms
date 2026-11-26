@@ -19,6 +19,7 @@ for one object, and PeopleWorkspace re-introduces cross-module navigation.
 5. Page-internal tabs must share the same object, task and data scope.
 6. Page permission controls entry; action capability controls state changes.
 7. The 160-entry registry is an inventory, not a menu contract.
+8. Page visibility = `role_pages` grant ∧ page required capability, while action execution requires a separately granted action capability + anchor + field profile.
 
 ## Alternatives
 
