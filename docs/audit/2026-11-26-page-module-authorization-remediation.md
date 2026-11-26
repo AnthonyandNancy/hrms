@@ -195,7 +195,7 @@ php -d memory_limit=2G vendor/bin/phpunit --colors=never
 - 因此“代码物理拆分”通过，但“每页独立业务实现”未完全达成；`PlatformWorkspace.vue` 仍约 4,700 行。
 - 已在 gate 中保证页面文件唯一、无 `componentKey`/路由身份 prop，但没有宣称业务逻辑已彻底分页。
 
-### 4.4 真实栈 160 页验收（未取得有效通过证据）
+### 4.4 真实栈 160 页验收（未取得有效通过证据；后续已缩小到单一失败点）
 执行过的命令（两次，均失败）：
 ```bash
 HRMS_DEMO_PASSWORD='Demo!2026Synthetic' \
@@ -210,7 +210,20 @@ bash deploy/scripts/verify_real_stack.sh --base-url http://127.0.0.1:5174
 - PASS：就绪检查、release traceability、post-deploy smoke、MySQL 备份恢复；
 - FAIL：`demo login`（401）、`/v1/me` 401、160 页 registry audit。
 
-**根因：** 当时运行镜像由旧脚本启动，未执行 `iam:seed-demo`，库内只有 `demo.admin`，而验收脚本默认登录 `demo.hr`。已在 `docker_up.sh` 补 `iam:seed-demo` 并提交（`ede26f2` 后被重组）。但**在纠正后的栈上尚未重新完成一次全绿的真实栈验收**，故本报告不将真实栈计为通过。
+**根因与修复进展：**
+1. 首次失败：运行镜像未执行 `iam:seed-demo`，库内只有 `demo.admin`，而验收脚本默认登录 `demo.hr`。
+2. 已修复：`docker_up.sh` 补 `iam:seed-demo/people/talent`，compose 注入 `DEMO_SEED_PASSWORD`，并改为失败即停。
+3. 重跑结果（`evidence/v11-real-stack-20261126T043259Z.log`）：
+   - PASS：readiness、release traceability、post-deploy smoke、demo login、`/v1/me`、未认证 401、MySQL 备份恢复；
+   - FAIL：仅 160 页 registry audit。
+
+**当前唯一失败点：** 浏览器加载 `/login` 后 `#app` 始终为空，无 pageerror，只有一次预期的 `/v1/me` 401；Playwright 在等待 `#login-username` 时 15 分钟超时。已核实：
+   - 主包与 179 个引用 chunk 全部 HTTP 200；
+   - 镜像内确实包含本轮构建（`bootstrap.failed` 文案存在）；
+   - 容器内存充足（13.5 MiB / 15.5 GiB）；
+   - `main.ts` 已加入 bootstrap 失败兜底文案（提交 `7ad52ed`），但没有出现该文案，说明并非捕获到的异常，而更可能是浏览器渲染进程被关闭/主线程阻塞。
+
+**结论：** 真实栈验收仍未通过，本报告不将其计为通过。需在有图形/更长时限的稳定浏览器环境中复现并定位（下一步：抓取 `trace.zip` 或用 `--headed` 运行单页）。
 
 ---
 
