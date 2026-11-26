@@ -46,4 +46,24 @@ final class RolePagesTest extends TestCase
             }
         }
     }
+
+    public function test_every_role_template_can_use_its_own_workspace_and_security_pages(): void
+    {
+        $catalog = new \App\Modules\IAM\Authorization\RoleTemplateCatalog;
+
+        foreach ($catalog->templates() as $template) {
+            $capabilities = array_map(
+                static fn ($grant): string => $grant->capabilityCode,
+                $template->grants,
+            );
+
+            $coversSession = in_array('iam.session.manage', $capabilities, true)
+                || in_array(\App\Shared\Authorization\CapabilityWildcard::WILDCARD, $capabilities, true);
+
+            $this->assertTrue(
+                $coversSession,
+                $template->code.' must grant iam.session.manage (or the wildcard) so /me, /workspace, MFA and sessions resolve',
+            );
+        }
+    }
 }

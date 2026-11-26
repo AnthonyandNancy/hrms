@@ -439,6 +439,28 @@ final class RoleTemplateCatalog
             ]),
         ];
 
+        // Every authenticated principal needs to read its own session, /me
+        // projection and workspace shell, and to manage its own MFA factors and
+        // sessions. Without iam.session.manage the SPA cannot even resolve the
+        // caller, so the role can never reach any of its other pages. SELF is
+        // the narrowest anchor and grants no authority over other users.
+        $templates = array_map(static function (RoleTemplate $template) use ($grant, $self): RoleTemplate {
+            foreach ($template->grants as $existing) {
+                // Wildcard templates already cover every capability; adding a
+                // concrete grant would weaken the auditable "wildcard only"
+                // baseline asserted by CapabilityCatalogTest.
+                if ($existing->capabilityCode === 'iam.session.manage'
+                    || $existing->capabilityCode === CapabilityWildcard::WILDCARD) {
+                    return $template;
+                }
+            }
+
+            return new RoleTemplate($template->code, $template->name, $template->purpose, [
+                ...$template->grants,
+                $grant($template->code, 'iam.session.manage', $self, FieldProfile::P0_PUBLIC),
+            ]);
+        }, $templates);
+
         foreach ($templates as $template) {
             array_map(static function (RoleGrant $grant) use ($template): void {
                 if ($grant->roleCode !== $template->code) {
