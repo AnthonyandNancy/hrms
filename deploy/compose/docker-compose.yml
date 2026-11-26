@@ -28,6 +28,9 @@ x-app-common: &app-common
     # backend/.env, where a developer may have raised it for local E2E runs,
     # silently weakening brute-force protection in a deployed stack.
     IAM_LOGIN_RATE_LIMIT_PER_MINUTE: ${IAM_LOGIN_RATE_LIMIT_PER_MINUTE:-5}
+    # Demo seeding needs the same password as the installer. It is injected
+    # only for demo bring-up and never committed.
+    DEMO_SEED_PASSWORD: ${DEMO_SEED_PASSWORD:-}
     DB_CONNECTION: mysql
     DB_HOST: mysql
     DB_PORT: "3306"
