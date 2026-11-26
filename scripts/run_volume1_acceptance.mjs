@@ -236,6 +236,36 @@ export function buildAcceptanceReport(entries, options = {}) {
     lines.push(`| \`${entry.name}\` | ${entry.exitCode} | ${resultLabel(entry)} | ${outputTail(entry)} |`)
   }
 
+  // Plan-required section: the frozen cross-volume interfaces.
+  lines.push(
+    '',
+    '## 冻结接口',
+    '',
+    '- 页面模型：`frontend/src/shared/navigation/pageModel.ts` 导出 `PageSpec`（含 kind/menu/layer/wave/requiredApis/actions/states/e2e/negativeTests/cluster）、`PageKind`、`PageActionSpec`；`frontend/src/router/registry.ts` 只做类型再导出。',
+    '- 动作清单：`docs/generated/page-actions.json` 为机器契约，`frontend/src/generated/pageActions.ts` 为前端构建输入；`registry.ts` 通过 `actionsForPage()` 读取，禁止第二份手写动作。',
+    '- 生成与门禁：`node scripts/generate_action_manifest.mjs` / `node scripts/audit_action_manifest.mjs`（含再生成一致性校验）。',
+    '- 权限/API 对齐：`ActionManifestParityTest`、`PagePermissionCoverageTest`、`OpenApiActionLabelTest`。',
+    '- 共享 UI：`frontend/src/shared/ui/PageShell.vue`、`FormDialog.vue`、`FormDrawer.vue`、`frontend/src/shared/display/dictionary.ts`。',
+    '- 单公司门禁：`node scripts/audit_single_company.mjs`；预检命令：`php artisan company:preflight --json`。',
+    '',
+  )
+
+  // Plan-required section: known failures and ownership.
+  const red = product.filter((entry) => entry.exitCode !== 0)
+  lines.push('## 已知失败与归属', '')
+  if (red.length === 0) {
+    lines.push('| 失败项 | 证据 | 归属册/任务 | 是否阻断第 2 册 |', '| --- | --- | --- | --- |', '| 无 | — | — | 否 |')
+  } else {
+    lines.push('| 失败项 | 证据 | 归属册/任务 | 是否阻断第 2 册 |', '| --- | --- | --- | --- |')
+    for (const entry of red) {
+      const owner = CARRIED_GATES[entry.name]
+      lines.push(
+        `| \`${entry.name}\` | exit ${entry.exitCode} | ${owner ?? '未归属——阻断'} | ${owner === undefined ? '是' : '否（计划内结转）'} |`,
+      )
+    }
+  }
+  lines.push('')
+
   lines.push('', '## Environment probes', '')
   if (environment.length === 0) {
     lines.push('- None recorded.')

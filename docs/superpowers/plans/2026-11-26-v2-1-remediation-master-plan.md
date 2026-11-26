@@ -26,7 +26,7 @@
 
 | 册 | 计划文件 | 目标 | 主要退出证据 |
 |---|---|---|---|
-| 第 1 册 | `2026-11-26-v2-1-volume-1-decisions-baseline-contracts.md` | 决策、基线、160/140 处置、页面/动作/权限/API/展示契约、失败门禁 | 基线证据、处置表、契约测试、门禁反例失败清单 |
+| 第 1 册 ✅ | `2026-11-26-v2-1-volume-1-decisions-baseline-contracts.md` | 决策、基线、160/140 处置、页面/动作/权限/API/展示契约、失败门禁 | 基线证据、处置表、契约测试、门禁反例失败清单 |
 | 第 2 册 | `2026-11-26-v2-1-volume-2-permissions-company-login.md` | 单公司 cutover、权限闭环、用户/角色/菜单/范围/字段工作台、密码登录 | 迁移演练、备份恢复、五角色矩阵、MFA 关闭 API 证据 |
 | 第 3 册 | `2026-11-26-v2-1-volume-3-employee-domains.md` | 员工样板与全部业务域 | 各域真实读写、字段/范围权限、跨域 E2E、性能基线 |
 | 第 4 册 | `2026-11-26-v2-1-volume-4-platform-release.md` | 平台收敛、真实栈、性能、备份恢复、发布 | 全量门禁、五角色 UAT、回滚演练、最终 GO/NO-GO |
@@ -39,17 +39,40 @@
 
 ### 3.1 页面模型
 
-```ts
-import type { PageSpec as RegistryPageSpec } from '@/router/registry'
+唯一实现位置：`frontend/src/shared/navigation/pageModel.ts`（依赖自由，禁止从
+`@/router/registry` 导入类型，以免形成运行时循环）。`frontend/src/router/registry.ts`
+只做类型再导出并保存 `PAGE_REGISTRY` 数据。
 
+```ts
 export type PageKind = 'workspace' | 'detail' | 'governance' | 'base'
 export type PageMenu = { group: string; label: string; order: number; icon: string } | null
+export type PageState = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
+export type PageLayer = 'business' | 'platform' | 'base'
+export type PageWave = 'base' | 'Wave 2' | 'Wave 3' | 'Wave 4' | 'Wave 5'
+export type ClusterCode = 'K1' | ... | 'K12'
+export type PageActionSpec = {
+  key: string; label: string; capability: string; api: string
+  ui: 'primary' | 'secondary' | 'danger' | 'hidden'
+  confirm?: 'none' | 'danger' | 'sod'
+}
 
-/** Extends the real registry contract; it must never drop layer/wave/requiredApis/actions/states/e2e/negativeTests/cluster. */
-export type PageSpec = RegistryPageSpec & {
+export type PageSpec = {
+  path: string
+  name: string
+  componentKey: string
+  capability: string
+  menu: PageMenu
   kind: PageKind
   primaryObject?: string
   detailOf?: string
+  layer: PageLayer
+  wave: PageWave
+  requiredApis: string[]
+  actions: PageActionSpec[]
+  states: PageState[]
+  e2e: string[]
+  negativeTests: Array<'unauthenticated' | 'no_capability' | 'cross_anchor' | 'field_or_export'>
+  cluster?: ClusterCode
 }
 
 export function validatePageModel(pages: PageSpec[]): { ok: boolean; errors: string[] }

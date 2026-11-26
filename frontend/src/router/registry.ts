@@ -21,6 +21,7 @@ import type {
   PageState,
   PageWave,
 } from '@/shared/navigation/pageModel'
+import { PAGE_ACTIONS } from '@/generated/pageActions'
 
 export type {
   ClusterCode,
@@ -115,22 +116,7 @@ export const PAGE_REGISTRY: PageSpec[] = [
     layer: 'base',
     wave: 'base',
     requiredApis: ['GET /v1/me', 'POST /v1/auth/mfa/totp/enroll', 'POST /v1/auth/mfa/totp/confirm'],
-    actions: [
-      {
-        key: 'account.mfa.enroll',
-        label: '生成 TOTP 密钥',
-        capability: 'iam.session.manage',
-        api: 'POST /v1/auth/mfa/totp/enroll',
-        ui: 'primary',
-      },
-      {
-        key: 'account.mfa.confirm',
-        label: '确认绑定',
-        capability: 'iam.session.manage',
-        api: 'POST /v1/auth/mfa/totp/confirm',
-        ui: 'primary',
-      },
-    ],
+    actions: actionsForPage('account-mfa'),
     states: [...REQUIRED_STATES],
     e2e: ['base-mfa'],
     negativeTests: [...REQUIRED_NEGATIVE_TESTS],
@@ -145,16 +131,7 @@ export const PAGE_REGISTRY: PageSpec[] = [
     layer: 'base',
     wave: 'base',
     requiredApis: ['GET /v1/me', 'POST /v1/auth/logout-all'],
-    actions: [
-      {
-        key: 'account.sessions.revoke-all',
-        label: '注销全部会话',
-        capability: 'iam.session.manage',
-        api: 'POST /v1/auth/logout-all',
-        ui: 'danger',
-        confirm: 'danger',
-      },
-    ],
+    actions: actionsForPage('account-sessions'),
     states: [...REQUIRED_STATES],
     e2e: ['base-sessions'],
     negativeTests: [...REQUIRED_NEGATIVE_TESTS],
@@ -176,9 +153,9 @@ export const PAGE_REGISTRY: PageSpec[] = [
   {cluster: 'K12', path: '/reports/builder', name: 'reports-builder', componentKey: 'reports/builder', kind: 'workspace', primaryObject: 'report', capability: 'reporting.export', menu: { group: '报表中心', label: '自定义报表', order: 13, icon: 'Document' }, layer: 'business', wave: 'Wave 5', requiredApis: ['GET /v1/reporting/definitions'], actions: [], states: [...REQUIRED_STATES], e2e: ['13-reports-builder'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K12', path: '/reports/subscriptions', name: 'reports-subscriptions', componentKey: 'reports/subscriptions', kind: 'workspace', primaryObject: 'report', capability: 'reporting.export', menu: { group: '报表中心', label: '报表订阅', order: 14, icon: 'Document' }, layer: 'business', wave: 'Wave 5', requiredApis: ['GET /v1/reporting/definitions'], actions: [], states: [...REQUIRED_STATES], e2e: ['14-reports-subscriptions'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K12', path: '/reports/exports', name: 'reports-exports', componentKey: 'reports/exports', kind: 'workspace', primaryObject: 'report', capability: 'reporting.export', menu: { group: '报表中心', label: '导出任务', order: 15, icon: 'Document' }, layer: 'business', wave: 'Wave 5', requiredApis: ['GET /v1/reporting/definitions'], actions: [], states: [...REQUIRED_STATES], e2e: ['15-reports-exports'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
-  {path: '/hr/employees', name: 'hr-employees', componentKey: 'hr/employees/index', kind: 'workspace', primaryObject: 'employee', capability: 'people.employee.read', menu: { group: '员工档案', label: '员工列表', order: 16, icon: 'User' }, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['16-hr-employees'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
+  {path: '/hr/employees', name: 'hr-employees', componentKey: 'hr/employees/index', kind: 'workspace', primaryObject: 'employee', capability: 'people.employee.read', menu: { group: '员工档案', label: '员工列表', order: 16, icon: 'User' }, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees', 'POST /v1/employments'], actions: actionsForPage('hr-employees'), states: [...REQUIRED_STATES], e2e: ['16-hr-employees'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {path: '/hr/employees/create', name: 'hr-employees-create', componentKey: 'hr/employees/create', kind: 'workspace', primaryObject: 'employee', capability: 'people.employee.read', menu: { group: '员工档案', label: '新增员工', order: 17, icon: 'User' }, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['17-hr-employees-create'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
-  {path: '/hr/employees/:id', name: 'employee-detail', componentKey: 'hr/employees/by-id', kind: 'detail', primaryObject: 'employee', detailOf: 'hr-employees', capability: 'people.employee.read', menu: null, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['18-employee-detail'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
+  {path: '/hr/employees/:id', name: 'employee-detail', componentKey: 'hr/employees/by-id', kind: 'detail', primaryObject: 'employee', detailOf: 'hr-employees', capability: 'people.employee.read', menu: null, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees', 'POST /v1/employments/{employment_id}/assignments', 'DELETE /v1/employees/{employment_id}', 'POST /v1/employees/{employment_id}/restore'], actions: actionsForPage('employee-detail'), states: [...REQUIRED_STATES], e2e: ['18-employee-detail'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {path: '/hr/employees/:id/education', name: 'hr-employees-by-id-education', componentKey: 'hr/employees/by-id/education', kind: 'detail', primaryObject: 'employee', detailOf: 'hr-employees', capability: 'people.employee.read', menu: null, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['19-hr-employees-by-id-education'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {path: '/hr/employees/:id/work-history', name: 'hr-employees-by-id-work-history', componentKey: 'hr/employees/by-id/work-history', kind: 'detail', primaryObject: 'employee', detailOf: 'hr-employees', capability: 'people.employee.read', menu: null, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['20-hr-employees-by-id-work-history'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {path: '/hr/employees/:id/contacts', name: 'hr-employees-by-id-contacts', componentKey: 'hr/employees/by-id/contacts', kind: 'detail', primaryObject: 'employee', detailOf: 'hr-employees', capability: 'people.employee.read', menu: null, layer: 'business', wave: 'Wave 2', requiredApis: ['GET /v1/employees'], actions: [], states: [...REQUIRED_STATES], e2e: ['21-hr-employees-by-id-contacts'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
@@ -302,8 +279,8 @@ export const PAGE_REGISTRY: PageSpec[] = [
   {cluster: 'K11', path: '/notices/templates', name: 'notices-templates', componentKey: 'notices/templates', kind: 'workspace', primaryObject: 'notice', capability: 'engagement.notice.read', menu: { group: '公告通知', label: '公告模板', order: 139, icon: 'Bell' }, layer: 'business', wave: 'Wave 5', requiredApis: ['GET /v1/engagement/notices'], actions: [], states: [...REQUIRED_STATES], e2e: ['139-notices-templates'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K11', path: '/notices/archive', name: 'notices-archive', componentKey: 'notices/archive', kind: 'workspace', primaryObject: 'notice', capability: 'engagement.notice.read', menu: { group: '公告通知', label: '公告归档', order: 140, icon: 'Bell' }, layer: 'business', wave: 'Wave 5', requiredApis: ['GET /v1/engagement/notices'], actions: [], states: [...REQUIRED_STATES], e2e: ['140-notices-archive'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {path: '/account', name: 'account', componentKey: 'account', kind: 'governance', capability: 'iam.session.manage', menu: { group: '系统管理', label: '登录与账号安全', order: 101, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-1'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
-  {path: '/system/users', name: 'system-users', componentKey: 'system/system-users', kind: 'governance', primaryObject: 'user', capability: 'iam.user.read', menu: { group: '系统管理', label: '用户管理', order: 102, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-2'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
-  {cluster: 'K11', path: '/system/roles', name: 'system-roles', componentKey: 'system/system-roles', kind: 'governance', primaryObject: 'role', capability: 'iam.role.manage', menu: { group: '系统管理', label: '角色管理', order: 103, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-3'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
+  {path: '/system/users', name: 'system-users', componentKey: 'system/system-users', kind: 'governance', primaryObject: 'user', capability: 'iam.user.read', menu: { group: '系统管理', label: '用户管理', order: 102, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions', 'POST /v1/users', 'PATCH /v1/users/{id}', 'GET /v1/users/{id}/bindings', 'GET /v1/users/{id}/permissions-preview', 'POST /v1/users/{id}/roles'], actions: actionsForPage('system-users'), states: [...REQUIRED_STATES], e2e: ['platform-03B-2'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
+  {cluster: 'K11', path: '/system/roles', name: 'system-roles', componentKey: 'system/system-roles', kind: 'governance', primaryObject: 'role', capability: 'iam.role.manage', menu: { group: '系统管理', label: '角色管理', order: 103, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions', 'GET /v1/roles', 'GET /v1/capabilities', 'POST /v1/roles', 'PUT /v1/roles/{id}/pages', 'PUT /v1/roles/{id}/capabilities', 'PUT /v1/system/data-scopes/{id}', 'PUT /v1/system/field-policies/{field_key}'], actions: actionsForPage('system-roles'), states: [...REQUIRED_STATES], e2e: ['platform-03B-3'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K11', path: '/system/menus', name: 'system-menus', componentKey: 'system/system-menus', kind: 'governance', primaryObject: 'menu', capability: 'iam.menu.manage', menu: { group: '系统管理', label: '菜单/页面管理', order: 104, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-4'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K11', path: '/system/permissions', name: 'system-permissions', componentKey: 'system/system-permissions', kind: 'governance', primaryObject: 'permission', capability: 'iam.permission.read', menu: { group: '系统管理', label: '操作权限配置', order: 105, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-5'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
   {cluster: 'K11', path: '/system/data-scopes', name: 'system-data-scopes', componentKey: 'system/system-data-scopes', kind: 'governance', primaryObject: 'data-scope', capability: 'iam.scope.manage', menu: { group: '系统管理', label: '数据范围权限', order: 106, icon: 'Lock' }, layer: 'platform', wave: 'Wave 5', requiredApis: ['GET /v1/me/permissions'], actions: [], states: [...REQUIRED_STATES], e2e: ['platform-03B-6'], negativeTests: [...REQUIRED_NEGATIVE_TESTS],},
@@ -334,3 +311,11 @@ export function pagesForCapability(capability: string): PageSpec[] {
 export const findPage = pageByName
 export const pagesByCluster = pagesInCluster
 export const pagesByCapability = pagesForCapability
+
+/**
+ * Frozen action accessor (ADR-0036). Actions come only from the generated
+ * manifest; PAGE_REGISTRY must never carry a second hand-written copy.
+ */
+export function actionsForPage(pageCode: string) {
+  return PAGE_ACTIONS[pageCode] ?? []
+}

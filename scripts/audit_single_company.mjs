@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 export const FORBIDDEN = /tenant_id|legal_entity_id|LEGAL_ENTITY|X-Legal-Entity-Id|activeLegalEntityId/
 
 export const PREFLIGHT_FILE =
-  'backend/app/Modules/Organization/Commands/CompanyPreflightCommand.php'
+  'backend/app/Console/Commands/CompanyPreflightCommand.php'
 
 export const PREFLIGHT_MARKER = '// single-company:preflight-only'
 

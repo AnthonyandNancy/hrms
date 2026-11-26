@@ -12,6 +12,7 @@
 
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { buildActionManifest, renderPageActionsTs, serializeManifestJson } from './generate_action_manifest.mjs'
 import { fileURLToPath } from 'node:url'
 import {
   ACTION_CONFIRM,
@@ -342,12 +343,17 @@ function auditLegacyFixture({
 
 function main() {
   let result
+  let pages
+  let openapiDocument
+  let catalogEntries
+  let manifestDocument
+  let gapDocument
   try {
-    const pages = parseRegistryPages(read('frontend/src/router/registry.ts'))
-    const openapiDocument = parseOpenApi(read('docs/openapi/openapi.yaml'))
-    const catalogEntries = parseCapabilityCatalog(read('backend/app/Modules/IAM/Authorization/CapabilityCatalog.php'))
-    const manifestDocument = readJson('docs/generated/page-actions.json')
-    const gapDocument = readJson('docs/audit/2026-11-26-v2-action-gaps.json')
+    pages = parseRegistryPages(read('frontend/src/router/registry.ts'))
+    openapiDocument = parseOpenApi(read('docs/openapi/openapi.yaml'))
+    catalogEntries = parseCapabilityCatalog(read('backend/app/Modules/IAM/Authorization/CapabilityCatalog.php'))
+    manifestDocument = readJson('docs/generated/page-actions.json')
+    gapDocument = readJson('docs/audit/2026-11-26-v2-action-gaps.json')
     if (!Array.isArray(gapDocument.gaps)) throw new Error('gap document must contain a gaps array')
 
     result = auditActionManifest({
@@ -380,6 +386,38 @@ function main() {
   const generatedTs = read('frontend/src/generated/pageActions.ts')
   if (!generatedJson.endsWith('\n') || !generatedTs.endsWith('\n')) {
     console.error('actions:check FAIL: generated files must end with a newline')
+    process.exitCode = 1
+    return
+  }
+
+  // Freshness: the committed artifacts must be exactly what the generator
+  // produces now. This is what makes the manifest a single source of truth
+  // rather than a file someone can hand-edit.
+  let expectedJson
+  let expectedTs
+  try {
+    const manifest = buildActionManifest({
+      pages,
+      catalog: catalogEntries,
+      openapi: openapiDocument,
+      actions: readJson('docs/generated/action-input.json').actions,
+      gaps: gapDocument.gaps,
+    })
+    expectedJson = serializeManifestJson(manifest)
+    expectedTs = renderPageActionsTs(manifest)
+  } catch (error) {
+    console.error(`actions:check FAIL: regeneration failed: ${error.message}`)
+    process.exitCode = 1
+    return
+  }
+
+  if (expectedJson !== generatedJson) {
+    console.error('actions:check FAIL: docs/generated/page-actions.json is stale; run node scripts/generate_action_manifest.mjs')
+    process.exitCode = 1
+    return
+  }
+  if (expectedTs !== generatedTs) {
+    console.error('actions:check FAIL: frontend/src/generated/pageActions.ts is stale; run node scripts/generate_action_manifest.mjs')
     process.exitCode = 1
   }
 }

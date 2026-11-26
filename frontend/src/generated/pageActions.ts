@@ -45,7 +45,7 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
   "account-sessions": [
     {
       "pageCode": "account-sessions",
-      "key": "account.sessions.revoke-all",
+      "key": "account.sessions.revoke.all",
       "label": "退出全部会话",
       "capability": "iam.session.manage",
       "api": "POST /v1/auth/logout-all",
@@ -55,6 +55,182 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "SELF"
       ],
       "fieldProfileMax": "P0_PUBLIC"
+    }
+  ],
+  "employee-detail": [
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.archive",
+      "label": "归档员工",
+      "capability": "people.employee.archive",
+      "api": "DELETE /v1/employees/{employment_id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.assign",
+      "label": "调整任职",
+      "capability": "people.assignment.manage",
+      "api": "POST /v1/employments/{employment_id}/assignments",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.restore",
+      "label": "恢复员工",
+      "capability": "people.employee.restore",
+      "api": "POST /v1/employees/{employment_id}/restore",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "hr-employees": [
+    {
+      "pageCode": "hr-employees",
+      "key": "hr.employees.create.employment",
+      "label": "新建任职",
+      "capability": "people.employee.manage",
+      "api": "POST /v1/employments",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "system-roles": [
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.create",
+      "label": "新增角色",
+      "capability": "iam.role.manage",
+      "api": "POST /v1/roles",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.capabilities",
+      "label": "保存动作授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/capabilities",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.field.policy",
+      "label": "保存字段策略",
+      "capability": "iam.field.manage",
+      "api": "PUT /v1/system/field-policies/{field_key}",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.pages",
+      "label": "保存页面授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/pages",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.scope",
+      "label": "保存数据范围",
+      "capability": "iam.scope.manage",
+      "api": "PUT /v1/system/data-scopes/{id}",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "system-users": [
+    {
+      "pageCode": "system-users",
+      "key": "system.users.assign.role",
+      "label": "分配角色",
+      "capability": "iam.role.manage",
+      "api": "POST /v1/users/{id}/roles",
+      "ui": "primary",
+      "confirm": "sod",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-users",
+      "key": "system.users.create",
+      "label": "新增用户",
+      "capability": "iam.user.manage",
+      "api": "POST /v1/users",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-users",
+      "key": "system.users.update",
+      "label": "编辑用户",
+      "capability": "iam.user.manage",
+      "api": "PATCH /v1/users/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
     }
   ]
 }

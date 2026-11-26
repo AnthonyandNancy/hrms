@@ -14,7 +14,7 @@ final class NoTenantNoLegalEntityTest extends TestCase
 {
     private const FORBIDDEN = '/tenant_id|legal_entity_id|LEGAL_ENTITY|X-Legal-Entity-Id|activeLegalEntityId/';
 
-    private const PREFLIGHT_FILE = 'backend/app/Modules/Organization/Commands/CompanyPreflightCommand.php';
+    private const PREFLIGHT_FILE = 'backend/app/Console/Commands/CompanyPreflightCommand.php';
 
     private const PREFLIGHT_MARKER = '// single-company:preflight-only';
 

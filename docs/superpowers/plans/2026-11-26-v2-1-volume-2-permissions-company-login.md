@@ -53,7 +53,7 @@ Task 12 单公司迁移演练、恢复与第 2 册验收
 ### Task 1: 单公司迁移预检与冲突报告
 
 **Files:**
-- Create: `backend/app/Modules/Organization/Commands/CompanyPreflightCommand.php`
+- Create: `backend/app/Console/Commands/CompanyPreflightCommand.php`
 - Create: `backend/tests/Feature/Organization/SingleCompanyPreflightTest.php`
 - Create: `docs/audit/2026-11-26-single-company-preflight.md`
 - Modify: `backend/bootstrap/app.php`
@@ -94,7 +94,7 @@ final class SingleCompanyPreflightTest extends TestCase
 
     public function test_report_is_driver_neutral_and_lists_every_legacy_column(): void
     {
-        $report = (new \App\Modules\Organization\Commands\CompanyPreflightCommand)->buildReport();
+        $report = (new \App\Console\Commands\CompanyPreflightCommand)->buildReport();
 
         $this->assertContains($report['connection'], ['sqlite', 'mysql']);
         $this->assertArrayHasKey('tables', $report);
@@ -121,7 +121,7 @@ Expected: FAIL，`Command "company:preflight" is not defined.`
 
 - [ ] **Step 3: 实现预检命令**
 
-创建 `backend/app/Modules/Organization/Commands/CompanyPreflightCommand.php`：
+创建 `backend/app/Console/Commands/CompanyPreflightCommand.php`：
 
 ```php
 <?php
@@ -250,7 +250,7 @@ cd backend && ../.tools/php/php.exe artisan company:preflight --json > ../docs/a
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/app/Modules/Organization/Commands/CompanyPreflightCommand.php backend/bootstrap/app.php backend/tests/Feature/Organization/SingleCompanyPreflightTest.php backend/tests/Contract/NoTenantNoLegalEntityTest.php docs/audit/2026-11-26-single-company-preflight.json docs/audit/2026-11-26-single-company-preflight.md
+git add backend/app/Console/Commands/CompanyPreflightCommand.php backend/bootstrap/app.php backend/tests/Feature/Organization/SingleCompanyPreflightTest.php backend/tests/Contract/NoTenantNoLegalEntityTest.php docs/audit/2026-11-26-single-company-preflight.json docs/audit/2026-11-26-single-company-preflight.md
 git commit -m "feat(org): add single-company cutover preflight"
 ```
 

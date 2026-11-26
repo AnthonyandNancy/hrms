@@ -30,11 +30,6 @@
       "owner": "Volume 3 Task 4"
     },
     {
-      "api": "DELETE /v1/employees/{employment_id}",
-      "reason": "DELETE /v1/employees/{employment_id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 1.",
-      "owner": "Volume 3 Task 1"
-    },
-    {
       "api": "DELETE /v1/employment-contracts/{id}",
       "reason": "DELETE /v1/employment-contracts/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
       "owner": "Volume 3 Task 8"
@@ -108,11 +103,6 @@
       "api": "PATCH /v1/system/menus/{page_code}",
       "reason": "PATCH /v1/system/menus/{page_code} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
       "owner": "Volume 2 Task 8"
-    },
-    {
-      "api": "PATCH /v1/users/{id}",
-      "reason": "PATCH /v1/users/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 6.",
-      "owner": "Volume 2 Task 6"
     },
     {
       "api": "POST /v1/auth/break-glass",
@@ -210,11 +200,6 @@
       "owner": "Volume 3 Task 17"
     },
     {
-      "api": "POST /v1/employees/{employment_id}/restore",
-      "reason": "POST /v1/employees/{employment_id}/restore has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 1.",
-      "owner": "Volume 3 Task 1"
-    },
-    {
       "api": "POST /v1/employees/{employmentId}/certificates",
       "reason": "POST /v1/employees/{employmentId}/certificates has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
       "owner": "Volume 3 Task 4"
@@ -263,16 +248,6 @@
       "api": "POST /v1/employment-contracts/{id}/terminate",
       "reason": "POST /v1/employment-contracts/{id}/terminate has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
       "owner": "Volume 3 Task 8"
-    },
-    {
-      "api": "POST /v1/employments",
-      "reason": "POST /v1/employments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 1.",
-      "owner": "Volume 3 Task 1"
-    },
-    {
-      "api": "POST /v1/employments/{employment_id}/assignments",
-      "reason": "POST /v1/employments/{employment_id}/assignments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 1.",
-      "owner": "Volume 3 Task 1"
     },
     {
       "api": "POST /v1/employments/{employment_id}/document-files",
@@ -655,11 +630,6 @@
       "owner": "Volume 3 Task 16"
     },
     {
-      "api": "POST /v1/roles",
-      "reason": "POST /v1/roles has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
-      "owner": "Volume 2 Task 7"
-    },
-    {
       "api": "POST /v1/roles/{id}/copy",
       "reason": "POST /v1/roles/{id}/copy has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
       "owner": "Volume 2 Task 7"
@@ -815,19 +785,9 @@
       "owner": "Volume 3 Task 11"
     },
     {
-      "api": "POST /v1/users",
-      "reason": "POST /v1/users has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 6.",
-      "owner": "Volume 2 Task 6"
-    },
-    {
       "api": "POST /v1/users/{id}/bindings",
       "reason": "POST /v1/users/{id}/bindings has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 6.",
       "owner": "Volume 2 Task 6"
-    },
-    {
-      "api": "POST /v1/users/{id}/roles",
-      "reason": "POST /v1/users/{id}/roles has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
-      "owner": "Volume 2 Task 7"
     },
     {
       "api": "POST /v1/workflow/templates",
@@ -838,26 +798,6 @@
       "api": "PUT /v1/platform/features/{flag}",
       "reason": "PUT /v1/platform/features/{flag} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "PUT /v1/roles/{id}/capabilities",
-      "reason": "PUT /v1/roles/{id}/capabilities has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
-      "owner": "Volume 2 Task 7"
-    },
-    {
-      "api": "PUT /v1/roles/{id}/pages",
-      "reason": "PUT /v1/roles/{id}/pages has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
-      "owner": "Volume 2 Task 7"
-    },
-    {
-      "api": "PUT /v1/system/data-scopes/{id}",
-      "reason": "PUT /v1/system/data-scopes/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
-      "owner": "Volume 2 Task 8"
-    },
-    {
-      "api": "PUT /v1/system/field-policies/{field_key}",
-      "reason": "PUT /v1/system/field-policies/{field_key} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
-      "owner": "Volume 2 Task 8"
     },
     {
       "api": "PUT /v1/system/parameters",
