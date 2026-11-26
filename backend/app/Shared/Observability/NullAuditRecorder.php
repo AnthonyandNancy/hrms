@@ -11,7 +11,6 @@ namespace App\Shared\Observability;
 final class NullAuditRecorder implements AuditRecorder
 {
     public function record(
-        int $tenantId,
         ?int $actorUserId,
         string $action,
         string $aggregateType,

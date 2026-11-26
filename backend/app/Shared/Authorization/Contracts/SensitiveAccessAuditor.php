@@ -15,12 +15,11 @@ interface SensitiveAccessAuditor
      * @param  array<string, mixed>  $context
      */
     public function record(
-        int $tenantId,
         int $userId,
+        string $capabilityCode,
         string $resourceType,
-        string $resourceId,
-        string $capability,
-        array $fields,
+        ?int $resourceId = null,
+        array $fields = [],
         array $context = [],
     ): void;
 }

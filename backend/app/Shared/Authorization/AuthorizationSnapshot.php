@@ -45,7 +45,6 @@ final class AuthorizationSnapshot
             $locked->forceFill(['auth_version' => $toVersion])->save();
 
             $this->audit->record(
-                tenantId: (int) $locked->tenant_id,
                 actorUserId: (int) $locked->id,
                 action: 'authorization.snapshot.replayed',
                 aggregateType: 'user',
@@ -66,7 +65,6 @@ final class AuthorizationSnapshot
         $now = $this->clock->now();
 
         AuthorityBinding::query()
-            ->where('tenant_id', (int) $user->tenant_id)
             ->where('principal_id', (int) $user->id)
             ->where('auth_version', $fromVersion)
             ->where('valid_from', '<=', $now)
@@ -85,7 +83,6 @@ final class AuthorizationSnapshot
         $now = $this->clock->now();
 
         UserRole::query()
-            ->where('tenant_id', (int) $user->tenant_id)
             ->where('user_id', (int) $user->id)
             ->where('auth_version', $fromVersion)
             ->where('valid_from', '<=', $now)

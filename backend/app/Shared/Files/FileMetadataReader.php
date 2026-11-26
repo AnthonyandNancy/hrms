@@ -10,5 +10,5 @@ namespace App\Shared\Files;
  */
 interface FileMetadataReader
 {
-    public function metadata(int $tenantId, int $fileObjectId): ?FileMetadata;
+    public function metadata(int $fileObjectId): ?FileMetadata;
 }

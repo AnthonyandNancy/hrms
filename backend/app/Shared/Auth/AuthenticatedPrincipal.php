@@ -12,6 +12,4 @@ namespace App\Shared\Auth;
 interface AuthenticatedPrincipal
 {
     public function userId(): int;
-
-    public function tenantId(): int;
 }

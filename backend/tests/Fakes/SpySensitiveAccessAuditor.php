@@ -12,20 +12,18 @@ final class SpySensitiveAccessAuditor implements SensitiveAccessAuditor
     public array $records = [];
 
     public function record(
-        int $tenantId,
         int $userId,
+        string $capabilityCode,
         string $resourceType,
-        string $resourceId,
-        string $capability,
-        array $fields,
+        ?int $resourceId = null,
+        array $fields = [],
         array $context = [],
     ): void {
         $this->records[] = [
-            'tenant_id' => $tenantId,
             'user_id' => $userId,
+            'capability' => $capabilityCode,
             'resource_type' => $resourceType,
             'resource_id' => $resourceId,
-            'capability' => $capability,
             'fields' => $fields,
             'context' => $context,
         ];

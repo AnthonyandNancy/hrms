@@ -10,7 +10,7 @@ namespace App\Shared\Authorization\Contracts;
  */
 interface AccessSubjectStateDirectory
 {
-    public function currentAuthVersion(int $tenantId, int $userId): ?int;
+    public function currentAuthVersion(int $userId): int;
 
-    public function isEnabled(int $tenantId, int $userId): bool;
+    public function isEnabled(int $userId): bool;
 }

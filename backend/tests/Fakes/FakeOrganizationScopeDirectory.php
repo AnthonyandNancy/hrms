@@ -8,40 +8,27 @@ use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 
 final class FakeOrganizationScopeDirectory implements OrganizationScopeDirectory
 {
-    /** @var array<int, int> */
-    public array $legalEntityByUnit = [];
+    /** @var array<int, true> */
+    public array $knownUnits = [];
 
     /** @var array<int, list<int>> */
     public array $descendants = [];
 
     /** @var array<int, list<int>> */
-    public array $unitsByLegalEntity = [];
+    public array $ancestors = [];
 
-    /** @var list<int> */
-    public array $knownLegalEntities = [];
-
-    public function isUnitInTenant(int $tenantId, int $orgUnitId, string $businessDate): bool
+    public function orgUnitExists(int $orgUnitId): bool
     {
-        return isset($this->legalEntityByUnit[$orgUnitId]);
+        return isset($this->knownUnits[$orgUnitId]);
     }
 
-    public function legalEntityForUnit(int $tenantId, int $orgUnitId, string $businessDate): ?int
+    public function orgUnitAncestors(int $orgUnitId): array
     {
-        return $this->legalEntityByUnit[$orgUnitId] ?? null;
+        return $this->ancestors[$orgUnitId] ?? [$orgUnitId];
     }
 
-    public function descendantUnitIds(int $tenantId, int $orgUnitId, string $businessDate): array
+    public function descendantOrgUnitIds(int $orgUnitId): array
     {
         return $this->descendants[$orgUnitId] ?? [$orgUnitId];
-    }
-
-    public function unitIdsForLegalEntity(int $tenantId, int $legalEntityId, string $businessDate): array
-    {
-        return $this->unitsByLegalEntity[$legalEntityId] ?? [];
-    }
-
-    public function legalEntityExists(int $tenantId, int $legalEntityId): bool
-    {
-        return in_array($legalEntityId, $this->knownLegalEntities, true);
     }
 }

@@ -12,7 +12,6 @@ final class BindingGrant
 {
     public function __construct(
         public readonly int $id,
-        public readonly int $tenantId,
         public readonly int $principalId,
         public readonly string $capabilityCode,
         public readonly AnchorType $anchorType,

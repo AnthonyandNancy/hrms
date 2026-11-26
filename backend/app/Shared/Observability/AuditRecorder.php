@@ -16,7 +16,6 @@ interface AuditRecorder
      * @param  array<string, mixed>  $metadata
      */
     public function record(
-        int $tenantId,
         ?int $actorUserId,
         string $action,
         string $aggregateType,

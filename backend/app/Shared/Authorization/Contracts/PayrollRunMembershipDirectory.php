@@ -14,17 +14,12 @@ interface PayrollRunMembershipDirectory
      * Whether the user participates in the run in a role compatible with the
      * requested capability.
      */
-    public function isMember(int $tenantId, int $userId, int $payrollRunId, string $capabilityCode): bool;
+    public function isMember(int $userId, int $payrollRunId, string $capabilityCode): bool;
 
     /**
      * Payroll runs the user may touch on the business date.
      *
      * @return list<int>
      */
-    public function runIdsForUser(int $tenantId, int $userId, string $businessDate): array;
-
-    /**
-     * Legal entity owning a payroll run.
-     */
-    public function legalEntityForRun(int $tenantId, int $payrollRunId): ?int;
+    public function runIdsForUser(int $userId, string $businessDate): array;
 }

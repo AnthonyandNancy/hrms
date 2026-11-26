@@ -19,7 +19,7 @@ interface AnchorResolver
     public function allows(Principal $principal, string $capability, int $anchorId, string $businessDate): bool;
 
     /**
-     * Add a tenant-safe predicate selecting rows visible through the anchor.
+     * Add a row predicate selecting rows visible through the anchor.
      *
      * @param  Builder<\Illuminate\Database\Eloquent\Model>  $query
      */

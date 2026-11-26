@@ -14,22 +14,14 @@ final class FakePayrollRunMembershipDirectory implements PayrollRunMembershipDir
     /** @var array<int, list<string>> map run => capability codes */
     public array $memberships = [];
 
-    public function isMember(int $tenantId, int $userId, int $payrollRunId, string $capabilityCode): bool
+    public function isMember(int $userId, int $payrollRunId, string $capabilityCode): bool
     {
         return in_array($capabilityCode, $this->memberships[$payrollRunId] ?? [], true)
             && in_array($payrollRunId, $this->runsByUser[$userId] ?? [], true);
     }
 
-    public function runIdsForUser(int $tenantId, int $userId, string $businessDate): array
+    public function runIdsForUser(int $userId, string $businessDate): array
     {
         return $this->runsByUser[$userId] ?? [];
-    }
-
-    /** @var array<int, int> */
-    public array $runEntity = [];
-
-    public function legalEntityForRun(int $tenantId, int $payrollRunId): ?int
-    {
-        return $this->runEntity[$payrollRunId] ?? null;
     }
 }
