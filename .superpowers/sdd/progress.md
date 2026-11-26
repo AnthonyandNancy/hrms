@@ -181,3 +181,10 @@ Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 wi
 - Evidence-honesty scare resolved: NoTenantNoLegalEntityTest appeared red only when invoked from the MAIN checkout (two Composer autoloaders). Run inside the worktree backend/: OK (4 tests, 6 assertions). Acceptance doc now states the required run context (commit 4a77ace) and both migration assertion counts (327 SQLite / 639 MySQL).
 - Carried into Volume 3 (not blockers): payroll run anchor mismatch (V3 T12), LINE_MANAGER MANAGED vs ORG_UNIT (V3 T2/T5), 403-vs-404 out-of-scope disclosure (V3 T3).
 - Volume 2 CLOSED. Next: Volume 3 (18 tasks), starting with Task 1 (atomic employee onboarding) then the domain workspaces.
+
+## Volume 3 implementation (as of 2026-11-27 05:10)
+- Tasks 1-17 implemented (18 remains: cross-domain acceptance).
+- Backend at 1246 tests / 58,423 assertions OK; frontend 66 files / 544 tests OK; typecheck+lint+pint+phpstan+capability:audit+arch:test+openapi-lint+openapi:validate+actions:check all PASS.
+- Registry 162 pages (1 new payroll run detail, 1 new workflow case detail, 7 form routes pending conversion to actions by the page-model gate fix).
+- Real defects fixed along the way: PAYROLL_SPECIALIST run scope (listRuns now membership-filtered), role rename/delete endpoints, department write endpoints, 4 recruitment write routes, contract transaction moved out of the controller (arch rule), 8 page actions registered with their required APIs.
+- Three product gates still red at start of cleanup: page_model 12, ui_primitives 49, user_copy 32 -> three parallel agents assigned.
