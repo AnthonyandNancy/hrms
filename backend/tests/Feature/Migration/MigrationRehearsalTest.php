@@ -24,7 +24,6 @@ class MigrationRehearsalTest extends TestCase
         $this->artisan('migrate:rehearsal', [
             '--round' => 1,
             '--dataset' => 'demo',
-            '--tenant' => 1,
             '--output' => $output,
         ])->assertSuccessful();
 

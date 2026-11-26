@@ -15,7 +15,7 @@ final class NotificationOutbox extends Model
     protected $table = 'notification_outbox';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'event_key', 'template_code', 'recipient_user_id', 'payload_json', 'status'];
+    protected $fillable = ['event_key', 'template_code', 'recipient_user_id', 'payload_json', 'status'];
 
     /**
      * @return array<string, string>
@@ -23,7 +23,6 @@ final class NotificationOutbox extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recipient_user_id' => 'integer',
             'payload_json' => 'array',
         ];

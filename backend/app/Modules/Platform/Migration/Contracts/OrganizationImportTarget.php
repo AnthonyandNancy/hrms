@@ -13,5 +13,5 @@ use App\Modules\Platform\Migration\Dto\TargetWriteResult;
  */
 interface OrganizationImportTarget
 {
-    public function applyOrganization(MigrationRow $row, int $tenantId, int $runId): TargetWriteResult;
+    public function applyOrganization(MigrationRow $row, int $runId): TargetWriteResult;
 }

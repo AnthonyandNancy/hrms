@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $dataset
  * @property string $status
  * @property string $mode
@@ -23,7 +22,6 @@ final class DemoDataset extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'dataset',
         'status',
         'mode',

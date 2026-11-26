@@ -12,7 +12,6 @@ class SetFeatureFlagCommand extends Command
     protected $signature = 'feature:set
         {flag : Feature flag name}
         {state : on|off}
-        {--tenant=1 : Tenant id}
         {--reason= : Change reason (at least 8 characters)}
         {--actor= : Acting user id for the audit record}';
 
@@ -42,15 +41,13 @@ class SetFeatureFlagCommand extends Command
             return self::INVALID;
         }
 
-        $tenantId = (int) $this->option('tenant');
         $actor = $this->option('actor');
-        $flags->set($flag, $tenantId, $state === 'on', $actor === null ? null : (int) $actor, $reason);
+        $flags->set($flag, $state === 'on', $actor === null ? null : (int) $actor, $reason);
 
         $this->line(sprintf(
-            'PASS: feature:set %s=%s tenant=%d audited=yes',
+            'PASS: feature:set %s=%s audited=yes',
             $flag,
-            $flags->enabled($flag, $tenantId) ? 'on' : 'off',
-            $tenantId,
+            $flags->enabled($flag) ? 'on' : 'off',
         ));
 
         return self::SUCCESS;

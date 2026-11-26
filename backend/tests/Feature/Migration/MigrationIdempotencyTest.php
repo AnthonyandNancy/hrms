@@ -24,10 +24,10 @@ class MigrationIdempotencyTest extends TestCase
         $file = $this->fixture('people.csv');
         $mapping = $this->mappingFile();
 
-        $first = $runner->apply(MigrationDomain::PEOPLE, 1, $file, [$mapping], MigrationRunMode::APPLY);
+        $first = $runner->apply(MigrationDomain::PEOPLE, $file, [$mapping], MigrationRunMode::APPLY);
         $countAfterFirst = count($target->rows);
 
-        $second = $runner->apply(MigrationDomain::PEOPLE, 1, $file, [$mapping], MigrationRunMode::APPLY);
+        $second = $runner->apply(MigrationDomain::PEOPLE, $file, [$mapping], MigrationRunMode::APPLY);
 
         $this->assertSame(MigrationRunStatus::APPLIED, $first->status);
         $this->assertSame(MigrationRunStatus::APPLIED, $second->status);
@@ -45,7 +45,7 @@ class MigrationIdempotencyTest extends TestCase
         $file = $this->fixture('organizations.csv');
         $mapping = $this->mappingFile();
 
-        $run = $runner->apply(MigrationDomain::ORGANIZATIONS, 1, $file, [$mapping], MigrationRunMode::DRY_RUN);
+        $run = $runner->apply(MigrationDomain::ORGANIZATIONS, $file, [$mapping], MigrationRunMode::DRY_RUN);
 
         $this->assertSame(MigrationRunStatus::VALIDATED, $run->status);
         $this->assertSame([], $targets[MigrationDomain::ORGANIZATIONS->value]->rows);

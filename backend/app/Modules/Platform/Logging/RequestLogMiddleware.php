@@ -40,7 +40,6 @@ final class RequestLogMiddleware
         $durationMs = (hrtime(true) - $started) / 1_000_000;
         $context = [
             'request_id' => RequestContext::requestId(),
-            'tenant_id' => RequestContext::tenantId(),
             'user_id' => RequestContext::userId(),
             'route' => $request->route()?->getName() ?? '/'.$request->path(),
             'method' => $request->method(),

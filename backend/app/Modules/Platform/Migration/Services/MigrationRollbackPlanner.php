@@ -29,7 +29,7 @@ final class MigrationRollbackPlanner
 
         $usedShadow = ($run->report_json['target'] ?? null) === 'SHADOW';
         $target = $this->targets->target($run->domain, allowShadow: true, preferShadow: $usedShadow);
-        $statements = $target->rollbackStatements($run->tenant_id, (int) $run->id);
+        $statements = $target->rollbackStatements((int) $run->id);
 
         $issued = StagingRow::forDomain($run->domain)
             ->newQuery()
@@ -42,7 +42,6 @@ final class MigrationRollbackPlanner
             'plan_version' => '1',
             'generated_at' => CarbonImmutable::now('UTC')->toIso8601ZuluString(),
             'run_id' => (int) $run->id,
-            'tenant_id' => $run->tenant_id,
             'domain' => $run->domain->value,
             'status' => $run->status->value,
             'target_rows' => $issued,
@@ -52,7 +51,7 @@ final class MigrationRollbackPlanner
             'irreversible' => $this->irreversibleNote($run),
             'preconditions' => [
                 'Take a database snapshot or PITR marker before executing any statement.',
-                'Stop writes for the legal entity and set risky feature flags off.',
+                'Stop writes for the company and set risky feature flags off.',
                 'Two-person approval recorded in the incident/cutover log.',
                 'Reconcile the inverse against source data before restoring legacy routing.',
             ],

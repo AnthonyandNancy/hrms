@@ -26,7 +26,6 @@ final class AuditEvent extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'actor_user_id',
         'actor_type',
         'action',

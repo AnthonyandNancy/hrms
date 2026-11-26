@@ -19,7 +19,6 @@ final class RetentionPurgeRun extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'retention_class',
         'mode',
         'status',

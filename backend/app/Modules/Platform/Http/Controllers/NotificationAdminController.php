@@ -9,7 +9,6 @@ use App\Modules\Platform\Models\NotificationOutbox;
 use App\Modules\Platform\Models\NotificationTemplate;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
-use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
@@ -18,8 +17,8 @@ use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
+use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,22 +27,19 @@ use Illuminate\Http\Request;
  * Notification templates, outbox dispatch and delivery retry.
  *
  * Dispatch is idempotent at two levels: the command ledger replays an
- * identical request, and the unique (tenant, event_key) outbox constraint
- * collapses different Idempotency-Keys for the same business event.
+ * identical request, and the unique event_key outbox constraint collapses
+ * different Idempotency-Keys for the same business event.
  */
 final class NotificationAdminController
 {
     public function __construct(
-        private readonly PrincipalResolver $principals,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly TenantBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
     public function templates(Request $request): JsonResponse
     {
-        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
@@ -51,7 +47,7 @@ final class NotificationAdminController
 
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $query = NotificationTemplate::query()->where('tenant_id', $tenantId);
+        $query = NotificationTemplate::query();
         $total = (clone $query)->count();
         $items = $query->orderBy('code')->forPage($page, $pageSize)->get()
             ->map(fn (NotificationTemplate $template): array => $this->templateRow($template))
@@ -62,7 +58,7 @@ final class NotificationAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($tenantId)->value(),
+            asOf: BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(Clock::class))->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -84,9 +80,7 @@ final class NotificationAdminController
             definition: $this->definition('notification.template.create', 'notification.template.created'),
             payload: $data,
             operation: function () use ($data): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 $exists = NotificationTemplate::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('code', (string) $data['code'])
                     ->exists();
 
@@ -96,7 +90,6 @@ final class NotificationAdminController
 
                 /** @var NotificationTemplate $template */
                 $template = NotificationTemplate::query()->create([
-                    'tenant_id' => $tenantId,
                     'code' => (string) $data['code'],
                     'channel' => (string) $data['channel'],
                     'subject' => (string) $data['subject'],
@@ -139,17 +132,15 @@ final class NotificationAdminController
             definition: $this->definition('notification.delivery.dispatch', 'notification.delivery.dispatched'),
             payload: $payload,
             operation: function () use ($payload): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var NotificationTemplate|null $template */
                 $template = NotificationTemplate::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('code', $payload['template_code'])
                     ->where('active', true)
                     ->first();
 
                 if ($template === null) {
                     throw new ValidationException(
-                        ['template_code' => ['The template is not active for this tenant.']],
+                        ['template_code' => ['The template is not active.']],
                         'The given data was invalid.',
                         ['reason' => 'UNKNOWN_NOTIFICATION_TEMPLATE'],
                     );
@@ -157,18 +148,16 @@ final class NotificationAdminController
 
                 /** @var NotificationOutbox|null $already */
                 $already = NotificationOutbox::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('event_key', $payload['event_key'])
                     ->first();
 
                 if ($already !== null) {
-                    return $this->existingOutboxResult($tenantId, $already, $payload);
+                    return $this->existingOutboxResult($already, $payload);
                 }
 
                 try {
                     /** @var NotificationOutbox $outbox */
                     $outbox = NotificationOutbox::query()->create([
-                        'tenant_id' => $tenantId,
                         'event_key' => $payload['event_key'],
                         'template_code' => (string) $template->code,
                         'recipient_user_id' => $payload['recipient_user_id'],
@@ -178,7 +167,6 @@ final class NotificationAdminController
                 } catch (UniqueConstraintViolationException) {
                     /** @var NotificationOutbox|null $existing */
                     $existing = NotificationOutbox::query()
-                        ->where('tenant_id', $tenantId)
                         ->where('event_key', $payload['event_key'])
                         ->first();
 
@@ -186,12 +174,11 @@ final class NotificationAdminController
                         throw new ConflictException('The notification event is already being dispatched.', ['reason' => 'NOTIFICATION_EVENT_IN_FLIGHT']);
                     }
 
-                    return $this->existingOutboxResult($tenantId, $existing, $payload);
+                    return $this->existingOutboxResult($existing, $payload);
                 }
 
                 /** @var NotificationDelivery $delivery */
                 $delivery = NotificationDelivery::query()->create([
-                    'tenant_id' => $tenantId,
                     'notification_outbox_id' => (int) $outbox->id,
                     'template_code' => (string) $template->code,
                     'recipient_user_id' => $payload['recipient_user_id'],
@@ -207,7 +194,6 @@ final class NotificationAdminController
                 // owns in-app notification rows and is notified through the
                 // shared outbox contract.
                 app(\App\Shared\Observability\OutboxRecorder::class)->record(
-                    tenantId: $tenantId,
                     eventType: 'platform.notification.delivery.sent',
                     aggregateType: 'notification_delivery',
                     aggregateId: (string) $delivery->id,
@@ -235,7 +221,6 @@ final class NotificationAdminController
 
     public function deliveries(Request $request): JsonResponse
     {
-        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'status' => ['sometimes', 'nullable', 'string', 'in:PENDING,SENT,FAILED'],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -244,7 +229,7 @@ final class NotificationAdminController
 
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $query = NotificationDelivery::query()->where('tenant_id', $tenantId);
+        $query = NotificationDelivery::query();
 
         if (isset($data['status'])) {
             $query->where('status', (string) $data['status']);
@@ -260,7 +245,7 @@ final class NotificationAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($tenantId)->value(),
+            asOf: BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(Clock::class))->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -275,10 +260,8 @@ final class NotificationAdminController
             definition: $this->definition('notification.delivery.retry', 'notification.delivery.retried'),
             payload: ['delivery_id' => $id],
             operation: function () use ($id): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var NotificationDelivery|null $delivery */
                 $delivery = NotificationDelivery::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey($id)
                     ->lockForUpdate()
                     ->first();
@@ -321,7 +304,7 @@ final class NotificationAdminController
      * @param  array{event_key: string, template_code: string, recipient_user_id: int, variables: array<string, mixed>}  $payload
      * @return array{http_status: int, body: array<string, mixed>, resource_type: string, resource_id: string}
      */
-    private function existingOutboxResult(int $tenantId, NotificationOutbox $existing, array $payload): array
+    private function existingOutboxResult(NotificationOutbox $existing, array $payload): array
     {
         $sameRecipient = (int) $existing->recipient_user_id === $payload['recipient_user_id'];
         $sameTemplate = (string) $existing->template_code === $payload['template_code'];
@@ -335,7 +318,6 @@ final class NotificationAdminController
         }
 
         $delivery = NotificationDelivery::query()
-            ->where('tenant_id', $tenantId)
             ->where('notification_outbox_id', (int) $existing->id)
             ->firstOrFail();
 

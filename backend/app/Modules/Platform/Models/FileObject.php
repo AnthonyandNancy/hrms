@@ -20,7 +20,6 @@ final class FileObject extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'storage_key',
         'sha256',
         'original_name',

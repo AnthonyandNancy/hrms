@@ -30,7 +30,7 @@ enum MigrationDomain: string
 
     /**
      * Dependencies enforced before validation and apply. A domain may only be
-     * applied when the earlier domains have a successful run for the tenant.
+     * applied when the earlier domains have a successful instance-wide run.
      *
      * @return list<self>
      */

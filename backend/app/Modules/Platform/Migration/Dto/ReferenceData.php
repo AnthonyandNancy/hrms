@@ -13,13 +13,11 @@ final class ReferenceData
     /**
      * @param  array<string, true>  $organizationCodes
      * @param  array<string, true>  $employeeNumbers
-     * @param  array<string, true>  $legalEntityCodes
      * @param  array<string, true>  $leaveTypes
      */
     public function __construct(
         public readonly array $organizationCodes = [],
         public readonly array $employeeNumbers = [],
-        public readonly array $legalEntityCodes = [],
         public readonly array $leaveTypes = [],
     ) {}
 
@@ -39,7 +37,6 @@ final class ReferenceData
 
         $organizationCodes = [];
         $employeeNumbers = [];
-        $legalEntities = [];
         $leaveTypes = [];
 
         $organizations = $reader->read($fixtureDirectory.'/organizations.csv');
@@ -48,10 +45,6 @@ final class ReferenceData
             if ($code !== '') {
                 $organizationCodes[$code] = true;
             }
-            $legalEntity = trim($row->values['legal_entity_code'] ?? '');
-            if ($legalEntity !== '') {
-                $legalEntities[$legalEntity] = true;
-            }
         }
 
         $people = $reader->read($fixtureDirectory.'/people.csv');
@@ -59,10 +52,6 @@ final class ReferenceData
             $employeeNo = trim($row->values['employee_no'] ?? '');
             if ($employeeNo !== '') {
                 $employeeNumbers[$employeeNo] = true;
-            }
-            $legalEntity = trim($row->values['legal_entity_code'] ?? '');
-            if ($legalEntity !== '') {
-                $legalEntities[$legalEntity] = true;
             }
         }
 
@@ -74,14 +63,10 @@ final class ReferenceData
             }
         }
 
-        if ($legalEntities === []) {
-            $legalEntities['DEMO-CN'] = true;
-        }
-
         if ($leaveTypes === []) {
             $leaveTypes = ['ANNUAL' => true, 'SICK' => true, 'PERSONAL' => true];
         }
 
-        return new self($organizationCodes, $employeeNumbers, $legalEntities, $leaveTypes);
+        return new self($organizationCodes, $employeeNumbers, $leaveTypes);
     }
 }

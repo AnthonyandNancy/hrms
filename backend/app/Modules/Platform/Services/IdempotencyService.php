@@ -27,7 +27,6 @@ final class IdempotencyService implements IdempotencyRunner
      * @param  Closure(): array{http_status: int, body: array<string, mixed>, resource_type?: string, resource_id?: string}  $operation
      */
     public function run(
-        int $tenantId,
         int $principalId,
         string $scope,
         string $key,
@@ -35,7 +34,7 @@ final class IdempotencyService implements IdempotencyRunner
         Closure $operation,
     ): IdempotentResult {
         $hash = $this->hash($payload);
-        $existing = $this->find($tenantId, $principalId, $scope, $key);
+        $existing = $this->find($principalId, $scope, $key);
 
         if ($existing !== null) {
             $replay = $this->resume($existing, $hash);
@@ -47,7 +46,6 @@ final class IdempotencyService implements IdempotencyRunner
 
         try {
             $record = IdempotencyKey::query()->create([
-                'tenant_id' => $tenantId,
                 'principal_id' => $principalId,
                 'scope' => $scope,
                 'key' => $key,
@@ -58,7 +56,7 @@ final class IdempotencyService implements IdempotencyRunner
             ]);
         } catch (UniqueConstraintViolationException) {
             // Another process raced us. Its reservation is authoritative.
-            $record = $this->find($tenantId, $principalId, $scope, $key);
+            $record = $this->find($principalId, $scope, $key);
 
             if ($record === null) {
                 throw new ConflictException(
@@ -140,10 +138,9 @@ final class IdempotencyService implements IdempotencyRunner
         }
     }
 
-    private function find(int $tenantId, int $principalId, string $scope, string $key): ?IdempotencyKey
+    private function find(int $principalId, string $scope, string $key): ?IdempotencyKey
     {
         return IdempotencyKey::query()
-            ->where('tenant_id', $tenantId)
             ->where('principal_id', $principalId)
             ->where('scope', $scope)
             ->where('key', $key)

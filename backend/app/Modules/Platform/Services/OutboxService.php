@@ -38,7 +38,6 @@ final class OutboxService
      * @param  array<string, mixed>  $payload
      */
     public function record(
-        int $tenantId,
         string $eventType,
         string $aggregateType,
         string $aggregateId,
@@ -55,7 +54,6 @@ final class OutboxService
         $now = CarbonImmutable::now('UTC');
 
         return OutboxEvent::query()->create([
-            'tenant_id' => $tenantId,
             'event_type' => $eventType,
             'aggregate_type' => $aggregateType,
             'aggregate_id' => $aggregateId,

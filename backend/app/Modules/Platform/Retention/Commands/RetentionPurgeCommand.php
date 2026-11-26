@@ -14,7 +14,6 @@ class RetentionPurgeCommand extends Command
 {
     protected $signature = 'retention:purge
         {--class= : Retention class}
-        {--tenant=1 : Tenant id}
         {--as-of= : Evaluate expiry at this date (YYYY-MM-DD)}
         {--confirm : Execute the purge; without this the command is a dry-run}
         {--json : Print JSON}';
@@ -52,7 +51,6 @@ class RetentionPurgeCommand extends Command
         try {
             $result = $retention->purge(
                 $class,
-                (int) $this->option('tenant'),
                 $asOf,
                 (bool) $this->option('confirm'),
             );

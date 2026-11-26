@@ -25,7 +25,6 @@ class IdempotencyServiceTest extends TestCase
         };
 
         $first = $service->run(
-            tenantId: 1,
             principalId: 7,
             scope: 'POST:/v1/leave-cases',
             key: 'idem-key-0001',
@@ -33,7 +32,6 @@ class IdempotencyServiceTest extends TestCase
             operation: $operation,
         );
         $replay = $service->run(
-            tenantId: 1,
             principalId: 7,
             scope: 'POST:/v1/leave-cases',
             key: 'idem-key-0001',
@@ -52,14 +50,14 @@ class IdempotencyServiceTest extends TestCase
     public function test_same_key_with_different_payload_is_a_conflict(): void
     {
         $service = app(IdempotencyService::class);
-        $service->run(1, 7, 'POST:/v1/leave-cases', 'idem-key-0002', ['days' => 1], fn (): array => [
+        $service->run(7, 'POST:/v1/leave-cases', 'idem-key-0002', ['days' => 1], fn (): array => [
             'http_status' => 201,
             'body' => [],
         ]);
 
         $this->expectException(ConflictException::class);
 
-        $service->run(1, 7, 'POST:/v1/leave-cases', 'idem-key-0002', ['days' => 2], fn (): array => [
+        $service->run(7, 'POST:/v1/leave-cases', 'idem-key-0002', ['days' => 2], fn (): array => [
             'http_status' => 201,
             'body' => [],
         ]);
@@ -71,7 +69,7 @@ class IdempotencyServiceTest extends TestCase
         $executions = 0;
 
         try {
-            $service->run(1, 7, 'POST:/v1/leave-cases', 'idem-key-0003', ['days' => 1], function () use (&$executions): array {
+            $service->run(7, 'POST:/v1/leave-cases', 'idem-key-0003', ['days' => 1], function () use (&$executions): array {
                 $executions++;
                 throw new \RuntimeException('operation failed');
             });
@@ -82,7 +80,7 @@ class IdempotencyServiceTest extends TestCase
 
         $this->assertSame(0, IdempotencyKey::query()->count());
 
-        $result = $service->run(1, 7, 'POST:/v1/leave-cases', 'idem-key-0003', ['days' => 1], function () use (&$executions): array {
+        $result = $service->run(7, 'POST:/v1/leave-cases', 'idem-key-0003', ['days' => 1], function () use (&$executions): array {
             $executions++;
 
             return ['http_status' => 201, 'body' => ['ok' => true]];
@@ -96,7 +94,6 @@ class IdempotencyServiceTest extends TestCase
     public function test_in_progress_key_returns_conflict_instead_of_running_twice(): void
     {
         IdempotencyKey::query()->create([
-            'tenant_id' => 1,
             'principal_id' => 7,
             'scope' => 'POST:/v1/leave-cases',
             'key' => 'idem-key-0004',
@@ -109,7 +106,7 @@ class IdempotencyServiceTest extends TestCase
         $executions = 0;
 
         try {
-            app(IdempotencyService::class)->run(1, 7, 'POST:/v1/leave-cases', 'idem-key-0004', ['days' => 1], function () use (&$executions): array {
+            app(IdempotencyService::class)->run(7, 'POST:/v1/leave-cases', 'idem-key-0004', ['days' => 1], function () use (&$executions): array {
                 $executions++;
 
                 return ['http_status' => 201, 'body' => []];
@@ -123,7 +120,6 @@ class IdempotencyServiceTest extends TestCase
     public function test_unique_index_prevents_duplicate_reservations(): void
     {
         $attributes = [
-            'tenant_id' => 1,
             'principal_id' => 7,
             'scope' => 'POST:/v1/x',
             'key' => 'idem-key-0005',

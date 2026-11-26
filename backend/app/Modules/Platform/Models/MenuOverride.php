@@ -15,7 +15,7 @@ final class MenuOverride extends Model
     protected $table = 'menu_overrides';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'page_code', 'label', 'visible', 'sort_order'];
+    protected $fillable = ['page_code', 'label', 'visible', 'sort_order'];
 
     /**
      * @return array<string, string>
@@ -23,7 +23,6 @@ final class MenuOverride extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'visible' => 'boolean',
             'sort_order' => 'integer',
         ];

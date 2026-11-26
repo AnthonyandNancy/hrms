@@ -23,7 +23,6 @@ final class OutboxEvent extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'event_type',
         'aggregate_type',
         'aggregate_id',

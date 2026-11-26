@@ -13,7 +13,7 @@ final class NotificationTemplate extends Model
     protected $table = 'notification_templates';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'code', 'channel', 'subject', 'body', 'version', 'active'];
+    protected $fillable = ['code', 'channel', 'subject', 'body', 'version', 'active'];
 
     /**
      * @return array<string, string>
@@ -21,7 +21,6 @@ final class NotificationTemplate extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'version' => 'integer',
             'active' => 'boolean',
         ];

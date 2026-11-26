@@ -6,7 +6,6 @@ namespace App\Modules\Platform\Features;
 
 use App\Shared\ApiResponse;
 use App\Shared\ErrorCode;
-use App\Shared\RequestContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +21,7 @@ final class EnsureFeatureEnabled
 
     public function handle(Request $request, Closure $next, string $flag): Response
     {
-        if ($this->flags->enabled($flag, RequestContext::tenantId())) {
+        if ($this->flags->enabled($flag)) {
             return $next($request);
         }
 

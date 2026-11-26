@@ -14,7 +14,6 @@ use RuntimeException;
  * reconciliation even after apply.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $run_id
  * @property int $source_row_number
  * @property string $row_hash

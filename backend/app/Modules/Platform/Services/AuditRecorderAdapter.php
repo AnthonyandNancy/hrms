@@ -14,7 +14,6 @@ final class AuditRecorderAdapter implements AuditRecorder
     public function __construct(private readonly AuditService $audit) {}
 
     public function record(
-        int $tenantId,
         ?int $actorUserId,
         string $action,
         string $aggregateType,
@@ -24,7 +23,6 @@ final class AuditRecorderAdapter implements AuditRecorder
         array $metadata = [],
     ): void {
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: $action,
             aggregateType: $aggregateType,

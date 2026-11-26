@@ -8,9 +8,8 @@ use App\Modules\Platform\Migration\Adapters\DatabaseMigrationTarget;
 use App\Modules\Platform\Migration\Dto\MigrationRow;
 use App\Modules\Platform\Migration\Enums\MigrationDomain;
 use App\Modules\Time\Models\LeaveLedgerEntry;
-use App\Modules\Time\Models\LeaveType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\Support\PeopleScenario;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -38,7 +37,7 @@ final class LeaveOpeningMigrationTest extends TestCase
             'quantity_minutes' => 4800,
             'business_date' => '2026-01-01',
             'effective_on' => '2026-01-01',
-        ]), 1, 1);
+        ]), 1);
 
         $this->assertSame('CREATED', $result->status);
 
@@ -62,7 +61,7 @@ final class LeaveOpeningMigrationTest extends TestCase
             'effective_on' => '2026-01-01',
         ]);
 
-        $first = $target->apply($row, 1, 1);
+        $first = $target->apply($row, 1);
         // A second migration run gets a different staging id; the natural key
         // must still make the write idempotent.
         $second = $target->apply(
@@ -73,7 +72,6 @@ final class LeaveOpeningMigrationTest extends TestCase
                 'business_date' => '2026-01-01',
                 'effective_on' => '2026-01-01',
             ], 999),
-            1,
             2,
         );
 
@@ -97,11 +95,11 @@ final class LeaveOpeningMigrationTest extends TestCase
         $first = $target->apply($this->stagingRow($base + [
             'quantity_minutes' => 4800,
             'effective_on' => '2026-12-31',
-        ], 1), 1, 1);
+        ], 1), 1);
         $second = $target->apply($this->stagingRow($base + [
             'quantity_minutes' => 2400,
             'effective_on' => '2027-12-31',
-        ], 2), 1, 1);
+        ], 2), 1);
 
         $this->assertSame('CREATED', $first->status);
         $this->assertSame('CREATED', $second->status);
@@ -121,9 +119,9 @@ final class LeaveOpeningMigrationTest extends TestCase
             'quantity_minutes' => 4800,
             'business_date' => '2026-01-01',
             'effective_on' => '2026-12-31',
-        ], 1), 1, 1);
+        ], 1), 1);
 
-        $metrics = $target->metrics(1);
+        $metrics = $target->metrics();
 
         $this->assertSame(1, $metrics->count);
         $this->assertSame(4800, $metrics->sums['quantity_minutes']);
@@ -134,14 +132,27 @@ final class LeaveOpeningMigrationTest extends TestCase
      */
     private function fixture(): array
     {
-        $scenario = new PeopleScenario(1, app(\App\Shared\Time\Clock::class));
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'MIG-UNIT');
-        $employment = $scenario->employment($scenario->person(), $entity, 'MIG-0001');
-        $scenario->assignment($employment, $unit);
+        $personId = (int) DB::table('persons')->insertGetId([
+            'legal_name' => 'Synthetic Person',
+            'birth_date' => '1990-01-01',
+            'created_at' => now('UTC'),
+            'updated_at' => now('UTC'),
+        ]);
 
-        $type = LeaveType::query()->create([
-            'tenant_id' => 1,
+        DB::table('employments')->insert([
+            'person_id' => $personId,
+            'employee_no' => 'MIG-0001',
+            'employment_type' => 'FULL_TIME',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'hire_date' => '2026-01-01',
+            'seniority_start_date' => '2026-01-01',
+            'recorded_at' => now('UTC'),
+            'source_type' => 'TEST',
+        ]);
+
+        $typeId = (int) DB::table('leave_types')->insertGetId([
             'code' => 'ANNUAL',
             'name' => 'Annual leave',
             'is_statutory' => true,
@@ -155,7 +166,7 @@ final class LeaveOpeningMigrationTest extends TestCase
             'created_at' => now('UTC'),
         ]);
 
-        return ['MIG-0001', (int) $type->id];
+        return ['MIG-0001', $typeId];
     }
 
     /**

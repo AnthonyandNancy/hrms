@@ -25,7 +25,6 @@ abstract class AbstractCsvImporter implements CsvDomainImporter
         CsvDocument $document,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): ImportValidationResult {
         $this->issuesByRow = [];
         $issues = $document->issues;
@@ -46,12 +45,11 @@ abstract class AbstractCsvImporter implements CsvDomainImporter
                 $references,
                 $mappings,
                 $this->issuesByRow[$csvRow->sourceRowNumber],
-                $tenantId,
             );
             $rows[] = new ValidatedRow($csvRow->sourceRowNumber, $normalized);
         }
 
-        $this->validateCrossRow($rows, $references, $mappings, $tenantId);
+        $this->validateCrossRow($rows, $references, $mappings);
 
         foreach ($this->issuesByRow as $rowIssues) {
             $issues = [...$issues, ...$rowIssues];
@@ -88,7 +86,6 @@ abstract class AbstractCsvImporter implements CsvDomainImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array;
 
     /**
@@ -101,7 +98,6 @@ abstract class AbstractCsvImporter implements CsvDomainImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {}
 
     /**

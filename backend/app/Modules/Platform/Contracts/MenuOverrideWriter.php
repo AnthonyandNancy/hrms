@@ -9,19 +9,19 @@ interface MenuOverrideWriter
     /**
      * @return list<array{page_code: string, label: string|null, visible: bool, sort_order: int}>
      */
-    public function overrides(int $tenantId): array;
+    public function overrides(): array;
 
     /**
      * @param  array{page_code: string, label?: string|null, visible?: bool, sort_order?: int}  $data
      * @return array{page_code: string, label: string|null, visible: bool, sort_order: int}
      */
-    public function create(int $tenantId, array $data): array;
+    public function create(array $data): array;
 
     /**
      * @param  array{label?: string|null, visible?: bool, sort_order?: int}  $data
      * @return array{page_code: string, label: string|null, visible: bool, sort_order: int}
      */
-    public function update(int $tenantId, string $pageCode, array $data): array;
+    public function update(string $pageCode, array $data): array;
 
-    public function delete(int $tenantId, string $pageCode): bool;
+    public function delete(string $pageCode): bool;
 }

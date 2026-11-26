@@ -34,7 +34,7 @@ final class ShadowMigrationTarget implements MigrationTargetPort
         return null;
     }
 
-    public function apply(MigrationRow $row, int $tenantId, int $runId): TargetWriteResult
+    public function apply(MigrationRow $row, int $runId): TargetWriteResult
     {
         $domainValue = 'SHADOW:'.$this->domain->value;
         $naturalKey = $this->naturalKey($row);
@@ -43,7 +43,6 @@ final class ShadowMigrationTarget implements MigrationTargetPort
         ksort($hashData);
         $hash = hash('sha256', json_encode($hashData, JSON_THROW_ON_ERROR));
         $existing = MigrationShadowRow::query()
-            ->where('tenant_id', $tenantId)
             ->where('domain', $domainValue)
             ->where('natural_key', $naturalKey)
             ->first();
@@ -55,7 +54,6 @@ final class ShadowMigrationTarget implements MigrationTargetPort
         $status = $existing === null ? TargetWriteResult::CREATED : TargetWriteResult::UPDATED;
         $record = $existing ?? new MigrationShadowRow;
         $record->fill([
-            'tenant_id' => $tenantId,
             'domain' => $domainValue,
             'natural_key' => $naturalKey,
             'migration_run_id' => $runId,
@@ -68,12 +66,11 @@ final class ShadowMigrationTarget implements MigrationTargetPort
         return new TargetWriteResult((int) $record->id, $status);
     }
 
-    public function finalize(int $tenantId, int $runId): void {}
+    public function finalize(int $runId): void {}
 
-    public function metrics(int $tenantId): TargetMetrics
+    public function metrics(): TargetMetrics
     {
         $rows = MigrationShadowRow::query()
-            ->where('tenant_id', $tenantId)
             ->where('domain', 'SHADOW:'.$this->domain->value)
             ->get();
 
@@ -89,11 +86,11 @@ final class ShadowMigrationTarget implements MigrationTargetPort
     /**
      * @return list<string>
      */
-    public function rollbackStatements(int $tenantId, int $runId): array
+    public function rollbackStatements(int $runId): array
     {
         return [
             '-- SHADOW rows only (not business tables).',
-            "DELETE FROM migration_shadow_rows WHERE tenant_id = {$tenantId} AND domain = 'SHADOW:{$this->domain->value}' AND migration_run_id = {$runId};",
+            "DELETE FROM migration_shadow_rows WHERE domain = 'SHADOW:{$this->domain->value}' AND migration_run_id = {$runId};",
         ];
     }
 

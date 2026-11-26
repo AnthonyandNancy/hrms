@@ -31,7 +31,6 @@ final class LeaveOpeningCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
         $this->validator->requireString($values, 'employment_no', $sourceRow, $issues);
         $this->validator->requireString($values, 'leave_type', $sourceRow, $issues);
@@ -90,7 +89,6 @@ final class LeaveOpeningCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         /** @var array<string, list<int>> $seen */
         $seen = [];

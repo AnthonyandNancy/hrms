@@ -22,15 +22,15 @@ interface MigrationTargetPort
 
     public function unavailableReason(): ?string;
 
-    public function apply(MigrationRow $row, int $tenantId, int $runId): TargetWriteResult;
+    public function apply(MigrationRow $row, int $runId): TargetWriteResult;
 
     /**
      * Run domain-specific second-pass work (manager resolution, closure
      * rebuild) after all rows are applied and before the transaction commits.
      */
-    public function finalize(int $tenantId, int $runId): void;
+    public function finalize(int $runId): void;
 
-    public function metrics(int $tenantId): TargetMetrics;
+    public function metrics(): TargetMetrics;
 
     /**
      * Plan-only statements identifying rows written by a run. The framework
@@ -38,5 +38,5 @@ interface MigrationTargetPort
      *
      * @return list<string>
      */
-    public function rollbackStatements(int $tenantId, int $runId): array;
+    public function rollbackStatements(int $runId): array;
 }

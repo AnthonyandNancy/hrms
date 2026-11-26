@@ -11,10 +11,9 @@ use Illuminate\Support\Facades\Storage;
 
 final class EloquentFileObjectReader implements FileObjectReader
 {
-    public function contents(int $tenantId, int $fileObjectId): string
+    public function contents(int $fileObjectId): string
     {
         $file = FileObject::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($fileObjectId)
             ->first();
 
@@ -31,10 +30,9 @@ final class EloquentFileObjectReader implements FileObjectReader
         return $contents;
     }
 
-    public function exists(int $tenantId, int $fileObjectId): bool
+    public function exists(int $fileObjectId): bool
     {
         return FileObject::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($fileObjectId)
             ->exists();
     }

@@ -42,7 +42,6 @@ final class AuditService
      * @param  array<string, mixed>  $metadata
      */
     public function record(
-        int $tenantId,
         ?int $actorUserId,
         string $action,
         string $aggregateType,
@@ -54,7 +53,6 @@ final class AuditService
         $this->assertSafe([$before, $after, $metadata]);
 
         return AuditEvent::query()->create([
-            'tenant_id' => $tenantId,
             'actor_user_id' => $actorUserId,
             'actor_type' => $actorUserId === null ? 'SYSTEM' : 'USER',
             'action' => $action,

@@ -25,7 +25,6 @@ final class IdempotencyKey extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'principal_id',
         'scope',
         'key',

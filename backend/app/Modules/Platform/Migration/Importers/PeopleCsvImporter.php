@@ -35,7 +35,6 @@ final class PeopleCsvImporter extends AbstractCsvImporter
             'legal_name',
             'birth_date',
             'employee_no',
-            'legal_entity_code',
             'hire_date',
             'employment_type',
             'status',
@@ -49,9 +48,8 @@ final class PeopleCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
-        foreach (['person_key', 'id_type', 'id_number', 'legal_name', 'employee_no', 'legal_entity_code'] as $field) {
+        foreach (['person_key', 'id_type', 'id_number', 'legal_name', 'employee_no'] as $field) {
             $this->validator->requireString($values, $field, $sourceRow, $issues);
         }
 
@@ -95,17 +93,6 @@ final class PeopleCsvImporter extends AbstractCsvImporter
 
         $idType = trim($values['id_type'] ?? '');
         $idNumber = trim($values['id_number'] ?? '');
-        $legalEntity = trim($values['legal_entity_code'] ?? '');
-
-        if ($legalEntity !== '' && $references->legalEntityCodes !== [] && ! isset($references->legalEntityCodes[$legalEntity])) {
-            $this->addIssue(
-                $sourceRow,
-                $issues,
-                IssueCode::ORPHAN_COMPANY,
-                "Legal entity '{$legalEntity}' is not present in reference data.",
-                'legal_entity_code',
-            );
-        }
 
         $idHash = $idNumber === '' ? '' : hash_hmac('sha256', $idType.'|'.$idNumber, (string) config('app.key'));
 
@@ -117,8 +104,6 @@ final class PeopleCsvImporter extends AbstractCsvImporter
             'legal_name' => trim($values['legal_name'] ?? ''),
             'birth_date' => $birthDate,
             'employee_no' => trim($values['employee_no'] ?? ''),
-            'legal_entity_code' => $legalEntity,
-            'legal_entity_id' => null,
             'hire_date' => $hireDate,
             'employment_type' => trim($values['employment_type'] ?? ''),
             'status' => $status,
@@ -133,7 +118,6 @@ final class PeopleCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         /** @var array<string, list<ValidatedRow>> $byEmployeeNo */
         $byEmployeeNo = [];

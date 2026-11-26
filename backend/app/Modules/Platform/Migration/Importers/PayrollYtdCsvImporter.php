@@ -41,7 +41,6 @@ final class PayrollYtdCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
         $this->validator->requireString($values, 'employment_no', $sourceRow, $issues);
         $taxYear = $this->validator->integer($values, 'tax_year', $sourceRow, $issues);
@@ -94,7 +93,6 @@ final class PayrollYtdCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         /** @var array<string, list<ValidatedRow>> $byEmploymentYear */
         $byEmploymentYear = [];

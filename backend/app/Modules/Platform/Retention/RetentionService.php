@@ -22,13 +22,13 @@ final class RetentionService
     /**
      * @return array{retention_class: string, label: string, table: string, available: bool, cutoff: string|null, permanent: bool, candidates: int, held: int, purgeable: int, sample_ids: list<string>}
      */
-    public function preview(string $class, int $tenantId, ?CarbonImmutable $asOf = null): array
+    public function preview(string $class, ?CarbonImmutable $asOf = null): array
     {
         $definition = RetentionClass::get($class);
         $asOf ??= CarbonImmutable::now('UTC');
         $cutoff = $this->cutoff($definition, $asOf);
         $available = (bool) DB::connection()->getSchemaBuilder()->hasTable($definition['table'])
-            && (bool) DB::connection()->getSchemaBuilder()->hasColumns($definition['table'], [$definition['timestamp_column'], 'tenant_id']);
+            && (bool) DB::connection()->getSchemaBuilder()->hasColumn($definition['table'], $definition['timestamp_column']);
 
         if (! $available) {
             return [
@@ -63,11 +63,10 @@ final class RetentionService
         }
 
         $query = DB::table($definition['table'])
-            ->where('tenant_id', $tenantId)
             ->whereNotNull($definition['timestamp_column'])
             ->where($definition['timestamp_column'], '<', $cutoff);
         $candidateIds = $query->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
-        $heldIds = $this->heldIds($tenantId, $class, $definition['table'], $candidateIds);
+        $heldIds = $this->heldIds($class, $definition['table'], $candidateIds);
         $purgeable = array_values(array_diff($candidateIds, $heldIds));
 
         return [
@@ -89,12 +88,11 @@ final class RetentionService
      */
     public function purge(
         string $class,
-        int $tenantId,
         ?CarbonImmutable $asOf = null,
         bool $confirm = false,
         ?int $actorUserId = null,
     ): array {
-        $preview = $this->preview($class, $tenantId, $asOf);
+        $preview = $this->preview($class, $asOf);
 
         if (! $confirm) {
             return ['preview' => $preview, 'executed' => false, 'purged' => 0, 'run_id' => null];
@@ -109,7 +107,6 @@ final class RetentionService
         }
 
         $run = RetentionPurgeRun::query()->create([
-            'tenant_id' => $tenantId,
             'retention_class' => $class,
             'mode' => 'PURGE',
             'status' => 'RUNNING',
@@ -121,22 +118,20 @@ final class RetentionService
         $definition = RetentionClass::get($class);
         $cutoff = $this->cutoff($definition, $asOf ?? CarbonImmutable::now('UTC'));
         $candidateIds = DB::table($definition['table'])
-            ->where('tenant_id', $tenantId)
             ->whereNotNull($definition['timestamp_column'])
             ->where($definition['timestamp_column'], '<', $cutoff)
             ->pluck('id')
             ->map(static fn (mixed $id): string => (string) $id)
             ->all();
-        $heldIds = $this->heldIds($tenantId, $class, $definition['table'], $candidateIds);
+        $heldIds = $this->heldIds($class, $definition['table'], $candidateIds);
         $purgeable = array_values(array_diff($candidateIds, $heldIds));
 
-        $purged = DB::transaction(function () use ($purgeable, $definition, $tenantId): int {
+        $purged = DB::transaction(function () use ($purgeable, $definition): int {
             if ($purgeable === []) {
                 return 0;
             }
 
             return DB::table($definition['table'])
-                ->where('tenant_id', $tenantId)
                 ->whereIn('id', $purgeable)
                 ->delete();
         });
@@ -153,7 +148,6 @@ final class RetentionService
         ])->save();
 
         AuditEvent::query()->create([
-            'tenant_id' => $tenantId,
             'actor_user_id' => $actorUserId,
             'actor_type' => $actorUserId === null ? 'SYSTEM' : 'USER',
             'action' => 'retention.purged',
@@ -191,7 +185,7 @@ final class RetentionService
      * @param  list<string>  $candidateIds
      * @return list<string>
      */
-    private function heldIds(int $tenantId, string $class, string $table, array $candidateIds): array
+    private function heldIds(string $class, string $table, array $candidateIds): array
     {
         if ($candidateIds === []) {
             return [];
@@ -199,7 +193,6 @@ final class RetentionService
 
         $now = CarbonImmutable::now('UTC');
         $holds = LegalHold::query()
-            ->where('tenant_id', $tenantId)
             ->where('retention_class', $class)
             ->whereNull('released_at')
             ->where('starts_at', '<=', $now)

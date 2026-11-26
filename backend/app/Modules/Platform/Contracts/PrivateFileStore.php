@@ -16,7 +16,6 @@ interface PrivateFileStore
      * @param  array<string, mixed>  $metadata
      */
     public function store(
-        int $tenantId,
         string $contents,
         string $originalName,
         string $mime,
@@ -25,5 +24,5 @@ interface PrivateFileStore
         array $metadata = [],
     ): int;
 
-    public function delete(int $tenantId, int $fileObjectId): bool;
+    public function delete(int $fileObjectId): bool;
 }

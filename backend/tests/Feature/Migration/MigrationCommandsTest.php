@@ -101,7 +101,6 @@ class MigrationCommandsTest extends TestCase
     {
         $run = app(MigrationRunner::class)->apply(
             MigrationDomain::ORGANIZATIONS,
-            1,
             $this->fixture('organizations.csv'),
             [$this->fixture('mapping/demo.csv')],
             \App\Modules\Platform\Migration\Enums\MigrationRunMode::APPLY,

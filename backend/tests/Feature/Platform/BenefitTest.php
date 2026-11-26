@@ -7,6 +7,7 @@ namespace Tests\Feature\Platform;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Shared\Architecture\ModuleBoundaryScanner;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\PeopleTestCase;
 
 /**
@@ -155,7 +156,7 @@ final class BenefitTest extends PeopleTestCase
             ->assertJsonPath('data.total', 1);
     }
 
-    public function test_write_requires_idempotency_and_cross_tenant_plan_is_not_visible(): void
+    public function test_write_requires_idempotency_and_plan_catalogue_is_instance_wide(): void
     {
         $this->benefitEmployment();
 
@@ -168,10 +169,8 @@ final class BenefitTest extends PeopleTestCase
         ])->assertStatus(422)->assertJsonPath('data.reason', 'IDEMPOTENCY_KEY_REQUIRED');
 
         BenefitPlan::query()->create([
-            'tenant_id' => 2,
-            'legal_entity_id' => null,
-            'code' => 'FOREIGN_PLAN',
-            'name' => 'Foreign plan',
+            'code' => 'MANUAL_PLAN',
+            'name' => 'Manually recorded plan',
             'employer_rate' => '0.100000',
             'employee_rate' => '0.100000',
             'effective_from' => '2026-01-01',
@@ -181,7 +180,10 @@ final class BenefitTest extends PeopleTestCase
             'created_at' => $this->clock->now(),
         ]);
 
-        $this->getJson('/v1/benefits/plans')->assertOk()->assertJsonPath('data.total', 0);
+        $this->getJson('/v1/benefits/plans')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonFragment(['code' => 'MANUAL_PLAN']);
     }
 
     public function test_benefit_tables_have_one_declared_owner(): void
@@ -197,10 +199,26 @@ final class BenefitTest extends PeopleTestCase
 
     private function benefitEmployment(): void
     {
-        $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'E-BENEFIT');
-        $this->benefitEmploymentId = (int) $employment->id;
-        $this->actAs(1, 1001, $this->benefitEmploymentId);
+        $personId = (int) DB::table('persons')->insertGetId([
+            'legal_name' => 'Synthetic Benefit Employee',
+            'birth_date' => '1990-01-01',
+            'created_at' => now('UTC'),
+            'updated_at' => now('UTC'),
+        ]);
+
+        $this->benefitEmploymentId = (int) DB::table('employments')->insertGetId([
+            'person_id' => $personId,
+            'employee_no' => 'E-BENEFIT',
+            'employment_type' => 'FULL_TIME',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'hire_date' => '2026-01-01',
+            'seniority_start_date' => '2026-01-01',
+            'recorded_at' => now('UTC'),
+            'source_type' => 'TEST',
+        ]);
+
+        $this->actAs(userId: 1001, employmentId: $this->benefitEmploymentId);
     }
 }

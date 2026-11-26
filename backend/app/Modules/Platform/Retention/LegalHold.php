@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $retention_class
  * @property string $subject_type
  * @property string $subject_id
@@ -21,7 +20,6 @@ final class LegalHold extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'retention_class',
         'subject_type',
         'subject_id',

@@ -23,11 +23,10 @@ final class DemoVerifier
     /**
      * @return array{passed: bool, mode: string, checks: list<array{name: string, passed: bool, detail: string}>, walkthrough: list<string>, deferred: array<string, string>}
      */
-    public function verify(int $tenantId = DemoSeeder::TENANT_ID): array
+    public function verify(): array
     {
         $checks = [];
         $dataset = DemoDataset::query()
-            ->where('tenant_id', $tenantId)
             ->where('dataset', DemoSeeder::DATASET)
             ->first();
 
@@ -46,7 +45,6 @@ final class DemoVerifier
         foreach (DemoSeeder::BUSINESS_DOMAINS as $domainValue) {
             $domain = MigrationDomain::from($domainValue);
             $latest = MigrationRun::query()
-                ->where('tenant_id', $tenantId)
                 ->where('domain', $domainValue)
                 ->where('status', MigrationRunStatus::APPLIED->value)
                 ->latest('id')
@@ -70,7 +68,6 @@ final class DemoVerifier
         }
 
         $payrollCount = MigrationRun::query()
-            ->where('tenant_id', $tenantId)
             ->where('domain', MigrationDomain::PAYROLL_YTD->value)
             ->where('status', MigrationRunStatus::APPLIED->value)
             ->count();

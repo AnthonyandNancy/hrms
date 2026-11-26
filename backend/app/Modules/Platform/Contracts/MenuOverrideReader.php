@@ -9,5 +9,5 @@ interface MenuOverrideReader
     /**
      * @return list<array{page_code: string, label: string|null, visible: bool, sort_order: int}>
      */
-    public function overrides(int $tenantId): array;
+    public function overrides(): array;
 }

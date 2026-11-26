@@ -25,7 +25,6 @@ final class ReferenceDataBuilder
     {
         $organizationCodes = [];
         $employeeNumbers = [];
-        $legalEntityCodes = ['DEMO-CN' => true];
         $leaveTypes = ['ANNUAL' => true, 'SICK' => true, 'PERSONAL' => true];
         $orgFile = $fixtureDirectory.'/organizations.csv';
         $peopleFile = $fixtureDirectory.'/people.csv';
@@ -36,10 +35,6 @@ final class ReferenceDataBuilder
                 if ($code !== '') {
                     $organizationCodes[$code] = true;
                 }
-                $entity = trim($row->values['legal_entity_code'] ?? '');
-                if ($entity !== '') {
-                    $legalEntityCodes[$entity] = true;
-                }
             }
         }
 
@@ -48,10 +43,6 @@ final class ReferenceDataBuilder
                 $employeeNo = trim($row->values['employee_no'] ?? '');
                 if ($employeeNo !== '') {
                     $employeeNumbers[$employeeNo] = true;
-                }
-                $entity = trim($row->values['legal_entity_code'] ?? '');
-                if ($entity !== '') {
-                    $legalEntityCodes[$entity] = true;
                 }
             }
         }
@@ -86,7 +77,7 @@ final class ReferenceDataBuilder
             }
         }
 
-        return new ReferenceData($organizationCodes, $employeeNumbers, $legalEntityCodes, $leaveTypes);
+        return new ReferenceData($organizationCodes, $employeeNumbers, $leaveTypes);
     }
 
     /**
