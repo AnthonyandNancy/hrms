@@ -1,4 +1,7 @@
 import type { Component } from 'vue'
+import { PAGE_COMPONENTS as PEOPLE_PAGES } from '@/modules/people/pages'
+import { PAGE_COMPONENTS as PLATFORM_PAGES } from '@/modules/platform/pages'
+import { PAGE_COMPONENTS as TALENT_PAGES } from '@/modules/talent/pages'
 import { PAGE_COMPONENTS as TIMEPAY_PAGES } from '@/modules/timepay/pages'
 
 /**
@@ -19,12 +22,6 @@ const BASE_VIEWS: Record<string, Loader> = {
   'base/NotFoundView': () => import('@/views/NotFoundView.vue'),
   'base/AccountMfaView': () => import('@/views/AccountSecurityView.vue'),
   'base/AccountSessionsView': () => import('@/views/AccountSecurityView.vue'),
-  'dashboard/index': () => import('@/views/DashboardView.vue'),
-  'reports/index': () => import('@/views/ReportsView.vue'),
-  'hr/employees/index': () => import('@/views/EmployeeDirectoryView.vue'),
-  'hr/departments/index': () => import('@/views/OrgTreeView.vue'),
-  'notices/index': () => import('@/views/NoticesView.vue'),
-  'system/system-users': () => import('@/views/AdminView.vue'),
 }
 
 /**
@@ -36,21 +33,30 @@ const DOMAIN_LOADERS: ReadonlyArray<{
   test: (key: string) => boolean
   load: (key: string) => Loader
 }> = [
-  {
-    test: (key) => key.startsWith('hr/'),
-    load: (key) => () => import('@/views/people').then((module) => module.peopleComponentFor(key) as Component),
-  },
-  {
-    test: (key) => ['performance/', 'recruitment/'].some((prefix) => key.startsWith(prefix)) || key.startsWith('training/'),
-    load: (key) => () => import('@/views/talent').then((module) => module.talentComponentFor(key) as Component),
-  },
-  {
-    test: (key) =>
-      ['dashboard/', 'reports/', 'notices/'].some((prefix) => key.startsWith(prefix)) ||
-      ['account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'].some((prefix) => key === prefix || key.startsWith(prefix)),
-    load: (key) => () => import('@/views/platform').then((module) => module.platformComponentFor(key) as Component),
-  },
 ]
+
+function isTalentKey(key: string): boolean {
+  return ['performance/', 'recruitment/', 'training/'].some((prefix) => key.startsWith(prefix))
+}
+
+export function talentPageLoader(key: string): Loader | null {
+  const loader = TALENT_PAGES[key as keyof typeof TALENT_PAGES]
+  return loader === undefined ? null : () => loader() as Promise<Component>
+}
+
+function isPlatformKey(key: string): boolean {
+  return (
+    ['dashboard/', 'reports/', 'notices/'].some((prefix) => key.startsWith(prefix)) ||
+    ['account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'].some(
+      (prefix) => key === prefix || key.startsWith(prefix),
+    )
+  )
+}
+
+export function platformPageLoader(key: string): Loader | null {
+  const loader = PLATFORM_PAGES[key as keyof typeof PLATFORM_PAGES]
+  return loader === undefined ? null : () => loader() as Promise<Component>
+}
 
 function isTimePayKey(key: string): boolean {
   return ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
@@ -66,8 +72,21 @@ export function matureView(componentKey: string): Loader | null {
   const base = BASE_VIEWS[componentKey]
   if (base !== undefined) return base
 
+  const peoplePage = PEOPLE_PAGES[componentKey as keyof typeof PEOPLE_PAGES]
+  if (peoplePage !== undefined) return peoplePage
+
+  if (componentKey.startsWith('hr/')) return null
+
   if (isTimePayKey(componentKey)) {
     return timePayPageLoader(componentKey)
+  }
+
+  if (isTalentKey(componentKey)) {
+    return talentPageLoader(componentKey)
+  }
+
+  if (isPlatformKey(componentKey)) {
+    return platformPageLoader(componentKey)
   }
 
   const domain = DOMAIN_LOADERS.find((candidate) => candidate.test(componentKey))

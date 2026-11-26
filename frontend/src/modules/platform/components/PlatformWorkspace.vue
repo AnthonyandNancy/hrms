@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/errors'
 import { resourceDelete, resourceGet, resourcePatch, resourcePost, resourcePut } from '@/api/resourceClient'
 import { legalEntityId } from '@/api/http'
@@ -13,12 +12,10 @@ import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import MoneyText from '@/components/MoneyText.vue'
 import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
-import { platformPageConfig, platformPageConfigForPath } from './catalog'
-import type { PlatformPageConfig } from './catalog'
+import type { PlatformPageConfig } from '../catalog'
 import {
   actionErrorInfo,
   idText,
-  isRecord,
   nestedRows,
   nextIdempotencyKey,
   partialFlag,
@@ -31,13 +28,11 @@ import {
   textOf,
   type ActionErrorInfo,
   type PlatformRow,
-} from './platformRead'
+} from '../platformRead'
 
 const props = defineProps<{
-  componentKey?: string
+  config: PlatformPageConfig
 }>()
-
-const route = useRoute()
 const pageError = usePageError()
 const session = useSessionStore()
 const entityId = legalEntityId()
@@ -254,16 +249,7 @@ const calendarPublishForm = reactive({
   standardDayMinutes: 480,
 })
 
-const config = computed<PlatformPageConfig | null>(() => {
-  const metaRegistry = route.meta.registry
-  const metaKey =
-    isRecord(metaRegistry) && typeof metaRegistry.componentKey === 'string'
-      ? metaRegistry.componentKey
-      : null
-  const key = props.componentKey ?? metaKey
-  if (key !== null) return platformPageConfig(key)
-  return platformPageConfigForPath(route.path)
-})
+const config = computed<PlatformPageConfig>(() => props.config)
 
 const pageTitle = computed(() => config.value?.title ?? '平台页面')
 const pageDescription = computed(() => config.value?.description ?? '当前路由没有登记页面配置。')
@@ -1985,10 +1971,10 @@ watch(selectedExportDefinition, () => {
 </script>
 
 <template>
-  <div class="page platform-workspace" :data-page="config?.key ?? 'platform-unknown'">
+  <div class="page platform-workspace" :data-page="config.key">
     <header class="page-header">
       <div class="page-header__copy">
-        <p class="page-header__breadcrumb">{{ config?.breadcrumb ?? '平台' }}</p>
+        <p class="page-header__breadcrumb">{{ config.breadcrumb }}</p>
         <h1 class="page-header__title">{{ pageTitle }}</h1>
         <p class="page-header__description">{{ pageDescription }}</p>
       </div>
@@ -4311,13 +4297,6 @@ watch(selectedExportDefinition, () => {
           </section>
         </div>
       </template>
-
-      <section v-if="config === null" class="panel">
-        <div class="panel__body">
-          <p class="platform-gap__title">页面配置缺失</p>
-          <p class="small muted">当前路由没有对应的 PlatformWorkspace 配置，请检查页面注册表。</p>
-        </div>
-      </section>
     </template>
   </div>
 </template>
