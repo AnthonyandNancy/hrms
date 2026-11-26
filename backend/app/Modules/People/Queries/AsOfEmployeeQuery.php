@@ -163,7 +163,7 @@ final class AsOfEmployeeQuery
             'employment_type' => (string) $employment->employment_type,
             'valid_from' => (string) $employment->valid_from,
             'valid_to' => (string) $employment->valid_to,
-            'archived_at' => $employment->archived_at !== null ? $employment->archived_at->toIso8601ZuluString() : null,
+            'archived_at' => $employment->archived_at instanceof \Carbon\CarbonInterface ? $employment->archived_at->toIso8601ZuluString() : null,
             'archived_by' => $employment->archived_by !== null ? (int) $employment->archived_by : null,
             'archive_reason' => $employment->archive_reason !== null ? (string) $employment->archive_reason : null,
             'current_assignment' => $assignment !== null ? [

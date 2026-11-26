@@ -143,7 +143,7 @@ describe('platform module page split', () => {
 
     const wrapper = await mountPage(SystemUsersPage, '/system/system-users')
 
-    expect(wrapper.get('[data-testid="system-users-page"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="system-users-page"]').exists()).toBe(true)
     expect(wrapper.get('h1').text()).toBe('用户与角色')
     expect(resource.get).toHaveBeenCalledWith('/v1/users', expect.objectContaining({ page: 1 }))
     expect(resource.get).toHaveBeenCalledWith('/v1/roles')

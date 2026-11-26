@@ -38,7 +38,7 @@ final class SeedCalendarCommandTest extends TestCase
     {
         foreach ([1, 2] as $_) {
             $this->artisan('time:seed-calendar', [
-                    '--timezone' => 'Asia/Shanghai',
+                '--timezone' => 'Asia/Shanghai',
                 '--workweek' => '1,2,3,4,5',
                 '--standard-day-minutes' => 480,
             ])->assertExitCode(0);
@@ -55,5 +55,4 @@ final class SeedCalendarCommandTest extends TestCase
             '--holidays-file' => '/definitely/not/here.csv',
         ])->assertExitCode(1);
     }
-
 }

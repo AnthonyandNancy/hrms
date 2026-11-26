@@ -44,11 +44,14 @@ const PRINCIPAL: Principal = {
   tenantTimezone: 'Asia/Shanghai',
 }
 
+/** Shared test doubles; one file, so the test fixture stays explicit. */
+// eslint-disable-next-line vue/one-component-per-file
 const RoutePage = defineComponent({
   name: 'RoutePage',
   template: '<div data-testid="route-page">页面</div>',
 })
 
+// eslint-disable-next-line vue/one-component-per-file
 const ShellHost = defineComponent({
   components: { RouterView },
   template: '<RouterView />',

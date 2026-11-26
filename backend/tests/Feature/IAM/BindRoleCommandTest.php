@@ -121,5 +121,4 @@ final class BindRoleCommandTest extends TestCase
         $this->assertSame(2, AuthorityBinding::query()->count());
         $this->assertSame($versionAfterFirst, (int) $user->fresh()->auth_version);
     }
-
 }

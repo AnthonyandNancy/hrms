@@ -28,11 +28,10 @@ final class RolePagesTest extends TestCase
         $this->assertLessThan(160, RolePage::query()->where('role_code', 'HR_ADMIN')->count());
         $this->assertGreaterThan(0, RolePage::query()->where('role_code', 'EMPLOYEE')->count());
         $this->assertSame(
-            RolePage::query()->count(),
-            RolePage::query()
+            (int) RolePage::query()->count(),
+            (int) RolePage::query()
                 ->selectRaw('role_code, page_code')
                 ->distinct()
-                ->get()
                 ->count(),
         );
     }

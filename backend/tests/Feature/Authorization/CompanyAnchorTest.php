@@ -9,7 +9,6 @@ use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
-use Tests\Feature\Authorization\AuthorizationTestSupport;
 
 final class CompanyAnchorTest extends AuthorizationTestSupport
 {

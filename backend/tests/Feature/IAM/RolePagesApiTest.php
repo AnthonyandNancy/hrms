@@ -95,7 +95,7 @@ final class RolePagesApiTest extends AuthorizationTestSupport
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
         $response = $this->getJson('/v1/roles', $headers)->assertOk();
-        $roles = collect($response->json('data.roles'))->keyBy('code');
+        $roles = $this->rolesByCode($response->json('data.roles'));
 
         $this->assertSame(160, (int) $roles['SYSTEM_ADMIN']['page_count']);
         $this->assertGreaterThanOrEqual(0, (int) $roles['SYSTEM_ADMIN']['member_count']);
@@ -136,5 +136,19 @@ final class RolePagesApiTest extends AuthorizationTestSupport
             'purpose' => 'Synthetic role for page grant tests.',
             'expires_at' => '2027-12-31 00:00:00',
         ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $roles
+     * @return array<string, array<string, mixed>>
+     */
+    private function rolesByCode(array $roles): array
+    {
+        $byCode = [];
+        foreach ($roles as $role) {
+            $byCode[(string) $role['code']] = $role;
+        }
+
+        return $byCode;
     }
 }

@@ -6,8 +6,8 @@ namespace App\Modules\Organization\Providers;
 
 use App\Modules\Organization\Authorization\EloquentOrganizationScopeDirectory;
 use App\Modules\Organization\Commands\RebuildOrgClosureCommand;
-use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Organization\Contracts\OrganizationBootstrap;
 use App\Modules\Organization\Contracts\OrganizationDirectory;
 use App\Modules\Organization\Contracts\OrganizationFacts;

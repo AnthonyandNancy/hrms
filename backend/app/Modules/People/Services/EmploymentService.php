@@ -155,7 +155,7 @@ final class EmploymentService
                 before: $before,
                 after: [
                     'employment_id' => (int) $employment->id,
-                    'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+                    'archived_at' => $employment->archived_at instanceof \Carbon\CarbonInterface ? $employment->archived_at->toIso8601ZuluString() : null,
                     'archived_by' => $employment->archived_by,
                     'archive_reason' => $reason,
                 ],
@@ -181,7 +181,7 @@ final class EmploymentService
 
             $before = [
                 'employment_id' => (int) $employment->id,
-                'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+                'archived_at' => $employment->archived_at instanceof \Carbon\CarbonInterface ? $employment->archived_at->toIso8601ZuluString() : null,
                 'archived_by' => $employment->archived_by,
                 'archive_reason' => $employment->archive_reason,
             ];

@@ -68,6 +68,7 @@ final class CrudAuditCommand extends Command
 
             if ($moduleRoutes === []) {
                 $failures[] = "{$module}: no capability-guarded v1 routes";
+
                 continue;
             }
 

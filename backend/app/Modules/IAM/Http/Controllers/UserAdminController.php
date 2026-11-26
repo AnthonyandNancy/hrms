@@ -51,21 +51,29 @@ final class UserAdminController
         $query = User::query()->where('tenant_id', $principal->tenantId())->orderBy('id');
         $total = (int) (clone $query)->count();
         $now = $this->clock->now();
-        $items = $query->forPage($page, $pageSize)->get()->map(function (User $user) use ($now): array {
-            $roles = UserRole::query()
+        /** @var list<array<string, mixed>> $items */
+        $items = [];
+        foreach ($query->forPage($page, $pageSize)->get() as $user) {
+            /** @var list<array{role_code: string, valid_from: string|null, valid_to: string|null}> $roles */
+            $roles = [];
+            $rows = UserRole::query()
                 ->where('user_id', (int) $user->id)
                 ->where('auth_version', (int) $user->auth_version)
                 ->where('valid_from', '<=', $now)
                 ->where('valid_to', '>', $now)
                 ->orderBy('role_code')
-                ->get()
-                ->map(static fn (UserRole $role): array => [
+                ->get();
+            foreach ($rows as $role) {
+                $from = $role->getAttribute('valid_from');
+                $to = $role->getAttribute('valid_to');
+                $roles[] = [
                     'role_code' => (string) $role->role_code,
-                    'valid_from' => $role->valid_from?->toIso8601ZuluString(),
-                    'valid_to' => $role->valid_to?->toIso8601ZuluString(),
-                ])->all();
+                    'valid_from' => $from instanceof \Carbon\CarbonInterface ? $from->toIso8601ZuluString() : null,
+                    'valid_to' => $to instanceof \Carbon\CarbonInterface ? $to->toIso8601ZuluString() : null,
+                ];
+            }
 
-            return [
+            $items[] = [
                 'id' => (int) $user->id,
                 'username' => $user->username,
                 'email' => $user->email,
@@ -75,7 +83,7 @@ final class UserAdminController
                 'auth_version' => (int) $user->auth_version,
                 'roles' => $roles,
             ];
-        })->all();
+        }
 
         return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
     }

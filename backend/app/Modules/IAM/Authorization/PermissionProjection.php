@@ -84,16 +84,19 @@ final class PermissionProjection
 
             if ($required !== 'public' && ! isset($rolePageSet[$pageCode])) {
                 $denied[] = ['page_code' => $pageCode, 'path' => (string) $page['path'], 'reason' => 'PAGE_NOT_GRANTED'];
+
                 continue;
             }
 
             if ($required !== 'public' && ! isset($actions[$required])) {
                 $denied[] = ['page_code' => $pageCode, 'path' => (string) $page['path'], 'reason' => 'CAPABILITY_NOT_GRANTED'];
+
                 continue;
             }
 
             if ($override !== null && $override['visible'] === false) {
                 $denied[] = ['page_code' => $pageCode, 'path' => (string) $page['path'], 'reason' => 'MENU_HIDDEN'];
+
                 continue;
             }
 
@@ -159,6 +162,7 @@ final class PermissionProjection
         foreach ($bindings as $binding) {
             if (CapabilityWildcard::is($binding['capability'])) {
                 $wildcardBinding ??= $binding;
+
                 continue;
             }
             $concreteRows[$binding['capability']] ??= $binding;

@@ -55,7 +55,7 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
         $this->assertContains('/hr/employees/:id', $paths);
         $this->assertNotContains('/payroll/runs', $paths);
 
-        $denied = collect($data['denied'])->firstWhere('page_code', 'payroll');
+        $denied = $this->deniedByCode($data['denied'], 'payroll');
         $this->assertSame('PAGE_NOT_GRANTED', $denied['reason'] ?? null);
         $this->assertContains('people.employee.read', array_column($data['actions'], 'capability'));
         $this->assertSame(['HR_SPECIALIST'], $data['roles']);
@@ -79,7 +79,7 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
         RolePage::query()->updateOrCreate(['role_code' => 'HR_SPECIALIST', 'page_code' => 'hr-employees'], ['created_at' => now()]);
 
         $data = $this->getJson('/v1/users/'.$target->id.'/permissions-preview', $headers)->assertOk()->json('data');
-        $denied = collect($data['denied'])->firstWhere('page_code', 'hr-employees');
+        $denied = $this->deniedByCode($data['denied'], 'hr-employees');
         $this->assertSame('CAPABILITY_NOT_GRANTED', $denied['reason'] ?? null);
         $this->assertNotContains('/hr/employees', array_column($data['pages'], 'path'));
     }
@@ -90,6 +90,21 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
         [, $headers] = $this->viewer(false);
 
         $this->getJson('/v1/users/'.$target->id.'/permissions-preview', $headers)->assertForbidden();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $denied
+     * @return array<string, mixed>
+     */
+    private function deniedByCode(array $denied, string $pageCode): array
+    {
+        foreach ($denied as $row) {
+            if (($row['page_code'] ?? null) === $pageCode) {
+                return $row;
+            }
+        }
+
+        return [];
     }
 
     /**

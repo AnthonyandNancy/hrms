@@ -22,8 +22,6 @@ use Tests\TestCase;
  */
 final class OpenApiSchemaContractTest extends TestCase
 {
-    private const SPEC_PATH = __DIR__.'/../../../docs/openapi/openapi.yaml';
-
     /**
      * The explicit public allowlist from the V1.1 design.
      *

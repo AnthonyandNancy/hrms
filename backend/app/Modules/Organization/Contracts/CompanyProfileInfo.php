@@ -11,6 +11,7 @@ final readonly class CompanyProfileInfo
         public string $countryCode,
         public string $timezone,
         public string $currencyCode,
+        /** @var array<string, mixed>|null */
         public ?array $calendarPolicy = null,
     ) {}
 }

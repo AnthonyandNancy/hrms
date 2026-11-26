@@ -107,7 +107,7 @@ final class BindRoleCommand extends Command
                     'principal_id' => (int) $locked->id,
                     'capability_code' => (string) $grant->capabilityCode,
                     'anchor_type' => (string) $grant->anchorType->value,
-                    'anchor_key' => $anchorId ?? 0,
+                    'anchor_key' => 0,
                     'valid_from' => $from,
                     'auth_version' => $currentVersion,
                 ], [

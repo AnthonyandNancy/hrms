@@ -384,27 +384,6 @@ final class CapabilityAuthorizer implements Authorizer
         return method_exists($model, 'authorizationOrgColumn') ? $model->authorizationOrgColumn() : 'org_unit_id';
     }
 
-    /**
-     * @return list<int>
-     */
-    private function employmentIdsForLegalEntity(int $tenantId, ?int $legalEntityId, string $businessDate): array
-    {
-        if ($legalEntityId === null) {
-            return [];
-        }
-
-        $unitIds = $this->organization->unitIdsForLegalEntity($tenantId, $legalEntityId, $businessDate);
-        $employmentIds = [];
-
-        foreach ($unitIds as $unitId) {
-            foreach ($this->people->employmentIdsForOrgUnits($tenantId, [$unitId], $businessDate) as $employmentId) {
-                $employmentIds[] = $employmentId;
-            }
-        }
-
-        return array_values(array_unique($employmentIds));
-    }
-
     private function matchingAnchorType(BindingGrant $grant, AnchorRef $anchor): bool
     {
         return $grant->anchorType === $anchor->type;

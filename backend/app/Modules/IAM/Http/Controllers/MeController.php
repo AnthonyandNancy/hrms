@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
-use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Authorization\PermissionProjection;
-use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\BindingValidity;
-use App\Shared\Authorization\CapabilityWildcard;
-use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

@@ -34,9 +34,9 @@ final class InstallCommandTest extends TestCase
     {
         $exit = \Illuminate\Support\Facades\Artisan::call('hrms:install', $this->installOptions());
         if ($exit !== 0) {
-            fwrite(STDERR, "INSTALL OUTPUT:
-".\Illuminate\Support\Facades\Artisan::output()."
-");
+            fwrite(STDERR, 'INSTALL OUTPUT:
+'.\Illuminate\Support\Facades\Artisan::output().'
+');
         }
         $this->assertSame(0, $exit);
 

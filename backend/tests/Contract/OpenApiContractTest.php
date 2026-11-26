@@ -17,8 +17,6 @@ use Tests\TestCase;
  */
 class OpenApiContractTest extends TestCase
 {
-    private const SPEC_PATH = __DIR__.'/../../../docs/openapi/openapi.yaml';
-
     /**
      * @var list<string>
      */

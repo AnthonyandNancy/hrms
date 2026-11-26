@@ -32,7 +32,7 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
         $this->assign($target, 'HR_SPECIALIST');
 
         $response = $this->getJson('/v1/users?page=1&page_size=20', $headers)->assertOk();
-        $items = collect($response->json('data.items'))->keyBy('id');
+        $items = $this->itemsById($response->json('data.items'));
 
         $this->assertSame('HR_SPECIALIST', $items[(int) $target->id]['roles'][0]['role_code']);
         $this->assertFalse((bool) $items[(int) $target->id]['is_privileged']);
@@ -70,6 +70,20 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
         $this->deleteJson('/v1/users/'.$target->id.'/roles/HR_SPECIALIST', [
             'reason' => 'Synthetic revocation',
         ], $headers)->assertNotFound();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function itemsById(array $items): array
+    {
+        $byId = [];
+        foreach ($items as $item) {
+            $byId[(int) $item['id']] = $item;
+        }
+
+        return $byId;
     }
 
     /**

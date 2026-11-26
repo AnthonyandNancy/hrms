@@ -139,7 +139,7 @@ final class EmployeeController
 
         return ApiResponse::ok([
             'employment_id' => (int) $employment->id,
-            'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+            'archived_at' => $employment->archived_at instanceof \Carbon\CarbonInterface ? $employment->archived_at->toIso8601ZuluString() : null,
             'archived_by' => $employment->archived_by !== null ? (int) $employment->archived_by : null,
             'archive_reason' => $employment->archive_reason,
         ]);
