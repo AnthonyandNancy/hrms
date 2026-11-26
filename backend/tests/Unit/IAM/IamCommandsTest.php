@@ -7,8 +7,10 @@ namespace Tests\Unit\IAM;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
 use App\Modules\IAM\Models\Role;
+use App\Modules\IAM\Models\RolePage;
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\SodRules;
@@ -64,6 +66,18 @@ final class IamCommandsTest extends TestCase
         $this->assertSame(4, User::query()->count());
         $this->assertDatabaseHas('users', ['username' => 'demo.admin', 'is_privileged' => true]);
         $this->assertGreaterThan(0, AuthorityBinding::query()->count());
+
+        // ADR-0034 §10B: seeding must write user_roles as well as bindings.
+        foreach (['demo.admin', 'demo.hr', 'demo.manager', 'demo.employee'] as $username) {
+            $user = User::query()->where('username', $username)->firstOrFail();
+            $this->assertGreaterThan(
+                0,
+                UserRole::query()->where('user_id', (int) $user->id)->count(),
+                $username.' must have at least one effective user_roles row',
+            );
+        }
+
+        $this->assertGreaterThan(0, RolePage::query()->count());
 
     }
 

@@ -111,10 +111,17 @@ export async function pageAccessGuard(
   }
   const required = typeof to.meta.capability === 'string' ? to.meta.capability : undefined
   const pageCode = typeof to.meta.pageCode === 'string' ? to.meta.pageCode : undefined
-  if (pageCode && !session.canPage(pageCode)) {
+
+  // Public and terminal pages are never subject to a page grant. /forbidden and
+  // /not-found must stay reachable, otherwise a denied page redirects to a page
+  // that redirects to itself and the SPA locks up before it can render.
+  const isTerminal =
+    isPublic || to.name === 'forbidden' || to.name === 'not-found' || to.name === 'not-found-catchall'
+
+  if (!isTerminal && pageCode && !session.canPage(pageCode)) {
     return { name: 'forbidden', query: { from: to.fullPath, reason: 'PAGE_NOT_GRANTED' } }
   }
-  if (required && !session.can(required)) {
+  if (!isTerminal && required && !session.can(required)) {
     return { name: 'forbidden', query: { from: to.fullPath, reason: 'ACTION_NOT_GRANTED' } }
   }
 

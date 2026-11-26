@@ -8,6 +8,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\TotpService;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
@@ -80,6 +81,28 @@ final class SeedDemoCommand extends Command
                 ->whereNull('disabled_at')
                 ->exists()) {
                 $this->enrollTotp($user, $clock);
+            }
+
+            // ADR-0034 §10B: every demo/install account must own the same
+            // roles in user_roles and authority_bindings. role_pages is joined
+            // through user_roles, so a missing role row silently hides every
+            // page while capabilities still resolve.
+            foreach ($roles as $roleCode) {
+                UserRole::query()->firstOrCreate(
+                    [
+                        'user_id' => (int) $user->id,
+                        'role_code' => (string) $roleCode,
+                        'auth_version' => (int) $user->auth_version,
+                    ],
+                    [
+                        'tenant_id' => 1,
+                        'valid_from' => $clock->now()->startOfDay(),
+                        'valid_to' => $clock->now()->addYear()->startOfDay(),
+                        'granted_by' => null,
+                        'reason' => 'Synthetic demo seed',
+                        'created_at' => $clock->now(),
+                    ],
+                );
             }
 
             foreach ($roles as $roleCode) {

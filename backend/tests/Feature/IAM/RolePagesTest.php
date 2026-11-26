@@ -35,4 +35,15 @@ final class RolePagesTest extends TestCase
                 ->count(),
         );
     }
+
+    public function test_every_role_can_reach_the_base_security_pages(): void
+    {
+        $this->artisan('iam:sync-capabilities')->assertSuccessful();
+
+        foreach (['SYSTEM_ADMIN', 'HR_ADMIN', 'HR_SPECIALIST', 'EMPLOYEE', 'LINE_MANAGER', 'PAYROLL_SPECIALIST'] as $role) {
+            foreach (['workspace', 'account-mfa', 'account-sessions'] as $page) {
+                $this->assertDatabaseHas('role_pages', ['role_code' => $role, 'page_code' => $page]);
+            }
+        }
+    }
 }

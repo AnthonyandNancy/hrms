@@ -219,8 +219,16 @@ final class RolePageAssignmentCatalog
     {
         $codes = [];
 
+        // Every authenticated role lands on /workspace and must be able to
+        // manage its own MFA and sessions. These three pages form the
+        // "工作台与安全" group, which is not a business menu group and is
+        // therefore never listed explicitly by role.
+        $baseSecurityPaths = ['/workspace', '/account/mfa', '/account/sessions'];
+
         foreach ($pages as $page) {
-            if (in_array($page['menu_group'], $menuGroups, true) || in_array($page['path'], $extraPaths, true)) {
+            $isBaseSecurity = in_array($page['path'], $baseSecurityPaths, true);
+
+            if ($isBaseSecurity || in_array($page['menu_group'], $menuGroups, true) || in_array($page['path'], $extraPaths, true)) {
                 $codes[] = $page['page_code'];
             }
         }

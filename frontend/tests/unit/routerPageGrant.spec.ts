@@ -79,3 +79,33 @@ describe('router page and action gates', () => {
     expect(result).toBe(true)
   })
 })
+
+describe('guard must never redirect a page to itself', () => {
+  it('allows /forbidden even when no role grants the forbidden page', async () => {
+    setActivePinia(createPinia())
+    const session = authenticate({ pages: [], capabilities: [] })
+
+    const result = await pageAccessGuard(route({ pageCode: 'forbidden', public: true }), session)
+
+    expect(result).toBe(true)
+  })
+
+  it('allows /not-found even when no role grants the not-found page', async () => {
+    setActivePinia(createPinia())
+    const session = authenticate({ pages: [], capabilities: [] })
+
+    const result = await pageAccessGuard(route({ pageCode: 'not-found', public: true }), session)
+
+    expect(result).toBe(true)
+  })
+
+  it('turns an unauthorized page into PAGE_NOT_GRANTED exactly once', async () => {
+    setActivePinia(createPinia())
+    const session = authenticate({ pages: ['hr-employees'], capabilities: ['people.employee.read'] })
+
+    const result = await pageAccessGuard(route({ pageCode: 'payroll', capability: 'payroll.run.read' }), session)
+
+    expect(result).toMatchObject({ name: 'forbidden', query: { reason: 'PAGE_NOT_GRANTED' } })
+    expect((result as { name: string }).name).not.toBe('payroll')
+  })
+})
