@@ -175,3 +175,9 @@ Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 wi
 - Task 11: complete (c5572b9; RoleMatrixTest 7 tests / 69 assertions; 3 product findings owned by V3).
 - Task 12: complete (6c703a4 + 68fc665; real MySQL 8.4 rehearsal, 156/171 -> 155/0, restore 155/0, migration suite 7/7 639 assertions).
 - Gates at close: backend 1184 tests / 57606 assertions OK; pint PASS 1179 files; phpstan OK; capability:audit OK; arch:test OK; frontend 50 files/348 tests; typecheck+lint PASS; openapi-lint 252/324 OK; openapi:validate valid (2 pre-existing warnings); actions:check OK.
+
+## Volume 2 REVIEW — APPROVED (2026-11-27 00:35)
+- Blocking checks B1-B6 all PASS: no authorization bypass (no privileged short-circuit, COMPANY still requires anchor_id null, MFA middleware never bypasses capability); schema migrations forward-only/idempotent with index rebuild derived from Schema::getIndexes; action manifest wired via actionsForPage with byte-exact drift detection; password login with MFA off does not bypass authz; no secrets/PII/SQL in range.
+- Evidence-honesty scare resolved: NoTenantNoLegalEntityTest appeared red only when invoked from the MAIN checkout (two Composer autoloaders). Run inside the worktree backend/: OK (4 tests, 6 assertions). Acceptance doc now states the required run context (commit 4a77ace) and both migration assertion counts (327 SQLite / 639 MySQL).
+- Carried into Volume 3 (not blockers): payroll run anchor mismatch (V3 T12), LINE_MANAGER MANAGED vs ORG_UNIT (V3 T2/T5), 403-vs-404 out-of-scope disclosure (V3 T3).
+- Volume 2 CLOSED. Next: Volume 3 (18 tasks), starting with Task 1 (atomic employee onboarding) then the domain workspaces.
