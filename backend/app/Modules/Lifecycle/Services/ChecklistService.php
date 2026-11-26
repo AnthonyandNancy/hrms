@@ -23,15 +23,14 @@ final class ChecklistService
     /**
      * @return array<string, mixed>
      */
-    public function update(int $tenantId, int $taskId, int $actorUserId, string $status, ?string $waiverReason): array
+    public function update(int $taskId, int $actorUserId, string $status, ?string $waiverReason): array
     {
         if (! in_array($status, [LifecycleTask::STATUS_DONE, LifecycleTask::STATUS_WAIVED], true)) {
             throw new ConflictException('Checklist tasks can only be completed or waived.', ['reason' => 'CHECKLIST_INVALID_TRANSITION']);
         }
 
-        return DB::transaction(function () use ($tenantId, $taskId, $actorUserId, $status, $waiverReason): array {
+        return DB::transaction(function () use ($taskId, $actorUserId, $status, $waiverReason): array {
             $task = LifecycleTask::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($taskId)
                 ->lockForUpdate()
                 ->first();
@@ -57,7 +56,6 @@ final class ChecklistService
             ])->save();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'lifecycle.checklist.updated',
                 aggregateType: 'lifecycle_task',

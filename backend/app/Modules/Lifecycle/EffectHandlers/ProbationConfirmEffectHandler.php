@@ -31,7 +31,7 @@ final class ProbationConfirmEffectHandler implements DomainEffectHandler
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
         return $this->support->transactional(function () use ($command): DomainEffectResult {
-            $existing = $this->support->alreadyApplied($command->tenantId, $command->caseId);
+            $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
                 return DomainEffectResult::appliedWithOutbox('employment.probation.confirmed.v1', [
@@ -48,10 +48,10 @@ final class ProbationConfirmEffectHandler implements DomainEffectHandler
                 throw new ValidationException(['effective_date' => ['A valid employment_id and effective_date are required.']]);
             }
 
-            $employment = $this->employments->employment($command->tenantId, $employmentId);
+            $employment = $this->employments->employment($employmentId);
 
             if ($employment === null) {
-                throw new ValidationException(['employment_id' => ['The employment does not exist in this tenant.']]);
+                throw new ValidationException(['employment_id' => ['The employment does not exist.']]);
             }
 
             if ($employment->status !== 'PROBATION') {
@@ -75,8 +75,8 @@ final class ProbationConfirmEffectHandler implements DomainEffectHandler
                     ->withReason('PROBATION_MAX_EXCEEDED');
             }
 
-            $this->people->setEmploymentStatus($command->tenantId, $employmentId, 'ACTIVE', null);
-            $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $this->people->setEmploymentStatus($employmentId, 'ACTIVE', null);
+            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
 
             return DomainEffectResult::appliedWithOutbox('employment.probation.confirmed.v1', [
                 'employment_id' => $employmentId,

@@ -14,15 +14,12 @@ final class OfferListApiTest extends TalentTestCase
     public function test_offers_can_be_listed_and_filtered_by_candidate_and_status(): void
     {
         $candidate = Candidate::query()->create([
-            'tenant_id' => 1,
             'display_name' => 'Synthetic Candidate',
             'email' => 'candidate@example.test',
             'status' => 'OFFER',
             'recorded_at' => $this->clock->now(),
         ]);
         $requisition = Requisition::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'org_unit_id' => 1,
             'requisition_no' => 'REQ-OFFER-1',
             'title' => 'Synthetic role',
@@ -32,7 +29,6 @@ final class OfferListApiTest extends TalentTestCase
         ]);
 
         $offer = Offer::query()->create([
-            'tenant_id' => 1,
             'candidate_id' => $candidate->id,
             'requisition_id' => $requisition->id,
             'version' => 1,

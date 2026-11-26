@@ -15,28 +15,26 @@ final class LifecycleAuthorizationTest extends LifecycleTestCase
 
         $this->actAs(11);
         $this->authorizer->deniedCapabilities[] = 'lifecycle.onboarding.manage';
-        $this->postJson('/v1/lifecycle/onboarding', ['legal_entity_id' => 1], ['Idempotency-Key' => 'denied'])
+        $this->postJson('/v1/lifecycle/onboarding', [], ['Idempotency-Key' => 'denied'])
             ->assertForbidden()
             ->assertJsonPath('code', 'FORBIDDEN');
     }
 
-    public function test_manager_cannot_onboard_into_another_legal_entity(): void
+    public function test_manager_cannot_onboard_without_the_capability(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'AUTH-ORG');
+        $org = $this->peopleScenario->orgUnit('AUTH-ORG');
         $this->actAs(11);
 
         $this->authorizer->deniedCapabilities[] = 'lifecycle.onboarding.manage';
 
         $this->postJson('/v1/lifecycle/onboarding', [
             'person' => ['legal_name' => 'Unauthorized'],
-            'legal_entity_id' => 2,
             'employee_no' => 'AUTH-0001',
             'org_unit_id' => $org->id,
             'hire_date' => '2026-12-01',
             'employment_type' => 'FULL_TIME',
             'terms' => ['work_location' => 'Shanghai', 'work_schedule' => 'STANDARD'],
-        ], ['Idempotency-Key' => 'cross-entity-denied'])->assertForbidden();
+        ], ['Idempotency-Key' => 'cross-department-denied'])->assertForbidden();
 
         $this->assertSame([], \App\Modules\People\Models\Employment::query()->get()->all());
     }

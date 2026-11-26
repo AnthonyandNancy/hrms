@@ -20,19 +20,18 @@ final class LifecycleProjectionService
     /**
      * @return array<string, mixed>
      */
-    public function detail(int $tenantId, int $caseId): array
+    public function detail(int $caseId): array
     {
-        $case = $this->workflow->caseForTenant($tenantId, $caseId);
-        $intent = LifecycleIntent::query()->where('tenant_id', $tenantId)->where('case_id', $caseId)->first();
+        $case = $this->workflow->caseFor($caseId);
+        $intent = LifecycleIntent::query()->where('case_id', $caseId)->first();
 
         if ($case === null || $intent === null) {
             throw NotFoundException::forResource();
         }
 
         $employmentId = $intent->employment_id ?? $intent->result_employment_id;
-        $employment = $employmentId !== null ? $this->employments->employment($tenantId, (int) $employmentId) : null;
+        $employment = $employmentId !== null ? $this->employments->employment((int) $employmentId) : null;
         $tasks = LifecycleTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('case_id', $caseId)
             ->orderBy('id')
             ->get();
@@ -52,7 +51,6 @@ final class LifecycleProjectionService
             'employment' => $employment !== null ? [
                 'employment_id' => $employment->id,
                 'person_id' => $employment->personId,
-                'legal_entity_id' => $employment->legalEntityId,
                 'employee_no' => $employment->employeeNo,
                 'status' => $employment->status,
                 'valid_from' => $employment->validFrom,
@@ -74,10 +72,9 @@ final class LifecycleProjectionService
     /**
      * @return list<array<string, mixed>>
      */
-    public function checklistForEmployment(int $tenantId, int $employmentId): array
+    public function checklistForEmployment(int $employmentId): array
     {
         return LifecycleTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderBy('id')
             ->get()

@@ -9,9 +9,9 @@ use Tests\Support\LifecycleTestCase;
 
 final class LifecycleCaseListTest extends LifecycleTestCase
 {
-    public function test_lifecycle_cases_can_be_listed_for_the_tenant_with_type_filter(): void
+    public function test_lifecycle_cases_can_be_listed_with_type_filter(): void
     {
-        $this->intent(1, 101, 'ASSIGNMENT_CHANGE', 'employment', 1);
+        $this->intent(101, 'ASSIGNMENT_CHANGE', 'employment', 1);
 
         $this->getJson('/v1/lifecycle/cases?case_type=ASSIGNMENT_CHANGE')
             ->assertOk()
@@ -22,8 +22,8 @@ final class LifecycleCaseListTest extends LifecycleTestCase
 
     public function test_lifecycle_cases_can_be_filtered_by_employment(): void
     {
-        $this->intent(1, 102, 'ASSIGNMENT_CHANGE', 'employment', 1);
-        $this->intent(1, 103, 'TERMS_CHANGE', 'employment', 2);
+        $this->intent(102, 'ASSIGNMENT_CHANGE', 'employment', 1);
+        $this->intent(103, 'TERMS_CHANGE', 'employment', 2);
 
         $this->getJson('/v1/lifecycle/cases?employment_id=1')
             ->assertOk()
@@ -35,19 +35,19 @@ final class LifecycleCaseListTest extends LifecycleTestCase
             ->assertJsonPath('data.total', 0);
     }
 
-    public function test_lifecycle_cases_are_tenant_scoped(): void
+    public function test_lifecycle_cases_are_company_wide(): void
     {
-        $this->intent(2, 104, 'ASSIGNMENT_CHANGE', 'employment', 1);
+        $this->intent(104, 'ASSIGNMENT_CHANGE', 'employment', 1);
+        $this->intent(105, 'TERMS_CHANGE', 'employment', 2);
 
         $this->getJson('/v1/lifecycle/cases')
             ->assertOk()
-            ->assertJsonPath('data.total', 0);
+            ->assertJsonPath('data.total', 2);
     }
 
-    private function intent(int $tenantId, int $caseId, string $caseType, string $subjectType, int $employmentId): LifecycleIntent
+    private function intent(int $caseId, string $caseType, string $subjectType, int $employmentId): LifecycleIntent
     {
         return LifecycleIntent::query()->create([
-            'tenant_id' => $tenantId,
             'case_id' => $caseId,
             'case_type' => $caseType,
             'status' => 'SUBMITTED',

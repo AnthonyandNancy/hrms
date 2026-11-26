@@ -14,11 +14,10 @@ final class TransferFutureEffectTest extends LifecycleTestCase
     public function test_future_transfer_keeps_todays_view_and_preserves_assignment_history(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $sales = $scenario->orgUnit($entity, 'T-SALES');
-        $platform = $scenario->orgUnit($entity, 'T-PLATFORM');
+        $sales = $scenario->orgUnit('T-SALES');
+        $platform = $scenario->orgUnit('T-PLATFORM');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TR-FUT-1', ['valid_from' => '2026-01-01']);
+        $employment = $scenario->employment($person, 'TR-FUT-1', ['valid_from' => '2026-01-01']);
         $scenario->assignment($employment, $sales, ['valid_from' => '2026-01-01']);
 
         $created = $this->createLifecycleCase('transfers', [
@@ -32,7 +31,7 @@ final class TransferFutureEffectTest extends LifecycleTestCase
         $caseId = (int) $created->json('data.case_id');
 
         $directory = app(EmploymentLifecycleDirectory::class);
-        $before = $directory->assignmentAsOf(1, $employment->id, '2026-11-30');
+        $before = $directory->assignmentAsOf($employment->id, '2026-11-30');
         $this->assertNotNull($before);
         $this->assertSame($sales->id, $before->orgUnitId);
 
@@ -40,10 +39,10 @@ final class TransferFutureEffectTest extends LifecycleTestCase
             ->assertOk()
             ->assertJsonPath('data.effect_status', 'APPLIED');
 
-        $before = $directory->assignmentAsOf(1, $employment->id, '2026-11-30');
+        $before = $directory->assignmentAsOf($employment->id, '2026-11-30');
         $this->assertNotNull($before);
         $this->assertSame($sales->id, $before->orgUnitId);
-        $after = $directory->assignmentAsOf(1, $employment->id, '2026-12-01');
+        $after = $directory->assignmentAsOf($employment->id, '2026-12-01');
         $this->assertNotNull($after);
         $this->assertSame($platform->id, $after->orgUnitId);
 
@@ -57,38 +56,43 @@ final class TransferFutureEffectTest extends LifecycleTestCase
         $this->assertCount(2, $all);
     }
 
-    public function test_cross_entity_transfer_creates_new_employment_and_leaves_old_terminated(): void
+    public function test_cross_department_transfer_keeps_the_employment_and_is_idempotent(): void
     {
         $scenario = $this->peopleScenario;
-        $cn = $scenario->legalEntity('DEMO-CN');
-        $sg = $scenario->legalEntity('DEMO-SG', 'Demo Singapore', 'Asia/Singapore', 'SGD');
-        $sgOps = $scenario->orgUnit($sg, 'SG-OPS');
+        $sales = $scenario->orgUnit('XD-SALES');
+        $platform = $scenario->orgUnit('XD-PLATFORM');
         $person = $scenario->person();
-        $old = $scenario->employment($person, $cn, 'X-ENTITY-1', ['valid_from' => '2026-01-01']);
-        $scenario->assignment($old, $scenario->orgUnit($cn, 'CN-OPS'), ['valid_from' => '2026-01-01']);
+        $employment = $scenario->employment($person, 'XD-0001', ['valid_from' => '2026-01-01']);
+        $scenario->assignment($employment, $sales, ['valid_from' => '2026-01-01']);
 
         $created = $this->createLifecycleCase('transfers', [
-            'employment_id' => $old->id,
-            'legal_entity_id' => $sg->id,
-            'org_unit_id' => $sgOps->id,
-            'employee_no' => 'SG-ENTITY-1',
+            'employment_id' => $employment->id,
+            'org_unit_id' => $platform->id,
             'effective_date' => '2026-12-01',
-            'reason' => 'Group transfer',
+            'reason' => 'Cross-department move',
             'submit' => true,
-        ], 'cross-entity-create')->assertCreated();
+        ], 'cross-department-create')->assertCreated();
 
         $caseId = (int) $created->json('data.case_id');
-        $this->approveCase($caseId, 'cross-entity-approve')->assertOk();
+        $this->approveCase($caseId, 'cross-department-approve')
+            ->assertOk()
+            ->assertJsonPath('data.effect_status', 'APPLIED');
 
-        $old->refresh();
-        $this->assertSame('TERMINATED', $old->status);
-        $this->assertSame('2026-12-01', (string) $old->valid_to);
+        $directory = app(EmploymentLifecycleDirectory::class);
+        $this->assertSame($sales->id, $directory->assignmentAsOf($employment->id, '2026-11-30')?->orgUnitId);
+        $this->assertSame($platform->id, $directory->assignmentAsOf($employment->id, '2026-12-01')?->orgUnitId);
 
-        $new = Employment::query()->where('source_type', 'TRANSFER')->where('tenant_id', 1)->firstOrFail();
-        $this->assertSame($person->id, $new->person_id);
-        $this->assertSame($sg->id, $new->legal_entity_id);
-        $this->assertNotSame($old->id, $new->id);
-        $this->assertSame('2026-12-01', (string) $new->valid_from);
-        $this->assertSame($old->seniority_start_date, $new->seniority_start_date);
+        $before = Employment::query()->findOrFail($employment->id);
+        $this->assertSame('ACTIVE', $before->status);
+        $this->assertCount(1, Employment::query()->whereKey($employment->id)->get());
+
+        // Replaying the same effect leaves exactly one new assignment and no
+        // additional employment row: effective-dated effects stay idempotent.
+        $this->approveCase($caseId, 'cross-department-approve')
+            ->assertOk()
+            ->assertJsonPath('data.effect_status', 'APPLIED');
+
+        $this->assertCount(1, Employment::query()->whereKey($employment->id)->get());
+        $this->assertSame(2, Assignment::query()->where('employment_id', $employment->id)->count());
     }
 }

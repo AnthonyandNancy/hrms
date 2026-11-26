@@ -14,7 +14,7 @@ use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +25,7 @@ final class SecondmentController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly SecondmentService $secondments,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -37,7 +37,6 @@ final class SecondmentController
         $this->assertPermits($principal, 'lifecycle.secondment.manage');
 
         $data = $request->validate([
-            'legal_entity_id' => ['sometimes', 'integer', 'min:1'],
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'as_of' => ['nullable', new BusinessDateRule],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -46,11 +45,9 @@ final class SecondmentController
 
         $asOf = isset($data['as_of'])
             ? (string) $data['as_of']
-            : $this->businessDates->today($principal->tenantId())->value();
+            : $this->businessDates->today()->value();
 
         return $this->projections->ok($this->secondments->project(
-            tenantId: $principal->tenantId(),
-            legalEntityId: $this->legalEntityId($request, $data),
             employmentId: isset($data['employment_id']) ? (int) $data['employment_id'] : null,
             asOf: $asOf,
             page: (int) ($data['page'] ?? 1),
@@ -96,7 +93,6 @@ final class SecondmentController
             payload: $payload,
             operation: function () use ($principal, $payload): array {
                 $assignmentId = $this->secondments->create(
-                    tenantId: $principal->tenantId(),
                     employmentId: (int) $payload['employment_id'],
                     hostOrgUnitId: (int) $payload['host_org_unit_id'],
                     effectiveFrom: (string) $payload['effective_from'],
@@ -106,7 +102,7 @@ final class SecondmentController
                     actorUserId: $principal->userId(),
                 );
 
-                $occupant = $this->secondments->find($principal->tenantId(), $assignmentId);
+                $occupant = $this->secondments->find($assignmentId);
 
                 if ($occupant === null) {
                     throw new NotFoundOrForbiddenException;
@@ -136,44 +132,10 @@ final class SecondmentController
         return $this->respond($result);
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function legalEntityId(Request $request, array $data): int
-    {
-        if (isset($data['legal_entity_id'])) {
-            return (int) $data['legal_entity_id'];
-        }
-
-        $header = $request->header('X-Legal-Entity-Id');
-
-        if (is_numeric($header) && (int) $header > 0) {
-            return (int) $header;
-        }
-
-        if (isset($data['employment_id'])) {
-            $employment = app(\App\Modules\People\Contracts\EmploymentLifecycleDirectory::class)
-                ->employment($this->principals->resolve()->tenantId(), (int) $data['employment_id']);
-
-            if ($employment !== null) {
-                return $employment->legalEntityId;
-            }
-        }
-
-        throw new \App\Shared\Exceptions\ValidationException(
-            ['legal_entity_id' => ['The legal_entity_id field is required.']],
-            'The given data was invalid.',
-            ['reason' => 'COMPANY_REQUIRED'],
-        );
-    }
-
     private function assertPermits(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
-        // Elevation is checked at the feature level here because the target
-        // legal entity is derived from the employment inside the service. The
-        // route gate additionally checks the caller's own legal-entity anchor.
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');
         }

@@ -41,7 +41,7 @@ final class OffboardEffectHandler implements DomainEffectHandler
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
         return $this->support->transactional(function () use ($command): DomainEffectResult {
-            $existing = $this->support->alreadyApplied($command->tenantId, $command->caseId);
+            $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
                 return DomainEffectResult::appliedWithOutbox('employment.terminated.v1', [
@@ -53,7 +53,7 @@ final class OffboardEffectHandler implements DomainEffectHandler
             $payload = $this->support->payload($command);
             $employmentId = (int) ($payload['employment_id'] ?? 0);
             $lastWorkingDate = (string) ($payload['last_working_date'] ?? '');
-            $employment = $this->employments->employment($command->tenantId, $employmentId);
+            $employment = $this->employments->employment($employmentId);
 
             if ($employment === null || BusinessDate::tryFrom($lastWorkingDate) === null) {
                 throw new ValidationException(['last_working_date' => ['A valid employment and last working date are required.']]);
@@ -63,13 +63,13 @@ final class OffboardEffectHandler implements DomainEffectHandler
                 throw new ConflictException('The employment is already terminated.', ['reason' => 'EMPLOYMENT_ALREADY_TERMINATED']);
             }
 
-            $this->checklists->assertResolved($this->support->checklistSnapshot($command->tenantId, $command->caseId));
+            $this->checklists->assertResolved($this->support->checklistSnapshot($command->caseId));
 
             if (($payload['final_payroll_required'] ?? true) === false && empty($payload['final_payroll_waiver_reason'])) {
                 throw new ValidationException(['final_payroll_waiver_reason' => ['A final payroll waiver needs a reason.']]);
             }
 
-            $outstanding = $this->leaveBalances->outstanding($command->tenantId, $employmentId, $lastWorkingDate);
+            $outstanding = $this->leaveBalances->outstanding($employmentId, $lastWorkingDate);
             $payable = [];
 
             foreach ($outstanding as $balance) {
@@ -81,11 +81,10 @@ final class OffboardEffectHandler implements DomainEffectHandler
                 }
             }
 
-            $assignment = $this->employments->assignmentAsOf($command->tenantId, $employmentId, $lastWorkingDate);
+            $assignment = $this->employments->assignmentAsOf($employmentId, $lastWorkingDate);
 
             if ($assignment !== null) {
                 $this->people->endAssignment(
-                    $command->tenantId,
                     $assignment->id,
                     BusinessDate::from($lastWorkingDate)->addDays(1)->value(),
                     null,
@@ -95,7 +94,6 @@ final class OffboardEffectHandler implements DomainEffectHandler
             }
 
             $this->people->endEmployment(
-                $command->tenantId,
                 $employmentId,
                 BusinessDate::from($lastWorkingDate)->addDays(1)->value(),
                 $lastWorkingDate,
@@ -107,18 +105,18 @@ final class OffboardEffectHandler implements DomainEffectHandler
             // Access revocation and the local employment effect share this
             // transaction. Auth versions increment so replayed cookies fail.
             $revocations = [];
-            $userIds = $this->employments->linkedUserIds($command->tenantId, $employmentId, $lastWorkingDate);
+            $userIds = $this->employments->linkedUserIds($employmentId, $lastWorkingDate);
 
             foreach ($userIds as $userId) {
-                $result = $this->sessions->revokeForUser($command->tenantId, $userId, 'OFFBOARD');
+                $result = $this->sessions->revokeForUser($userId, 'OFFBOARD');
                 if ($result !== null) {
                     $revocations[] = $result;
                 }
-                $this->delegations->revokeForUser($command->tenantId, $userId, 'OFFBOARD');
+                $this->delegations->revokeForUser($userId, 'OFFBOARD');
             }
 
-            $cancelledExports = $this->exports->cancelPendingForEmployment($command->tenantId, $employmentId, 'OFFBOARD');
-            $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $employmentId, $lastWorkingDate);
+            $cancelledExports = $this->exports->cancelPendingForEmployment($employmentId, 'OFFBOARD');
+            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $lastWorkingDate);
 
             return DomainEffectResult::appliedWithOutbox('employment.terminated.v1', [
                 'employment_id' => $employmentId,

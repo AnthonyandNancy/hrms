@@ -19,7 +19,6 @@ final class TalentOnboardingDraftService implements TalentOnboardingDraftPort
     {
         return DB::transaction(function () use ($input): array {
             $existing = LifecycleIntent::query()
-                ->where('tenant_id', (int) $input['tenant_id'])
                 ->where('case_type', LifecycleCaseType::ONBOARDING->value)
                 ->where('intent_json->candidate_id', (int) $input['candidate_id'])
                 ->where('intent_json->offer_id', (int) $input['offer_id'])
@@ -30,13 +29,11 @@ final class TalentOnboardingDraftService implements TalentOnboardingDraftPort
             }
 
             $created = $this->lifecycle->createCase(
-                tenantId: (int) $input['tenant_id'],
                 requesterUserId: (int) $input['actor_user_id'],
                 type: LifecycleCaseType::ONBOARDING,
                 payload: [
                     'candidate_id' => (int) $input['candidate_id'],
                     'offer_id' => (int) $input['offer_id'],
-                    'legal_entity_id' => (int) $input['legal_entity_id'],
                     'org_unit_id' => (int) $input['org_unit_id'],
                     'employee_no' => (string) $input['employee_no'],
                     'hire_date' => (string) $input['hire_date'],

@@ -12,9 +12,8 @@ final class OffboardingChecklistTest extends LifecycleTestCase
     public function test_offboarding_rejects_unresolved_required_checklist_at_effect_time(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'OFF-REJECT-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'OFF-0002');
+        $org = $scenario->orgUnit('OFF-REJECT-ORG');
+        $employment = $scenario->employment($scenario->person(), 'OFF-0002');
         $scenario->assignment($employment, $org);
 
         $created = $this->createLifecycleCase('offboardings', [
@@ -28,7 +27,6 @@ final class OffboardingChecklistTest extends LifecycleTestCase
         $caseId = (int) $created->json('data.case_id');
 
         LifecycleTask::query()->create([
-            'tenant_id' => 1,
             'case_id' => $caseId,
             'employment_id' => $employment->id,
             'task_code' => 'ACCOUNT_PROVISION',

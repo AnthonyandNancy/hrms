@@ -7,6 +7,7 @@ namespace App\Modules\Lifecycle\EffectHandlers;
 use App\Modules\IAM\Contracts\UserDirectory;
 use App\Modules\Lifecycle\Domain\LifecycleCaseType;
 use App\Modules\Lifecycle\Services\LifecycleEffectSupport;
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
@@ -24,6 +25,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
         private readonly PeopleEmploymentWriter $people,
         private readonly EmploymentLifecycleDirectory $employments,
         private readonly OrganizationFacts $organization,
+        private readonly CompanyProfileReader $company,
         private readonly UserDirectory $users,
     ) {}
 
@@ -35,7 +37,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
         return $this->support->transactional(function () use ($command): DomainEffectResult {
-            $existing = $this->support->alreadyApplied($command->tenantId, $command->caseId);
+            $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
                 return DomainEffectResult::appliedWithOutbox('employment.created.v1', [
@@ -45,30 +47,28 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             }
 
             $payload = $this->support->payload($command);
-            $this->assertPayload($command->tenantId, $payload, $command->effectType === LifecycleCaseType::REHIRE->effectType());
+            $this->assertPayload($payload, $command->effectType === LifecycleCaseType::REHIRE->effectType());
 
-            $personId = $this->resolvePerson($command->tenantId, $payload);
-            $entity = $this->organization->legalEntity($command->tenantId, (int) $payload['legal_entity_id']);
-            $org = $this->organization->orgUnit($command->tenantId, (int) $payload['org_unit_id']);
+            $personId = $this->resolvePerson($payload);
+            $org = $this->organization->orgUnit((int) $payload['org_unit_id']);
 
-            if ($entity === null || $org === null || $org->legalEntityId !== $entity->id) {
-                throw new ValidationException(['org_unit_id' => ['The org unit must belong to the employment legal entity.']]);
+            if ($org === null) {
+                throw new ValidationException(['org_unit_id' => ['The org unit does not exist.']]);
             }
 
             $hireDate = (string) $payload['hire_date'];
             $seniorityStart = (string) ($payload['seniority_start_date'] ?? $hireDate);
 
             if (($payload['seniority_rule'] ?? null) === 'PRESERVE_ORIGINAL' && isset($payload['previous_employment_id'])) {
-                $previous = $this->employments->employment($command->tenantId, (int) $payload['previous_employment_id']);
+                $previous = $this->employments->employment((int) $payload['previous_employment_id']);
 
                 if ($previous !== null) {
                     $seniorityStart = $previous->seniorityStartDate;
                 }
             }
 
-            $employmentId = $this->people->createEmployment($command->tenantId, [
+            $employmentId = $this->people->createEmployment([
                 'person_id' => $personId,
-                'legal_entity_id' => (int) $payload['legal_entity_id'],
                 'employee_no' => (string) $payload['employee_no'],
                 'employment_type' => (string) $payload['employment_type'],
                 'status' => (string) ($payload['initial_status'] ?? 'PROBATION'),
@@ -80,7 +80,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                 'source_id' => $command->caseId,
             ], null);
 
-            $assignmentId = $this->people->createAssignment($command->tenantId, $employmentId, [
+            $assignmentId = $this->people->createAssignment($employmentId, [
                 'org_unit_id' => (int) $payload['org_unit_id'],
                 'position_id' => $payload['position_id'] ?? null,
                 'manager_assignment_id' => $payload['manager_assignment_id'] ?? null,
@@ -94,14 +94,14 @@ final class OnboardingEffectHandler implements DomainEffectHandler
 
             $terms = (array) ($payload['terms'] ?? []);
             $probationEnd = $terms['probation_end_date'] ?? null;
-            $this->people->appendTerms($command->tenantId, $employmentId, [
+            $this->people->appendTerms($employmentId, [
                 'effective_from' => $hireDate,
                 'probation_end_date' => $probationEnd,
                 'work_location' => (string) ($terms['work_location'] ?? 'Unspecified'),
                 'work_schedule' => (string) ($terms['work_schedule'] ?? 'STANDARD'),
                 'salary_scheme_code' => $terms['salary_scheme_code'] ?? null,
                 'base_salary_minor' => $terms['base_salary_minor'] ?? null,
-                'salary_currency' => (string) ($terms['salary_currency'] ?? $entity->currencyCode),
+                'salary_currency' => (string) ($terms['salary_currency'] ?? $this->company->current()->currencyCode),
                 'notice_period_days' => (int) ($terms['notice_period_days'] ?? 0),
                 'confidentiality' => (bool) ($terms['confidentiality'] ?? false),
                 'non_compete' => (bool) ($terms['non_compete'] ?? false),
@@ -111,8 +111,8 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             ], null);
 
             $this->linkUserIfPresent($command, $payload, $personId, $employmentId);
-            $this->support->createOnboardingChecklist($command->tenantId, $command->caseId, $employmentId, $hireDate);
-            $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $employmentId, $hireDate);
+            $this->support->createOnboardingChecklist($command->caseId, $employmentId, $hireDate);
+            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $hireDate);
 
             return DomainEffectResult::appliedWithOutbox('employment.created.v1', [
                 'employment_id' => $employmentId,
@@ -131,19 +131,17 @@ final class OnboardingEffectHandler implements DomainEffectHandler
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function resolvePerson(int $tenantId, array $payload): int
+    private function resolvePerson(array $payload): int
     {
         if (isset($payload['person_id']) && (int) $payload['person_id'] > 0) {
             $personId = (int) $payload['person_id'];
 
             if ($this->employments->hasOverlappingEmployment(
-                $tenantId,
                 $personId,
-                (int) $payload['legal_entity_id'],
                 (string) $payload['hire_date'],
                 BusinessDate::OPEN_END,
             )) {
-                throw (new ValidationException(['person_id' => ['The person already has an overlapping active employment in this legal entity.']]))
+                throw (new ValidationException(['person_id' => ['The person already has an overlapping active employment.']]))
                     ->withReason('OVERLAPPING_ACTIVE_EMPLOYMENT');
             }
 
@@ -156,7 +154,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             throw new ValidationException(['person' => ['Either person_id or a person object is required.']]);
         }
 
-        return $this->people->createPerson($tenantId, $person, null);
+        return $this->people->createPerson($person, null);
     }
 
     /**
@@ -164,14 +162,13 @@ final class OnboardingEffectHandler implements DomainEffectHandler
      */
     private function linkUserIfPresent(DomainEffectCommand $command, array $payload, int $personId, int $employmentId): void
     {
-        $userId = isset($payload['user_id']) ? (int) $payload['user_id'] : $this->users->userIdForPerson($command->tenantId, $personId);
+        $userId = isset($payload['user_id']) ? (int) $payload['user_id'] : $this->users->userIdForPerson($personId);
 
         if ($userId === null) {
             return;
         }
 
         $this->people->linkUser(
-            tenantId: $command->tenantId,
             userId: $userId,
             employmentId: $employmentId,
             validFrom: (string) ($payload['hire_date'] ?? BusinessDate::OPEN_END),
@@ -183,16 +180,16 @@ final class OnboardingEffectHandler implements DomainEffectHandler
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function assertPayload(int $tenantId, array $payload, bool $rehire): void
+    private function assertPayload(array $payload, bool $rehire): void
     {
-        foreach (['legal_entity_id', 'employee_no', 'org_unit_id', 'hire_date', 'employment_type'] as $field) {
+        foreach (['employee_no', 'org_unit_id', 'hire_date', 'employment_type'] as $field) {
             if (! isset($payload[$field]) || $payload[$field] === '') {
                 throw new ValidationException([$field => ["The {$field} field is required."]]);
             }
         }
 
-        if ($this->employments->employeeNumberExists($tenantId, (int) $payload['legal_entity_id'], (string) $payload['employee_no'])) {
-            throw (new ConflictException('Employee number must be unique per tenant and legal entity.', ['reason' => 'EMPLOYEE_NO_DUPLICATE']));
+        if ($this->employments->employeeNumberExists((string) $payload['employee_no'])) {
+            throw (new ConflictException('Employee number must be unique.', ['reason' => 'EMPLOYEE_NO_DUPLICATE']));
         }
 
         if ($rehire && ! isset($payload['previous_employment_id'])) {

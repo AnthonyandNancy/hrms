@@ -23,7 +23,6 @@ final class LifecycleIntent extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'case_type',
         'status',
@@ -42,7 +41,6 @@ final class LifecycleIntent extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'case_id' => 'integer',
             'subject_id' => 'integer',
             'intent_json' => 'array',

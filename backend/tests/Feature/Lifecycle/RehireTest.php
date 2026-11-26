@@ -12,10 +12,9 @@ final class RehireTest extends LifecycleTestCase
     public function test_rehire_creates_new_employment_and_preserves_old_terminated_employment(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'REH-ORG');
+        $org = $scenario->orgUnit('REH-ORG');
         $person = $scenario->person();
-        $old = $scenario->employment($person, $entity, 'REH-0001', [
+        $old = $scenario->employment($person, 'REH-0001', [
             'status' => 'TERMINATED',
             'valid_from' => '2020-01-01',
             'valid_to' => '2024-01-01',
@@ -25,7 +24,6 @@ final class RehireTest extends LifecycleTestCase
         $created = $this->createLifecycleCase('rehires', [
             'person_id' => $person->id,
             'previous_employment_id' => $old->id,
-            'legal_entity_id' => $entity->id,
             'employee_no' => 'REH-0002',
             'org_unit_id' => $org->id,
             'hire_date' => '2026-12-01',

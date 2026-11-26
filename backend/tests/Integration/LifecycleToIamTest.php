@@ -14,16 +14,15 @@ final class LifecycleToIamTest extends LifecycleTestCase
     public function test_offboarding_revokes_sessions_and_auth_version_via_iam_contract(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'IAM-INT-ORG');
+        $org = $scenario->orgUnit('IAM-INT-ORG');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'IAM-INT-1');
+        $employment = $scenario->employment($person, 'IAM-INT-1');
         $scenario->assignment($employment, $org);
 
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 4]);
+        $user = User::factory()->create(['auth_version' => 4]);
         $user->forceFill(['person_id' => $person->id])->save();
         $scenario->userLink((int) $user->id, $employment);
-        $session = Session::factory()->create(['tenant_id' => 1, 'user_id' => $user->id, 'auth_version' => 4]);
+        $session = Session::factory()->create(['user_id' => $user->id, 'auth_version' => 4]);
 
         $created = $this->createLifecycleCase('offboardings', [
             'employment_id' => $employment->id,
@@ -36,7 +35,6 @@ final class LifecycleToIamTest extends LifecycleTestCase
 
         foreach (['ACCOUNT_PROVISION', 'CONTRACT_SIGNATURE', 'PAYROLL_ENROLLMENT', 'PROBATION_END_DATE'] as $code) {
             LifecycleTask::query()->create([
-                'tenant_id' => 1,
                 'case_id' => $caseId,
                 'employment_id' => $employment->id,
                 'task_code' => $code,

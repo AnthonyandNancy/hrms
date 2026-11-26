@@ -16,7 +16,6 @@ final class OnboardingChecklistTemplate extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'task_code',
         'title',
         'required',
@@ -31,7 +30,6 @@ final class OnboardingChecklistTemplate extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'required' => 'boolean',
             'sort_order' => 'integer',
             'recorded_at' => 'immutable_datetime',

@@ -15,14 +15,12 @@ final class IamAssigneeDirectoryTest extends LifecycleTestCase
     {
         Role::query()->create([
             'code' => 'HR_ADMIN',
-            'tenant_id' => 1,
             'name' => 'HR administrator',
             'is_template' => true,
             'purpose' => 'Test template',
         ]);
-        $user = User::factory()->create(['tenant_id' => 1]);
+        $user = User::factory()->create();
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'role_code' => 'HR_ADMIN',
             'valid_from' => '2026-01-01 00:00:00',
@@ -33,9 +31,9 @@ final class IamAssigneeDirectoryTest extends LifecycleTestCase
         ]);
 
         $directory = $this->app->make(\App\Modules\IAM\Services\IamAssigneeDirectory::class);
-        $users = $directory->userIdsWithRole(1, 'HR_ADMIN', '2026-11-23');
+        $users = $directory->userIdsWithRole('HR_ADMIN', '2026-11-23');
 
         $this->assertContains((int) $user->id, $users);
-        $this->assertSame([], $directory->userIdsWithRole(1, 'HR_ADMIN', '2027-01-02'));
+        $this->assertSame([], $directory->userIdsWithRole('HR_ADMIN', '2027-01-02'));
     }
 }

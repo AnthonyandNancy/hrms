@@ -16,13 +16,11 @@ final class OnboardingEffectTest extends LifecycleTestCase
 {
     public function test_approved_onboarding_effect_creates_employment_primary_assignment_terms_and_checklist(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'ONB-ENG');
-        $this->bindWorkflowPrincipal(1, 10);
+        $org = $this->peopleScenario->orgUnit('ONB-ENG');
+        $this->bindWorkflowPrincipal(10);
 
         $created = $this->createLifecycleCase('onboarding', [
             'person' => ['legal_name' => 'Synthetic Onboard', 'email' => 'onboard@example.test', 'mobile' => '+8613900000000'],
-            'legal_entity_id' => $entity->id,
             'employee_no' => 'ONB-0001',
             'org_unit_id' => $org->id,
             'hire_date' => '2026-12-01',
@@ -52,7 +50,6 @@ final class OnboardingEffectTest extends LifecycleTestCase
 
         $this->assertSame('2026-12-01', $employment->valid_from);
         $this->assertSame('PROBATION', $employment->status);
-        $this->assertSame($entity->id, $employment->legal_entity_id);
         $this->assertSame('Synthetic Onboard', \App\Modules\People\Models\Person::query()->findOrFail($employment->person_id)->legal_name);
 
         $primary = Assignment::query()->where('employment_id', $employment->id)->get();
@@ -82,13 +79,11 @@ final class OnboardingEffectTest extends LifecycleTestCase
 
     public function test_rejected_onboarding_never_creates_domain_rows(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'ONB-REJECT');
-        $this->bindWorkflowPrincipal(1, 10);
+        $org = $this->peopleScenario->orgUnit('ONB-REJECT');
+        $this->bindWorkflowPrincipal(10);
 
         $created = $this->createLifecycleCase('onboarding', [
             'person' => ['legal_name' => 'Rejected Candidate'],
-            'legal_entity_id' => $entity->id,
             'employee_no' => 'ONB-REJECT-1',
             'org_unit_id' => $org->id,
             'hire_date' => '2026-12-01',

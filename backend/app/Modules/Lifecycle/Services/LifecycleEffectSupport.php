@@ -40,24 +40,23 @@ final class LifecycleEffectSupport
         return is_array($payload) ? $payload : [];
     }
 
-    public function intent(int $tenantId, int $caseId): ?LifecycleIntent
+    public function intent(int $caseId): ?LifecycleIntent
     {
         return LifecycleIntent::query()
-            ->where('tenant_id', $tenantId)
             ->where('case_id', $caseId)
             ->first();
     }
 
-    public function alreadyApplied(int $tenantId, int $caseId): ?LifecycleIntent
+    public function alreadyApplied(int $caseId): ?LifecycleIntent
     {
-        $intent = $this->intent($tenantId, $caseId);
+        $intent = $this->intent($caseId);
 
         return $intent !== null && $intent->status === LifecycleIntent::STATUS_EFFECTIVE ? $intent : null;
     }
 
-    public function markEffective(int $tenantId, int $caseId, ?int $employmentId, ?int $resultEmploymentId = null, ?string $effectiveAt = null): void
+    public function markEffective(int $caseId, ?int $employmentId, ?int $resultEmploymentId = null, ?string $effectiveAt = null): void
     {
-        $intent = $this->intent($tenantId, $caseId);
+        $intent = $this->intent($caseId);
 
         if ($intent === null) {
             return;
@@ -71,9 +70,9 @@ final class LifecycleEffectSupport
         ])->save();
     }
 
-    public function markFailed(int $tenantId, int $caseId): void
+    public function markFailed(int $caseId): void
     {
-        $intent = $this->intent($tenantId, $caseId);
+        $intent = $this->intent($caseId);
 
         if ($intent !== null && $intent->status !== LifecycleIntent::STATUS_EFFECTIVE) {
             $intent->forceFill(['status' => LifecycleIntent::STATUS_FAILED])->save();
@@ -83,10 +82,9 @@ final class LifecycleEffectSupport
     /**
      * @return list<array{task_code:string,title:string,required:bool,assignee_role:string|null}>
      */
-    public function checklistForTenant(int $tenantId): array
+    public function checklist(): array
     {
         $rows = OnboardingChecklistTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -103,13 +101,12 @@ final class LifecycleEffectSupport
         ])->all();
     }
 
-    public function createOnboardingChecklist(int $tenantId, int $caseId, int $employmentId, string $hireDate): void
+    public function createOnboardingChecklist(int $caseId, int $employmentId, string $hireDate): void
     {
-        foreach ($this->checklistForTenant($tenantId) as $index => $task) {
+        foreach ($this->checklist() as $index => $task) {
             $created = LifecycleTask::query()->firstOrCreate(
                 ['case_id' => $caseId, 'task_code' => $task['task_code']],
                 [
-                    'tenant_id' => $tenantId,
                     'employment_id' => $employmentId,
                     'title' => $task['title'],
                     'status' => LifecycleTask::STATUS_PENDING,
@@ -124,7 +121,6 @@ final class LifecycleEffectSupport
 
             if ($created->wasRecentlyCreated) {
                 $this->audit->record(
-                    tenantId: $tenantId,
                     actorUserId: null,
                     action: 'lifecycle.checklist.created',
                     aggregateType: 'lifecycle_task',
@@ -143,10 +139,9 @@ final class LifecycleEffectSupport
     /**
      * @return list<array{task_code:string,required:bool,status:string,waiver_reason:?string}>
      */
-    public function checklistSnapshot(int $tenantId, int $caseId): array
+    public function checklistSnapshot(int $caseId): array
     {
         return LifecycleTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('case_id', $caseId)
             ->orderBy('id')
             ->get()
@@ -158,10 +153,9 @@ final class LifecycleEffectSupport
             ])->all();
     }
 
-    public function hasOpenRequiredChecklist(int $tenantId, int $employmentId): bool
+    public function hasOpenRequiredChecklist(int $employmentId): bool
     {
         return LifecycleTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('required', true)
             ->whereNotIn('status', [LifecycleTask::STATUS_DONE, LifecycleTask::STATUS_WAIVED])

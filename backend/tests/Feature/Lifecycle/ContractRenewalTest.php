@@ -14,8 +14,7 @@ final class ContractRenewalTest extends LifecycleTestCase
     public function test_contract_renewal_creates_next_terms_and_document_version_and_keeps_old_as_of(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'REN-0001');
+        $employment = $scenario->employment($scenario->person(), 'REN-0001');
         $scenario->terms($employment, 1, [
             'effective_from' => '2026-01-01',
             'effective_to' => '9999-12-31',
@@ -35,8 +34,8 @@ final class ContractRenewalTest extends LifecycleTestCase
         $this->approveCase((int) $created->json('data.case_id'), 'renew-approve')->assertOk();
 
         $directory = app(EmploymentLifecycleDirectory::class);
-        $before = $directory->termsAsOf(1, $employment->id, '2026-12-31');
-        $after = $directory->termsAsOf(1, $employment->id, '2027-01-01');
+        $before = $directory->termsAsOf($employment->id, '2026-12-31');
+        $after = $directory->termsAsOf($employment->id, '2027-01-01');
         $this->assertNotNull($before);
         $this->assertNotNull($after);
         $this->assertSame(1, $before->version);

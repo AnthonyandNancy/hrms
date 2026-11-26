@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Model;
  * People appends through the EmploymentContractVersionLedger contract only.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property int|null $contract_id
  * @property string|null $change_type
@@ -28,7 +27,6 @@ final class EmploymentContractVersion extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'contract_id',
         'change_type',
@@ -51,7 +49,6 @@ final class EmploymentContractVersion extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'employment_id' => 'integer',
             'contract_id' => 'integer',
             'terms_version' => 'integer',

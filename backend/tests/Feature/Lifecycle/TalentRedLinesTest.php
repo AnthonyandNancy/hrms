@@ -54,8 +54,6 @@ final class TalentRedLinesTest extends TalentTestCase
     {
         $this->actAs(10, 1);
         $requisition = Requisition::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'org_unit_id' => 1,
             'requisition_no' => 'REQ-DRAFT',
             'title' => 'Synthetic role',
@@ -75,7 +73,6 @@ final class TalentRedLinesTest extends TalentTestCase
     {
         $this->actAs(10, 1);
         $program = TrainingProgram::query()->create([
-            'tenant_id' => 1,
             'code' => 'SAFE-101',
             'title' => 'Synthetic safety',
             'status' => 'ACTIVE',
@@ -83,7 +80,6 @@ final class TalentRedLinesTest extends TalentTestCase
             'recorded_at' => $this->clock->now(),
         ]);
         $session = TrainingSession::query()->create([
-            'tenant_id' => 1,
             'program_id' => $program->id,
             'starts_on' => '2026-12-01',
             'ends_on' => '2026-12-01',

@@ -10,10 +10,8 @@ final class OfferIdempotencyTest extends TalentTestCase
 {
     public function test_offer_creation_and_acceptance_replays_do_not_duplicate_rows(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'OFFER-IDEM-ORG');
+        $org = $this->peopleScenario->orgUnit('OFFER-IDEM-ORG');
         $requisition = $this->postJson('/v1/recruitment/requisitions', [
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => 'REQ-IDEM-1',
             'title' => 'Engineer',
