@@ -359,3 +359,5 @@
 | 261 | `PATCH` | `/v1/departments/{id}` | `org.unit.manage` | `COMPANY` | kernel | — |
 | 262 | `DELETE` | `/v1/departments/{id}/members/{employmentId}` | `org.unit.manage` | `COMPANY` | kernel | — |
 | 263 | `POST` | `/v1/departments` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 264 | `PATCH` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 265 | `DELETE` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |

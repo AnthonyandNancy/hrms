@@ -189,6 +189,22 @@ return [
             'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'invalid_capability', 'invalid_anchor', 'field_profile_over_max', 'stale_auth_version'],
         ],
         [
+            'method' => 'PATCH',
+            'path' => '/v1/roles/{id}',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'idor', 'template_role_immutable'],
+        ],
+        [
+            'method' => 'DELETE',
+            'path' => '/v1/roles/{id}',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'critical',
+            'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_anchor', 'csrf_missing', 'idor', 'template_role_immutable', 'role_in_use'],
+        ],
+        [
             'method' => 'POST',
             'path' => '/v1/roles/{id}/copy',
             'capability' => 'iam.role.manage',

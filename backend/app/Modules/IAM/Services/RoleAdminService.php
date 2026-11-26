@@ -9,6 +9,7 @@ use App\Modules\IAM\Authorization\CapabilityDefinition;
 use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
+use App\Modules\IAM\Models\RolePage;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\AnchorType;
@@ -120,6 +121,110 @@ final class RoleAdminService
             $this->replaceGrants($code, $validated);
 
             return $this->payload($role);
+        });
+    }
+
+    /**
+     * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
+     * @return array<string, mixed>
+     */
+    /**
+     * Rename a custom role. The role code is immutable because it is the
+     * identity used by bindings, role_pages and user_roles; only the display
+     * name (and optional purpose) can change.
+     *
+     * @param  array{name: string, purpose?: string|null}  $data
+     * @return array<string, mixed>
+     */
+    public function rename(string $roleCode, array $data): array
+    {
+        /** @var Role|null $role */
+        $role = Role::query()->whereKey($roleCode)->first();
+
+        // Code-owned templates live in the catalogue, not the roles table, so a
+        // missing row may still be a real, immutable template.
+        if (RoleTemplateCatalog::find(strtoupper(trim($roleCode))) !== null) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be changed through the API.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        if ($role === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if ((bool) $role->is_template) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be renamed.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        return DB::transaction(function () use ($role, $data): array {
+            $role->name = trim((string) $data['name']);
+
+            if (array_key_exists('purpose', $data) && $data['purpose'] !== null) {
+                $this->assertNonEmptyPurpose((string) $data['purpose']);
+                $role->purpose = trim((string) $data['purpose']);
+            }
+
+            $role->save();
+
+            return $this->payload($role->refresh());
+        });
+    }
+
+    /**
+     * Delete a custom role. Refused while any user still holds it, so deleting a
+     * role can never silently strip authority from live accounts.
+     *
+     * @return array{role_code: string, deleted: bool}
+     */
+    public function delete(string $roleCode): array
+    {
+        /** @var Role|null $role */
+        $role = Role::query()->whereKey($roleCode)->first();
+
+        // Code-owned templates live in the catalogue, not the roles table, so a
+        // missing row may still be a real, immutable template.
+        if (RoleTemplateCatalog::find(strtoupper(trim($roleCode))) !== null) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be changed through the API.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        if ($role === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if ((bool) $role->is_template) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be deleted.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        $holders = UserRole::query()
+            ->where('role_code', (string) $role->code)
+            ->where('valid_to', '>', $this->clock->now())
+            ->count();
+
+        if ($holders > 0) {
+            throw new ConflictException(
+                'This role is still assigned to users.',
+                ['reason' => 'ROLE_IN_USE', 'holders' => $holders],
+            );
+        }
+
+        return DB::transaction(function () use ($role): array {
+            RoleCapability::query()->where('role_code', (string) $role->code)->delete();
+            RolePage::query()->where('role_code', (string) $role->code)->delete();
+            $code = (string) $role->code;
+            $role->delete();
+
+            return ['role_code' => $code, 'deleted' => true];
         });
     }
 

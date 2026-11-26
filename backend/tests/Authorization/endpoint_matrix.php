@@ -1831,6 +1831,18 @@ return [
         'risk' => 'critical',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
+    'PATCH /v1/roles/{id}' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'template_role_immutable'],
+    ],
+    'DELETE /v1/roles/{id}' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'template_role_immutable', 'role_in_use'],
+    ],
     'POST /v1/roles/{id}/copy' => [
         'capability' => 'iam.role.manage',
         'anchor' => 'COMPANY',

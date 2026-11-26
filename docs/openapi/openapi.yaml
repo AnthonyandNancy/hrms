@@ -16879,6 +16879,98 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
       x-action-label: 保存角色授权
+  /v1/roles/{id}:
+    patch:
+      operationId: renameRole
+      tags:
+        - IAM Administration
+      summary: Rename a custom role
+      description: Role codes are immutable; only the display name and purpose change. Template roles return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 3, maxLength: 120 }
+                purpose: { type: [string, "null"], minLength: 8, maxLength: 255 }
+      responses:
+        "200":
+          description: Role renamed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 重命名角色
+    delete:
+      operationId: deleteRole
+      tags:
+        - IAM Administration
+      summary: Delete a custom role
+      description: Refused while any user still holds the role (409 ROLE_IN_USE). Template roles return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Role deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          role_code: { type: string }
+                          deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 删除角色
   /v1/roles/{id}/copy:
     post:
       operationId: copyRole
