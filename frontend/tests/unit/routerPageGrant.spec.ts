@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import router from '@/router'
+import type { RouteLocationNormalized } from 'vue-router'
+import { pageAccessGuard } from '@/router'
 import { useSessionStore } from '@/stores/session'
 
 vi.mock('@/api', () => ({
   getApi: () => ({ auth: { bootstrap: vi.fn(), permissions: vi.fn() } }),
 }))
 
-function authenticate(session: ReturnType<typeof useSessionStore>, options: { pages: string[]; capabilities: string[] }) {
+function route(meta: Record<string, unknown>): RouteLocationNormalized {
+  return {
+    name: 'hr-employees',
+    meta,
+    query: {},
+    fullPath: '/hr/employees',
+  } as unknown as RouteLocationNormalized
+}
+
+function authenticate(options: { pages: string[]; capabilities: string[] }) {
+  const session = useSessionStore()
   session.$patch({
     status: 'authenticated',
     principal: {
@@ -28,38 +39,43 @@ function authenticate(session: ReturnType<typeof useSessionStore>, options: { pa
     capabilities: options.capabilities,
     pages: options.pages.map((pageCode) => ({ pageCode, path: '' })),
   })
+  return session
 }
 
 describe('router page and action gates', () => {
   it('forbids a page that has the action capability but no role page grant', async () => {
     setActivePinia(createPinia())
-    const session = useSessionStore()
-    authenticate(session, { pages: ['employee-detail'], capabilities: ['people.employee.read'] })
+    const session = authenticate({ pages: ['employee-detail'], capabilities: ['people.employee.read'] })
 
-    await router.push('/hr/employees')
+    const result = await pageAccessGuard(
+      route({ pageCode: 'hr-employees', capability: 'people.employee.read' }),
+      session,
+    )
 
-    expect(router.currentRoute.value.name).toBe('forbidden')
-    expect(router.currentRoute.value.query.reason).toBe('PAGE_NOT_GRANTED')
+    expect(result).toMatchObject({ name: 'forbidden', query: { reason: 'PAGE_NOT_GRANTED' } })
   })
 
   it('allows the granted page but still forbids a missing action capability', async () => {
     setActivePinia(createPinia())
-    const session = useSessionStore()
-    authenticate(session, { pages: ['hr-employees'], capabilities: [] })
+    const session = authenticate({ pages: ['hr-employees'], capabilities: [] })
 
-    await router.push('/hr/employees')
+    const result = await pageAccessGuard(
+      route({ pageCode: 'hr-employees', capability: 'people.employee.read' }),
+      session,
+    )
 
-    expect(router.currentRoute.value.name).toBe('forbidden')
-    expect(router.currentRoute.value.query.reason).toBe('ACTION_NOT_GRANTED')
+    expect(result).toMatchObject({ name: 'forbidden', query: { reason: 'ACTION_NOT_GRANTED' } })
   })
 
   it('allows a page when both the page grant and action capability are present', async () => {
     setActivePinia(createPinia())
-    const session = useSessionStore()
-    authenticate(session, { pages: ['hr-employees'], capabilities: ['people.employee.read'] })
+    const session = authenticate({ pages: ['hr-employees'], capabilities: ['people.employee.read'] })
 
-    await router.push('/hr/employees')
+    const result = await pageAccessGuard(
+      route({ pageCode: 'hr-employees', capability: 'people.employee.read' }),
+      session,
+    )
 
-    expect(router.currentRoute.value.name).toBe('hr-employees')
+    expect(result).toBe(true)
   })
 })

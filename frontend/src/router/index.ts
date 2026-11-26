@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { PAGE_REGISTRY, type PageSpec } from '@/router/registry'
 import { matureView } from '@/router/pageComponents'
@@ -92,14 +92,19 @@ const router = createRouter({
   },
 })
 
-router.beforeEach(async (to) => {
-  const session = useSessionStore()
+export async function pageAccessGuard(
+  to: RouteLocationNormalized,
+  session: ReturnType<typeof useSessionStore>,
+): Promise<true | { name?: string; path?: string; query?: Record<string, string | undefined> }> {
   if (session.status === 'idle') {
     await session.bootstrap()
   }
   const isPublic = to.meta.public === true
   if (!isPublic && !session.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath, expired: session.status === 'expired' ? '1' : undefined } }
+    return {
+      name: 'login',
+      query: { redirect: to.fullPath, expired: session.status === 'expired' ? '1' : undefined },
+    }
   }
   if (to.name === 'login' && session.isAuthenticated && to.query.mfa !== '1') {
     return { path: '/workspace' }
@@ -112,8 +117,11 @@ router.beforeEach(async (to) => {
   if (required && !session.can(required)) {
     return { name: 'forbidden', query: { from: to.fullPath, reason: 'ACTION_NOT_GRANTED' } }
   }
+
   return true
-})
+}
+
+router.beforeEach((to) => pageAccessGuard(to, useSessionStore()))
 
 router.afterEach((to) => {
   const pageTitle = typeof to.meta.title === 'string' ? to.meta.title : ''

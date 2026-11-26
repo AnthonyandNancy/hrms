@@ -24,6 +24,9 @@ const NAV_EXPANDED_KEY = 'hrms.nav.expanded'
 const ALL_MENU_CAPABILITIES = [
   ...new Set(PAGE_REGISTRY.flatMap((page) => (page.menu === null ? [] : [page.capability]))),
 ]
+const ALL_MENU_PAGES = PAGE_REGISTRY
+  .filter((page) => page.menu !== null)
+  .map((page) => ({ pageCode: page.name, path: page.path }))
 
 const PRINCIPAL: Principal = {
   userId: 101,
@@ -70,6 +73,7 @@ async function mountShell(options: {
     status: 'authenticated',
     principal: PRINCIPAL,
     capabilities: options.capabilities ?? ALL_MENU_CAPABILITIES,
+    pages: ALL_MENU_PAGES,
     csrfToken: 'test-csrf',
     sessionExpiresAt: null,
     mfaEnrollmentRequired: false,
