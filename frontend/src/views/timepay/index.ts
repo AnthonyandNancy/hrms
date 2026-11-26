@@ -1,33 +1,10 @@
-import { defineComponent, h, type Component } from 'vue'
-import TimePayrollPage from './TimePayrollPage.vue'
-import { TIME_PAYROLL_DEFINITIONS, definitionFor } from './definitions'
-import type { TimePayrollPageDefinition } from './types'
-
-const CACHE = new Map<string, Component>()
-
-export function componentForDefinition(definition: TimePayrollPageDefinition): Component {
-  const existing = CACHE.get(definition.key)
-  if (existing !== undefined) return existing
-
-  const component = defineComponent({
-    name: `TimePayrollPage_${definition.key.replace(/[^a-zA-Z0-9]+/g, '_')}`,
-    setup() {
-      return () => h(TimePayrollPage, { definition })
-    },
-  })
-  CACHE.set(definition.key, component)
-  return component
-}
-
-/** Registry key -> time/payroll workspace page. */
-export function timePayrollComponentFor(key: string): Component | null {
-  const definition = definitionFor(key)
-  return definition === null ? null : componentForDefinition(definition)
-}
-
-export const TIME_PAYROLL_COMPONENT_KEYS: string[] = TIME_PAYROLL_DEFINITIONS.map(
-  (definition) => definition.key,
-)
-
+/**
+ * TimePay compatibility exports.
+ *
+ * Route targets are owned by `modules/timepay/pages`; this barrel keeps the
+ * existing definition/API metadata available to tests and callers while the
+ * TimePay workspace is split into dedicated page components.
+ */
+export { PAGE_COMPONENTS as TIME_PAY_COMPONENTS } from '@/modules/timepay/pages'
 export { TIME_PAYROLL_API_PATHS, TIME_PAYROLL_DEFINITIONS, definitionFor } from './definitions'
 export type { TimePayrollPageDefinition } from './types'

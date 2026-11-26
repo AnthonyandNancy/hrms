@@ -1,4 +1,5 @@
 import type { Component } from 'vue'
+import { PAGE_COMPONENTS as TIMEPAY_PAGES } from '@/modules/timepay/pages'
 
 /**
  * Registry key -> mature business view loader.
@@ -22,10 +23,6 @@ const BASE_VIEWS: Record<string, Loader> = {
   'reports/index': () => import('@/views/ReportsView.vue'),
   'hr/employees/index': () => import('@/views/EmployeeDirectoryView.vue'),
   'hr/departments/index': () => import('@/views/OrgTreeView.vue'),
-  'attendance/index': () => import('@/views/AttendanceView.vue'),
-  'leave/index': () => import('@/views/LeaveView.vue'),
-  'payroll/batches': () => import('@/views/PayrollRunsView.vue'),
-  'payroll/payslips': () => import('@/views/PayslipsView.vue'),
   'notices/index': () => import('@/views/NoticesView.vue'),
   'system/system-users': () => import('@/views/AdminView.vue'),
 }
@@ -44,10 +41,6 @@ const DOMAIN_LOADERS: ReadonlyArray<{
     load: (key) => () => import('@/views/people').then((module) => module.peopleComponentFor(key) as Component),
   },
   {
-    test: (key) => ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) => key.startsWith(prefix)),
-    load: (key) => () => import('@/views/timepay').then((module) => module.timePayrollComponentFor(key) as Component),
-  },
-  {
     test: (key) => ['performance/', 'recruitment/'].some((prefix) => key.startsWith(prefix)) || key.startsWith('training/'),
     load: (key) => () => import('@/views/talent').then((module) => module.talentComponentFor(key) as Component),
   },
@@ -59,9 +52,23 @@ const DOMAIN_LOADERS: ReadonlyArray<{
   },
 ]
 
+function isTimePayKey(key: string): boolean {
+  return ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
+    key.startsWith(prefix),
+  )
+}
+
+export function timePayPageLoader(key: string): Loader | null {
+  return TIMEPAY_PAGES[key as keyof typeof TIMEPAY_PAGES] ?? null
+}
+
 export function matureView(componentKey: string): Loader | null {
   const base = BASE_VIEWS[componentKey]
   if (base !== undefined) return base
+
+  if (isTimePayKey(componentKey)) {
+    return timePayPageLoader(componentKey)
+  }
 
   const domain = DOMAIN_LOADERS.find((candidate) => candidate.test(componentKey))
   return domain === undefined ? null : domain.load(componentKey)

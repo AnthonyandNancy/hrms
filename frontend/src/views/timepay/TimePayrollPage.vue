@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { PageSpec } from '@/router/registry'
-import { PAGE_REGISTRY } from '@/router/registry'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -15,10 +13,6 @@ import type { TimePayrollPageDefinition } from './types'
 import { useTimePayrollLoad } from './useTimePayrollLoad'
 
 const props = defineProps<{ definition: TimePayrollPageDefinition }>()
-
-const page = computed<PageSpec | null>(
-  () => PAGE_REGISTRY.find((entry) => entry.componentKey === props.definition.key) ?? null,
-)
 
 const panelComponent = computed(() => {
   switch (props.definition.domain) {
@@ -92,9 +86,7 @@ onMounted(load)
   <div class="page timepay-page" :data-page="definition.testId">
     <header class="page-header">
       <div class="page-header__copy">
-        <p class="page-header__breadcrumb">
-          {{ page?.menu?.group ?? '假勤与薪酬' }}
-        </p>
+        <p class="page-header__breadcrumb">假勤与薪酬</p>
         <h1 class="page-header__title">{{ title }}</h1>
         <p class="page-header__description">{{ definition.description }}</p>
       </div>

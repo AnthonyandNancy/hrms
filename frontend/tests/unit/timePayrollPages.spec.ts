@@ -10,11 +10,10 @@ import type { SessionBootstrap } from '@/api/contracts'
 import { useSessionStore } from '@/stores/session'
 import { ApiError } from '@/api/errors'
 import MoneyText from '@/components/MoneyText.vue'
+import { PAGE_COMPONENTS } from '@/modules/timepay/pages'
 import {
   TIME_PAYROLL_API_PATHS,
-  TIME_PAYROLL_COMPONENT_KEYS,
   TIME_PAYROLL_DEFINITIONS,
-  timePayrollComponentFor,
 } from '@/views/timepay'
 
 const resourceGet = vi.fn()
@@ -117,10 +116,11 @@ async function mountPage(key: string, includeWriteCapabilities = false) {
   await router.push('/')
   await router.isReady()
 
-  const component = timePayrollComponentFor(key)
-  if (component === null) throw new Error(`Missing time/payroll component for ${key}`)
+  const load = PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS]
+  if (load === undefined) throw new Error(`Missing time/payroll component for ${key}`)
+  const module = await load()
 
-  return mount(component, {
+  return mount(module.default, {
     global: { plugins: [pinia, router, ElementPlus] },
   })
 }
@@ -179,13 +179,14 @@ describe('time/payroll registry mapping', () => {
       .map((page) => page.componentKey)
       .sort()
 
-    expect(TIME_PAYROLL_COMPONENT_KEYS).toHaveLength(43)
-    expect([...TIME_PAYROLL_COMPONENT_KEYS].sort()).toEqual(registryKeys)
+    const manifestKeys = Object.keys(PAGE_COMPONENTS).sort()
+    expect(manifestKeys).toHaveLength(43)
+    expect(manifestKeys).toEqual(registryKeys)
 
     for (const key of registryKeys) {
-      expect(timePayrollComponentFor(key)).not.toBeNull()
+      expect(PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS], key).toBeDefined()
     }
-    expect(timePayrollComponentFor('hr/employees/index')).toBeNull()
+    expect(PAGE_COMPONENTS['hr/employees/index' as keyof typeof PAGE_COMPONENTS]).toBeUndefined()
   })
 
   it('declares a live GET path for every page and keeps the public /v1 path in the endpoint map', () => {
