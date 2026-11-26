@@ -123,3 +123,16 @@ Plan source:
 - Round 3 patch: single-company unique rebuild, autoloaded driver-neutral preflight, explicit scan roots, generated TS action module, real Playwright config, single-company gate, helper contracts, real endpoints.
 - Round 3 independent verification: in progress before Task 1 dispatch.
 - 2026-11-26 user decision: system not live; migration may delete all data and rebuild. Volume 2 Task 2 is now schema-only cutover + `migrate:fresh --seed`; no duplicate resolution or data preservation. Unique indexes must still be rebuilt; a snapshot restore drill remains.
+Task 7: complete (commit 1b6d7d8, reviewer approved). Backlog:
+  - FormDialog/FormDrawer have no interaction tests (v-model + confirm contract).
+  - PageShell re-implements PageHeader instead of composing it; only one may survive adoption.
+  - dictionary employeeStatus omits ON_LEAVE and includes non-contract ARCHIVED; fix before wiring into employee list.
+  - PageShell actions slot renders an empty flex item when no slot passed.
+
+## Volume 1 batch-fix backlog (do at volume close, not per task)
+- Task 3: hasWrittenUserApproval() is fail-open on negated text ("用户未批准：…"). Require a strict positive approval marker/record and add negative regression tests.
+- Task 3 (minor): add tests for assertExpectedCounts / required mappings / stale-decision rejection; reject blank registry fields; derive the 140 count from the V1.1 inventory rather than layer=business.
+- Task 7: FormDialog/FormDrawer interaction tests; PageShell vs PageHeader duplication; dictionary ON_LEAVE/ARCHIVED drift.
+- Task 2: confirm the follow-up summarizeFailedGates commit is present and the tree is clean.
+- Task 1: confirm refix verdict covers all four ADRs, page-model invariant, MFA narrowing, IAM numbering.
+Task 2: complete (commits 9d14679 + 98c4348). Baseline evidence records: backend 1123 tests / 51283 assertions / 1 expected failure (NoTenantNoLegalEntityTest); frontend unit gate red (pageComponentUniqueness.spec.ts syntax error + stale generated api types) — pre-existing, must be fixed before Volume 1 exit; Docker/real stack NOT RUN.
