@@ -9,9 +9,9 @@ use App\Modules\IAM\Contracts\Principal;
 interface ReportableDataset
 {
     /**
-     * Ensure reporting projections for this tenant/as-of are present.
+     * Ensure reporting projections for this as-of are present.
      */
-    public function ensure(int $tenantId, string $asOf): void;
+    public function ensure(string $asOf): void;
 
     /**
      * @param  array<string, mixed>  $filters
