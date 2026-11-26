@@ -6,6 +6,8 @@ import { useSessionStore } from '@/stores/session'
 const auth = vi.hoisted(() => ({
   bootstrap: vi.fn(),
   permissions: vi.fn(),
+  login: vi.fn(),
+  verifyTotp: vi.fn(),
 }))
 
 vi.mock('@/api', () => ({
@@ -76,5 +78,37 @@ describe('session page grant projection', () => {
     expect(session.status).toBe('authenticated')
     expect(session.permissionsError).toContain('permissions unavailable')
     expect(session.pages).toEqual([])
+  })
+})
+
+describe('login must load the page projection', () => {
+  it('loads /me/permissions immediately after a password login', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    auth.bootstrap.mockResolvedValue({ ...authenticated, authenticated: false, principal: null })
+    auth.login.mockResolvedValue({ status: 'AUTHENTICATED', session: authenticated })
+    auth.permissions.mockResolvedValue(permissions())
+
+    const session = useSessionStore()
+    await session.login({ username: 'demo.hr', password: 'Demo!2026Synthetic' })
+
+    expect(auth.permissions).toHaveBeenCalledTimes(1)
+    expect(session.canPage('hr-employees')).toBe(true)
+  })
+
+  it('loads /me/permissions after an MFA challenge is verified', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    auth.bootstrap.mockResolvedValue({ ...authenticated, authenticated: false, principal: null })
+    auth.login.mockResolvedValue({ status: 'MFA_REQUIRED', challengeId: 'c1', maskedDestination: 'app' })
+    auth.verifyTotp.mockResolvedValue(authenticated)
+    auth.permissions.mockResolvedValue(permissions())
+
+    const session = useSessionStore()
+    await session.login({ username: 'demo.hr', password: 'Demo!2026Synthetic' })
+    await session.verifyTotp('123456')
+
+    expect(auth.permissions).toHaveBeenCalledTimes(1)
+    expect(session.canPage('hr-employees')).toBe(true)
   })
 })

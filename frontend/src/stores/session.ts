@@ -78,6 +78,20 @@ export const useSessionStore = defineStore('session', () => {
     permissionsError.value = null
   }
 
+  /**
+   * Login and step-up change the effective principal, so the page projection
+   * must be refreshed in the same turn. Skipping it left `pages` empty and the
+   * router denied every page right after a successful login.
+   */
+  async function loadPermissionsOrFail(): Promise<void> {
+    try {
+      await loadPermissions()
+    } catch (error) {
+      permissionsError.value = error instanceof Error ? error.message : '无法加载页面权限'
+      throw error
+    }
+  }
+
   async function bootstrap(): Promise<void> {
     if (status.value === 'bootstrapping') return
     status.value = 'bootstrapping'
@@ -115,6 +129,7 @@ export const useSessionStore = defineStore('session', () => {
       return 'mfa_required'
     }
     adopt(result.session)
+    await loadPermissionsOrFail()
     return 'authenticated'
   }
 
@@ -124,6 +139,7 @@ export const useSessionStore = defineStore('session', () => {
     }
     const session = await getApi().auth.verifyTotp({ challengeId: mfaChallengeId.value, code })
     adopt(session)
+    await loadPermissionsOrFail()
   }
 
   async function logout(): Promise<void> {
