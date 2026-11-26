@@ -22,7 +22,6 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\AuthorizationSnapshot;
 use App\Shared\Authorization\SodRules;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
