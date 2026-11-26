@@ -93,23 +93,34 @@ that the request carries no entity field and that the picker is gone.
 
 ## Concerns / notes for the lead
 
-1. **Concurrent agents were actively writing the same worktree.** `SystemMenusPage.vue`, `SystemDataScopesPage.vue`,
+1. **The strict gate was re-broken by v2-task8 after this commit landed.** `NoTenantNoLegalEntityTest` showed 0 hits at
+   the moment of commit and in the immediately following runs. Afterwards the governance-pages agent added a private
+   `singleCompanyRules()` to `DataScopeAdminController`, `FieldPolicyAdminController` and `MenuAdminController` whose
+   literal array keys `'tenant_id'` and `'legal_entity_id'` re-trip the scanner (6 hits at
+   `DataScopeAdminController:143,145`, `FieldPolicyAdminController:128,130`, `MenuAdminController:176,178`). Those files
+   are `backend/app/**` and outside my scope, so I did not edit them. The rule can keep its behaviour without the literal
+   keys (e.g. reject the fields from a constant list, or let the existing 422 validation stand). Re-run the gate after
+   that fix; nothing in my 43 committed paths contributes to it.
+
+2. **Concurrent agents were actively writing the same worktree.** `SystemMenusPage.vue`, `SystemDataScopesPage.vue`,
    `SystemFieldPoliciesPage.vue`, `SystemPermissionsPage.vue`, `SystemUsersPage.vue`, `UserCreateDialog.vue`,
    `UserPermissionPreview.vue`, `UserRoleDrawer.vue`, `generated/pageActions.ts` and `tests/unit/systemUsersPage.spec.ts`
-   changed under me (v2-task5/6/7/8). Whole-tree `pnpm typecheck` currently reports only their in-flight errors
-   (`UserCreateDialog.vue` unused `CreatePayload`/`setFieldError`, `UserPermissionPreview.vue` undefined index type,
-   `SystemUsersPage.vue` unused `currentStatus`); whole-tree `pnpm lint` reports the same `SystemUsersPage.vue` error plus
-   multi-component warnings in `tests/unit/systemUsersPage.spec.ts`. Whole-tree `pnpm test:unit` has 4 failures
-   (`platformModulePages.spec.ts` still expects `platformPageConfig(...)` in pages that task 6/7 rewrote, and 2
-   `systemUsersPage.spec.ts` create-role/create-dialog expectations). **None of these are my files** — I did not touch
-   platform pages, dialogs or those specs. Every path in this commit passes `vue-tsc` and `eslint` clean, and my 9
-   spec files pass 150/150. Re-run the three whole-tree frontend gates once tasks 5–8 land.
-2. **`pnpm actions:check` fails on a stale gap entry**, not on my change: `docs/audit/2026-11-26-v2-action-gaps.json`
-   still declares `POST /v1/system/calendars/{legal_entity_id}/publish`, a path that already disappeared in commit
-   `d92725f` (before this task). Refreshing the gap list is outside my scope (`scripts/**` / audit docs are not mine).
+   changed under me (v2-task5/6/7/8). Whole-tree `pnpm typecheck` / `pnpm lint` currently report only their in-flight
+   findings (`UserCreateDialog.vue` unused `CreatePayload`/`setFieldError`, `UserPermissionPreview.vue` undefined index
+   type, `SystemUsersPage.vue` unused `currentStatus`), and whole-tree `pnpm test:unit` has failures in
+   `platformModulePages.spec.ts` / `systemUsersPage.spec.ts` for pages those tasks are rewriting. **None of these are my
+   files.** Every one of the 43 paths in my commit passes `vue-tsc` and `eslint` with zero findings, and my 9 spec files
+   pass 150/150. Re-run the three whole-tree frontend gates once tasks 5-8 land.
+
 3. **`late_grace_source` value change.** `LEGAL_ENTITY` -> `COMPANY` was required by the forbidden-token gate. The
    calculator only reads the key's presence (`AttendanceCalculator::DEFAULT_RULE_CONFIG`), so behaviour is unchanged,
    but any stored rule row with the old value should be migrated by the backend owner if such data exists.
+
 4. **`company_name`** is the field `MeController` already returns; I added it to `MeData` and the frontend principal so
    the account panel and shell label have a real source. No `company_id` was invented anywhere.
-5. Backend production code, routes, migrations, tests, scripts and the legacy-route audit doc were not touched.
+
+5. **`pnpm actions:check`** failed mid-task on a stale gap entry naming
+   `POST /v1/system/calendars/{legal_entity_id}/publish` (a path removed by commit `d92725f`, before this task); v2-task5
+   refreshed the gap list and the gate now reports `OK (160 pages, 20 actions, 155 explicit write gaps)`.
+
+6. Backend production code, routes, migrations, tests, scripts and the legacy-route audit doc were not touched.
