@@ -57,7 +57,7 @@ final class InstallCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(9, WorkflowTemplate::query()->count());
 
         foreach (['leave.request', 'attendance.correction', 'travel.request', 'transfer.request', 'contract.renewal', 'onboarding.request', 'offboarding.request', 'payroll.approval', 'generic.approval'] as $code) {
-            $this->assertDatabaseHas('workflow_templates', ['tenant_id' => 1, 'code' => $code]);
+            $this->assertDatabaseHas('workflow_templates', ['code' => $code]);
         }
         $this->assertSame(3, LeaveType::query()->count());
         $this->assertSame(1, LegalEntityCalendar::query()->count());

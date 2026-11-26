@@ -244,7 +244,7 @@
 | 229 | `POST` | `/v1/roles` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
 | 230 | `PUT` | `/v1/roles/{id}/capabilities` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
 | 231 | `POST` | `/v1/roles/{id}/copy` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
-| 232 | `POST` | `/v1/system/calendars/{legal_entity_id}/publish` | `time.calendar.manage` | `LEGAL_ENTITY` | kernel | — |
+| 232 | `POST` | `/v1/system/calendars/publish` | `time.calendar.manage` | `LEGAL_ENTITY` | kernel | — |
 | 233 | `GET` | `/v1/system/data-scopes` | `iam.scope.manage` | `LEGAL_ENTITY` | kernel | — |
 | 234 | `PUT` | `/v1/system/data-scopes/{id}` | `iam.scope.manage` | `LEGAL_ENTITY` | kernel | — |
 | 235 | `GET` | `/v1/system/dictionaries` | `system.dictionary.manage` | `LEGAL_ENTITY` | kernel | — |
@@ -269,7 +269,7 @@
 | 254 | `GET` | `/v1/time/attendance/rules` | `time.attendance.rule.read` | `—` | kernel | — |
 | 255 | `POST` | `/v1/time/attendance/rules` | `time.attendance.rule.manage` | `—` | kernel | — |
 | 256 | `GET` | `/v1/time/attendance/{employment_id}` | `time.attendance.read` | `—` | legacy | C2 |
-| 257 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | D1 |
+| 257 | `GET` | `/v1/time/calendars` | `time.calendar.read` | `—` | legacy | D1 |
 | 258 | `GET` | `/v1/time/leave/balances` | `time.leave.read` | `—` | legacy | E3 |
 | 259 | `GET` | `/v1/time/leave/ledger` | `time.leave.ledger.read` | `—` | legacy | E3 |
 | 260 | `GET` | `/v1/time/leave/policies` | `time.leave.read` | `—` | legacy | E3 |

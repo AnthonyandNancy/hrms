@@ -541,7 +541,7 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
-    'GET /v1/time/calendars/{legal_entity_id}' => [
+    'GET /v1/time/calendars' => [
         'capability' => 'time.calendar.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
@@ -1897,7 +1897,7 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
-    'POST /v1/system/calendars/{legal_entity_id}/publish' => [
+    'POST /v1/system/calendars/publish' => [
         'capability' => 'time.calendar.manage',
         'anchor' => 'COMPANY',
         'risk' => 'high',

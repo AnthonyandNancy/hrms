@@ -16760,17 +16760,14 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
       x-action-label: 复制角色
-  /v1/system/calendars/{legal_entity_id}/publish:
+  /v1/system/calendars/publish:
     post:
       operationId: publishCalendarVersion
       tags:
         - Platform Governance
-      summary: Publish a legal-entity calendar version
+      summary: Publish the company calendar version
+      description: Single-company deployment; the calendar belongs to the company profile.
       parameters:
-        - name: legal_entity_id
-          in: path
-          required: true
-          schema: { type: integer, minimum: 1 }
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
@@ -18081,19 +18078,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.read
-  /v1/time/calendars/{legal_entity_id}:
+  /v1/time/calendars:
     get:
       operationId: timeCalendarShow
       tags:
         - Time
-      summary: Legal entity calendar, workweek and holidays for one year
-      description: Requires capability `time.calendar.read`.
+      summary: Company calendar, workweek and holidays for one year
+      description: Single-company deployment; requires capability `time.calendar.read`.
       parameters:
-        - name: legal_entity_id
-          in: path
-          required: true
-          schema:
-            type: integer
         - name: year
           in: query
           required: true
@@ -18115,8 +18107,6 @@ paths:
                       data:
                         type: object
                         properties:
-                          legal_entity_id:
-                            type: integer
                           year:
                             type: integer
                           timezone:

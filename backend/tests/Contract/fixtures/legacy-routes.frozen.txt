@@ -1,5 +1,7 @@
 DELETE /v1/bindings/{id}
 DELETE /v1/delegations/{id}
+DELETE /v1/employees/{employment_id}
+DELETE /v1/employment-contracts/{id}
 GET /v1/access-review
 GET /v1/auth/events
 GET /v1/capabilities
@@ -59,10 +61,11 @@ GET /v1/recruitment/requisitions
 GET /v1/recruitment/requisitions/{id}/openings
 GET /v1/reporting/dashboard
 GET /v1/reporting/dashboard/metrics/{metric}
+GET /v1/roles/{id}/pages
 GET /v1/tasks/my
 GET /v1/time/attendance
 GET /v1/time/attendance/{employment_id}
-GET /v1/time/calendars/{legal_entity_id}
+GET /v1/time/calendars
 GET /v1/time/leave/balances
 GET /v1/time/leave/ledger
 GET /v1/time/leave/policies
@@ -107,6 +110,8 @@ POST /v1/employees/{employmentId}/contacts
 POST /v1/employees/{employmentId}/education
 POST /v1/employees/{employmentId}/experiences
 POST /v1/employees/{employmentId}/imports
+POST /v1/employees/{employment_id}/restore
+POST /v1/employment-contracts/{id}/restore
 POST /v1/employments
 POST /v1/employments/{employmentId}/contracts
 POST /v1/employments/{employment_id}/assignments
@@ -167,9 +172,4 @@ POST /v1/users/{id}/bindings
 POST /v1/users/{id}/roles
 POST /v1/workflow/templates
 PUT /v1/platform/features/{flag}
-DELETE /v1/employees/{employment_id}
-DELETE /v1/employment-contracts/{id}
-GET /v1/roles/{id}/pages
-POST /v1/employees/{employment_id}/restore
-POST /v1/employment-contracts/{id}/restore
 PUT /v1/roles/{id}/pages

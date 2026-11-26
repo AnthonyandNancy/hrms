@@ -42,10 +42,10 @@ final class CapabilityGuardTest extends TestCase
 
     public function test_capability_middleware_denies_unknown_principal_and_allows_bound_gate(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1]);
-        $principal = new TestPrincipal(1, (int) $user->id);
+        $user = User::factory()->create();
+        $principal = new TestPrincipal((int) $user->id);
 
-        app(RequestContext::class)->setActor(1, (int) $user->id);
+        app(RequestContext::class)->setActor((int) $user->id);
         $people = app(\App\Shared\Authorization\Contracts\PersonEmploymentDirectory::class);
         $this->assertInstanceOf(\Tests\Fakes\FakePersonEmploymentDirectory::class, $people);
         $people->employmentByUser[(int) $user->id] = [1];
