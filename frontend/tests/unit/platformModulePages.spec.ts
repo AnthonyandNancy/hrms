@@ -5,12 +5,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type RouteRecordRaw } from 'vue-router'
+import { useSessionStore } from '@/stores/session'
 import ElementPlus from 'element-plus'
 import { PAGE_REGISTRY } from '@/router/registry'
 import { PAGE_COMPONENTS } from '@/modules/platform/pages'
 import { platformPageConfig } from '@/modules/platform/catalog'
 import SystemUsersPage from '@/modules/platform/pages/SystemUsersPage.vue'
-import NoticeListPage from '@/modules/platform/pages/NoticeListPage.vue'
+// Volume 3 Task 16: notices now live in the reporting module.
+import NoticesPage from '@/modules/reporting/pages/NoticesPage.vue'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -54,15 +56,26 @@ const DEDICATED_PAGES = new Set([
   'system/system-permissions',
   'system/system-data-scopes',
   'system/system-field-policies',
+  // Volume 3 Task 16 replaced the dashboard/reports/notices config shells with
+  // the reporting workspace (metrics, report runner, notices).
 ])
+
+// Volume 3 Task 16: dashboard, reports and notices are their own module now and
+// are resolved by the router from @/modules/reporting/pages.
+const MOVED_TO_REPORTING = new Set(['dashboard/index', 'reports/index', 'notices/index'])
 
 function listResponse(items: unknown[] = []) {
   return { items, page: 1, page_size: 20, total: items.length }
 }
 
-async function mountPage(component: object, path: string) {
+async function mountPage(component: object, path: string, capabilities: string[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
+
+  // Dedicated workspaces gate themselves on the session capability set, so the
+  // test seeds exactly the capabilities the case is about.
+  const session = useSessionStore()
+  session.capabilities = capabilities
   const routes: RouteRecordRaw[] = [
     { path, name: `page-${path.replaceAll('/', '-')}`, component: { template: '<div />' } },
     { path: '/forbidden', name: 'forbidden', component: { template: '<div />' } },
@@ -89,8 +102,10 @@ beforeEach(() => {
 
 describe('platform module page split', () => {
   it('maps every Platform registry key to exactly one distinct lazy page file', async () => {
-    expect(platformRegistryKeys).toHaveLength(36)
-    expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual(platformRegistryKeys)
+    const platformOwnedKeys = platformRegistryKeys.filter((key) => !MOVED_TO_REPORTING.has(key))
+
+    expect(platformOwnedKeys).toHaveLength(33)
+    expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual(platformOwnedKeys)
 
     const loadedComponents = new Set<object>()
     const manifestSource = readFileSync(join(pagesDir, 'index.ts'), 'utf8')
@@ -100,11 +115,13 @@ describe('platform module page split', () => {
       .filter((name) => name.endsWith('.vue'))
       .sort()
 
-    expect(componentFiles).toHaveLength(36)
-    expect(new Set(componentFiles).size).toBe(36)
+    expect(componentFiles).toHaveLength(33)
+    expect(new Set(componentFiles).size).toBe(33)
+    // 33 platform screens plus the three reporting workspaces that moved out.
     expect(vueFiles).toHaveLength(36)
 
     for (const key of platformRegistryKeys) {
+      if (MOVED_TO_REPORTING.has(key)) continue
       const loader = PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS]
       expect(loader, key).toBeTypeOf('function')
       const module = await loader()
@@ -112,7 +129,7 @@ describe('platform module page split', () => {
       loadedComponents.add(module.default)
     }
 
-    expect(loadedComponents.size).toBe(36)
+    expect(loadedComponents.size).toBe(33)
     expect(platformPageConfig('system/system-users')).not.toBeNull()
     expect(platformPageConfig('system/system-users')?.title).toBe('用户管理')
   })
@@ -123,6 +140,7 @@ describe('platform module page split', () => {
     const filenames = new Map(mappings.map((match) => [match[1], match[2]?.replace('./', '')]))
 
     for (const key of platformRegistryKeys) {
+      if (MOVED_TO_REPORTING.has(key)) continue
       const source = readFileSync(join(pagesDir, filenames.get(key) ?? ''), 'utf8')
       expect(source, key).not.toMatch(/\bcomponentKey\b/)
       if (DEDICATED_PAGES.has(key)) {
@@ -163,10 +181,11 @@ describe('platform module page split', () => {
   it('passes the notice list config to the workspace and calls only the notice feed', async () => {
     resource.get.mockResolvedValue(listResponse())
 
-    const wrapper = await mountPage(NoticeListPage, '/notices')
+    const wrapper = await mountPage(NoticesPage, '/notices', ['engagement.notice.read'])
 
-    expect(wrapper.get('.platform-workspace').attributes('data-page')).toBe('notices/index')
-    expect(wrapper.get('h1').text()).toBe('公告列表')
+    // Volume 3 Task 16 replaced the config shell with the notices workspace; the
+    // guarantees that matter are unchanged: this page reads only the notice feed.
+    expect(wrapper.find('[data-testid="notices-page"]').exists()).toBe(true)
     expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices', expect.objectContaining({ filter: 'all' }))
     expect(resource.get).not.toHaveBeenCalledWith('/v1/auth/events', expect.anything())
     expect(wrapper.text()).not.toContain('日志审计')

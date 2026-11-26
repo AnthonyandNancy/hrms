@@ -3,6 +3,8 @@ import { PAGE_COMPONENTS as PEOPLE_PAGES } from '@/modules/people/pages'
 import { PAGE_COMPONENTS as PLATFORM_PAGES } from '@/modules/platform/pages'
 import { PAGE_COMPONENTS as TALENT_PAGES } from '@/modules/talent/pages'
 import { PAGE_COMPONENTS as TIMEPAY_PAGES } from '@/modules/timepay/pages'
+import { PAGE_COMPONENTS as REPORTING_PAGES } from '@/modules/reporting/pages'
+import { PAGE_COMPONENTS as TIME_WORKSPACE_PAGES } from '@/modules/time/workspaces'
 
 /**
  * Registry key -> mature business view loader.
@@ -68,9 +70,23 @@ export function timePayPageLoader(key: string): Loader | null {
   return TIMEPAY_PAGES[key as keyof typeof TIMEPAY_PAGES] ?? null
 }
 
+/**
+ * Volume 3 reporting workspaces are their own module; the router resolves them
+ * directly instead of routing platform pages across a module boundary.
+ */
+const REPORTING_KEYS = new Set(['dashboard/index', 'reports/index', 'notices/index'])
+
 export function matureView(componentKey: string): Loader | null {
   const base = BASE_VIEWS[componentKey]
   if (base !== undefined) return base
+
+  if (REPORTING_KEYS.has(componentKey)) {
+    const reporting = REPORTING_PAGES[componentKey as keyof typeof REPORTING_PAGES]
+    if (reporting !== undefined) return reporting
+  }
+
+  const timeWorkspace = TIME_WORKSPACE_PAGES[componentKey as keyof typeof TIME_WORKSPACE_PAGES]
+  if (timeWorkspace !== undefined) return timeWorkspace
 
   const peoplePage = PEOPLE_PAGES[componentKey as keyof typeof PEOPLE_PAGES]
   if (peoplePage !== undefined) return peoplePage

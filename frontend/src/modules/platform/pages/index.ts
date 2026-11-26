@@ -1,12 +1,12 @@
 /** Lazy route targets for every Platform page_code. */
+// Volume 3 Task 16 moved dashboard/reports/notices into the reporting module;
+// the router resolves those keys from @/modules/reporting/pages instead.
 export const PAGE_COMPONENTS = {
-  'dashboard/index': () => import('./DashboardHomePage.vue'),
   'dashboard/departments': () => import('./DashboardDepartmentsPage.vue'),
   'dashboard/workforce': () => import('./DashboardWorkforcePage.vue'),
   'dashboard/changes': () => import('./DashboardChangesPage.vue'),
   'dashboard/tasks': () => import('./DashboardTasksPage.vue'),
   'dashboard/recruitment': () => import('./DashboardRecruitmentPage.vue'),
-  'reports/index': () => import('./ReportCatalogPage.vue'),
   'reports/headcount': () => import('./ReportHeadcountPage.vue'),
   'reports/attendance': () => import('./ReportAttendancePage.vue'),
   'reports/payroll': () => import('./ReportPayrollPage.vue'),
@@ -15,7 +15,6 @@ export const PAGE_COMPONENTS = {
   'reports/builder': () => import('./ReportBuilderPage.vue'),
   'reports/subscriptions': () => import('./ReportSubscriptionsPage.vue'),
   'reports/exports': () => import('./ReportExportsPage.vue'),
-  'notices/index': () => import('./NoticeListPage.vue'),
   'notices/editor': () => import('./NoticeEditorPage.vue'),
   'notices/approval': () => import('./NoticeApprovalPage.vue'),
   'notices/audience': () => import('./NoticeAudiencePage.vue'),

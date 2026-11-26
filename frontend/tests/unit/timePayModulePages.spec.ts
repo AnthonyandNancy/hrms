@@ -124,9 +124,18 @@ describe('TimePay module page split', () => {
 
     expect(importingFiles).toEqual([bridgePath])
 
+    // Pages are one of two shapes and nothing else:
+    //   - bridge pages use the shared legacyBridge definition, or
+    //   - dedicated workspaces compose a module-level page (Volume 3).
+    // Neither may reach into @/views directly, and a dedicated page must not
+    // silently fall back to the generic bridge.
+    // Volume 3 workspaces are resolved by the router from
+    // @/modules/time/workspaces, so no timepay page may import another module's
+    // page components; the bridge pages stay on the shared definition.
     for (const fileName of readdirSync(pagesDir).filter((name) => name.endsWith('.vue'))) {
       const source = readFileSync(resolve(pagesDir, fileName), 'utf8')
       expect(source, fileName).not.toMatch(/@\/views(?:\/|['"])/)
+      expect(source, fileName).not.toMatch(/@\/modules\/time\//)
       expect(source, fileName).toContain("from '../legacyBridge'")
     }
   })

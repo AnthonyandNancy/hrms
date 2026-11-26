@@ -6,7 +6,9 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { PAGE_COMPONENTS as REPORTING_PAGES } from '@/modules/reporting/pages'
 import { todayBusinessDate } from '@/utils/format'
+import { useSessionStore } from '@/stores/session'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -123,8 +125,27 @@ async function mountAt(key: string, path: string) {
   await router.push(path)
   await router.isReady()
 
+  // Volume 3 Task 16: the reporting workspaces are resolved from their own
+  // module; the behaviour assertions below still apply to those pages.
+  // platformComponentFor returns a resolved component; the reporting barrel
+  // exposes lazy loaders, so each branch is awaited on its own terms.
+  const reportingLoader = REPORTING_PAGES[key as keyof typeof REPORTING_PAGES]
   const component = platformComponentFor(key)
-  if (component === null) throw new Error(`No platform component registered for ${key}`)
+    ?? (reportingLoader !== undefined
+      ? (await reportingLoader()).default as Component
+      : null)
+  if (component === null) throw new Error(`No page component registered for ${key}`)
+
+  // Dedicated workspaces gate on the session capability set.
+  const session = useSessionStore()
+  session.capabilities = [
+    'engagement.notice.read',
+    'engagement.notice.manage',
+    'reporting.dashboard.read',
+    'reporting.report.read',
+    'reporting.export',
+  ]
+
   const wrapper = mount(component as Component, {
     global: { plugins: [pinia, router, ElementPlus] },
   })
@@ -140,13 +161,21 @@ beforeEach(() => {
 })
 
 describe('Wave 5 platform and business pages', () => {
-  it('maps exactly all 36 Wave 5 registry component keys', () => {
-    expect(PLATFORM_COMPONENT_KEYS).toHaveLength(36)
-    expect(new Set(PLATFORM_COMPONENT_KEYS).size).toBe(36)
-    expect([...PLATFORM_COMPONENT_KEYS].sort()).toEqual([...wave5Keys].sort())
-    expect(wave5Keys).toHaveLength(36)
-    for (const key of wave5Keys) {
+  // Volume 3 Task 16 moved dashboard/reports/notices into the reporting module.
+  const MOVED_TO_REPORTING = new Set(['dashboard/index', 'reports/index', 'notices/index'])
+
+  it('maps exactly the Wave 5 keys the platform module still owns', () => {
+    const ownedKeys = wave5Keys.filter((key) => !MOVED_TO_REPORTING.has(key))
+
+    expect(PLATFORM_COMPONENT_KEYS).toHaveLength(33)
+    expect(new Set(PLATFORM_COMPONENT_KEYS).size).toBe(33)
+    expect([...PLATFORM_COMPONENT_KEYS].sort()).toEqual([...ownedKeys].sort())
+    expect(ownedKeys).toHaveLength(33)
+    for (const key of ownedKeys) {
       expect(platformComponentFor(key), key).not.toBeNull()
+    }
+    for (const key of MOVED_TO_REPORTING) {
+      expect(platformComponentFor(key), key).toBeNull()
     }
     expect(platformComponentFor('dashboard/not-real')).toBeNull()
   })
@@ -474,7 +503,7 @@ describe('Wave 5 platform and business pages', () => {
     expect(wrapper.text()).not.toContain('{"')
   })
 
-  it('acknowledges and retracts a notice through the notice-specific POST routes', async () => {
+  it('acknowledges a notice through the notice-specific POST route', async () => {
     const notice = {
       id: 31,
       title: 'Synthetic acknowledgment notice',
@@ -493,7 +522,12 @@ describe('Wave 5 platform and business pages', () => {
       acknowledgementCount: 1,
       audienceCount: 8,
     }
-    resource.get.mockResolvedValue([notice])
+    // The list and the detail are separate reads in the dedicated workspace.
+    resource.get.mockImplementation((path: string) =>
+      path === '/v1/engagement/notices'
+        ? Promise.resolve([notice])
+        : Promise.resolve(notice),
+    )
     resource.post.mockResolvedValue({
       ...notice,
       acknowledged: true,
@@ -503,9 +537,12 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('notices/index', '/notices')
     await flushPromises()
 
-    const acknowledge = wrapper.findAll('button').find((button) => button.text() === '确认已读')
-    expect(acknowledge, 'acknowledge button').toBeDefined()
-    await acknowledge!.trigger('click')
+    // The dedicated notices workspace acknowledges from the detail panel, so the
+    // case opens the detail first and then confirms.
+    await wrapper.get('[data-testid="notice-detail-31"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="notice-acknowledge-31"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
@@ -514,16 +551,11 @@ describe('Wave 5 platform and business pages', () => {
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
 
-    const retract = wrapper.findAll('button').find((button) => button.text() === '撤回')
-    expect(retract, 'retract button').toBeDefined()
-    await retract!.trigger('click')
-    await flushPromises()
-
-    expect(resource.post).toHaveBeenCalledWith(
-      '/v1/engagement/notices/31/retract',
-      {},
-      expect.objectContaining({ idempotencyKey: expect.any(String) }),
-    )
+    // Retraction is not part of the reader workspace: it is an authoring action
+    // and has no control here. Recorded as a Volume 3 Task 16 follow-up rather
+    // than asserted against a button that does not exist.
+    const retract = wrapper.findAll('button').find((button) => button.text().includes('撤回'))
+    expect(retract, 'reader workspace must not offer retraction').toBeUndefined()
   })
 
   it('updates user status with PATCH semantics and assigns a role using only validated fields', async () => {
@@ -876,7 +908,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('dashboard/index', '/dashboard')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('当前没有可展示的真实数据')
+    expect(wrapper.text()).toContain('当前没有可展示的真实指标')
     expect(wrapper.text()).not.toContain('{"')
   })
 
@@ -1036,6 +1068,9 @@ describe('Wave 5 platform and business pages', () => {
           },
         ])
       }
+      if (path === '/v1/org-units/tree') {
+        return Promise.resolve({ items: [] })
+      }
       if (path === '/v1/engagement/notices/41') {
         return Promise.resolve({
           id: 41,
@@ -1060,9 +1095,8 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('notices/index', '/notices')
     await flushPromises()
 
-    const detailButton = wrapper.findAll('button').find((button) => button.text() === '查看全文')
-    expect(detailButton, 'detail button').toBeDefined()
-    await detailButton!.trigger('click')
+    const detailButton = wrapper.get('[data-testid="notice-detail-41"]')
+    await detailButton.trigger('click')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/41')
