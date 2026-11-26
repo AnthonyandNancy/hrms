@@ -10,6 +10,9 @@ import ErrorState from '@/components/ErrorState.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import EmployeeSummary from '../components/EmployeeSummary.vue'
 import EmployeeTabs from '../components/EmployeeTabs.vue'
+import EmployeeProfileSection from '../components/EmployeeProfileSection.vue'
+import EmployeeFileList from '../components/EmployeeFileList.vue'
+import EmployeeChangeList from '../components/EmployeeChangeList.vue'
 import {
   archiveEmployee,
   getEmployee,
@@ -79,6 +82,15 @@ const activeTab = computed<EmployeeTabKey>(() => {
 })
 
 const canEdit = computed(() => session.can('people.employee.manage'))
+const profileResource = computed<'education' | 'experiences' | 'contacts' | null>(() => {
+  if (activeTab.value === 'education') return 'education'
+  if (activeTab.value === 'experience') return 'experiences'
+  if (activeTab.value === 'contacts') return 'contacts'
+  return null
+})
+const hasProfileWorkspace = computed(() =>
+  ['credentials', 'education', 'experience', 'contacts', 'changes'].includes(activeTab.value),
+)
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
 
@@ -312,6 +324,24 @@ watch(
         :initial-tab="activeTab"
         @update:tab="onTabChange"
       />
+
+      <!--
+        Same-object sub-profile workspaces. EmployeeTabs keeps the page/tab
+        shell; these components add the capability-guarded write and file flows
+        owned by Task 4 without changing the existing tab component.
+      -->
+      <section v-if="hasProfileWorkspace" class="employee-detail__profile" data-testid="employee-profile-workspace">
+        <EmployeeProfileSection
+          v-if="profileResource !== null"
+          :employment-id="employee.employment_id"
+          :resource="profileResource"
+        />
+        <template v-if="activeTab === 'credentials'">
+          <EmployeeProfileSection :employment-id="employee.employment_id" resource="certificates" />
+          <EmployeeFileList :employment-id="employee.employment_id" />
+        </template>
+        <EmployeeChangeList v-if="activeTab === 'changes'" :employment-id="employee.employment_id" />
+      </section>
     </template>
   </PageShell>
 </template>
@@ -365,6 +395,13 @@ watch(
 
 .employee-detail__mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.employee-detail__profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .employee-detail__action-error {
