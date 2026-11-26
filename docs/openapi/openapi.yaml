@@ -510,6 +510,57 @@ components:
               format: date-time
         request_id:
           type: string
+    OnboardEmployeeRequest:
+      type: object
+      required: [person, employment, assignment, terms]
+      properties:
+        person:
+          type: object
+          required: [given_name, family_name]
+          properties:
+            given_name: { type: string, maxLength: 120 }
+            family_name: { type: string, maxLength: 120 }
+            national_id: { type: [string, "null"], maxLength: 64 }
+            id_type: { type: [string, "null"], enum: [CN_ID, PASSPORT, OTHER] }
+            mobile: { type: [string, "null"], maxLength: 32 }
+            email: { type: [string, "null"], format: email, maxLength: 255 }
+            birth_date: { type: [string, "null"], format: date }
+        employment:
+          type: object
+          required: [employee_no, hire_date]
+          properties:
+            employee_no: { type: string, maxLength: 64 }
+            hire_date: { type: string, format: date }
+            employment_type: { type: [string, "null"], maxLength: 32 }
+        assignment:
+          type: object
+          required: [org_unit_id]
+          properties:
+            org_unit_id: { type: integer, minimum: 1 }
+            position_id: { type: [integer, "null"], minimum: 1 }
+            valid_from: { type: [string, "null"], format: date }
+        terms:
+          type: object
+          required: [salary_minor, currency]
+          properties:
+            salary_minor:
+              type: integer
+              minimum: 1
+              description: Integer minor units; never a floating-point amount.
+            currency: { type: string, minLength: 3, maxLength: 3 }
+            work_location: { type: [string, "null"], maxLength: 120 }
+            work_schedule: { type: [string, "null"], maxLength: 64 }
+            effective_from: { type: [string, "null"], format: date }
+    OnboardedEmployee:
+      type: object
+      required: [person_id, employment_id, employee_no, assignment_id, terms_id, replayed]
+      properties:
+        person_id: { type: integer }
+        employment_id: { type: integer }
+        employee_no: { type: string }
+        assignment_id: { type: integer }
+        terms_id: { type: integer }
+        replayed: { type: boolean }
     Envelope:
       type: object
       required:
@@ -8780,6 +8831,60 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.read
+  /v1/employees/onboard:
+    post:
+      operationId: onboardEmployee
+      tags:
+        - People
+      summary: Create a person, employment, assignment and first terms version atomically
+      description: >
+        One transactional business act. A replay with the same Idempotency-Key
+        returns the original employee with `data.replayed = true` and creates no
+        duplicate. Requires capability `people.employee.manage` at COMPANY.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardEmployeeRequest"
+      responses:
+        "201":
+          description: Employee onboarded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OnboardedEmployee"
+        "200":
+          description: Idempotent replay of a previous onboarding
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OnboardedEmployee"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 员工入职建档
   /v1/employees/{employmentId}/certificates:
     get:
       operationId: listEmployeeCertificates

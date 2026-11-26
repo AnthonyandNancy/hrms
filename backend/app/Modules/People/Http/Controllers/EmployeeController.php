@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\People\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\People\Http\Requests\CreateEmployeeRequest;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
+use App\Modules\People\Services\CreateEmployeeService;
 use App\Modules\People\Services\EmploymentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
@@ -216,5 +218,21 @@ final class EmployeeController
     private function event(string $type, int $id, string $event, string $date, array $metadata): array
     {
         return ['type' => $type, 'id' => $id, 'event' => $event, 'effective_date' => $date, 'metadata' => $metadata];
+    }
+
+    /**
+     * Atomic onboarding: person, employment, assignment and first terms version
+     * are created in one transaction (see CreateEmployeeService).
+     */
+    public function onboard(CreateEmployeeRequest $request, CreateEmployeeService $employees): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $result = $employees->onboard(
+            input: $request->validated(),
+            actorUserId: $principal->userId(),
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return ApiResponse::ok($result, $result['replayed'] ? 200 : 201);
     }
 }

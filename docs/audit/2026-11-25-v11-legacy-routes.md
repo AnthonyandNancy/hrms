@@ -355,3 +355,4 @@
 | 322 | `GET` | `/v1/users/{id}/permissions-preview` | `iam.user.read` | `COMPANY` | kernel | — |
 | 323 | `GET` | `/v1/pages/catalog` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 258 | `PUT` | `/v1/roles/{id}/authorization` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 259 | `POST` | `/v1/employees/onboard` | `people.employee.manage` | `COMPANY` | kernel | — |

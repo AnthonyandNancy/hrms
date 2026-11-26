@@ -677,6 +677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/onboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a person, employment, assignment and first terms version atomically
+         * @description One transactional business act. A replay with the same Idempotency-Key returns the original employee with `data.replayed = true` and creates no duplicate. Requires capability `people.employee.manage` at COMPANY.
+         */
+        post: operations["onboardEmployee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employees/{employmentId}/certificates": {
         parameters: {
             query?: never;
@@ -4952,6 +4972,49 @@ export interface components {
             };
             request_id: string;
         };
+        OnboardEmployeeRequest: {
+            person: {
+                given_name: string;
+                family_name: string;
+                national_id?: string | null;
+                /** @enum {string|null} */
+                id_type?: "CN_ID" | "PASSPORT" | "OTHER" | null;
+                mobile?: string | null;
+                /** Format: email */
+                email?: string | null;
+                /** Format: date */
+                birth_date?: string | null;
+            };
+            employment: {
+                employee_no: string;
+                /** Format: date */
+                hire_date: string;
+                employment_type?: string | null;
+            };
+            assignment: {
+                org_unit_id: number;
+                position_id?: number | null;
+                /** Format: date */
+                valid_from?: string | null;
+            };
+            terms: {
+                /** @description Integer minor units; never a floating-point amount. */
+                salary_minor: number;
+                currency: string;
+                work_location?: string | null;
+                work_schedule?: string | null;
+                /** Format: date */
+                effective_from?: string | null;
+            };
+        };
+        OnboardedEmployee: {
+            person_id: number;
+            employment_id: number;
+            employee_no: string;
+            assignment_id: number;
+            terms_id: number;
+            replayed: boolean;
+        };
         Envelope: {
             /** @example OK */
             code: string;
@@ -9162,6 +9225,51 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    onboardEmployee: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardEmployeeRequest"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay of a previous onboarding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OnboardedEmployee"];
+                    };
+                };
+            };
+            /** @description Employee onboarded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OnboardedEmployee"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

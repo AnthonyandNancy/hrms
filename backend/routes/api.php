@@ -166,6 +166,9 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
 });
 
 Route::prefix('employees')->middleware('auth.session')->group(function (): void {
+    Route::post('/onboard', [EmployeeController::class, 'onboard'])
+        ->middleware(['csrf.header', 'mfa.step-up', 'capability:people.employee.manage,COMPANY'])
+        ->name('employees.onboard');
     Route::get('/', [EmployeeController::class, 'index'])
         ->middleware('capability:people.employee.read,COMPANY')
         ->name('employees.index');

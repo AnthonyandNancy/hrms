@@ -199,6 +199,12 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
+    'POST /v1/employees/onboard' => [
+        'capability' => 'people.employee.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'idempotency_replay', 'duplicate_employee_no'],
+    ],
     'GET /v1/employees' => [
         'capability' => 'people.employee.read',
         'anchor' => 'COMPANY',
