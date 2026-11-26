@@ -474,7 +474,10 @@ final class PermissionResourceCatalog
                 'order' => 16,
                 'icon' => 'Menu',
                 'component_key' => 'hr/employees/index',
-                'required_apis' => ['GET /v1/employees', 'POST /v1/employments', 'DELETE /v1/employees/{employment_id}', 'POST /v1/employees/{employment_id}/restore'],
+                // One write API owns exactly one page action. Archive/restore
+                // live on the employee DETAIL page (ADR-0036); this list page
+                // only creates employment records.
+                'required_apis' => ['GET /v1/employees', 'POST /v1/employments'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'business',
