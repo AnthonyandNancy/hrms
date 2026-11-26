@@ -10,9 +10,11 @@
 - Subject: `refactor(org): remove tenant and legal-entity scope`
 
 The Organization runtime no longer references tenant/legal-entity scope and all
-Organization tests pass. The repository-wide PHPStan gate still reports two
-errors in `tests/Feature/CapabilityGuardTest.php`, which is outside this sweep's
-file ownership.
+Organization tests pass. At the time of the Organization commit the
+repository-wide PHPStan gate still reported two errors in
+`tests/Feature/CapabilityGuardTest.php`, outside this sweep's file ownership;
+that unrelated fake was fixed afterwards by another sweep and the current run is
+clean.
 
 ## Delivered
 
@@ -35,7 +37,7 @@ file ownership.
 | `php artisan arch:test` | PASS - `Module boundaries OK.`, 4 pre-existing non-blocking warnings |
 | `php artisan test --compact --filter='Tests\\\\Feature\\\\Organization'` | PASS - **40 passed, 1231 assertions** |
 | `pint --test app/Modules/Organization tests/Feature/Organization` | PASS - 39 files |
-| `phpstan analyse` | Organization-owned files: **0 errors**. Repository-wide: **2 errors** in `tests/Feature/CapabilityGuardTest.php` (TestPrincipal argument order), outside Organization ownership |
+| `phpstan analyse` | PASS - `No errors` (current tree). At Organization-commit time: 0 Organization errors, 2 unrelated `CapabilityGuardTest` errors that a later sweep fixed |
 
 The exact documented filter needs four backslashes on this shell; with two
 backslashes PHPUnit reports "No tests found". Running the directory directly
@@ -54,6 +56,5 @@ consumers outside Organization. They were left to their owning sweeps:
 - Talent: `Services/RecruitmentFunnelService.php`.
 - Time: `Http/Controllers/CalendarAdminController.php`.
 
-Peers subsequently adapted these; the current tree compiles with zero
-Organization PHPStan errors. The only remaining PHPStan failure is the unrelated
-`CapabilityGuardTest` issue noted above.
+Peers subsequently adapted these; the current tree compiles with zero PHPStan
+errors and zero Organization legacy identifiers.
