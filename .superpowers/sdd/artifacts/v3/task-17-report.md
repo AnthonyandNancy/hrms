@@ -23,7 +23,7 @@ actions, and no longer imports `PlatformWorkspace`, `platformPageConfig` or a
 
 ## Commit
 
-Commit SHA is recorded in the final response after staging and commit.
+`f9bea2fab5bad4f3c408ebf156a4306f4433c599` — `feat(platform): build workflow, calendar, settings, notification and audit workspaces`
 
 Explicit staged paths only (no `git add -A`):
 
