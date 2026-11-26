@@ -24,4 +24,11 @@ async function bootstrap(): Promise<void> {
   app.mount('#app')
 }
 
-void bootstrap()
+void bootstrap().catch((error: unknown) => {
+  // Never leave a blank page: surface the failure and keep a readable message.
+  console.error('bootstrap.failed', error)
+  const host = document.getElementById('app')
+  if (host !== null) {
+    host.textContent = '应用启动失败，请刷新页面或联系管理员。'
+  }
+})
