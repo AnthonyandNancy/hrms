@@ -29,7 +29,6 @@ final class WorkflowTask extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'node_key',
         'assignee_user_id',

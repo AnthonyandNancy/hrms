@@ -45,12 +45,11 @@ final class EffectExecutor
      * FAILED may be retried until MAX_ATTEMPTS. Handlers run in a savepoint, so
      * an exception discards all handler writes before FAILED is recorded.
      */
-    public function apply(int $tenantId, int $effectId, bool $allowFailedRetry = false): EffectResult
+    public function apply(int $effectId, bool $allowFailedRetry = false): EffectResult
     {
-        return DB::transaction(function () use ($tenantId, $effectId, $allowFailedRetry): EffectResult {
+        return DB::transaction(function () use ($effectId, $allowFailedRetry): EffectResult {
             /** @var Effect $effect */
             $effect = Effect::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($effectId)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -139,7 +138,6 @@ final class EffectExecutor
         }
 
         CaseEvent::query()->create([
-            'tenant_id' => $effect->tenant_id,
             'case_id' => $effect->case_id,
             'event_type' => $status === EffectStatus::APPLIED ? 'effect.applied' : 'effect.scheduled',
             'actor_user_id' => null,
@@ -166,7 +164,6 @@ final class EffectExecutor
         $this->projection->refresh($effect->case);
 
         CaseEvent::query()->create([
-            'tenant_id' => $effect->tenant_id,
             'case_id' => $effect->case_id,
             'event_type' => 'effect.failed',
             'actor_user_id' => null,
@@ -186,7 +183,6 @@ final class EffectExecutor
     {
         foreach ($result->outboxEvents as $event) {
             $this->outbox->record(
-                tenantId: $effect->tenant_id,
                 eventType: (string) $event['event_type'],
                 aggregateType: $effect->aggregate_type,
                 aggregateId: $effect->aggregate_id,
@@ -228,17 +224,16 @@ final class EffectExecutor
      * Retry a FAILED effect. Terminal effects are a no-op. Returns null when
      * the retry budget is exhausted and escalation was flagged.
      */
-    public function retry(int $tenantId, int $effectId, WorkflowPrincipal $principal, ?string $reason = null): EffectResult
+    public function retry(int $effectId, WorkflowPrincipal $principal, ?string $reason = null): EffectResult
     {
-        return DB::transaction(function () use ($tenantId, $effectId, $principal, $reason): EffectResult {
+        return DB::transaction(function () use ($effectId, $principal, $reason): EffectResult {
             /** @var Effect $effect */
             $effect = Effect::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($effectId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $this->authorizeEffect($principal, $effect);
+            $this->authorizeEffect($principal);
 
             if ($effect->status === EffectStatus::APPLIED || $effect->status === EffectStatus::REVERSED) {
                 return $effect->status === EffectStatus::APPLIED ? EffectResult::applied() : EffectResult::reversed();
@@ -268,12 +263,8 @@ final class EffectExecutor
         });
     }
 
-    private function authorizeEffect(WorkflowPrincipal $principal, Effect $effect): void
+    private function authorizeEffect(WorkflowPrincipal $principal): void
     {
-        if ($effect->tenant_id !== $principal->tenantId) {
-            throw NotFoundException::forResource();
-        }
-
         if (! $principal->can('workflow.case.admin')) {
             throw NotFoundException::forResource();
         }
@@ -282,7 +273,6 @@ final class EffectExecutor
     private function audit(WorkflowPrincipal $principal, Effect $effect, string $action, ?string $reason = null): void
     {
         $this->audit->record(
-            tenantId: $principal->tenantId,
             actorUserId: $principal->userId,
             action: $action,
             aggregateType: 'effect',

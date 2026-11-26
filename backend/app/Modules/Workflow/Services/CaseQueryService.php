@@ -221,7 +221,6 @@ final class CaseQueryService
     public function resolveWritableCase(WorkflowPrincipal $principal, int $caseId): CaseModel
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $principal->tenantId)
             ->whereKey($caseId)
             ->first();
 
@@ -242,7 +241,6 @@ final class CaseQueryService
     private function visibleQuery(WorkflowPrincipal $principal): Builder
     {
         return CaseModel::query()
-            ->where('tenant_id', $principal->tenantId)
             ->where(function (Builder $query) use ($principal): void {
                 if ($principal->can('workflow.case.admin')) {
                     return;

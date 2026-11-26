@@ -44,7 +44,7 @@ final class ReassignmentService
         $exhausted = 0;
 
         foreach ($tasks as $task) {
-            if ($this->eligibility->isEligible($task->tenant_id, $task->assignee_user_id, $now->toDateString())) {
+            if ($this->eligibility->isEligible($task->assignee_user_id, $now->toDateString())) {
                 continue;
             }
 
@@ -57,7 +57,6 @@ final class ReassignmentService
                 }
 
                 $candidates = $this->assignees->reassignmentCandidates(
-                    $locked->tenant_id,
                     $locked->case_id,
                     $locked->assignee_user_id,
                     $now->toDateString(),
@@ -68,7 +67,7 @@ final class ReassignmentService
                         continue;
                     }
 
-                    if (! $this->eligibility->isEligible($locked->tenant_id, $candidateId, $now->toDateString())) {
+                    if (! $this->eligibility->isEligible($candidateId, $now->toDateString())) {
                         continue;
                     }
 
@@ -92,7 +91,6 @@ final class ReassignmentService
                         ])->save();
                     } else {
                         WorkflowTask::query()->create([
-                            'tenant_id' => $locked->tenant_id,
                             'case_id' => $locked->case_id,
                             'node_key' => $locked->node_key,
                             'assignee_user_id' => $candidateId,
@@ -106,7 +104,6 @@ final class ReassignmentService
                     $locked->forceFill(['status' => TaskStatus::CANCELLED, 'acted_at' => $now])->save();
 
                     CaseEvent::query()->create([
-                        'tenant_id' => $locked->tenant_id,
                         'case_id' => $locked->case_id,
                         'event_type' => 'task.reassigned',
                         'actor_user_id' => null,
@@ -127,7 +124,6 @@ final class ReassignmentService
                 $locked->forceFill(['status' => TaskStatus::CANCELLED, 'acted_at' => $now])->save();
 
                 CaseEvent::query()->create([
-                    'tenant_id' => $locked->tenant_id,
                     'case_id' => $locked->case_id,
                     'event_type' => 'task.reassignment_exhausted',
                     'actor_user_id' => null,

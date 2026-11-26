@@ -11,7 +11,6 @@ namespace App\Modules\Workflow\Contracts;
 interface PayrollApprovalWorkflow
 {
     public function open(
-        int $tenantId,
         int $requesterUserId,
         int $runId,
         int $assigneeUserId,
@@ -22,7 +21,6 @@ interface PayrollApprovalWorkflow
      * @return array{case_id: int, application_status: string, effect_status: string}
      */
     public function approve(
-        int $tenantId,
         int $caseId,
         int $actorUserId,
         string $comment,
@@ -32,5 +30,5 @@ interface PayrollApprovalWorkflow
     /**
      * @return array{application_status: string|null, effect_status: string|null}
      */
-    public function status(int $tenantId, int $caseId): array;
+    public function status(int $caseId): array;
 }

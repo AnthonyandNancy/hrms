@@ -10,5 +10,5 @@ namespace App\Modules\Workflow\Contracts;
  */
 interface AssigneeEligibility
 {
-    public function isEligible(int $tenantId, int $userId, string $businessDate): bool;
+    public function isEligible(int $userId, string $businessDate): bool;
 }

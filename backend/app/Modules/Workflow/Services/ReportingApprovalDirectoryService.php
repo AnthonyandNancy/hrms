@@ -14,11 +14,10 @@ final class ReportingApprovalDirectoryService implements ReportingApprovalDirect
     /**
      * @return list<PendingApprovalRow>
      */
-    public function pendingApprovals(int $tenantId): array
+    public function pendingApprovals(): array
     {
         $tasks = WorkflowTask::query()
             ->with('case')
-            ->where('tenant_id', $tenantId)
             ->where('status', TaskStatus::PENDING->value)
             ->orderBy('id')
             ->get();

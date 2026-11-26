@@ -47,7 +47,6 @@ final class DelegationService
         }
 
         return WorkflowDelegation::query()->create([
-            'tenant_id' => $principal->tenantId,
             'proxy_user_id' => $proxyUserId,
             'principal_user_id' => $principal->userId,
             'valid_from' => $validFrom,
@@ -65,7 +64,6 @@ final class DelegationService
         return DB::transaction(function () use ($principal, $delegationId): WorkflowDelegation {
             /** @var WorkflowDelegation|null $delegation */
             $delegation = WorkflowDelegation::query()
-                ->where('tenant_id', $principal->tenantId)
                 ->whereKey($delegationId)
                 ->lockForUpdate()
                 ->first();
@@ -99,7 +97,6 @@ final class DelegationService
         $amount = $this->amountMinor($case->payload_json);
 
         $delegations = WorkflowDelegation::query()
-            ->where('tenant_id', $principal->tenantId)
             ->where('proxy_user_id', $principal->userId)
             ->where('active', true)
             ->whereNull('revoked_at')

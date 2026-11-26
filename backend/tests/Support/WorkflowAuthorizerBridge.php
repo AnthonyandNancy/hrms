@@ -38,7 +38,6 @@ final class WorkflowAuthorizerBridge implements Authorizer
         $workflow = $this->resolver->resolve();
 
         return $workflow !== null
-            && $workflow->tenantId === $principal->tenantId()
             && $workflow->userId === $principal->userId()
             && $workflow->can($capability);
     }

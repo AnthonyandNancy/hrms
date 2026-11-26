@@ -37,7 +37,6 @@ final class CaseCommandService implements CaseCommandPort
         $templateCode = CaseTemplateCatalog::templateCodeFor($type);
 
         $template = $templateCode === null ? null : WorkflowTemplate::query()
-            ->where('tenant_id', $principal->tenantId)
             ->where('code', $templateCode)
             ->where('status', 'PUBLISHED')
             ->orderByDesc('version')
@@ -102,7 +101,6 @@ final class CaseCommandService implements CaseCommandPort
     public function withdraw(WorkflowPrincipal $principal, int $caseId, string $reason): array
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $principal->tenantId)
             ->whereKey($caseId)
             ->first();
 
@@ -119,10 +117,9 @@ final class CaseCommandService implements CaseCommandPort
         return $this->summary($withdrawn);
     }
 
-    public function find(int $tenantId, int $caseId): ?array
+    public function find(int $caseId): ?array
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($caseId)
             ->first();
 

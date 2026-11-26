@@ -42,7 +42,6 @@ final class DecisionController
         // stored replay body all commit atomically. Local effect failures are
         // compensated inside DecisionService (see docs/06-workflows.md).
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId,
             principalId: $principal->userId,
             scope: "POST:/v1/cases/{$caseId}/decisions",
             key: $key,

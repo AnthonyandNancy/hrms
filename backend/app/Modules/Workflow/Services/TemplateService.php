@@ -29,14 +29,13 @@ final class TemplateService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function create(int $tenantId, int $actorUserId, array $data): WorkflowTemplate
+    public function create(int $actorUserId, array $data): WorkflowTemplate
     {
         $definition = $this->validateDefinition($data['definition'] ?? []);
 
-        return DB::transaction(function () use ($tenantId, $data, $definition): WorkflowTemplate {
+        return DB::transaction(function () use ($data, $definition): WorkflowTemplate {
             $template = WorkflowTemplate::query()->firstOrCreate(
                 [
-                    'tenant_id' => $tenantId,
                     'code' => (string) $data['code'],
                     'version' => (int) $data['version'],
                 ],

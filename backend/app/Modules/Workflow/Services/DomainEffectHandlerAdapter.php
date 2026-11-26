@@ -42,7 +42,6 @@ final class DomainEffectHandlerAdapter implements EffectHandler
     private function command(Effect $effect): DomainEffectCommand
     {
         return new DomainEffectCommand(
-            tenantId: (int) $effect->tenant_id,
             effectId: (int) $effect->id,
             caseId: (int) $effect->case_id,
             decisionId: $effect->decision_id !== null ? (int) $effect->decision_id : null,

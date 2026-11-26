@@ -29,7 +29,7 @@ class DelegationTest extends TestCase
             'scope' => ['case_type' => 'leave.request', 'actions' => ['APPROVE']],
         ], ['Idempotency-Key' => 'delegation-key-1'])->assertCreated()->json('data');
 
-        $this->actAs(20, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->decideThroughApi($case->id, 'delegated-decision-key-1')->assertSuccessful();
 
         $decision = Decision::query()->where('case_id', $case->id)->firstOrFail();
@@ -58,7 +58,7 @@ class DelegationTest extends TestCase
             'scope' => ['case_type' => 'leave.request'],
         ], ['Idempotency-Key' => 'delegation-key-2'])->assertCreated();
 
-        $this->actAs(20, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->decideThroughApi($case->id, 'expired-delegation-key-1')
             ->assertNotFound()
             ->assertJsonPath('code', 'NOT_FOUND');
@@ -81,7 +81,7 @@ class DelegationTest extends TestCase
             'scope' => ['case_type' => 'leave.request'],
         ], ['Idempotency-Key' => 'delegation-key-3'])->assertCreated();
 
-        $this->actAs(20, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->decideThroughApi($case->id, 'over-limit-key-1')->assertNotFound();
     }
 
@@ -99,7 +99,7 @@ class DelegationTest extends TestCase
             'scope' => ['case_type' => 'leave.request'],
         ], ['Idempotency-Key' => 'delegation-key-4'])->assertCreated();
 
-        $this->actAs(20, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->decideThroughApi($case->id, 'wrong-scope-key-1')->assertNotFound();
     }
 
@@ -120,7 +120,7 @@ class DelegationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.active', false);
 
-        $this->actAs(20, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->decideThroughApi($case->id, 'revoked-key-1')->assertNotFound();
     }
 }

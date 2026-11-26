@@ -13,5 +13,5 @@ interface ReportingApprovalDirectory
     /**
      * @return list<PendingApprovalRow>
      */
-    public function pendingApprovals(int $tenantId): array;
+    public function pendingApprovals(): array;
 }

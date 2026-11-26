@@ -34,7 +34,7 @@ final class RunDueEffectsCommand extends Command
         $failed = 0;
 
         foreach ($effects as $effect) {
-            $result = $executor->apply($effect->tenant_id, $effect->id);
+            $result = $executor->apply($effect->id);
 
             if ($result->status === EffectStatus::APPLIED) {
                 $applied++;

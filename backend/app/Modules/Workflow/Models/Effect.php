@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $case_id
  * @property int|null $decision_id
  * @property string $effect_type
@@ -35,7 +34,6 @@ final class Effect extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'decision_id',
         'effect_type',

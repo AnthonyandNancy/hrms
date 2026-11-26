@@ -12,7 +12,7 @@ use App\Modules\Workflow\Contracts\AssigneeEligibility;
  */
 final class DefaultAssigneeEligibility implements AssigneeEligibility
 {
-    public function isEligible(int $tenantId, int $userId, string $businessDate): bool
+    public function isEligible(int $userId, string $businessDate): bool
     {
         return true;
     }

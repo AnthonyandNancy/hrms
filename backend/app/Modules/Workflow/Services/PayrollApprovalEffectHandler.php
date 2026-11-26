@@ -33,7 +33,6 @@ final class PayrollApprovalEffectHandler implements EffectHandler
         }
 
         $decision = Decision::query()
-            ->where('tenant_id', $effect->tenant_id)
             ->whereKey((int) $effect->decision_id)
             ->first();
 
@@ -41,7 +40,7 @@ final class PayrollApprovalEffectHandler implements EffectHandler
             throw new \RuntimeException('The payroll approval effect has no decision actor.');
         }
 
-        $this->payroll->applyApproval((int) $effect->tenant_id, $runId, (int) $decision->actor_user_id);
+        $this->payroll->applyApproval($runId, (int) $decision->actor_user_id);
 
         return EffectResult::applied();
     }

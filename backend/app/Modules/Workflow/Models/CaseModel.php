@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * status are intentionally separate columns and separate API fields.
  *
  * @property int $id
- * @property int $tenant_id
  * @property string $case_no
  * @property string $type
  * @property string $subject_type
@@ -40,7 +39,6 @@ final class CaseModel extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_no',
         'type',
         'subject_type',

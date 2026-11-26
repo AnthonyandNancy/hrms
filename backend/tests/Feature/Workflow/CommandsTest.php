@@ -18,8 +18,8 @@ class CommandsTest extends TestCase
 
     public function test_seed_templates_is_idempotent_and_creates_the_document_flows(): void
     {
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
-        $this->artisan('workflow:seed-templates', ['--tenant-id' => 1])->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
 
         // Nine codes: the documented business flows plus the Time-owned
         // attendance.correction and travel.request workflows.
@@ -37,7 +37,6 @@ class CommandsTest extends TestCase
             'generic.approval',
         ] as $code) {
             $this->assertDatabaseHas('workflow_templates', [
-                'tenant_id' => 1,
                 'code' => $code,
                 'version' => 1,
                 'status' => 'PUBLISHED',
@@ -50,7 +49,6 @@ class CommandsTest extends TestCase
         $this->bootWorkflow();
 
         CaseModel::query()->create([
-            'tenant_id' => 1,
             'case_no' => 'CASE-BAD-0001',
             'type' => 'leave.request',
             'subject_type' => 'employment',

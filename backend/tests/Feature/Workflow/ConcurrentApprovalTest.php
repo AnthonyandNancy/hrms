@@ -82,8 +82,8 @@ class ConcurrentApprovalTest extends TestCase
         $this->assertInstanceOf(\Tests\Support\FakeAssigneeDirectory::class, $directory);
 
         // In the test fake, role resolution returns nothing unless seeded.
-        $directory->roleUsers['1:HR_ADMIN'] = [10, 11];
-        $this->actorDirectory->add(new \App\Modules\Workflow\Contracts\ActorSnapshot(1, 11, null, 3, false, ['HR_ADMIN'], ['workflow.case.decide']));
+        $directory->roleUsers['HR_ADMIN'] = [10, 11];
+        $this->actorDirectory->add(new \App\Modules\Workflow\Contracts\ActorSnapshot(11, null, 3, false, ['HR_ADMIN'], ['workflow.case.decide']));
 
         $case = $this->submittedCase($template);
         $this->assertSame(2, WorkflowTask::query()->where('case_id', $case->id)->count());
@@ -93,7 +93,7 @@ class ConcurrentApprovalTest extends TestCase
         $this->assertSame(0, Effect::query()->where('case_id', $case->id)->count());
 
         $this->actAs(11);
-        $directory->roleUsers['1:HR_ADMIN'] = [10, 11];
+        $directory->roleUsers['HR_ADMIN'] = [10, 11];
         $this->decideThroughApi($case->id, 'count-key-2')->assertOk();
 
         $freshCase = $case->refresh();

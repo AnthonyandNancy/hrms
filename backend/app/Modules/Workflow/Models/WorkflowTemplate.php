@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $code
  * @property string $name
  * @property int $version
@@ -27,7 +26,6 @@ final class WorkflowTemplate extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'code',
         'name',
         'version',

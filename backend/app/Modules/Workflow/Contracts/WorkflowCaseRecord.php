@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Workflow\Contracts;
 
 /**
- * Tenant-scoped case snapshot. It intentionally carries IDs and states rather
+ * Company-scoped case snapshot. It intentionally carries IDs and states rather
  * than a Workflow model so callers cannot mutate case internals.
  */
 final readonly class WorkflowCaseRecord
@@ -15,7 +15,6 @@ final readonly class WorkflowCaseRecord
      */
     public function __construct(
         public int $id,
-        public int $tenantId,
         public string $caseNo,
         public string $type,
         public string $subjectType,

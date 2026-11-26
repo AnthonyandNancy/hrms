@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the timeline API remains one chronological read.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $case_id
  * @property string $event_type
  * @property int|null $actor_user_id
@@ -31,7 +30,6 @@ final class CaseEvent extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'event_type',
         'actor_user_id',

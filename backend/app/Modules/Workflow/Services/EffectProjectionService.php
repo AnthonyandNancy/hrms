@@ -27,7 +27,6 @@ final class EffectProjectionService
 
             if ($previous !== $status) {
                 \App\Modules\Workflow\Models\CaseEvent::query()->create([
-                    'tenant_id' => $case->tenant_id,
                     'case_id' => $case->id,
                     'event_type' => 'effect.status_changed',
                     'actor_user_id' => null,
@@ -48,7 +47,6 @@ final class EffectProjectionService
     {
         $statuses = Effect::query()
             ->where('case_id', $case->id)
-            ->where('tenant_id', $case->tenant_id)
             ->pluck('status')
             ->map(static fn (mixed $status): string => $status instanceof \App\Modules\Workflow\Enums\EffectStatus ? $status->value : (string) $status)
             ->all();

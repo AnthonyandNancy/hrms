@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $case_id
  * @property int $user_id
  * @property string $role
@@ -26,7 +25,6 @@ final class CaseMember extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'user_id',
         'role',

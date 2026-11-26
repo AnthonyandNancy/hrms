@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $proxy_user_id
  * @property int $principal_user_id
  * @property \Carbon\CarbonImmutable $valid_from
@@ -26,7 +25,6 @@ final class WorkflowDelegation extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'proxy_user_id',
         'principal_user_id',
         'valid_from',

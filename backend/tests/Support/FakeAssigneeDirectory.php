@@ -20,34 +20,34 @@ final class FakeAssigneeDirectory implements AssigneeDirectory
     /** @var array<string, list<int>> */
     public array $reassignmentCandidates = [];
 
-    public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int
+    public function managerUserIdForSubject(string $subjectType, int $subjectId, string $businessDate): ?int
     {
-        return $this->managers["{$tenantId}:{$subjectType}:{$subjectId}:{$businessDate}"]
-            ?? $this->managers["{$tenantId}:{$subjectType}:{$subjectId}"]
+        return $this->managers["{$subjectType}:{$subjectId}:{$businessDate}"]
+            ?? $this->managers["{$subjectType}:{$subjectId}"]
             ?? null;
     }
 
     /**
      * @return list<int>
      */
-    public function orgHeadUserIdsForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): array
+    public function orgHeadUserIdsForSubject(string $subjectType, int $subjectId, string $businessDate): array
     {
-        return $this->orgHeads["{$tenantId}:{$subjectType}:{$subjectId}"] ?? [];
+        return $this->orgHeads["{$subjectType}:{$subjectId}"] ?? [];
     }
 
     /**
      * @return list<int>
      */
-    public function userIdsWithRole(int $tenantId, string $roleCode, string $businessDate): array
+    public function userIdsWithRole(string $roleCode, string $businessDate): array
     {
-        return $this->roleUsers["{$tenantId}:{$roleCode}"] ?? [];
+        return $this->roleUsers[$roleCode] ?? [];
     }
 
     /**
      * @return list<int>
      */
-    public function reassignmentCandidates(int $tenantId, int $caseId, int $currentAssigneeId, string $businessDate): array
+    public function reassignmentCandidates(int $caseId, int $currentAssigneeId, string $businessDate): array
     {
-        return $this->reassignmentCandidates["{$tenantId}:{$caseId}:{$currentAssigneeId}"] ?? [];
+        return $this->reassignmentCandidates["{$caseId}:{$currentAssigneeId}"] ?? [];
     }
 }

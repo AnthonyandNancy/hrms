@@ -14,7 +14,6 @@ interface WorkflowCaseGateway
      * @param  array<string, mixed>  $payload
      */
     public function createCase(
-        int $tenantId,
         int $requesterUserId,
         string $type,
         string $subjectType,
@@ -31,9 +30,9 @@ interface WorkflowCaseGateway
      *
      * @param  array<string, mixed>  $definition
      */
-    public function ensureTemplate(int $tenantId, string $code, string $name, array $definition): int;
+    public function ensureTemplate(string $code, string $name, array $definition): int;
 
-    public function caseForTenant(int $tenantId, int $caseId): ?WorkflowCaseRecord;
+    public function caseFor(int $caseId): ?WorkflowCaseRecord;
 
     /**
      * Domain projection for a case. Lifecycle applies its own capability and
@@ -41,5 +40,5 @@ interface WorkflowCaseGateway
      *
      * @return array<string, mixed>|null
      */
-    public function projection(int $tenantId, int $caseId): ?array;
+    public function projection(int $caseId): ?array;
 }

@@ -14,23 +14,23 @@ final class FakeActorDirectory implements ActorDirectory
 
     public function add(ActorSnapshot $actor): self
     {
-        $this->actors[$this->key($actor->tenantId, $actor->userId)] = $actor;
+        $this->actors[$this->key($actor->userId)] = $actor;
 
         return $this;
     }
 
-    public function snapshot(int $tenantId, int $userId): ?ActorSnapshot
+    public function snapshot(int $userId): ?ActorSnapshot
     {
-        return $this->actors[$this->key($tenantId, $userId)] ?? null;
+        return $this->actors[$this->key($userId)] ?? null;
     }
 
-    public function has(int $tenantId, int $userId): bool
+    public function has(int $userId): bool
     {
-        return isset($this->actors[$this->key($tenantId, $userId)]);
+        return isset($this->actors[$this->key($userId)]);
     }
 
-    private function key(int $tenantId, int $userId): string
+    private function key(int $userId): string
     {
-        return "{$tenantId}:{$userId}";
+        return (string) $userId;
     }
 }
