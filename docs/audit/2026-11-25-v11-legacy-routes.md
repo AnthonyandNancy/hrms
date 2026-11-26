@@ -356,3 +356,6 @@
 | 323 | `GET` | `/v1/pages/catalog` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 258 | `PUT` | `/v1/roles/{id}/authorization` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 259 | `POST` | `/v1/employees/onboard` | `people.employee.manage` | `COMPANY` | kernel | — |
+| 261 | `PATCH` | `/v1/departments/{id}` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 262 | `DELETE` | `/v1/departments/{id}/members/{employmentId}` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 263 | `POST` | `/v1/departments` | `org.unit.manage` | `COMPANY` | kernel | — |

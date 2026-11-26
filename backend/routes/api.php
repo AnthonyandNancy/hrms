@@ -372,6 +372,18 @@ Route::prefix('org-units')->middleware('auth.session')->group(function (): void 
 });
 
 Route::prefix('departments')->middleware('auth.session')->group(function (): void {
+    Route::post('/', [DepartmentController::class, 'store'])
+        ->middleware(['csrf.header', 'capability:org.unit.manage,COMPANY'])
+        ->name('departments.store');
+    Route::patch('/{id}', [DepartmentController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:org.unit.manage,COMPANY'])
+        ->name('departments.update');
+    Route::delete('/{id}/members/{employmentId}', [DepartmentController::class, 'removeMember'])
+        ->whereNumber('id')
+        ->whereNumber('employmentId')
+        ->middleware(['csrf.header', 'capability:org.unit.manage,COMPANY'])
+        ->name('departments.members.destroy');
     Route::get('/', [DepartmentController::class, 'index'])
         ->middleware('capability:org.unit.read')
         ->name('departments.index');

@@ -6,6 +6,7 @@ namespace App\Modules\Organization\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Services\OrgUnitService;
 use App\Modules\People\Contracts\DepartmentMembershipPort;
 use App\Modules\People\Contracts\DepartmentStaffingDirectory;
 use App\Shared\ApiResponse;
@@ -131,6 +132,78 @@ final class DepartmentController
         })->all();
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
+    }
+
+    public function store(Request $request, OrgUnitService $units): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->assertCapability($principal, 'org.unit.manage');
+
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+            'name' => ['required', 'string', 'max:160'],
+            'parent_id' => ['nullable', 'integer', 'min:1'],
+            'type' => ['required', 'string', 'in:COMPANY,DIVISION,DEPARTMENT,TEAM,COST_CENTER,SHARED_SERVICE'],
+            'status' => ['nullable', 'string', 'in:ACTIVE,INACTIVE'],
+            'valid_from' => ['required', new BusinessDateRule],
+            'valid_to' => ['nullable', new BusinessDateRule],
+        ]);
+
+        $unit = $units->open([
+            'code' => (string) $data['code'],
+            'name' => (string) $data['name'],
+            'parent_id' => $data['parent_id'] ?? null,
+            'type' => (string) $data['type'],
+            'status' => (string) ($data['status'] ?? 'ACTIVE'),
+            'valid_from' => (string) $data['valid_from'],
+            'valid_to' => $data['valid_to'] ?? null,
+        ], $principal->userId());
+
+        return ApiResponse::created([
+            'id' => (int) $unit->id,
+            'code' => (string) $unit->code,
+            'name' => (string) $unit->name,
+        ]);
+    }
+
+    public function update(Request $request, int $id, OrgUnitService $units): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->assertCapability($principal, 'org.unit.manage');
+        $this->assertUnit($id);
+
+        $data = $request->validate([
+            'new_parent_id' => ['nullable', 'integer', 'min:1'],
+            'effective_from' => ['required', new BusinessDateRule],
+        ]);
+
+        $result = $units->move($id, [
+            'new_parent_id' => $data['new_parent_id'] ?? null,
+            'effective_from' => (string) $data['effective_from'],
+        ], $principal->userId());
+
+        return ApiResponse::ok($result);
+    }
+
+    public function removeMember(Request $request, int $id, int $employmentId): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->assertCapability($principal, 'org.unit.manage');
+        $this->assertUnit($id);
+
+        $data = $request->validate([
+            'effective_from' => ['required', new BusinessDateRule],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        $result = $this->membership->removeMember(
+            $id,
+            $employmentId,
+            (string) $data['effective_from'],
+            $principal->userId(),
+        );
+
+        return ApiResponse::ok([...$result, 'reason' => (string) $data['reason']]);
     }
 
     private function assertUnit(int $id): OrgUnit

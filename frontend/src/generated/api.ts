@@ -515,8 +515,46 @@ export interface paths {
         /** List organization units with active headcount */
         get: operations["listDepartments"];
         put?: never;
+        /** Create an organization unit */
+        post: operations["createDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/departments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        /** Move a department under a new parent, effective from a business date */
+        patch: operations["moveDepartment"];
+        trace?: never;
+    };
+    "/v1/departments/{id}/members/{employmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End a member assignment in this department from a business date
+         * @description Effective-dated removal: the assignment keeps its history and simply stops being live. Requires capability `org.unit.manage`.
+         */
+        delete: operations["removeDepartmentMember"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5015,6 +5053,19 @@ export interface components {
             terms_id: number;
             replayed: boolean;
         };
+        DepartmentWriteRequest: {
+            code: string;
+            name: string;
+            parent_id?: number | null;
+            /** @enum {string} */
+            type: "COMPANY" | "DIVISION" | "DEPARTMENT" | "TEAM" | "COST_CENTER" | "SHARED_SERVICE";
+            /** @enum {string} */
+            status?: "ACTIVE" | "INACTIVE";
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to?: string | null;
+        };
         Envelope: {
             /** @example OK */
             code: string;
@@ -8929,6 +8980,121 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createDepartment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Department created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            id?: number;
+                            code?: string;
+                            name?: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    moveDepartment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    new_parent_id?: number | null;
+                    /** Format: date */
+                    effective_from: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Department moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeDepartmentMember: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+                employmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_from: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Member removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };

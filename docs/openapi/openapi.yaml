@@ -561,6 +561,19 @@ components:
         assignment_id: { type: integer }
         terms_id: { type: integer }
         replayed: { type: boolean }
+    DepartmentWriteRequest:
+      type: object
+      required: [code, name, type, valid_from]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 160 }
+        parent_id: { type: [integer, "null"], minimum: 1 }
+        type:
+          type: string
+          enum: [COMPANY, DIVISION, DEPARTMENT, TEAM, COST_CENTER, SHARED_SERVICE]
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date }
     Envelope:
       type: object
       required:
@@ -8358,6 +8371,48 @@ paths:
       x-capability: workflow.case.decide
       x-action-label: 撤销审批委托
   /v1/departments:
+    post:
+      operationId: createDepartment
+      tags:
+        - Organization
+      summary: Create an organization unit
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepartmentWriteRequest"
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: integer }
+                          code: { type: string }
+                          name: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 新建部门
     get:
       operationId: listDepartments
       tags:
@@ -8400,6 +8455,97 @@ paths:
           schema:
             type: string
             maxLength: 160
+  /v1/departments/{id}:
+    patch:
+      operationId: moveDepartment
+      tags:
+        - Organization
+      summary: Move a department under a new parent, effective from a business date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from]
+              properties:
+                new_parent_id: { type: [integer, "null"], minimum: 1 }
+                effective_from: { type: string, format: date }
+      responses:
+        "200":
+          description: Department moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 调整部门层级
+  /v1/departments/{id}/members/{employmentId}:
+    delete:
+      operationId: removeDepartmentMember
+      tags:
+        - Organization
+      summary: End a member assignment in this department from a business date
+      description: >
+        Effective-dated removal: the assignment keeps its history and simply
+        stops being live. Requires capability `org.unit.manage`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: employmentId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from, reason]
+              properties:
+                effective_from: { type: string, format: date }
+                reason: { type: string, minLength: 3, maxLength: 255 }
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 移除部门成员
   /v1/departments/staffing:
     get:
       operationId: listDepartmentStaffing

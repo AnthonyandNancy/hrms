@@ -1645,6 +1645,24 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
+    'POST /v1/departments' => [
+        'capability' => 'org.unit.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'duplicate_department_code'],
+    ],
+    'PATCH /v1/departments/{id}' => [
+        'capability' => 'org.unit.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'cycle_rejected'],
+    ],
+    'DELETE /v1/departments/{id}/members/{employmentId}' => [
+        'capability' => 'org.unit.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'member_not_found'],
+    ],
     'GET /v1/departments' => [
         'capability' => 'org.unit.read',
         'anchor' => 'COMPANY',

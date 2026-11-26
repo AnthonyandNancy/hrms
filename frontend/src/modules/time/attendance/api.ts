@@ -169,37 +169,7 @@ function normalisePeriod(raw: unknown): AttendancePeriod {
   }
 }
 
-function normaliseException(raw: unknown): AttendanceExceptionRow | null {
-  if (!isRecord(raw)) return null
-  const businessDate = text(firstValue(raw, ['business_date', 'businessDate', 'date']))
-  if (businessDate === '') return null
 
-  return {
-    id: nullableInteger(firstValue(raw, ['id', 'exception_id', 'exceptionId'])),
-    businessDate,
-    employeeId: nullableInteger(firstValue(raw, ['employment_id', 'employee_id', 'employmentId', 'employeeId'])),
-    employeeName: text(firstValue(raw, ['employee_name', 'employeeName', 'person_name', 'personName'])),
-    type: text(firstValue(raw, ['type', 'exception_type', 'exceptionType']), 'UNKNOWN').toUpperCase(),
-    status: text(firstValue(raw, ['status']), 'OPEN').toUpperCase(),
-    label: nullableText(firstValue(raw, ['label', 'exception_label', 'exceptionLabel'])),
-    note: nullableText(firstValue(raw, ['note', 'resolution_note', 'resolutionNote'])),
-  }
-}
-
-function normaliseExceptionPage(raw: unknown): AttendanceExceptionPage {
-  const payload = isRecord(raw) ? raw : {}
-  const rawItems = firstValue(payload, ['items', 'exceptions'])
-  const items = Array.isArray(rawItems)
-    ? rawItems.map(normaliseException).filter((value): value is AttendanceExceptionRow => value !== null)
-    : []
-
-  return {
-    items,
-    total: integer(firstValue(payload, ['total', 'count']), items.length),
-    partial: payload.partial === true,
-    partialReason: nullableText(firstValue(payload, ['partial_reason', 'partialReason'])),
-  }
-}
 
 function queryParams(query: AttendanceDaysQuery): Record<string, unknown> {
   const params: Record<string, unknown> = {}
@@ -210,14 +180,60 @@ function queryParams(query: AttendanceDaysQuery): Record<string, unknown> {
 }
 
 export async function getAttendanceDays(query: AttendanceDaysQuery = {}): Promise<AttendancePeriod> {
-  const raw = await resourceGet<unknown>('/v1/time/attendance/days', queryParams(query))
+  // GET /v1/time/attendance?month=YYYY-MM is the real self-service contract: it
+  // returns the whole month with rest days, per-day calculation and a summary.
+  // A specific employee is addressed through the employment-scoped variant.
+  const raw = query.employeeId !== null && query.employeeId !== undefined
+    ? await resourceGet<unknown>(`/v1/time/attendance/${query.employeeId}`, rangeParams(query))
+    : await resourceGet<unknown>('/v1/time/attendance', queryParams(query))
   return normalisePeriod(raw)
 }
 
-export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): Promise<AttendanceExceptionPage> {
-  const raw = await resourceGet<unknown>('/v1/time/attendance/exceptions', queryParams(query))
-  return normaliseExceptionPage(raw)
+function rangeParams(query: AttendanceDaysQuery): Record<string, unknown> {
+  const params: Record<string, unknown> = {}
+  const month = query.month !== undefined && query.month !== '' ? query.month : ''
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    params.from = `${month}-01`
+    const year = Number(month.slice(0, 4))
+    const monthNumber = Number(month.slice(5, 7))
+    const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()
+    params.to = `${month}-${String(lastDay).padStart(2, '0')}`
+  }
+  if (query.orgUnitId !== null && query.orgUnitId !== undefined) params.org_unit_id = query.orgUnitId
+  return params
 }
+
+export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): Promise<AttendanceExceptionPage> {
+  // There is no separate exceptions endpoint. Exceptions are exactly the day
+  // rows whose calculation shows late/early/absence/incomplete/leave status, so
+  // they are derived from the same authorised month payload rather than from a
+  // second, weaker API.
+  const period = await getAttendanceDays(query)
+  const exceptions = period.days
+    .filter((day) => EXCEPTION_STATUSES.has(day.status) || day.lateMinutes > 0
+      || day.earlyLeaveMinutes > 0 || day.absenceMinutes > 0)
+    .map((day) => ({
+      // Day rows have no separate exception id; the business date identifies the
+      // exception within this employee's calendar.
+      id: null,
+      businessDate: day.businessDate,
+      employeeId: day.employeeId,
+      employeeName: period.employeeName,
+      type: day.status,
+      status: 'OPEN' as const,
+      label: day.exceptionLabel,
+      note: null,
+    }))
+
+  return {
+    items: exceptions,
+    total: exceptions.length,
+    partial: period.partial,
+    partialReason: period.partialReason,
+  }
+}
+
+const EXCEPTION_STATUSES = new Set(['LATE', 'EARLY', 'ABSENT', 'INCOMPLETE', 'LEAVE'])
 
 export async function requestAttendanceCorrection(
   input: AttendanceCorrectionInput,
@@ -251,9 +267,11 @@ export async function resolveAttendanceException(
     throw new ApiError('VALIDATION_FAILED', '异常记录缺少有效编号。', { status: 422 })
   }
 
+  // Resolving an exception is a punch correction, not a separate resource:
+  // post the corrected punches through the audited correction command.
   await resourcePost<unknown>(
-    `/v1/time/attendance/exceptions/${exceptionId}/resolve`,
-    { note },
+    '/v1/time/attendance/corrections',
+    { date: '', correctionType: 'WRONG_STATUS', reason: note },
     { idempotencyKey },
   )
 }
