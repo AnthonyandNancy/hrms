@@ -25,7 +25,7 @@ final class PerformanceTemplateService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function publish(int $tenantId, int $actorUserId, array $input): array
+    public function publish(int $actorUserId, array $input): array
     {
         $sections = array_values(is_array($input['sections'] ?? null) ? $input['sections'] : []);
         $total = 0;
@@ -42,15 +42,13 @@ final class PerformanceTemplateService
             throw new ValidationException(['sections' => ['Section weights must total exactly 100.']], 'The given data was invalid.', ['reason' => 'INVALID_WEIGHT_TOTAL']);
         }
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input, $sections): array {
+        return DB::transaction(function () use ($actorUserId, $input, $sections): array {
             $version = ((int) PerformanceTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', (string) $input['code'])
                 ->max('version')) + 1;
 
             /** @var PerformanceTemplate $template */
             $template = PerformanceTemplate::query()->create([
-                'tenant_id' => $tenantId,
                 'code' => (string) $input['code'],
                 'name' => (string) $input['name'],
                 'sections_json' => $sections,
@@ -58,7 +56,7 @@ final class PerformanceTemplateService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.performance_template.published', 'performance_template', (int) $template->id, after: [
+            $this->audit->record($actorUserId, 'talent.performance_template.published', 'performance_template', (int) $template->id, after: [
                 'code' => (string) $template->code,
                 'version' => (int) $template->version,
             ]);
@@ -70,10 +68,9 @@ final class PerformanceTemplateService
     /**
      * @return list<array<string, mixed>>
      */
-    public function list(int $tenantId): array
+    public function list(): array
     {
         return PerformanceTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('code')
             ->orderByDesc('version')
             ->get()

@@ -11,13 +11,13 @@ final class TrainingProgram extends Model
     protected $table = 'training_programs';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'code', 'title', 'status', 'default_capacity', 'recorded_at'];
+    protected $fillable = ['code', 'title', 'status', 'default_capacity', 'recorded_at'];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['tenant_id' => 'integer', 'default_capacity' => 'integer', 'recorded_at' => 'immutable_datetime'];
+        return ['default_capacity' => 'integer', 'recorded_at' => 'immutable_datetime'];
     }
 }

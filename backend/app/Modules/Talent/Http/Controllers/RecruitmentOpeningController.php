@@ -10,7 +10,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +20,7 @@ final class RecruitmentOpeningController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly RequisitionOpeningService $openings,
     ) {}
 
@@ -28,7 +28,7 @@ final class RecruitmentOpeningController
     {
         $principal = $this->principals->resolve();
         $this->allow($principal, 'recruitment.requisition.read');
-        $items = $this->openings->list($principal->tenantId(), $id);
+        $items = $this->openings->list($id);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -42,7 +42,6 @@ final class RecruitmentOpeningController
         ]);
 
         return ApiResponse::created($this->openings->open(
-            $principal->tenantId(),
             $id,
             (string) $data['channel'],
             $principal->userId(),
@@ -51,7 +50,7 @@ final class RecruitmentOpeningController
 
     private function allow(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->allows($principal, $capability, AnchorRef::company(), $today)) {
             throw new AuthorizationException('Forbidden.');

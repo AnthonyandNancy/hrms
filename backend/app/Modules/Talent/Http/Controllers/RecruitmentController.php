@@ -12,7 +12,7 @@ use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +24,7 @@ final class RecruitmentController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly RecruitmentService $recruitment,
         private readonly IdempotencyRunner $idempotency,
     ) {}
@@ -35,7 +35,6 @@ final class RecruitmentController
         $this->allow($principal, 'recruitment.requisition.read', AnchorRef::company());
 
         $items = \App\Modules\Talent\Models\Requisition::query()
-            ->where('tenant_id', $principal->tenantId())
             ->orderBy('id')
             ->get()
             ->map(static fn (\App\Modules\Talent\Models\Requisition $requisition): array => [
@@ -53,11 +52,10 @@ final class RecruitmentController
     public function storeRequisition(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
 
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'requisition_no' => ['required', 'string', 'max:64'],
             'title' => ['required', 'string', 'max:160'],
@@ -67,7 +65,7 @@ final class RecruitmentController
             'target_start_date' => ['nullable', new BusinessDateRule],
         ]);
 
-        return $this->command($request, 'requisition', $data, fn (): array => $this->recruitment->createRequisition($principal->tenantId(), $principal->userId(), $data, $today->value()));
+        return $this->command($request, 'requisition', $data, fn (): array => $this->recruitment->createRequisition($principal->userId(), $data, $today->value()));
     }
 
     public function candidates(Request $request): JsonResponse
@@ -76,7 +74,6 @@ final class RecruitmentController
         $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
 
         $items = \App\Modules\Talent\Models\Candidate::query()
-            ->where('tenant_id', $principal->tenantId())
             ->orderBy('id')
             ->get()
             ->map(static fn (\App\Modules\Talent\Models\Candidate $candidate): array => [
@@ -101,7 +98,7 @@ final class RecruitmentController
             'source' => ['nullable', 'string', 'max:64'],
         ]);
 
-        return $this->command($request, 'candidate', $data, fn (): array => $this->recruitment->createCandidate($principal->tenantId(), $principal->userId(), $data));
+        return $this->command($request, 'candidate', $data, fn (): array => $this->recruitment->createCandidate($principal->userId(), $data));
     }
 
     public function storeInterview(Request $request, int $candidateId): JsonResponse
@@ -119,7 +116,7 @@ final class RecruitmentController
             'recommendation' => ['nullable', 'string', 'in:STRONG_YES,YES,NO,STRONG_NO'],
         ]);
 
-        return $this->command($request, "candidate-{$candidateId}-interview", $data, fn (): array => $this->recruitment->createInterview($principal->tenantId(), $principal->userId(), $candidateId, $data));
+        return $this->command($request, "candidate-{$candidateId}-interview", $data, fn (): array => $this->recruitment->createInterview($principal->userId(), $candidateId, $data));
     }
 
     public function offers(Request $request): JsonResponse
@@ -135,7 +132,6 @@ final class RecruitmentController
         ]);
 
         return ApiResponse::ok($this->recruitment->offers(
-            $principal->tenantId(),
             [
                 'candidate_id' => $data['candidate_id'] ?? null,
                 'requisition_id' => $data['requisition_id'] ?? null,
@@ -149,7 +145,7 @@ final class RecruitmentController
     public function storeOffer(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->allow($principal, 'recruitment.offer.manage', AnchorRef::company());
 
         $data = $request->validate([
@@ -160,23 +156,22 @@ final class RecruitmentController
             'start_date' => ['required', new BusinessDateRule],
         ]);
 
-        return $this->command($request, 'offer', $data, fn (): array => $this->recruitment->createOffer($principal->tenantId(), $principal->userId(), $data, $today->value()));
+        return $this->command($request, 'offer', $data, fn (): array => $this->recruitment->createOffer($principal->userId(), $data, $today->value()));
     }
 
     public function acceptOffer(Request $request, int $offerId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->allow($principal, 'recruitment.offer.accept', AnchorRef::company());
 
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'employee_no' => ['required', 'string', 'max:64'],
             'hire_date' => ['nullable', new BusinessDateRule],
         ]);
 
-        return $this->command($request, "offer-{$offerId}-accept", $data, fn (): array => $this->recruitment->acceptOffer($principal->tenantId(), $principal->userId(), $offerId, $data, $today->value()));
+        return $this->command($request, "offer-{$offerId}-accept", $data, fn (): array => $this->recruitment->acceptOffer($principal->userId(), $offerId, $data, $today->value()));
     }
 
     /**
@@ -193,7 +188,6 @@ final class RecruitmentController
         }
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: 'POST:/v1/recruitment/'.$scope,
             key: $key,
@@ -224,7 +218,7 @@ final class RecruitmentController
 
     private function allow(Principal $principal, string $capability, AnchorRef $anchor): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->allows($principal, $capability, $anchor, $today)) {
             throw new AuthorizationException('Forbidden.');

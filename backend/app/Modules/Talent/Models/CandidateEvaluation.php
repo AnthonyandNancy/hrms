@@ -11,7 +11,7 @@ final class CandidateEvaluation extends Model
     protected $table = 'candidate_evaluations';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'candidate_id', 'interview_id', 'evaluator_user_id', 'rating', 'recommendation', 'strengths', 'concerns', 'comments', 'status', 'recorded_at'];
+    protected $fillable = ['candidate_id', 'interview_id', 'evaluator_user_id', 'rating', 'recommendation', 'strengths', 'concerns', 'comments', 'status', 'recorded_at'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class CandidateEvaluation extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

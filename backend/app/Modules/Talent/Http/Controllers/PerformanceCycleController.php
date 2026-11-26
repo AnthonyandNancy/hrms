@@ -10,14 +10,14 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * Thin HTTP adapter for the K8 performance cycle.
  *
- * Writes are delegated to CommandRunner (idempotency + tenant resolution) and
+ * Writes are delegated to CommandRunner (idempotency + company context) and
  * reads to ProjectionResponder (ADR-0029 envelope). Capability and anchor
  * enforcement remain route middleware concerns.
  */
@@ -27,13 +27,13 @@ final class PerformanceCycleController
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
         private readonly PerformanceCycleService $performance,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function indicators(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->indicators($this->tenantId($request), $this->asOf($request)),
+            $this->performance->indicators($this->asOf($request)),
         );
     }
 
@@ -48,15 +48,15 @@ final class PerformanceCycleController
             'active' => ['nullable', 'boolean'],
         ]);
 
-        return $this->runCommand($request, 'performance.indicator', $data, function (int $tenantId, int $actorUserId) use ($data): array {
-            return $this->performance->createIndicator($tenantId, $actorUserId, $data);
+        return $this->runCommand($request, 'performance.indicator', $data, function (int $actorUserId) use ($data): array {
+            return $this->performance->createIndicator($actorUserId, $data);
         });
     }
 
     public function goals(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->goals($this->tenantId($request), $this->asOf($request)),
+            $this->performance->goals($this->asOf($request)),
         );
     }
 
@@ -73,15 +73,15 @@ final class PerformanceCycleController
             'status' => ['nullable', 'string', 'in:DRAFT,CONFIRMED,IN_PROGRESS,COMPLETED'],
         ]);
 
-        return $this->runCommand($request, 'performance.goal', $data, function (int $tenantId, int $actorUserId) use ($data): array {
-            return $this->performance->createGoal($tenantId, $actorUserId, $data);
+        return $this->runCommand($request, 'performance.goal', $data, function (int $actorUserId) use ($data): array {
+            return $this->performance->createGoal($actorUserId, $data);
         });
     }
 
     public function feedback(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->feedback($this->tenantId($request), $this->asOf($request)),
+            $this->performance->feedback($this->asOf($request)),
         );
     }
 
@@ -98,15 +98,15 @@ final class PerformanceCycleController
             'anonymous' => ['nullable', 'boolean'],
         ]);
 
-        return $this->runCommand($request, 'performance.feedback', $data, function (int $tenantId, int $actorUserId) use ($data): array {
-            return $this->performance->createFeedback($tenantId, $actorUserId, $data);
+        return $this->runCommand($request, 'performance.feedback', $data, function (int $actorUserId) use ($data): array {
+            return $this->performance->createFeedback($actorUserId, $data);
         });
     }
 
     public function calibrations(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->calibrations($this->tenantId($request), $this->asOf($request)),
+            $this->performance->calibrations($this->asOf($request)),
         );
     }
 
@@ -117,35 +117,35 @@ final class PerformanceCycleController
             'reason' => ['required', 'string', 'min:3', 'max:4000'],
         ]);
 
-        return $this->runCommand($request, 'performance.calibration', $data, function (int $tenantId, int $actorUserId) use ($reviewId, $data): array {
-            return $this->performance->calibrate($tenantId, $actorUserId, $reviewId, $data);
+        return $this->runCommand($request, 'performance.calibration', $data, function (int $actorUserId) use ($reviewId, $data): array {
+            return $this->performance->calibrate($actorUserId, $reviewId, $data);
         }, 200);
     }
 
     public function results(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->results($this->tenantId($request), $this->asOf($request)),
+            $this->performance->results($this->asOf($request)),
         );
     }
 
     public function reports(Request $request): JsonResponse
     {
         return $this->projections->ok(
-            $this->performance->reports($this->tenantId($request), $this->asOf($request)),
+            $this->performance->reports($this->asOf($request)),
         );
     }
 
     public function publishCycle(Request $request, int $cycleId): JsonResponse
     {
-        return $this->runCommand($request, 'performance.publish', ['cycle_id' => $cycleId], function (int $tenantId, int $actorUserId) use ($cycleId): array {
-            return $this->performance->publish($tenantId, $actorUserId, $cycleId);
+        return $this->runCommand($request, 'performance.publish', ['cycle_id' => $cycleId], function (int $actorUserId) use ($cycleId): array {
+            return $this->performance->publish($actorUserId, $cycleId);
         }, 200);
     }
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  \Closure(int, int): array<string, mixed>  $operation
+     * @param  \Closure(int): array<string, mixed>  $operation
      */
     private function runCommand(Request $request, string $scope, array $payload, \Closure $operation, int $successStatus = 201): JsonResponse
     {
@@ -167,7 +167,7 @@ final class PerformanceCycleController
             function () use ($operation, $principal, $successStatus): array {
                 return [
                     'http_status' => $successStatus,
-                    'body' => $operation($principal->tenantId(), $principal->userId()),
+                    'body' => $operation($principal->userId()),
                     'resource_type' => 'talent.performance',
                 ];
             },
@@ -185,18 +185,10 @@ final class PerformanceCycleController
         return $response;
     }
 
-    private function tenantId(Request $request): int
-    {
-        return app(\App\Shared\Authorization\PrincipalResolver::class)->resolve()->tenantId();
-    }
-
     private function asOf(Request $request): string
     {
-        $tenantId = $this->tenantId($request);
-
         return $this->businessDates->resolve(
             is_string($request->query('as_of')) ? $request->query('as_of') : null,
-            $tenantId,
         )->value();
     }
 }

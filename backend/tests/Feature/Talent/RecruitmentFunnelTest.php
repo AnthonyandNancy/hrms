@@ -32,16 +32,15 @@ final class RecruitmentFunnelTest extends TalentTestCase
     public function test_candidate_conversion_is_idempotent(): void
     {
         $candidate = $this->createAcceptedCandidate();
+        $org = $this->peopleScenario->orgUnit('FUNNEL-CONVERSION-ORG');
 
         $first = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0001',
         ], ['Idempotency-Key' => 'conv-1'])->assertCreated();
 
         $second = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0001',
         ], ['Idempotency-Key' => 'conv-1'])->assertOk();
 
@@ -52,16 +51,15 @@ final class RecruitmentFunnelTest extends TalentTestCase
     public function test_candidate_conversion_is_business_idempotent_with_a_new_key_and_unique_candidate_constraint(): void
     {
         $candidate = $this->createAcceptedCandidate();
+        $org = $this->peopleScenario->orgUnit('FUNNEL-CONVERSION-ORG-2');
 
         $first = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0002',
         ], ['Idempotency-Key' => 'conv-new-key-1'])->assertCreated();
 
         $second = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0002',
         ], ['Idempotency-Key' => 'conv-new-key-2'])->assertOk();
 
@@ -70,13 +68,11 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
         $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
         DB::table('candidate_conversions')->insert([
-            'tenant_id' => 1,
             'candidate_id' => $candidate->id,
             'employment_id' => $first->json('data.employment_id'),
             'person_id' => $first->json('data.person_id'),
             'offer_id' => $first->json('data.offer_id'),
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0002',
             'status' => 'COMPLETED',
             'recorded_at' => $this->clock->now(),
@@ -87,11 +83,8 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
     public function test_a_requisition_must_be_approved_before_an_opening_can_be_published(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'FUNNEL-OPEN-ORG');
+        $org = $this->peopleScenario->orgUnit('FUNNEL-OPEN-ORG');
         $requisition = Requisition::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => 'REQ-FUNNEL-OPEN',
             'title' => 'Synthetic opening role',
@@ -119,11 +112,9 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
     public function test_requisition_creation_persists_integer_minor_budget_and_reads_it_back(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'FUNNEL-BUDGET-ORG');
+        $org = $this->peopleScenario->orgUnit('FUNNEL-BUDGET-ORG');
 
         $created = $this->postJson('/v1/recruitment/requisitions', [
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => 'REQ-FUNNEL-BUDGET',
             'title' => 'Synthetic budget role',
@@ -145,11 +136,8 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
     public function test_candidate_import_returns_a_row_level_report_and_never_drops_rejected_rows(): void
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'FUNNEL-IMPORT-ORG');
+        $org = $this->peopleScenario->orgUnit('FUNNEL-IMPORT-ORG');
         $requisition = Requisition::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => 'REQ-FUNNEL-IMPORT',
             'title' => 'Synthetic import role',
@@ -161,7 +149,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
         ]);
 
         $duplicate = Candidate::query()->create([
-            'tenant_id' => 1,
             'display_name' => 'Synthetic Existing',
             'email' => 'existing@example.test',
             'email_hash' => hash_hmac('sha256', 'existing@example.test', (string) config('hrms.pii_hmac_key')),
@@ -200,9 +187,9 @@ final class RecruitmentFunnelTest extends TalentTestCase
     public function test_board_budget_and_reports_are_live_integer_minor_unit_projections(): void
     {
         $candidate = $this->createAcceptedCandidate('REQ-FUNNEL-BOARD', 18000000);
+        $org = $this->peopleScenario->orgUnit('FUNNEL-BOARD-CONVERSION-ORG');
         $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
-            'legal_entity_id' => 1,
-            'org_unit_id' => 1,
+            'org_unit_id' => $org->id,
             'employee_no' => 'CONV-BOARD-1',
         ], ['Idempotency-Key' => 'conv-board-1'])->assertCreated();
 
@@ -228,7 +215,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
     public function test_candidate_list_is_pii_minimized_and_records_a_sensitive_read_audit(): void
     {
         $candidate = Candidate::query()->create([
-            'tenant_id' => 1,
             'display_name' => 'Synthetic Audit Candidate',
             'email' => 'audit@example.test',
             'email_hash' => hash_hmac('sha256', 'audit@example.test', (string) config('hrms.pii_hmac_key')),
@@ -318,11 +304,8 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
     private function createAcceptedCandidate(string $requisitionNo = 'REQ-FUNNEL-CONV', int $salaryMinor = 2000000): Candidate
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $org = $this->peopleScenario->orgUnit($entity, 'FUNNEL-ORG-'.str_replace('-', '', $requisitionNo));
+        $org = $this->peopleScenario->orgUnit('FUNNEL-ORG-'.str_replace('-', '', $requisitionNo));
         $requisition = Requisition::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => $requisitionNo,
             'title' => 'Synthetic funnel role',
@@ -335,7 +318,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
 
         $email = 'accepted-'.str_replace('-', '', $requisitionNo).'@example.test';
         $candidate = Candidate::query()->create([
-            'tenant_id' => 1,
             'display_name' => 'Synthetic Accepted Candidate',
             'email' => $email,
             'email_hash' => hash_hmac('sha256', $email, (string) config('hrms.pii_hmac_key')),
@@ -345,7 +327,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
         ]);
 
         Offer::query()->create([
-            'tenant_id' => 1,
             'candidate_id' => (int) $candidate->id,
             'requisition_id' => (int) $requisition->id,
             'version' => 1,
@@ -358,7 +339,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
         ]);
 
         Interview::query()->create([
-            'tenant_id' => 1,
             'candidate_id' => (int) $candidate->id,
             'requisition_id' => (int) $requisition->id,
             'scheduled_at' => '2026-11-20 09:00:00',
@@ -371,7 +351,6 @@ final class RecruitmentFunnelTest extends TalentTestCase
         ]);
 
         RequisitionOpening::query()->create([
-            'tenant_id' => 1,
             'requisition_id' => (int) $requisition->id,
             'channel' => 'EXTERNAL',
             'status' => 'OPEN',

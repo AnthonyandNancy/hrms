@@ -14,7 +14,7 @@ final class Requisition extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'legal_entity_id', 'org_unit_id', 'requisition_no', 'title', 'status',
+        'org_unit_id', 'requisition_no', 'title', 'status',
         'headcount', 'budget_minor', 'budget_currency', 'case_id', 'target_start_date', 'recorded_at',
     ];
 
@@ -24,8 +24,6 @@ final class Requisition extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'org_unit_id' => 'integer',
             'headcount' => 'integer',
             'budget_minor' => 'integer',

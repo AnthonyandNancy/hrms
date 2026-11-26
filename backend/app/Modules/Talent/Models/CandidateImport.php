@@ -11,7 +11,7 @@ final class CandidateImport extends Model
     protected $table = 'candidate_imports';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'requisition_id', 'source', 'status', 'row_count', 'accepted_count', 'rejected_count', 'rows_json', 'recorded_at'];
+    protected $fillable = ['requisition_id', 'source', 'status', 'row_count', 'accepted_count', 'rejected_count', 'rows_json', 'recorded_at'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class CandidateImport extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

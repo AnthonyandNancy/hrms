@@ -12,7 +12,7 @@ use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +23,7 @@ final class PerformanceController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly PerformanceService $performance,
         private readonly IdempotencyRunner $idempotency,
     ) {}
@@ -32,7 +32,7 @@ final class PerformanceController
     {
         $principal = $this->principals->resolve();
         $this->allow($principal, 'performance.cycle.read');
-        $items = $this->performance->cycles($principal->tenantId());
+        $items = $this->performance->cycles();
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -42,7 +42,6 @@ final class PerformanceController
         $principal = $this->principals->resolve();
         $this->allow($principal, 'performance.review.manage');
         $items = $this->performance->reviews(
-            $principal->tenantId(),
             $request->query('cycle_id') !== null ? (int) $request->query('cycle_id') : null,
             is_string($request->query('status')) ? $request->query('status') : null,
         );
@@ -60,7 +59,7 @@ final class PerformanceController
             'period_to' => ['required', 'date_format:Y-m-d', 'after:period_from'],
         ]);
 
-        return $this->command($request, 'cycle', $data, fn (): array => $this->performance->createCycle($principal->tenantId(), $principal->userId(), $data));
+        return $this->command($request, 'cycle', $data, fn (): array => $this->performance->createCycle($principal->userId(), $data));
     }
 
     public function storeReview(Request $request): JsonResponse
@@ -76,7 +75,7 @@ final class PerformanceController
             'self_rating' => ['nullable', 'string', 'max:16'],
         ]);
 
-        return $this->command($request, 'review', $data, fn (): array => $this->performance->createReview($principal->tenantId(), $principal->userId(), $data));
+        return $this->command($request, 'review', $data, fn (): array => $this->performance->createReview($principal->userId(), $data));
     }
 
     public function submitReview(Request $request, int $reviewId): JsonResponse
@@ -89,19 +88,19 @@ final class PerformanceController
             'calibrated_rating' => ['nullable', 'string', 'max:16'],
         ]);
 
-        return $this->command($request, "review-{$reviewId}-submit", $data, fn (): array => $this->performance->submitReview($principal->tenantId(), $principal->userId(), $reviewId, $data), 200);
+        return $this->command($request, "review-{$reviewId}-submit", $data, fn (): array => $this->performance->submitReview($principal->userId(), $reviewId, $data), 200);
     }
 
     public function storeAppeal(Request $request, int $reviewId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->allow($principal, 'performance.appeal.manage');
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:10', 'max:4000'],
         ]);
 
-        return $this->command($request, "review-{$reviewId}-appeal", $data, fn (): array => $this->performance->createAppeal($principal->tenantId(), $principal->userId(), $reviewId, $data, $today->value()));
+        return $this->command($request, "review-{$reviewId}-appeal", $data, fn (): array => $this->performance->createAppeal($principal->userId(), $reviewId, $data, $today->value()));
     }
 
     /**
@@ -118,7 +117,6 @@ final class PerformanceController
         }
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: 'POST:/v1/performance/'.$scope,
             key: $key,
@@ -141,7 +139,7 @@ final class PerformanceController
 
     private function allow(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->allows($principal, $capability, AnchorRef::company(), $today)) {
             throw new AuthorizationException('Forbidden.');

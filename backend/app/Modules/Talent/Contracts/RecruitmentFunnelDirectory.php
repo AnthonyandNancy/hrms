@@ -11,12 +11,12 @@ namespace App\Modules\Talent\Contracts;
  */
 interface RecruitmentFunnelDirectory
 {
-    public function available(int $tenantId): bool;
+    public function available(): bool;
 
-    public function unavailableReason(int $tenantId): ?string;
+    public function unavailableReason(): string;
 
     /**
      * @return list<RecruitmentFunnelRow>
      */
-    public function funnel(int $tenantId, string $asOf): array;
+    public function funnel(string $asOf): array;
 }

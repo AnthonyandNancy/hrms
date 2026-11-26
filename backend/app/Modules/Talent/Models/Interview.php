@@ -12,7 +12,7 @@ final class Interview extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'candidate_id', 'requisition_id', 'scheduled_at', 'duration_minutes',
+        'candidate_id', 'requisition_id', 'scheduled_at', 'duration_minutes',
         'interviewer', 'mode', 'status', 'recommendation', 'feedback', 'recorded_at',
     ];
 
@@ -22,7 +22,6 @@ final class Interview extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'candidate_id' => 'integer',
             'requisition_id' => 'integer',
             'scheduled_at' => 'immutable_datetime',

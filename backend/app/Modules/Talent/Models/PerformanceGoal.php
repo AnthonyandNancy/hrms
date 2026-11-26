@@ -12,7 +12,7 @@ final class PerformanceGoal extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'cycle_id', 'employment_id', 'indicator_id', 'title',
+        'cycle_id', 'employment_id', 'indicator_id', 'title',
         'target_value', 'weight', 'due_on', 'status', 'recorded_at',
     ];
 
@@ -22,7 +22,6 @@ final class PerformanceGoal extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'cycle_id' => 'integer',
             'employment_id' => 'integer',
             'indicator_id' => 'integer',

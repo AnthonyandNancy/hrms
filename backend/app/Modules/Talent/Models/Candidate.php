@@ -12,7 +12,7 @@ final class Candidate extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'display_name', 'email', 'mobile_ciphertext', 'email_hash', 'mobile_hash',
+        'display_name', 'email', 'mobile_ciphertext', 'email_hash', 'mobile_hash',
         'source', 'status', 'linked_person_id', 'recorded_at',
     ];
 
@@ -25,7 +25,6 @@ final class Candidate extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'mobile_ciphertext' => 'encrypted',
             'linked_person_id' => 'integer',
             'recorded_at' => 'immutable_datetime',

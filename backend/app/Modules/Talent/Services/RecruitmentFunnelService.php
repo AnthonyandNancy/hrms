@@ -47,21 +47,19 @@ final class RecruitmentFunnelService
         private readonly PeopleEmploymentWriter $people,
     ) {}
 
-    public function board(int $tenantId, string $asOf): ProjectionResult
+    public function board(string $asOf): ProjectionResult
     {
         $items = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
-            ->map(function (Requisition $requisition) use ($tenantId): array {
-                $metrics = $this->requisitionMetrics($tenantId, (int) $requisition->id);
+            ->map(function (Requisition $requisition): array {
+                $metrics = $this->requisitionMetrics((int) $requisition->id);
 
                 return [
                     'requisition_id' => (int) $requisition->id,
                     'requisition_no' => (string) $requisition->requisition_no,
                     'title' => (string) $requisition->title,
                     'status' => (string) $requisition->status,
-                    'legal_entity_id' => (int) $requisition->legal_entity_id,
                     'org_unit_id' => (int) $requisition->org_unit_id,
                     'headcount' => (int) $requisition->headcount,
                     'openings_count' => $metrics['openings_count'],
@@ -80,14 +78,13 @@ final class RecruitmentFunnelService
         return $this->projection($items, $asOf);
     }
 
-    public function budget(int $tenantId, string $asOf): ProjectionResult
+    public function budget(string $asOf): ProjectionResult
     {
         $items = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
-            ->map(function (Requisition $requisition) use ($tenantId): array {
-                $metrics = $this->requisitionMetrics($tenantId, (int) $requisition->id);
+            ->map(function (Requisition $requisition): array {
+                $metrics = $this->requisitionMetrics((int) $requisition->id);
                 $budgetMinor = $requisition->budget_minor !== null ? (int) $requisition->budget_minor : null;
                 $committedMinor = $metrics['accepted_offer_minor'];
 
@@ -96,7 +93,6 @@ final class RecruitmentFunnelService
                     'requisition_no' => (string) $requisition->requisition_no,
                     'title' => (string) $requisition->title,
                     'status' => (string) $requisition->status,
-                    'legal_entity_id' => (int) $requisition->legal_entity_id,
                     'headcount' => (int) $requisition->headcount,
                     'budget_minor' => $budgetMinor,
                     'budget_currency' => $requisition->budget_currency !== null ? (string) $requisition->budget_currency : null,
@@ -112,14 +108,13 @@ final class RecruitmentFunnelService
         return $this->projection($items, $asOf);
     }
 
-    public function reports(int $tenantId, string $asOf): ProjectionResult
+    public function reports(string $asOf): ProjectionResult
     {
         $items = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
-            ->map(function (Requisition $requisition) use ($tenantId): array {
-                $metrics = $this->requisitionMetrics($tenantId, (int) $requisition->id);
+            ->map(function (Requisition $requisition): array {
+                $metrics = $this->requisitionMetrics((int) $requisition->id);
 
                 return [
                     'requisition_id' => (int) $requisition->id,
@@ -143,14 +138,13 @@ final class RecruitmentFunnelService
         return $this->projection($items, $asOf);
     }
 
-    public function candidates(int $tenantId, int $actorUserId, string $asOf): ProjectionResult
+    public function candidates(int $actorUserId, string $asOf): ProjectionResult
     {
         $items = Candidate::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
-            ->map(function (Candidate $candidate) use ($tenantId, $actorUserId): array {
-                $this->auditCandidateRead($tenantId, $actorUserId, $candidate, 'recruitment.candidate.read', ['email', 'mobile']);
+            ->map(function (Candidate $candidate) use ($actorUserId): array {
+                $this->auditCandidateRead($actorUserId, $candidate, 'recruitment.candidate.read', ['email', 'mobile']);
 
                 return [
                     'candidate_id' => (int) $candidate->id,
@@ -171,7 +165,7 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function importCandidates(int $tenantId, int $actorUserId, array $input): array
+    public function importCandidates(int $actorUserId, array $input): array
     {
         $rows = $input['rows'] ?? null;
 
@@ -186,15 +180,15 @@ final class RecruitmentFunnelService
         $requisitionId = isset($input['requisition_id']) ? (int) $input['requisition_id'] : null;
 
         if ($requisitionId !== null) {
-            $this->requisitionOrFail($tenantId, $requisitionId);
+            $this->requisitionOrFail($requisitionId);
         }
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input, $rows, $requisitionId): array {
+        return DB::transaction(function () use ($actorUserId, $input, $rows, $requisitionId): array {
             $reports = [];
             $accepted = 0;
 
             foreach (array_values($rows) as $index => $row) {
-                $report = $this->importRow($tenantId, $actorUserId, is_array($row) ? $row : [], $index + 1);
+                $report = $this->importRow($actorUserId, is_array($row) ? $row : [], $index + 1);
 
                 if ($report['status'] === 'ACCEPTED') {
                     $accepted++;
@@ -204,7 +198,6 @@ final class RecruitmentFunnelService
             }
 
             $import = CandidateImport::query()->create([
-                'tenant_id' => $tenantId,
                 'requisition_id' => $requisitionId,
                 'source' => isset($input['source']) && trim((string) $input['source']) !== '' ? (string) $input['source'] : 'MANUAL',
                 'status' => 'COMPLETED',
@@ -215,7 +208,7 @@ final class RecruitmentFunnelService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.candidate_import.completed', 'candidate_import', (int) $import->id, after: [
+            $this->audit->record($actorUserId, 'talent.candidate_import.completed', 'candidate_import', (int) $import->id, after: [
                 'row_count' => (int) $import->row_count,
                 'accepted_count' => (int) $import->accepted_count,
                 'rejected_count' => (int) $import->rejected_count,
@@ -234,17 +227,16 @@ final class RecruitmentFunnelService
         });
     }
 
-    public function evaluations(int $tenantId, int $actorUserId, int $candidateId, string $asOf): ProjectionResult
+    public function evaluations(int $actorUserId, int $candidateId, string $asOf): ProjectionResult
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $items = CandidateEvaluation::query()
-            ->where('tenant_id', $tenantId)
             ->where('candidate_id', $candidateId)
             ->orderByDesc('id')
             ->get()
-            ->map(function (CandidateEvaluation $evaluation) use ($tenantId, $actorUserId): array {
-                $this->auditSubresourceRead($tenantId, $actorUserId, 'candidate_evaluation', (int) $evaluation->id, 'recruitment.evaluation.manage', ['rating', 'strengths', 'concerns', 'comments']);
+            ->map(function (CandidateEvaluation $evaluation) use ($actorUserId): array {
+                $this->auditSubresourceRead($actorUserId, 'candidate_evaluation', (int) $evaluation->id, 'recruitment.evaluation.manage', ['rating', 'strengths', 'concerns', 'comments']);
 
                 return $this->evaluationData($evaluation);
             })
@@ -258,12 +250,11 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createEvaluation(int $tenantId, int $actorUserId, int $candidateId, array $input): array
+    public function createEvaluation(int $actorUserId, int $candidateId, array $input): array
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $evaluation = CandidateEvaluation::query()->create([
-            'tenant_id' => $tenantId,
             'candidate_id' => $candidateId,
             'interview_id' => isset($input['interview_id']) ? (int) $input['interview_id'] : null,
             'evaluator_user_id' => $actorUserId,
@@ -276,7 +267,7 @@ final class RecruitmentFunnelService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.candidate_evaluation.recorded', 'candidate_evaluation', (int) $evaluation->id, after: [
+        $this->audit->record($actorUserId, 'talent.candidate_evaluation.recorded', 'candidate_evaluation', (int) $evaluation->id, after: [
             'candidate_id' => $candidateId,
             'rating' => (int) $evaluation->rating,
             'recommendation' => (string) $evaluation->recommendation,
@@ -285,17 +276,16 @@ final class RecruitmentFunnelService
         return $this->evaluationData($evaluation);
     }
 
-    public function communications(int $tenantId, int $actorUserId, int $candidateId, string $asOf): ProjectionResult
+    public function communications(int $actorUserId, int $candidateId, string $asOf): ProjectionResult
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $items = CandidateCommunication::query()
-            ->where('tenant_id', $tenantId)
             ->where('candidate_id', $candidateId)
             ->orderByDesc('id')
             ->get()
-            ->map(function (CandidateCommunication $communication) use ($tenantId, $actorUserId): array {
-                $this->auditSubresourceRead($tenantId, $actorUserId, 'candidate_communication', (int) $communication->id, 'recruitment.communication.manage', ['subject', 'body', 'consent_basis']);
+            ->map(function (CandidateCommunication $communication) use ($actorUserId): array {
+                $this->auditSubresourceRead($actorUserId, 'candidate_communication', (int) $communication->id, 'recruitment.communication.manage', ['subject', 'body', 'consent_basis']);
 
                 return $this->communicationData($communication);
             })
@@ -309,12 +299,11 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createCommunication(int $tenantId, int $actorUserId, int $candidateId, array $input): array
+    public function createCommunication(int $actorUserId, int $candidateId, array $input): array
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $communication = CandidateCommunication::query()->create([
-            'tenant_id' => $tenantId,
             'candidate_id' => $candidateId,
             'channel' => (string) $input['channel'],
             'direction' => (string) $input['direction'],
@@ -325,7 +314,7 @@ final class RecruitmentFunnelService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.candidate_communication.logged', 'candidate_communication', (int) $communication->id, after: [
+        $this->audit->record($actorUserId, 'talent.candidate_communication.logged', 'candidate_communication', (int) $communication->id, after: [
             'candidate_id' => $candidateId,
             'channel' => (string) $communication->channel,
             'direction' => (string) $communication->direction,
@@ -334,17 +323,16 @@ final class RecruitmentFunnelService
         return $this->communicationData($communication);
     }
 
-    public function talentPool(int $tenantId, int $actorUserId, int $candidateId, string $asOf): ProjectionResult
+    public function talentPool(int $actorUserId, int $candidateId, string $asOf): ProjectionResult
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $items = TalentPoolTag::query()
-            ->where('tenant_id', $tenantId)
             ->where('candidate_id', $candidateId)
             ->orderBy('tag')
             ->get()
-            ->map(function (TalentPoolTag $tag) use ($tenantId, $actorUserId): array {
-                $this->auditSubresourceRead($tenantId, $actorUserId, 'talent_pool_tag', (int) $tag->id, 'recruitment.talent-pool.manage', ['tag', 'reason', 'retention_until']);
+            ->map(function (TalentPoolTag $tag) use ($actorUserId): array {
+                $this->auditSubresourceRead($actorUserId, 'talent_pool_tag', (int) $tag->id, 'recruitment.talent-pool.manage', ['tag', 'reason', 'retention_until']);
 
                 return $this->tagData($tag);
             })
@@ -358,13 +346,12 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createTalentPoolTag(int $tenantId, int $actorUserId, int $candidateId, array $input): array
+    public function createTalentPoolTag(int $actorUserId, int $candidateId, array $input): array
     {
-        $this->candidateOrFail($tenantId, $candidateId);
+        $this->candidateOrFail($candidateId);
 
         $tagValue = trim((string) $input['tag']);
         $exists = TalentPoolTag::query()
-            ->where('tenant_id', $tenantId)
             ->where('candidate_id', $candidateId)
             ->where('tag', $tagValue)
             ->exists();
@@ -376,7 +363,6 @@ final class RecruitmentFunnelService
         }
 
         $tag = TalentPoolTag::query()->create([
-            'tenant_id' => $tenantId,
             'candidate_id' => $candidateId,
             'tag' => $tagValue,
             'reason' => $this->nullableString($input['reason'] ?? null),
@@ -385,7 +371,7 @@ final class RecruitmentFunnelService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.talent_pool_tag.created', 'talent_pool_tag', (int) $tag->id, after: [
+        $this->audit->record($actorUserId, 'talent.talent_pool_tag.created', 'talent_pool_tag', (int) $tag->id, after: [
             'candidate_id' => $candidateId,
             'tag' => (string) $tag->tag,
         ]);
@@ -402,11 +388,10 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function convertCandidate(int $tenantId, int $actorUserId, int $candidateId, array $input): array
+    public function convertCandidate(int $actorUserId, int $candidateId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $candidateId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $candidateId, $input): array {
             $candidate = Candidate::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($candidateId)
                 ->lockForUpdate()
                 ->first();
@@ -416,7 +401,6 @@ final class RecruitmentFunnelService
             }
 
             $existing = CandidateConversion::query()
-                ->where('tenant_id', $tenantId)
                 ->where('candidate_id', $candidateId)
                 ->lockForUpdate()
                 ->first();
@@ -426,7 +410,6 @@ final class RecruitmentFunnelService
             }
 
             $offer = Offer::query()
-                ->where('tenant_id', $tenantId)
                 ->where('candidate_id', $candidateId)
                 ->where('status', 'ACCEPTED')
                 ->orderByDesc('version')
@@ -438,17 +421,10 @@ final class RecruitmentFunnelService
                 ]);
             }
 
-            $legalEntityId = (int) $input['legal_entity_id'];
             $orgUnitId = (int) $input['org_unit_id'];
 
-            if ($this->organization->legalEntity($tenantId, $legalEntityId) === null) {
-                throw new ValidationException(['legal_entity_id' => ['The legal entity does not exist in this tenant.']]);
-            }
-
-            $orgUnit = $this->organization->orgUnit($tenantId, $orgUnitId);
-
-            if ($orgUnit === null || $orgUnit->legalEntityId !== $legalEntityId) {
-                throw new ValidationException(['org_unit_id' => ['The org unit must belong to the selected legal entity.']]);
+            if ($this->organization->orgUnit($orgUnitId) === null) {
+                throw new ValidationException(['org_unit_id' => ['The organization unit does not exist.']]);
             }
 
             $hireDate = isset($input['hire_date']) && trim((string) $input['hire_date']) !== ''
@@ -457,15 +433,14 @@ final class RecruitmentFunnelService
 
             $personId = $candidate->linked_person_id !== null
                 ? (int) $candidate->linked_person_id
-                : $this->people->createPerson($tenantId, array_filter([
+                : $this->people->createPerson(array_filter([
                     'legal_name' => (string) $candidate->display_name,
                     'email' => $candidate->email,
                     'mobile' => $candidate->mobile_ciphertext,
                 ], static fn (mixed $value): bool => $value !== null && $value !== ''), $actorUserId);
 
-            $employmentId = $this->people->createEmployment($tenantId, [
+            $employmentId = $this->people->createEmployment([
                 'person_id' => $personId,
-                'legal_entity_id' => $legalEntityId,
                 'employee_no' => (string) $input['employee_no'],
                 'employment_type' => 'FULL_TIME',
                 'status' => 'PROBATION',
@@ -476,7 +451,7 @@ final class RecruitmentFunnelService
                 'source_id' => $candidateId,
             ], $actorUserId);
 
-            $this->people->createAssignment($tenantId, $employmentId, [
+            $this->people->createAssignment($employmentId, [
                 'org_unit_id' => $orgUnitId,
                 'assignment_type' => 'PRIMARY',
                 'is_primary' => true,
@@ -492,24 +467,21 @@ final class RecruitmentFunnelService
             ])->save();
 
             $conversion = CandidateConversion::query()->create([
-                'tenant_id' => $tenantId,
                 'candidate_id' => $candidateId,
                 'employment_id' => $employmentId,
                 'person_id' => $personId,
                 'offer_id' => (int) $offer->id,
-                'legal_entity_id' => $legalEntityId,
                 'org_unit_id' => $orgUnitId,
                 'employee_no' => (string) $input['employee_no'],
                 'status' => 'COMPLETED',
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.candidate.converted', 'candidate_conversion', (int) $conversion->id, after: [
+            $this->audit->record($actorUserId, 'talent.candidate.converted', 'candidate_conversion', (int) $conversion->id, after: [
                 'candidate_id' => $candidateId,
                 'employment_id' => $employmentId,
                 'person_id' => $personId,
                 'offer_id' => (int) $offer->id,
-                'legal_entity_id' => $legalEntityId,
             ]);
 
             return $this->conversionData($conversion, false);
@@ -519,20 +491,17 @@ final class RecruitmentFunnelService
     /**
      * @return array<string, mixed>
      */
-    private function requisitionMetrics(int $tenantId, int $requisitionId): array
+    private function requisitionMetrics(int $requisitionId): array
     {
         $openingsCount = RequisitionOpening::query()
-            ->where('tenant_id', $tenantId)
             ->where('requisition_id', $requisitionId)
             ->count();
 
         $interviews = Interview::query()
-            ->where('tenant_id', $tenantId)
             ->where('requisition_id', $requisitionId)
             ->get();
 
         $offers = Offer::query()
-            ->where('tenant_id', $tenantId)
             ->where('requisition_id', $requisitionId)
             ->get();
 
@@ -541,7 +510,6 @@ final class RecruitmentFunnelService
         $conversions = $offerIds === []
             ? collect()
             : CandidateConversion::query()
-                ->where('tenant_id', $tenantId)
                 ->whereIn('offer_id', $offerIds)
                 ->get();
 
@@ -560,7 +528,6 @@ final class RecruitmentFunnelService
 
         if ($conversions->isNotEmpty()) {
             $opening = RequisitionOpening::query()
-                ->where('tenant_id', $tenantId)
                 ->where('requisition_id', $requisitionId)
                 ->orderBy('published_at')
                 ->first();
@@ -591,7 +558,7 @@ final class RecruitmentFunnelService
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
-    private function importRow(int $tenantId, int $actorUserId, array $row, int $rowNumber): array
+    private function importRow(int $actorUserId, array $row, int $rowNumber): array
     {
         $errors = [];
 
@@ -635,7 +602,6 @@ final class RecruitmentFunnelService
         $emailHash = $email !== '' ? hash_hmac('sha256', $email, (string) config('hrms.pii_hmac_key')) : null;
         $mobileHash = $mobile !== '' ? hash_hmac('sha256', $mobile, (string) config('hrms.pii_hmac_key')) : null;
         $existing = Candidate::query()
-            ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($emailHash, $mobileHash): void {
                 if ($emailHash !== null) {
                     $query->where('email_hash', $emailHash);
@@ -656,7 +622,6 @@ final class RecruitmentFunnelService
         }
 
         $candidate = Candidate::query()->create([
-            'tenant_id' => $tenantId,
             'display_name' => $displayName,
             'email' => $email !== '' ? $email : null,
             'mobile_ciphertext' => $mobile !== '' ? $mobile : null,
@@ -667,7 +632,7 @@ final class RecruitmentFunnelService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.candidate.imported', 'candidate', (int) $candidate->id, after: [
+        $this->audit->record($actorUserId, 'talent.candidate.imported', 'candidate', (int) $candidate->id, after: [
             'has_email' => $emailHash !== null,
             'has_mobile' => $mobileHash !== null,
             'import_row' => $rowNumber,
@@ -691,10 +656,9 @@ final class RecruitmentFunnelService
         ];
     }
 
-    private function candidateOrFail(int $tenantId, int $candidateId): Candidate
+    private function candidateOrFail(int $candidateId): Candidate
     {
         $candidate = Candidate::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($candidateId)
             ->first();
 
@@ -705,15 +669,14 @@ final class RecruitmentFunnelService
         return $candidate;
     }
 
-    private function requisitionOrFail(int $tenantId, int $requisitionId): Requisition
+    private function requisitionOrFail(int $requisitionId): Requisition
     {
         $requisition = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($requisitionId)
             ->first();
 
         if ($requisition === null) {
-            throw new ValidationException(['requisition_id' => ['The requisition does not exist in this tenant.']]);
+            throw new ValidationException(['requisition_id' => ['The requisition does not exist.']]);
         }
 
         return $requisition;
@@ -722,7 +685,7 @@ final class RecruitmentFunnelService
     /**
      * @param  list<string>  $sensitiveFields
      */
-    private function auditCandidateRead(int $tenantId, int $actorUserId, Candidate $candidate, string $capability, array $sensitiveFields): void
+    private function auditCandidateRead(int $actorUserId, Candidate $candidate, string $capability, array $sensitiveFields): void
     {
         $present = [];
 
@@ -737,16 +700,30 @@ final class RecruitmentFunnelService
         $fields = array_values(array_intersect($sensitiveFields, $present));
 
         if ($fields !== []) {
-            $this->sensitiveAuditor->record($tenantId, $actorUserId, 'candidate', (string) $candidate->id, $capability, $fields, ['access' => 'LIST', 'minimized' => true]);
+            $this->sensitiveAuditor->record(
+                userId: $actorUserId,
+                capabilityCode: $capability,
+                resourceType: 'candidate',
+                resourceId: (int) $candidate->id,
+                fields: $fields,
+                context: ['access' => 'LIST', 'minimized' => true],
+            );
         }
     }
 
     /**
      * @param  list<string>  $sensitiveFields
      */
-    private function auditSubresourceRead(int $tenantId, int $actorUserId, string $resourceType, int $resourceId, string $capability, array $sensitiveFields): void
+    private function auditSubresourceRead(int $actorUserId, string $resourceType, int $resourceId, string $capability, array $sensitiveFields): void
     {
-        $this->sensitiveAuditor->record($tenantId, $actorUserId, $resourceType, (string) $resourceId, $capability, $sensitiveFields, ['access' => 'LIST']);
+        $this->sensitiveAuditor->record(
+            userId: $actorUserId,
+            capabilityCode: $capability,
+            resourceType: $resourceType,
+            resourceId: $resourceId,
+            fields: $sensitiveFields,
+            context: ['access' => 'LIST'],
+        );
     }
 
     /**
@@ -814,7 +791,6 @@ final class RecruitmentFunnelService
             'employment_id' => (int) $conversion->employment_id,
             'person_id' => (int) $conversion->person_id,
             'offer_id' => (int) $conversion->offer_id,
-            'legal_entity_id' => (int) $conversion->legal_entity_id,
             'org_unit_id' => (int) $conversion->org_unit_id,
             'employee_no' => (string) $conversion->employee_no,
             'status' => (string) $conversion->status,

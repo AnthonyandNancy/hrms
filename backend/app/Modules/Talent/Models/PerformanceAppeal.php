@@ -11,13 +11,13 @@ final class PerformanceAppeal extends Model
     protected $table = 'performance_appeals';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'review_id', 'case_id', 'reason', 'status', 'recorded_at'];
+    protected $fillable = ['review_id', 'case_id', 'reason', 'status', 'recorded_at'];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['tenant_id' => 'integer', 'review_id' => 'integer', 'case_id' => 'integer', 'recorded_at' => 'immutable_datetime'];
+        return ['review_id' => 'integer', 'case_id' => 'integer', 'recorded_at' => 'immutable_datetime'];
     }
 }

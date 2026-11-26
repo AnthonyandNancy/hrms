@@ -37,11 +37,10 @@ abstract class TalentTestCase extends LifecycleTestCase
         $this->app->instance(EffectRegistry::class, new EffectRegistry($handlers, $types));
     }
 
-    protected function createPerformanceCycle(): PerformanceCycle
+    protected function createPerformanceCycle(string $name = 'Synthetic 2026 cycle'): PerformanceCycle
     {
         return PerformanceCycle::query()->create([
-            'tenant_id' => 1,
-            'name' => 'Synthetic 2026 cycle',
+            'name' => $name,
             'period_from' => '2026-01-01',
             'period_to' => '2026-12-31',
             'status' => 'ACTIVE',
@@ -52,7 +51,6 @@ abstract class TalentTestCase extends LifecycleTestCase
     protected function createReview(PerformanceCycle $cycle, int $employmentId, string $selfRating = '3'): PerformanceReview
     {
         return PerformanceReview::query()->create([
-            'tenant_id' => 1,
             'cycle_id' => (int) $cycle->id,
             'employment_id' => $employmentId,
             'status' => 'DRAFT',
@@ -64,7 +62,7 @@ abstract class TalentTestCase extends LifecycleTestCase
     protected function seedTrainingSession(int $capacity = 5, int $employmentId = 1): TrainingSession
     {
         $program = TrainingProgram::query()->firstOrCreate(
-            ['tenant_id' => 1, 'code' => 'SYN-LIFECYCLE'],
+            ['code' => 'SYN-LIFECYCLE'],
             [
                 'title' => 'Synthetic lifecycle programme',
                 'status' => 'ACTIVE',
@@ -74,7 +72,6 @@ abstract class TalentTestCase extends LifecycleTestCase
         );
 
         $session = TrainingSession::query()->create([
-            'tenant_id' => 1,
             'program_id' => (int) $program->id,
             'starts_on' => '2026-12-01',
             'ends_on' => '2026-12-01',
@@ -87,7 +84,7 @@ abstract class TalentTestCase extends LifecycleTestCase
         ]);
 
         TrainingEnrollment::query()->firstOrCreate(
-            ['tenant_id' => 1, 'session_id' => (int) $session->id, 'employment_id' => $employmentId],
+            ['session_id' => (int) $session->id, 'employment_id' => $employmentId],
             [
                 'status' => 'COMPLETED',
                 'attended' => true,

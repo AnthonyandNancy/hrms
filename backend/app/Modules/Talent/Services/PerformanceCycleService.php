@@ -39,11 +39,10 @@ final class PerformanceCycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createIndicator(int $tenantId, int $actorUserId, array $input): array
+    public function createIndicator(int $actorUserId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $input): array {
             $existing = PerformanceIndicator::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', (string) $input['code'])
                 ->first();
 
@@ -54,7 +53,6 @@ final class PerformanceCycleService
             }
 
             $indicator = PerformanceIndicator::query()->create([
-                'tenant_id' => $tenantId,
                 'code' => (string) $input['code'],
                 'name' => (string) $input['name'],
                 'category' => $this->nullableString($input['category'] ?? null),
@@ -64,7 +62,7 @@ final class PerformanceCycleService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.performance_indicator.created', 'performance_indicator', (int) $indicator->id, after: [
+            $this->audit->record($actorUserId, 'talent.performance_indicator.created', 'performance_indicator', (int) $indicator->id, after: [
                 'code' => (string) $indicator->code,
             ]);
 
@@ -76,14 +74,13 @@ final class PerformanceCycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createGoal(int $tenantId, int $actorUserId, array $input): array
+    public function createGoal(int $actorUserId, array $input): array
     {
-        $cycle = $this->cycleOrFail($tenantId, (int) $input['cycle_id']);
+        $cycle = $this->cycleOrFail((int) $input['cycle_id']);
         $this->assertCycleOpen($cycle);
 
         if (isset($input['indicator_id'])) {
             $indicator = PerformanceIndicator::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey((int) $input['indicator_id'])
                 ->first();
 
@@ -93,7 +90,6 @@ final class PerformanceCycleService
         }
 
         $goal = PerformanceGoal::query()->create([
-            'tenant_id' => $tenantId,
             'cycle_id' => (int) $cycle->id,
             'employment_id' => (int) $input['employment_id'],
             'indicator_id' => isset($input['indicator_id']) ? (int) $input['indicator_id'] : null,
@@ -105,7 +101,7 @@ final class PerformanceCycleService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.performance_goal.created', 'performance_goal', (int) $goal->id, after: [
+        $this->audit->record($actorUserId, 'talent.performance_goal.created', 'performance_goal', (int) $goal->id, after: [
             'cycle_id' => (int) $goal->cycle_id,
             'employment_id' => (int) $goal->employment_id,
         ]);
@@ -117,16 +113,15 @@ final class PerformanceCycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createFeedback(int $tenantId, int $actorUserId, array $input): array
+    public function createFeedback(int $actorUserId, array $input): array
     {
-        $cycle = $this->cycleOrFail($tenantId, (int) $input['cycle_id']);
+        $cycle = $this->cycleOrFail((int) $input['cycle_id']);
         $this->assertCycleOpen($cycle);
 
         $reviewId = isset($input['review_id']) ? (int) $input['review_id'] : null;
 
         if ($reviewId !== null) {
             $review = PerformanceReview::query()
-                ->where('tenant_id', $tenantId)
                 ->where('cycle_id', (int) $cycle->id)
                 ->whereKey($reviewId)
                 ->first();
@@ -137,7 +132,6 @@ final class PerformanceCycleService
         }
 
         $feedback = PerformanceFeedback::query()->create([
-            'tenant_id' => $tenantId,
             'cycle_id' => (int) $cycle->id,
             'review_id' => $reviewId,
             'from_employment_id' => (int) $input['from_employment_id'],
@@ -150,7 +144,7 @@ final class PerformanceCycleService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.performance_feedback.created', 'performance_feedback', (int) $feedback->id, after: [
+        $this->audit->record($actorUserId, 'talent.performance_feedback.created', 'performance_feedback', (int) $feedback->id, after: [
             'cycle_id' => (int) $feedback->cycle_id,
             'to_employment_id' => (int) $feedback->to_employment_id,
             'anonymous' => (bool) $feedback->anonymous,
@@ -163,17 +157,16 @@ final class PerformanceCycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function calibrate(int $tenantId, int $actorUserId, int $reviewId, array $input): array
+    public function calibrate(int $actorUserId, int $reviewId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $reviewId, $input): array {
-            $review = $this->reviewForUpdate($tenantId, $reviewId);
-            $cycle = $this->cycleOrFail($tenantId, (int) $review->cycle_id);
+        return DB::transaction(function () use ($actorUserId, $reviewId, $input): array {
+            $review = $this->reviewForUpdate($reviewId);
+            $cycle = $this->cycleOrFail((int) $review->cycle_id);
             $this->assertCycleOpen($cycle);
 
             $previous = $review->calibrated_rating;
 
             $calibration = PerformanceCalibration::query()->create([
-                'tenant_id' => $tenantId,
                 'cycle_id' => (int) $review->cycle_id,
                 'review_id' => (int) $review->id,
                 'previous_rating' => $previous !== null ? (string) $previous : null,
@@ -187,7 +180,7 @@ final class PerformanceCycleService
             // changes. self_rating and manager_rating remain immutable evidence.
             $review->forceFill(['calibrated_rating' => (string) $input['calibrated_rating']])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.performance_review.calibrated', 'performance_review', (int) $review->id, before: [
+            $this->audit->record($actorUserId, 'talent.performance_review.calibrated', 'performance_review', (int) $review->id, before: [
                 'calibrated_rating' => $previous,
             ], after: [
                 'calibrated_rating' => (string) $review->calibrated_rating,
@@ -210,11 +203,10 @@ final class PerformanceCycleService
     /**
      * @return array<string, mixed>
      */
-    public function publish(int $tenantId, int $actorUserId, int $cycleId): array
+    public function publish(int $actorUserId, int $cycleId): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $cycleId): array {
+        return DB::transaction(function () use ($actorUserId, $cycleId): array {
             $cycle = PerformanceCycle::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($cycleId)
                 ->lockForUpdate()
                 ->first();
@@ -230,7 +222,6 @@ final class PerformanceCycleService
             }
 
             $reviews = PerformanceReview::query()
-                ->where('tenant_id', $tenantId)
                 ->where('cycle_id', (int) $cycle->id)
                 ->get();
 
@@ -253,7 +244,7 @@ final class PerformanceCycleService
 
             $cycle->forceFill(['status' => 'PUBLISHED'])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.performance_cycle.published', 'performance_cycle', (int) $cycle->id, before: [
+            $this->audit->record($actorUserId, 'talent.performance_cycle.published', 'performance_cycle', (int) $cycle->id, before: [
                 'status' => 'ACTIVE',
             ], after: [
                 'status' => 'PUBLISHED',
@@ -267,10 +258,9 @@ final class PerformanceCycleService
     /**
      * Guard used by every review submit/edit command.
      */
-    public function assertReviewEditable(int $tenantId, int $reviewId): PerformanceReview
+    public function assertReviewEditable(int $reviewId): PerformanceReview
     {
         $review = PerformanceReview::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($reviewId)
             ->first();
 
@@ -279,7 +269,6 @@ final class PerformanceCycleService
         }
 
         $cycle = PerformanceCycle::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $review->cycle_id)
             ->first();
 
@@ -296,10 +285,9 @@ final class PerformanceCycleService
         return $review;
     }
 
-    public function indicators(int $tenantId, string $asOf): ProjectionResult
+    public function indicators(string $asOf): ProjectionResult
     {
         $items = PerformanceIndicator::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('code')
             ->get()
             ->map(fn (PerformanceIndicator $indicator): array => $this->indicatorData($indicator))
@@ -309,10 +297,9 @@ final class PerformanceCycleService
         return $this->projection($items, $asOf);
     }
 
-    public function goals(int $tenantId, string $asOf): ProjectionResult
+    public function goals(string $asOf): ProjectionResult
     {
         $items = PerformanceGoal::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->get()
             ->map(fn (PerformanceGoal $goal): array => $this->goalData($goal))
@@ -322,10 +309,9 @@ final class PerformanceCycleService
         return $this->projection($items, $asOf);
     }
 
-    public function feedback(int $tenantId, string $asOf): ProjectionResult
+    public function feedback(string $asOf): ProjectionResult
     {
         $items = PerformanceFeedback::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->get()
             ->map(fn (PerformanceFeedback $feedback): array => $this->feedbackData($feedback))
@@ -335,10 +321,9 @@ final class PerformanceCycleService
         return $this->projection($items, $asOf);
     }
 
-    public function calibrations(int $tenantId, string $asOf): ProjectionResult
+    public function calibrations(string $asOf): ProjectionResult
     {
         $items = PerformanceCalibration::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->get()
             ->map(fn (PerformanceCalibration $calibration): array => $this->calibrationData($calibration))
@@ -352,15 +337,13 @@ final class PerformanceCycleService
      * Result publication ledger: every review with its frozen ratings and the
      * owning cycle status. This is a live projection, never a writable table.
      */
-    public function results(int $tenantId, string $asOf): ProjectionResult
+    public function results(string $asOf): ProjectionResult
     {
         $items = PerformanceReview::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->get()
-            ->map(function (PerformanceReview $review) use ($tenantId): array {
+            ->map(function (PerformanceReview $review): array {
                 $cycle = PerformanceCycle::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey((int) $review->cycle_id)
                     ->first();
 
@@ -387,20 +370,17 @@ final class PerformanceCycleService
      * Every figure is derived from live rows; no synthetic distribution or
      * forecast is produced when the source data is absent.
      */
-    public function reports(int $tenantId, string $asOf): ProjectionResult
+    public function reports(string $asOf): ProjectionResult
     {
         $items = PerformanceCycle::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
-            ->map(function (PerformanceCycle $cycle) use ($tenantId): array {
+            ->map(function (PerformanceCycle $cycle): array {
                 $reviews = PerformanceReview::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('cycle_id', (int) $cycle->id)
                     ->get();
 
                 $calibrated = PerformanceCalibration::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('cycle_id', (int) $cycle->id)
                     ->distinct()
                     ->count('review_id');
@@ -427,10 +407,9 @@ final class PerformanceCycleService
         return $this->projection($items, $asOf);
     }
 
-    private function cycleOrFail(int $tenantId, int $cycleId): PerformanceCycle
+    private function cycleOrFail(int $cycleId): PerformanceCycle
     {
         $cycle = PerformanceCycle::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($cycleId)
             ->first();
 
@@ -441,10 +420,9 @@ final class PerformanceCycleService
         return $cycle;
     }
 
-    private function reviewForUpdate(int $tenantId, int $reviewId): PerformanceReview
+    private function reviewForUpdate(int $reviewId): PerformanceReview
     {
         $review = PerformanceReview::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($reviewId)
             ->lockForUpdate()
             ->first();

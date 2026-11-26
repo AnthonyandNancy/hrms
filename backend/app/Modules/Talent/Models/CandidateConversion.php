@@ -11,7 +11,7 @@ final class CandidateConversion extends Model
     protected $table = 'candidate_conversions';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'candidate_id', 'employment_id', 'person_id', 'offer_id', 'legal_entity_id', 'org_unit_id', 'employee_no', 'status', 'recorded_at'];
+    protected $fillable = ['candidate_id', 'employment_id', 'person_id', 'offer_id', 'org_unit_id', 'employee_no', 'status', 'recorded_at'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class CandidateConversion extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
@@ -27,7 +26,6 @@ final class CandidateConversion extends Model
             'employment_id' => 'integer',
             'person_id' => 'integer',
             'offer_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'org_unit_id' => 'integer',
         ];
     }

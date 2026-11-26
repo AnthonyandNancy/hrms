@@ -62,15 +62,14 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createPlan(int $tenantId, int $actorUserId, array $input): array
+    public function createPlan(int $actorUserId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input): array {
-            if (TrainingPlan::query()->where('tenant_id', $tenantId)->where('code', (string) $input['code'])->exists()) {
+        return DB::transaction(function () use ($actorUserId, $input): array {
+            if (TrainingPlan::query()->where('code', (string) $input['code'])->exists()) {
                 throw new ConflictException('A training plan with this code already exists.', ['reason' => 'TRAINING_PLAN_DUPLICATE']);
             }
 
             $plan = TrainingPlan::query()->create([
-                'tenant_id' => $tenantId,
                 'code' => (string) $input['code'],
                 'title' => (string) $input['title'],
                 'year' => (int) $input['year'],
@@ -80,7 +79,7 @@ final class TrainingLifecycleService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_plan.created', 'training_plan', (int) $plan->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_plan.created', 'training_plan', (int) $plan->id, after: [
                 'code' => (string) $plan->code,
                 'year' => (int) $plan->year,
                 'budget_cents' => (int) $plan->budget_cents,
@@ -94,21 +93,20 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createCourse(int $tenantId, int $actorUserId, array $input): array
+    public function createCourse(int $actorUserId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $input): array {
             $planId = isset($input['plan_id']) ? (int) $input['plan_id'] : null;
 
-            if ($planId !== null && ! TrainingPlan::query()->where('tenant_id', $tenantId)->whereKey($planId)->exists()) {
+            if ($planId !== null && ! TrainingPlan::query()->whereKey($planId)->exists()) {
                 throw new ValidationException(['plan_id' => ['The training plan does not exist.']]);
             }
 
-            if (TrainingCourse::query()->where('tenant_id', $tenantId)->where('code', (string) $input['code'])->exists()) {
+            if (TrainingCourse::query()->where('code', (string) $input['code'])->exists()) {
                 throw new ConflictException('A training course with this code already exists.', ['reason' => 'TRAINING_COURSE_DUPLICATE']);
             }
 
             $course = TrainingCourse::query()->create([
-                'tenant_id' => $tenantId,
                 'plan_id' => $planId,
                 'code' => (string) $input['code'],
                 'title' => (string) $input['title'],
@@ -122,7 +120,7 @@ final class TrainingLifecycleService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_course.created', 'training_course', (int) $course->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_course.created', 'training_course', (int) $course->id, after: [
                 'code' => (string) $course->code,
                 'plan_id' => $planId,
             ]);
@@ -139,10 +137,10 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array{created: bool, data: array<string, mixed>}
      */
-    public function checkin(int $tenantId, int $actorUserId, int $sessionId, array $input): array
+    public function checkin(int $actorUserId, int $sessionId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $sessionId, $input): array {
-            $session = TrainingSession::query()->where('tenant_id', $tenantId)->whereKey($sessionId)->lockForUpdate()->first();
+        return DB::transaction(function () use ($actorUserId, $sessionId, $input): array {
+            $session = TrainingSession::query()->whereKey($sessionId)->lockForUpdate()->first();
 
             if ($session === null) {
                 throw NotFoundException::forResource();
@@ -150,7 +148,6 @@ final class TrainingLifecycleService
 
             $employmentId = (int) $input['employment_id'];
             $enrollment = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('session_id', $sessionId)
                 ->where('employment_id', $employmentId)
                 ->first();
@@ -163,7 +160,6 @@ final class TrainingLifecycleService
             }
 
             $existing = TrainingCheckin::query()
-                ->where('tenant_id', $tenantId)
                 ->where('session_id', $sessionId)
                 ->where('employment_id', $employmentId)
                 ->first();
@@ -181,7 +177,6 @@ final class TrainingLifecycleService
 
             try {
                 $checkin = TrainingCheckin::query()->create([
-                    'tenant_id' => $tenantId,
                     'session_id' => $sessionId,
                     'employment_id' => $employmentId,
                     'checked_in_at' => $checkedInAt,
@@ -191,13 +186,12 @@ final class TrainingLifecycleService
                 ]);
             } catch (UniqueConstraintViolationException) {
                 $checkin = TrainingCheckin::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('session_id', $sessionId)
                     ->where('employment_id', $employmentId)
                     ->firstOrFail();
             }
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_checkin.recorded', 'training_checkin', (int) $checkin->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_checkin.recorded', 'training_checkin', (int) $checkin->id, after: [
                 'session_id' => $sessionId,
                 'employment_id' => $employmentId,
             ]);
@@ -210,18 +204,17 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createExam(int $tenantId, int $actorUserId, array $input): array
+    public function createExam(int $actorUserId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $input): array {
             $code = (string) $input['code'];
             $courseId = isset($input['course_id']) ? (int) $input['course_id'] : null;
 
-            if ($courseId !== null && ! TrainingCourse::query()->where('tenant_id', $tenantId)->whereKey($courseId)->exists()) {
+            if ($courseId !== null && ! TrainingCourse::query()->whereKey($courseId)->exists()) {
                 throw new ValidationException(['course_id' => ['The training course does not exist.']]);
             }
 
             $latest = TrainingExam::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', $code)
                 ->orderByDesc('version')
                 ->lockForUpdate()
@@ -243,7 +236,7 @@ final class TrainingLifecycleService
                     'published_at' => $publish ? $this->clock->now() : null,
                 ])->save();
 
-                $this->audit->record($tenantId, $actorUserId, 'talent.training_exam.updated', 'training_exam', (int) $latest->id, after: [
+                $this->audit->record($actorUserId, 'talent.training_exam.updated', 'training_exam', (int) $latest->id, after: [
                     'code' => $code,
                     'version' => (int) $latest->version,
                     'status' => (string) $latest->status,
@@ -253,7 +246,6 @@ final class TrainingLifecycleService
             }
 
             $exam = TrainingExam::query()->create([
-                'tenant_id' => $tenantId,
                 'course_id' => $courseId,
                 'code' => $code,
                 'title' => (string) $input['title'],
@@ -265,7 +257,7 @@ final class TrainingLifecycleService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_exam.created', 'training_exam', (int) $exam->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_exam.created', 'training_exam', (int) $exam->id, after: [
                 'code' => $code,
                 'version' => (int) $exam->version,
                 'status' => (string) $exam->status,
@@ -278,10 +270,10 @@ final class TrainingLifecycleService
     /**
      * @return array<string, mixed>
      */
-    public function publishExam(int $tenantId, int $actorUserId, int $examId): array
+    public function publishExam(int $actorUserId, int $examId): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $examId): array {
-            $exam = TrainingExam::query()->where('tenant_id', $tenantId)->whereKey($examId)->lockForUpdate()->first();
+        return DB::transaction(function () use ($actorUserId, $examId): array {
+            $exam = TrainingExam::query()->whereKey($examId)->lockForUpdate()->first();
 
             if ($exam === null) {
                 throw NotFoundException::forResource();
@@ -296,7 +288,7 @@ final class TrainingLifecycleService
 
             $exam->forceFill(['status' => 'PUBLISHED', 'published_at' => $this->clock->now()])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_exam.published', 'training_exam', (int) $exam->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_exam.published', 'training_exam', (int) $exam->id, after: [
                 'version' => (int) $exam->version,
             ]);
 
@@ -308,11 +300,10 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createFeedback(int $tenantId, int $actorUserId, array $input): array
+    public function createFeedback(int $actorUserId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $input): array {
             $enrollment = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey((int) $input['enrollment_id'])
                 ->first();
 
@@ -321,7 +312,6 @@ final class TrainingLifecycleService
             }
 
             $feedback = TrainingFeedback::query()->create([
-                'tenant_id' => $tenantId,
                 'enrollment_id' => (int) $enrollment->id,
                 'session_id' => (int) $enrollment->session_id,
                 'employment_id' => (int) $enrollment->employment_id,
@@ -332,7 +322,7 @@ final class TrainingLifecycleService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training_feedback.recorded', 'training_feedback', (int) $feedback->id, after: [
+            $this->audit->record($actorUserId, 'talent.training_feedback.recorded', 'training_feedback', (int) $feedback->id, after: [
                 'enrollment_id' => (int) $feedback->enrollment_id,
                 'rating' => $feedback->rating,
             ]);
@@ -341,10 +331,9 @@ final class TrainingLifecycleService
         });
     }
 
-    public function plans(int $tenantId, string $asOf): ProjectionResult
+    public function plans(string $asOf): ProjectionResult
     {
         $items = TrainingPlan::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('year')
             ->orderBy('code')
             ->get()
@@ -355,10 +344,9 @@ final class TrainingLifecycleService
         return $this->projection($items, $asOf);
     }
 
-    public function courses(int $tenantId, ?int $planId, string $asOf): ProjectionResult
+    public function courses(?int $planId, string $asOf): ProjectionResult
     {
         $items = TrainingCourse::query()
-            ->where('tenant_id', $tenantId)
             ->when($planId !== null, fn ($query) => $query->where('plan_id', $planId))
             ->orderBy('code')
             ->get()
@@ -369,10 +357,9 @@ final class TrainingLifecycleService
         return $this->projection($items, $asOf);
     }
 
-    public function checkins(int $tenantId, ?int $sessionId, string $asOf): ProjectionResult
+    public function checkins(?int $sessionId, string $asOf): ProjectionResult
     {
         $items = TrainingCheckin::query()
-            ->where('tenant_id', $tenantId)
             ->when($sessionId !== null, fn ($query) => $query->where('session_id', $sessionId))
             ->orderByDesc('id')
             ->get()
@@ -383,10 +370,9 @@ final class TrainingLifecycleService
         return $this->projection($items, $asOf);
     }
 
-    public function exams(int $tenantId, string $asOf): ProjectionResult
+    public function exams(string $asOf): ProjectionResult
     {
         $items = TrainingExam::query()
-            ->where('tenant_id', $tenantId)
             ->orderByDesc('id')
             ->get()
             ->map(fn (TrainingExam $exam): array => $this->examData($exam))
@@ -396,10 +382,9 @@ final class TrainingLifecycleService
         return $this->projection($items, $asOf);
     }
 
-    public function feedback(int $tenantId, ?int $enrollmentId, string $asOf): ProjectionResult
+    public function feedback(?int $enrollmentId, string $asOf): ProjectionResult
     {
         $items = TrainingFeedback::query()
-            ->where('tenant_id', $tenantId)
             ->when($enrollmentId !== null, fn ($query) => $query->where('enrollment_id', $enrollmentId))
             ->orderByDesc('id')
             ->get()
@@ -415,20 +400,18 @@ final class TrainingLifecycleService
      * derived check-in time and latest exam version evidence. No certificate
      * value is fabricated when no certificate row exists.
      */
-    public function records(int $tenantId, ?int $employmentId, string $asOf): ProjectionResult
+    public function records(?int $employmentId, string $asOf): ProjectionResult
     {
         $items = TrainingEnrollment::query()
-            ->where('tenant_id', $tenantId)
             ->when($employmentId !== null, fn ($query) => $query->where('employment_id', $employmentId))
             ->orderByDesc('id')
             ->get()
-            ->map(function (TrainingEnrollment $enrollment) use ($tenantId): array {
-                $session = TrainingSession::query()->where('tenant_id', $tenantId)->whereKey((int) $enrollment->session_id)->first();
+            ->map(function (TrainingEnrollment $enrollment): array {
+                $session = TrainingSession::query()->whereKey((int) $enrollment->session_id)->first();
                 $course = $session !== null && $session->course_id !== null
-                    ? TrainingCourse::query()->where('tenant_id', $tenantId)->whereKey((int) $session->course_id)->first()
+                    ? TrainingCourse::query()->whereKey((int) $session->course_id)->first()
                     : null;
                 $checkins = TrainingCheckin::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('session_id', (int) $enrollment->session_id)
                     ->where('employment_id', (int) $enrollment->employment_id)
                     ->get();
@@ -438,7 +421,6 @@ final class TrainingLifecycleService
                     'latest_exam_version' => $session === null || $session->course_id === null
                         ? null
                         : TrainingExam::query()
-                            ->where('tenant_id', $tenantId)
                             ->where('course_id', (int) $session->course_id)
                             ->where('status', 'PUBLISHED')
                             ->orderByDesc('version')
@@ -455,7 +437,7 @@ final class TrainingLifecycleService
      * @param  list<string>  $requestedFields
      * @return array{fields: list<string>, items: list<array<string, mixed>>}
      */
-    public function exportRecords(int $tenantId, int $actorUserId, ?int $employmentId, string $asOf, array $requestedFields): array
+    public function exportRecords(int $actorUserId, ?int $employmentId, string $asOf, array $requestedFields): array
     {
         $requestedFields = array_values(array_unique(array_map('strval', $requestedFields)));
 
@@ -469,7 +451,7 @@ final class TrainingLifecycleService
             }
         }
 
-        $records = $this->records($tenantId, $employmentId, $asOf)->items;
+        $records = $this->records($employmentId, $asOf)->items;
         $items = [];
 
         foreach ($records as $record) {
@@ -483,11 +465,10 @@ final class TrainingLifecycleService
         }
 
         $this->sensitiveAuditor->record(
-            tenantId: $tenantId,
             userId: $actorUserId,
+            capabilityCode: 'training.record.read',
             resourceType: 'training_record_export',
-            resourceId: (string) ($employmentId ?? 'all'),
-            capability: 'training.record.read',
+            resourceId: $employmentId,
             fields: $requestedFields,
             context: ['as_of' => $asOf, 'access' => 'EXPORT', 'row_count' => count($items)],
         );
@@ -499,17 +480,15 @@ final class TrainingLifecycleService
      * Plan-level training report. Every figure is derived from live rows; a
      * plan with no data stays at zero rather than producing a forecast.
      */
-    public function reports(int $tenantId, ?int $planId, string $asOf): ProjectionResult
+    public function reports(?int $planId, string $asOf): ProjectionResult
     {
         $plans = TrainingPlan::query()
-            ->where('tenant_id', $tenantId)
             ->when($planId !== null, fn ($query) => $query->whereKey($planId))
             ->orderBy('id')
             ->get();
 
-        $items = $plans->map(function (TrainingPlan $plan) use ($tenantId): array {
+        $items = $plans->map(function (TrainingPlan $plan): array {
             $courseIds = TrainingCourse::query()
-                ->where('tenant_id', $tenantId)
                 ->where('plan_id', (int) $plan->id)
                 ->pluck('id')
                 ->map(static fn (mixed $id): int => (int) $id)
@@ -518,7 +497,6 @@ final class TrainingLifecycleService
             // A session may be linked to the plan directly or through one of
             // the plan's courses. Both belong to the same live report.
             $sessionIds = TrainingSession::query()
-                ->where('tenant_id', $tenantId)
                 ->where(function ($query) use ($plan, $courseIds): void {
                     $query->where('plan_id', (int) $plan->id);
 
@@ -531,7 +509,6 @@ final class TrainingLifecycleService
                 ->all();
 
             $enrollments = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereIn('session_id', $sessionIds === [] ? [-1] : $sessionIds)
                 ->get();
 
@@ -542,7 +519,6 @@ final class TrainingLifecycleService
 
             if ($sessionIds !== []) {
                 $checkins = TrainingCheckin::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereIn('session_id', $sessionIds)
                     ->get();
 
@@ -554,7 +530,6 @@ final class TrainingLifecycleService
             $feedback = $enrollmentIds === []
                 ? collect()
                 : TrainingFeedback::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereIn('enrollment_id', $enrollmentIds)
                     ->get();
             $rated = $feedback->filter(static fn (TrainingFeedback $row): bool => $row->rating !== null);
@@ -563,7 +538,6 @@ final class TrainingLifecycleService
                 : (int) round(((float) $rated->avg('rating') / 5.0) * 10000);
 
             $matchedCourses = TrainingCourse::query()
-                ->where('tenant_id', $tenantId)
                 ->whereIn('id', $courseIds === [] ? [-1] : $courseIds)
                 ->get();
             $trainingCostCents = (int) $matchedCourses->sum(static fn (TrainingCourse $course): int => (int) $course->cost_cents);
@@ -719,7 +693,6 @@ final class TrainingLifecycleService
         }
 
         $feedbackCount = TrainingFeedback::query()
-            ->where('tenant_id', (int) $enrollment->tenant_id)
             ->where('enrollment_id', (int) $enrollment->id)
             ->count();
 

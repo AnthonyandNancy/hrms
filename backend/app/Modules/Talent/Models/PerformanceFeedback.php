@@ -12,7 +12,7 @@ final class PerformanceFeedback extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'cycle_id', 'review_id', 'from_employment_id', 'to_employment_id',
+        'cycle_id', 'review_id', 'from_employment_id', 'to_employment_id',
         'feedback_type', 'rating', 'comments', 'anonymous', 'status', 'recorded_at',
     ];
 
@@ -22,7 +22,6 @@ final class PerformanceFeedback extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'cycle_id' => 'integer',
             'review_id' => 'integer',
             'from_employment_id' => 'integer',

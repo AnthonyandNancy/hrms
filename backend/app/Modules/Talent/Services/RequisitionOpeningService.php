@@ -25,10 +25,9 @@ final class RequisitionOpeningService
     /**
      * @return array<string, mixed>
      */
-    public function open(int $tenantId, int $requisitionId, string $channel, int $actorUserId): array
+    public function open(int $requisitionId, string $channel, int $actorUserId): array
     {
         $requisition = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($requisitionId)
             ->first();
 
@@ -44,13 +43,13 @@ final class RequisitionOpeningService
         }
 
         $opening = RequisitionOpening::query()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'requisition_id' => $requisitionId, 'channel' => $channel],
+            ['requisition_id' => $requisitionId, 'channel' => $channel],
             ['status' => 'OPEN', 'published_at' => $this->clock->now(), 'recorded_at' => $this->clock->now()],
         );
         $created = $opening->wasRecentlyCreated;
 
         if ($created) {
-            $this->audit->record($tenantId, $actorUserId, 'talent.requisition_opening.published', 'requisition_opening', (int) $opening->id, after: [
+            $this->audit->record($actorUserId, 'talent.requisition_opening.published', 'requisition_opening', (int) $opening->id, after: [
                 'requisition_id' => $requisitionId,
                 'channel' => $channel,
             ]);
@@ -69,10 +68,9 @@ final class RequisitionOpeningService
     /**
      * @return list<array<string, mixed>>
      */
-    public function list(int $tenantId, int $requisitionId): array
+    public function list(int $requisitionId): array
     {
         return RequisitionOpening::query()
-            ->where('tenant_id', $tenantId)
             ->where('requisition_id', $requisitionId)
             ->orderBy('id')
             ->get()

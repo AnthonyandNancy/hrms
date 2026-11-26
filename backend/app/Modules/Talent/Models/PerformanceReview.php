@@ -12,7 +12,7 @@ final class PerformanceReview extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'cycle_id', 'employment_id', 'manager_employment_id', 'goals_text',
+        'cycle_id', 'employment_id', 'manager_employment_id', 'goals_text',
         'self_assessment', 'manager_assessment', 'self_rating', 'manager_rating',
         'calibrated_rating', 'status', 'submitted_at', 'recorded_at',
     ];
@@ -23,7 +23,6 @@ final class PerformanceReview extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'cycle_id' => 'integer',
             'employment_id' => 'integer',
             'manager_employment_id' => 'integer',
