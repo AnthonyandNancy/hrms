@@ -160,3 +160,18 @@ Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 wi
 - Final acceptance: YES — Volume 1 contracts closed; carried gates owned by Volume 2/3.
 - Carried red gates (each owned): backend-phpunit + backend-contract (NoTenantNoLegalEntityTest, V2 Tasks 2/3); audit_page_model / audit_ui_primitives / audit_user_copy (V2 Tasks 6-8, V3 Tasks 2-17).
 - Non-blocking backlog: FormDialog/FormDrawer interaction tests; frontend-registry ↔ backend-catalog requiredApis parity test; exact failing-test-ID reporting in the acceptance runner.
+
+## Volume 2 task ledger (as of 2026-11-26 23:55)
+- Task 1: complete (5c9f8b5; preflight command + single-company gate; gate baseline 1927 legacy hits recorded honestly).
+- Task 2: complete (7ae663e; SQLite + MySQL 8.4; 171->0 legacy columns; 74 legacy unique indexes -> 72 rebuilt; in-place + fresh both proven).
+- Task 3: complete (13 parallel module sweeps + shared/core contracts; production code 0 hits; strict scanner green with only the 2 marked preflight lines).
+- Task 4: complete (API + UI contract cleanup; NoTenant 0 hits; openapi-lint/validate green).
+- Task 5: complete (7031473; 19 actions / 155 owned write gaps / 14 owned capability gaps; deterministic hashes; service validation).
+- Task 6: complete (9ad51c0 user workbench; 16 frontend tests; last-admin guards delegated to AdminProtectionGuard).
+- Task 7: complete (8eb0efb + retry; role workbench 8 tests; PUT /v1/roles/{id}/authorization added server-side).
+- Task 8: complete (c255074; four governance pages + write APIs declared; permission-read guard fixed to iam.permission.read).
+- Task 9: complete (faf12bc; auth_version consistency, session invalidation, last-admin protection; integrated into UserAdminController).
+- Task 10: complete (d361324; password-only login, MFA default off, no capability bypass).
+- Task 11: complete (c5572b9; RoleMatrixTest 7 tests / 69 assertions; 3 product findings owned by V3).
+- Task 12: complete (6c703a4 + 68fc665; real MySQL 8.4 rehearsal, 156/171 -> 155/0, restore 155/0, migration suite 7/7 639 assertions).
+- Gates at close: backend 1184 tests / 57606 assertions OK; pint PASS 1179 files; phpstan OK; capability:audit OK; arch:test OK; frontend 50 files/348 tests; typecheck+lint PASS; openapi-lint 252/324 OK; openapi:validate valid (2 pre-existing warnings); actions:check OK.
