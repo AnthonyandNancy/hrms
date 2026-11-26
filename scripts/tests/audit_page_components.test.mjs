@@ -9,7 +9,7 @@ import {
   auditPageComponents,
   discoverPageComponentManifest,
   parseRegistryComponentKeys,
-} from '../audit_page_components.mjs'
+} from '../audit_page_components_lib.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const accountSecurityView = 'frontend/src/views/AccountSecurityView.vue'
