@@ -22,6 +22,7 @@ const page: PageSpec = {
   layer: 'business',
   wave: 'Wave 2',
   requiredApis: ['GET /v1/departments'],
+  actions: [],
   states: ['loading', 'empty', 'error', 'forbidden', 'partial'],
   e2e: ['28-hr-departments-list'],
   negativeTests: ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],

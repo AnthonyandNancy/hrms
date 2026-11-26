@@ -8,6 +8,7 @@
  * missing and fails unless --allow-missing is explicitly passed for Wave 1
  * scaffolding (never for release verification).
  */
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -119,6 +120,35 @@ const gappedComponentKeys = [...gapMarkers.keys]
 
 const failures = []
 const requireMature = process.argv.includes('--require-mature')
+
+// Page-component uniqueness is a release gate but stays a warning while the
+// module split is being completed. Its own JSON report is the source of the
+// human-readable counts; only a compact summary is echoed here.
+const pageComponentGate = spawnSync(
+  process.execPath,
+  [join(root, 'scripts/audit_page_components.mjs')],
+  { cwd: root, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } },
+)
+let pageComponentReport = null
+if (typeof pageComponentGate.stdout === 'string' && pageComponentGate.stdout.trim() !== '') {
+  try {
+    pageComponentReport = JSON.parse(pageComponentGate.stdout)
+  } catch {
+    pageComponentReport = null
+  }
+}
+const pageComponentProblem =
+  pageComponentGate.error !== undefined
+    ? pageComponentGate.error.message
+    : pageComponentGate.status === 0
+      ? null
+      : `total=${pageComponentReport?.total ?? '?'}, mapped=${pageComponentReport?.mapped ?? '?'}, missingMappings=${pageComponentReport?.missingMappings?.length ?? '?'}`
+if (pageComponentProblem !== null) {
+  const message = `page-component uniqueness gate failed (${pageComponentProblem})`
+  if (requireMature) failures.push(message)
+  else console.warn(`WARN ${message}`)
+}
+
 if (requireMature && matureComponents.length < 160) {
   failures.push(`mature business views=${matureComponents.length}/160; remaining ${160 - matureComponents.length} are registry fallbacks`)
 }

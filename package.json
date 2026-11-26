@@ -12,10 +12,13 @@
     "lint": "node scripts/frontend-workspace.mjs lint",
     "test:unit": "node scripts/frontend-workspace.mjs test:unit",
     "test:e2e": "node scripts/frontend-workspace.mjs test:e2e",
+    "actions:check": "node scripts/audit_action_manifest.mjs",
+    "page-components:check": "node scripts/audit_page_components.mjs",
     "openapi:lint": "node deploy/scripts/openapi-lint.mjs",
     "openapi:generate": "node scripts/frontend-workspace.mjs openapi:generate",
     "openapi:validate": "redocly lint --config .redocly.yaml docs/openapi/openapi.yaml",
     "openapi:check": "node scripts/frontend-workspace.mjs openapi:check",
+    "modules:check": "node scripts/audit_frontend_modules.mjs",
     "v11:gate": "node scripts/v11_production_gate.mjs"
   },
   "devDependencies": {
