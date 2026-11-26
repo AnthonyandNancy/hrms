@@ -9,7 +9,8 @@ Status: explicit, per-operation gaps. Machine gate reads the JSON file only.
 - missing x-action-label when this task started: **173**
 - missing x-action-label now: **0**
 - capability-guarded writes carried by current pages: **3**
-- explicit gap entries: **170**
+- explicit write gap entries: **170**
+- separately tracked page capability gaps: **15**
 
 Command:
 
@@ -218,3 +219,25 @@ Public, unguarded writes (not actions): `POST /v1/auth/login`, `POST /v1/auth/mf
 | `PUT /v1/system/data-scopes/{id}` | Volume 2 Task 8 | PUT /v1/system/data-scopes/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8. |
 | `PUT /v1/system/field-policies/{field_key}` | Volume 2 Task 8 | PUT /v1/system/field-policies/{field_key} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8. |
 | `PUT /v1/system/parameters` | Volume 3 Task 17 | PUT /v1/system/parameters has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17. |
+
+## Page capability gaps
+
+These are read/export capability gaps for pages that declare the capability but have no matching OpenAPI operation yet. They are not write-operation exemptions and are not consumed by the generator write gate.
+
+| Capability | Owner | Missing contract |
+|---|---|---|
+| `people.employee.export` | Volume 3 Task 4 | Employee export operation (GET /v1/employees/export) is absent from OpenAPI and routes. |
+| `people.contract.export` | Volume 3 Task 8 | Contract export operation (GET /v1/employments/contracts/export) is absent from OpenAPI and routes. |
+| `org.unit.export` | Volume 3 Task 5 | Organization export operation (GET /v1/org-units/export) is absent from OpenAPI and routes. |
+| `org.position.export` | Volume 3 Task 6 | Position export operation (GET /v1/positions/export) is absent from OpenAPI and routes. |
+| `recruitment.requisition.export` | Volume 3 Task 14 | Requisition export operation (GET /v1/recruitment/requisitions/export) is absent from OpenAPI and routes. |
+| `payroll.payslip.read` | Volume 3 Task 12 | Admin payslip read operation is absent; only payroll.payslip.read.self is routed for GET /v1/payroll/payslips. |
+| `time.leave.admin` | Volume 3 Task 10 | Leave type/policy administration writes are absent from OpenAPI and routes; GET endpoints require time.leave.read. |
+| `time.overtime.manage` | Volume 3 Task 11 | Overtime policy administration writes are absent; reads use time.overtime.read and confirm uses time.overtime.confirm. |
+| `time.travel.manage` | Volume 3 Task 11 | Travel request change/administration operation is absent; available writes use time.travel.request/approve. |
+| `workflow.template.manage` | Volume 3 Task 17 | Workflow template governance write carries workflow.case.admin; no operation carries workflow.template.manage. |
+| `notification.manage` | Volume 3 Task 16 | Notification administration operation is absent; templates use notification.template.manage and deliveries use notification.delivery.manage. |
+| `iam.permission.read` | Volume 3 Task 17 | GET /v1/capabilities is guarded by iam.role.manage; no operation carries iam.permission.read. |
+| `system.settings.manage` | Volume 3 Task 17 | No operation carries system.settings.manage; dictionaries and parameters use system.dictionary.manage/system.parameter.manage. |
+| `notification.read` | Volume 3 Task 16 | GET and mark-read notification routes carry engagement.notification.read; no operation carries notification.read. |
+| `reporting.report.create` | Volume 3 Task 16 | Legacy code for saving a report definition is replaced by reporting.definition.manage on POST /v1/reporting/definitions. |
