@@ -77,15 +77,14 @@ final class RoleMatrixTest extends AuthorizationMatrixScenario
         $payroll = $this->userWithRole('PAYROLL_SPECIALIST');
         $this->loginAs($payroll);
 
-        // FINDING (Volume 2 Task 11): the code-owned PAYROLL_SPECIALIST role
-        // grants payroll.run.read at the PAYROLL_RUN anchor, while
-        // GET /v1/payroll/runs is gated with capability:payroll.run.read,COMPANY.
-        // A specialist therefore cannot list runs, which contradicts the role's
-        // stated purpose. The assertion records the current behaviour; the
-        // audit document records the defect and its owner.
+        // Volume 3 Task 12 fixed the Volume 2 finding: the runs index is no
+        // longer COMPANY-gated. The guard answers "may work with runs at all"
+        // and the controller restricts rows to runs the principal is a member of
+        // (the specialist is a member of none yet, so the list is empty — but it
+        // is authorised, which is the defect that was recorded).
         $this->getJson('/v1/payroll/runs')
-            ->assertForbidden()
-            ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
+            ->assertOk()
+            ->assertJsonPath('data.total', 0);
 
         $this->postJson('/v1/users', $this->newUserPayload('payroll'))
             ->assertForbidden()

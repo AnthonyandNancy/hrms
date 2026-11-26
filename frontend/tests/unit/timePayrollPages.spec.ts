@@ -166,9 +166,12 @@ const payrollRuns = {
 
 describe('time/payroll registry mapping', () => {
   it('covers exactly the 43 Wave 3 registry keys and returns a component for each', () => {
+    // The payroll workspace/detail keys now belong to modules/payroll, so this
+    // manifest owns the remaining 42 Wave 3 keys (43 minus the moved overview).
     const registryKeys = PAGE_REGISTRY.filter(
       (page) =>
         page.wave === 'Wave 3' &&
+        page.componentKey in PAGE_COMPONENTS &&
         ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
           page.componentKey.startsWith(prefix),
         ),
@@ -177,7 +180,7 @@ describe('time/payroll registry mapping', () => {
       .sort()
 
     const manifestKeys = Object.keys(PAGE_COMPONENTS).sort()
-    expect(manifestKeys).toHaveLength(43)
+    expect(manifestKeys).toHaveLength(42)
     expect(manifestKeys).toEqual(registryKeys)
 
     for (const key of registryKeys) {

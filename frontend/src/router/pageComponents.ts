@@ -5,6 +5,7 @@ import { PAGE_COMPONENTS as TALENT_PAGES } from '@/modules/talent/pages'
 import { PAGE_COMPONENTS as TIMEPAY_PAGES } from '@/modules/timepay/pages'
 import { PAGE_COMPONENTS as REPORTING_PAGES } from '@/modules/reporting/pages'
 import { PAGE_COMPONENTS as TIME_WORKSPACE_PAGES } from '@/modules/time/workspaces'
+import { PAGE_COMPONENTS as PAYROLL_PAGES } from '@/modules/payroll/pages'
 
 /**
  * Registry key -> mature business view loader.
@@ -87,6 +88,9 @@ export function matureView(componentKey: string): Loader | null {
 
   const timeWorkspace = TIME_WORKSPACE_PAGES[componentKey as keyof typeof TIME_WORKSPACE_PAGES]
   if (timeWorkspace !== undefined) return timeWorkspace
+
+  const payrollPage = PAYROLL_PAGES[componentKey as keyof typeof PAYROLL_PAGES]
+  if (payrollPage !== undefined) return payrollPage
 
   const peoplePage = PEOPLE_PAGES[componentKey as keyof typeof PEOPLE_PAGES]
   if (peoplePage !== undefined) return peoplePage

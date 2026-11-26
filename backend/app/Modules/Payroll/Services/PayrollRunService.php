@@ -11,6 +11,7 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollSchemeItem;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -31,6 +32,7 @@ final class PayrollRunService
         private readonly PayrollStateMachine $stateMachine,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly PayrollRunMembershipDirectory $membership,
     ) {}
 
     /**
@@ -176,9 +178,17 @@ final class PayrollRunService
      * @param  array<string, mixed>  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
-    public function listRuns(array $filters, int $page, int $pageSize): array
+    public function listRuns(int $userId, string $businessDate, array $filters, int $page, int $pageSize): array
     {
+        // Payroll runs are PAYROLL_RUN-anchored: the index may only list runs the
+        // principal is a member of (preparer, reviewer, approver or publisher).
+        // Without this constraint a COMPANY-wide route guard would expose every
+        // run to anyone holding payroll.run.read at any anchor.
+        $memberRunIds = $this->membership->runIdsForUser($userId, $businessDate);
+
         $query = PayrollRun::query()
+            ->withCount('employees')
+            ->whereIn('id', $memberRunIds)
             ->when(isset($filters['period']), fn ($q) => $q->where('period', $filters['period']))
             ->when(isset($filters['status']), fn ($q) => $q->where('status', $filters['status']))
             ->orderByDesc('period')
@@ -484,6 +494,7 @@ final class PayrollRunService
             'status' => $run->status->value,
             'correction_of_run_id' => $run->correction_of_run_id,
             'pay_date' => $this->dateOnly($run->pay_date),
+            'employee_count' => $this->employeeCount($run),
             'created_at' => $run->created_at->toIso8601ZuluString(),
         ];
 
@@ -495,5 +506,20 @@ final class PayrollRunService
         }
 
         return $summary;
+    }
+
+    /**
+     * The list query eager-loads the employee count; detail rendering falls
+     * back to one bounded count when the run is not part of a list query.
+     */
+    private function employeeCount(PayrollRun $run): int
+    {
+        $loaded = $run->getAttribute('employees_count');
+
+        if (is_numeric($loaded)) {
+            return (int) $loaded;
+        }
+
+        return PayrollRunEmployee::query()->where('run_id', $run->id)->count();
     }
 }

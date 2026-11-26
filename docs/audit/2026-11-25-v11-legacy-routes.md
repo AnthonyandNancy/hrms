@@ -154,7 +154,7 @@
 | 139 | `POST` | `/v1/payroll/items` | `payroll.run.prepare` | `LEGAL_ENTITY` | legacy | B5 |
 | 140 | `GET` | `/v1/payroll/payslips` | `payroll.payslip.read.self` | `SELF` | legacy | B5 |
 | 141 | `GET` | `/v1/payroll/payslips/{id}` | `payroll.payslip.read.self` | `SELF` | legacy | B5 |
-| 142 | `GET` | `/v1/payroll/runs` | `payroll.run.read` | `LEGAL_ENTITY` | legacy | B5 |
+| 142 | `GET` | `/v1/payroll/runs` | `payroll.run.read` | `PAYROLL_RUN` | legacy | B5 |
 | 143 | `POST` | `/v1/payroll/runs` | `payroll.run.prepare` | `LEGAL_ENTITY` | legacy | B5 |
 | 144 | `GET` | `/v1/payroll/runs/{id}` | `payroll.run.read` | `PAYROLL_RUN` | legacy | B5 |
 | 145 | `POST` | `/v1/payroll/runs/{id}/approve` | `payroll.run.approve` | `PAYROLL_RUN` | legacy | B5 |

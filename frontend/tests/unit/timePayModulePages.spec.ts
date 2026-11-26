@@ -40,10 +40,12 @@ function moduleFiles(directory = timePayModuleDir): string[] {
   })
 }
 
+// The payroll workspace and run detail moved to their own module; timepay
+// keeps the remaining attendance/leave/overtime/travel and payroll catalogue keys.
 const timePayKeys = PAGE_REGISTRY.filter((page) =>
   ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
     page.componentKey.startsWith(prefix),
-  ),
+  ) && page.componentKey in PAGE_COMPONENTS,
 )
   .map((page) => page.componentKey)
   .sort()
@@ -72,21 +74,22 @@ beforeEach(() => {
 })
 
 describe('TimePay module page split', () => {
-  it('maps all 43 TimePay registry keys to distinct, loadable .vue pages', async () => {
-    expect(timePayKeys).toHaveLength(43)
+  it('maps all 42 TimePay registry keys to distinct, loadable .vue pages', async () => {
+    expect(timePayKeys).toHaveLength(42)
     expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual(timePayKeys)
 
     const pageFiles = readdirSync(pagesDir)
       .filter((name) => name.endsWith('.vue'))
       .sort()
     expect(pageFiles).toHaveLength(43)
+    // PayrollOverviewPage.vue is retained on disk but no longer referenced.
 
     const source = readFileSync(resolve(pagesDir, 'index.ts'), 'utf8')
     const importedFiles = [...source.matchAll(/\(\)\s*=>\s*import\('\.\/([^']+\.vue)'\)/g)]
       .map((match) => match[1])
       .filter((name): name is string => name !== undefined)
-    expect(importedFiles).toHaveLength(43)
-    expect(new Set(importedFiles).size).toBe(43)
+    expect(importedFiles).toHaveLength(42)
+    expect(new Set(importedFiles).size).toBe(42)
     for (const fileName of importedFiles) {
       expect(existsSync(resolve(pagesDir, fileName)), fileName).toBe(true)
     }
@@ -98,7 +101,7 @@ describe('TimePay module page split', () => {
       }),
     )
     expect(loaded.every((module) => module.default !== undefined)).toBe(true)
-    expect(new Set(loaded.map((module) => module.default)).size).toBe(43)
+    expect(new Set(loaded.map((module) => module.default)).size).toBe(42)
   })
 
   it('keeps page identity out of every TimePay page component', () => {

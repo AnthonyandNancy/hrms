@@ -37,7 +37,6 @@ export const PAGE_COMPONENTS = {
   'travel/changes': () => import('./TravelChangesPage.vue'),
   'travel/reports': () => import('./TravelReportsPage.vue'),
   'travel/expenses': () => import('./TravelExpensesPage.vue'),
-  'payroll/index': () => import('./PayrollOverviewPage.vue'),
   'payroll/components': () => import('./PayrollItemsPage.vue'),
   'payroll/plans': () => import('./PayrollSchemesPage.vue'),
   'payroll/employee-plans': () => import('./EmployeeCompensationPage.vue'),

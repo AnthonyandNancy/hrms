@@ -18,6 +18,7 @@ use App\Shared\Authorization\FieldSet;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Authorization\ResourceRef;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -34,6 +35,7 @@ final class PayrollRunController
         private readonly ReopenService $reopen,
         private readonly ExportService $exports,
         private readonly ReconciliationService $reconciliation,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -44,6 +46,8 @@ final class PayrollRunController
         $pageSize = min(100, max(1, (int) $request->query('page_size', '20')));
 
         $data = $this->runs->listRuns(
+            (int) $principal->userId(),
+            $this->businessDates->today()->value(),
             [
                 'period' => is_string($request->query('period')) ? $request->query('period') : null,
                 'status' => is_string($request->query('status')) ? $request->query('status') : null,

@@ -337,9 +337,11 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
+    // The route guard is feature-level; the controller scopes every row to the
+    // caller's payroll-run membership, so the effective anchor is PAYROLL_RUN.
     'GET /v1/payroll/runs' => [
         'capability' => 'payroll.run.read',
-        'anchor' => 'COMPANY',
+        'anchor' => 'PAYROLL_RUN',
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'field_or_export', 'mfa_required'],
     ],

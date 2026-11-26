@@ -19,7 +19,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pathToFileURL } from 'node:url'
 
-const EXPECTED_REGISTRY_COUNT = 160
+const EXPECTED_REGISTRY_COUNT = 161
 const accountSecurityView = 'frontend/src/views/AccountSecurityView.vue'
 
 /**

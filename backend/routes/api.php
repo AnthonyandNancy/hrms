@@ -1096,8 +1096,12 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->middleware('capability:payroll.run.prepare,COMPANY')
         ->name('payroll.schemes.store');
 
+    // Payroll runs are PAYROLL_RUN-anchored. The guard only answers "may this
+    // principal work with payroll runs at all"; the controller then restricts the
+    // listing to runs the principal is a member of. A blanket COMPANY gate would
+    // both deny every specialist and expose every run.
     Route::get('/runs', [PayrollRunController::class, 'index'])
-        ->middleware('capability:payroll.run.read,COMPANY')
+        ->middleware('capability:payroll.run.read')
         ->name('payroll.runs.index');
     Route::post('/runs', [PayrollRunController::class, 'store'])
         ->middleware(IdempotentCommand::class)

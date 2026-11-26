@@ -2279,7 +2279,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Payroll endpoint /v1/payroll/runs */
+        /**
+         * Payroll endpoint /v1/payroll/runs
+         * @description Feature-level guard. The response is scoped to the payroll runs the caller is a member of (preparer, reviewer, approver or publisher); callers outside a run never see its row and cannot read it by id.
+         */
         get: operations["payrollv1_payroll_runs_get"];
         put?: never;
         /** Payroll endpoint /v1/payroll/runs */
@@ -6586,6 +6589,7 @@ export interface components {
             correction_of_run_id: number | null;
             /** Format: date */
             pay_date: string;
+            employee_count: number;
             /** Format: date-time */
             created_at: string;
             gross_cents?: number;

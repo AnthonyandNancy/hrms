@@ -4198,6 +4198,7 @@ components:
         - status
         - correction_of_run_id
         - pay_date
+        - employee_count
         - created_at
       properties:
         id:
@@ -4230,6 +4231,9 @@ components:
         pay_date:
           type: string
           format: date
+        employee_count:
+          type: integer
+          minimum: 0
         created_at:
           type: string
           format: date-time
@@ -13447,6 +13451,7 @@ paths:
       tags:
         - Payroll
       parameters: []
+      description: "Feature-level guard. The response is scoped to the payroll runs the caller is a member of (preparer, reviewer, approver or publisher); callers outside a run never see its row and cannot read it by id."
       responses:
         "200":
           description: GET /v1/payroll/runs response

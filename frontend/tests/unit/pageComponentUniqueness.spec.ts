@@ -260,7 +260,7 @@ describe('registry and module manifest discovery', () => {
 })
 
 describe('real repository page component gate', () => {
-  it('passes with 160 registry keys mapped to 154 module pages plus 6 base pages', () => {
+  it('passes with 161 registry keys mapped to 155 module pages plus 6 base pages', () => {
     const result = spawnSync(process.execPath, [script], {
       cwd: frontendDir,
       encoding: 'utf8',
@@ -285,12 +285,12 @@ ${result.stderr}`).toBe(0)
     }
 
     expect(report.ok).toBe(true)
-    expect(report.total).toBe(160)
-    expect(report.expected).toBe(160)
-    expect(report.mapped).toBe(154)
-    expect(report.moduleMapped).toBe(154)
+    expect(report.total).toBe(161)
+    expect(report.expected).toBe(161)
+    expect(report.mapped).toBe(155)
+    expect(report.moduleMapped).toBe(155)
     expect(report.baseMapped).toBe(6)
-    expect(report.mappedIncludingBase).toBe(160)
+    expect(report.mappedIncludingBase).toBe(161)
     expect(report.failures).toEqual([])
     expect(report.missingMappings).toEqual([])
     expect(report.missingFiles).toEqual([])
