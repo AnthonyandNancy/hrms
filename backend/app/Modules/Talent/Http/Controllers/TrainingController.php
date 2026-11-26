@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Talent\Http\Controllers;
 
+use App\Modules\Talent\Models\TrainingCourse;
 use App\Modules\Talent\Models\TrainingEnrollment;
 use App\Modules\Talent\Models\TrainingProgram;
+use App\Modules\Talent\Models\TrainingSession;
 use App\Modules\Talent\Services\TrainingLifecycleService;
 use App\Modules\Talent\Services\TrainingService;
 use App\Shared\ApiResponse;
@@ -93,15 +95,64 @@ final class TrainingController
     public function programs(Request $request): JsonResponse
     {
         $asOf = $this->asOf($request);
-        $items = TrainingProgram::query()
-            ->orderBy('id')
+
+        // Workspace rows are derived from the live session/enrollment facts:
+        // capacity, enrolled count and the dominant delivery mode are never
+        // stored on the program row and must not be guessed by the client.
+        $programs = TrainingProgram::query()->orderBy('id')->get();
+        $sessions = TrainingSession::query()
+            ->whereIn('program_id', $programs->pluck('id')->all())
+            ->get();
+        $enrollments = TrainingEnrollment::query()
+            ->whereIn('session_id', $sessions->pluck('id')->all())
+            ->get();
+        $courses = TrainingCourse::query()
+            ->whereIn('id', $sessions->pluck('course_id')->filter()->all())
             ->get()
-            ->map(static fn (TrainingProgram $program): array => [
+            ->keyBy('id');
+
+        $items = $programs->map(function (TrainingProgram $program) use ($sessions, $enrollments, $courses): array {
+            $programSessions = $sessions->where('program_id', (int) $program->id);
+            $programSessionIds = $programSessions->pluck('id')->all();
+            $programEnrollments = $enrollments->whereIn('session_id', $programSessionIds);
+
+            $capacity = $programSessions->sum(static fn (TrainingSession $session): int => (int) $session->capacity);
+            $enrolled = $programEnrollments
+                ->whereIn('status', ['ENROLLED', 'ATTENDED', 'COMPLETED'])
+                ->count();
+            $completed = $programEnrollments->where('status', 'COMPLETED')->count();
+
+            $deliveryMode = null;
+            $trainingCostCents = 0;
+            $countedCourseIds = [];
+            foreach ($programSessions as $session) {
+                $course = $session->course_id !== null ? $courses->get((int) $session->course_id) : null;
+                if ($course === null) {
+                    continue;
+                }
+                $deliveryMode ??= (string) $course->delivery_mode;
+                $courseId = (int) $course->id;
+                if (! isset($countedCourseIds[$courseId])) {
+                    $countedCourseIds[$courseId] = true;
+                    $trainingCostCents += (int) $course->cost_cents;
+                }
+            }
+
+            return [
                 'program_id' => (int) $program->id,
                 'code' => (string) $program->code,
                 'title' => (string) $program->title,
+                'category' => null,
+                'delivery_mode' => $deliveryMode,
+                'capacity' => $capacity > 0 ? $capacity : (int) $program->default_capacity,
+                'enrolled_count' => $enrolled,
+                'completed_count' => $completed,
+                'remaining_seats' => max(0, ($capacity > 0 ? $capacity : (int) $program->default_capacity) - $enrolled),
+                'session_count' => $programSessions->count(),
+                'training_cost_cents' => $trainingCostCents,
                 'status' => (string) $program->status,
-            ])->values()->all();
+            ];
+        })->values()->all();
 
         return $this->projections->ok($this->projection($items, $asOf));
     }
@@ -199,6 +250,7 @@ final class TrainingController
             'attended' => ['sometimes', 'boolean'],
             'completion_result' => ['required', 'string', 'in:PASS,FAIL,ATTENDED'],
             'score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'completed_on' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
         return $this->runCommand($request, 'talent.training.enrollment.complete', 'training.completion.manage', ['enrollment_id' => $enrollmentId, ...$data], function (int $actorUserId) use ($enrollmentId, $data): array {

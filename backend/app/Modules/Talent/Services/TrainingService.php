@@ -12,6 +12,7 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
+use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -179,12 +180,28 @@ final class TrainingService
                 return $this->enrollmentData($enrollment);
             }
 
+            // Only an active enrolment may complete. A cancelled or otherwise
+            // inactive row must never be silently revived by a completion.
+            if (! in_array((string) $enrollment->status, ['ENROLLED', 'ATTENDED'], true)) {
+                throw new ConflictException('Only an active enrollment can be completed.', [
+                    'reason' => 'TRAINING_ENROLLMENT_NOT_ACTIVE',
+                    'enrollment_id' => $enrollmentId,
+                    'status' => (string) $enrollment->status,
+                ]);
+            }
+
+            // A supplied completion date is a business DATE with no time
+            // component; anchor it at UTC midnight so it never shifts day.
+            $completedOn = isset($input['completed_on']) && is_string($input['completed_on'])
+                ? BusinessDate::parse($input['completed_on'])
+                : $this->clock->now();
+
             $enrollment->forceFill([
                 'status' => 'COMPLETED',
                 'attended' => (bool) ($input['attended'] ?? true),
                 'completion_result' => (string) $input['completion_result'],
                 'score' => isset($input['score']) ? (int) $input['score'] : null,
-                'completed_at' => $this->clock->now(),
+                'completed_at' => $completedOn,
             ])->save();
 
             $this->audit->record($actorUserId, 'talent.training.completed', 'training_enrollment', (int) $enrollment->id, after: [
