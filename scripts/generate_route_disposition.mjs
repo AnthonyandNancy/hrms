@@ -241,10 +241,24 @@ function requireNonEmptyString(value, field, pageName) {
   return value.trim()
 }
 
-function hasWrittenUserApproval(evidence) {
-  return /(用户|user)/i.test(evidence)
-    && /(批准|签认|同意|approved)/i.test(evidence)
-    && /[“”"]/.test(evidence)
+/**
+ * Written-approval evidence must be an explicit, positive record.
+ *
+ * Fail-closed rules:
+ * - a negation anywhere in the evidence rejects it ("用户未批准", "not approved");
+ * - the approval verb must appear outside the quoted text (the quote is the
+ *   deprecation's subject, not the approval itself);
+ * - a stable approval reference is required so the evidence can be audited.
+ */
+const NEGATION = /(未批准|不批准|不同意|未签认|拒绝|not\s+approved|has\s+not\s+approved|did\s+not\s+approve|rejected)/i
+const APPROVAL = /(用户批准|用户签认|用户同意|批准记录|签认记录|user\s+approved|approval\s+record)/i
+const APPROVAL_REFERENCE = /(ADR-\d{4}|decision[-_ ]?id[:=]?\s*[A-Za-z0-9-]+|approval[-_ ]?id[:=]?\s*[A-Za-z0-9-]+)/i
+
+export function hasWrittenUserApproval(evidence) {
+  if (NEGATION.test(evidence)) return false
+  if (!APPROVAL.test(evidence)) return false
+  if (!APPROVAL_REFERENCE.test(evidence)) return false
+  return /[“”"]/.test(evidence)
 }
 
 export function buildDispositionRows({ registry, decisions }) {

@@ -83,11 +83,25 @@ test('deprecate requires evidence quoting written user approval', () => {
         disposition: 'deprecate',
         targetPageCode: 'orphan',
         owner: 'People',
-        evidence: '用户 2026-11-26 批准：“删除 orphan 页面。”',
+        evidence: '用户批准（ADR-0099）：“删除 orphan 页面。”',
       },
     },
   })
   assert.equal(rows[0].disposition, 'deprecate')
+
+  for (const negated of [
+    '用户未批准（ADR-0099）：“删除 orphan 页面。”',
+    '用户不同意（ADR-0099）：“删除 orphan 页面。”',
+    'User has not approved (ADR-0099): "delete orphan"',
+  ]) {
+    assert.throws(
+      () => buildDispositionRows({
+        registry,
+        decisions: { orphan: { disposition: 'deprecate', targetPageCode: 'orphan', owner: 'People', evidence: negated } },
+      }),
+      /requires written user approval/,
+    )
+  }
 })
 
 test('registry parser handles compact and multiline page objects', () => {
