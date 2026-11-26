@@ -5,6 +5,7 @@ import { ApiError, errorCode, errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
 import MoneyText from '@/components/MoneyText.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -29,6 +30,7 @@ import {
   savePayrollExport,
   type PayrollAction,
   type PayrollEmployee,
+  type PayrollEmployeeStatus,
   type PayrollExportKind,
   type PayrollInputSnapshot,
   type PayrollReconciliation,
@@ -234,6 +236,28 @@ watch(routeId, () => {
   void load()
 })
 
+const inputColumns: DataTableColumn[] = [
+  { key: 'employee', label: '员工关系', minWidth: '130px' },
+  { key: 'snapshotType', label: '快照类型', minWidth: '140px' },
+  { key: 'version', label: '版本', width: '90px', align: 'right' },
+  { key: 'sourceHash', label: '来源摘要', minWidth: '180px' },
+  { key: 'createdAt', label: '记录时间', minWidth: '170px' },
+]
+
+const employeeColumns: DataTableColumn[] = [
+  { key: 'employee', label: '员工关系', minWidth: '130px' },
+  { key: 'statusLabel', label: '计算状态', minWidth: '120px' },
+  { key: 'gross', label: '应发', minWidth: '110px', align: 'right' },
+  { key: 'deductions', label: '扣款', minWidth: '110px', align: 'right' },
+  { key: 'net', label: '实发', minWidth: '110px', align: 'right' },
+  { key: 'failureReason', label: '失败原因', minWidth: '180px' },
+  { key: 'actions', label: '工资条', width: '120px', align: 'right' },
+]
+
+function asPayrollEmployee(row: Record<string, unknown>): PayrollEmployee {
+  return row as unknown as PayrollEmployee
+}
+
 onMounted(() => {
   void load()
 })
@@ -422,27 +446,22 @@ onMounted(() => {
         />
 
         <div v-else class="payroll-detail__scroll">
-          <table class="payroll-detail__table" data-testid="payroll-input-table">
-            <caption class="visually-hidden">计薪输入快照</caption>
-            <thead>
-              <tr>
-                <th scope="col">员工关系</th>
-                <th scope="col">快照类型</th>
-                <th scope="col" class="is-numeric">版本</th>
-                <th scope="col">来源摘要</th>
-                <th scope="col">记录时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="snapshot in inputs" :key="snapshot.id">
-                <th scope="row">员工 #{{ snapshot.employmentId }}</th>
-                <td>{{ snapshot.snapshotType }}</td>
-                <td class="is-numeric">v{{ snapshot.snapshotVersion }}</td>
-                <td class="mono">{{ snapshot.sourceHash.slice(0, 16) }}</td>
-                <td>{{ formatDateTimeInTimezone(snapshot.createdAt) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <DataTable
+            :columns="inputColumns"
+            :rows="inputs as unknown as Array<Record<string, unknown>>"
+            :total="inputs.length"
+            :page="1"
+            :page-size="Math.max(1, inputs.length)"
+            data-testid="payroll-input-table"
+            empty-title="暂无计薪输入快照"
+          >
+            <template #cell-employee="{ row }">员工 #{{ row.employmentId }}</template>
+            <template #cell-version="{ row }">v{{ row.snapshotVersion }}</template>
+            <template #cell-sourceHash="{ row }">
+              <span class="mono">{{ String(row.sourceHash).slice(0, 16) }}</span>
+            </template>
+            <template #cell-createdAt="{ row }">{{ formatDateTimeInTimezone(String(row.createdAt)) }}</template>
+          </DataTable>
         </div>
       </section>
 
@@ -512,48 +531,40 @@ onMounted(() => {
         />
 
         <div v-else class="payroll-detail__scroll">
-          <table class="payroll-detail__table" data-testid="payroll-employee-table">
-            <caption class="visually-hidden">工资批次员工明细</caption>
-            <thead>
-              <tr>
-                <th scope="col">员工关系</th>
-                <th scope="col">计算状态</th>
-                <th scope="col" class="is-numeric">应发</th>
-                <th scope="col" class="is-numeric">扣款</th>
-                <th scope="col" class="is-numeric">实发</th>
-                <th scope="col">失败原因</th>
-                <th scope="col" class="is-actions">工资条</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="employee in employees"
-                :key="employee.employmentId"
-                :data-testid="`payroll-employee-${employee.employmentId}`"
-              >
-                <th scope="row">员工 #{{ employee.employmentId }}</th>
-                <td>{{ payrollEmployeeStatusLabel(employee.status) }}</td>
-                <td class="is-numeric">
-                  <MoneyText v-if="employee.grossCents !== undefined" :cents="employee.grossCents" size="sm" />
-                  <span v-else class="payroll-detail__masked">已隐藏</span>
-                </td>
-                <td class="is-numeric">
-                  <MoneyText v-if="employee.deductionsCents !== undefined" :cents="employee.deductionsCents" size="sm" />
-                  <span v-else class="payroll-detail__masked">已隐藏</span>
-                </td>
-                <td class="is-numeric">
-                  <MoneyText v-if="employee.netCents !== undefined" :cents="employee.netCents" size="sm" tone="strong" />
-                  <span v-else class="payroll-detail__masked">已隐藏</span>
-                </td>
-                <td class="payroll-detail__failure">{{ employee.failureReason ?? '—' }}</td>
-                <td class="is-actions">
-                  <button type="button" class="payroll-detail__link" @click="openPayslip(employee)">
-                    查看工资条
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <DataTable
+            :columns="employeeColumns"
+            :rows="employees as unknown as Array<Record<string, unknown>>"
+            :total="employees.length"
+            :page="1"
+            :page-size="Math.max(1, employees.length)"
+            row-key="employmentId"
+            :row-test-id="(row) => `payroll-employee-${String(row.employmentId)}`"
+            data-testid="payroll-employee-table"
+            empty-title="该批次没有员工行"
+          >
+            <template #cell-employee="{ row }">员工 #{{ row.employmentId }}</template>
+            <template #cell-statusLabel="{ row }">{{ payrollEmployeeStatusLabel(row.status as PayrollEmployeeStatus) }}</template>
+            <template #cell-gross="{ row }">
+              <MoneyText v-if="row.grossCents !== undefined" :cents="Number(row.grossCents)" size="sm" />
+              <span v-else class="payroll-detail__masked">已隐藏</span>
+            </template>
+            <template #cell-deductions="{ row }">
+              <MoneyText v-if="row.deductionsCents !== undefined" :cents="Number(row.deductionsCents)" size="sm" />
+              <span v-else class="payroll-detail__masked">已隐藏</span>
+            </template>
+            <template #cell-net="{ row }">
+              <MoneyText v-if="row.netCents !== undefined" :cents="Number(row.netCents)" size="sm" tone="strong" />
+              <span v-else class="payroll-detail__masked">已隐藏</span>
+            </template>
+            <template #cell-failureReason="{ row }">
+              <span class="payroll-detail__failure">{{ row.failureReason ?? '—' }}</span>
+            </template>
+            <template #cell-actions="{ row }">
+              <button type="button" class="payroll-detail__link" @click="openPayslip(asPayrollEmployee(row))">
+                查看工资条
+              </button>
+            </template>
+          </DataTable>
         </div>
       </section>
 

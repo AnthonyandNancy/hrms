@@ -449,21 +449,24 @@ onBeforeUnmount(() => {
         </p>
         <label>
           <span>目标组织单元</span>
-          <select v-model="convertOrgUnitId" data-testid="convert-org-unit">
-            <option value="" disabled>请选择组织单元</option>
-            <option v-for="unit in orgUnits" :key="unit.id" :value="String(unit.id)">
-              {{ unit.name }}（{{ unit.code }}）
-            </option>
-          </select>
+          <el-select v-model="convertOrgUnitId" data-testid="convert-org-unit">
+            <el-option value="" disabled label="请选择组织单元" />
+            <el-option
+              v-for="unit in orgUnits"
+              :key="unit.id"
+              :value="String(unit.id)"
+              :label="`${unit.name}（${unit.code}）`"
+            />
+          </el-select>
         </label>
         <p class="candidate-detail__hint">将分配至：{{ primaryOrgUnitName }}</p>
         <label>
           <span>员工编号</span>
-          <input v-model="convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" placeholder="例如 CONV-2026-0001" />
+          <el-input v-model="convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" placeholder="例如 CONV-2026-0001" />
         </label>
         <label>
           <span>入职日期</span>
-          <input v-model="convertHireDate" data-testid="convert-hire-date" type="date" />
+          <el-input v-model="convertHireDate" data-testid="convert-hire-date" type="date" />
         </label>
         <p v-if="latestOffer !== null" class="candidate-detail__hint">
           最近 Offer：{{ formatMoney(latestOffer.baseSalaryMinor) }} · {{ latestOffer.salaryCurrency }} · 预计

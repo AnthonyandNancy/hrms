@@ -10,8 +10,9 @@ import { rowText, rowsFrom, type PlatformRow } from '../platformRead'
 import UserCreateDialog, { type EmploymentOption } from '../components/UserCreateDialog.vue'
 import UserRoleDrawer, { type RoleChoice, type UserRoleRow } from '../components/UserRoleDrawer.vue'
 import UserPermissionPreview from '../components/UserPermissionPreview.vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
-type Status = 'ACTIVE' | 'LOCKED' | 'DISABLED' | ''
+type Status = typeof DISPLAY_CODES.userStatus.active | typeof DISPLAY_CODES.userStatus.locked | typeof DISPLAY_CODES.userStatus.disabled | ''
 
 type PendingAction =
   | { kind: 'disable'; user: PlatformRow }
@@ -75,10 +76,10 @@ const columns = computed<DataTableColumn[]>(() => [
   { key: 'actions', label: '操作', minWidth: '260px' },
 ])
 
-const STATUS_LABELS: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'info' }> = {
-  ACTIVE: { label: '在职', tone: 'success' },
-  LOCKED: { label: '已锁定', tone: 'warning' },
-  DISABLED: { label: '已停用', tone: 'danger' },
+const STATUS_TONES: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
+  [DISPLAY_CODES.userStatus.active]: 'success',
+  [DISPLAY_CODES.userStatus.locked]: 'warning',
+  [DISPLAY_CODES.userStatus.disabled]: 'danger',
 }
 
 const selectedRoles = computed<UserRoleRow[]>(() => selectedUser.value?.roles ?? [])
@@ -87,7 +88,10 @@ const displayNameOf = (user: PlatformRow): string => rowText(user, 'display_name
 
 function statusEntry(value: unknown) {
   const code = rowText({ status: value }, 'status', '')
-  return STATUS_LABELS[code] ?? { label: '未知状态', tone: 'info' as const }
+  return {
+    label: translate('platform', 'userStatus', code, '未知状态').label,
+    tone: STATUS_TONES[code] ?? 'info' as const,
+  }
 }
 
 function rolesFor(user: PlatformRow): UserRoleRow[] {
@@ -328,8 +332,8 @@ async function confirmPending(): Promise<void> {
     // that revokes every live session and bumps auth_version, so keep the
     // current status unchanged while submitting the reason through it.
     const status = action.kind === 'sessions'
-      ? rowText(user, 'status', 'ACTIVE')
-      : (action.kind === 'disable' ? 'DISABLED' : 'ACTIVE')
+      ? rowText(user, 'status', DISPLAY_CODES.userStatus.active)
+      : (action.kind === 'disable' ? DISPLAY_CODES.userStatus.disabled : DISPLAY_CODES.userStatus.active)
     await resourcePatch<unknown>(`/v1/users/${user.id}`, {
       status,
       reason: trimmedReason,
@@ -415,19 +419,24 @@ onMounted(async () => {
       <div class="user-filters" data-testid="user-filters">
         <label class="platform-field user-filter">
           <span>状态</span>
-          <select v-model="filters.status" data-testid="filter-status">
-            <option value="">全部状态</option>
-            <option value="ACTIVE">在职</option>
-            <option value="LOCKED">已锁定</option>
-            <option value="DISABLED">已停用</option>
-          </select>
+          <el-select v-model="filters.status" data-testid="filter-status">
+            <el-option value="" label="全部状态" />
+            <el-option :value="DISPLAY_CODES.userStatus.active" :label="translate('platform', 'userStatus', DISPLAY_CODES.userStatus.active).label" />
+            <el-option :value="DISPLAY_CODES.userStatus.locked" :label="translate('platform', 'userStatus', DISPLAY_CODES.userStatus.locked).label" />
+            <el-option :value="DISPLAY_CODES.userStatus.disabled" :label="translate('platform', 'userStatus', DISPLAY_CODES.userStatus.disabled).label" />
+          </el-select>
         </label>
         <label class="platform-field user-filter">
           <span>角色</span>
-          <select v-model="filters.roleCode" data-testid="filter-role">
-            <option value="">全部角色</option>
-            <option v-for="role in roleChoices" :key="role.code" :value="role.code">{{ role.name }}</option>
-          </select>
+          <el-select v-model="filters.roleCode" data-testid="filter-role">
+            <el-option value="" label="全部角色" />
+            <el-option
+              v-for="role in roleChoices"
+              :key="role.code"
+              :value="role.code"
+              :label="role.name"
+            />
+          </el-select>
         </label>
         <el-button text @click="loadUsers">刷新</el-button>
       </div>
@@ -489,7 +498,7 @@ onMounted(async () => {
               权限预览
             </el-button>
             <el-button
-              v-if="canManageUsers && rowText(row as PlatformRow, 'status', '') === 'ACTIVE'"
+              v-if="canManageUsers && rowText(row as PlatformRow, 'status', '') === DISPLAY_CODES.userStatus.active"
               text
               size="small"
               type="danger"
@@ -499,7 +508,7 @@ onMounted(async () => {
               停用
             </el-button>
             <el-button
-              v-if="canManageUsers && ['LOCKED', 'DISABLED'].includes(rowText(row as PlatformRow, 'status', ''))"
+              v-if="canManageUsers && ([DISPLAY_CODES.userStatus.locked, DISPLAY_CODES.userStatus.disabled] as string[]).includes(rowText(row as PlatformRow, 'status', ''))"
               text
               size="small"
               data-testid="user-enable"
@@ -554,7 +563,7 @@ onMounted(async () => {
         <p>{{ confirmMessage }}</p>
         <label class="platform-field">
           <span>操作原因 *</span>
-          <input v-model="statusReason" data-testid="confirm-reason" maxlength="255" placeholder="至少 3 个字符" />
+          <el-input v-model="statusReason" data-testid="confirm-reason" maxlength="255" placeholder="至少 3 个字符" />
         </label>
       </div>
       <template #footer>

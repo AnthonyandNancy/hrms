@@ -26,6 +26,7 @@ import {
 import DepartmentTree from '../components/DepartmentTree.vue'
 import DepartmentFormDrawer from '../components/DepartmentFormDrawer.vue'
 import DepartmentMembersPanel from '../components/DepartmentMembersPanel.vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 defineOptions({ name: 'DepartmentWorkspacePage' })
 
@@ -103,10 +104,10 @@ const selectedTypeLabel = computed(() =>
 )
 
 const selectedStatusLabel = computed(() =>
-  selectedNode.value?.status === 'INACTIVE'
-    ? '停用'
-    : selectedNode.value?.status === 'ACTIVE'
-      ? '启用'
+  selectedNode.value?.status === DISPLAY_CODES.departmentStatus.inactive
+    ? translate('people', 'departmentStatus', selectedNode.value.status).label
+    : selectedNode.value?.status === DISPLAY_CODES.departmentStatus.active
+      ? translate('people', 'departmentStatus', selectedNode.value.status).label
       : '—',
 )
 
@@ -358,7 +359,7 @@ onMounted(loadWorkspace)
       <div class="page-header__actions">
         <label class="department-asof">
           <span>业务日期</span>
-          <input v-model="asOf" type="date" data-testid="department-as-of" @change="loadWorkspace" />
+          <el-input v-model="asOf" type="date" data-testid="department-as-of" @change="loadWorkspace" />
         </label>
         <el-button :disabled="loading" @click="loadWorkspace">刷新</el-button>
         <el-button
@@ -646,22 +647,21 @@ onMounted(loadWorkspace)
 
         <label class="department-field">
           <span>新的上级部门</span>
-          <select v-model="moveParentId" data-testid="move-parent" :disabled="moveStep === 'confirm'">
-            <option value="">请选择上级部门</option>
-            <option
+          <el-select v-model="moveParentId" data-testid="move-parent" :disabled="moveStep === 'confirm'">
+            <el-option value="" label="请选择上级部门" />
+            <el-option
               v-for="candidate in moveCandidateParents"
               :key="candidate.id"
               :value="String(candidate.id)"
-            >
-              {{ candidate.name }}（{{ candidate.code }}）
-            </option>
-          </select>
+              :label="`${candidate.name}（${candidate.code}）`"
+            />
+          </el-select>
           <small>当前部门及其下级部门不会出现在可选项；后端也会以 422 拒绝成环。</small>
         </label>
 
         <label class="department-field">
           <span>生效日期</span>
-          <input
+          <el-input
             v-model="moveDate"
             type="date"
             data-testid="move-effective-date"

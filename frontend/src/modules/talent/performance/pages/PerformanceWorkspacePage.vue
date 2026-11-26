@@ -6,10 +6,11 @@ import { useSessionStore } from '@/stores/session'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PerformanceCycleDetailPage from './PerformanceCycleDetailPage.vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
   listPerformanceCycles,
-  PERFORMANCE_CYCLE_STATUS_LABELS,
   performanceCycleStage,
   type PerformanceCycleSummary,
 } from '../api'
@@ -52,10 +53,20 @@ const nameFilter = ref('')
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: '全部状态' },
-  { value: 'DRAFT', label: PERFORMANCE_CYCLE_STATUS_LABELS.DRAFT },
-  { value: 'ACTIVE', label: PERFORMANCE_CYCLE_STATUS_LABELS.ACTIVE },
-  { value: 'SCORING', label: PERFORMANCE_CYCLE_STATUS_LABELS.SCORING },
-  { value: 'PUBLISHED', label: PERFORMANCE_CYCLE_STATUS_LABELS.PUBLISHED },
+  { value: DISPLAY_CODES.performanceCycleStatus.draft, label: translate('talent', 'performanceCycleStatus', DISPLAY_CODES.performanceCycleStatus.draft).label },
+  { value: DISPLAY_CODES.performanceCycleStatus.active, label: translate('talent', 'performanceCycleStatus', DISPLAY_CODES.performanceCycleStatus.active).label },
+  { value: DISPLAY_CODES.performanceCycleStatus.scoring, label: translate('talent', 'performanceCycleStatus', DISPLAY_CODES.performanceCycleStatus.scoring).label },
+  { value: DISPLAY_CODES.performanceCycleStatus.published, label: translate('talent', 'performanceCycleStatus', DISPLAY_CODES.performanceCycleStatus.published).label },
+]
+
+const cycleColumns: DataTableColumn[] = [
+  { key: 'name', label: '周期名称', minWidth: '160px' },
+  { key: 'period', label: '考核期间', minWidth: '180px' },
+  { key: 'stage', label: '状态', width: '120px' },
+  { key: 'participants', label: '参与人数', width: '100px', align: 'right' },
+  { key: 'submitted', label: '已提交', width: '100px', align: 'right' },
+  { key: 'progress', label: '进度', minWidth: '150px' },
+  { key: 'actions', label: '操作', width: '110px' },
 ]
 
 const filtersActive = computed(() => statusFilter.value !== '' || nameFilter.value.trim() !== '')
@@ -195,7 +206,7 @@ onMounted(() => {
       <section class="performance-filters" aria-label="绩效周期筛选">
         <label>
           <span>周期名称</span>
-          <input
+          <el-input
             v-model="nameFilter"
             type="text"
             maxlength="120"
@@ -206,11 +217,14 @@ onMounted(() => {
         </label>
         <label>
           <span>状态</span>
-          <select v-model="statusFilter" data-testid="performance-status-filter" @change="applyFilters">
-            <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+          <el-select v-model="statusFilter" data-testid="performance-status-filter" @change="applyFilters">
+            <el-option
+              v-for="option in STATUS_OPTIONS"
+              :key="option.value"
+              :value="option.value"
+              :label="option.label"
+            />
+          </el-select>
         </label>
         <div class="performance-filters__actions">
           <button type="button" class="performance-workspace__primary" :disabled="loading" data-testid="performance-filter-submit" @click="applyFilters">
@@ -258,44 +272,41 @@ onMounted(() => {
           </header>
           <div class="panel__body panel__body--flush">
             <div class="performance-table-wrap">
-              <table class="performance-table" data-testid="performance-cycle-table">
-                <caption class="visually-hidden">绩效周期列表</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">周期名称</th>
-                    <th scope="col">考核期间</th>
-                    <th scope="col">状态</th>
-                    <th scope="col">参与人数</th>
-                    <th scope="col">已提交</th>
-                    <th scope="col">进度</th>
-                    <th scope="col">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="cycle in cycles" :key="cycle.id" :data-testid="`performance-cycle-${cycle.id}`">
-                    <th scope="row">{{ cycle.name }}</th>
-                    <td data-testid="performance-cycle-period">{{ periodLabel(cycle) }}</td>
-                    <td>
-                      <span class="performance-stage" :data-tone="stageTone(cycle)">
-                        {{ performanceCycleStage(cycle) }}
-                      </span>
-                    </td>
-                    <td class="is-numeric">{{ cycle.participantCount }} 人</td>
-                    <td class="is-numeric">{{ cycle.submittedCount }} 人</td>
-                    <td class="is-numeric">
-                      <div class="performance-progress" :aria-label="`完成进度 ${cycle.progress}%`">
-                        <span class="performance-progress__bar" :style="{ width: `${Math.min(100, Math.max(0, cycle.progress))}%` }" />
-                        <span class="performance-progress__text">{{ cycle.progress }}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <button type="button" class="performance-table__link" @click="openCycle(cycle)">
-                        查看详情
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <DataTable
+                :columns="cycleColumns"
+                :rows="cycles as unknown as Array<Record<string, unknown>>"
+                :total="total"
+                :page="page"
+                :page-size="pageSize"
+                row-key="id"
+                :row-test-id="(row) => `performance-cycle-${String(row.id)}`"
+                data-testid="performance-cycle-table"
+                empty-title="还没有绩效周期"
+                @update:page="changePage"
+              >
+                <template #cell-name="{ row }">{{ row.name }}</template>
+                <template #cell-period="{ row }">
+                  <span data-testid="performance-cycle-period">{{ periodLabel(row as unknown as PerformanceCycleSummary) }}</span>
+                </template>
+                <template #cell-stage="{ row }">
+                  <span class="performance-stage" :data-tone="stageTone(row as unknown as PerformanceCycleSummary)">
+                    {{ performanceCycleStage(row as unknown as PerformanceCycleSummary) }}
+                  </span>
+                </template>
+                <template #cell-participants="{ row }">{{ row.participantCount }} 人</template>
+                <template #cell-submitted="{ row }">{{ row.submittedCount }} 人</template>
+                <template #cell-progress="{ row }">
+                  <div class="performance-progress" :aria-label="`完成进度 ${String(row.progress)}%`">
+                    <span class="performance-progress__bar" :style="{ width: `${Math.min(100, Math.max(0, Number(row.progress)))}%` }" />
+                    <span class="performance-progress__text">{{ row.progress }}%</span>
+                  </div>
+                </template>
+                <template #cell-actions="{ row }">
+                  <button type="button" class="performance-table__link" @click="openCycle(row as unknown as PerformanceCycleSummary)">
+                    查看详情
+                  </button>
+                </template>
+              </DataTable>
             </div>
           </div>
           <footer class="panel__footer performance-pagination">

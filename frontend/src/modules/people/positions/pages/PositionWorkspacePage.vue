@@ -25,6 +25,7 @@ import {
 import PositionTable from '../components/PositionTable.vue'
 import PositionFormDrawer from '../components/PositionFormDrawer.vue'
 import PositionRequirementsPanel from '../components/PositionRequirementsPanel.vue'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 defineOptions({ name: 'PositionWorkspacePage' })
 
@@ -44,7 +45,7 @@ const asOf = ref(todayBusinessDate())
 const asOfInput = ref(asOf.value)
 const qInput = ref('')
 const appliedQ = ref('')
-const statusFilter = ref<'ALL' | 'ACTIVE' | 'DISABLED'>('ALL')
+const statusFilter = ref<string>('ALL')
 const orgUnitFilter = ref('')
 const page = ref(1)
 
@@ -307,7 +308,7 @@ onBeforeUnmount(() => {
       <section class="position-filter" aria-label="岗位筛选">
         <label class="position-filter__field position-filter__field--wide">
           <span>搜索</span>
-          <input
+          <el-input
             v-model="qInput"
             type="search"
             data-testid="position-filter-q"
@@ -317,7 +318,7 @@ onBeforeUnmount(() => {
         </label>
         <label class="position-filter__field">
           <span>业务日期</span>
-          <input
+          <el-input
             v-model="asOfInput"
             type="date"
             data-testid="position-filter-as-of"
@@ -326,30 +327,33 @@ onBeforeUnmount(() => {
         </label>
         <label class="position-filter__field">
           <span>状态</span>
-          <select
+          <el-select
             v-model="statusFilter"
             data-testid="position-filter-status"
             aria-label="按状态筛选"
             @change="onStatusFilterChange"
           >
-            <option value="ALL">全部状态</option>
-            <option value="ACTIVE">启用</option>
-            <option value="DISABLED">停用</option>
-          </select>
+            <el-option value="ALL" label="全部状态" />
+            <el-option :value="DISPLAY_CODES.positionStatus.active" label="启用" />
+            <el-option :value="DISPLAY_CODES.positionStatus.disabled" label="停用" />
+          </el-select>
         </label>
         <label class="position-filter__field">
           <span>部门</span>
-          <select
+          <el-select
             v-model="orgUnitFilter"
             data-testid="position-filter-org-unit"
             aria-label="按部门筛选"
             @change="onOrgUnitFilterChange"
           >
-            <option value="">全部部门</option>
-            <option v-for="unit in orgUnits" :key="unit.id" :value="String(unit.id)">
-              {{ unit.name }}（{{ unit.code }}）
-            </option>
-          </select>
+            <el-option value="" label="全部部门" />
+            <el-option
+              v-for="unit in orgUnits"
+              :key="unit.id"
+              :value="String(unit.id)"
+              :label="`${unit.name}（${unit.code}）`"
+            />
+          </el-select>
         </label>
         <button
           type="button"

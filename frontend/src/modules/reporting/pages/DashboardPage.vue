@@ -115,7 +115,7 @@ void load()
       <div class="page-header__actions dashboard-actions">
         <label class="dashboard-as-of">
           <span>业务日期</span>
-          <input v-model="asOf" type="date" data-testid="dashboard-as-of" aria-label="业务日期" />
+          <el-input v-model="asOf" type="date" data-testid="dashboard-as-of" aria-label="业务日期" />
         </label>
         <el-button :disabled="loading" @click="load">刷新快照</el-button>
       </div>
@@ -202,19 +202,16 @@ void load()
           description="指标为 0 或授权范围为空时列表同步为空。"
         />
         <div v-else class="drilldown-table-wrap">
-          <table class="drilldown-table">
-            <caption class="visually-hidden">指标下钻明细</caption>
-            <thead>
-              <tr>
-                <th v-for="column in drilldown.columns" :key="column.key" scope="col">{{ column.label }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, index) in drilldown.rows" :key="String(row.id ?? index)">
-                <td v-for="column in drilldown.columns" :key="column.key">{{ drillValue(row, column.key) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <el-table :data="drilldown.rows" class="drilldown-table" data-testid="dashboard-drilldown-table">
+            <el-table-column
+              v-for="column in drilldown.columns"
+              :key="column.key"
+              :label="column.label"
+              :min-width="140"
+            >
+              <template #default="{ row }">{{ drillValue(row as unknown as MetricDrilldown['rows'][number], column.key) }}</template>
+            </el-table-column>
+          </el-table>
         </div>
       </section>
     </template>

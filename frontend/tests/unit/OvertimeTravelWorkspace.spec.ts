@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
+import ElementPlus from 'element-plus'
 import OvertimeTravelWorkspacePage from '@/modules/time/overtime/pages/OvertimeTravelWorkspacePage.vue'
 import OvertimeRequestDrawer from '@/modules/time/overtime/components/OvertimeRequestDrawer.vue'
 import OvertimeRecordTable from '@/modules/time/overtime/components/OvertimeRecordTable.vue'
@@ -239,7 +240,7 @@ async function mountPage(
 
   const wrapper = mount(OvertimeTravelWorkspacePage, {
     global: {
-      plugins: [pinia, router],
+      plugins: [pinia, router, ElementPlus],
       stubs: {
         'el-button': { template: '<button type="button"><slot /></button>' },
       },

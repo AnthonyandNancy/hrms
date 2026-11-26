@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { resourceGet } from '@/api/resourceClient'
 import { PAGE_REGISTRY } from '@/router/registry'
-import { FIELD_PROFILE_LABEL } from '@/utils/status'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import { rowText, rowsFrom, type PlatformRow } from '../platformRead'
 
 const MODULE_LABELS: Record<string, string> = {
@@ -127,7 +128,7 @@ const rows = computed(() =>
       moduleLabel: MODULE_LABELS[module] ?? module,
       label: capabilityLabel(module, actions),
       anchorTypes,
-      fieldProfileMax: rowText(row, 'field_profile_max', 'P0_PUBLIC'),
+      fieldProfileMax: rowText(row, 'field_profile_max', DISPLAY_CODES.fieldProfile.p0Public),
       description: rowText(row, 'description', ''),
       risk: rowText(row, 'risk', ''),
       pageCount: count.pageCount,
@@ -156,6 +157,14 @@ const filteredRows = computed(() => {
     .sort((left, right) => left.code.localeCompare(right.code))
 })
 
+const permissionColumns: DataTableColumn[] = [
+  { key: 'code', label: '能力码 / 名称', minWidth: '220px' },
+  { key: 'anchorTypes', label: '锚点类型', minWidth: '150px' },
+  { key: 'fieldProfileMax', label: '字段档位上限', width: '130px' },
+  { key: 'usage', label: '使用情况', minWidth: '220px' },
+  { key: 'description', label: '说明', minWidth: '160px' },
+]
+
 const groups = computed(() => {
   const grouping = new Map<string, { value: string; label: string; rows: typeof filteredRows.value }>()
   for (const row of filteredRows.value) {
@@ -177,7 +186,7 @@ function anchorText(anchor: string): string {
 }
 
 function profileText(profile: string): string {
-  return FIELD_PROFILE_LABEL[profile as keyof typeof FIELD_PROFILE_LABEL] ?? profile
+  return translate('platform', 'fieldProfile', profile, '未知字段档位').label
 }
 
 async function load(): Promise<void> {
@@ -222,14 +231,19 @@ onMounted(load)
       <div class="panel__body platform-form-grid">
         <label class="platform-field">
           <span>搜索能力码、名称或说明</span>
-          <input v-model="search" data-testid="permission-search" placeholder="例如 iam.permission.read" />
+          <el-input v-model="search" data-testid="permission-search" placeholder="例如 iam.permission.read" />
         </label>
         <label class="platform-field">
           <span>模块</span>
-          <select v-model="moduleFilter" data-testid="permission-module-filter">
-            <option value="">全部模块</option>
-            <option v-for="module in modules" :key="module.value" :value="module.value">{{ module.label }}</option>
-          </select>
+          <el-select v-model="moduleFilter" data-testid="permission-module-filter">
+            <el-option value="" label="全部模块" />
+            <el-option
+              v-for="module in modules"
+              :key="module.value"
+              :value="module.value"
+              :label="module.label"
+            />
+          </el-select>
         </label>
       </div>
     </section>
@@ -243,38 +257,36 @@ onMounted(load)
         <h2 class="panel__title">{{ group.label }}</h2>
         <span class="plain-chip">{{ group.rows.length }} 项</span>
       </div>
-      <div class="platform-table-wrap">
-        <table class="platform-table">
-          <caption class="visually-hidden">{{ group.label }}能力目录</caption>
-          <thead>
-            <tr>
-              <th scope="col">能力码 / 名称</th>
-              <th scope="col">锚点类型</th>
-              <th scope="col">字段档位上限</th>
-              <th scope="col">使用情况</th>
-              <th scope="col">说明</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in group.rows" :key="row.code" :data-testid="`permission-row-${row.code}`">
-              <td>
-                <div class="mono">{{ row.code }}</div>
-                <div class="small">{{ row.label }}</div>
-              </td>
-              <td>
-                <span v-for="anchor in row.anchorTypes" :key="anchor" class="plain-chip">{{ anchorText(anchor) }}</span>
-                <span v-if="row.anchorTypes.length === 0" class="muted">—</span>
-              </td>
-              <td>{{ profileText(row.fieldProfileMax) }}</td>
-              <td :data-testid="`permission-usage-${row.code}`">
-                {{ row.pageCount }} 个页面 / {{ row.actionCount }} 个动作
-                <div class="small muted">{{ row.pageNames.length === 0 ? '暂无页面使用' : `使用页面：${row.pageNames.join('、')}` }}</div>
-              </td>
-              <td class="small">{{ row.description === '' ? '—' : row.description }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        :columns="permissionColumns"
+        :rows="group.rows as unknown as Array<Record<string, unknown>>"
+        :total="group.rows.length"
+        :page="1"
+        :page-size="Math.max(1, group.rows.length)"
+        data-testid="permission-table"
+        empty-title="当前筛选条件没有匹配的能力"
+      >
+        <template #cell-code="{ row }">
+          <div class="mono">{{ row.code }}</div>
+          <div class="small">{{ row.label }}</div>
+        </template>
+        <template #cell-anchorTypes="{ row }">
+          <span v-for="anchor in row.anchorTypes as string[]" :key="anchor" class="plain-chip">{{ anchorText(anchor) }}</span>
+          <span v-if="(row.anchorTypes as string[]).length === 0" class="muted">—</span>
+        </template>
+        <template #cell-fieldProfileMax="{ row }">{{ profileText(String(row.fieldProfileMax)) }}</template>
+        <template #cell-usage="{ row }">
+          <div :data-testid="`permission-usage-${String(row.code)}`">
+            {{ row.pageCount }} 个页面 / {{ row.actionCount }} 个动作
+            <div class="small muted">
+              {{ (row.pageNames as string[]).length === 0 ? '暂无页面使用' : `使用页面：${(row.pageNames as string[]).join('、')}` }}
+            </div>
+          </div>
+        </template>
+        <template #cell-description="{ row }">
+          <span class="small">{{ row.description === '' ? '—' : row.description }}</span>
+        </template>
+      </DataTable>
     </section>
 
     <p class="small muted">

@@ -214,21 +214,24 @@ onBeforeUnmount(() => {
       <section class="candidate-workspace__filters" aria-label="候选人筛选">
         <label>
           <span>招聘需求</span>
-          <select
+          <el-select
             v-model="requisitionFilter"
             data-testid="candidate-requisition-filter"
             :disabled="!canReadRequisitions"
             @change="applyFilters"
           >
-            <option value="">全部需求</option>
-            <option v-for="requisition in requisitions" :key="requisition.id" :value="String(requisition.id)">
-              {{ requisition.requisitionNo }} · {{ requisition.title }}
-            </option>
-          </select>
+            <el-option value="" label="全部需求" />
+            <el-option
+              v-for="requisition in requisitions"
+              :key="requisition.id"
+              :value="String(requisition.id)"
+              :label="`${requisition.requisitionNo} · ${requisition.title}`"
+            />
+          </el-select>
         </label>
         <label>
           <span>搜索</span>
-          <input
+          <el-input
             v-model="search"
             data-testid="candidate-search"
             placeholder="候选人姓名"
@@ -266,7 +269,7 @@ onBeforeUnmount(() => {
         </p>
         <label>
           <span>移动原因（可选）</span>
-          <textarea v-model="moveReason" rows="2" maxlength="500" placeholder="例如：初筛通过" />
+          <el-input v-model="moveReason" type="textarea" :rows="2" maxlength="500" placeholder="例如：初筛通过" />
         </label>
         <p v-if="moveError !== ''" class="candidate-workspace__error" role="alert">{{ moveError }}</p>
         <footer>

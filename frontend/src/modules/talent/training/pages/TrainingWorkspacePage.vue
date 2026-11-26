@@ -7,7 +7,9 @@ import { formatMoney } from '@/utils/format'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import TrainingProgramDrawer from '../components/TrainingProgramDrawer.vue'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 import {
   createProgram,
   deliveryModeLabel,
@@ -16,6 +18,8 @@ import {
   trainingActionErrorCopy,
   type ProgramDraft,
   type TrainingProgram,
+  type DeliveryMode,
+  type ProgramStatus,
 } from '../api'
 
 defineOptions({ name: 'TrainingWorkspacePage' })
@@ -32,6 +36,16 @@ const loaded = ref(false)
 const errorMessage = ref('')
 const errorRequestId = ref<string | null>(null)
 const errorCodeValue = ref('')
+
+const programColumns: DataTableColumn[] = [
+  { key: 'title', label: '培训项目', minWidth: '200px' },
+  { key: 'category', label: '分类', minWidth: '110px' },
+  { key: 'deliveryMode', label: '形式', width: '90px' },
+  { key: 'capacity', label: '报名 / 容量', minWidth: '150px' },
+  { key: 'status', label: '状态', width: '100px' },
+  { key: 'cost', label: '成本', minWidth: '110px' },
+  { key: 'actions', label: '操作', minWidth: '200px' },
+]
 
 const programs = ref<TrainingProgram[]>([])
 const successMessage = ref('')
@@ -103,7 +117,7 @@ function openEdit(program: TrainingProgram): void {
   drawerError.value = ''
   editNoticeProgram.value = program
   editNotice.value =
-    '服务端尚未提供培训项目更新接口（期望 PATCH /v1/training/programs/{id}），编辑内容不会保存。'
+    '服务端尚未提供培训项目更新接口，编辑内容不会保存。'
   drawerOpen.value = true
 }
 
@@ -112,7 +126,7 @@ async function save(draft: ProgramDraft): Promise<void> {
     // There is no program update route yet. Never issue a guessed PATCH.
     editNoticeProgram.value = drawerProgram.value
     editNotice.value =
-      '服务端尚未提供培训项目更新接口（期望 PATCH /v1/training/programs/{id}），本次修改未提交。'
+      '服务端尚未提供培训项目更新接口，本次修改未提交。'
     drawerOpen.value = false
     return
   }
@@ -234,84 +248,76 @@ onMounted(() => {
       />
 
       <section v-else class="training-programs panel" aria-label="培训项目列表">
-        <table data-testid="training-program-table">
-          <caption class="visually-hidden">培训项目、名额与状态</caption>
-          <thead>
-            <tr>
-              <th scope="col">项目</th>
-              <th scope="col">分类</th>
-              <th scope="col">交付方式</th>
-              <th scope="col">名额</th>
-              <th scope="col">状态</th>
-              <th scope="col">培训成本</th>
-              <th scope="col">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="program in programs"
-              :key="program.id"
-              :data-testid="`training-program-row-${program.id}`"
-            >
-              <td>
-                <button type="button" class="training-programs__link" @click="openDetail(program)">
-                  {{ program.title }}
+        <DataTable
+          :columns="programColumns"
+          :rows="programs as unknown as Array<Record<string, unknown>>"
+          :total="programs.length"
+          :page="1"
+          :page-size="Math.max(1, programs.length)"
+          row-key="id"
+          :row-test-id="(row) => `training-program-row-${String(row.id)}`"
+          data-testid="training-program-table"
+          empty-title="还没有培训项目"
+        >
+          <template #cell-title="{ row }">
+            <button type="button" class="training-programs__link" @click="openDetail(row as unknown as TrainingProgram)">
+              {{ row.title }}
+            </button>
+            <span class="training-programs__meta">{{ row.code }} · {{ row.sessionCount }} 个场次</span>
+          </template>
+          <template #cell-category="{ row }">{{ row.category ?? '未分类' }}</template>
+          <template #cell-deliveryMode="{ row }">{{ deliveryModeLabel(row.deliveryMode as DeliveryMode | null) }}</template>
+          <template #cell-capacity="{ row }">
+            <span class="training-programs__capacity">{{ row.enrolledCount }} / {{ row.capacity }}</span>
+            <span class="training-programs__meta">
+              {{ Number(row.remainingSeats) > 0 ? `剩余 ${row.remainingSeats} 个名额` : '名额已满' }}
+            </span>
+          </template>
+          <template #cell-status="{ row }">
+            <span class="training-programs__chip" :class="`is-${String(row.status).toLowerCase()}`">
+              {{ programStatusLabel(row.status as ProgramStatus) }}
+            </span>
+          </template>
+          <template #cell-cost="{ row }">
+            <template v-if="row.trainingCostCents === undefined">已按字段权限隐藏</template>
+            <template v-else>{{ formatMoney(Number(row.trainingCostCents)) }}</template>
+          </template>
+          <template #cell-actions="{ row }">
+            <div class="training-programs__actions">
+              <button type="button" class="training-programs__button" @click="openDetail(row as unknown as TrainingProgram)">
+                查看详情
+              </button>
+              <template v-if="canManage">
+                <button
+                  type="button"
+                  class="training-programs__button"
+                  :data-testid="`training-program-edit-${String(row.id)}`"
+                  @click="openEdit(row as unknown as TrainingProgram)"
+                >
+                  编辑
                 </button>
-                <span class="training-programs__meta">{{ program.code }} · {{ program.sessionCount }} 个场次</span>
-              </td>
-              <td>{{ program.category ?? '未分类' }}</td>
-              <td>{{ deliveryModeLabel(program.deliveryMode) }}</td>
-              <td>
-                <span class="training-programs__capacity">{{ program.enrolledCount }} / {{ program.capacity }}</span>
-                <span class="training-programs__meta">
-                  {{ program.remainingSeats > 0 ? `剩余 ${program.remainingSeats} 个名额` : '名额已满' }}
-                </span>
-              </td>
-              <td>
-                <span class="training-programs__chip" :class="`is-${program.status.toLowerCase()}`">
-                  {{ programStatusLabel(program.status) }}
-                </span>
-              </td>
-              <td>
-                <template v-if="program.trainingCostCents === undefined">已按字段权限隐藏</template>
-                <template v-else>{{ formatMoney(program.trainingCostCents) }}</template>
-              </td>
-              <td class="training-programs__actions">
-                <button type="button" class="training-programs__button" @click="openDetail(program)">
-                  查看详情
+                <button
+                  v-if="row.status === DISPLAY_CODES.trainingProgramStatus.active"
+                  type="button"
+                  class="training-programs__button"
+                  :data-testid="`training-program-publish-${String(row.id)}`"
+                  @click="requestLifecycle('publish', row as unknown as TrainingProgram)"
+                >
+                  发布
                 </button>
-                <template v-if="canManage">
-                  <button
-                    type="button"
-                    class="training-programs__button"
-                    :data-testid="`training-program-edit-${program.id}`"
-                    @click="openEdit(program)"
-                  >
-                    编辑
-                  </button>
-                  <button
-                    v-if="program.status === 'ACTIVE'"
-                    type="button"
-                    class="training-programs__button"
-                    :data-testid="`training-program-publish-${program.id}`"
-                    @click="requestLifecycle('publish', program)"
-                  >
-                    发布
-                  </button>
-                  <button
-                    v-else
-                    type="button"
-                    class="training-programs__button is-danger"
-                    :data-testid="`training-program-close-${program.id}`"
-                    @click="requestLifecycle('close', program)"
-                  >
-                    关闭
-                  </button>
-                </template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <button
+                  v-else
+                  type="button"
+                  class="training-programs__button is-danger"
+                  :data-testid="`training-program-close-${String(row.id)}`"
+                  @click="requestLifecycle('close', row as unknown as TrainingProgram)"
+                >
+                  关闭
+                </button>
+              </template>
+            </div>
+          </template>
+        </DataTable>
       </section>
 
       <p v-if="!canManageEnrollments" class="training-workspace__hint" role="note">

@@ -6,6 +6,7 @@ import { useSessionStore } from '@/stores/session'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PerformanceScoreDrawer from '../components/PerformanceScoreDrawer.vue'
 import {
   canScoreReview,
@@ -60,6 +61,18 @@ const reviews = ref<PerformanceReviewRow[]>([])
 const reviewPageTotal = ref(0)
 
 const drawerOpen = ref(false)
+const reviewColumns: DataTableColumn[] = [
+  { key: 'employee', label: '员工', minWidth: '110px' },
+  { key: 'manager', label: '主管', minWidth: '110px' },
+  { key: 'status', label: '状态', minWidth: '140px' },
+  { key: 'goals', label: '目标', minWidth: '220px' },
+  { key: 'weightTotal', label: '权重合计', minWidth: '140px', align: 'right' },
+  { key: 'selfRating', label: '自评分数', width: '110px', align: 'right' },
+  { key: 'managerRating', label: '主管分数', width: '110px', align: 'right' },
+  { key: 'finalRating', label: '最终等级', minWidth: '130px' },
+  { key: 'actions', label: '操作', minWidth: '190px' },
+]
+
 const selectedReview = ref<PerformanceReviewRow | null>(null)
 const saving = ref(false)
 const actionError = ref('')
@@ -154,9 +167,9 @@ async function load(): Promise<void> {
   reviewPageTotal.value = 0
 
   try {
-    // The route list is the verified cycle read; there is no
-    // GET /v1/performance/cycles/{id} route today. Match the requested cycle
-    // by walking the real paginated list instead of inventing a URL.
+    // The route list is the verified cycle read; there is no dedicated
+    // cycle-detail route today. Match the requested cycle by walking the
+    // real paginated list instead of inventing a URL.
     let requested: PerformanceCycleSummary | null = null
     let pageNumber = 1
     let pages = 1
@@ -472,79 +485,77 @@ onMounted(() => {
 
           <div v-else class="panel__body panel__body--flush">
             <div class="performance-detail__wrap">
-              <table class="performance-detail__table" data-testid="performance-review-table">
-                <caption class="visually-hidden">参与者的绩效评估</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">员工</th>
-                    <th scope="col">主管</th>
-                    <th scope="col">状态</th>
-                    <th scope="col">目标</th>
-                    <th scope="col">权重合计</th>
-                    <th scope="col">自评分数</th>
-                    <th scope="col">主管分数</th>
-                    <th scope="col">最终等级</th>
-                    <th scope="col">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="review in reviews" :key="review.id" :data-testid="`performance-review-${review.id}`">
-                    <th scope="row">员工 #{{ review.employmentId }}</th>
-                    <td>{{ review.managerEmploymentId === null ? '—' : `员工 #${review.managerEmploymentId}` }}</td>
-                    <td>
-                      <span class="performance-review-status" :data-decided="isDecidedReview(review.status)">{{ isDecidedReview(review.status) ? `${reviewStatusLabel(review.status)}（只读）` : reviewStatusLabel(review.status) }}</span>
-                    </td>
-                    <td>
-                      <ul v-if="review.goals.length > 0" class="performance-detail__goals">
-                        <li v-for="goal in review.goals" :key="goal.title">
-                          {{ goal.title }} · {{ goal.weight }}%
-                        </li>
-                      </ul>
-                      <span v-else>—</span>
-                    </td>
-                    <td class="is-numeric">
-                      {{ review.goals.reduce((total, goal) => total + goal.weight, 0) }}%
-                      <template v-if="review.goals.length > 0 && review.goals.reduce((total, goal) => total + goal.weight, 0) === 100">
-                        · 100% 权重已分配
-                      </template>
-                    </td>
-                    <td class="is-numeric">{{ review.selfRating === '' ? '—' : `${review.selfRating} 分` }}</td>
-                    <td class="is-numeric">{{ review.managerRating === '' ? '—' : `${review.managerRating} 分` }}</td>
-                    <td data-testid="performance-row-final-rating">
-                      {{ review.finalRating === '' ? '待服务端计算' : ratingLabel(review.finalRating) }}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        class="performance-detail__link"
-                        :disabled="!canManage"
-                        :data-testid="`performance-score-${review.id}`"
-                        @click="openScoreDrawer(review)"
-                      >
-                        {{ !readOnlyCycle && canScoreReview(review.status) ? '评分' : '查看' }}
-                      </button>
-                      <button
-                        v-if="canCalibrate && !readOnlyCycle && isDecidedReview(review.status)"
-                        type="button"
-                        class="performance-detail__link"
-                        :data-testid="`performance-calibrate-${review.id}`"
-                        @click="openCalibration(review)"
-                      >
-                        校准
-                      </button>
-                      <button
-                        v-if="canAppeal && review.status === 'SUBMITTED'"
-                        type="button"
-                        class="performance-detail__link"
-                        :data-testid="`performance-appeal-${review.id}`"
-                        @click="openAppeal(review)"
-                      >
-                        申诉
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <DataTable
+                :columns="reviewColumns"
+                :rows="reviews as unknown as Array<Record<string, unknown>>"
+                :total="reviewPageTotal"
+                :page="1"
+                :page-size="Math.max(1, reviews.length)"
+                row-key="id"
+                :row-test-id="(row) => `performance-review-${String(row.id)}`"
+                data-testid="performance-review-table"
+                empty-title="该周期还没有评估"
+              >
+                <template #cell-employee="{ row }">员工 #{{ row.employmentId }}</template>
+                <template #cell-manager="{ row }">
+                  {{ row.managerEmploymentId === null ? '—' : `员工 #${row.managerEmploymentId}` }}
+                </template>
+                <template #cell-status="{ row }">
+                  <span class="performance-review-status" :data-decided="isDecidedReview(String(row.status))">
+                    {{ isDecidedReview(String(row.status)) ? `${reviewStatusLabel(String(row.status))}（只读）` : reviewStatusLabel(String(row.status)) }}
+                  </span>
+                </template>
+                <template #cell-goals="{ row }">
+                  <ul v-if="(row.goals as PerformanceReviewRow['goals']).length > 0" class="performance-detail__goals">
+                    <li v-for="goal in row.goals as PerformanceReviewRow['goals']" :key="goal.title">
+                      {{ goal.title }} · {{ goal.weight }}%
+                    </li>
+                  </ul>
+                  <span v-else>—</span>
+                </template>
+                <template #cell-weightTotal="{ row }">
+                  {{ (row.goals as PerformanceReviewRow['goals']).reduce((sum, goal) => sum + goal.weight, 0) }}%
+                  <template v-if="(row.goals as PerformanceReviewRow['goals']).length > 0 && (row.goals as PerformanceReviewRow['goals']).reduce((sum, goal) => sum + goal.weight, 0) === 100">
+                    · 100% 权重已分配
+                  </template>
+                </template>
+                <template #cell-selfRating="{ row }">{{ row.selfRating === '' ? '—' : `${row.selfRating} 分` }}</template>
+                <template #cell-managerRating="{ row }">{{ row.managerRating === '' ? '—' : `${row.managerRating} 分` }}</template>
+                <template #cell-finalRating="{ row }">
+                  <span data-testid="performance-row-final-rating">
+                    {{ row.finalRating === '' ? '待服务端计算' : ratingLabel(String(row.finalRating)) }}
+                  </span>
+                </template>
+                <template #cell-actions="{ row }">
+                  <button
+                    type="button"
+                    class="performance-detail__link"
+                    :disabled="!canManage"
+                    :data-testid="`performance-score-${String(row.id)}`"
+                    @click="openScoreDrawer(row as unknown as PerformanceReviewRow)"
+                  >
+                    {{ !readOnlyCycle && canScoreReview(String(row.status)) ? '评分' : '查看' }}
+                  </button>
+                  <button
+                    v-if="canCalibrate && !readOnlyCycle && isDecidedReview(String(row.status))"
+                    type="button"
+                    class="performance-detail__link"
+                    :data-testid="`performance-calibrate-${String(row.id)}`"
+                    @click="openCalibration(row as unknown as PerformanceReviewRow)"
+                  >
+                    校准
+                  </button>
+                  <button
+                    v-if="canAppeal && row.status === 'SUBMITTED'"
+                    type="button"
+                    class="performance-detail__link"
+                    :data-testid="`performance-appeal-${String(row.id)}`"
+                    @click="openAppeal(row as unknown as PerformanceReviewRow)"
+                  >
+                    申诉
+                  </button>
+                </template>
+              </DataTable>
             </div>
           </div>
         </section>
@@ -560,11 +571,11 @@ onMounted(() => {
         <p>校准只写入校准等级和原因，不覆盖自评或主管原始分数。</p>
         <label class="performance-dialog__field">
           <span>校准等级</span>
-          <input v-model="calibrationRating" type="text" maxlength="16" placeholder="例如 MEETS" data-testid="performance-calibration-rating" />
+          <el-input v-model="calibrationRating" type="text" maxlength="16" placeholder="例如 MEETS" data-testid="performance-calibration-rating" />
         </label>
         <label class="performance-dialog__field">
           <span>校准原因</span>
-          <textarea v-model="calibrationReason" rows="3" maxlength="4000" data-testid="performance-calibration-reason" />
+          <el-input v-model="calibrationReason" type="textarea" :rows="3" maxlength="4000" data-testid="performance-calibration-reason" />
         </label>
         <p v-if="calibrationError !== ''" class="performance-dialog__error" role="alert">{{ calibrationError }}</p>
         <template #footer>
@@ -585,7 +596,7 @@ onMounted(() => {
         <p>申诉将创建审批案例，原评估保持只读。</p>
         <label class="performance-dialog__field">
           <span>申诉原因</span>
-          <textarea v-model="appealReason" rows="3" maxlength="4000" data-testid="performance-appeal-reason" />
+          <el-input v-model="appealReason" type="textarea" :rows="3" maxlength="4000" data-testid="performance-appeal-reason" />
         </label>
         <p v-if="appealError !== ''" class="performance-dialog__error" role="alert">{{ appealError }}</p>
         <template #footer>

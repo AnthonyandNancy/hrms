@@ -139,7 +139,6 @@ async function mountAt(
       stubs: {
         ElDrawer: OverlayStub,
         ElDialog: OverlayStub,
-        teleport: true,
       },
     },
   })
@@ -296,8 +295,11 @@ describe('performance workspace cycle list', () => {
 
     const wrapper = await mountAt(PerformanceWorkspacePage, '/performance')
 
-    await wrapper.get('[data-testid="performance-status-filter"]').setValue('PUBLISHED')
+    const performanceStatus = wrapper.getComponent('[data-testid="performance-status-filter"]') as VueWrapper
+    await performanceStatus.setValue('PUBLISHED')
+    performanceStatus.vm.$emit('change', 'PUBLISHED')
     await wrapper.get('[data-testid="performance-name-filter"]').setValue('2026')
+    await flushPromises()
     await wrapper.get('[data-testid="performance-filter-submit"]').trigger('click')
     await flushPromises()
 

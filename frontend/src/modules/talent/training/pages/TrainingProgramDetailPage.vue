@@ -7,6 +7,7 @@ import { formatBusinessDate, formatDateTimeInTimezone, formatMoney, todayBusines
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import TrainingEnrollmentTable from '../components/TrainingEnrollmentTable.vue'
 import {
   COMPLETION_RESULT_LABELS,
@@ -48,6 +49,14 @@ const errorCodeValue = ref('')
 const partialNote = ref('')
 
 const program = ref<TrainingProgram | null>(null)
+const sessionColumns: DataTableColumn[] = [
+  { key: 'date', label: '日期', width: '120px' },
+  { key: 'time', label: '时间', width: '150px' },
+  { key: 'location', label: '地点', minWidth: '160px' },
+  { key: 'capacity', label: '容量', minWidth: '180px' },
+  { key: 'status', label: '状态', width: '110px' },
+]
+
 const sessions = ref<TrainingSession[]>([])
 const enrollments = ref<TrainingEnrollment[]>([])
 const employees = ref<EmployeeOption[]>([])
@@ -423,35 +432,32 @@ onMounted(() => {
             description="请先在培训场次页面排期后，再为本项目报名。"
           />
 
-          <table v-else data-testid="training-session-table">
-            <caption class="visually-hidden">培训场次与剩余名额</caption>
-            <thead>
-              <tr>
-                <th scope="col">日期</th>
-                <th scope="col">时间</th>
-                <th scope="col">地点</th>
-                <th scope="col">容量</th>
-                <th scope="col">状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in sessions" :key="item.id" :data-testid="`training-session-${item.id}`">
-                <td>{{ formatBusinessDate(item.startsOn) }}</td>
-                <td>
-                  {{ item.startsAt === null ? '—' : formatDateTimeInTimezone(item.startsAt).slice(11) }}
-                  <template v-if="item.endsAt !== null">–{{ formatDateTimeInTimezone(item.endsAt).slice(11) }}</template>
-                </td>
-                <td>{{ item.location ?? '未设置地点' }}</td>
-                <td>
-                  {{ sessionEnrolledCount(item.id) }} / {{ item.capacity }}
-                  <span class="training-detail__meta">
-                    {{ sessionEnrolledCount(item.id) < item.capacity ? `剩余 ${item.capacity - sessionEnrolledCount(item.id)} 个名额` : '名额已满' }}
-                  </span>
-                </td>
-                <td>{{ sessionStatusLabel(item.status) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <DataTable
+            v-else
+            :columns="sessionColumns"
+            :rows="sessions as unknown as Array<Record<string, unknown>>"
+            :total="sessions.length"
+            :page="1"
+            :page-size="Math.max(1, sessions.length)"
+            row-key="id"
+            :row-test-id="(row) => `training-session-${String(row.id)}`"
+            data-testid="training-session-table"
+            empty-title="该项目还没有培训场次"
+          >
+            <template #cell-date="{ row }">{{ formatBusinessDate(String(row.startsOn)) }}</template>
+            <template #cell-time="{ row }">
+              {{ row.startsAt === null ? '—' : formatDateTimeInTimezone(String(row.startsAt)).slice(11) }}
+              <template v-if="row.endsAt !== null">–{{ formatDateTimeInTimezone(String(row.endsAt)).slice(11) }}</template>
+            </template>
+            <template #cell-location="{ row }">{{ row.location ?? '未设置地点' }}</template>
+            <template #cell-capacity="{ row }">
+              {{ sessionEnrolledCount(Number(row.id)) }} / {{ row.capacity }}
+              <span class="training-detail__meta">
+                {{ sessionEnrolledCount(Number(row.id)) < Number(row.capacity) ? `剩余 ${Number(row.capacity) - sessionEnrolledCount(Number(row.id))} 个名额` : '名额已满' }}
+              </span>
+            </template>
+            <template #cell-status="{ row }">{{ sessionStatusLabel(String(row.status)) }}</template>
+          </DataTable>
         </section>
 
         <section class="training-detail__panel" aria-label="报名名单">
@@ -483,21 +489,27 @@ onMounted(() => {
       <div class="training-detail__form">
         <label>
           <span>员工</span>
-          <select v-model="enrollEmployeeId" data-testid="training-enroll-employee">
-            <option value="" disabled>请选择员工</option>
-            <option v-for="employee in employees" :key="employee.employmentId" :value="String(employee.employmentId)">
-              {{ employee.name }}<template v-if="employee.employeeNo !== ''">（{{ employee.employeeNo }}）</template>
-            </option>
-          </select>
+          <el-select v-model="enrollEmployeeId" data-testid="training-enroll-employee">
+            <el-option value="" disabled label="请选择员工" />
+            <el-option
+              v-for="employee in employees"
+              :key="employee.employmentId"
+              :value="String(employee.employmentId)"
+              :label="employee.employeeNo !== '' ? `${employee.name}（${employee.employeeNo}）` : employee.name"
+            />
+          </el-select>
         </label>
         <label>
           <span>培训场次</span>
-          <select v-model="enrollSessionId" data-testid="training-enroll-session">
-            <option value="" disabled>请选择场次</option>
-            <option v-for="item in sessions" :key="item.id" :value="String(item.id)">
-              {{ sessionLabel(item) }} · 容量 {{ item.capacity }}
-            </option>
-          </select>
+          <el-select v-model="enrollSessionId" data-testid="training-enroll-session">
+            <el-option value="" disabled label="请选择场次" />
+            <el-option
+              v-for="item in sessions"
+              :key="item.id"
+              :value="String(item.id)"
+              :label="`${sessionLabel(item)} · 容量 ${item.capacity}`"
+            />
+          </el-select>
         </label>
         <p class="training-detail__seats" data-testid="training-enroll-seats">
           <template v-if="selectedSession === null">选择场次后显示剩余名额。</template>
@@ -537,23 +549,25 @@ onMounted(() => {
         </p>
         <label>
           <span>完成结果</span>
-          <select v-model="completeResult" data-testid="training-complete-result">
-            <option v-for="(label, value) in COMPLETION_RESULT_LABELS" :key="value" :value="value">
-              {{ label }}
-            </option>
-          </select>
+          <el-select v-model="completeResult" data-testid="training-complete-result">
+            <el-option
+              v-for="(label, value) in COMPLETION_RESULT_LABELS"
+              :key="value"
+              :value="value"
+              :label="label"
+            />
+          </el-select>
         </label>
         <label>
           <span>完成日期</span>
-          <input v-model="completeDate" type="date" data-testid="training-complete-date" />
+          <el-input v-model="completeDate" type="date" data-testid="training-complete-date" />
         </label>
         <label>
           <span>考试分数（0–100，可留空）</span>
-          <input v-model="completeScore" type="number" min="0" max="100" data-testid="training-complete-score" />
+          <el-input v-model="completeScore" type="number" min="0" max="100" data-testid="training-complete-score" />
         </label>
         <label class="training-detail__checkbox">
-          <input v-model="completeAttended" type="checkbox" data-testid="training-complete-attended" />
-          <span>本人实际出席</span>
+          <el-checkbox v-model="completeAttended" data-testid="training-complete-attended">本人实际出席</el-checkbox>
         </label>
         <p v-if="completeError !== ''" class="training-detail__error" role="alert" data-testid="training-complete-error">
           {{ completeError }}

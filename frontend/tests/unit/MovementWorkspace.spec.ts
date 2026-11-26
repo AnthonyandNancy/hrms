@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import ElementPlus from 'element-plus'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import MovementWorkspacePage from '@/modules/people/lifecycle/pages/MovementWorkspacePage.vue'
@@ -216,7 +217,7 @@ async function mountWorkspace(
 
   const wrapper = mount(MovementWorkspacePage, {
     global: {
-      plugins: [pinia, router],
+      plugins: [pinia, router, ElementPlus],
       stubs: {
         'el-button': { template: '<button type="button"><slot /></button>' },
         'el-alert': { template: '<div role="alert"><slot name="title" /><slot /></div>' },
@@ -381,7 +382,7 @@ describe('MovementWorkspacePage', () => {
     expect(wrapper.text()).toContain('已提交')
     expect(wrapper.find('[data-testid="movement-table"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="movement-type-filter"]').setValue('salary')
+    await wrapper.findComponent('[data-testid="movement-type-filter"]').setValue('salary')
     await flushPromises()
     expect(wrapper.text()).not.toContain('CASE-2026-0031')
     expect(wrapper.text()).toContain('暂无员工异动')
@@ -443,9 +444,9 @@ describe('MovementWorkspacePage', () => {
     const { wrapper } = await mountWorkspace()
     expect(wrapper.text()).toContain('正在加载员工异动')
 
-    await new Promise((resolve) => setTimeout(resolve, 5))
-    await flushPromises()
-    expect(wrapper.text()).toContain('暂无员工异动')
+    await vi.waitFor(() => {
+      expect(wrapper.text()).toContain('暂无员工异动')
+    })
     expect(wrapper.find('[data-testid="movement-table"]').exists()).toBe(false)
 
     resource.get.mockReset()

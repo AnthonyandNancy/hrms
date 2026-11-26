@@ -136,7 +136,6 @@ async function mountAt(
       stubs: {
         ElDrawer: OverlayStub,
         ElDialog: OverlayStub,
-        teleport: true,
       },
     },
   })
@@ -194,8 +193,10 @@ describe('payroll workspace list', () => {
     const wrapper = await mountAt(PayrollWorkspacePage, '/payroll')
 
     await wrapper.get('[data-testid="payroll-period-filter"]').setValue('2026-11')
-    await wrapper.get('[data-testid="payroll-status-filter"]').setValue('REVIEWED')
-    await wrapper.get('[data-testid="payroll-status-filter"]').trigger('change')
+    await flushPromises()
+    const statusFilter = wrapper.getComponent('[data-testid="payroll-status-filter"]') as VueWrapper
+    await statusFilter.setValue('REVIEWED')
+    statusFilter.vm.$emit('change', 'REVIEWED')
     await flushPromises()
 
     expect(resource.get).toHaveBeenLastCalledWith(

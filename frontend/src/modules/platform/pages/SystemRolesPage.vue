@@ -19,6 +19,7 @@ import RoleFieldPolicyEditor, {
   type FieldPolicyCapability,
   type FieldPolicyGrant,
 } from '../components/RoleFieldPolicyEditor.vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 type TabKey = 'pages' | 'actions' | 'scopes' | 'fields'
 type FormMode = 'create' | 'rename' | 'copy' | 'delete'
@@ -95,14 +96,6 @@ const ANCHOR_LABELS: Record<string, string> = {
   PAYROLL_RUN: '指定工资批次',
 }
 
-const PROFILE_LABELS: Record<string, string> = {
-  P0_PUBLIC: 'P0 公开',
-  P1_INTERNAL: 'P1 内部',
-  P2_SENSITIVE: 'P2 敏感',
-  P3_HIGH_SENSITIVE: 'P3 高敏',
-  P3_RESTRICTED: 'P3 高敏',
-}
-
 const selectedRoleCode = computed(() => rowText(selectedRole.value ?? {}, 'code', ''))
 const selectedRoleIsTemplate = computed(() => selectedRole.value?.is_template === true)
 
@@ -137,7 +130,7 @@ const actionCapabilities = computed<RoleActionCapability[]>(() =>
   capabilities.value.map((row) => ({
     code: rowText(row, 'code', ''),
     anchor_types: stringArray(row.anchor_types),
-    field_profile_max: rowText(row, 'field_profile_max', 'P0_PUBLIC'),
+    field_profile_max: rowText(row, 'field_profile_max', DISPLAY_CODES.fieldProfile.p0Public),
   })),
 )
 
@@ -151,7 +144,7 @@ const scopeCapabilities = computed<ScopeCapability[]>(() =>
 const fieldCapabilities = computed<FieldPolicyCapability[]>(() =>
   capabilities.value.map((row) => ({
     code: rowText(row, 'code', ''),
-    field_profile_max: rowText(row, 'field_profile_max', 'P0_PUBLIC'),
+    field_profile_max: rowText(row, 'field_profile_max', DISPLAY_CODES.fieldProfile.p0Public),
   })),
 )
 
@@ -160,7 +153,7 @@ const selectedActionGrants = computed<ActionGrant[]>(() =>
     capability,
     anchor_type: anchorByCapability.value[capability] ?? defaultAnchor(capability),
     anchor_id: anchorIdByCapability.value[capability] ?? null,
-    field_profile: fieldProfileByCapability.value[capability] ?? 'P0_PUBLIC',
+    field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
   })),
 )
 
@@ -169,7 +162,7 @@ const fieldGrants = computed<FieldPolicyGrant[]>(() =>
   selectedCapabilities.value.map((capability) => ({
     capability,
     field_key: capability,
-    field_profile: fieldProfileByCapability.value[capability] ?? 'P0_PUBLIC',
+    field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
   })),
 )
 
@@ -190,7 +183,7 @@ const diff = computed<DiffCounts>(() => {
   })
   const fieldsChanged = selectedCapabilities.value.filter((code) => {
     if (!hasOriginalCapability(code)) return false
-    return (originalFieldProfileByCapability.value[code] ?? 'P0_PUBLIC') !== (fieldProfileByCapability.value[code] ?? 'P0_PUBLIC')
+    return (originalFieldProfileByCapability.value[code] ?? DISPLAY_CODES.fieldProfile.p0Public) !== (fieldProfileByCapability.value[code] ?? DISPLAY_CODES.fieldProfile.p0Public)
   })
 
   return {
@@ -210,13 +203,13 @@ const changedFieldRows = computed(() =>
     .filter(
       (capability) =>
         hasOriginalCapability(capability) &&
-        (originalFieldProfileByCapability.value[capability] ?? 'P0_PUBLIC') !==
-          (fieldProfileByCapability.value[capability] ?? 'P0_PUBLIC'),
+        (originalFieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public) !==
+          (fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public),
     )
     .map((capability) => ({
       capability,
       field_key: capability,
-      field_profile: fieldProfileByCapability.value[capability] ?? 'P0_PUBLIC',
+      field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
     })),
 )
 
@@ -297,7 +290,7 @@ function applyRole(role: PlatformRow, rolePagesPayload: unknown): void {
     anchors[capability] = rowText(grant, 'anchor_type', defaultAnchor(capability))
     const anchorId = grant.anchor_id
     anchorIds[capability] = typeof anchorId === 'number' ? anchorId : null
-    profiles[capability] = rowText(grant, 'field_profile', 'P0_PUBLIC')
+    profiles[capability] = rowText(grant, 'field_profile', DISPLAY_CODES.fieldProfile.p0Public)
   }
   originalAnchorByCapability.value = { ...anchors }
   originalAnchorIdByCapability.value = { ...anchorIds }
@@ -449,7 +442,7 @@ function ensureCapabilitySelected(capability: string): void {
   }
   anchorByCapability.value[capability] ??= defaultAnchor(capability)
   anchorIdByCapability.value[capability] ??= null
-  fieldProfileByCapability.value[capability] ??= 'P0_PUBLIC'
+  fieldProfileByCapability.value[capability] ??= DISPLAY_CODES.fieldProfile.p0Public
 }
 
 function onActionToggle(action: { capability: string }, checked: boolean, pageCode: string): void {
@@ -503,7 +496,7 @@ function saveCapabilityGrants(): Array<{ capability: string; anchor_type: string
     anchor_id: ORG_ANCHORS.has(anchorByCapability.value[capability] ?? '')
       ? (anchorIdByCapability.value[capability] ?? null)
       : null,
-    field_profile: fieldProfileByCapability.value[capability] ?? 'P0_PUBLIC',
+    field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
   }))
 }
 
@@ -644,7 +637,7 @@ async function submitForm(): Promise<void> {
           capabilities: sourceGrants.map((grant) => ({
             capability: rowText(grant, 'capability', ''),
             anchor_type: rowText(grant, 'anchor_type', 'COMPANY'),
-            field_profile: rowText(grant, 'field_profile', 'P0_PUBLIC'),
+            field_profile: rowText(grant, 'field_profile', DISPLAY_CODES.fieldProfile.p0Public),
           })),
         },
         { idempotencyKey: nextIdempotencyKey(`role-create-${form.code}`) },
@@ -714,7 +707,7 @@ function anchorLabel(anchor: string): string {
 }
 
 function profileLabel(profile: string): string {
-  return PROFILE_LABELS[profile] ?? profile
+  return translate('platform', 'fieldProfile', profile, '未知字段档位').label
 }
 
 onMounted(load)
@@ -853,12 +846,15 @@ onMounted(load)
             <template v-else-if="activeTab === 'actions'">
               <label class="platform-field">
                 <span>选择页面以查看动作</span>
-                <select v-model="pageForActions" data-testid="action-page-select" :disabled="selectedRoleIsTemplate">
-                  <option value="">请选择页面</option>
-                  <option v-for="page in actionPageOptions" :key="page.page_code" :value="page.page_code">
-                    {{ page.menu_label }}（{{ page.page_code }}）
-                  </option>
-                </select>
+                <el-select v-model="pageForActions" data-testid="action-page-select" :disabled="selectedRoleIsTemplate">
+                  <el-option value="" label="请选择页面" />
+                  <el-option
+                    v-for="page in actionPageOptions"
+                    :key="page.page_code"
+                    :value="page.page_code"
+                    :label="`${page.menu_label}（${page.page_code}）`"
+                  />
+                </el-select>
               </label>
               <p v-if="actionPageOptions.length === 0" class="empty-inline">请先授予至少一个页面，再配置按钮动作。</p>
               <RoleActionMatrix
@@ -936,7 +932,7 @@ onMounted(load)
           </p>
           <p v-if="diff.fields_changed > 0" class="small">
             字段变更：
-            {{ selectedCapabilities.filter((code) => hasOriginalCapability(code) && (originalFieldProfileByCapability[code] ?? 'P0_PUBLIC') !== (fieldProfileByCapability[code] ?? 'P0_PUBLIC')).map((code) => `${actionOfCapability(code)}：${profileLabel(originalFieldProfileByCapability[code] ?? 'P0_PUBLIC')} → ${profileLabel(fieldProfileByCapability[code] ?? 'P0_PUBLIC')}`).join('、') }}
+            {{ selectedCapabilities.filter((code) => hasOriginalCapability(code) && (originalFieldProfileByCapability[code] ?? DISPLAY_CODES.fieldProfile.p0Public) !== (fieldProfileByCapability[code] ?? DISPLAY_CODES.fieldProfile.p0Public)).map((code) => `${actionOfCapability(code)}：${profileLabel(originalFieldProfileByCapability[code] ?? DISPLAY_CODES.fieldProfile.p0Public)} → ${profileLabel(fieldProfileByCapability[code] ?? DISPLAY_CODES.fieldProfile.p0Public)}`).join('、') }}
           </p>
           <div class="platform-inline-actions">
             <button
@@ -962,24 +958,27 @@ onMounted(load)
           <p v-if="formError" class="inline-error" role="alert">{{ formError }}</p>
           <label v-if="formMode !== 'rename'" class="platform-field">
             <span>角色代码</span>
-            <input v-model="form.code" data-testid="role-form-code" maxlength="64" placeholder="例如 HR_SPECIALIST" />
+            <el-input v-model="form.code" data-testid="role-form-code" maxlength="64" placeholder="例如 HR_SPECIALIST" />
           </label>
           <label class="platform-field">
             <span>角色名称</span>
-            <input v-model="form.name" data-testid="role-form-name" maxlength="120" />
+            <el-input v-model="form.name" data-testid="role-form-name" maxlength="120" />
           </label>
           <label class="platform-field">
             <span>用途说明（至少 8 个字符）</span>
-            <textarea v-model="form.purpose" data-testid="role-form-purpose" maxlength="255" />
+            <el-input v-model="form.purpose" data-testid="role-form-purpose" type="textarea" :rows="3" maxlength="255" />
           </label>
           <label v-if="formMode === 'create'" class="platform-field">
             <span>能力来源角色</span>
-            <select v-model="form.sourceCode" data-testid="role-form-source">
-              <option value="">请选择来源角色</option>
-              <option v-for="role in roles.filter((item) => roleCapabilityCount(item) > 0)" :key="rowText(role, 'code')" :value="rowText(role, 'code')">
-                {{ rowText(role, 'name') }}（{{ rowText(role, 'code') }}）
-              </option>
-            </select>
+            <el-select v-model="form.sourceCode" data-testid="role-form-source">
+              <el-option value="" label="请选择来源角色" />
+              <el-option
+                v-for="role in roles.filter((item) => roleCapabilityCount(item) > 0)"
+                :key="rowText(role, 'code')"
+                :value="rowText(role, 'code')"
+                :label="`${rowText(role, 'name')}（${rowText(role, 'code')}）`"
+              />
+            </el-select>
           </label>
           <p class="small muted">新角色页面授权默认留空，请在创建后进入页面权限配置；动作授权从所选来源角色复制。</p>
           <div class="platform-inline-actions">

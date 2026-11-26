@@ -349,7 +349,10 @@ describe('candidate pipeline', () => {
     expect(wrapper.get('[data-testid="pipeline-column-HIRED"]').text()).toContain('CONV-0077')
     expect(wrapper.find('[data-testid="candidate-requisition-filter"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="candidate-requisition-filter"]').setValue('11')
+    const requisitionFilter = wrapper.getComponent('[data-testid="candidate-requisition-filter"]') as VueWrapper
+    await requisitionFilter.setValue('11')
+    requisitionFilter.vm.$emit('change', '11')
+    await flushPromises()
     await flushPromises()
     await flushPromises()
 
@@ -501,7 +504,9 @@ describe('candidate detail and conversion', () => {
     await wrapper.get('[data-testid="candidate-convert"]').trigger('click')
     expect(wrapper.get('[data-testid="convert-dialog"]').text()).toContain('转入职')
 
-    await wrapper.get('[data-testid="convert-org-unit"]').setValue('3')
+    const convertOrgUnit = wrapper.findComponent('[data-testid="convert-org-unit"]')
+    await convertOrgUnit.setValue('3')
+    await flushPromises()
     await wrapper.get('[data-testid="convert-employee-no"]').setValue('CONV-2026-0001')
     await wrapper.get('[data-testid="convert-hire-date"]').setValue('2026-12-01')
     await wrapper.get('[data-testid="convert-submit"]').trigger('click')

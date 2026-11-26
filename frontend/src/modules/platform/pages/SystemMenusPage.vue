@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { resourceDelete, resourceGet, resourcePatch, resourcePost } from '@/api/resourceClient'
 import { PAGE_REGISTRY, type PageSpec } from '@/router/registry'
@@ -48,6 +49,15 @@ const overrideByPage = computed(() => {
   }
   return map
 })
+
+const menuColumns: DataTableColumn[] = [
+  { key: 'code', label: '页面编码', minWidth: '160px' },
+  { key: 'label', label: '页面 / 覆盖标签', minWidth: '200px' },
+  { key: 'capability', label: '所需能力', minWidth: '170px' },
+  { key: 'visible', label: '可见', width: '110px' },
+  { key: 'sortOrder', label: '排序', width: '140px' },
+  { key: 'actions', label: '操作', width: '180px' },
+]
 
 const groups = computed(() => {
   const grouping = new Map<string, { key: string; label: string; order: number; rows: MenuRow[] }>()
@@ -102,6 +112,18 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function menuRow(row: Record<string, unknown>): MenuRow {
+  return row as unknown as MenuRow
+}
+
+function menuPage(row: Record<string, unknown>): PageSpec {
+  return menuRow(row).page
+}
+
+function menuDraft(row: Record<string, unknown>): MenuDraft {
+  return menuRow(row).draft
 }
 
 function resetFeedback(): void {
@@ -199,72 +221,70 @@ onMounted(load)
         <h2 class="panel__title">{{ group.label }}</h2>
         <span class="plain-chip">{{ group.rows.length }} 个页面</span>
       </div>
-      <div class="platform-table-wrap">
-        <table class="platform-table">
-          <caption class="visually-hidden">{{ group.label }}菜单项</caption>
-          <thead>
-            <tr>
-              <th scope="col">页面编码</th>
-              <th scope="col">页面 / 覆盖标签</th>
-              <th scope="col">所需能力</th>
-              <th scope="col">可见</th>
-              <th scope="col">排序</th>
-              <th scope="col">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in group.rows" :key="row.page.name" :data-testid="`menu-row-${row.page.name}`">
-              <td class="mono">{{ row.page.name }}</td>
-              <td>
-                <span>{{ row.page.menu?.label ?? row.page.name }}</span>
-                <span v-if="row.overrideLabel !== '' && row.overrideLabel !== row.page.menu?.label" class="muted"> · 覆盖：{{ row.overrideLabel }}</span>
-              </td>
-              <td class="mono small">{{ row.page.capability }}</td>
-              <td>
-                <label class="platform-check">
-                  <input
-                    v-model="row.draft.visible"
-                    type="checkbox"
-                    :disabled="!canManage"
-                    :data-testid="`menu-visible-${row.page.name}`"
-                  />
-                  {{ row.draft.visible ? '显示' : '隐藏' }}
-                </label>
-              </td>
-              <td>
-                <input
-                  v-model.number="row.draft.sortOrder"
-                  type="number"
-                  min="0"
-                  max="100000"
-                  :disabled="!canManage"
-                  :data-testid="`menu-order-${row.page.name}`"
-                />
-              </td>
-              <td>
-                <div class="platform-inline-actions">
-                  <button
-                    type="button"
-                    :disabled="!canManage"
-                    :data-testid="`menu-save-${row.page.name}`"
-                    @click="saveRow(row)"
-                  >
-                    保存覆盖
-                  </button>
-                  <button
-                    type="button"
-                    :disabled="!canManage || !overrideByPage.has(row.page.name)"
-                    :data-testid="`menu-reset-${row.page.name}`"
-                    @click="requestReset(row)"
-                  >
-                    恢复默认
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        :columns="menuColumns"
+        :rows="group.rows as unknown as Array<Record<string, unknown>>"
+        :total="group.rows.length"
+        :page="1"
+        :page-size="Math.max(1, group.rows.length)"
+        data-testid="menu-table"
+        empty-title="暂无已登记的菜单页面"
+      >
+        <template #cell-code="{ row }">
+          <span class="mono">{{ menuPage(row).name }}</span>
+        </template>
+        <template #cell-label="{ row }">
+          <span>{{ menuPage(row).menu?.label ?? menuPage(row).name }}</span>
+          <span
+            v-if="String(row.overrideLabel) !== '' && String(row.overrideLabel) !== (menuPage(row).menu?.label ?? '')"
+            class="muted"
+          >
+            · 覆盖：{{ row.overrideLabel }}
+          </span>
+        </template>
+        <template #cell-capability="{ row }">
+          <span class="mono small">{{ menuPage(row).capability }}</span>
+        </template>
+        <template #cell-visible="{ row }">
+          <el-checkbox
+            v-model="menuDraft(row).visible"
+            :disabled="!canManage"
+            :data-testid="`menu-visible-${menuPage(row).name}`"
+          >
+            {{ menuDraft(row).visible ? '显示' : '隐藏' }}
+          </el-checkbox>
+        </template>
+        <template #cell-sortOrder="{ row }">
+          <el-input-number
+            v-model.number="menuDraft(row).sortOrder"
+            :min="0"
+            :max="100000"
+            :disabled="!canManage"
+            controls-position="right"
+            :data-testid="`menu-order-${menuPage(row).name}`"
+          />
+        </template>
+        <template #cell-actions="{ row }">
+          <div class="platform-inline-actions">
+            <button
+              type="button"
+              :disabled="!canManage"
+              :data-testid="`menu-save-${menuPage(row).name}`"
+              @click="saveRow(menuRow(row))"
+            >
+              保存覆盖
+            </button>
+            <button
+              type="button"
+              :disabled="!canManage || !overrideByPage.has(menuPage(row).name)"
+              :data-testid="`menu-reset-${menuPage(row).name}`"
+              @click="requestReset(menuRow(row))"
+            >
+              恢复默认
+            </button>
+          </div>
+        </template>
+      </DataTable>
     </section>
 
     <section v-if="resetTarget" class="panel" :data-testid="`menu-reset-confirm-${resetTarget.page.name}`">

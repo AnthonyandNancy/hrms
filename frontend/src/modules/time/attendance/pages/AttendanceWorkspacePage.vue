@@ -189,15 +189,15 @@ onMounted(() => {
       <form class="attendance-workspace__filters" aria-label="考勤筛选" @submit.prevent="applyFilters">
         <label>
           <span>业务月份</span>
-          <input v-model="selectedMonth" data-testid="attendance-month" type="month" />
+          <el-input v-model="selectedMonth" data-testid="attendance-month" type="month" />
         </label>
         <label>
           <span>员工编号</span>
-          <input v-model="employeeFilter" data-testid="attendance-employee" inputmode="numeric" placeholder="按授权范围筛选" />
+          <el-input v-model="employeeFilter" data-testid="attendance-employee" inputmode="numeric" placeholder="按授权范围筛选" />
         </label>
         <label>
           <span>组织单元编号</span>
-          <input v-model="orgUnitFilter" data-testid="attendance-org-unit" inputmode="numeric" placeholder="主管按授权子树筛选" />
+          <el-input v-model="orgUnitFilter" data-testid="attendance-org-unit" inputmode="numeric" placeholder="主管按授权子树筛选" />
         </label>
         <button type="submit" class="attendance-workspace__secondary" :disabled="loading">应用筛选</button>
       </form>

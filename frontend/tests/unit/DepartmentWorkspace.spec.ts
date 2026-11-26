@@ -144,7 +144,7 @@ async function mountWorkspace(
   const wrapper = mount(DepartmentWorkspacePage, {
     global: {
       plugins: [pinia, ElementPlus],
-      stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub, teleport: true },
+      stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub },
     },
   })
   await flushPromises()
@@ -299,9 +299,8 @@ describe('department workspace', () => {
     await nextTick()
 
     const dialog = wrapper.get('[data-testid="department-move-dialog"]')
-    const optionValues = dialog
-      .findAll('[data-testid="move-parent"] option')
-      .map((option) => option.attributes('value'))
+    const moveSelect = dialog.findComponent('[data-testid="move-parent"]')
+    const optionValues = moveSelect.findAllComponents({ name: 'ElOption' }).map((option) => String(option.props('value')))
     expect(optionValues).toContain('4')
     expect(optionValues).not.toContain('1')
     expect(optionValues).not.toContain('2')
@@ -320,7 +319,7 @@ describe('department workspace', () => {
     await wrapper.get('[data-testid="department-move"]').trigger('click')
     await nextTick()
 
-    await wrapper.get('[data-testid="move-parent"]').setValue('4')
+    await wrapper.findComponent('[data-testid="move-parent"]').setValue('4')
     await wrapper.get('[data-testid="move-effective-date"]').setValue('2026-12-01')
     await wrapper.get('[data-testid="move-confirm"]').trigger('click')
     await nextTick()
@@ -414,7 +413,7 @@ describe('department workspace', () => {
     const loading = mount(DepartmentWorkspacePage, {
       global: {
         plugins: [activePiniaWith(['org.unit.read', 'org.unit.manage']), ElementPlus],
-        stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub, teleport: true },
+        stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub },
       },
     })
     await nextTick()

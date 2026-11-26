@@ -183,7 +183,7 @@ onMounted(() => {
       <section class="payroll-filters" aria-label="工资批次筛选">
         <label>
           <span>期间</span>
-          <input
+          <el-input
             v-model="periodFilter"
             type="text"
             inputmode="numeric"
@@ -194,11 +194,14 @@ onMounted(() => {
         </label>
         <label>
           <span>状态</span>
-          <select v-model="statusFilter" data-testid="payroll-status-filter" @change="applyFilters">
-            <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+          <el-select v-model="statusFilter" data-testid="payroll-status-filter" @change="applyFilters">
+            <el-option
+              v-for="option in STATUS_OPTIONS"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
         </label>
         <div class="payroll-filters__actions">
           <button type="button" class="payroll-workspace__primary" :disabled="loading" @click="applyFilters">

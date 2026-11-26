@@ -4,6 +4,7 @@ import { ApiError, errorCopy } from '@/api/errors'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMoney } from '@/utils/format'
@@ -54,6 +55,17 @@ let requestSequence = 0
 
 const loading = computed(() => state.value === 'idle' || state.value === 'loading')
 const forbidden = computed(() => !canRead.value || state.value === 'forbidden')
+const requisitionColumns: DataTableColumn[] = [
+  { key: 'requisitionNo', label: '需求编号', minWidth: '150px' },
+  { key: 'title', label: '岗位', minWidth: '180px' },
+  { key: 'org', label: '组织单元', minWidth: '140px' },
+  { key: 'headcount', label: '编制', width: '90px' },
+  { key: 'status', label: '状态', width: '110px' },
+  { key: 'budget', label: '预算', minWidth: '120px' },
+  { key: 'openedAt', label: '开启日期', minWidth: '120px' },
+  { key: 'actions', label: '操作', width: '160px' },
+]
+
 const isEmpty = computed(() => state.value === 'ready' && rows.value.length === 0)
 const partial = computed(() => orgLookupError.value !== '' && state.value === 'ready')
 const errorMessage = computed(() => {
@@ -232,15 +244,18 @@ onBeforeUnmount(() => {
       <section class="requisition-workspace__filters" aria-label="招聘需求筛选">
         <label>
           <span>状态</span>
-          <select v-model="statusFilter" data-testid="requisition-status-filter" @change="applyFilters">
-            <option v-for="option in REQUISITION_STATUS_OPTIONS" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+          <el-select v-model="statusFilter" data-testid="requisition-status-filter" @change="applyFilters">
+            <el-option
+              v-for="option in REQUISITION_STATUS_OPTIONS"
+              :key="option.value"
+              :value="option.value"
+              :label="option.label"
+            />
+          </el-select>
         </label>
         <label>
           <span>搜索</span>
-          <input
+          <el-input
             v-model="search"
             data-testid="requisition-search"
             placeholder="岗位或需求编号"
@@ -258,66 +273,64 @@ onBeforeUnmount(() => {
         @action="openCreate"
       />
 
-      <div v-else class="requisition-workspace__table-wrap">
-        <table class="requisition-workspace__table" data-testid="requisition-table">
-          <caption class="visually-hidden">招聘需求列表</caption>
-          <thead>
-            <tr>
-              <th scope="col">需求编号</th>
-              <th scope="col">岗位</th>
-              <th scope="col">组织单元</th>
-              <th scope="col">编制</th>
-              <th scope="col">状态</th>
-              <th scope="col">预算</th>
-              <th scope="col">开启日期</th>
-              <th scope="col">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="requisition in rows" :key="requisition.id" :data-testid="`requisition-row-${requisition.id}`">
-              <td class="mono">{{ requisition.requisitionNo }}</td>
-              <td>
-                <strong>{{ requisition.title }}</strong>
-                <p v-if="requisition.targetStartDate" class="requisition-workspace__sub">
-                  目标到岗 {{ formatBusinessDate(requisition.targetStartDate) }}
-                </p>
-              </td>
-              <td>{{ orgName(requisition) }}</td>
-              <td>{{ requisition.headcount }} 人</td>
-              <td>
-                <span class="requisition-workspace__status" :class="`requisition-workspace__status--${requisition.status.toLowerCase()}`">
-                  {{ requisition.statusLabel }}
-                </span>
-              </td>
-              <td>{{ requisition.budgetMinor === null ? '未设置' : formatMoney(requisition.budgetMinor) }}</td>
-              <td>{{ openedLabel(requisition.openedAt) }}</td>
-              <td class="requisition-workspace__actions">
-                <button
-                  v-if="canManage"
-                  type="button"
-                  class="requisition-workspace__link"
-                  :disabled="requisition.status === 'CLOSED'"
-                  :data-testid="`requisition-edit-${requisition.id}`"
-                  @click="openEdit(requisition)"
-                >
-                  编辑
-                </button>
-                <button
-                  v-if="canManage"
-                  type="button"
-                  class="requisition-workspace__link requisition-workspace__link--danger"
-                  :disabled="requisition.status === 'CLOSED'"
-                  :data-testid="`requisition-close-${requisition.id}`"
-                  @click="askClose(requisition)"
-                >
-                  关闭
-                </button>
-                <span v-if="!canManage" class="requisition-workspace__sub">只读</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        v-else
+        :columns="requisitionColumns"
+        :rows="rows as unknown as Array<Record<string, unknown>>"
+        :total="rows.length"
+        :page="1"
+        :page-size="Math.max(1, rows.length)"
+        row-key="id"
+        :row-test-id="(row) => `requisition-row-${String(row.id)}`"
+        data-testid="requisition-table"
+        empty-title="还没有招聘需求"
+      >
+        <template #cell-requisitionNo="{ row }">
+          <span class="mono">{{ row.requisitionNo }}</span>
+        </template>
+        <template #cell-title="{ row }">
+          <strong>{{ row.title }}</strong>
+          <p v-if="row.targetStartDate" class="requisition-workspace__sub">
+            目标到岗 {{ formatBusinessDate(String(row.targetStartDate)) }}
+          </p>
+        </template>
+        <template #cell-org="{ row }">{{ orgName(row as unknown as Requisition) }}</template>
+        <template #cell-headcount="{ row }">{{ row.headcount }} 人</template>
+        <template #cell-status="{ row }">
+          <span class="requisition-workspace__status" :class="`requisition-workspace__status--${String(row.status).toLowerCase()}`">
+            {{ row.statusLabel }}
+          </span>
+        </template>
+        <template #cell-budget="{ row }">
+          {{ row.budgetMinor === null ? '未设置' : formatMoney(Number(row.budgetMinor)) }}
+        </template>
+        <template #cell-openedAt="{ row }">{{ openedLabel(String(row.openedAt ?? '')) }}</template>
+        <template #cell-actions="{ row }">
+          <div class="requisition-workspace__actions">
+            <button
+              v-if="canManage"
+              type="button"
+              class="requisition-workspace__link"
+              :disabled="row.status === 'CLOSED'"
+              :data-testid="`requisition-edit-${String(row.id)}`"
+              @click="openEdit(row as unknown as Requisition)"
+            >
+              编辑
+            </button>
+            <button
+              v-if="canManage"
+              type="button"
+              class="requisition-workspace__link requisition-workspace__link--danger"
+              :disabled="row.status === 'CLOSED'"
+              :data-testid="`requisition-close-${String(row.id)}`"
+              @click="askClose(row as unknown as Requisition)"
+            >
+              关闭
+            </button>
+            <span v-if="!canManage" class="requisition-workspace__sub">只读</span>
+          </div>
+        </template>
+      </DataTable>
 
       <p v-if="canManage" class="requisition-workspace__note">
         关闭需求会保留历史并停止新增候选人；操作需二次确认。编辑会记录审计。
@@ -345,7 +358,7 @@ onBeforeUnmount(() => {
         </p>
         <label>
           <span>关闭原因</span>
-          <textarea v-model="closeReason" rows="3" maxlength="500" placeholder="例如：编制取消、需求合并" />
+          <el-input v-model="closeReason" type="textarea" :rows="3" maxlength="500" placeholder="例如：编制取消、需求合并" />
         </label>
         <p v-if="closeError !== ''" class="requisition-workspace__error" role="alert">{{ closeError }}</p>
         <footer>

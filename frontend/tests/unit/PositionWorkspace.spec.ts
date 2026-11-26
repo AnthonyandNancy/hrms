@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
@@ -148,7 +148,7 @@ async function mountWorkspace(capabilities: string[] = FULL_CAPABILITIES) {
   const wrapper = mount(PositionWorkspacePage, {
     global: {
       plugins: [ElementPlus],
-      stubs: { ElDrawer: DrawerStub, teleport: true },
+      stubs: { ElDrawer: DrawerStub },
     },
   })
   return wrapper
@@ -244,13 +244,13 @@ describe('PositionWorkspacePage', () => {
     const wrapper = await mountWorkspace()
     await flushPromises()
 
-    await wrapper.get('[data-testid="position-filter-status"]').setValue('DISABLED')
+    await wrapper.findComponent('[data-testid="position-filter-status"]').setValue('DISABLED')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="position-row-2"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="position-filter-status"]').setValue('ALL')
-    await wrapper.get('[data-testid="position-filter-org-unit"]').setValue('10')
+    await wrapper.findComponent('[data-testid="position-filter-status"]').setValue('ALL')
+    await wrapper.findComponent('[data-testid="position-filter-org-unit"]').setValue('10')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="position-row-2"]').exists()).toBe(false)
@@ -284,9 +284,12 @@ describe('PositionWorkspacePage', () => {
     expect(wrapper.find('[data-testid="position-row-11"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="position-filter-status"]').setValue('DISABLED')
+    const statusFilter = wrapper.getComponent('[data-testid="position-filter-status"]') as VueWrapper
+    await statusFilter.setValue('DISABLED')
+    statusFilter.vm.$emit('change', 'DISABLED')
     await wrapper.vm.$nextTick()
-    await wrapper.get('[data-testid="position-filter-status"]').setValue('ACTIVE')
+    await statusFilter.setValue('ACTIVE')
+    statusFilter.vm.$emit('change', 'ACTIVE')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(true)
   })

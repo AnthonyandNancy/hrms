@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { ApiError } from '@/api/errors'
+import ElementPlus from 'element-plus'
 import { PAGE_REGISTRY } from '@/router/registry'
 import { useSessionStore } from '@/stores/session'
 import SystemMenusPage from '@/modules/platform/pages/SystemMenusPage.vue'
@@ -53,7 +54,7 @@ async function mountWithCapabilities(component: object, capabilities: string[]):
   const pinia = activePiniaWith(capabilities)
   const wrapper = mount(component, {
     global: {
-      plugins: [pinia],
+      plugins: [pinia, ElementPlus],
     },
   })
   await flushPromises()
@@ -90,8 +91,8 @@ describe('system governance pages', () => {
     expect(wrapper.text()).toContain('iam.menu.manage')
     expect(wrapper.text()).not.toContain('租户选择')
 
-    await wrapper.get('[data-testid="menu-visible-system-menus"]').setValue(false)
-    await wrapper.get('[data-testid="menu-order-system-menus"]').setValue('7')
+    await wrapper.findComponent('[data-testid="menu-visible-system-menus"]').setValue(false)
+    await wrapper.findComponent('[data-testid="menu-order-system-menus"]').setValue(7)
     await wrapper.get('[data-testid="menu-save-system-menus"]').trigger('click')
     await flushPromises()
 
@@ -164,7 +165,7 @@ describe('system governance pages', () => {
     expect(wrapper.text()).toContain('people.employee.read')
 
     await wrapper.get('[data-testid="permission-search"]').setValue('')
-    await wrapper.get('[data-testid="permission-module-filter"]').setValue('iam')
+    await wrapper.findComponent('[data-testid="permission-module-filter"]').setValue('iam')
     expect(wrapper.text()).toContain('iam.menu.manage')
     expect(wrapper.text()).not.toContain('people.employee.read')
   })
@@ -255,9 +256,12 @@ describe('system governance pages', () => {
     expect(wrapper.text()).toContain('P2 敏感')
     expect(wrapper.text()).toContain('影响')
     expect(wrapper.text()).toContain('2026-11-20')
-    expect(wrapper.text()).toContain('该字段已处于声明上限')
+    expect(wrapper.text()).toContain('已达声明档位')
 
-    await wrapper.get('[data-testid="field-policy-profile-employee.bank_account"]').setValue('P3_RESTRICTED')
+    const profileSelect = wrapper.getComponent('[data-testid="field-policy-profile-employee.bank_account"]') as VueWrapper
+    await profileSelect.setValue('P3_RESTRICTED')
+    profileSelect.vm.$emit('change', 'P3_RESTRICTED')
+    await flushPromises()
     await wrapper.get('[data-testid="field-policy-save-employee.bank_account"]').trigger('click')
     await flushPromises()
 

@@ -138,7 +138,6 @@ async function mountAt(
       stubs: {
         ElDrawer: OverlayStub,
         ElDialog: OverlayStub,
-        teleport: true,
       },
     },
   })
@@ -293,8 +292,11 @@ describe('training program detail', () => {
     const wrapper = await mountAt(TrainingProgramDetailPage, '/training/programs/1')
     await byTestId(wrapper, 'training-enroll-open').trigger('click')
 
-    await byTestId(wrapper, 'training-enroll-employee').setValue('102')
-    await byTestId(wrapper, 'training-enroll-session').setValue('11')
+    const enrollEmployee = wrapper.findComponent('[data-testid="training-enroll-employee"]')
+    const enrollSession = wrapper.findComponent('[data-testid="training-enroll-session"]')
+    await enrollEmployee.setValue('102')
+    await enrollSession.setValue('11')
+    await flushPromises()
     await byTestId(wrapper, 'training-enroll-submit').trigger('click')
     await flushPromises()
 
@@ -319,7 +321,7 @@ describe('training program detail', () => {
     await byTestId(wrapper, 'training-enrollment-complete-21').trigger('click')
 
     expect(byTestId(wrapper, 'training-complete-dialog').text()).toContain('登记培训完成')
-    await byTestId(wrapper, 'training-complete-result').setValue('PASS')
+    await wrapper.findComponent('[data-testid="training-complete-result"]').setValue('PASS')
     await byTestId(wrapper, 'training-complete-score').setValue('88')
     await byTestId(wrapper, 'training-complete-submit').trigger('click')
     await flushPromises()

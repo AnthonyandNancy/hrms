@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -60,9 +60,10 @@ describe('Wave 4 talent domain components', () => {
     resource.post.mockReset()
   })
 
-  it('registers all 36 registry component keys and returns a component for each', () => {
-    expect(TALENT_COMPONENT_KEYS).toHaveLength(36)
-    expect(new Set(TALENT_COMPONENT_KEYS).size).toBe(36)
+  it('registers all 35 registry component keys and returns a component for each', () => {
+    // ADR-0035: requisition create moved into the requests workspace drawer.
+    expect(TALENT_COMPONENT_KEYS).toHaveLength(35)
+    expect(new Set(TALENT_COMPONENT_KEYS).size).toBe(35)
     expect([...TALENT_COMPONENT_KEYS].sort()).toEqual([...wave4Keys].sort())
     for (const key of wave4Keys) {
       expect(talentComponentFor(key), key).not.toBeNull()
@@ -144,7 +145,10 @@ describe('Wave 4 talent domain components', () => {
 
     expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/requisitions', expect.any(Object))
     await wrapper.get('[data-testid="opening-requisition-id"]').setValue('8')
-    await wrapper.get('[data-testid="opening-channel"]').setValue('EXTERNAL')
+    // Element Plus select: emit the model update the component listens for.
+    const openingChannel = wrapper.getComponent('[data-testid="opening-channel"]') as VueWrapper
+    openingChannel.vm.$emit('update:modelValue', 'EXTERNAL')
+    openingChannel.vm.$emit('change', 'EXTERNAL')
     await wrapper.get('[data-testid="opening-submit"]').trigger('click')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
@@ -335,7 +339,7 @@ describe('Wave 4 talent domain components', () => {
   })
 
   it('declares live funnel read paths with no remaining K9 backend gaps', () => {
-    expect(TALENT_PAGE_CONFIGS).toHaveLength(36)
+    expect(TALENT_PAGE_CONFIGS).toHaveLength(35)
     for (const page of TALENT_PAGE_CONFIGS) {
       expect(page.readPath, page.key).toMatch(/^\/v1\//)
       expect(page.pending, page.key).toBeUndefined()
@@ -791,7 +795,9 @@ describe('Wave 4 talent domain components', () => {
     await wrapper.get('[data-testid="course-code"]').setValue('COURSE-NEW')
     await wrapper.get('[data-testid="course-title"]').setValue('Synthetic new course')
     await wrapper.get('[data-testid="course-instructor"]').setValue('Synthetic Instructor')
-    await wrapper.get('[data-testid="course-delivery-mode"]').setValue('ONLINE')
+    const deliveryMode = wrapper.getComponent('[data-testid="course-delivery-mode"]') as VueWrapper
+    deliveryMode.vm.$emit('update:modelValue', 'ONLINE')
+    deliveryMode.vm.$emit('change', 'ONLINE')
     await wrapper.get('[data-testid="course-duration-minutes"]').setValue('90')
     await wrapper.get('[data-testid="course-cost-cents"]').setValue('25000')
     await wrapper.get('form').trigger('submit')

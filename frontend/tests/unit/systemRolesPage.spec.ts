@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/errors'
+import ElementPlus from 'element-plus'
 import { useSessionStore } from '@/stores/session'
 import SystemRolesPage from '@/modules/platform/pages/SystemRolesPage.vue'
 import RolePageTree from '@/modules/platform/components/RolePageTree.vue'
@@ -139,7 +140,7 @@ function piniaWithCapabilities(capabilities: string[]) {
 
 async function mountPage(capabilities = ['iam.role.manage']) {
   const pinia = piniaWithCapabilities(capabilities)
-  const wrapper = mount(SystemRolesPage, { global: { plugins: [pinia] } })
+  const wrapper = mount(SystemRolesPage, { global: { plugins: [pinia, ElementPlus] } })
   await flushPromises()
   return wrapper
 }
@@ -188,7 +189,7 @@ describe('role authorization workbench', () => {
     const wrapper = await mountPage()
 
     await wrapper.get('[data-testid="tab-actions"]').trigger('click')
-    await wrapper.get('[data-testid="action-page-select"]').setValue('employee-detail')
+    await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     await wrapper.get('[data-testid="action-toggle-employee.detail.archive"]').setValue(true)
     await flushPromises()
 
@@ -205,7 +206,7 @@ describe('role authorization workbench', () => {
     expect(input(wrapper, 'input[data-page-code="employee-detail"]').checked).toBe(false)
 
     await wrapper.get('[data-testid="tab-actions"]').trigger('click')
-    await wrapper.get('[data-testid="action-page-select"]').setValue('employee-detail')
+    await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     expect(input(wrapper, '[data-testid="action-toggle-employee.detail.archive"]').checked).toBe(false)
   })
 
@@ -267,7 +268,7 @@ describe('role authorization workbench', () => {
 
     await wrapper.get('input[data-page-code="employee-detail"]').setValue(true)
     await wrapper.get('[data-testid="tab-actions"]').trigger('click')
-    await wrapper.get('[data-testid="action-page-select"]').setValue('employee-detail')
+    await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     await wrapper.get('[data-testid="action-toggle-employee.detail.archive"]').setValue(true)
 
     await wrapper.get('[data-testid="tab-scopes"]').trigger('click')

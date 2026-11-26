@@ -240,7 +240,7 @@ onMounted(load)
       >
         <label class="talent-field">
           候选人 ID
-          <input v-model="scopedCandidateId" data-testid="candidate-scope-id" inputmode="numeric" required />
+          <el-input v-model="scopedCandidateId" data-testid="candidate-scope-id" inputmode="numeric" required />
         </label>
         <button type="submit" :disabled="loading" data-testid="candidate-scope-load">读取候选人子资源</button>
       </form>
@@ -259,23 +259,21 @@ onMounted(load)
         </header>
         <div class="panel__body panel__body--flush">
           <div class="talent-table-wrap">
-            <table class="talent-table">
-              <caption class="visually-hidden">{{ config.title }}数据表</caption>
-              <thead>
-                <tr>
-                  <th v-for="column in columns" :key="column" scope="col">{{ column }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(row, index) in rows"
-                  :key="`${config.key}-${index}`"
-                  :data-testid="`${config.domain}-row-${index}`"
-                >
-                  <td v-for="column in columns" :key="column">{{ displayCell(row, column) }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <el-table
+              :data="rows"
+              class="talent-table"
+              data-testid="talent-data-table"
+              :row-key="(row: TalentRow) => `${config.key}-${rows.indexOf(row)}`"
+            >
+              <el-table-column
+                v-for="column in columns"
+                :key="column"
+                :label="column"
+                :min-width="120"
+              >
+                <template #default="{ row }">{{ displayCell(row as TalentRow, column) }}</template>
+              </el-table-column>
+            </el-table>
           </div>
         </div>
         <footer v-if="isPartial" class="panel__footer">

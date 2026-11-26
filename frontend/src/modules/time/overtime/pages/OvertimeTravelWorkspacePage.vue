@@ -4,6 +4,7 @@ import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate } from '@/utils/format'
 import ErrorState from '@/components/ErrorState.vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import OvertimeRequestDrawer from '../components/OvertimeRequestDrawer.vue'
 import OvertimeRecordTable from '../components/OvertimeRecordTable.vue'
@@ -70,6 +71,33 @@ const travelPartial = ref<string>('')
 const travelRequests = ref<TravelRequest[]>([])
 const travelExpenses = ref<TravelExpense[]>([])
 const travelPolicies = ref<TravelPolicy[]>([])
+
+const overtimeRequestColumns: DataTableColumn[] = [
+  { key: 'businessDate', label: '业务日期', width: '120px' },
+  { key: 'minutes', label: '申报 / 确认', minWidth: '150px' },
+  { key: 'reason', label: '原因', minWidth: '190px' },
+  { key: 'status', label: '状态', width: '110px' },
+  { key: 'nextStep', label: '下一步', minWidth: '130px' },
+  { key: 'actions', label: '操作', minWidth: '230px' },
+]
+
+const travelRequestColumns: DataTableColumn[] = [
+  { key: 'travelId', label: '出差编号', width: '100px' },
+  { key: 'destination', label: '目的地', minWidth: '120px' },
+  { key: 'dates', label: '日期', minWidth: '200px' },
+  { key: 'purpose', label: '事由', minWidth: '200px' },
+  { key: 'applicationStatus', label: '审批状态', width: '110px' },
+  { key: 'status', label: '状态', width: '100px' },
+  { key: 'case', label: '审批案例', minWidth: '130px' },
+]
+
+const travelPolicyColumns: DataTableColumn[] = [
+  { key: 'cityTier', label: '城市档位', width: '110px' },
+  { key: 'hotelCap', label: '住宿上限（分）', width: '140px' },
+  { key: 'transportCap', label: '交通上限（分）', width: '140px' },
+  { key: 'effectiveFrom', label: '生效日', width: '120px' },
+  { key: 'version', label: '版本', width: '80px' },
+]
 
 const overtimeStatusFilter = ref('')
 const overtimeDateFilter = ref('')
@@ -446,15 +474,18 @@ onMounted(() => {
         >
           <label>
             <span>申请状态</span>
-            <select v-model="overtimeStatusFilter" data-testid="overtime-status-filter">
-              <option v-for="option in overtimeStatusOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <el-select v-model="overtimeStatusFilter" data-testid="overtime-status-filter">
+              <el-option
+                v-for="option in overtimeStatusOptions"
+                :key="option.value"
+                :value="option.value"
+                :label="option.label"
+              />
+            </el-select>
           </label>
           <label>
             <span>业务日期</span>
-            <input v-model="overtimeDateFilter" data-testid="overtime-date-filter" type="date" />
+            <el-input v-model="overtimeDateFilter" data-testid="overtime-date-filter" type="date" />
           </label>
           <button type="submit" class="overtime-travel-workspace__secondary" :disabled="overtimeLoading">
             应用筛选
@@ -503,68 +534,66 @@ onMounted(() => {
             </p>
 
             <div v-else class="overtime-travel-workspace__scroller">
-              <table class="overtime-travel-workspace__table">
-                <thead>
-                  <tr>
-                    <th scope="col">业务日期</th>
-                    <th scope="col">申报 / 确认</th>
-                    <th scope="col">原因</th>
-                    <th scope="col">状态</th>
-                    <th scope="col">下一步</th>
-                    <th scope="col">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="request in filteredOvertimeRequests" :key="request.id" :data-testid="`overtime-request-${request.id}`">
-                    <td>{{ formatBusinessDate(request.businessDate) }}</td>
-                    <td>
-                      <span class="mono">{{ request.declaredMinutes }}</span>
-                      <span class="overtime-travel-workspace__muted"> / {{ request.confirmedMinutes ?? '待确认' }} 分钟</span>
-                    </td>
-                    <td class="overtime-travel-workspace__wrap">{{ request.reason }}</td>
-                    <td>{{ overtimeStatusLabel(request.status) }}</td>
-                    <td>{{ overtimeNextStep(request.status) || '—' }}</td>
-                    <td>
-                      <div v-if="confirmingId === request.id" class="overtime-travel-workspace__confirm">
-                        <label>
-                          <span>确认分钟</span>
-                          <input
-                            v-model="confirmingMinutes"
-                            :data-testid="`overtime-confirm-minutes-${request.id}`"
-                            inputmode="numeric"
-                            maxlength="5"
-                          />
-                        </label>
-                        <p v-if="confirmError" class="overtime-travel-workspace__error" role="alert">{{ confirmError }}</p>
-                        <div class="overtime-travel-workspace__confirm-actions">
-                          <button type="button" class="overtime-travel-workspace__tertiary" :disabled="confirming" @click="cancelConfirm">
-                            取消
-                          </button>
-                          <button
-                            type="button"
-                            class="overtime-travel-workspace__primary"
-                            :disabled="confirming"
-                            :data-testid="`overtime-confirm-submit-${request.id}`"
-                            @click="submitConfirm(request)"
-                          >
-                            {{ confirming ? '确认中…' : '确认加班' }}
-                          </button>
-                        </div>
-                      </div>
-                      <button
-                        v-else-if="canConfirmOvertime && request.status === 'APPROVED'"
-                        type="button"
-                        class="overtime-travel-workspace__tertiary"
-                        :data-testid="`overtime-confirm-${request.id}`"
-                        @click="startConfirm(request)"
-                      >
-                        确认实际分钟
+              <DataTable
+                :columns="overtimeRequestColumns"
+                :rows="filteredOvertimeRequests as unknown as Array<Record<string, unknown>>"
+                :total="filteredOvertimeRequests.length"
+                :page="1"
+                :page-size="Math.max(1, filteredOvertimeRequests.length)"
+                row-key="id"
+                :row-test-id="(row) => `overtime-request-${String(row.id)}`"
+                data-testid="overtime-request-table"
+                empty-title="暂无加班申请"
+              >
+                <template #cell-businessDate="{ row }">{{ formatBusinessDate(String(row.businessDate)) }}</template>
+                <template #cell-minutes="{ row }">
+                  <span class="mono">{{ row.declaredMinutes }}</span>
+                  <span class="overtime-travel-workspace__muted"> / {{ row.confirmedMinutes ?? '待确认' }} 分钟</span>
+                </template>
+                <template #cell-reason="{ row }">
+                  <span class="overtime-travel-workspace__wrap">{{ row.reason }}</span>
+                </template>
+                <template #cell-status="{ row }">{{ overtimeStatusLabel(String(row.status)) }}</template>
+                <template #cell-nextStep="{ row }">{{ overtimeNextStep(String(row.status)) || '—' }}</template>
+                <template #cell-actions="{ row }">
+                  <div v-if="confirmingId === row.id" class="overtime-travel-workspace__confirm">
+                    <label>
+                      <span>确认分钟</span>
+                      <el-input
+                        v-model="confirmingMinutes"
+                        :data-testid="`overtime-confirm-minutes-${String(row.id)}`"
+                        inputmode="numeric"
+                        maxlength="5"
+                      />
+                    </label>
+                    <p v-if="confirmError" class="overtime-travel-workspace__error" role="alert">{{ confirmError }}</p>
+                    <div class="overtime-travel-workspace__confirm-actions">
+                      <button type="button" class="overtime-travel-workspace__tertiary" :disabled="confirming" @click="cancelConfirm">
+                        取消
                       </button>
-                      <span v-else class="overtime-travel-workspace__muted">—</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                      <button
+                        type="button"
+                        class="overtime-travel-workspace__primary"
+                        :disabled="confirming"
+                        :data-testid="`overtime-confirm-submit-${String(row.id)}`"
+                        @click="submitConfirm(row as unknown as OvertimeRequest)"
+                      >
+                        {{ confirming ? '确认中…' : '确认加班' }}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    v-else-if="canConfirmOvertime && row.status === 'APPROVED'"
+                    type="button"
+                    class="overtime-travel-workspace__tertiary"
+                    :data-testid="`overtime-confirm-${String(row.id)}`"
+                    @click="startConfirm(row as unknown as OvertimeRequest)"
+                  >
+                    确认实际分钟
+                  </button>
+                  <span v-else class="overtime-travel-workspace__muted">—</span>
+                </template>
+              </DataTable>
             </div>
           </section>
 
@@ -654,15 +683,18 @@ onMounted(() => {
         >
           <label>
             <span>申请状态</span>
-            <select v-model="travelStatusFilter" data-testid="travel-status-filter">
-              <option v-for="option in travelStatusOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <el-select v-model="travelStatusFilter" data-testid="travel-status-filter">
+              <el-option
+                v-for="option in travelStatusOptions"
+                :key="option.value"
+                :value="option.value"
+                :label="option.label"
+              />
+            </el-select>
           </label>
           <label>
             <span>出发日期</span>
-            <input v-model="travelDateFilter" data-testid="travel-date-filter" type="date" />
+            <el-input v-model="travelDateFilter" data-testid="travel-date-filter" type="date" />
           </label>
           <button type="submit" class="overtime-travel-workspace__secondary" :disabled="travelLoading">
             应用筛选
@@ -709,30 +741,27 @@ onMounted(() => {
             </p>
 
             <div v-else class="overtime-travel-workspace__scroller">
-              <table class="overtime-travel-workspace__table">
-                <thead>
-                  <tr>
-                    <th scope="col">出差编号</th>
-                    <th scope="col">目的地</th>
-                    <th scope="col">日期</th>
-                    <th scope="col">事由</th>
-                    <th scope="col">审批状态</th>
-                    <th scope="col">状态</th>
-                    <th scope="col">审批案例</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="request in filteredTravelRequests" :key="request.travelId" :data-testid="`travel-request-${request.travelId}`">
-                    <td class="mono">#{{ request.travelId }}</td>
-                    <td>{{ request.destination ?? '—' }}</td>
-                    <td>{{ formatBusinessDate(request.fromDate) }} 至 {{ formatBusinessDate(request.toDate) }}</td>
-                    <td class="overtime-travel-workspace__wrap">{{ request.purpose }}</td>
-                    <td>{{ applicationStatusLabel(request.applicationStatus) }}</td>
-                    <td>{{ travelStatusLabel(request.status) }}</td>
-                    <td>{{ request.caseNo ?? (request.caseId !== null ? `#${request.caseId}` : '—') }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <DataTable
+                :columns="travelRequestColumns"
+                :rows="filteredTravelRequests as unknown as Array<Record<string, unknown>>"
+                :total="filteredTravelRequests.length"
+                :page="1"
+                :page-size="Math.max(1, filteredTravelRequests.length)"
+                row-key="travelId"
+                :row-test-id="(row) => `travel-request-${String(row.travelId)}`"
+                data-testid="travel-request-table"
+                empty-title="暂无出差申请"
+              >
+                <template #cell-travelId="{ row }"><span class="mono">#{{ row.travelId }}</span></template>
+                <template #cell-destination="{ row }">{{ row.destination ?? '—' }}</template>
+                <template #cell-dates="{ row }">{{ formatBusinessDate(String(row.fromDate)) }} 至 {{ formatBusinessDate(String(row.toDate)) }}</template>
+                <template #cell-purpose="{ row }">
+                  <span class="overtime-travel-workspace__wrap">{{ row.purpose }}</span>
+                </template>
+                <template #cell-applicationStatus="{ row }">{{ applicationStatusLabel(String(row.applicationStatus)) }}</template>
+                <template #cell-status="{ row }">{{ travelStatusLabel(String(row.status)) }}</template>
+                <template #cell-case="{ row }">{{ row.caseNo ?? (row.caseId !== null ? `#${row.caseId}` : '—') }}</template>
+              </DataTable>
             </div>
           </section>
 
@@ -764,26 +793,22 @@ onMounted(() => {
               服务端尚未返回差旅政策版本。
             </p>
             <div v-else class="overtime-travel-workspace__scroller">
-              <table class="overtime-travel-workspace__table">
-                <thead>
-                  <tr>
-                    <th scope="col">城市档位</th>
-                    <th scope="col">住宿上限（分）</th>
-                    <th scope="col">交通上限（分）</th>
-                    <th scope="col">生效日</th>
-                    <th scope="col">版本</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="policy in travelPolicies" :key="policy.id">
-                    <td>{{ cityTierLabel(policy.cityTier) }}</td>
-                    <td class="mono">{{ policy.hotelCapCents }}</td>
-                    <td class="mono">{{ policy.transportCapCents }}</td>
-                    <td>{{ formatBusinessDate(policy.effectiveFrom) }}</td>
-                    <td>v{{ policy.version }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <DataTable
+                :columns="travelPolicyColumns"
+                :rows="travelPolicies as unknown as Array<Record<string, unknown>>"
+                :total="travelPolicies.length"
+                :page="1"
+                :page-size="Math.max(1, travelPolicies.length)"
+                row-key="id"
+                data-testid="travel-policy-table"
+                empty-title="服务端尚未返回差旅政策版本"
+              >
+                <template #cell-cityTier="{ row }">{{ cityTierLabel(String(row.cityTier)) }}</template>
+                <template #cell-hotelCap="{ row }"><span class="mono">{{ row.hotelCapCents }}</span></template>
+                <template #cell-transportCap="{ row }"><span class="mono">{{ row.transportCapCents }}</span></template>
+                <template #cell-effectiveFrom="{ row }">{{ formatBusinessDate(String(row.effectiveFrom)) }}</template>
+                <template #cell-version="{ row }">v{{ row.version }}</template>
+              </DataTable>
             </div>
           </section>
         </template>

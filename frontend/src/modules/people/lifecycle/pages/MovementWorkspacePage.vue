@@ -32,6 +32,7 @@ import {
   type UserOption,
 } from '../api'
 import MovementFormDrawer from '../components/MovementFormDrawer.vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 defineOptions({ name: 'MovementWorkspacePage' })
 
@@ -79,7 +80,7 @@ const STATUS_OPTIONS = [
   { value: 'WITHDRAWN', label: APPLICATION_STATUS_LABELS.WITHDRAWN ?? '已撤回' },
   { value: 'CANCELLED', label: APPLICATION_STATUS_LABELS.CANCELLED ?? '已取消' },
   { value: 'SCHEDULED', label: '已排期' },
-  { value: 'ACTIVE', label: '借调中' },
+  { value: DISPLAY_CODES.applicationStatus.active, label: translate('people', 'applicationStatus', DISPLAY_CODES.applicationStatus.active).label },
   { value: 'COMPLETED', label: '已结束' },
 ]
 
@@ -123,7 +124,7 @@ function statusChipClass(row: MovementListRow): string {
 }
 
 function isOpenStatus(value: string): boolean {
-  return value === 'DRAFT' || value === 'SUBMITTED' || value === 'IN_REVIEW' || value === 'SCHEDULED' || value === 'ACTIVE'
+  return value === DISPLAY_CODES.applicationStatus.draft || value === DISPLAY_CODES.applicationStatus.submitted || value === DISPLAY_CODES.applicationStatus.inReview || value === DISPLAY_CODES.applicationStatus.scheduled || value === DISPLAY_CODES.applicationStatus.active
 }
 
 const typeTabs: Array<{ value: MovementTab; label: string }> = [
@@ -376,24 +377,30 @@ onMounted(() => {
         <section class="movement-filters" aria-label="异动筛选">
           <label>
             <span>异动类型</span>
-            <select v-model="typeFilter" data-testid="movement-type-filter" @change="resetPage">
-              <option value="all">全部类型</option>
-              <option v-for="type in MOVEMENT_TYPES" :key="type.value" :value="type.value">
-                {{ type.label }}
-              </option>
-            </select>
+            <el-select v-model="typeFilter" data-testid="movement-type-filter" @change="resetPage">
+              <el-option value="all" label="全部类型" />
+              <el-option
+                v-for="type in MOVEMENT_TYPES"
+                :key="type.value"
+                :value="type.value"
+                :label="type.label"
+              />
+            </el-select>
           </label>
           <label>
             <span>案例状态</span>
-            <select v-model="statusFilter" data-testid="movement-status-filter" @change="resetPage">
-              <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <el-select v-model="statusFilter" data-testid="movement-status-filter" @change="resetPage">
+              <el-option
+                v-for="option in STATUS_OPTIONS"
+                :key="option.value"
+                :value="option.value"
+                :label="option.label"
+              />
+            </el-select>
           </label>
           <label class="movement-filters__search">
             <span>搜索</span>
-            <input
+            <el-input
               v-model="search"
               data-testid="movement-search"
               placeholder="案例编号、员工姓名或工号"
@@ -414,71 +421,71 @@ onMounted(() => {
             <span>第 {{ page }} / {{ pageCount }} 页</span>
           </div>
           <div class="movement-table-scroll">
-            <table class="movement-table" data-testid="movement-table">
-              <caption class="visually-hidden">员工异动案例列表</caption>
-              <thead>
-                <tr>
-                  <th scope="col">异动类型</th>
-                  <th scope="col">案例</th>
-                  <th scope="col">员工</th>
-                  <th scope="col">生效日期</th>
-                  <th scope="col">发起人</th>
-                  <th scope="col">申请状态</th>
-                  <th scope="col">生效状态</th>
-                  <th scope="col">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="row in pagedRows"
-                  :key="row.rowId"
-                  :data-testid="`movement-row-${row.rowId}`"
-                  @click="openCase(row)"
-                >
-                  <td>{{ movementKindLabel(row.kind) }}</td>
-                  <td>
-                    <span class="movement-table__case-no">{{ row.caseNo || row.title }}</span>
-                    <small v-if="row.secondmentAssignmentId !== null" class="movement-table__muted">
-                      并行任职（主任职历史保持不变）
-                    </small>
-                    <small v-else-if="row.title !== ''" class="movement-table__muted">{{ row.title }}</small>
-                  </td>
-                  <td>
-                    <span>{{ employeeName(row) }}</span>
-                    <small v-if="employeeNo(row) !== ''" class="movement-table__muted">{{ employeeNo(row) }}</small>
-                  </td>
-                  <td>
-                    <strong class="movement-table__effective">{{ formatBusinessDate(row.effectiveDate) }}</strong>
-                  </td>
-                  <td>{{ initiatorName(row) }}</td>
-                  <td>
-                    <span class="movement-chip" :class="statusChipClass(row)">{{ statusLabel(row.applicationStatus) }}</span>
-                    <span v-if="row.isAwaitingMe" class="movement-chip is-awaiting">待我审批</span>
-                  </td>
-                  <td>{{ effectStatusLabel(row.effectStatus) }}</td>
-                  <td>
-                    <button
-                      v-if="row.caseId !== null"
-                      type="button"
-                      class="movement-table__link"
-                      :data-testid="`movement-open-${row.rowId}`"
-                      @click.stop="openCase(row)"
-                    >
-                      查看详情
-                    </button>
-                    <button
-                      v-else-if="row.secondmentAssignmentId !== null"
-                      type="button"
-                      class="movement-table__link"
-                      :data-testid="`movement-open-${row.rowId}`"
-                      @click.stop="openCase(row)"
-                    >
-                      查看借调任职
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <el-table
+              :data="pagedRows"
+              row-key="rowId"
+              class="movement-table"
+              data-testid="movement-table"
+              @row-click="openCase"
+            >
+              <el-table-column label="异动类型" min-width="110">
+                <template #default="{ row }">{{ movementKindLabel(row.kind) }}</template>
+              </el-table-column>
+              <el-table-column label="案例" min-width="180">
+                <template #default="{ row }">
+                  <span class="movement-table__case-no">{{ row.caseNo || row.title }}</span>
+                  <small v-if="row.secondmentAssignmentId !== null" class="movement-table__muted">
+                    并行任职（主任职历史保持不变）
+                  </small>
+                  <small v-else-if="row.title !== ''" class="movement-table__muted">{{ row.title }}</small>
+                </template>
+              </el-table-column>
+              <el-table-column label="员工" min-width="140">
+                <template #default="{ row }">
+                  <span>{{ employeeName(row) }}</span>
+                  <small v-if="employeeNo(row) !== ''" class="movement-table__muted">{{ employeeNo(row) }}</small>
+                </template>
+              </el-table-column>
+              <el-table-column label="生效日期" min-width="120">
+                <template #default="{ row }">
+                  <strong class="movement-table__effective">{{ formatBusinessDate(row.effectiveDate) }}</strong>
+                </template>
+              </el-table-column>
+              <el-table-column label="发起人" min-width="110">
+                <template #default="{ row }">{{ initiatorName(row) }}</template>
+              </el-table-column>
+              <el-table-column label="申请状态" min-width="150">
+                <template #default="{ row }">
+                  <span class="movement-chip" :class="statusChipClass(row)">{{ statusLabel(row.applicationStatus) }}</span>
+                  <span v-if="row.isAwaitingMe" class="movement-chip is-awaiting">待我审批</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="生效状态" min-width="110">
+                <template #default="{ row }">{{ effectStatusLabel(row.effectStatus) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" min-width="130">
+                <template #default="{ row }">
+                  <button
+                    v-if="row.caseId !== null"
+                    type="button"
+                    class="movement-table__link"
+                    :data-testid="`movement-open-${row.rowId}`"
+                    @click.stop="openCase(row)"
+                  >
+                    查看详情
+                  </button>
+                  <button
+                    v-else-if="row.secondmentAssignmentId !== null"
+                    type="button"
+                    class="movement-table__link"
+                    :data-testid="`movement-open-${row.rowId}`"
+                    @click.stop="openCase(row)"
+                  >
+                    查看借调任职
+                  </button>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
           <footer class="movement-pagination">
             <button

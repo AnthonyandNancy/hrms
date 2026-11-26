@@ -14,6 +14,7 @@ import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { errorCopy } from '@/api/errors'
+import { translate } from '@/shared/display/dictionary'
 import { requestIdFromError } from '@/utils/renderErrors'
 import { useSessionStore } from '@/stores/session'
 import ExportPanel from '../components/ExportPanel.vue'
@@ -115,18 +116,7 @@ function cellText(value: string | number | null, key: string): string {
 }
 
 function statusCopy(value: string): string {
-  const labels: Record<string, string> = {
-    ACTIVE: '在职',
-    PROBATION: '试用期',
-    LEAVE: '休假中',
-    SUSPENDED: '停职',
-    TERMINATED: '已离职',
-    PENDING: '待处理',
-    IN_APPROVAL: '审批中',
-    APPROVED: '已批准',
-    REJECTED: '已驳回',
-  }
-  return labels[value] ?? `其他状态`
+  return translate('reporting', 'reportStatus', value, '其他状态').label
 }
 
 void load()
@@ -240,21 +230,18 @@ void load()
             </div>
 
             <div v-else class="report-table-wrap">
-              <table class="report-table">
-                <caption class="visually-hidden">{{ result.title }}明细</caption>
-                <thead>
-                  <tr>
-                    <th v-for="column in result.columns" :key="column.key" scope="col">{{ column.label }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, index) in result.rows" :key="index" data-testid="report-row">
-                    <td v-for="column in result.columns" :key="column.key">
-                      {{ cellText(row[column.key] ?? null, column.key) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <el-table :data="result.rows" class="report-table" data-testid="report-table">
+                <el-table-column
+                  v-for="column in result.columns"
+                  :key="column.key"
+                  :label="column.label"
+                  :min-width="140"
+                >
+                  <template #default="{ row }">
+                    {{ cellText(row[column.key] ?? null, column.key) }}
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
 
             <div class="panel__footer">

@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { resourceGet, resourcePut } from '@/api/resourceClient'
 import { useSessionStore } from '@/stores/session'
-import { FIELD_PROFILE_LABEL } from '@/utils/status'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import { nextIdempotencyKey, rowText, rowsFrom, type PlatformRow } from '../platformRead'
 
-type FieldProfile = 'P0_PUBLIC' | 'P1_INTERNAL' | 'P2_SENSITIVE' | 'P3_RESTRICTED'
+const PROFILES = [
+  DISPLAY_CODES.fieldProfile.p0Public,
+  DISPLAY_CODES.fieldProfile.p1Internal,
+  DISPLAY_CODES.fieldProfile.p2Sensitive,
+  DISPLAY_CODES.fieldProfile.p3Restricted,
+] as const
+type FieldProfile = (typeof PROFILES)[number]
 type ProfileAccess = { visible: string; editable: string; exportable: string }
 
-const PROFILES: FieldProfile[] = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_RESTRICTED']
-
 const ACCESS: Record<FieldProfile, ProfileAccess> = {
-  P0_PUBLIC: { visible: '可见', editable: '可编辑', exportable: '可导出' },
-  P1_INTERNAL: { visible: '可见（内部）', editable: '可编辑', exportable: '需导出能力' },
-  P2_SENSITIVE: { visible: '遮罩', editable: '不可编辑', exportable: '禁止导出' },
-  P3_RESTRICTED: { visible: '不可见（P3 持有者除外）', editable: '不可编辑', exportable: '禁止导出' },
+  [DISPLAY_CODES.fieldProfile.p0Public]: { visible: '可见', editable: '可编辑', exportable: '可导出' },
+  [DISPLAY_CODES.fieldProfile.p1Internal]: { visible: '可见（内部）', editable: '可编辑', exportable: '需导出能力' },
+  [DISPLAY_CODES.fieldProfile.p2Sensitive]: { visible: '遮罩', editable: '不可编辑', exportable: '禁止导出' },
+  [DISPLAY_CODES.fieldProfile.p3Restricted]: { visible: '不可见（P3 持有者除外）', editable: '不可编辑', exportable: '禁止导出' },
 }
 
 const BUSINESS_OBJECT_LABELS: Record<string, string> = {
@@ -40,16 +45,12 @@ const fieldErrors = ref<Record<string, string[]>>({})
 const drafts = ref<Record<string, FieldProfile>>({})
 const confirmKey = ref('')
 
-const FIELD_ERROR_LABELS: Record<string, string> = {
-  field_profile: '字段档位',
-  field_key: '字段',
-}
 
 const rows = computed(() =>
   policies.value.map((row) => {
     const fieldKey = rowText(row, 'field_key', '')
     const businessObject = fieldKey.split('.')[0] ?? ''
-    const current = rowText(row, 'profile', 'P0_PUBLIC') as FieldProfile
+    const current = rowText(row, 'profile', DISPLAY_CODES.fieldProfile.p0Public) as FieldProfile
     return {
       fieldKey,
       businessObject,
@@ -78,6 +79,15 @@ function changeHistory(row: PlatformRow): HistoryEntry[] {
     .slice(0, 5)
 }
 
+const fieldPolicyColumns: DataTableColumn[] = [
+  { key: 'fieldKey', label: '字段键 / 当前档位', minWidth: '210px' },
+  { key: 'scope', label: '影响范围', minWidth: '230px' },
+  { key: 'canTighten', label: '可收紧', minWidth: '120px' },
+  { key: 'target', label: '目标档位', width: '140px' },
+  { key: 'history', label: '变更历史', minWidth: '250px' },
+  { key: 'actions', label: '操作', width: '150px' },
+]
+
 const groups = computed(() => {
   const grouping = new Map<string, { key: string; label: string; rows: typeof rows.value }>()
   for (const row of rows.value) {
@@ -92,6 +102,12 @@ const groups = computed(() => {
   return [...grouping.values()].sort((left, right) => left.label.localeCompare(right.label))
 })
 
+type FieldPolicyRow = (typeof rows.value)[number]
+
+function fieldPolicyRow(row: Record<string, unknown>): FieldPolicyRow {
+  return row as unknown as FieldPolicyRow
+}
+
 const confirmRow = computed(() => rows.value.find((row) => row.fieldKey === confirmKey.value) ?? null)
 const beforeAccess = computed(() => (confirmRow.value === null ? null : ACCESS[confirmRow.value.current]))
 const afterAccess = computed(() => {
@@ -101,7 +117,7 @@ const afterAccess = computed(() => {
 })
 
 function profileText(profile: string): string {
-  return FIELD_PROFILE_LABEL[profile as keyof typeof FIELD_PROFILE_LABEL] ?? profile
+  return translate('platform', 'fieldProfile', profile, '未知字段档位').label
 }
 
 function targetProfile(row: (typeof rows.value)[number]): FieldProfile {
@@ -117,18 +133,9 @@ function setDraft(row: (typeof rows.value)[number], value: string): void {
 }
 
 function isProfile(value: string): value is FieldProfile {
-  return (PROFILES as string[]).includes(value)
+  return (PROFILES as readonly string[]).includes(value)
 }
 
-function requestedProfileError(fieldKey: string): string {
-  if (fieldErrors.value.field_profile !== undefined) {
-    return `字段档位（${FIELD_ERROR_LABELS.field_profile}）未通过服务端校验，请选择更严格或相同的档位。`
-  }
-  if (fieldErrors.value.field_key !== undefined) {
-    return `字段（${fieldKey}）未在代码敏感字段清单中登记。`
-  }
-  return '字段策略未通过服务端校验。'
-}
 
 function clearFeedback(): void {
   message.value = ''
@@ -230,71 +237,70 @@ onMounted(load)
         <h2 class="panel__title">{{ group.label }}</h2>
         <span class="plain-chip">{{ group.rows.length }} 个字段</span>
       </div>
-      <div class="platform-table-wrap">
-        <table class="platform-table">
-          <caption class="visually-hidden">{{ group.label }}字段策略</caption>
-          <thead>
-            <tr>
-              <th scope="col">字段键 / 当前档位</th>
-              <th scope="col">影响范围</th>
-              <th scope="col">可收紧</th>
-              <th scope="col">目标档位</th>
-              <th scope="col">变更历史</th>
-              <th scope="col">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in group.rows" :key="row.fieldKey" :data-testid="`field-policy-row-${row.fieldKey}`">
-              <td>
-                <div class="mono">{{ row.fieldKey }}</div>
-                <div class="small">当前：{{ profileText(row.current) }} · 声明：{{ profileText(row.declared) }}</div>
-              </td>
-              <td class="small">
-                影响所有持有该字段读取能力的角色与授权绑定；读取、写入、导出统一裁剪。
-                <div v-if="row.declared === row.current && !row.canTighten" class="muted">该字段已处于声明上限。</div>
-              </td>
-              <td>{{ row.canTighten ? '可继续收紧' : '已达声明档位' }}</td>
-              <td>
-                <select
-                  :value="targetProfile(row)"
-                  :disabled="!canManage"
-                  :data-testid="`field-policy-profile-${row.fieldKey}`"
-                  @change="setDraft(row, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option v-for="profile in PROFILES" :key="profile" :value="profile">{{ profileText(profile) }}</option>
-                </select>
-              </td>
-              <td class="small">
-                <ul v-if="row.history.length > 0">
-                  <li v-for="entry in row.history" :key="`${entry.changedAt}-${entry.to}`">
-                    {{ entry.changedAt }}
-                    <span class="mono">{{ profileText(entry.from) }} → {{ profileText(entry.to) }}</span>
-                    {{ entry.actor === '' ? '' : `· ${entry.actor}` }}
-                  </li>
-                </ul>
-                <span v-else class="muted">暂无变更历史（接口未返回）。</span>
-              </td>
-              <td>
-                <button
-                  type="button"
-                  :disabled="!canManage"
-                  :data-testid="`field-policy-save-${row.fieldKey}`"
-                  @click="requestSave(row)"
-                >
-                  预览并保存
-                </button>
-                <p
-                  v-if="(fieldErrors.field_profile !== undefined || fieldErrors.field_key !== undefined) && confirmKey === row.fieldKey"
-                  class="inline-error"
-                  :data-testid="`field-policy-field-error-${row.fieldKey}`"
-                >
-                  {{ requestedProfileError(row.fieldKey) }}
-                </p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        :columns="fieldPolicyColumns"
+        :rows="group.rows as unknown as Array<Record<string, unknown>>"
+        :total="group.rows.length"
+        :page="1"
+        :page-size="Math.max(1, group.rows.length)"
+        data-testid="field-policy-table"
+        empty-title="没有返回字段策略"
+      >
+        <template #cell-fieldKey="{ row }">
+          <div class="mono">{{ row.fieldKey }}</div>
+          <div class="small">当前：{{ profileText(String(row.current)) }} · 声明：{{ profileText(String(row.declared)) }}</div>
+        </template>
+        <template #cell-scope>
+          影响所有持有该字段读取能力的角色与授权绑定；读取、写入、导出统一裁剪。
+        </template>
+        <template #cell-canTighten="{ row }">
+          {{ row.canTighten ? '可继续收紧' : '已达声明档位' }}
+        </template>
+        <template #cell-target="{ row }">
+          <el-select
+            :model-value="targetProfile(fieldPolicyRow(row))"
+            :disabled="!canManage"
+            :data-testid="`field-policy-profile-${String(row.fieldKey)}`"
+            @change="setDraft(fieldPolicyRow(row), String($event))"
+          >
+            <el-option
+              v-for="profile in PROFILES"
+              :key="profile"
+              :value="profile"
+              :label="profileText(profile)"
+            />
+          </el-select>
+        </template>
+        <template #cell-history="{ row }">
+          <div class="small">
+            <ul v-if="(fieldPolicyRow(row).history).length > 0">
+              <li v-for="entry in fieldPolicyRow(row).history" :key="`${entry.changedAt}-${entry.to}`">
+                {{ entry.changedAt }}
+                <span class="mono">{{ profileText(entry.from) }} → {{ profileText(entry.to) }}</span>
+                {{ entry.actor === '' ? '' : `· ${entry.actor}` }}
+              </li>
+            </ul>
+            <span v-else class="muted">暂无变更历史（接口未返回）。</span>
+          </div>
+        </template>
+        <template #cell-actions="{ row }">
+          <button
+            type="button"
+            :disabled="!canManage"
+            :data-testid="`field-policy-save-${String(row.fieldKey)}`"
+            @click="requestSave(fieldPolicyRow(row))"
+          >
+            预览并保存
+          </button>
+          <p
+            v-if="(fieldErrors.field_profile !== undefined || fieldErrors.field_key !== undefined) && confirmKey === row.fieldKey"
+            class="inline-error"
+            :data-testid="`field-policy-field-error-${String(row.fieldKey)}`"
+          >
+            字段档位未通过服务端校验，请选择更严格或相同的档位。
+          </p>
+        </template>
+      </DataTable>
     </section>
 
     <section v-if="confirmRow" class="panel" :data-testid="`field-policy-confirm-${confirmRow.fieldKey}`">

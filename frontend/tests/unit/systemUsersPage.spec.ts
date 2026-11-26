@@ -121,7 +121,6 @@ async function mountPage(capabilities = ALL_CAPABILITIES) {
         ElDialog: OverlayStub,
         ElDrawer: OverlayStub,
         ElPagination: true,
-        teleport: true,
       },
     },
   })
@@ -308,7 +307,7 @@ describe('system users permissions management', () => {
 
     expect(wrapper.find('[data-testid="confirm-message"]').text()).toContain('爱丽丝（合成）')
 
-    await wrapper.find('[data-testid="confirm-reason"]').setValue('Synthetic disable')
+    await wrapper.get('[data-testid="confirm-reason"]').setValue('Synthetic disable')
     await wrapper.find('[data-testid="confirm-ok"]').trigger('click')
     await flushPromises()
 
@@ -349,7 +348,7 @@ describe('system users permissions management', () => {
 
     expect(wrapper.find('[data-testid="confirm-message"]').text()).toContain('爱丽丝（合成）')
 
-    await wrapper.find('[data-testid="confirm-reason"]').setValue('Synthetic session reset')
+    await wrapper.get('[data-testid="confirm-reason"]').setValue('Synthetic session reset')
     await wrapper.find('[data-testid="confirm-ok"]').trigger('click')
     await flushPromises()
 
@@ -374,7 +373,7 @@ describe('system users permissions management', () => {
     })
     const wrapper = await mountPage()
 
-    await wrapper.find('[data-testid="filter-status"]').setValue('DISABLED')
+    await wrapper.findComponent('[data-testid="filter-status"]').setValue('DISABLED')
     await flushPromises()
 
     expect(resourceGet).toHaveBeenLastCalledWith(
