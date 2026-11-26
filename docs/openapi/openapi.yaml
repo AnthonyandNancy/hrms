@@ -6979,6 +6979,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: iam.session.manage
+      x-action-label: 申请紧急授权
   /v1/auth/break-glass/{id}/revoke:
     post:
       operationId: revokeBreakGlass
@@ -7014,6 +7015,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 撤销紧急授权
   /v1/auth/events:
     get:
       operationId: listAuthEvents
@@ -7133,6 +7135,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 退出登录
   /v1/auth/logout-all:
     post:
       operationId: logoutAll
@@ -7162,6 +7165,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 退出全部会话
   /v1/auth/mfa/challenge:
     post:
       operationId: completeMfaChallenge
@@ -7258,6 +7262,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 完成二次验证
   /v1/auth/mfa/totp/confirm:
     post:
       operationId: confirmTotp
@@ -7305,6 +7310,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 确认动态口令
   /v1/auth/mfa/totp/enroll:
     post:
       operationId: enrollTotp
@@ -7334,6 +7340,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 绑定动态口令
   /v1/auth/password:
     post:
       operationId: changePassword
@@ -7382,6 +7389,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 修改密码
   /v1/auth/webauthn/assert/options:
     post:
       operationId: webauthnAssertOptions
@@ -7411,6 +7419,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 发起安全密钥验证
   /v1/auth/webauthn/register/options:
     post:
       operationId: webauthnRegisterOptions
@@ -7440,6 +7449,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 注册安全密钥
   /v1/benefits/enrollments:
     get:
       operationId: benefitsEnrollmentsIndex
@@ -7547,6 +7557,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 登记社保基数调整
   /v1/benefits/plans:
     get:
       operationId: benefitsPlansIndex
@@ -7660,6 +7671,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 新增福利方案版本
   /v1/benefits/transactions:
     get:
       operationId: benefitsTransactionsIndex
@@ -7769,6 +7781,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 登记福利缴款
   /v1/bindings/{id}:
     delete:
       operationId: deleteBinding
@@ -7806,6 +7819,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.binding.manage
+      x-action-label: 撤销授权绑定
   /v1/capabilities:
     get:
       operationId: listCapabilities
@@ -7933,6 +7947,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.create
+      x-action-label: 发起审批事项
   /v1/cases/{caseId}/decisions:
     post:
       operationId: workflowDecisionsStore
@@ -7999,6 +8014,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/DecisionResult"
       x-capability: workflow.case.decide
+      x-action-label: 提交审批决定
   /v1/cases/{id}:
     get:
       operationId: workflowCasesShow
@@ -8067,6 +8083,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
       x-capability: workflow.case.create
+      x-action-label: 提交审批事项
   /v1/cases/{id}/timeline:
     get:
       operationId: workflowCasesTimeline
@@ -8135,6 +8152,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
       x-capability: workflow.case.create
+      x-action-label: 撤回审批事项
   /v1/contract-templates:
     get:
       operationId: listContractTemplates
@@ -8231,6 +8249,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.template.manage
+      x-action-label: 新增合同模板版本
   /v1/contract-templates/{id}/publish:
     post:
       operationId: publishContractTemplate
@@ -8265,6 +8284,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.template.manage
+      x-action-label: 发布合同模板
   /v1/delegations:
     post:
       operationId: workflowDelegationsStore
@@ -8320,6 +8340,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.decide
+      x-action-label: 新增审批委托
   /v1/delegations/{id}:
     delete:
       operationId: workflowDelegationsDestroy
@@ -8353,6 +8374,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/DelegationRevocationData"
       x-capability: workflow.case.decide
+      x-action-label: 撤销审批委托
   /v1/departments:
     get:
       operationId: listDepartments
@@ -8540,6 +8562,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 调入部门成员
       parameters:
         - name: id
           in: path
@@ -8617,6 +8640,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 删除员工附件
   /v1/documents/{document_id}/content:
     get:
       tags:
@@ -8790,6 +8814,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
       x-capability: workflow.case.admin
+      x-action-label: 重试审批副作用
   /v1/employees:
     get:
       tags:
@@ -8911,6 +8936,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工证书
       parameters:
         - name: employmentId
           in: path
@@ -8981,6 +9007,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑员工证书
       parameters:
         - name: employmentId
           in: path
@@ -9097,6 +9124,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9150,6 +9178,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9207,6 +9236,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 提交员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9289,6 +9319,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增紧急联系人
       parameters:
         - name: employmentId
           in: path
@@ -9353,6 +9384,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑紧急联系人
       parameters:
         - name: employmentId
           in: path
@@ -9463,6 +9495,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增教育经历
       parameters:
         - name: employmentId
           in: path
@@ -9531,6 +9564,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑教育经历
       parameters:
         - name: employmentId
           in: path
@@ -9645,6 +9679,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增工作经历
       parameters:
         - name: employmentId
           in: path
@@ -9713,6 +9748,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑工作经历
       parameters:
         - name: employmentId
           in: path
@@ -9827,6 +9863,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 导入员工资料
       parameters:
         - name: employmentId
           in: path
@@ -9881,6 +9918,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 更新导入记录
       parameters:
         - name: employmentId
           in: path
@@ -9996,6 +10034,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.archive
+      x-action-label: 归档员工
   /v1/employees/{employment_id}/restore:
     post:
       operationId: restoreEmployee
@@ -10032,6 +10071,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.restore
+      x-action-label: 恢复员工
   /v1/employees/{employment_id}/onboarding-checklist:
     get:
       operationId: lifecycleOnboardingChecklist
@@ -10105,6 +10145,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.delete
+      x-action-label: 删除劳动合同
   /v1/employment-contracts/{id}/restore:
     post:
       operationId: restoreEmploymentContract
@@ -10144,6 +10185,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.restore
+      x-action-label: 恢复劳动合同
   /v1/employment-contracts/{id}/amendments:
     get:
       operationId: listEmploymentContractAmendments
@@ -10273,6 +10315,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.amend
+      x-action-label: 新增合同变更
   /v1/employment-contracts/{id}/terminate:
     post:
       operationId: terminateEmploymentContract
@@ -10324,6 +10367,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.terminate
+      x-action-label: 终止劳动合同
   /v1/employments:
     post:
       tags:
@@ -10358,6 +10402,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工
   /v1/employments/contracts:
     get:
       operationId: listEmploymentContractLedger
@@ -10533,6 +10578,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 签订劳动合同
       parameters:
         - name: employmentId
           in: path
@@ -10671,6 +10717,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.assignment.manage
+      x-action-label: 新增任职记录
   /v1/employments/{employment_id}/document-files:
     get:
       tags:
@@ -10785,6 +10832,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.document.read
+      x-action-label: 上传员工附件
   /v1/employments/{employment_id}/documents:
     post:
       tags:
@@ -10824,6 +10872,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 关联员工附件
   /v1/employments/{employment_id}/terms:
     post:
       tags:
@@ -10870,6 +10919,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 新增合同条款
   /v1/employments/{employment_id}/timeline:
     get:
       tags:
@@ -10978,6 +11028,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 转移员工主体
   /v1/engagement/notice-templates:
     get:
       operationId: engagementNoticeTemplatesIndex
@@ -11060,6 +11111,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 发布公告模板
   /v1/engagement/notices:
     get:
       operationId: engagementNoticesIndex
@@ -11152,6 +11204,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 发布公告
   /v1/engagement/notices/archive:
     get:
       operationId: engagementNoticesArchiveIndex
@@ -11256,6 +11309,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: engagement.notice.read
+      x-action-label: 确认已读公告
   /v1/engagement/notices/{notice}/archive:
     post:
       operationId: engagementNoticesArchive
@@ -11303,6 +11357,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 归档公告
   /v1/engagement/notices/{notice}/audience:
     get:
       operationId: engagementNoticesAudience
@@ -11388,6 +11443,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.publish
+      x-action-label: 审批公告
   /v1/engagement/notices/{notice}/publish:
     post:
       operationId: engagementNoticesPublish
@@ -11422,6 +11478,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.publish
+      x-action-label: 发布已审公告
   /v1/engagement/notices/{notice}/reads:
     get:
       operationId: engagementNoticesReads
@@ -11554,6 +11611,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 恢复公告
   /v1/engagement/notices/{notice}/retract:
     post:
       operationId: engagementNoticesRetract
@@ -11582,6 +11640,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 撤回公告
   /v1/engagement/notices/{notice}/submit:
     post:
       operationId: engagementNoticesSubmit
@@ -11616,6 +11675,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 提交公告审批
   /v1/engagement/notifications:
     get:
       operationId: engagementNotificationsIndex
@@ -11664,6 +11724,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notification.read
+      x-action-label: 标记通知已读
   /v1/health:
     get:
       operationId: getHealth
@@ -12000,6 +12061,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request
+      x-action-label: 兼容入口申请请假
   /v1/leave/requests/{caseId}/cancel:
     post:
       operationId: leaveRequestsCancelAlias
@@ -12047,6 +12109,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request.cancel
+      x-action-label: 兼容入口撤销请假
   /v1/lifecycle/cases:
     get:
       tags: [Lifecycle]
@@ -12137,6 +12200,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.contract.manage
+      x-action-label: 发起合同续签
   /v1/lifecycle/offboardings:
     post:
       operationId: lifecycleOffboardingStore
@@ -12157,6 +12221,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.offboard.manage
+      x-action-label: 发起离职流程
   /v1/lifecycle/onboarding:
     post:
       operationId: lifecycleOnboardingStore
@@ -12177,6 +12242,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.onboarding.manage
+      x-action-label: 发起入职流程
   /v1/lifecycle/probation-confirmations:
     post:
       operationId: lifecycleProbationConfirmationStore
@@ -12197,6 +12263,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.probation.manage
+      x-action-label: 发起转正流程
   /v1/lifecycle/rehires:
     post:
       operationId: lifecycleRehireStore
@@ -12217,6 +12284,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.rehire.manage
+      x-action-label: 发起返聘流程
   /v1/lifecycle/salary-changes:
     post:
       operationId: lifecycleSalaryChangeStore
@@ -12237,6 +12305,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.terms.manage
+      x-action-label: 发起调薪流程
   /v1/lifecycle/secondments:
     get:
       operationId: lifecycleSecondmentsIndex
@@ -12365,6 +12434,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.secondment.manage
+      x-action-label: 发起借调安排
   /v1/lifecycle/transfers:
     post:
       operationId: lifecycleTransferStore
@@ -12385,6 +12455,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.transfer.manage
+      x-action-label: 发起调岗流程
   /v1/me:
     get:
       operationId: getMe
@@ -12578,6 +12649,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.template.manage
+      x-action-label: 新增通知模板
   /v1/notifications/deliveries:
     get:
       operationId: listNotificationDeliveries
@@ -12652,6 +12724,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.delivery.manage
+      x-action-label: 重试通知发送
   /v1/notifications/dispatch:
     post:
       operationId: dispatchNotification
@@ -12702,6 +12775,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.delivery.manage
+      x-action-label: 发送通知
   /v1/onboarding-tasks/{id}:
     patch:
       operationId: lifecycleOnboardingTaskUpdate
@@ -12730,6 +12804,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.checklist.manage
+      x-action-label: 完成入职任务
   /v1/org-units:
     post:
       tags:
@@ -12769,6 +12844,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 新增部门
   /v1/org-units/tree:
     get:
       tags:
@@ -12895,6 +12971,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 移动部门
   /v1/overtime/records/{recordId}/settlements:
     post:
       operationId: settleOvertimeRecord
@@ -12952,6 +13029,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.settle
+      x-action-label: 结算加班
   /v1/payroll/adjustments:
     get:
       operationId: payrollAdjustmentsIndex
@@ -13035,6 +13113,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.salary-adjustment.manage
+      x-action-label: 应用调薪调整
   /v1/payroll/employee-plans:
     get:
       operationId: payrollEmployeePlansIndex
@@ -13118,6 +13197,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.compensation.manage
+      x-action-label: 新增薪资档案版本
   /v1/payroll/items:
     get:
       operationId: payrollv1_payroll_items_get
@@ -13171,6 +13251,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增薪资项目
   /v1/payroll/payslips:
     get:
       operationId: payrollv1_payroll_payslips_get
@@ -13284,6 +13365,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增工资批次
   /v1/payroll/runs/{id}:
     get:
       operationId: payrollv1_payroll_runs_id_get
@@ -13352,6 +13434,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.approve
+      x-action-label: 审批工资批次
   /v1/payroll/runs/{id}/calculate:
     post:
       operationId: payrollv1_payroll_runs_id_calculate_post
@@ -13387,6 +13470,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollCalculationResultEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 试算工资批次
   /v1/payroll/runs/{id}/cancel:
     post:
       operationId: payrollv1_payroll_runs_id_cancel_post
@@ -13422,6 +13506,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 取消工资批次
   /v1/payroll/runs/{id}/close:
     post:
       operationId: payrollv1_payroll_runs_id_close_post
@@ -13457,6 +13542,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.close
+      x-action-label: 关闭工资批次
   /v1/payroll/runs/{id}/corrections:
     post:
       operationId: payrollv1_payroll_runs_id_corrections_post
@@ -13490,6 +13576,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.correct
+      x-action-label: 创建冲正批次
   /v1/payroll/runs/{id}/employees:
     get:
       operationId: payrollv1_payroll_runs_id_employees_get
@@ -13656,6 +13743,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 锁定计薪数据
   /v1/payroll/runs/{id}/mark-paid:
     post:
       operationId: payrollv1_payroll_runs_id_mark_paid_post
@@ -13691,6 +13779,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.close
+      x-action-label: 登记工资发放
   /v1/payroll/runs/{id}/publish:
     post:
       operationId: payrollv1_payroll_runs_id_publish_post
@@ -13726,6 +13815,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.publish
+      x-action-label: 发布工资批次
   /v1/payroll/runs/{id}/reconciliation:
     get:
       operationId: payrollv1_payroll_runs_id_reconciliation_get
@@ -13794,6 +13884,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.reopen
+      x-action-label: 重开工资批次
   /v1/payroll/runs/{id}/review:
     post:
       operationId: payrollv1_payroll_runs_id_review_post
@@ -13829,6 +13920,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.review
+      x-action-label: 复核工资批次
   /v1/payroll/schemes:
     get:
       operationId: payrollv1_payroll_schemes_get
@@ -13882,6 +13974,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增薪酬方案
   /v1/payroll/statutory-parameters:
     get:
       operationId: payrollv1_payroll_statutory_parameters_get
@@ -13935,6 +14028,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.parameters.manage
+      x-action-label: 新增社保参数版本
   /v1/performance/calibration:
     get:
       operationId: listPerformanceCalibrations
@@ -14005,6 +14099,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: performance.cycle.manage
+      x-action-label: 新增绩效周期
   /v1/performance/cycles/{id}/publish:
     post:
       operationId: publishPerformanceCycle
@@ -14041,6 +14136,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.result.publish
+      x-action-label: 发布绩效结果
   /v1/performance/feedback:
     get:
       operationId: listPerformanceFeedback
@@ -14119,6 +14215,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.feedback.manage
+      x-action-label: 记录绩效反馈
   /v1/performance/goals:
     get:
       operationId: listPerformanceGoals
@@ -14197,6 +14294,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.goal.manage
+      x-action-label: 设定绩效目标
   /v1/performance/indicators:
     get:
       operationId: listPerformanceIndicators
@@ -14273,6 +14371,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.indicator.manage
+      x-action-label: 新增绩效指标
   /v1/performance/reports:
     get:
       operationId: listPerformanceReports
@@ -14390,6 +14489,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: performance.review.manage
+      x-action-label: 新增绩效评估
   /v1/performance/reviews/{id}/appeals:
     post:
       operationId: performanceReviewsAppealsStore
@@ -14416,6 +14516,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.appeal.manage
+      x-action-label: 发起绩效申诉
   /v1/performance/reviews/{id}/calibration:
     post:
       operationId: calibratePerformanceReview
@@ -14462,6 +14563,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.calibration.manage
+      x-action-label: 校准绩效评估
   /v1/performance/reviews/{id}/submit:
     post:
       operationId: performanceReviewsSubmit
@@ -14488,6 +14590,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.review.submit
+      x-action-label: 提交绩效评估
   /v1/performance/templates:
     get:
       operationId: listPerformanceTemplates
@@ -14548,6 +14651,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.cycle.manage
+      x-action-label: 发布绩效模板
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -14622,6 +14726,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增自然人档案
   /v1/platform/features:
     get:
       operationId: listFeatureFlags
@@ -14688,6 +14793,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: platform.feature.manage
+      x-action-label: 切换功能开关
   /v1/positions:
     get:
       operationId: listPositions
@@ -14765,6 +14871,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.manage
+      x-action-label: 新增岗位
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -14937,6 +15044,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.grade.manage
+      x-action-label: 维护岗位职级
   /v1/positions/{id}:
     get:
       operationId: getPosition
@@ -15001,6 +15109,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.manage
+      x-action-label: 编辑岗位
       parameters:
         - name: id
           in: path
@@ -15142,6 +15251,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.qualification.manage
+      x-action-label: 新增岗位任职要求
   /v1/positions/{id}/staff:
     get:
       operationId: listPositionStaff
@@ -15335,6 +15445,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.import
+      x-action-label: 导入候选人
   /v1/recruitment/candidates/{id}/evaluations:
     get:
       operationId: recruitmentCandidateEvaluationsIndex
@@ -15413,6 +15524,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.evaluation.manage
+      x-action-label: 记录候选人评价
   /v1/recruitment/candidates/{id}/communications:
     get:
       operationId: recruitmentCandidateCommunicationsIndex
@@ -15491,6 +15603,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.communication.manage
+      x-action-label: 记录候选人沟通
   /v1/recruitment/candidates/{id}/talent-pool:
     get:
       operationId: recruitmentCandidateTalentPoolIndex
@@ -15569,6 +15682,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.talent-pool.manage
+      x-action-label: 加入人才库
   /v1/recruitment/candidates/{id}/convert:
     post:
       operationId: recruitmentCandidateConvert
@@ -15620,6 +15734,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.convert
+      x-action-label: 录用转入职
   /v1/recruitment/candidates:
     get:
       operationId: recruitmentCandidatesIndex
@@ -15678,6 +15793,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.manage
+      x-action-label: 新增候选人
   /v1/recruitment/candidates/{id}/interviews:
     post:
       operationId: recruitmentInterviewsStore
@@ -15706,6 +15822,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: recruitment.interview.manage
+      x-action-label: 安排面试
   /v1/recruitment/offers:
     get:
       tags: [Talent]
@@ -15768,6 +15885,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.offer.manage
+      x-action-label: 发起录用审批
   /v1/recruitment/offers/{id}/accept:
     post:
       operationId: recruitmentOffersAccept
@@ -15796,6 +15914,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.offer.accept
+      x-action-label: 接受录用通知
   /v1/recruitment/requisitions:
     get:
       operationId: recruitmentRequisitionsIndex
@@ -15855,6 +15974,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.requisition.manage
+      x-action-label: 发起招聘需求
   /v1/recruitment/requisitions/{id}/openings:
     get:
       operationId: listRequisitionOpenings
@@ -15933,6 +16053,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.requisition.manage
+      x-action-label: 发布招聘岗位
       parameters:
         - name: id
           in: path
@@ -16079,6 +16200,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.definition.manage
+      x-action-label: 保存报表定义
   /v1/reporting/exports:
     post:
       operationId: reportingExportsStore
@@ -16123,6 +16245,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
       x-capability: reporting.export
+      x-action-label: 创建导出任务
     get:
       operationId: reportingExportsIndex
       tags:
@@ -16225,6 +16348,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.report.read
+      x-action-label: 运行报表
   /v1/reporting/subscriptions:
     get:
       operationId: reportingSubscriptionsIndex
@@ -16291,6 +16415,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 新增报表订阅
   /v1/reporting/subscriptions/{subscriptionId}:
     patch:
       operationId: reportingSubscriptionsUpdate
@@ -16338,6 +16463,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 编辑报表订阅
     delete:
       operationId: reportingSubscriptionsDelete
       tags:
@@ -16367,6 +16493,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 删除报表订阅
   /v1/roles:
     get:
       operationId: listRoles
@@ -16436,6 +16563,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 新增角色
   /v1/pages/catalog:
     get:
       operationId: pageCatalogIndex
@@ -16538,6 +16666,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 保存角色页面权限
   /v1/roles/{id}/capabilities:
     put:
       operationId: replaceRoleCapabilities
@@ -16584,6 +16713,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 保存角色动作权限
   /v1/roles/{id}/copy:
     post:
       operationId: copyRole
@@ -16629,6 +16759,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 复制角色
   /v1/system/calendars/{legal_entity_id}/publish:
     post:
       operationId: publishCalendarVersion
@@ -16671,6 +16802,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.calendar.manage
+      x-action-label: 发布工作日历
   /v1/system/data-scopes:
     get:
       operationId: listDataScopePolicies
@@ -16752,6 +16884,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.scope.manage
+      x-action-label: 保存数据范围
   /v1/system/dictionaries:
     get:
       operationId: listDictionaries
@@ -16827,6 +16960,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.dictionary.manage
+      x-action-label: 新增字典项
   /v1/system/dictionaries/{id}:
     patch:
       operationId: updateDictionaryEntry
@@ -16869,6 +17003,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.dictionary.manage
+      x-action-label: 编辑字典项
   /v1/system/field-policies:
     get:
       operationId: listFieldPolicies
@@ -16950,6 +17085,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.field.manage
+      x-action-label: 保存字段策略
   /v1/system/menus:
     get:
       operationId: listMenuOverrides
@@ -17023,6 +17159,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 新增菜单覆盖
   /v1/system/menus/{page_code}:
     patch:
       operationId: updateMenuOverride
@@ -17066,6 +17203,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 编辑菜单覆盖
     delete:
       operationId: deleteMenuOverride
       tags:
@@ -17106,6 +17244,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 删除菜单覆盖
   /v1/system/parameters:
     get:
       operationId: listSystemParameters
@@ -17183,6 +17322,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.parameter.manage
+      x-action-label: 保存系统参数
   /v1/tasks/my:
     get:
       operationId: workflowTasksMine
@@ -17459,6 +17599,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.manage
+      x-action-label: 关闭考勤期间
   /v1/time/attendance/closings/{id}/reopen:
     post:
       operationId: reopenAttendancePeriod
@@ -17508,6 +17649,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.reopen
+      x-action-label: 重开考勤期间
   /v1/time/attendance/corrections:
     post:
       operationId: timeAttendanceCorrectionsStore
@@ -17589,6 +17731,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.correct.request
+      x-action-label: 申请补卡
   /v1/time/attendance/devices:
     get:
       operationId: timeAttendanceDevicesIndex
@@ -17723,6 +17866,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.manage
+      x-action-label: 重算考勤期间
   /v1/time/attendance/rules:
     get:
       operationId: timeAttendanceRulesIndex
@@ -17853,6 +17997,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.rule.manage
+      x-action-label: 发布考勤规则
   /v1/time/attendance/{employment_id}:
     get:
       operationId: timeAttendanceDays
@@ -18371,6 +18516,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.read
+      x-action-label: 预览请假时长
   /v1/time/leave/requests:
     get:
       operationId: timeLeaveRequestsIndex
@@ -18515,6 +18661,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request
+      x-action-label: 申请请假
   /v1/time/leave/requests/{caseId}/cancel:
     post:
       operationId: timeLeaveRequestsCancel
@@ -18577,6 +18724,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request.cancel
+      x-action-label: 撤销请假申请
   /v1/time/leave/types:
     get:
       operationId: timeLeaveTypesIndex
@@ -18777,6 +18925,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.request
+      x-action-label: 申请加班
   /v1/time/overtime/requests/{id}/confirm:
     post:
       operationId: timeOvertimeRequestsConfirm
@@ -18831,6 +18980,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.confirm
+      x-action-label: 确认加班时长
   /v1/time/overtime/timeoff-balances:
     get:
       operationId: timeOvertimeTimeoffBalancesShow
@@ -18958,6 +19108,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.punch.import
+      x-action-label: 导入打卡记录
   /v1/time/shift-schedules:
     get:
       operationId: timeShiftSchedulesIndex
@@ -19111,6 +19262,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.shift.schedule.manage
+      x-action-label: 安排班次
   /v1/time/shifts:
     get:
       operationId: timeShiftsIndex
@@ -19270,6 +19422,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.course.manage
+      x-action-label: 新增培训课程
   /v1/training/enrollments:
     get:
       operationId: trainingEnrollmentsIndex
@@ -19342,6 +19495,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.enrollment.manage
+      x-action-label: 报名培训
   /v1/training/enrollments/{id}/complete:
     post:
       operationId: trainingEnrollmentsComplete
@@ -19384,6 +19538,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.completion.manage
+      x-action-label: 登记培训完成
   /v1/training/exams:
     get:
       operationId: trainingExamsIndex
@@ -19443,6 +19598,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
+      x-action-label: 新增培训考试
   /v1/training/exams/{id}/publish:
     post:
       operationId: trainingExamsPublish
@@ -19474,6 +19630,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
+      x-action-label: 发布培训考试
   /v1/training/feedback:
     get:
       operationId: trainingFeedbackIndex
@@ -19535,6 +19692,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.feedback.manage
+      x-action-label: 提交培训反馈
   /v1/training/plans:
     get:
       operationId: trainingPlansIndex
@@ -19595,6 +19753,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.plan.manage
+      x-action-label: 新增培训计划
   /v1/training/programs:
     get:
       operationId: trainingProgramsIndex
@@ -19651,6 +19810,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.program.manage
+      x-action-label: 新增培训项目
   /v1/training/records:
     get:
       operationId: trainingRecordsIndex
@@ -19839,6 +19999,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.session.manage
+      x-action-label: 新增培训场次
   /v1/training/sessions/{id}/checkins:
     parameters:
       - name: id
@@ -19916,6 +20077,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.checkin.manage
+      x-action-label: 培训签到
   /v1/travel/expenses:
     get:
       operationId: listTravelExpenses
@@ -20043,6 +20205,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.expense.manage
+      x-action-label: 登记差旅费用
   /v1/travel/policies:
     get:
       operationId: listTravelPolicies
@@ -20174,6 +20337,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.policy.manage
+      x-action-label: 发布差旅政策
   /v1/travel/requests:
     get:
       operationId: listTravelRequests
@@ -20259,6 +20423,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+      x-action-label: 申请出差
   /v1/travel/requests/{id}/approve:
     post:
       operationId: approveTravelRequest
@@ -20321,6 +20486,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.approve
+      x-action-label: 审批出差申请
   /v1/travel/requests/{id}/cancel:
     post:
       operationId: cancelTravelRequest
@@ -20372,6 +20538,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+      x-action-label: 取消出差申请
   /v1/users:
     get:
       operationId: listUsers
@@ -20468,6 +20635,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.user.manage
+      x-action-label: 新增用户
   /v1/users/{id}:
     patch:
       operationId: updateUserStatus
@@ -20527,6 +20695,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.user.manage
+      x-action-label: 编辑用户状态
   /v1/users/{id}/bindings:
     get:
       operationId: listUserBindings
@@ -20652,6 +20821,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.binding.manage
+      x-action-label: 新增授权绑定
   /v1/users/{id}/roles:
     post:
       operationId: assignRole
@@ -20723,6 +20893,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 分配角色
   /v1/users/{id}/permissions-preview:
     get:
       operationId: previewUserPermissions
@@ -20812,6 +20983,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 撤销角色
   /v1/workflow/templates:
     get:
       operationId: workflowTemplatesIndex
@@ -20884,3 +21056,4 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.admin
+      x-action-label: 新增流程模板
