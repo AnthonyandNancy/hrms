@@ -50,9 +50,27 @@ function matureViewExists(componentKey) {
   const router = readFileSync(join(root, 'frontend/src/router/pageComponents.ts'), 'utf8')
   if (router.includes(`'${componentKey}':`)) return true
 
-  // Domain barrels expose one mapping function per domain. The audit verifies
-  // the key is actually present in that domain's catalog/definitions instead
-  // of trusting a static list in pageComponents.ts.
+  // Module page manifests are the canonical one-file-per-page surface. The
+  // loader target must exist on disk; merely naming a key is not enough.
+  const modules = [
+    { prefixes: ['hr/'], manifest: 'frontend/src/modules/people/pages/index.ts', pages: 'frontend/src/modules/people/pages' },
+    { prefixes: ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'], manifest: 'frontend/src/modules/timepay/pages/index.ts', pages: 'frontend/src/modules/timepay/pages' },
+    { prefixes: ['performance/', 'recruitment/', 'training/'], manifest: 'frontend/src/modules/talent/pages/index.ts', pages: 'frontend/src/modules/talent/pages' },
+    { prefixes: ['dashboard/', 'reports/', 'notices/', 'account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'], manifest: 'frontend/src/modules/platform/pages/index.ts', pages: 'frontend/src/modules/platform/pages' },
+  ]
+  const moduleEntry = modules.find((candidate) => candidate.prefixes.some((prefix) => componentKey === prefix || componentKey.startsWith(prefix)))
+  if (moduleEntry !== undefined && existsSync(join(root, moduleEntry.manifest))) {
+    const manifest = readFileSync(join(root, moduleEntry.manifest), 'utf8')
+    const marker = `'${componentKey}': () => import('./`
+    const line = manifest.split(String.fromCharCode(10)).find((candidate) => candidate.trim().startsWith(marker))
+    if (line === undefined) return false
+    const rest = line.trim().slice(marker.length)
+    const closing = rest.indexOf(".vue')")
+    if (closing < 0) return false
+    return existsSync(join(root, moduleEntry.pages, rest.slice(0, closing + 4)))
+  }
+
+  // Legacy barrels remain supported for domains that have not moved yet.
   const domains = [
     { prefixes: ['hr/'], dir: 'frontend/src/views/people' },
     { prefixes: ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'], dir: 'frontend/src/views/timepay' },
@@ -67,7 +85,7 @@ function matureViewExists(componentKey) {
   const sources = readdirSync(directory)
     .filter((name) => name.endsWith('.ts'))
     .map((name) => readFileSync(join(directory, name), 'utf8'))
-    .join('\n')
+    .join(String.fromCharCode(10))
   return sources.includes(`'${componentKey}'`) || sources.includes(`"${componentKey}"`)
 }
 
