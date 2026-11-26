@@ -3277,6 +3277,34 @@ components:
                     enum: [PAGE_NOT_GRANTED, CAPABILITY_NOT_GRANTED, MENU_HIDDEN]
             wildcard: { type: boolean }
         request_id: { type: string }
+    PageCatalogEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          type: object
+          required: [pages, read_only]
+          properties:
+            read_only: { type: boolean, const: true }
+            pages:
+              type: array
+              items:
+                type: object
+                required: [page_code, path, required_capability]
+                properties:
+                  page_code: { type: string }
+                  path: { type: string }
+                  required_capability: { type: string }
+                  menu_group: { type: string }
+                  menu_label: { type: string }
+                  actions:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        request_id: { type: string }
     RoleCapabilityGrant:
       type: object
       required:
@@ -16405,6 +16433,29 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+  /v1/pages/catalog:
+    get:
+      operationId: pageCatalogIndex
+      tags:
+        - IAM Administration
+      summary: Full code-owned page catalogue for the role authorization matrix
+      description: >
+        Returns every page_code, path and required capability. Unlike
+        /v1/me/permissions this is not filtered by the caller's grants.
+      responses:
+        "200":
+          description: Complete page catalogue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageCatalogEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage

@@ -3366,6 +3366,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/pages/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full code-owned page catalogue for the role authorization matrix
+         * @description Returns every page_code, path and required capability. Unlike /v1/me/permissions this is not filtered by the caller's grants.
+         */
+        get: operations["pageCatalogIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/roles/{id}/pages": {
         parameters: {
             query?: never;
@@ -6076,6 +6096,26 @@ export interface components {
                     reason: "PAGE_NOT_GRANTED" | "CAPABILITY_NOT_GRANTED" | "MENU_HIDDEN";
                 }[];
                 wildcard: boolean;
+            };
+            request_id: string;
+        };
+        PageCatalogEnvelope: {
+            /** @constant */
+            code: "OK";
+            message: string;
+            data: {
+                /** @constant */
+                read_only: true;
+                pages: {
+                    page_code: string;
+                    path: string;
+                    required_capability: string;
+                    menu_group?: string;
+                    menu_label?: string;
+                    actions?: {
+                        [key: string]: unknown;
+                    }[];
+                }[];
             };
             request_id: string;
         };
@@ -15089,6 +15129,29 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    pageCatalogIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete page catalogue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageCatalogEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

@@ -1195,6 +1195,12 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
+    'GET /v1/pages/catalog' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'mfa_required'],
+    ],
     'GET /v1/users/{id}/permissions-preview' => [
         'capability' => 'iam.user.read',
         'anchor' => 'COMPANY',

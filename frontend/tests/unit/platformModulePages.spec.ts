@@ -43,6 +43,10 @@ const platformRegistryKeys = PAGE_REGISTRY.map((page) => page.componentKey)
   .filter(isPlatformComponentKey)
   .sort()
 
+// Pages that have a purpose-built module implementation instead of the shared
+// config-driven workspace. They must not regress into the generic shell.
+const DEDICATED_PAGES = new Set(['system/system-users', 'system/system-roles'])
+
 function listResponse(items: unknown[] = []) {
   return { items, page: 1, page_size: 20, total: items.length }
 }
@@ -112,6 +116,10 @@ describe('platform module page split', () => {
     for (const key of platformRegistryKeys) {
       const source = readFileSync(join(pagesDir, filenames.get(key) ?? ''), 'utf8')
       expect(source, key).not.toMatch(/\bcomponentKey\b/)
+      if (DEDICATED_PAGES.has(key)) {
+        expect(source, key).not.toContain('PlatformWorkspace')
+        continue
+      }
       expect(source, key).toContain(`platformPageConfig('${key}')`)
       expect(source, key).toContain('<PlatformWorkspace :config="config" />')
     }
@@ -126,14 +134,19 @@ describe('platform module page split', () => {
     expect(shellSource).toMatch(/defineProps<\{\s+config: PlatformPageConfig\s+\}>/)
   })
 
-  it('passes the users config to the workspace and calls only the users endpoint', async () => {
-    resource.get.mockResolvedValue(listResponse())
+  it('renders the dedicated users page and calls the users and roles endpoints', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/users') return Promise.resolve(listResponse())
+      if (path === '/v1/roles') return Promise.resolve({ roles: [] })
+      return Promise.resolve({})
+    })
 
     const wrapper = await mountPage(SystemUsersPage, '/system/system-users')
 
-    expect(wrapper.get('.platform-workspace').attributes('data-page')).toBe('system/system-users')
-    expect(wrapper.get('h1').text()).toBe('用户管理')
+    expect(wrapper.get('[data-testid="system-users-page"]').exists()).toBe(true)
+    expect(wrapper.get('h1').text()).toBe('用户与角色')
     expect(resource.get).toHaveBeenCalledWith('/v1/users', expect.objectContaining({ page: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/roles')
     expect(wrapper.text()).not.toContain('页面授权树')
     expect(wrapper.text()).not.toContain('日志审计')
   })

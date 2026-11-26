@@ -353,3 +353,4 @@
 | 320 | `POST` | `/v1/employment-contracts/{id}/restore` | `people.contract.restore` | `COMPANY` | kernel | — |
 | 321 | `DELETE` | `/v1/users/{id}/roles/{roleCode}` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 322 | `GET` | `/v1/users/{id}/permissions-preview` | `iam.user.read` | `COMPANY` | kernel | — |
+| 323 | `GET` | `/v1/pages/catalog` | `iam.role.manage` | `COMPANY` | kernel | — |

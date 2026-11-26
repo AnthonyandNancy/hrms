@@ -102,6 +102,14 @@ return [
         ],
         [
             'method' => 'GET',
+            'path' => '/v1/pages/catalog',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'mfa_required'],
+        ],
+        [
+            'method' => 'GET',
             'path' => '/v1/users/{id}/permissions-preview',
             'capability' => 'iam.user.read',
             'anchor' => 'COMPANY',

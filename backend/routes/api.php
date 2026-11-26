@@ -127,6 +127,7 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.copy');
     Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.capabilities.replace');
     Route::get('/roles/{id}/pages', [RolePageController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.index');
+    Route::get('/pages/catalog', [RolePageController::class, 'catalog'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('pages.catalog');
     Route::put('/roles/{id}/pages', [RolePageController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.replace');
     Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('capabilities.index');
 
