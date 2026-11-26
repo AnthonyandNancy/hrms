@@ -12,20 +12,6 @@
             ]
         },
         {
-            "table": "assignments",
-            "rows": 6,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "attendance_corrections",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "attendance_corrections",
             "rows": 0,
             "legacy_columns": [
@@ -40,30 +26,7 @@
             ]
         },
         {
-            "table": "attendance_days",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "attendance_devices",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "attendance_devices",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "attendance_period_closures",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id",
@@ -86,29 +49,8 @@
             ]
         },
         {
-            "table": "attendance_rule_versions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "audit_events",
             "rows": 5,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "audit_events",
-            "rows": 5,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "auth_events",
-            "rows": 16,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -128,30 +70,7 @@
             ]
         },
         {
-            "table": "authority_bindings",
-            "rows": 182,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "benefit_enrollments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "benefit_enrollments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "benefit_plans",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id",
@@ -175,33 +94,10 @@
             ]
         },
         {
-            "table": "benefit_transactions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "break_glass_grants",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
-            ]
-        },
-        {
-            "table": "break_glass_grants",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "business_trip_records",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
             ]
         },
         {
@@ -218,26 +114,9 @@
             "legacy_columns": []
         },
         {
-            "table": "cache",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
             "table": "cache_locks",
             "rows": 0,
             "legacy_columns": []
-        },
-        {
-            "table": "cache_locks",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
-            "table": "candidate_communications",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
         },
         {
             "table": "candidate_communications",
@@ -255,29 +134,7 @@
             ]
         },
         {
-            "table": "candidate_conversions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "candidate_evaluations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "candidate_evaluations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "candidate_imports",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -298,38 +155,12 @@
             ]
         },
         {
-            "table": "candidates",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "capabilities",
-            "rows": 163,
-            "legacy_columns": []
-        },
-        {
             "table": "capabilities",
             "rows": 163,
             "legacy_columns": []
         },
         {
             "table": "case_events",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "case_events",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "case_members",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -350,28 +181,9 @@
             ]
         },
         {
-            "table": "cases",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "company_profile",
             "rows": 1,
             "legacy_columns": []
-        },
-        {
-            "table": "company_profile",
-            "rows": 1,
-            "legacy_columns": []
-        },
-        {
-            "table": "contract_templates",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
         },
         {
             "table": "contract_templates",
@@ -388,28 +200,7 @@
             ]
         },
         {
-            "table": "dashboard_snapshots",
-            "rows": 14,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "decisions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "decisions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "demo_datasets",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -430,20 +221,6 @@
             ]
         },
         {
-            "table": "documents",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "effects",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "effects",
             "rows": 0,
             "legacy_columns": [
@@ -452,20 +229,6 @@
         },
         {
             "table": "employee_certificates",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employee_certificates",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employee_change_requests",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -487,29 +250,7 @@
             ]
         },
         {
-            "table": "employee_compensations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "employee_contacts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employee_contacts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employee_educations",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -530,28 +271,7 @@
             ]
         },
         {
-            "table": "employee_experiences",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "employee_import_batches",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employee_import_batches",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employment_contract_versions",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -573,29 +293,7 @@
             ]
         },
         {
-            "table": "employment_contracts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "employment_terms",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employment_terms",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "employment_user_links",
             "rows": 4,
             "legacy_columns": [
                 "tenant_id"
@@ -617,21 +315,6 @@
             ]
         },
         {
-            "table": "employments",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "export_jobs",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "export_jobs",
             "rows": 0,
             "legacy_columns": [
@@ -644,27 +327,8 @@
             "legacy_columns": []
         },
         {
-            "table": "failed_jobs",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
             "table": "feature_flags",
             "rows": 3,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "feature_flags",
-            "rows": 3,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "file_objects",
-            "rows": 0,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -685,29 +349,7 @@
             ]
         },
         {
-            "table": "holidays",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "iam_data_scope_policies",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "iam_data_scope_policies",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "iam_field_policies",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -728,20 +370,6 @@
             ]
         },
         {
-            "table": "idempotency_keys",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "interviews",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "interviews",
             "rows": 0,
             "legacy_columns": [
@@ -754,36 +382,12 @@
             "legacy_columns": []
         },
         {
-            "table": "job_batches",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
-            "table": "jobs",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
             "table": "jobs",
             "rows": 0,
             "legacy_columns": []
         },
         {
             "table": "leave_accounts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "leave_accounts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "leave_balances",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -804,20 +408,6 @@
             ]
         },
         {
-            "table": "leave_ledger_entries",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "leave_request_projections",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "leave_request_projections",
             "rows": 0,
             "legacy_columns": [
@@ -827,20 +417,6 @@
         {
             "table": "leave_types",
             "rows": 3,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "leave_types",
-            "rows": 3,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "legal_entities",
-            "rows": 1,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -861,29 +437,7 @@
             ]
         },
         {
-            "table": "legal_entity_calendars",
-            "rows": 1,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "legal_holds",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "legal_holds",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "lifecycle_intents",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -904,29 +458,8 @@
             ]
         },
         {
-            "table": "lifecycle_tasks",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "login_attempts",
             "rows": 16,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "login_attempts",
-            "rows": 16,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "menu_overrides",
-            "rows": 0,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -946,38 +479,12 @@
             ]
         },
         {
-            "table": "mfa_factors",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "migration_issues",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
             "table": "migration_issues",
             "rows": 0,
             "legacy_columns": []
         },
         {
             "table": "migration_runs",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "migration_runs",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "migration_shadow_rows",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -996,26 +503,7 @@
             "legacy_columns": []
         },
         {
-            "table": "migrations",
-            "rows": 54,
-            "legacy_columns": []
-        },
-        {
             "table": "notice_acknowledgements",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "notice_acknowledgements",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "notice_templates",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1036,28 +524,7 @@
             ]
         },
         {
-            "table": "notices",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "notification_deliveries",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "notification_deliveries",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "notification_outbox",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1078,28 +545,7 @@
             ]
         },
         {
-            "table": "notification_templates",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "notifications",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "notifications",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "offers",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1120,20 +566,6 @@
             ]
         },
         {
-            "table": "onboarding_checklist_templates",
-            "rows": 5,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "org_unit_closure",
-            "rows": 9,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "org_unit_closure",
             "rows": 9,
             "legacy_columns": [
@@ -1149,29 +581,7 @@
             ]
         },
         {
-            "table": "org_units",
-            "rows": 5,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "outbox_events",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "outbox_events",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "overtime_records",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1192,20 +602,6 @@
             ]
         },
         {
-            "table": "overtime_requests",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "overtime_settlements",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "overtime_settlements",
             "rows": 0,
             "legacy_columns": [
@@ -1218,26 +614,7 @@
             "legacy_columns": []
         },
         {
-            "table": "password_reset_tokens",
-            "rows": 0,
-            "legacy_columns": []
-        },
-        {
             "table": "payroll_adjustments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payroll_adjustments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payroll_input_snapshots",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1259,29 +636,7 @@
             ]
         },
         {
-            "table": "payroll_items",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "payroll_receipts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payroll_receipts",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payroll_run_employees",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1303,21 +658,6 @@
             ]
         },
         {
-            "table": "payroll_runs",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "payroll_scheme_items",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "payroll_scheme_items",
             "rows": 0,
             "legacy_columns": [
@@ -1333,29 +673,7 @@
             ]
         },
         {
-            "table": "payroll_schemes",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "payroll_ytd",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payroll_ytd",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "payslip_lines",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1376,28 +694,7 @@
             ]
         },
         {
-            "table": "payslips",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "performance_appeals",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_appeals",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_calibrations",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1418,28 +715,7 @@
             ]
         },
         {
-            "table": "performance_cycles",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "performance_feedback",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_feedback",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_goals",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1460,20 +736,6 @@
             ]
         },
         {
-            "table": "performance_indicators",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_reviews",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "performance_reviews",
             "rows": 0,
             "legacy_columns": [
@@ -1483,20 +745,6 @@
         {
             "table": "performance_templates",
             "rows": 1,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "performance_templates",
-            "rows": 1,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "persons",
-            "rows": 4,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -1517,21 +765,6 @@
             ]
         },
         {
-            "table": "position_grades",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "position_qualifications",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "position_qualifications",
             "rows": 0,
             "legacy_columns": [
@@ -1547,29 +780,7 @@
             ]
         },
         {
-            "table": "positions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "punch_records",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "punch_records",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "recovery_codes",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1591,29 +802,7 @@
             ]
         },
         {
-            "table": "recruitment_requisitions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "report_definitions",
-            "rows": 7,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "report_definitions",
-            "rows": 7,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "report_runs",
             "rows": 7,
             "legacy_columns": [
                 "tenant_id"
@@ -1634,21 +823,6 @@
             ]
         },
         {
-            "table": "report_subscriptions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "reporting_projection_rows",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "reporting_projection_rows",
             "rows": 4,
             "legacy_columns": [
@@ -1658,20 +832,6 @@
         },
         {
             "table": "requisition_openings",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "requisition_openings",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "retention_purge_runs",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1692,18 +852,6 @@
             ]
         },
         {
-            "table": "role_capabilities",
-            "rows": 354,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "role_pages",
-            "rows": 940,
-            "legacy_columns": []
-        },
-        {
             "table": "role_pages",
             "rows": 940,
             "legacy_columns": []
@@ -1713,21 +861,6 @@
             "rows": 14,
             "legacy_columns": [
                 "tenant_id"
-            ]
-        },
-        {
-            "table": "roles",
-            "rows": 14,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "salary_adjustments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
             ]
         },
         {
@@ -1746,20 +879,6 @@
             ]
         },
         {
-            "table": "sessions",
-            "rows": 15,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "shift_assignments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "shift_assignments",
             "rows": 0,
             "legacy_columns": [
@@ -1769,22 +888,6 @@
         {
             "table": "shift_schedules",
             "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "shift_schedules",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "shift_templates",
-            "rows": 1,
             "legacy_columns": [
                 "tenant_id",
                 "legal_entity_id"
@@ -1807,29 +910,7 @@
             ]
         },
         {
-            "table": "statutory_parameters",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
             "table": "stg_assignments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "stg_assignments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "stg_leave_openings",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1850,28 +931,7 @@
             ]
         },
         {
-            "table": "stg_organizations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "stg_payroll_ytd",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "stg_payroll_ytd",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "stg_people",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1892,28 +952,7 @@
             ]
         },
         {
-            "table": "stg_terms",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "sys_dictionaries",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "sys_dictionaries",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "sys_parameters",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1934,28 +973,7 @@
             ]
         },
         {
-            "table": "talent_pool_tags",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "tax_brackets",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "tax_brackets",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "training_checkins",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -1976,28 +994,7 @@
             ]
         },
         {
-            "table": "training_courses",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "training_enrollments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "training_enrollments",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "training_exams",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -2018,29 +1015,8 @@
             ]
         },
         {
-            "table": "training_feedback",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "training_plans",
             "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "training_plans",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "training_programs",
-            "rows": 1,
             "legacy_columns": [
                 "tenant_id"
             ]
@@ -2060,30 +1036,7 @@
             ]
         },
         {
-            "table": "training_sessions",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "travel_expenses",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "travel_expenses",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id",
-                "legal_entity_id"
-            ]
-        },
-        {
-            "table": "travel_policies",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id",
@@ -2106,20 +1059,6 @@
             ]
         },
         {
-            "table": "user_roles",
-            "rows": 5,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "users",
-            "rows": 4,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "users",
             "rows": 4,
             "legacy_columns": [
@@ -2128,20 +1067,6 @@
         },
         {
             "table": "workflow_delegations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "workflow_delegations",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "workflow_instances",
             "rows": 0,
             "legacy_columns": [
                 "tenant_id"
@@ -2162,29 +1087,8 @@
             ]
         },
         {
-            "table": "workflow_tasks",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
             "table": "workflow_template_nodes",
             "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "workflow_template_nodes",
-            "rows": 0,
-            "legacy_columns": [
-                "tenant_id"
-            ]
-        },
-        {
-            "table": "workflow_templates",
-            "rows": 16,
             "legacy_columns": [
                 "tenant_id"
             ]

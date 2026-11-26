@@ -25,11 +25,11 @@
 
 演练在一个与演示库隔离的 `factoryhr_rehearsal` 库上执行；数据来源是把当时的真实库整库克隆（含 171 个旧列），因此演练覆盖的是一份真实的迁移前状态。
 
-- 预检（迁移前）：`connection=mysql`，156 张表，171 个 `tenant_id`/`legal_entity_id` 列实例，`company_profile=1`，`data_disposition=REBUILD`。
+- 预检（迁移前）：`connection=mysql`，156 张表，171 个 `tenant_id`/`legal_entity_id` 列实例（与独立 SQL 计数一致），`company_profile=1`，`data_disposition=REBUILD`。
 - `migrate:fresh --force`：**exit 0**，56 个迁移全部 DONE，含 `000300 migrate_legal_entity_bindings_to_company` 与 `000320 drop_tenant_and_legal_entity_columns`。
 - 预检（迁移后）：`connection=mysql`，**155 张表，0 个旧列实例，`legal_entities` 已不存在，`company_profile=1`**。
 - 迁移套件（MySQL 8.4 上直跑）：`OK (7 tests, 639 assertions)`。
-- 恢复校验：把演练库 dump 后还原到独立库 `factoryhr_restore_check`，得到 **156 张表、0 个旧列**，说明备份→还原路径可用。
+- 恢复校验：把演练库 dump 后还原到独立库 `factoryhr_restore_check`，得到 **155 张表、0 个旧列**，说明备份→还原路径可用。
 
 演练中发现并修复的真实缺陷：`company:preflight` 的 `Schema::getTables()` 在 MySQL 上未限定 schema，会把同实例内的其他数据库（例如恢复副本）当成自己的表来计数，导致删列后仍报 `legal_entities` 不存在。修复为按连接 schema 过滤（SQLite 走 `main` 分支）。
 
