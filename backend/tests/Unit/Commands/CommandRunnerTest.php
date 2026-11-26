@@ -46,7 +46,7 @@ final class CommandRunnerTest extends TestCase
 
     private function principal(): void
     {
-        $principal = new TestPrincipal(tenantId: 1, userId: 10);
+        $principal = new TestPrincipal(userId: 10);
         $this->app->instance(Principal::class, $principal);
         $this->app->make(AuthenticationContext::class)->set($principal);
     }
@@ -210,7 +210,7 @@ final class MutableStateInvariant implements Invariant
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function assert(int $tenantId, array $payload): void
+    public function assert(array $payload): void
     {
         self::$calls++;
 
@@ -225,7 +225,7 @@ final class RejectingInvariant implements Invariant
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function assert(int $tenantId, array $payload): void
+    public function assert(array $payload): void
     {
         throw new ConflictException('Invariant rejected.', ['reason' => 'TEST_INVARIANT']);
     }

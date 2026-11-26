@@ -17,7 +17,7 @@ final class FailClosedAuthorizerTest extends TestCase
 {
     public function test_default_authorizer_denies_unknown_capabilities(): void
     {
-        $principal = new TestPrincipal(tenantId: 1, userId: 7);
+        $principal = new TestPrincipal(userId: 7);
         $authorizer = new DenyAllAuthorizer;
 
         $this->assertFalse($authorizer->allows($principal, 'people.employee.read', AnchorRef::self(), '2026-11-23'));
