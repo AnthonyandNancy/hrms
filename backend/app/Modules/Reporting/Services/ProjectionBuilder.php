@@ -193,7 +193,9 @@ final class ProjectionBuilder
 
     public function recruitmentReason(): ?string
     {
-        return $this->recruitment->unavailableReason();
+        $reason = $this->recruitment->unavailableReason();
+
+        return $reason !== '' ? $reason : null;
     }
 
     public function turnoverAvailable(): bool
