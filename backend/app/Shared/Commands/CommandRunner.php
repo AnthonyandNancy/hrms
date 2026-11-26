@@ -62,7 +62,7 @@ final class CommandRunner
                 scope: 'CMD:'.$definition->name,
                 key: $key,
                 payload: $payload,
-                operation: function () use ($definition, $payload, $operation, $principal): array {
+                operation: function () use ($definition, $payload, $operation): array {
                     foreach ($definition->invariants as $invariantClass) {
                         $invariant = app($invariantClass);
 
