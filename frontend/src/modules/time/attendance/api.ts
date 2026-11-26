@@ -203,15 +203,23 @@ function rangeParams(query: AttendanceDaysQuery): Record<string, unknown> {
   return params
 }
 
-export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): Promise<AttendanceExceptionPage> {
-  // There is no separate exceptions endpoint. Exceptions are exactly the day
-  // rows whose calculation shows late/early/absence/incomplete/leave status, so
-  // they are derived from the same authorised month payload rather than from a
-  // second, weaker API.
-  const period = await getAttendanceDays(query)
+const EXCEPTION_STATUSES = new Set(['LATE', 'EARLY', 'EARLY_LEAVE', 'ABSENT', 'INCOMPLETE'])
+
+/**
+ * There is no separate exceptions endpoint. Exceptions are exactly the day
+ * rows whose calculation shows late/early/absence/incomplete status. Deriving
+ * them from the already-authorised month payload avoids a second read of the
+ * same data and keeps the calendar and exception list on one snapshot.
+ */
+export function exceptionsFromPeriod(period: AttendancePeriod): AttendanceExceptionPage {
   const exceptions = period.days
-    .filter((day) => EXCEPTION_STATUSES.has(day.status) || day.lateMinutes > 0
-      || day.earlyLeaveMinutes > 0 || day.absenceMinutes > 0)
+    .filter(
+      (day) =>
+        EXCEPTION_STATUSES.has(day.status) ||
+        day.lateMinutes > 0 ||
+        day.earlyLeaveMinutes > 0 ||
+        day.absenceMinutes > 0,
+    )
     .map((day) => ({
       // Day rows have no separate exception id; the business date identifies the
       // exception within this employee's calendar.
@@ -219,7 +227,12 @@ export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): 
       businessDate: day.businessDate,
       employeeId: day.employeeId,
       employeeName: period.employeeName,
-      type: day.status,
+      type:
+        day.status === 'PRESENT' && day.lateMinutes > 0
+          ? 'LATE'
+          : day.status === 'PRESENT' && day.earlyLeaveMinutes > 0
+            ? 'EARLY'
+            : day.status,
       status: 'OPEN' as const,
       label: day.exceptionLabel,
       note: null,
@@ -233,7 +246,9 @@ export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): 
   }
 }
 
-const EXCEPTION_STATUSES = new Set(['LATE', 'EARLY', 'ABSENT', 'INCOMPLETE', 'LEAVE'])
+export async function getAttendanceExceptions(query: AttendanceDaysQuery = {}): Promise<AttendanceExceptionPage> {
+  return exceptionsFromPeriod(await getAttendanceDays(query))
+}
 
 export async function requestAttendanceCorrection(
   input: AttendanceCorrectionInput,
@@ -259,21 +274,28 @@ export async function requestAttendanceCorrection(
 }
 
 export async function resolveAttendanceException(
-  exceptionId: number,
+  businessDate: string,
   note: string,
   idempotencyKey: string,
+  employmentId: number | null = null,
 ): Promise<void> {
-  if (!Number.isSafeInteger(exceptionId) || exceptionId < 1) {
-    throw new ApiError('VALIDATION_FAILED', '异常记录缺少有效编号。', { status: 422 })
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+    throw new ApiError('VALIDATION_FAILED', '异常记录缺少有效业务日期。', { status: 422 })
+  }
+  if (note.trim() === '') {
+    throw new ApiError('VALIDATION_FAILED', '处理说明不能为空。', { status: 422 })
   }
 
-  // Resolving an exception is a punch correction, not a separate resource:
-  // post the corrected punches through the audited correction command.
-  await resourcePost<unknown>(
-    '/v1/time/attendance/corrections',
-    { date: '', correctionType: 'WRONG_STATUS', reason: note },
-    { idempotencyKey },
-  )
+  // There is no separate exception resource. Resolving an exception is the
+  // audited attendance correction command, anchored to the real business date.
+  const body: Record<string, unknown> = {
+    date: businessDate,
+    correctionType: 'WRONG_STATUS',
+    reason: note.trim(),
+  }
+  if (employmentId !== null) body.employment_id = employmentId
+
+  await resourcePost<unknown>('/v1/time/attendance/corrections', body, { idempotencyKey })
 }
 
 export function newAttendanceIdempotencyKey(prefix: string): string {

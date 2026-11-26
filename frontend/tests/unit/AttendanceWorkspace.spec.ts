@@ -39,13 +39,17 @@ function day(overrides: Partial<AttendanceDay> = {}): AttendanceDay {
   }
 }
 
-function rawPeriod(days: Record<string, unknown>[] = [rawDay()]): Record<string, unknown> {
+function rawPeriod(
+  days: Record<string, unknown>[] = [rawDay()],
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     month: '2026-11',
     timezone: 'Asia/Shanghai',
     employment_id: 1,
     employee_name: '合成员工',
     days,
+    ...overrides,
   }
 }
 
@@ -94,7 +98,7 @@ async function mountPage(capabilities: string[]): Promise<{ wrapper: ReturnType<
 }
 
 function daysCallCount(): number {
-  return resource.get.mock.calls.filter(([path]) => path === '/v1/time/attendance/days').length
+  return resource.get.mock.calls.filter(([path]) => path === '/v1/time/attendance').length
 }
 
 beforeEach(() => {
@@ -157,7 +161,7 @@ describe('AttendanceWorkspace calendar', () => {
 describe('AttendanceWorkspace correction and exceptions', () => {
   it('uses the API business month, timezone and timezone-aware punch times instead of local time', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/attendance/days') {
+      if (path === '/v1/time/attendance') {
         return Promise.resolve({
           month: '2026-11',
           timezone: 'America/New_York',
@@ -200,7 +204,7 @@ describe('AttendanceWorkspace correction and exceptions', () => {
 
   it('blocks a correction whose reason is shorter than the server minimum', async () => {
     resource.get.mockImplementation((path: string) =>
-      Promise.resolve(path === '/v1/time/attendance/days' ? rawPeriod() : { items: [] }),
+      Promise.resolve(path === '/v1/time/attendance' ? rawPeriod() : { items: [] }),
     )
     const { wrapper } = await mountPage(['time.attendance.read', 'time.attendance.correct.request'])
     await flushPromises()
@@ -247,7 +251,7 @@ describe('AttendanceWorkspace correction and exceptions', () => {
 
   it('submits the correction payload and refetches attendance days after success', async () => {
     resource.get.mockImplementation((path: string) =>
-      Promise.resolve(path === '/v1/time/attendance/days' ? rawPeriod() : { items: [] }),
+      Promise.resolve(path === '/v1/time/attendance' ? rawPeriod() : { items: [] }),
     )
     resource.post.mockResolvedValue({
       accepted: true,
@@ -282,23 +286,22 @@ describe('AttendanceWorkspace correction and exceptions', () => {
     expect(wrapper.text()).toContain('补卡申请已提交：COR-000001')
   })
 
-  it('requires a note and explicit confirmation before resolving an open exception', async () => {
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/attendance/days') return Promise.resolve(rawPeriod())
-      return Promise.resolve({
-        items: [
-          {
-            id: 5,
-            business_date: '2026-11-03',
-            employment_id: 1,
-            employee_name: '合成员工',
-            exception_type: 'MISSING_PUNCH',
-            status: 'OPEN',
-          },
-        ],
-      })
+  it('requires a note and explicit confirmation before submitting an exception correction', async () => {
+    resource.get.mockResolvedValue(rawPeriod([
+      rawDay({
+        business_date: '2026-11-03',
+        status: 'LATE',
+        late_minutes: 12,
+        exception_label: '迟到 12 分钟',
+      }),
+    ]))
+    resource.post.mockResolvedValue({
+      accepted: true,
+      requestNo: 'COR-000002',
+      caseId: 82,
+      correctionId: 92,
+      businessDate: '2026-11-03',
     })
-    resource.post.mockResolvedValue({ resolved: true })
 
     const { wrapper } = await mountPage([
       'time.attendance.read',
@@ -306,19 +309,24 @@ describe('AttendanceWorkspace correction and exceptions', () => {
     ])
     await flushPromises()
 
-    await wrapper.get('[data-testid="exception-resolve-5"]').trigger('click')
-    await wrapper.get('[data-testid="exception-confirm-5"]').trigger('click')
+    await wrapper.get('[data-testid="exception-resolve-2026-11-03"]').trigger('click')
+    await wrapper.get('[data-testid="exception-confirm-2026-11-03"]').trigger('click')
     expect(wrapper.text()).toContain('处理说明不能为空')
     expect(resource.post).not.toHaveBeenCalled()
 
-    expect(wrapper.text()).toContain('确认解决该异常')
-    await wrapper.get('[data-testid="exception-note-5"]').setValue('已核实设备漏卡')
-    await wrapper.get('[data-testid="exception-confirm-5"]').trigger('click')
+    expect(wrapper.text()).toContain('确认提交异常修正')
+    await wrapper.get('[data-testid="exception-note-2026-11-03"]').setValue('已核实设备漏卡')
+    await wrapper.get('[data-testid="exception-confirm-2026-11-03"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
-      '/v1/time/attendance/exceptions/5/resolve',
-      { note: '已核实设备漏卡' },
+      '/v1/time/attendance/corrections',
+      expect.objectContaining({
+        date: '2026-11-03',
+        correctionType: 'WRONG_STATUS',
+        reason: '已核实设备漏卡',
+        employment_id: 1,
+      }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
     expect(daysCallCount()).toBe(2)
@@ -329,7 +337,7 @@ describe('AttendanceWorkspace states and capability guards', () => {
   it('hides correction, resolve and rule controls when their capabilities are absent', async () => {
     resource.get.mockImplementation((path: string) =>
       Promise.resolve(
-        path === '/v1/time/attendance/days'
+        path === '/v1/time/attendance'
           ? rawPeriod()
           : { items: [{ id: 5, business_date: '2026-11-03', exception_type: 'MISSING_PUNCH', status: 'OPEN' }] },
       ),
@@ -358,7 +366,7 @@ describe('AttendanceWorkspace states and capability guards', () => {
   it('renders loading, empty, error and partial states from real API outcomes', async () => {
     let resolveDays: ((value: unknown) => void) | undefined
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/attendance/days') {
+      if (path === '/v1/time/attendance') {
         return new Promise((resolve) => {
           resolveDays = resolve
         })
@@ -374,7 +382,7 @@ describe('AttendanceWorkspace states and capability guards', () => {
 
     resource.get.mockImplementation((path: string) =>
       Promise.resolve(
-        path === '/v1/time/attendance/days'
+        path === '/v1/time/attendance'
           ? { month: '2026-11', timezone: 'Asia/Shanghai', days: [] }
           : { items: [] },
       ),
@@ -385,7 +393,7 @@ describe('AttendanceWorkspace states and capability guards', () => {
     empty.wrapper.unmount()
 
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/attendance/days') {
+      if (path === '/v1/time/attendance') {
         return Promise.reject(new ApiError('INTERNAL', 'synthetic attendance failure', {
           status: 500,
           requestId: 'req-attendance-load',
@@ -399,12 +407,15 @@ describe('AttendanceWorkspace states and capability guards', () => {
     expect(failed.wrapper.text()).toContain('req-attendance-load')
     failed.wrapper.unmount()
 
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/attendance/days') return Promise.resolve(rawPeriod())
-      return Promise.resolve({ items: [], partial: true, partial_reason: '异常列表暂不可用' })
-    })
+    resource.get.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === '/v1/time/attendance'
+          ? rawPeriod([rawDay()], { partial: true, partial_reason: '考勤投影仍在校准中' })
+          : { items: [] },
+      ),
+    )
     const partial = await mountPage(['time.attendance.read'])
     await flushPromises()
-    expect(partial.wrapper.get('[data-testid="attendance-partial"]').text()).toContain('异常列表暂不可用')
+    expect(partial.wrapper.get('[data-testid="attendance-partial"]').text()).toContain('考勤投影仍在校准中')
   })
 })

@@ -5,14 +5,14 @@ import type { AttendanceExceptionRow } from '../api'
 const props = defineProps<{
   exceptions: AttendanceExceptionRow[]
   canResolve: boolean
-  resolvingId: number | null
+  resolvingKey: string | null
 }>()
 
 const emit = defineEmits<{
-  resolve: [exceptionId: number, note: string]
+  resolve: [businessDate: string, note: string]
 }>()
 
-const activeId = ref<number | null>(null)
+const activeKey = ref<string | null>(null)
 const note = ref('')
 const validationMessage = ref('')
 
@@ -35,38 +35,42 @@ function typeLabel(type: string): string {
   return TYPE_LABELS[type] ?? '其他异常'
 }
 
+function exceptionKey(exception: AttendanceExceptionRow): string {
+  return exception.id !== null ? String(exception.id) : exception.businessDate
+}
+
 function isResolvable(exception: AttendanceExceptionRow): boolean {
-  return props.canResolve && exception.id !== null
+  return props.canResolve && exception.businessDate !== ''
 }
 
 function startResolve(exception: AttendanceExceptionRow): void {
-  if (exception.id === null) return
-  activeId.value = exception.id
+  if (exception.businessDate === '') return
+  activeKey.value = exceptionKey(exception)
   note.value = ''
   validationMessage.value = ''
 }
 
 function cancelResolve(): void {
-  activeId.value = null
+  activeKey.value = null
   note.value = ''
   validationMessage.value = ''
 }
 
 function confirmResolve(exception: AttendanceExceptionRow): void {
-  if (exception.id === null) return
+  if (exception.businessDate === '') return
   if (note.value.trim() === '') {
     validationMessage.value = '处理说明不能为空。'
     return
   }
   validationMessage.value = ''
-  emit('resolve', exception.id, note.value.trim())
+  emit('resolve', exception.businessDate, note.value.trim())
 }
 
 watch(
-  () => props.resolvingId,
+  () => props.resolvingKey,
   (value) => {
-    if (value === null && activeId.value !== null && !props.exceptions.some((row) => row.id === activeId.value)) {
-      activeId.value = null
+    if (value === null && activeKey.value !== null && !props.exceptions.some((row) => exceptionKey(row) === activeKey.value)) {
+      activeKey.value = null
       note.value = ''
     }
   },
@@ -88,7 +92,7 @@ watch(
     </p>
 
     <ul v-else class="attendance-exceptions__list">
-      <li v-for="exception in openExceptions" :key="`${exception.id ?? exception.businessDate}-${exception.type}`" class="attendance-exception">
+      <li v-for="exception in openExceptions" :key="`${exceptionKey(exception)}-${exception.type}`" class="attendance-exception">
         <div class="attendance-exception__summary">
           <span class="attendance-exception__date">{{ exception.businessDate }}</span>
           <span class="attendance-exception__type">{{ typeLabel(exception.type) }}</span>
@@ -96,15 +100,15 @@ watch(
           <span v-if="exception.label" class="attendance-exception__label">{{ exception.label }}</span>
         </div>
 
-        <div v-if="activeId === exception.id" class="attendance-exception__resolve">
-          <p class="attendance-exception__confirm-copy">确认解决该异常？处理说明将写入审计记录。</p>
+        <div v-if="activeKey === exceptionKey(exception)" class="attendance-exception__resolve">
+          <p class="attendance-exception__confirm-copy">确认提交异常修正？处理说明将作为更正原因写入审批记录。</p>
           <label class="attendance-exception__field">
             <span>处理说明</span>
             <textarea
               v-model="note"
               rows="2"
               maxlength="500"
-              :data-testid="`exception-note-${exception.id}`"
+              :data-testid="`exception-note-${exceptionKey(exception)}`"
               placeholder="请填写核实结论或处理依据"
             />
           </label>
@@ -112,17 +116,17 @@ watch(
             {{ validationMessage }}
           </p>
           <div class="attendance-exception__actions">
-            <button type="button" class="attendance-exception__cancel" :disabled="resolvingId !== null" @click="cancelResolve">
+            <button type="button" class="attendance-exception__cancel" :disabled="resolvingKey !== null" @click="cancelResolve">
               取消
             </button>
             <button
               type="button"
               class="attendance-exception__confirm"
-              :disabled="resolvingId !== null"
-              :data-testid="`exception-confirm-${exception.id}`"
+              :disabled="resolvingKey !== null"
+              :data-testid="`exception-confirm-${exceptionKey(exception)}`"
               @click="confirmResolve(exception)"
             >
-              {{ resolvingId === exception.id ? '处理中…' : '确认解决' }}
+              {{ resolvingKey === exceptionKey(exception) ? '处理中…' : '确认提交' }}
             </button>
           </div>
         </div>
@@ -131,7 +135,7 @@ watch(
           v-else-if="isResolvable(exception)"
           type="button"
           class="attendance-exception__trigger"
-          :data-testid="`exception-resolve-${exception.id}`"
+          :data-testid="`exception-resolve-${exceptionKey(exception)}`"
           @click="startResolve(exception)"
         >
           处理

@@ -11,8 +11,8 @@ import AttendanceCalendar from '../components/AttendanceCalendar.vue'
 import AttendanceCorrectionDrawer from '../components/AttendanceCorrectionDrawer.vue'
 import AttendanceExceptionList from '../components/AttendanceExceptionList.vue'
 import {
+  exceptionsFromPeriod,
   getAttendanceDays,
-  getAttendanceExceptions,
   newAttendanceIdempotencyKey,
   resolveAttendanceException,
   type AttendanceExceptionRow,
@@ -30,12 +30,11 @@ const loading = ref(false)
 const loaded = ref(false)
 const period = ref<AttendancePeriod | null>(null)
 const exceptions = ref<AttendanceExceptionPage | null>(null)
-const exceptionError = ref<string | null>(null)
 const actionMessage = ref('')
 const actionError = ref('')
 const correctionOpen = ref(false)
 const correctionDate = ref('')
-const resolvingId = ref<number | null>(null)
+const resolvingKey = ref<string | null>(null)
 
 /**
  * Initial month is intentionally unset: the backend decides the current
@@ -53,13 +52,9 @@ const canManageRules = computed(() => session.can('time.attendance.rule.manage')
 
 const hasDays = computed(() => (period.value?.days.length ?? 0) > 0)
 const empty = computed(() => loaded.value && period.value !== null && !hasDays.value)
-const partial = computed(() => period.value?.partial === true || exceptions.value?.partial === true || exceptionError.value !== null)
+const partial = computed(() => period.value?.partial === true || exceptions.value?.partial === true)
 const partialReason = computed(
-  () =>
-    period.value?.partialReason ??
-    exceptions.value?.partialReason ??
-    exceptionError.value ??
-    '',
+  () => period.value?.partialReason ?? exceptions.value?.partialReason ?? '',
 )
 
 const openExceptions = computed<AttendanceExceptionRow[]>(() =>
@@ -81,7 +76,6 @@ async function load(): Promise<void> {
   actionError.value = ''
   loading.value = true
   loaded.value = false
-  exceptionError.value = null
 
   const query = {
     ...(selectedMonth.value === '' ? {} : { month: selectedMonth.value }),
@@ -90,31 +84,20 @@ async function load(): Promise<void> {
   }
 
   try {
-    period.value = await getAttendanceDays(query)
-    selectedMonth.value = period.value.month !== '' ? period.value.month : selectedMonth.value
+    const nextPeriod = await getAttendanceDays(query)
+    period.value = nextPeriod
+    // Exceptions are a view over the same authorised month snapshot, so the
+    // calendar and the exception list cannot disagree after a refetch.
+    exceptions.value = exceptionsFromPeriod(nextPeriod)
+    if (nextPeriod.month !== '') selectedMonth.value = nextPeriod.month
   } catch (reason) {
     period.value = null
     exceptions.value = null
     pageError.capture(reason)
-    loading.value = false
-    loaded.value = true
-    return
-  }
-
-  try {
-    exceptions.value = await getAttendanceExceptions(query)
-  } catch (reason) {
-    exceptions.value = null
-    exceptionError.value = reason instanceof ApiError ? reasonCopy(reason) : '异常列表暂不可用'
   } finally {
     loading.value = false
     loaded.value = true
   }
-}
-
-function reasonCopy(reason: ApiError): string {
-  const field = Object.values(reason.fieldErrors).flat()[0]
-  return field ?? reason.message ?? '异常列表暂不可用'
 }
 
 function applyFilters(): void {
@@ -134,19 +117,24 @@ function onCorrectionSubmitted(requestNo: string): void {
   void load()
 }
 
-async function resolveException(exceptionId: number, note: string): Promise<void> {
+async function resolveException(businessDate: string, note: string): Promise<void> {
   if (!canResolveException.value) return
   actionError.value = ''
   actionMessage.value = ''
-  resolvingId.value = exceptionId
+  resolvingKey.value = businessDate
   try {
-    await resolveAttendanceException(exceptionId, note, newAttendanceIdempotencyKey('attendance-exception'))
-    actionMessage.value = '考勤异常已解决。'
+    await resolveAttendanceException(
+      businessDate,
+      note,
+      newAttendanceIdempotencyKey('attendance-exception'),
+      period.value?.employmentId ?? null,
+    )
+    actionMessage.value = '异常修正申请已提交，审批通过后由服务端重算。'
     await load()
   } catch (reason) {
     actionError.value = reason instanceof ApiError ? (reason.message || '异常处理未完成。') : '异常处理未完成。'
   } finally {
-    resolvingId.value = null
+    resolvingKey.value = null
   }
 }
 
@@ -251,7 +239,7 @@ onMounted(() => {
           <AttendanceExceptionList
             :exceptions="openExceptions"
             :can-resolve="canResolveException"
-            :resolving-id="resolvingId"
+            :resolving-key="resolvingKey"
             @resolve="resolveException"
           />
         </template>
