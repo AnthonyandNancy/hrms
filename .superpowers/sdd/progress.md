@@ -149,3 +149,14 @@ Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 wi
 - Task 8: complete (6750ccf; real gates red by design, baselined).
 - Task 9: runner complete (4baaa72 + e811cb0 all node tests 70/70); acceptance must be regenerated after Task 4/6 land.
 - Pre-existing frontend gate fixed: pageComponentUniqueness now 15/15 (334c68f, e811cb0).
+
+## Volume 1 CLOSED (2026-11-26)
+- Whole-volume review verdict NEEDS FIXES with 5 blockers; all 5 fixed:
+  1. Generated action manifest wired into registry via actionsForPage(); no second hand-written list; freshness check added and proven by hand-edit (exit 1) and restore (exit 0).
+  2. Manifest reconciled: 15 real page actions across 6 pages, 158 explicitly owned gaps; duplicate API ownership resolved; registry requiredApis mirrored from the backend catalog for the 4 hosted pages.
+  3. Single-company preflight path unified at App\Console\Commands (guards, Volume 2 plan, tests); false-positive violations removed (1929 -> 1927 legacy hits).
+  4. Acceptance record rebuilt with 冻结接口 / 已知失败与归属 / 环境探测 / 严格结论 sections.
+  5. Master §3.1 now points at the real dependency-free pageModel.ts contract; master index marks Volume 1 ✅.
+- Final acceptance: YES — Volume 1 contracts closed; carried gates owned by Volume 2/3.
+- Carried red gates (each owned): backend-phpunit + backend-contract (NoTenantNoLegalEntityTest, V2 Tasks 2/3); audit_page_model / audit_ui_primitives / audit_user_copy (V2 Tasks 6-8, V3 Tasks 2-17).
+- Non-blocking backlog: FormDialog/FormDrawer interaction tests; frontend-registry ↔ backend-catalog requiredApis parity test; exact failing-test-ID reporting in the acceptance runner.
