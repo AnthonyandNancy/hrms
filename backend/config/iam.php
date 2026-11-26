@@ -28,10 +28,10 @@ return [
     ],
 
     'mfa' => [
-        // Set IAM_MFA_ENABLED=true to require a second factor at login and
-        // for high-risk mutations. Disabled by the owner on 2026-11-25:
-        // password-only sign-in is the accepted operating mode for now.
-        'enabled' => env('IAM_MFA_ENABLED', false),
+        // ADR-0038: username + password is the only required login flow.
+        // MFA remains available as an opt-in defence-in-depth control; set
+        // IAM_MFA_ENABLED=true to restore login challenges and step-up.
+        'enabled' => (bool) env('IAM_MFA_ENABLED', false),
         'step_up_minutes' => 15,
         'totp_step_seconds' => 30,
         'totp_window' => 1,

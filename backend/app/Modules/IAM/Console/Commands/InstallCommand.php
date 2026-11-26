@@ -139,25 +139,29 @@ final class InstallCommand extends Command
 
             $this->runStep($report, 'superadmin_baseline', 'iam:verify-superadmin', ['--username' => $username]);
 
-            $factors = MfaFactor::query()->where('user_id', $admin->id)->whereNotNull('confirmed_at')->whereNull('disabled_at')->count();
-
             if (! (bool) config('iam.mfa.enabled', false)) {
-                $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, 'MFA disabled by IAM_MFA_ENABLED=false');
-            } elseif ($factors === 0) {
-                $mfa = app(MfaService::class);
-                $enrollment = $mfa->beginTotpEnrollment($admin);
-                $recoveryCodes = $mfa->confirmTotpEnrollment(
-                    $admin,
-                    (int) $enrollment['factor_id'],
-                    app(\App\Modules\IAM\Services\TotpService::class)->code($enrollment['secret'], $clock->now()->getTimestamp()),
-                );
-
-                $this->line('TOTP secret (printed once): '.$enrollment['secret']);
-                $this->line('otpauth URI: '.$enrollment['otpauth_uri']);
-                $this->line('Recovery codes (printed once): '.implode(', ', $recoveryCodes));
-                $report->record('administrator_mfa', InstallStep::STATUS_CREATED, 'TOTP enrolled');
+                // Password-only is the final production posture. Do not create
+                // a TOTP factor, print a secret or fabricate mfa_enrolled_at.
+                $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, 'administrator_mfa=SKIPPED (IAM_MFA_ENABLED=false)');
             } else {
-                $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, "factors={$factors}");
+                $factors = MfaFactor::query()->where('user_id', $admin->id)->whereNotNull('confirmed_at')->whereNull('disabled_at')->count();
+
+                if ($factors === 0) {
+                    $mfa = app(MfaService::class);
+                    $enrollment = $mfa->beginTotpEnrollment($admin);
+                    $recoveryCodes = $mfa->confirmTotpEnrollment(
+                        $admin,
+                        (int) $enrollment['factor_id'],
+                        app(\App\Modules\IAM\Services\TotpService::class)->code($enrollment['secret'], $clock->now()->getTimestamp()),
+                    );
+
+                    $this->line('TOTP secret (printed once): '.$enrollment['secret']);
+                    $this->line('otpauth URI: '.$enrollment['otpauth_uri']);
+                    $this->line('Recovery codes (printed once): '.implode(', ', $recoveryCodes));
+                    $report->record('administrator_mfa', InstallStep::STATUS_CREATED, 'TOTP enrolled');
+                } else {
+                    $report->record('administrator_mfa', InstallStep::STATUS_SKIPPED, "factors={$factors}");
+                }
             }
 
             $flagNames = [
