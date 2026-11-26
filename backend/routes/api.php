@@ -73,8 +73,6 @@ use App\Modules\Workflow\Http\Controllers\EffectController;
 use App\Modules\Workflow\Http\Controllers\TaskController;
 use App\Modules\Workflow\Http\Controllers\TemplateController;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
-use App\Shared\Authorization\ResolveLegalEntityContext;
-use App\Shared\Authorization\ResolveResourceLegalEntityContext;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -149,8 +147,7 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/system/parameters', [DictionaryAdminController::class, 'parameters'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,COMPANY'])->name('system.parameters.index');
     Route::put('/system/parameters', [DictionaryAdminController::class, 'updateParameter'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,COMPANY'])->name('system.parameters.update');
 
-    Route::post('/system/calendars/{legal_entity_id}/publish', [CalendarAdminController::class, 'publish'])
-        ->whereNumber('legal_entity_id')
+    Route::post('/system/calendars/publish', [CalendarAdminController::class, 'publish'])
         ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:time.calendar.manage,COMPANY'])
         ->name('system.calendars.publish');
 
@@ -395,15 +392,15 @@ Route::prefix('positions')->middleware('auth.session')->group(function (): void 
         ->name('positions.grades.store');
     Route::get('/{id}/requirements', [PositionCatalogController::class, 'requirements'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.qualification.manage,COMPANY'])
+        ->middleware('capability:org.position.qualification.manage,COMPANY')
         ->name('positions.requirements.index');
     Route::post('/{id}/requirements', [PositionCatalogController::class, 'storeRequirements'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'mfa.enrolled', 'capability:org.position.qualification.manage,COMPANY'])
+        ->middleware(['mfa.enrolled', 'capability:org.position.qualification.manage,COMPANY'])
         ->name('positions.requirements.store');
     Route::get('/{id}/staff', [PositionCatalogController::class, 'staff'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.staff.read,COMPANY'])
+        ->middleware('capability:org.position.staff.read,COMPANY')
         ->name('positions.staff.index');
     Route::get('/', [PositionController::class, 'index'])
         ->middleware('capability:org.position.read')
@@ -525,8 +522,7 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.attendance.manage')
         ->name('time.attendance.recalculate');
 
-    Route::get('/calendars/{legal_entity_id}', [TimeCatalogController::class, 'calendar'])
-        ->whereNumber('legal_entity_id')
+    Route::get('/calendars', [TimeCatalogController::class, 'calendar'])
         ->middleware('capability:time.calendar.read')
         ->name('time.calendars.show');
 
@@ -609,7 +605,7 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->name('time.leave.ledger');
 });
 
-Route::prefix('travel')->middleware(['auth.session', 'csrf.header', ResolveLegalEntityContext::class])->group(function (): void {
+Route::prefix('travel')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/requests', [TravelController::class, 'index'])
         ->middleware('capability:time.travel.read')
         ->name('time.travel.requests.index');
@@ -682,7 +678,7 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->middleware('capability:engagement.notice.read')
         ->name('engagement.notices.show');
     Route::post('/notices', [NoticeController::class, 'store'])
-        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,COMPANY'])
+        ->middleware('capability:engagement.notice.manage,COMPANY')
         ->name('engagement.notices.store');
     Route::post('/notices/{notice}/acknowledge', [NoticeController::class, 'acknowledge'])
         ->whereNumber('notice')
@@ -690,7 +686,7 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->name('engagement.notices.acknowledge');
     Route::post('/notices/{notice}/retract', [NoticeController::class, 'retract'])
         ->whereNumber('notice')
-        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,COMPANY'])
+        ->middleware('capability:engagement.notice.manage,COMPANY')
         ->name('engagement.notices.retract');
 
     // Notice approval is a Workflow Case decision, never a status write.
@@ -806,7 +802,7 @@ Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): voi
         ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,COMPANY'])
         ->name('lifecycle.secondments.index');
     Route::post('/secondments', [SecondmentController::class, 'store'])
-        ->middleware([ResolveResourceLegalEntityContext::class.':employment', 'mfa.enrolled', 'capability:lifecycle.secondment.manage,COMPANY'])
+        ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,COMPANY'])
         ->name('lifecycle.secondments.store');
     Route::get('/cases', [LifecycleController::class, 'cases'])
         ->middleware('capability:lifecycle.case.read')
@@ -1246,7 +1242,7 @@ Route::prefix('reporting')->middleware('auth.session')->group(function (): void 
         ->middleware('capability:reporting.report.read')
         ->name('reporting.definitions.index');
     Route::post('/definitions', [ReportingController::class, 'createDefinition'])
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.definition.manage,COMPANY'])
+        ->middleware(['mfa.step-up', 'capability:reporting.definition.manage,COMPANY'])
         ->name('reporting.definitions.store');
     Route::post('/run', [ReportingController::class, 'run'])
         ->middleware('capability:reporting.report.read')
@@ -1255,21 +1251,21 @@ Route::prefix('reporting')->middleware('auth.session')->group(function (): void 
         ->middleware('capability:reporting.subscription.manage')
         ->name('reporting.subscriptions.index');
     Route::post('/subscriptions', [ReportSubscriptionController::class, 'store'])
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
+        ->middleware(['mfa.step-up', 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.store');
     Route::patch('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'update'])
         ->whereNumber('subscriptionId')
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
+        ->middleware(['mfa.step-up', 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.update');
     Route::delete('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'destroy'])
         ->whereNumber('subscriptionId')
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
+        ->middleware(['mfa.step-up', 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.destroy');
     Route::get('/exports', [ReportingController::class, 'exports'])
         ->middleware('capability:reporting.export.read')
         ->name('reporting.exports.index');
     Route::post('/exports', [ReportingController::class, 'createExport'])
-        ->middleware(['throttle:10,1', 'mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.export,COMPANY'])
+        ->middleware(['throttle:10,1', 'mfa.step-up', 'capability:reporting.export,COMPANY'])
         ->name('reporting.exports.store');
     Route::get('/exports/{jobId}/download', [ReportingController::class, 'download'])
         ->whereNumber('jobId')

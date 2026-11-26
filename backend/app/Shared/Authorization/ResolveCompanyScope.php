@@ -11,8 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Attaches the singleton company profile to the request. The profile is
- * configuration, not a data-isolation boundary: no scope selector is
- * scope is resolved, merged or enforced here.
+ * configuration, not a data-isolation boundary: no scope is resolved, merged
+ * or enforced here.
  */
 final class ResolveCompanyScope
 {
