@@ -120,7 +120,6 @@ final class ReportDefinitionTest extends ReportingTestCase
         $this->assertSame($personsBefore, \App\Modules\People\Models\Person::query()->count());
         $this->assertDatabaseHas('report_definitions', [
             'id' => $definitionId,
-            'tenant_id' => 1,
             'code' => 'CUSTOM_HEADCOUNT_A',
             'is_system' => false,
         ]);

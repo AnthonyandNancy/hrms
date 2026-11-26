@@ -13,7 +13,6 @@ use App\Modules\IAM\Contracts\Principal;
 final readonly class ReportSubscriptionPrincipal implements Principal
 {
     public function __construct(
-        private int $tenantId,
         private int $userId,
         private int $authVersion,
     ) {}
@@ -21,11 +20,6 @@ final readonly class ReportSubscriptionPrincipal implements Principal
     public function userId(): int
     {
         return $this->userId;
-    }
-
-    public function tenantId(): int
-    {
-        return $this->tenantId;
     }
 
     public function employmentId(): ?int

@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $title
  * @property string $body
  * @property array<string, mixed> $audience_json
@@ -50,7 +49,6 @@ final class Notice extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'title',
         'body',
         'audience_json',
@@ -78,7 +76,6 @@ final class Notice extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'audience_json' => 'array',
             'publish_at' => 'immutable_datetime',
             'retract_at' => 'immutable_datetime',

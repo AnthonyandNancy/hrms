@@ -16,7 +16,6 @@ final class ExportJob extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'report_code',
         'purpose',
         'fields_json',
@@ -44,7 +43,6 @@ final class ExportJob extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'fields_json' => 'array',
             'filters_json' => 'array',
             'row_count' => 'integer',

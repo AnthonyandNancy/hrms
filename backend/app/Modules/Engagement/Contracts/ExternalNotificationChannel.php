@@ -14,5 +14,5 @@ interface ExternalNotificationChannel
      * @param  list<int>  $userIds
      * @param  array<string, mixed>  $payload  IDs only; never PII.
      */
-    public function notify(int $tenantId, string $type, array $userIds, array $payload): void;
+    public function notify(string $type, array $userIds, array $payload): void;
 }

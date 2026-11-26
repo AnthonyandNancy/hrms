@@ -8,7 +8,7 @@ use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\Organization\Contracts\OrganizationDirectory;
 use App\Modules\People\Contracts\NoticeAudienceDirectory;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 
 final class NoticeAudienceService
 {
@@ -16,16 +16,16 @@ final class NoticeAudienceService
         private readonly OrganizationDirectory $organization,
         private readonly NoticeAudienceDirectory $peopleAudience,
         private readonly UserAudienceDirectory $users,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
      * @param  array<string, mixed>  $input
      * @return array{audience_json: array<string, mixed>, recipients: list<int>, audience_count: int}
      */
-    public function resolve(int $tenantId, array $input, ?string $on = null): array
+    public function resolve(array $input, ?string $on = null): array
     {
-        $businessDate = $this->businessDates->resolve($on, $tenantId);
+        $businessDate = $this->businessDates->resolve($on);
         $date = $businessDate->value();
         $type = strtoupper((string) ($input['audience'] ?? ''));
         $label = trim((string) ($input['audienceLabel'] ?? $input['audience_label'] ?? ''));
@@ -58,20 +58,19 @@ final class NoticeAudienceService
                 );
             }
 
-            $valid = $this->organization->orgUnitIds($tenantId, $orgUnitIds, $date);
+            $valid = $this->organization->orgUnitIds($orgUnitIds, $date);
 
             if (count($valid) !== count($orgUnitIds)) {
                 throw new ValidationException(
-                    ['orgUnitIds' => ['Every audience organization must exist in this tenant and be effective on the business date.']],
+                    ['orgUnitIds' => ['Every audience organization must exist and be effective on the business date.']],
                     'The given data was invalid.',
                     ['reason' => 'AUDIENCE_ORG_INVALID'],
                 );
             }
 
-            $employmentIds = $this->peopleAudience->employmentIdsForOrgUnits($tenantId, $orgUnitIds, $date);
+            $employmentIds = $this->peopleAudience->employmentIdsForOrgUnits($orgUnitIds, $date);
             $recipients = $this->filterActive(
-                $tenantId,
-                $this->peopleAudience->userIdsForEmployments($tenantId, $employmentIds, $date),
+                $this->peopleAudience->userIdsForEmployments($employmentIds, $date),
             );
         } elseif ($type === 'ROLE') {
             if ($roleCodes === []) {
@@ -83,11 +82,10 @@ final class NoticeAudienceService
             }
 
             $recipients = $this->filterActive(
-                $tenantId,
-                $this->users->userIdsWithRoles($tenantId, $roleCodes, $date),
+                $this->users->userIdsWithRoles($roleCodes, $date),
             );
         } else {
-            $recipients = $this->users->activeUserIds($tenantId);
+            $recipients = $this->users->activeUserIds();
         }
 
         return [
@@ -106,22 +104,18 @@ final class NoticeAudienceService
      * @param  array<string, mixed>  $audience
      * @return list<int>
      */
-    public function recipientsForSnapshot(int $tenantId, array $audience, string $businessDate): array
+    public function recipientsForSnapshot(array $audience, string $businessDate): array
     {
         $type = strtoupper((string) ($audience['type'] ?? ''));
 
         return match ($type) {
-            'ALL' => $this->users->activeUserIds($tenantId),
+            'ALL' => $this->users->activeUserIds(),
             'ROLE' => $this->filterActive(
-                $tenantId,
-                $this->users->userIdsWithRoles($tenantId, $this->roleCodes($audience['role_codes'] ?? []), $businessDate),
+                $this->users->userIdsWithRoles($this->roleCodes($audience['role_codes'] ?? []), $businessDate),
             ),
             'ORG' => $this->filterActive(
-                $tenantId,
                 $this->peopleAudience->userIdsForEmployments(
-                    $tenantId,
                     $this->peopleAudience->employmentIdsForOrgUnits(
-                        $tenantId,
                         $this->ids($audience['org_unit_ids'] ?? []),
                         $businessDate,
                     ),
@@ -136,9 +130,9 @@ final class NoticeAudienceService
      * @param  list<int>  $recipients
      * @return list<int>
      */
-    private function filterActive(int $tenantId, array $recipients): array
+    private function filterActive(array $recipients): array
     {
-        $active = array_fill_keys($this->users->activeUserIds($tenantId), true);
+        $active = array_fill_keys($this->users->activeUserIds(), true);
 
         return array_values(array_filter($recipients, static fn (int $id): bool => isset($active[$id])));
     }

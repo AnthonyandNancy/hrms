@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Queue;
 
 final class QueueExportDispatcher implements ExportDispatcher
 {
-    public function dispatch(int $tenantId, int $exportJobId): void
+    public function dispatch(int $exportJobId): void
     {
-        Queue::push(new GenerateExportJob($tenantId, $exportJobId));
+        Queue::push(new GenerateExportJob($exportJobId));
     }
 }

@@ -12,7 +12,6 @@ final class DashboardSnapshot extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'metric_code',
         'as_of',
         'value',
@@ -29,7 +28,6 @@ final class DashboardSnapshot extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'as_of' => 'immutable_date:Y-m-d',
             'value' => 'integer',
             'payload_json' => 'array',

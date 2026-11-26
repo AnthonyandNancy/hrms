@@ -11,19 +11,16 @@ use Illuminate\Console\Command;
 class OpsDemoStateCommand extends Command
 {
     protected $signature = 'ops:demo-state
-        {--tenant=1 : Tenant id}
         {--json : Print JSON}';
 
-    protected $description = 'Summarise demo tenant migration rows for deploy smoke checks';
+    protected $description = 'Summarise demo migration rows for deploy smoke checks';
 
     public function handle(): int
     {
-        $tenantId = (int) $this->option('tenant');
         $rows = [];
 
         foreach (MigrationDomain::cases() as $domain) {
             $run = MigrationRun::query()
-                ->where('tenant_id', $tenantId)
                 ->where('domain', $domain->value)
                 ->where('status', 'APPLIED')
                 ->latest('id')

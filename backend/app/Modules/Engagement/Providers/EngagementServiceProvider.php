@@ -36,7 +36,7 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(\App\Modules\Organization\Contracts\OrganizationDirectory::class),
             $app->make(NoticeAudienceDirectory::class),
             $app->make(UserAudienceDirectory::class),
-            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
         ));
 
         $this->app->bind(NoticeAccessPolicy::class, fn ($app): NoticeAccessPolicy => new NoticeAccessPolicy(
@@ -51,7 +51,7 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(NoticeAudienceService::class),
             $app->make(NoticeAccessPolicy::class),
             $app->make(NotificationService::class),
-            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
 
@@ -68,7 +68,7 @@ final class EngagementServiceProvider extends ServiceProvider
             $app->make(NoticeApprovalPort::class),
             $app->make(\App\Shared\Observability\AuditRecorder::class),
             $app->make(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class),
-            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
     }

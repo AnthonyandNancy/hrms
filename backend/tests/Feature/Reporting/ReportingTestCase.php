@@ -63,7 +63,6 @@ abstract class ReportingTestCase extends PeopleTestCase
      * other two and a second contract/leave row.
      *
      * @return array{
-     *     entity_id: int,
      *     org_a_id: int,
      *     org_b_id: int,
      *     employment_a1_id: int,
@@ -79,9 +78,8 @@ abstract class ReportingTestCase extends PeopleTestCase
     protected function seedSyntheticWorkforce(): array
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity('SYNTH-LE', 'Synthetic HRMS Entity', 'Asia/Shanghai', 'CNY');
-        $orgA = $scenario->orgUnit($entity, 'SYNTH-ORG-A', null, 'Synthetic Org A');
-        $orgB = $scenario->orgUnit($entity, 'SYNTH-ORG-B', null, 'Synthetic Org B');
+        $orgA = $scenario->orgUnit('SYNTH-ORG-A', null, 'Synthetic Org A');
+        $orgB = $scenario->orgUnit('SYNTH-ORG-B', null, 'Synthetic Org B');
 
         $a1 = $this->employment($scenario, $orgA->id, 'SYNTH-A-001', 'Synthetic Alpha One');
         $a2 = $this->employment($scenario, $orgA->id, 'SYNTH-A-002', 'Synthetic Alpha Two');
@@ -93,7 +91,6 @@ abstract class ReportingTestCase extends PeopleTestCase
         $scenario->document($b1, $fileObjectId, ['expires_at' => '2026-12-12']);
 
         $leaveType = LeaveType::query()->create([
-            'tenant_id' => 1,
             'code' => 'SYNTH-ANNUAL',
             'name' => 'Synthetic annual leave',
             'is_statutory' => true,
@@ -109,13 +106,9 @@ abstract class ReportingTestCase extends PeopleTestCase
         $this->leaveGrant($a2->id, (int) $leaveType->id, 600, 'SYNTH-GRANT-A2');
         $this->leaveGrant($b2->id, (int) $leaveType->id, 240, 'SYNTH-GRANT-B2');
 
-        $this->organizationScope->knownLegalEntities = [(int) $entity->id];
-        $this->organizationScope->legalEntityByUnit = [
-            (int) $orgA->id => (int) $entity->id,
-            (int) $orgB->id => (int) $entity->id,
-        ];
-        $this->organizationScope->unitsByLegalEntity = [
-            (int) $entity->id => [(int) $orgA->id, (int) $orgB->id],
+        $this->organizationScope->knownUnits = [
+            (int) $orgA->id => true,
+            (int) $orgB->id => true,
         ];
         $this->organizationScope->descendants = [
             (int) $orgA->id => [(int) $orgA->id],
@@ -126,8 +119,8 @@ abstract class ReportingTestCase extends PeopleTestCase
             (int) $orgB->id => [(int) $b1->id, (int) $b2->id],
         ];
 
-        $broadUser = User::factory()->create(['tenant_id' => 1]);
-        $narrowUser = User::factory()->create(['tenant_id' => 1]);
+        $broadUser = User::factory()->create();
+        $narrowUser = User::factory()->create();
 
         $broadPrincipal = $this->authenticate((int) $broadUser->id, (int) $a1->id, (int) $broadUser->auth_version);
         $narrowPrincipal = $this->authenticate((int) $narrowUser->id, (int) $a2->id, (int) $narrowUser->auth_version);
@@ -142,13 +135,11 @@ abstract class ReportingTestCase extends PeopleTestCase
         $this->grant($narrowUser, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $orgA->id);
         $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::ORG_UNIT, (int) $orgA->id);
         $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::COMPANY, null);
-        // The export route itself is legal-entity anchored; row scope for the
-        // exported report still comes from reporting.report.read above.
+        // Row scope for the exported report comes from reporting.report.read.
         $this->grant($narrowUser, 'reporting.export', AnchorType::COMPANY, null);
         $this->grant($narrowUser, 'reporting.export.read', AnchorType::COMPANY, null);
 
         return [
-            'entity_id' => (int) $entity->id,
             'org_a_id' => (int) $orgA->id,
             'org_b_id' => (int) $orgB->id,
             'employment_a1_id' => (int) $a1->id,
@@ -168,11 +159,9 @@ abstract class ReportingTestCase extends PeopleTestCase
         string $employeeNo,
         string $name,
     ): Employment {
-        $entity = $scenario->legalEntity('SYNTH-LE', 'Synthetic HRMS Entity');
         $org = \App\Modules\Organization\Models\OrgUnit::query()->whereKey($orgUnitId)->firstOrFail();
         $employment = $scenario->employment(
             $scenario->person(['legal_name' => $name]),
-            $entity,
             $employeeNo,
         );
         $scenario->assignment($employment, $org);
@@ -183,7 +172,6 @@ abstract class ReportingTestCase extends PeopleTestCase
     protected function leaveGrant(int $employmentId, int $leaveTypeId, int $minutes, string $sourceId): void
     {
         LeaveLedgerEntry::query()->create([
-            'tenant_id' => 1,
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'account' => 'GRANT',
@@ -203,7 +191,6 @@ abstract class ReportingTestCase extends PeopleTestCase
     {
         $principal = new AuthenticatedPrincipal(
             userId: $userId,
-            tenantId: 1,
             employmentId: $employmentId,
             authVersion: $authVersion,
             privileged: false,
@@ -227,7 +214,7 @@ abstract class ReportingTestCase extends PeopleTestCase
     ): AuthorityBinding {
         /** @var AuthorityBinding $binding */
         $binding = AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create([
                 'capability_code' => $capability,

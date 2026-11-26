@@ -15,7 +15,7 @@ interface NoticeApprovalPort
     /**
      * Ensure the code-owned notice approval template exists and is published.
      */
-    public function ensureTemplate(int $tenantId): void;
+    public function ensureTemplate(): void;
 
     /**
      * Open and submit a Notice approval case.
@@ -50,5 +50,5 @@ interface NoticeApprovalPort
     /**
      * @return array{status: string, payload: array<string, mixed>}|null
      */
-    public function find(int $tenantId, int $caseId): ?array;
+    public function find(int $caseId): ?array;
 }

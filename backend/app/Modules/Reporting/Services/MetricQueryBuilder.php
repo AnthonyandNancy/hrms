@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * The single query builder for metric totals and drill-down rows. Callers must
  * never compute a count with a separate predicate; every read here starts with
- * the same tenant predicate and Authorizer::constrain().
+ * Authorizer::constrain().
  */
 final class MetricQueryBuilder
 {
@@ -96,7 +96,7 @@ final class MetricQueryBuilder
             throw new ValidationException(['metric' => ['Unknown dashboard metric.']], 'The given data was invalid.', ['reason' => 'UNKNOWN_METRIC']);
         }
 
-        $this->builder->ensure($principal->tenantId(), $asOf);
+        $this->builder->ensure($asOf);
         $unavailable = $this->unavailableIfNeeded($principal, $metric, $definition, $asOf);
 
         if ($unavailable !== null) {
@@ -140,7 +140,7 @@ final class MetricQueryBuilder
             throw new ValidationException(['metric' => ['Unknown dashboard metric.']], 'The given data was invalid.', ['reason' => 'UNKNOWN_METRIC']);
         }
 
-        $this->builder->ensure($principal->tenantId(), $asOf);
+        $this->builder->ensure($asOf);
         $unavailable = $this->unavailableIfNeeded($principal, $metric, $definition, $asOf);
 
         if ($unavailable !== null) {
@@ -206,18 +206,18 @@ final class MetricQueryBuilder
      */
     private function unavailableIfNeeded(Principal $principal, string $metric, array $definition, string $asOf): ?string
     {
-        if ($metric === 'payroll_cost_by_entity' && ! $this->builder->payrollAvailable($principal->tenantId())) {
-            return $this->builder->payrollReason($principal->tenantId())
+        if ($metric === 'payroll_cost_by_entity' && ! $this->builder->payrollAvailable()) {
+            return $this->builder->payrollReason()
                 ?? 'This metric is unavailable on the current deployment.';
         }
 
-        if ($metric === 'recruitment_funnel' && ! $this->builder->recruitmentAvailable($principal->tenantId())) {
-            return $this->builder->recruitmentReason($principal->tenantId())
+        if ($metric === 'recruitment_funnel' && ! $this->builder->recruitmentAvailable()) {
+            return $this->builder->recruitmentReason()
                 ?? 'This metric is unavailable on the current deployment.';
         }
 
-        if ($metric === 'turnover' && ! $this->builder->turnoverAvailable($principal->tenantId())) {
-            return $this->builder->turnoverReason($principal->tenantId())
+        if ($metric === 'turnover' && ! $this->builder->turnoverAvailable()) {
+            return $this->builder->turnoverReason()
                 ?? 'This metric is unavailable on the current deployment.';
         }
 
@@ -230,7 +230,6 @@ final class MetricQueryBuilder
     public function baseQuery(Principal $principal, string $source, string $asOf): Builder
     {
         $query = ProjectionRow::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('source_projection', $source)
             ->where('business_date', $asOf);
 

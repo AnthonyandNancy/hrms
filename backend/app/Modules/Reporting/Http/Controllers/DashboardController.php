@@ -8,7 +8,7 @@ use App\Modules\Reporting\Services\DashboardService;
 use App\Modules\Reporting\Services\MetricQueryBuilder;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +16,7 @@ final class DashboardController
 {
     public function __construct(
         private readonly PrincipalResolver $principals,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly DashboardService $dashboard,
         private readonly MetricQueryBuilder $metrics,
     ) {}
@@ -24,7 +24,7 @@ final class DashboardController
     public function show(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->businessDates->resolve($this->query($request, 'as_of'), $principal->tenantId())->value();
+        $asOf = $this->businessDates->resolve($this->query($request, 'as_of'))->value();
 
         return ApiResponse::ok($this->dashboard->dashboard($principal, $asOf));
     }
@@ -32,7 +32,7 @@ final class DashboardController
     public function metric(Request $request, string $metric): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->businessDates->resolve($this->query($request, 'as_of'), $principal->tenantId())->value();
+        $asOf = $this->businessDates->resolve($this->query($request, 'as_of'))->value();
         $filters = [
             'window' => $request->query('window'),
             'org_unit_id' => $request->query('org_unit_id'),

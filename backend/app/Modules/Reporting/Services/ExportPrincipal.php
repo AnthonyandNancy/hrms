@@ -8,23 +8,17 @@ use App\Modules\IAM\Contracts\Principal;
 
 /**
  * Minimal principal for a queued export. Capabilities are intentionally empty;
- * this object only identifies the tenant/requester and cannot escalate.
+ * this object only identifies the requester and cannot escalate.
  */
 final readonly class ExportPrincipal implements Principal
 {
     public function __construct(
-        private int $tenantId,
         private int $userId,
     ) {}
 
     public function userId(): int
     {
         return $this->userId;
-    }
-
-    public function tenantId(): int
-    {
-        return $this->tenantId;
     }
 
     public function employmentId(): ?int

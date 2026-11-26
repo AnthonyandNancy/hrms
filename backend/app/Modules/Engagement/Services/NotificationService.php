@@ -24,15 +24,14 @@ final class NotificationService
      * @param  array<string, mixed>  $payload  IDs only.
      * @return list<int>
      */
-    public function notify(int $tenantId, array $userIds, string $type, array $payload): array
+    public function notify(array $userIds, string $type, array $payload): array
     {
         $ids = [];
         $now = $this->clock->now();
 
-        DB::transaction(function () use ($tenantId, $userIds, $type, $payload, $now, &$ids): void {
+        DB::transaction(function () use ($userIds, $type, $payload, $now, &$ids): void {
             foreach (array_values(array_unique($userIds)) as $userId) {
                 $notification = Notification::query()->create([
-                    'tenant_id' => $tenantId,
                     'user_id' => $userId,
                     'type' => $type,
                     'payload_json' => $payload,
@@ -46,7 +45,6 @@ final class NotificationService
 
             if ($ids !== []) {
                 $this->outbox->record(
-                    tenantId: $tenantId,
                     eventType: 'engagement.notification.external.requested',
                     aggregateType: 'notification',
                     aggregateId: (string) $ids[0],
@@ -57,7 +55,7 @@ final class NotificationService
         });
 
         if ($ids !== []) {
-            $this->external->notify($tenantId, $type, array_values(array_unique($userIds)), $payload);
+            $this->external->notify($type, array_values(array_unique($userIds)), $payload);
         }
 
         return $ids;
@@ -66,10 +64,9 @@ final class NotificationService
     /**
      * @return list<array<string, mixed>>
      */
-    public function listForUser(int $tenantId, int $userId): array
+    public function listForUser(int $userId): array
     {
         return Notification::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->orderByDesc('id')
             ->get()
@@ -80,10 +77,9 @@ final class NotificationService
     /**
      * @return array<string, mixed>
      */
-    public function markRead(int $tenantId, int $userId, int $notificationId): array
+    public function markRead(int $userId, int $notificationId): array
     {
         $notification = Notification::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->whereKey($notificationId)
             ->first();

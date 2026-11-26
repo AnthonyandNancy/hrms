@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Engagement;
 
-use App\Modules\Engagement\Models\Notice;
 use Tests\Support\EngagementFixture;
 use Tests\Support\PeopleTestCase;
 
@@ -17,7 +16,7 @@ final class NoticeAudienceTest extends PeopleTestCase
         $fixture = $this->workforceFixture();
         $this->app->instance(\App\Shared\Authorization\Authorizer::class, new \Tests\Support\EngagementAuthorizer($fixture['manager_id']));
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $created = $this->postJson('/v1/engagement/notices', [
             'title' => 'Org A safety briefing',
             'body' => "Synthetic safety notice for Org A.\nPlease read carefully.",
@@ -32,14 +31,14 @@ final class NoticeAudienceTest extends PeopleTestCase
 
         $noticeId = (int) $created->json('data.id');
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->getJson('/v1/engagement/notices')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $noticeId)
             ->assertJsonPath('data.0.acknowledged', false);
 
-        $this->actAs(1, $fixture['user_b_id'], $fixture['employment_b_id']);
+        $this->actAs($fixture['user_b_id'], $fixture['employment_b_id']);
         $this->getJson('/v1/engagement/notices')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/v1/engagement/notices/'.$noticeId)->assertNotFound();
     }
@@ -48,7 +47,7 @@ final class NoticeAudienceTest extends PeopleTestCase
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Employee handbook acknowledgement',
             'body' => 'Synthetic handbook acknowledgement body for the test.',
@@ -59,7 +58,7 @@ final class NoticeAudienceTest extends PeopleTestCase
             'requiresAck' => true,
         ])->assertCreated()->json('data.id');
 
-        $this->actAs(1, $fixture['user_b_id'], $fixture['employment_b_id']);
+        $this->actAs($fixture['user_b_id'], $fixture['employment_b_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/acknowledge")->assertOk();
         $this->postJson("/v1/engagement/notices/{$noticeId}/acknowledge")
             ->assertOk()
@@ -76,7 +75,7 @@ final class NoticeAudienceTest extends PeopleTestCase
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Company all-hands notice',
             'body' => 'Synthetic all-hands notice body for notification testing.',
@@ -87,17 +86,15 @@ final class NoticeAudienceTest extends PeopleTestCase
         ])->assertCreated()->json('data.id');
 
         $this->assertDatabaseHas('notifications', [
-            'tenant_id' => 1,
             'user_id' => $fixture['user_a_id'],
             'type' => 'NOTICE_PUBLISHED',
         ]);
         $this->assertDatabaseHas('notifications', [
-            'tenant_id' => 1,
             'user_id' => $fixture['user_b_id'],
             'type' => 'NOTICE_PUBLISHED',
         ]);
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->getJson('/v1/engagement/notifications')
             ->assertOk()
             ->assertJsonCount(1, 'data')
@@ -109,14 +106,14 @@ final class NoticeAudienceTest extends PeopleTestCase
             ->assertOk()
             ->assertJsonPath('data.read', true);
 
-        $this->actAs(1, $fixture['user_b_id'], $fixture['employment_b_id']);
+        $this->actAs($fixture['user_b_id'], $fixture['employment_b_id']);
         $this->postJson("/v1/engagement/notifications/{$notificationId}/read")->assertNotFound();
     }
 
     public function test_retraction_hides_notice_from_target_but_keeps_acknowledgements(): void
     {
         $fixture = $this->workforceFixture();
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Retractable synthetic notice',
             'body' => 'Synthetic body that will be retracted shortly.',
@@ -126,48 +123,52 @@ final class NoticeAudienceTest extends PeopleTestCase
             'requiresAck' => true,
         ])->json('data.id');
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/acknowledge")->assertOk();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/retract")
             ->assertOk()
             ->assertJsonPath('data.status', 'RETRACTED');
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->getJson('/v1/engagement/notices')->assertOk()->assertJsonCount(0, 'data');
         $this->assertDatabaseCount('notice_acknowledgements', 1);
     }
 
-    public function test_cross_tenant_notice_detail_is_not_found(): void
+    public function test_cross_department_notice_detail_is_not_found(): void
     {
         $fixture = $this->workforceFixture();
-        $foreign = Notice::query()->create([
-            'tenant_id' => 2,
-            'title' => 'Foreign tenant notice',
-            'body' => 'Synthetic foreign notice body.',
-            'audience_json' => ['type' => 'ALL', 'label' => 'All employees'],
-            'publish_at' => '2026-11-23 00:00:00',
-            'retract_at' => null,
-            'created_by' => $fixture['manager_id'],
-            'status' => 'PUBLISHED',
-            'requires_ack' => false,
-            'audience_count' => 0,
-        ]);
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
-        $this->getJson('/v1/engagement/notices/'.$foreign->id)->assertNotFound();
+        $this->app->instance(
+            \App\Shared\Authorization\Authorizer::class,
+            new \Tests\Support\EngagementAuthorizer($fixture['manager_id']),
+        );
+
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
+        $departmentNotice = (int) $this->postJson('/v1/engagement/notices', [
+            'title' => 'Org A only notice',
+            'body' => 'Synthetic department-scoped notice body.',
+            'audience' => 'ORG',
+            'audienceLabel' => 'Org A only',
+            'orgUnitIds' => [$fixture['org_a_id']],
+            'publishAt' => '2026-11-23T00:00:00Z',
+            'requiresAck' => false,
+        ])->assertCreated()->json('data.id');
+
+        $this->actAs($fixture['user_b_id'], $fixture['employment_b_id']);
+        $this->getJson('/v1/engagement/notices/'.$departmentNotice)->assertNotFound();
     }
 
     public function test_notice_routes_reject_unauthenticated_and_missing_capability(): void
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->authorizer->deniedCapabilities = ['engagement.notice.read'];
         $this->getJson('/v1/engagement/notices')->assertForbidden()->assertJsonPath('code', 'FORBIDDEN');
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->authorizer->deniedCapabilities = ['engagement.notice.manage'];
         $this->postJson('/v1/engagement/notices', [
             'title' => 'Denied notice',

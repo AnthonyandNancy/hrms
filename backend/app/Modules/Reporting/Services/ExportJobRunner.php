@@ -23,10 +23,9 @@ final class ExportJobRunner
         private readonly Clock $clock,
     ) {}
 
-    public function run(int $tenantId, int $exportJobId): void
+    public function run(int $exportJobId): void
     {
         $job = ExportJob::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($exportJobId)
             ->first();
 
@@ -41,7 +40,7 @@ final class ExportJobRunner
             $filters = (array) $job->filters_json;
             $asOf = (string) ($filters['_as_of'] ?? $this->clock->now()->toDateString());
             unset($filters['_as_of']);
-            $principal = new ExportPrincipal($tenantId, (int) $job->requested_by);
+            $principal = new ExportPrincipal((int) $job->requested_by);
             $result = $this->reports->exportRows(
                 $principal,
                 (string) $job->report_code,
@@ -51,7 +50,6 @@ final class ExportJobRunner
             );
             $contents = $this->csv($result['fields'], $result['rows'], (string) $job->watermark);
             $fileId = $this->files->store(
-                tenantId: $tenantId,
                 contents: $contents,
                 originalName: strtolower((string) $job->report_code).'-'.$job->id.'.csv',
                 mime: 'text/csv; charset=UTF-8',
@@ -76,9 +74,9 @@ final class ExportJobRunner
         }
     }
 
-    public function contents(int $tenantId, int $fileObjectId): string
+    public function contents(int $fileObjectId): string
     {
-        return $this->fileReader->contents($tenantId, $fileObjectId);
+        return $this->fileReader->contents($fileObjectId);
     }
 
     /**

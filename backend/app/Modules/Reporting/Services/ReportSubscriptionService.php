@@ -12,7 +12,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +31,7 @@ final class ReportSubscriptionService
         private readonly Authorizer $authorizer,
         private readonly AccessSubjectStateDirectory $subjects,
         private readonly AuditRecorder $audit,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
@@ -39,10 +39,10 @@ final class ReportSubscriptionService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function create(int $tenantId, int $actorUserId, array $input): array
+    public function create(int $actorUserId, array $input): array
     {
         $definitionCode = strtoupper(trim((string) ($input['definition_code'] ?? '')));
-        $definition = $this->reports->definition($tenantId, $definitionCode);
+        $definition = $this->reports->definition($definitionCode);
         $frequency = strtoupper((string) ($input['frequency'] ?? ''));
         $recipientUserId = (int) ($input['recipient_user_id'] ?? 0);
         $filters = $this->approvedFilters($definition, $input['filters'] ?? []);
@@ -55,14 +55,13 @@ final class ReportSubscriptionService
             throw new ValidationException(['recipient_user_id' => ['A valid recipient_user_id is required.']], 'The given data was invalid.', ['reason' => 'RECIPIENT_REQUIRED']);
         }
 
-        if (! $this->recipientCanRead($tenantId, $recipientUserId)) {
+        if (! $this->recipientCanRead($recipientUserId)) {
             throw new ValidationException(['recipient_user_id' => ['The recipient must currently hold reporting.report.read.']], 'The given data was invalid.', ['reason' => 'RECIPIENT_NOT_AUTHORIZED']);
         }
 
         $now = $this->clock->now();
 
         $subscription = ReportSubscription::query()->create([
-            'tenant_id' => $tenantId,
             'owner_user_id' => $actorUserId,
             'recipient_user_id' => $recipientUserId,
             'definition_code' => (string) $definition['code'],
@@ -74,7 +73,6 @@ final class ReportSubscriptionService
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'reporting.subscription.created',
             aggregateType: 'report_subscription',
@@ -89,9 +87,9 @@ final class ReportSubscriptionService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function update(int $tenantId, int $actorUserId, int $subscriptionId, array $input): array
+    public function update(int $actorUserId, int $subscriptionId, array $input): array
     {
-        $subscription = $this->owned($tenantId, $actorUserId, $subscriptionId);
+        $subscription = $this->owned($actorUserId, $subscriptionId);
         $before = $this->payload($subscription);
         $changes = [];
         $action = null;
@@ -111,7 +109,7 @@ final class ReportSubscriptionService
         }
 
         if (array_key_exists('definition_code', $input)) {
-            $definition = $this->reports->definition($tenantId, strtoupper((string) $input['definition_code']));
+            $definition = $this->reports->definition(strtoupper((string) $input['definition_code']));
             $changes['definition_code'] = (string) $definition['code'];
             $changes['filters_json'] = $this->approvedFilters($definition, $input['filters'] ?? $subscription->filters_json ?? []);
         }
@@ -119,7 +117,7 @@ final class ReportSubscriptionService
         if (array_key_exists('recipient_user_id', $input)) {
             $recipientUserId = (int) $input['recipient_user_id'];
 
-            if ($recipientUserId <= 0 || ! $this->recipientCanRead($tenantId, $recipientUserId)) {
+            if ($recipientUserId <= 0 || ! $this->recipientCanRead($recipientUserId)) {
                 throw new ValidationException(['recipient_user_id' => ['The recipient must currently hold reporting.report.read.']], 'The given data was invalid.', ['reason' => 'RECIPIENT_NOT_AUTHORIZED']);
             }
 
@@ -138,7 +136,7 @@ final class ReportSubscriptionService
         }
 
         if (array_key_exists('filters', $input) && ! array_key_exists('filters_json', $changes)) {
-            $definition = $this->reports->definition($tenantId, (string) $subscription->definition_code);
+            $definition = $this->reports->definition((string) $subscription->definition_code);
             $changes['filters_json'] = $this->approvedFilters($definition, $input['filters']);
         }
 
@@ -153,7 +151,6 @@ final class ReportSubscriptionService
 
         if ($action !== null) {
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: $action,
                 aggregateType: 'report_subscription',
@@ -169,14 +166,13 @@ final class ReportSubscriptionService
     /**
      * @return array<string, mixed>
      */
-    public function delete(int $tenantId, int $actorUserId, int $subscriptionId): array
+    public function delete(int $actorUserId, int $subscriptionId): array
     {
-        $subscription = $this->owned($tenantId, $actorUserId, $subscriptionId);
+        $subscription = $this->owned($actorUserId, $subscriptionId);
         $before = $this->payload($subscription);
         $subscription->delete();
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'reporting.subscription.deleted',
             aggregateType: 'report_subscription',
@@ -190,15 +186,14 @@ final class ReportSubscriptionService
     /**
      * @return array<string, mixed>
      */
-    public function payloadForId(int $tenantId, int $actorUserId, int $subscriptionId): array
+    public function payloadForId(int $actorUserId, int $subscriptionId): array
     {
-        return $this->payload($this->owned($tenantId, $actorUserId, $subscriptionId));
+        return $this->payload($this->owned($actorUserId, $subscriptionId));
     }
 
-    public function listing(int $tenantId, int $actorUserId, int $page, int $pageSize): ProjectionResult
+    public function listing(int $actorUserId, int $page, int $pageSize): ProjectionResult
     {
         $query = ReportSubscription::query()
-            ->where('tenant_id', $tenantId)
             ->where('owner_user_id', $actorUserId)
             ->orderByDesc('id');
 
@@ -213,7 +208,7 @@ final class ReportSubscriptionService
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($tenantId)->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -226,11 +221,10 @@ final class ReportSubscriptionService
      * Re-authorize the recipient immediately before a run. The caller must own
      * the subscription; a denied recipient produces audit evidence and no run.
      */
-    public function authorizeForExecution(int $actorUserId, int $subscriptionId, ?int $tenantId = null): bool
+    public function authorizeForExecution(int $actorUserId, int $subscriptionId): bool
     {
         $subscription = ReportSubscription::query()
             ->whereKey($subscriptionId)
-            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->first();
 
         if ($subscription === null
@@ -239,11 +233,10 @@ final class ReportSubscriptionService
             return false;
         }
 
-        $authorized = $this->recipientCanRead((int) $subscription->tenant_id, (int) $subscription->recipient_user_id);
+        $authorized = $this->recipientCanRead((int) $subscription->recipient_user_id);
 
         if (! $authorized) {
             $this->audit->record(
-                tenantId: (int) $subscription->tenant_id,
                 actorUserId: $actorUserId,
                 action: 'reporting.subscription.execution_denied',
                 aggregateType: 'report_subscription',
@@ -295,29 +288,28 @@ final class ReportSubscriptionService
         return $approved;
     }
 
-    private function recipientCanRead(int $tenantId, int $recipientUserId): bool
+    private function recipientCanRead(int $recipientUserId): bool
     {
-        $authVersion = $this->subjects->currentAuthVersion($tenantId, $recipientUserId);
+        $authVersion = $this->subjects->currentAuthVersion($recipientUserId);
 
-        if ($authVersion === null || ! $this->subjects->isEnabled($tenantId, $recipientUserId)) {
+        if ($authVersion <= 0 || ! $this->subjects->isEnabled($recipientUserId)) {
             return false;
         }
 
         try {
             return $this->authorizer->permits(
-                new ReportSubscriptionPrincipal($tenantId, $recipientUserId, $authVersion),
+                new ReportSubscriptionPrincipal($recipientUserId, $authVersion),
                 'reporting.report.read',
-                $this->businessDates->today($tenantId)->value(),
+                $this->businessDates->today()->value(),
             );
         } catch (\Throwable) {
             return false;
         }
     }
 
-    private function owned(int $tenantId, int $actorUserId, int $subscriptionId): ReportSubscription
+    private function owned(int $actorUserId, int $subscriptionId): ReportSubscription
     {
         $subscription = ReportSubscription::query()
-            ->where('tenant_id', $tenantId)
             ->where('owner_user_id', $actorUserId)
             ->whereKey($subscriptionId)
             ->first();

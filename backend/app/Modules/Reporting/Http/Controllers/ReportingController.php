@@ -9,7 +9,7 @@ use App\Modules\Reporting\Services\ReportDefinitionCatalog;
 use App\Modules\Reporting\Services\ReportService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +19,7 @@ final class ReportingController
 {
     public function __construct(
         private readonly PrincipalResolver $principals,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly ReportDefinitionCatalog $catalog,
         private readonly ReportService $reports,
         private readonly ExportService $exports,
@@ -36,7 +36,7 @@ final class ReportingController
         ]);
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $all = $this->catalog->payloadForTenant($principal->tenantId());
+        $all = $this->catalog->allActive();
         $total = count($all);
         $items = array_slice($all, max(0, ($page - 1) * $pageSize), $pageSize);
 
@@ -45,7 +45,7 @@ final class ReportingController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: \App\Shared\Projections\ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($all, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -79,7 +79,7 @@ final class ReportingController
             $definition,
             $data,
             function () use ($data, $principal): array {
-                $created = $this->catalog->createCustom($principal->tenantId(), $principal->userId(), $data);
+                $created = $this->catalog->createCustom($principal->userId(), $data);
 
                 return [
                     'http_status' => 201,
@@ -107,7 +107,7 @@ final class ReportingController
             'filters' => ['nullable', 'array'],
             'as_of' => ['nullable', new BusinessDateRule],
         ]);
-        $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId())->value();
+        $asOf = $this->businessDates->resolve($data['as_of'] ?? null)->value();
 
         return ApiResponse::ok($this->reports->run(
             $principal,

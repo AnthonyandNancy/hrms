@@ -215,7 +215,7 @@ final class CapabilityAuditCommand extends Command
         foreach ($route->gatherMiddleware() as $middleware) {
             if (is_string($middleware) && str_starts_with($middleware, 'capability:')) {
                 // Middleware may carry an anchor suffix:
-                //   capability:people.employee.read,COMPANY,legal_entity_id
+                //   capability:people.employee.read,COMPANY
                 // Only the first segment is the capability code.
                 $code = trim(explode(',', substr($middleware, strlen('capability:')))[0]);
 

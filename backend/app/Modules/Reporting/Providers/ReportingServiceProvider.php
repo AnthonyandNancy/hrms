@@ -67,7 +67,7 @@ final class ReportingServiceProvider extends ServiceProvider
             $app->make(\App\Shared\Authorization\Authorizer::class),
             $app->make(\App\Shared\Authorization\Contracts\AccessSubjectStateDirectory::class),
             $app->make(\App\Shared\Observability\AuditRecorder::class),
-            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
 
@@ -93,7 +93,7 @@ final class ReportingServiceProvider extends ServiceProvider
             $app->make(ExportDispatcher::class),
             $app->make(\App\Shared\Observability\AuditRecorder::class),
             $app->make(\App\Shared\Authorization\Authorizer::class),
-            $app->make(\App\Shared\Time\TenantBusinessDate::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
             $app->make(\App\Shared\Time\Clock::class),
         ));
     }

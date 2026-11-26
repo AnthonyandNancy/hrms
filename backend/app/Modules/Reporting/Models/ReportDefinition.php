@@ -7,7 +7,7 @@ namespace App\Modules\Reporting\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Code-owned report definition materialised as a tenant-scoped read model.
+ * Code-owned report definition materialised as a company-wide read model.
  * fields_json carries the FieldProfile per exportable column.
  */
 final class ReportDefinition extends Model
@@ -16,7 +16,6 @@ final class ReportDefinition extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'code',
         'name',
         'description',
@@ -36,7 +35,6 @@ final class ReportDefinition extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'as_of_supported' => 'boolean',
             'fields_json' => 'array',
             'filters_json' => 'array',
