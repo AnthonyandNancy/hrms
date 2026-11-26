@@ -19,7 +19,8 @@ vi.mock('@/api/resourceClient', () => ({
   resourcePatch: resource.patch,
 }))
 
-import { PEOPLE_COMPONENT_KEYS, peopleComponentFor } from '@/views/people'
+import { PAGE_COMPONENTS } from '@/modules/people/pages'
+import { PEOPLE_COMPONENT_KEYS } from '@/modules/people/catalog'
 
 const wave2 = PAGE_REGISTRY.filter((page) => page.wave === 'Wave 2')
 const wave2Keys = wave2.map((page) => page.componentKey)
@@ -199,9 +200,10 @@ async function mountAt(key: string, path: string) {
   await router.push(path)
   await router.isReady()
 
-  const component = peopleComponentFor(key)
-  if (component === null) throw new Error(`No people component registered for ${key}`)
-  return mount(component as Component, {
+  const loader = PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS]
+  if (loader === undefined) throw new Error(`No people component registered for ${key}`)
+  const module = await loader()
+  return mount(module.default as Component, {
     global: { plugins: [pinia, router, ElementPlus] },
   })
 }
@@ -218,9 +220,9 @@ describe('Wave 2 people domain components', () => {
     expect(new Set(PEOPLE_COMPONENT_KEYS).size).toBe(39)
     expect([...PEOPLE_COMPONENT_KEYS].sort()).toEqual([...wave2Keys].sort())
     for (const key of wave2Keys) {
-      expect(peopleComponentFor(key), key).not.toBeNull()
+      expect(PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS], key).toBeTypeOf('function')
     }
-    expect(peopleComponentFor('hr/employees/not-real')).toBeNull()
+    expect(PAGE_COMPONENTS).not.toHaveProperty('hr/employees/not-real')
   })
 
   it('loads the employee list from GET /v1/employees', async () => {

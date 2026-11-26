@@ -1,28 +1,20 @@
-import { defineComponent, h, type Component } from 'vue'
-import PeopleWorkspace from './PeopleWorkspace.vue'
-import { PEOPLE_COMPONENT_KEYS, PEOPLE_PAGE_CONFIGS, peoplePageConfig } from './catalog'
-import type { PeoplePageConfig } from './types'
+import { defineAsyncComponent, type Component } from 'vue'
+import { PAGE_COMPONENTS } from '@/modules/people/pages'
+import { PEOPLE_COMPONENT_KEYS, PEOPLE_PAGE_CONFIGS, peoplePageConfig } from '@/modules/people/catalog'
+import type { PeoplePageConfig } from '@/modules/people/types'
 
-export { PEOPLE_COMPONENT_KEYS, PEOPLE_PAGE_CONFIGS, peoplePageConfig }
+/**
+ * Compatibility exports for callers that still use the legacy People barrel.
+ *
+ * Route resolution must use `@/modules/people/pages` directly. This barrel no
+ * longer owns a shared workspace factory; each key points at its dedicated
+ * module page component.
+ */
+export { PAGE_COMPONENTS, PEOPLE_COMPONENT_KEYS, PEOPLE_PAGE_CONFIGS, peoplePageConfig }
 export type { PeoplePageConfig }
 
-function pageComponent(config: PeoplePageConfig): Component {
-  return defineComponent({
-    name: `PeoplePage_${config.key.replaceAll('/', '_').replaceAll('.', '_')}`,
-    setup() {
-      return () => h(PeopleWorkspace, { componentKey: config.key })
-    },
-  })
-}
-
-const COMPONENTS = new Map<string, Component>()
-
-for (const key of PEOPLE_COMPONENT_KEYS) {
-  const config = peoplePageConfig(key)
-  if (config === null) throw new Error(`Missing people page config for ${key}`)
-  COMPONENTS.set(key, pageComponent(config))
-}
-
 export function peopleComponentFor(key: string): Component | null {
-  return COMPONENTS.get(key) ?? null
+  if (!(key in PAGE_COMPONENTS)) return null
+  const loader = PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS]
+  return defineAsyncComponent(loader)
 }
