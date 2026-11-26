@@ -10,6 +10,7 @@ import {
   type PositionGrade,
   type PositionUpdateInput,
 } from '../api'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 const props = defineProps<{
   modelValue: boolean
@@ -193,7 +194,7 @@ function submit(): void {
     title: draft.title.trim(),
     grade: draft.grade === '' ? null : draft.grade,
     headcount_limit: numeric(draft.headcountLimit),
-    status: props.position?.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE',
+    status: props.position?.status === DISPLAY_CODES.positionStatus.disabled ? DISPLAY_CODES.positionStatus.disabled : DISPLAY_CODES.positionStatus.active,
   } satisfies PositionUpdateInput)
 }
 </script>

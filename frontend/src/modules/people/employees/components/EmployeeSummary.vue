@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EmployeeRecord } from '../detailApi'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const props = withDefaults(
   defineProps<{
@@ -18,24 +19,6 @@ const emit = defineEmits<{
   archive: []
   restore: []
 }>()
-
-const EMPLOYEE_STATUS: Record<string, string> = {
-  ACTIVE: '在职',
-  PROBATION: '试用期',
-  LEAVE: '休假中',
-  ON_LEAVE: '休假中',
-  SUSPENDED: '停职',
-  TERMINATED: '已离职',
-  ARCHIVED: '已归档',
-}
-
-const EMPLOYMENT_TYPE: Record<string, string> = {
-  FULL_TIME: '全职',
-  PART_TIME: '兼职',
-  FIXED_TERM: '固定期限',
-  INTERN: '实习',
-  CONTRACTOR: '合同制',
-}
 
 const UNKNOWN = '未知状态'
 const HIDDEN = '无权查看'
@@ -122,14 +105,14 @@ function statusValue(): string {
   if (!has(props.employee, 'status')) return HIDDEN
   const value = props.employee.status
   if (typeof value !== 'string' || value.trim() === '') return HIDDEN
-  return EMPLOYEE_STATUS[value] ?? UNKNOWN
+  return translate('people', 'employeeStatus', value, UNKNOWN).label
 }
 
 function employmentTypeValue(): string {
   if (!has(props.employee, 'employment_type')) return HIDDEN
   const value = props.employee.employment_type
   if (typeof value !== 'string' || value.trim() === '') return HIDDEN
-  return EMPLOYMENT_TYPE[value] ?? '未知类型'
+  return translate('people', 'employmentType', value, '未知类型').label
 }
 
 const name = computed(() => projected(props.employee, 'person_name'))
@@ -139,7 +122,7 @@ const archived = computed(() => {
     const value = props.employee.archived_at
     return value !== null && value !== undefined && value !== ''
   }
-  return props.employee.status === 'ARCHIVED'
+  return props.employee.status === DISPLAY_CODES.employeeStatus.archived
 })
 
 const fields = computed(() => [

@@ -129,7 +129,7 @@ void load()
         <p class="page-header__breadcrumb">报表中心</p>
         <h1 class="page-header__title">报表与导出</h1>
         <p class="page-header__description">
-          选择报表定义、设置业务日期与筛选条件后运行。结果、as-of、source hash 与总数均由服务端投影返回。
+          选择报表定义、设置业务日期与筛选条件后运行。结果、截至日期、数据版本与总数均由服务端投影返回。
         </p>
       </div>
       <div class="page-header__actions">
@@ -205,7 +205,7 @@ void load()
               <div>
                 <h2 class="panel__title">{{ result.title }}</h2>
                 <p class="panel__subtitle">
-                  as-of {{ formatBusinessDate(result.asOf) }} · 共 {{ result.total }} 行 · 生成于
+                  截至 {{ formatBusinessDate(result.asOf) }} · 共 {{ result.total }} 行 · 生成于
                   {{ formatDateTimeInTimezone(result.generatedAt) }}
                 </p>
               </div>
@@ -213,8 +213,8 @@ void load()
             </div>
 
             <div class="panel__body report-meta">
-              <span><strong>as_of</strong> {{ result.asOf }}</span>
-              <span><strong>source_hash</strong> <code class="mono">{{ result.sourceHash }}</code></span>
+              <span><strong>截至日期</strong> {{ result.asOf }}</span>
+              <span><strong>数据版本</strong> <code class="mono">{{ result.sourceHash }}</code></span>
               <span><strong>total</strong> {{ result.total }}</span>
             </div>
 
@@ -246,7 +246,7 @@ void load()
 
             <div class="panel__footer">
               <span class="small muted">字段：{{ result.columns.map((column) => fieldLabel(column.key, column.label)).join('、') }}</span>
-              <span class="small muted">source_hash 用于确认本次结果与导出使用同一投影。</span>
+              <span class="small muted">数据版本用于确认本次结果与导出使用同一投影。</span>
             </div>
           </section>
 

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { StatusTone } from '@/utils/status'
 import { formatBusinessDate } from '@/utils/format'
 import type { EmployeeRow } from '../api'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const props = withDefaults(
   defineProps<{
@@ -26,37 +27,28 @@ const emit = defineEmits<{
   restore: [row: EmployeeRow]
 }>()
 
-const EMPLOYEE_STATUS_LABEL: Record<string, { label: string; tone: StatusTone }> = {
-  ACTIVE: { label: '在职', tone: 'success' },
-  PROBATION: { label: '试用期', tone: 'info' },
-  LEAVE: { label: '休假中', tone: 'warning' },
-  ON_LEAVE: { label: '休假中', tone: 'warning' },
-  SUSPENDED: { label: '停职', tone: 'warning' },
-  TERMINATED: { label: '已离职', tone: 'muted' },
-}
-
-const EMPLOYMENT_TYPE_LABEL: Record<string, string> = {
-  FULL_TIME: '全职',
-  PART_TIME: '兼职',
-  FIXED_TERM: '固定期限',
-  CONTRACT: '合同制',
-  INTERN: '实习',
-  CONTRACTOR: '外包/顾问',
+const STATUS_TONES: Record<string, StatusTone> = {
+  [DISPLAY_CODES.employeeStatus.active]: 'success',
+  [DISPLAY_CODES.employeeStatus.probation]: 'info',
+  [DISPLAY_CODES.employeeStatus.leave]: 'warning',
+  [DISPLAY_CODES.employeeStatus.onLeave]: 'warning',
+  [DISPLAY_CODES.employeeStatus.suspended]: 'warning',
+  [DISPLAY_CODES.employeeStatus.terminated]: 'muted',
 }
 
 const pageCount = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
 
 function statusLabel(row: EmployeeRow): string {
-  return EMPLOYEE_STATUS_LABEL[row.status]?.label ?? '未知状态'
+  return translate('people', 'employeeStatus', row.status, '未知状态').label
 }
 
 function statusTone(row: EmployeeRow): StatusTone {
   if (row.archived_at !== null) return 'muted'
-  return EMPLOYEE_STATUS_LABEL[row.status]?.tone ?? 'muted'
+  return STATUS_TONES[row.status] ?? 'muted'
 }
 
 function typeLabel(row: EmployeeRow): string {
-  return EMPLOYMENT_TYPE_LABEL[row.employment_type] ?? '未设置'
+  return translate('people', 'employmentType', row.employment_type, '未设置').label
 }
 
 function hireDate(row: EmployeeRow): string {

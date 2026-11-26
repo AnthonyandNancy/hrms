@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { requestIdFromError } from '@/utils/renderErrors'
 import { loadEmployeeTab, type EmployeeTabKey, type EmployeeTabPayload } from '../detailApi'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const props = withDefaults(
   defineProps<{
@@ -149,19 +150,19 @@ type Column = {
 }
 
 const CONTRACT_TYPE: Record<string, string> = {
-  FIXED_TERM: '固定期限',
-  OPEN_ENDED: '无固定期限',
-  INTERNSHIP: '实习协议',
-  CONSULTANT: '顾问协议',
+  [DISPLAY_CODES.contractType.fixedTerm]: translate('people', 'contractType', DISPLAY_CODES.contractType.fixedTerm).label,
+  [DISPLAY_CODES.contractType.openEnded]: translate('people', 'contractType', DISPLAY_CODES.contractType.openEnded).label,
+  [DISPLAY_CODES.contractType.internship]: translate('people', 'contractType', DISPLAY_CODES.contractType.internship).label,
+  [DISPLAY_CODES.contractType.consultant]: translate('people', 'contractType', DISPLAY_CODES.contractType.consultant).label,
 }
 
 const CONTRACT_STATUS: Record<string, string> = {
-  DRAFT: '草稿',
-  ACTIVE: '生效中',
-  EXPIRING: '即将到期',
-  RENEWED: '已续签',
-  TERMINATED: '已终止',
-  EXPIRED: '已到期',
+  [DISPLAY_CODES.contractStatus.draft]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.draft).label,
+  [DISPLAY_CODES.contractStatus.active]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.active).label,
+  [DISPLAY_CODES.contractStatus.expiring]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.expiring).label,
+  [DISPLAY_CODES.contractStatus.renewed]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.renewed).label,
+  [DISPLAY_CODES.contractStatus.terminated]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.terminated).label,
+  [DISPLAY_CODES.contractStatus.expired]: translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.expired).label,
 }
 
 const TIMELINE_EVENT: Record<string, string> = {

@@ -53,7 +53,7 @@ const displayPartialReason = computed(() =>
     </span>
 
     <span class="metric-card__meta">
-      <span>as-of {{ formatBusinessDate(asOf) }}</span>
+      <span>截至 {{ formatBusinessDate(asOf) }}</span>
       <span v-if="freshnessAt || metric.computedAt" class="small muted">计算于 {{ computedAtText }}</span>
     </span>
 

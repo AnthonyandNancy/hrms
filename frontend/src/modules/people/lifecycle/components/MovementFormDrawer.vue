@@ -16,6 +16,7 @@ import {
   type OrgUnitOption,
   type StableSubmissionKey,
 } from '../api'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const props = defineProps<{
   modelValue: boolean
@@ -60,11 +61,11 @@ type Draft = {
 }
 
 const EMPLOYMENT_TYPES = [
-  { value: 'FULL_TIME', label: '全职' },
-  { value: 'PART_TIME', label: '兼职' },
-  { value: 'FIXED_TERM', label: '固定期限' },
-  { value: 'INTERN', label: '实习' },
-  { value: 'CONTRACTOR', label: '外包/顾问' },
+  { value: DISPLAY_CODES.employmentType.fullTime, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.fullTime).label },
+  { value: DISPLAY_CODES.employmentType.partTime, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.partTime).label },
+  { value: DISPLAY_CODES.employmentType.fixedTerm, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.fixedTerm).label },
+  { value: DISPLAY_CODES.employmentType.intern, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.intern).label },
+  { value: DISPLAY_CODES.employmentType.contractor, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.contractor).label },
 ]
 
 const TERMINATION_TYPES = [
@@ -132,7 +133,7 @@ function emptyDraft(kind: MovementKind): Draft {
     personLegalName: '',
     personEmail: '',
     employeeNo: '',
-    employmentType: 'FULL_TIME',
+    employmentType: DISPLAY_CODES.employmentType.fullTime,
     orgUnitId: '',
     positionId: '',
     managerAssignmentId: '',
@@ -149,7 +150,7 @@ function emptyDraft(kind: MovementKind): Draft {
     hostOrgUnitId: '',
     secondmentTo: '',
     lastWorkingDate: '',
-    terminationType: 'RESIGNATION',
+    terminationType: DISPLAY_CODES.terminationType.resignation,
     finalPayrollRequired: 'true',
     finalPayrollWaiverReason: '',
   }

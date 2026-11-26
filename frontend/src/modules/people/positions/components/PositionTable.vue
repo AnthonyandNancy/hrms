@@ -8,6 +8,7 @@ import {
   type Position,
   type PositionGrade,
 } from '../api'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 const props = withDefaults(
   defineProps<{
@@ -61,8 +62,8 @@ function varianceText(row: Position): string {
 }
 
 function statusTone(row: Position): string {
-  if (row.status === 'ACTIVE') return 'active'
-  if (row.status === 'DISABLED') return 'disabled'
+  if (row.status === DISPLAY_CODES.positionStatus.active) return 'active'
+  if (row.status === DISPLAY_CODES.positionStatus.disabled) return 'disabled'
   return 'unknown'
 }
 

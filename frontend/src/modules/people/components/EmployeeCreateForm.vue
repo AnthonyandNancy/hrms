@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { peopleErrorInfo, type PeopleErrorInfo } from '../peopleErrors'
 import { postRow } from '../write'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const emit = defineEmits<{ created: [employmentId: number | null] }>()
 
@@ -12,8 +13,8 @@ const draft = reactive({
   employee_no: '',
   org_unit_id: '',
   position_id: '',
-  employment_type: 'FULL_TIME',
-  status: 'PROBATION',
+  employment_type: DISPLAY_CODES.employmentType.fullTime,
+  status: DISPLAY_CODES.employeeStatus.probation,
   valid_from: '',
   hire_date: '',
   work_location: '',
@@ -130,8 +131,8 @@ async function submit(): Promise<void> {
           <label class="people-field"><span>工号 *</span><input v-model="draft.employee_no" data-testid="employee-no" /></label>
           <label class="people-field"><span>组织编号 *</span><input v-model="draft.org_unit_id" data-testid="employee-org-unit" inputmode="numeric" /></label>
           <label class="people-field"><span>岗位编号</span><input v-model="draft.position_id" inputmode="numeric" /></label>
-          <label class="people-field"><span>用工类型 *</span><select v-model="draft.employment_type" data-testid="employee-type"><option value="FULL_TIME">全职</option><option value="PART_TIME">兼职</option><option value="FIXED_TERM">固定期限</option><option value="INTERN">实习</option><option value="CONTRACTOR">外包/顾问</option></select></label>
-          <label class="people-field"><span>初始状态</span><select v-model="draft.status"><option value="PROBATION">试用</option><option value="ACTIVE">在职</option></select></label>
+          <label class="people-field"><span>用工类型 *</span><select v-model="draft.employment_type" data-testid="employee-type"><option :value="DISPLAY_CODES.employmentType.fullTime">{{ translate('people', 'employmentType', DISPLAY_CODES.employmentType.fullTime).label }}</option><option :value="DISPLAY_CODES.employmentType.partTime">{{ translate('people', 'employmentType', DISPLAY_CODES.employmentType.partTime).label }}</option><option :value="DISPLAY_CODES.employmentType.fixedTerm">{{ translate('people', 'employmentType', DISPLAY_CODES.employmentType.fixedTerm).label }}</option><option :value="DISPLAY_CODES.employmentType.intern">{{ translate('people', 'employmentType', DISPLAY_CODES.employmentType.intern).label }}</option><option :value="DISPLAY_CODES.employmentType.contractor">{{ translate('people', 'employmentType', DISPLAY_CODES.employmentType.contractor).label }}</option></select></label>
+          <label class="people-field"><span>初始状态</span><select v-model="draft.status"><option :value="DISPLAY_CODES.employeeStatus.probation">{{ translate('people', 'employeeStatus', DISPLAY_CODES.employeeStatus.probation).label }}</option><option :value="DISPLAY_CODES.employeeStatus.active">{{ translate('people', 'employeeStatus', DISPLAY_CODES.employeeStatus.active).label }}</option></select></label>
           <label class="people-field"><span>任职生效日 *</span><input v-model="draft.valid_from" data-testid="employee-valid-from" type="date" /></label>
           <label class="people-field"><span>入职日期 *</span><input v-model="draft.hire_date" data-testid="employee-hire-date" type="date" /></label>
           <label class="people-field"><span>工作地点 *</span><input v-model="draft.work_location" data-testid="employee-work-location" /></label>

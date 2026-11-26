@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { translate } from '@/shared/display/dictionary'
 
 export type PreviewPage = {
   page_code?: string
@@ -56,13 +57,6 @@ const MODULES: Array<{ key: string; label: string; description: string }> = [
   { key: 'reporting', label: '报表与导出', description: '报表定义、订阅与导出' },
   { key: 'platform', label: '平台设置', description: '字典、参数与功能开关' },
 ]
-
-const FIELD_PROFILE_LABELS: Record<string, string> = {
-  P0_PUBLIC: '公开',
-  P1_INTERNAL: '内部',
-  P2_SENSITIVE: '敏感',
-  P3_RESTRICTED: '严格受限',
-}
 
 const ANCHOR_LABELS: Record<string, string> = {
   SELF: '仅本人',
@@ -156,7 +150,9 @@ const groups = computed(() => {
       capability: action.capability,
       label: actionLabel(action.capability),
       anchor: ANCHOR_LABELS[action.anchor_type ?? ''] ?? '未声明范围',
-      profile: FIELD_PROFILE_LABELS[action.field_profile ?? ''] ?? '未声明字段档位',
+      profile: action.field_profile === undefined || action.field_profile === ''
+        ? '未声明字段档位'
+        : translate('platform', 'fieldProfile', action.field_profile, '未声明字段档位').label,
     })
     grouped.set(module, rows)
   }
@@ -178,7 +174,7 @@ const fieldProfiles = computed(() => {
   const values = props.preview?.field_capabilities ?? []
   return values
     .filter((value): value is string => typeof value === 'string')
-    .map((value) => FIELD_PROFILE_LABELS[value] ?? value)
+    .map((value) => translate('platform', 'fieldProfile', value, '未声明字段档位').label)
 })
 
 const scopes = computed(() => {
@@ -262,7 +258,7 @@ const roleCodes = computed(() => (props.preview?.roles ?? []).filter((role): rol
           <li v-for="page in pages" :key="page.page_code ?? page.path">
             <span>{{ page.menu_label ?? page.page_code ?? '未命名页面' }}</span>
             <span v-if="page.field_profile_max" class="plain-chip">
-              {{ FIELD_PROFILE_LABELS[page.field_profile_max] ?? page.field_profile_max }}
+              {{ translate('platform', 'fieldProfile', page.field_profile_max, '未声明字段档位').label }}
             </span>
           </li>
         </ul>

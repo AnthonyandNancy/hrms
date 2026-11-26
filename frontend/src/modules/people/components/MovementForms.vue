@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { PeopleForm } from '../types'
 import { peopleErrorInfo, type PeopleErrorInfo } from '../peopleErrors'
 import { postRow } from '../write'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 const props = defineProps<{
   form: PeopleForm
@@ -44,7 +45,7 @@ const defaults: Record<string, Partial<Draft>> = {
     org_unit_id: '',
     position_id: '',
     hire_date: '',
-    employment_type: 'FULL_TIME',
+    employment_type: DISPLAY_CODES.employmentType.fullTime,
     work_location: '',
     work_schedule: '',
     probation_end_date: '',
@@ -232,7 +233,7 @@ async function submit(): Promise<void> {
       <div>
         <h2 class="panel__title">发起异动</h2>
         <p class="panel__subtitle">
-          {{ form === 'movement-secondment' ? '借调创建 assignment_type=SECONDMENT 的并行任职（POST /v1/lifecycle/secondments），不改写主任职。' : '异动命令会创建审批案例；审批通过不等于立即生效。' }}
+          {{ form === 'movement-secondment' ? '借调会创建并行任职记录，不改写主任职。' : '异动命令会创建审批案例；审批通过不等于立即生效。' }}
         </p>
       </div>
     </header>

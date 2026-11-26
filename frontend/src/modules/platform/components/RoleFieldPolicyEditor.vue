@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 export type FieldPolicyGrant = {
   capability: string
@@ -12,15 +13,13 @@ export type FieldPolicyCapability = {
   field_profile_max?: string
 }
 
-const PROFILES = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_RESTRICTED'] as const
+const PROFILES = [
+  DISPLAY_CODES.fieldProfile.p0Public,
+  DISPLAY_CODES.fieldProfile.p1Internal,
+  DISPLAY_CODES.fieldProfile.p2Sensitive,
+  DISPLAY_CODES.fieldProfile.p3Restricted,
+] as const
 type FieldProfile = (typeof PROFILES)[number]
-
-const PROFILE_LABELS: Record<FieldProfile, string> = {
-  P0_PUBLIC: 'P0 公开',
-  P1_INTERNAL: 'P1 内部',
-  P2_SENSITIVE: 'P2 敏感',
-  P3_RESTRICTED: 'P3 受限',
-}
 
 const props = defineProps<{
   grants: FieldPolicyGrant[]
@@ -66,13 +65,13 @@ function profileOf(grant: FieldPolicyGrant): FieldProfile {
 
 function normalize(value: string): FieldProfile {
   if ((PROFILES as readonly string[]).includes(value)) return value as FieldProfile
-  // P3_RESTRICTED predates the Volume 2 decision; render it as the single
-  // high-sensitivity profile without writing the legacy spelling.
-  return value === 'P3_RESTRICTED' ? 'P3_RESTRICTED' : 'P0_PUBLIC'
+  // The restricted profile predates the Volume 2 decision; render it as the
+  // single high-sensitivity profile without exposing the legacy spelling.
+  return value === DISPLAY_CODES.fieldProfile.p3Restricted ? DISPLAY_CODES.fieldProfile.p3Restricted : DISPLAY_CODES.fieldProfile.p0Public
 }
 
 function ceilingOf(capability: string): FieldProfile {
-  return normalize(capabilityByCode.value.get(capability)?.field_profile_max ?? 'P0_PUBLIC')
+  return normalize(capabilityByCode.value.get(capability)?.field_profile_max ?? DISPLAY_CODES.fieldProfile.p0Public)
 }
 
 function exceedsCeiling(grant: FieldPolicyGrant): boolean {
@@ -120,7 +119,7 @@ function change(grant: FieldPolicyGrant, event: Event): void {
               <div class="mono">{{ grant.field_key ?? grant.capability }}</div>
               <div v-if="grant.field_key !== undefined && grant.field_key !== null" class="small muted">{{ grant.capability }}</div>
             </td>
-            <td>{{ PROFILE_LABELS[ceilingOf(grant.capability)] }}</td>
+            <td>{{ translate('platform', 'fieldProfile', ceilingOf(grant.capability), '未知字段档位').label }}</td>
             <td>
               <select
                 :data-testid="`field-profile-${grant.capability}`"
@@ -129,13 +128,13 @@ function change(grant: FieldPolicyGrant, event: Event): void {
                 @change="change(grant, $event)"
               >
                 <option v-for="profile in PROFILES" :key="profile" :value="profile">
-                  {{ PROFILE_LABELS[profile] }}
+                  {{ translate('platform', 'fieldProfile', profile, '未知字段档位').label }}
                 </option>
               </select>
             </td>
             <td>
               <span v-if="exceedsCeiling(grant)" class="inline-warning" :data-testid="`field-ceiling-warning-${grant.capability}`">
-                所选 {{ PROFILE_LABELS[profileOf(grant)] }} 超过能力上限 {{ PROFILE_LABELS[ceilingOf(grant.capability)] }}，保存会被服务端拒绝。
+                所选 {{ translate('platform', 'fieldProfile', profileOf(grant), '未知字段档位').label }} 超过能力上限 {{ translate('platform', 'fieldProfile', ceilingOf(grant.capability), '未知字段档位').label }}，保存会被服务端拒绝。
               </span>
               <span v-else class="muted small">未超过能力上限</span>
             </td>

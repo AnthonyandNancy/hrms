@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { actionsForPage, type PageActionSpec } from '@/router/registry'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 export type RoleActionGrant = {
   capability: string
@@ -26,13 +27,12 @@ const ANCHOR_LABELS: Record<string, string> = {
 }
 
 const ANCHOR_ORDER = ['SELF', 'MANAGED', 'ORG_UNIT', 'ORG_SUBTREE', 'COMPANY', 'CASE', 'PAYROLL_RUN']
-const PROFILE_ORDER = ['P0_PUBLIC', 'P1_INTERNAL', 'P2_SENSITIVE', 'P3_RESTRICTED']
-const PROFILE_LABELS: Record<string, string> = {
-  P0_PUBLIC: 'P0 公开',
-  P1_INTERNAL: 'P1 内部',
-  P2_SENSITIVE: 'P2 敏感',
-  P3_RESTRICTED: 'P3 受限',
-}
+const PROFILE_ORDER: string[] = [
+  DISPLAY_CODES.fieldProfile.p0Public,
+  DISPLAY_CODES.fieldProfile.p1Internal,
+  DISPLAY_CODES.fieldProfile.p2Sensitive,
+  DISPLAY_CODES.fieldProfile.p3Restricted,
+]
 
 const props = defineProps<{
   pageCode: string
@@ -58,7 +58,7 @@ function anchorsFor(capability: string): string[] {
 }
 
 function profilesFor(capability: string): string[] {
-  const max = capabilityByCode.value.get(capability)?.field_profile_max ?? 'P0_PUBLIC'
+  const max = capabilityByCode.value.get(capability)?.field_profile_max ?? DISPLAY_CODES.fieldProfile.p0Public
   const maxRank = PROFILE_ORDER.indexOf(max)
   if (maxRank < 0) return PROFILE_ORDER
   return PROFILE_ORDER.filter((_profile, index) => index <= maxRank)
@@ -69,7 +69,7 @@ function anchorOf(capability: string): string {
 }
 
 function fieldProfileOf(capability: string): string {
-  return grantByCapability.value.get(capability)?.field_profile ?? 'P0_PUBLIC'
+  return grantByCapability.value.get(capability)?.field_profile ?? DISPLAY_CODES.fieldProfile.p0Public
 }
 
 function onToggle(action: PageActionSpec, checked: boolean): void {
@@ -150,7 +150,7 @@ function onFieldProfile(action: PageActionSpec, event: Event): void {
                 @change="onFieldProfile(action, $event)"
               >
                 <option v-for="profile in profilesFor(action.capability)" :key="profile" :value="profile">
-                  {{ PROFILE_LABELS[profile] ?? profile }}
+                  {{ translate('platform', 'fieldProfile', profile, '未知字段档位').label }}
                 </option>
               </select>
             </td>

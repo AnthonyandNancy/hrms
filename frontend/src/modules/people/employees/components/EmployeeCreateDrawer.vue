@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import FormDrawer from '@/shared/ui/FormDrawer.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { nextIdempotencyKey } from '@/modules/people/peopleRead'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
   onboardEmployee,
   type OnboardPayload,
@@ -44,11 +45,11 @@ type FieldKey =
   | 'terms.effective_from'
 
 const EMPLOYMENT_TYPES = [
-  { value: 'FULL_TIME', label: '全职' },
-  { value: 'PART_TIME', label: '兼职' },
-  { value: 'FIXED_TERM', label: '固定期限' },
-  { value: 'INTERN', label: '实习' },
-  { value: 'CONTRACTOR', label: '外包/顾问' },
+  { value: DISPLAY_CODES.employmentType.fullTime, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.fullTime).label },
+  { value: DISPLAY_CODES.employmentType.partTime, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.partTime).label },
+  { value: DISPLAY_CODES.employmentType.fixedTerm, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.fixedTerm).label },
+  { value: DISPLAY_CODES.employmentType.intern, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.intern).label },
+  { value: DISPLAY_CODES.employmentType.contractor, label: translate('people', 'employmentType', DISPLAY_CODES.employmentType.contractor).label },
 ] as const
 
 function today(): string {
@@ -64,7 +65,7 @@ function blankDraft() {
     national_id: '',
     employee_no: '',
     hire_date: today(),
-    employment_type: 'FULL_TIME',
+    employment_type: DISPLAY_CODES.employmentType.fullTime,
     org_unit_id: props.orgUnits[0] === undefined ? '' : String(props.orgUnits[0].id),
     position_id: '',
     valid_from: '',

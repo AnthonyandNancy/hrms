@@ -146,7 +146,7 @@ void load()
 
     <template v-else>
       <div class="dashboard-meta">
-        <span>as-of {{ formatBusinessDate(snapshot.asOf) }}</span>
+        <span>截至 {{ formatBusinessDate(snapshot.asOf) }}</span>
         <span class="plain-chip">{{ freshnessText }}</span>
         <span>数据更新于 {{ formatDateTimeInTimezone(snapshot.freshness) }}</span>
         <span class="plain-chip">共 {{ metrics.length }} 个指标</span>
@@ -190,10 +190,10 @@ void load()
           <div>
             <h2 class="panel__title">{{ selectedMetric ? metricLabel(selectedMetric.code, selectedMetric.label) : drilldown.label }}下钻</h2>
             <p class="panel__subtitle">
-              与卡片使用同一 as-of 与授权范围；共 {{ drilldown.total }} 条。
+              与卡片使用同一截至日期与授权范围；共 {{ drilldown.total }} 条。
             </p>
           </div>
-          <span class="plain-chip">as-of {{ formatBusinessDate(drilldown.asOf) }}</span>
+          <span class="plain-chip">截至 {{ formatBusinessDate(drilldown.asOf) }}</span>
         </div>
 
         <EmptyState

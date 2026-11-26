@@ -6,6 +6,7 @@ import type { PeopleForm, PeopleRow } from '../types'
 import { peopleErrorInfo, type PeopleErrorInfo } from '../peopleErrors'
 import { postRow } from '../write'
 import { rowText } from '../peopleRead'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 
 const props = withDefaults(
   defineProps<{
@@ -26,7 +27,7 @@ const draft = reactive({
   start_date: '',
   end_date: '',
   signed_on: '',
-  status: 'ACTIVE',
+  status: DISPLAY_CODES.contractStatus.active,
   terms_summary: '',
 })
 const amending = reactive({
@@ -80,7 +81,7 @@ function selectedContractId(): number | null {
   if (explicit !== null) return explicit
   const routed = numeric(routeContractId.value)
   if (routed !== null) return routed
-  const selected = props.rows.find((row) => row.status !== 'TERMINATED' && row.status !== 'ARCHIVED') ?? props.rows[0]
+  const selected = props.rows.find((row) => row.status !== DISPLAY_CODES.contractStatus.terminated && row.status !== DISPLAY_CODES.contractStatus.archived) ?? props.rows[0]
   return selected ? numeric(String(selected.id ?? '')) : null
 }
 
@@ -300,7 +301,7 @@ function historyChange(row: PeopleRow): string {
           <label class="people-field"><span>开始日期 *</span><input v-model="draft.start_date" data-testid="contract-start" type="date" /></label>
           <label class="people-field"><span>结束日期</span><input v-model="draft.end_date" data-testid="contract-end" type="date" /></label>
           <label class="people-field"><span>签署日期</span><input v-model="draft.signed_on" type="date" /></label>
-          <label class="people-field"><span>状态</span><select v-model="draft.status"><option value="ACTIVE">生效</option><option value="DRAFT">草稿</option></select></label>
+          <label class="people-field"><span>状态</span><select v-model="draft.status"><option :value="DISPLAY_CODES.contractStatus.active">{{ translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.active).label }}</option><option :value="DISPLAY_CODES.contractStatus.draft">{{ translate('people', 'contractStatus', DISPLAY_CODES.contractStatus.draft).label }}</option></select></label>
           <label class="people-field people-field--wide"><span>条款摘要</span><textarea v-model="draft.terms_summary" data-testid="contract-terms" rows="2" /></label>
         </div>
         <p v-if="formError" class="people-form__error" role="alert" data-testid="contract-form-error">

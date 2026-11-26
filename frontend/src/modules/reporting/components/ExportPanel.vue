@@ -133,7 +133,7 @@ onBeforeUnmount(stopPolling)
           导出独立于报表读取能力；字段必须来自服务端白名单，文件带水印、短效且记录审计轨迹。
         </p>
       </div>
-      <span class="plain-chip">as-of {{ asOf }}</span>
+      <span class="plain-chip">截至 {{ asOf }}</span>
     </div>
 
     <div class="panel__body export-panel__body">
