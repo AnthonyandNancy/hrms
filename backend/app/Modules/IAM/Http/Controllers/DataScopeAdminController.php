@@ -36,6 +36,7 @@ final class DataScopeAdminController
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            ...$this->singleCompanyRules(),
         ]);
 
         $page = (int) ($data['page'] ?? 1);
@@ -65,6 +66,7 @@ final class DataScopeAdminController
             'anchor_type' => ['sometimes', 'string', 'max:24'],
             'active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            ...$this->singleCompanyRules(),
         ]);
 
         if (array_key_exists('predicate', $request->all()) || array_key_exists('sql', $request->all()) || array_key_exists('condition', $request->all())) {
@@ -126,6 +128,22 @@ final class DataScopeAdminController
         }
 
         return $response;
+    }
+
+    /**
+     * Single-company deployment: a client must never send a tenant, company or
+     * legal-entity dimension. Reject these parameters instead of silently
+     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     *
+     * @return array<string, list<string>>
+     */
+    private function singleCompanyRules(): array
+    {
+        return [
+            'tenant_id' => ['prohibited'],
+            'company_id' => ['prohibited'],
+            'legal_entity_id' => ['prohibited'],
+        ];
     }
 
     private function definition(): CommandDefinition

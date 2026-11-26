@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Authorization\SensitiveFieldCatalog;
 use App\Modules\IAM\Services\FieldPolicyService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
+use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\CompanyBusinessDate;
@@ -32,6 +35,7 @@ final class FieldPolicyAdminController
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            ...$this->singleCompanyRules(),
         ]);
 
         $page = (int) ($data['page'] ?? 1);
@@ -57,7 +61,24 @@ final class FieldPolicyAdminController
         $principal = $this->context->requirePrincipal();
         $data = $request->validate([
             'field_profile' => ['required', 'string', 'max:24'],
+            ...$this->singleCompanyRules(),
         ]);
+
+        if (SensitiveFieldCatalog::declared($fieldKey) === null) {
+            throw new ValidationException(
+                ['field_key' => ['The field is not declared in the code-owned sensitive field catalog.']],
+                'The given data was invalid.',
+                ['reason' => 'UNKNOWN_FIELD_POLICY'],
+            );
+        }
+
+        if (FieldProfile::tryFrom((string) $data['field_profile']) === null) {
+            throw new ValidationException(
+                ['field_profile' => ['Unknown field profile.']],
+                'The given data was invalid.',
+                ['reason' => 'UNKNOWN_FIELD_PROFILE'],
+            );
+        }
 
         $payload = ['field_key' => $fieldKey, 'field_profile' => (string) $data['field_profile']];
 
@@ -92,5 +113,21 @@ final class FieldPolicyAdminController
         }
 
         return $response;
+    }
+
+    /**
+     * Single-company deployment: a client must never send a tenant, company or
+     * legal-entity dimension. Reject these parameters instead of silently
+     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     *
+     * @return array<string, list<string>>
+     */
+    private function singleCompanyRules(): array
+    {
+        return [
+            'tenant_id' => ['prohibited'],
+            'company_id' => ['prohibited'],
+            'legal_entity_id' => ['prohibited'],
+        ];
     }
 }

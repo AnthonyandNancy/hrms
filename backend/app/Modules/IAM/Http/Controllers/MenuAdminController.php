@@ -37,6 +37,7 @@ final class MenuAdminController
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'page_code' => ['sometimes', 'nullable', 'string', 'max:120'],
+            ...$this->singleCompanyRules(),
         ]);
 
         $rows = $this->overrides->overrides();
@@ -72,6 +73,7 @@ final class MenuAdminController
             'label' => ['sometimes', 'nullable', 'string', 'max:160'],
             'visible' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            ...$this->singleCompanyRules(),
         ]);
 
         $this->assertKnownPage((string) $data['page_code']);
@@ -108,6 +110,7 @@ final class MenuAdminController
             'label' => ['sometimes', 'nullable', 'string', 'max:160'],
             'visible' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            ...$this->singleCompanyRules(),
         ]);
 
         $this->assertKnownPage($pageCode);
@@ -138,6 +141,7 @@ final class MenuAdminController
     public function destroy(Request $request, string $pageCode): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
+        $request->validate($this->singleCompanyRules());
         $this->assertKnownPage($pageCode);
 
         $result = $this->commands->run(
@@ -157,6 +161,22 @@ final class MenuAdminController
         );
 
         return $this->respond($result, created: false);
+    }
+
+    /**
+     * Single-company deployment: a client must never send a tenant, company or
+     * legal-entity dimension. Reject these parameters instead of silently
+     * ignoring them, so an operator cannot believe a narrower scope was saved.
+     *
+     * @return array<string, list<string>>
+     */
+    private function singleCompanyRules(): array
+    {
+        return [
+            'tenant_id' => ['prohibited'],
+            'company_id' => ['prohibited'],
+            'legal_entity_id' => ['prohibited'],
+        ];
     }
 
     private function assertKnownPage(string $pageCode): void
