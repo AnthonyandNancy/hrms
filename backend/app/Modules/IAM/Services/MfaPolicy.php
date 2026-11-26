@@ -50,7 +50,6 @@ final class MfaPolicy
         ];
 
         $query = AuthorityBinding::query()
-            ->where('tenant_id', (int) $user->tenant_id)
             ->where('principal_id', (int) $user->id)
             ->where('auth_version', (int) $user->auth_version)
             ->where(function ($query) use ($profiles): void {

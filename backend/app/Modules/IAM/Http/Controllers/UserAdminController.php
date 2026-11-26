@@ -48,7 +48,7 @@ final class UserAdminController
         $pageSize = (int) ($validated['page_size'] ?? 20);
         $principal = $this->context->requirePrincipal();
 
-        $query = User::query()->where('tenant_id', $principal->tenantId())->orderBy('id');
+        $query = User::query()->orderBy('id');
         $total = (int) (clone $query)->count();
         $now = $this->clock->now();
         /** @var list<array<string, mixed>> $items */
@@ -100,14 +100,13 @@ final class UserAdminController
 
         $username = mb_strtolower((string) $validated['username']);
 
-        if (User::query()->where('tenant_id', $principal->tenantId())->where('username', $username)->exists()) {
+        if (User::query()->where('username', $username)->exists()) {
             throw new ValidationException(['username' => ['The username has already been taken.']]);
         }
 
         $user = DB::transaction(function () use ($validated, $username, $principal, $request): User {
             /** @var User $created */
             $created = User::query()->create([
-                'tenant_id' => $principal->tenantId(),
                 'username' => $username,
                 'email' => $validated['email'] ?? null,
                 'password_hash' => $this->passwords->hash((string) $validated['password']),
@@ -116,7 +115,7 @@ final class UserAdminController
                 'is_privileged' => (bool) ($validated['is_privileged'] ?? false),
             ]);
 
-            $this->events->record($principal->tenantId(), $principal->userId(), 'user.created', 'SUCCESS', [
+            $this->events->record($principal->userId(), 'user.created', 'SUCCESS', [
                 'target_user_id' => (int) $created->id,
             ], $request);
 
@@ -139,7 +138,7 @@ final class UserAdminController
         ]);
 
         /** @var User|null $user */
-        $user = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $user = User::query()->whereKey($id)->first();
 
         if ($user === null) {
             throw new NotFoundOrForbiddenException;
@@ -151,9 +150,9 @@ final class UserAdminController
                 'status' => (string) $validated['status'],
             ])->save();
 
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
+            $this->sessions->revokeAllForUser((int) $user->id);
             $this->snapshot->replay($user, 'user.status.changed');
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'user.status.changed', 'SUCCESS', [
+            $this->events->record($principal->userId(), 'user.status.changed', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'reason' => (string) $validated['reason'],
                 'role_code' => $old.'->'.$user->status,
@@ -185,7 +184,7 @@ final class UserAdminController
         }
 
         /** @var User|null $target */
-        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $target = User::query()->whereKey($id)->first();
         /** @var Role|null $role */
         $role = Role::query()->whereKey((string) $validated['role_code'])->first();
 
@@ -233,7 +232,6 @@ final class UserAdminController
             $currentVersion = (int) $user->auth_version;
 
             UserRole::query()->create([
-                'tenant_id' => (int) $user->tenant_id,
                 'user_id' => (int) $user->id,
                 'role_code' => (string) $role->code,
                 'valid_from' => $from,
@@ -246,7 +244,6 @@ final class UserAdminController
 
             foreach ($grants as $grant) {
                 AuthorityBinding::query()->create([
-                    'tenant_id' => (int) $user->tenant_id,
                     'principal_id' => (int) $user->id,
                     'capability_code' => (string) $grant->capability_code,
                     'anchor_type' => (string) $grant->anchor_type,
@@ -264,15 +261,15 @@ final class UserAdminController
             }
 
             $this->snapshot->replay($user, 'role.assigned');
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.assigned', 'SUCCESS', [
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record($principal->userId(), 'role.assigned', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'role_code' => (string) $role->code,
                 'reason' => (string) $validated['reason'],
             ], $request);
 
             if ($risks !== []) {
-                $this->events->record((int) $user->tenant_id, $principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
+                $this->events->record($principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
                     'target_user_id' => (int) $user->id,
                     'role_code' => (string) $role->code,
                     'reason' => (string) $validated['reason'],
@@ -298,7 +295,7 @@ final class UserAdminController
         ]);
 
         /** @var User|null $target */
-        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $target = User::query()->whereKey($id)->first();
 
         if ($target === null) {
             throw new NotFoundOrForbiddenException;
@@ -328,8 +325,8 @@ final class UserAdminController
                 ->delete();
 
             $this->snapshot->replay($user, 'role.revoked');
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.revoked', 'SUCCESS', [
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record($principal->userId(), 'role.revoked', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'role_code' => $roleCode,
                 'reason' => (string) $validated['reason'],
@@ -345,8 +342,8 @@ final class UserAdminController
 
     /**
      * Role templates can span anchors. Every anchor that requires an id must
-     * be supplied explicitly, except COMPANY which may come from the
-     * route's legal entity header.
+     * be supplied explicitly; COMPANY is the whole single-company instance
+     * and never carries an anchor id.
      *
      * @param  \Illuminate\Database\Eloquent\Collection<int, RoleCapability>  $grants
      * @return array<string, int>

@@ -10,16 +10,15 @@ use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\BindingValidity;
 
 /**
- * Tenant-scoped read model for notice audiences. IAM owns user and role rows;
+ * Read model for notice audiences in the single-company instance. IAM owns user and role rows;
  * Engagement depends only on the contract.
  */
 final class EloquentUserAudienceDirectory implements UserAudienceDirectory
 {
     /** @return list<int> */
-    public function activeUserIds(int $tenantId): array
+    public function activeUserIds(): array
     {
         return User::query()
-            ->where('tenant_id', $tenantId)
             ->where('status', User::STATUS_ACTIVE)
             ->orderBy('id')
             ->pluck('id')
@@ -31,14 +30,13 @@ final class EloquentUserAudienceDirectory implements UserAudienceDirectory
      * @param  list<string>  $roleCodes
      * @return list<int>
      */
-    public function userIdsWithRoles(int $tenantId, array $roleCodes, string $businessDate): array
+    public function userIdsWithRoles(array $roleCodes, string $businessDate): array
     {
         if ($roleCodes === []) {
             return [];
         }
 
         $query = UserRole::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('role_code', $roleCodes);
 
         return BindingValidity::whereActiveOn($query, $businessDate)
@@ -51,10 +49,9 @@ final class EloquentUserAudienceDirectory implements UserAudienceDirectory
     }
 
     /** @return list<string> */
-    public function roleCodesForUser(int $tenantId, int $userId, string $businessDate): array
+    public function roleCodesForUser(int $userId, string $businessDate): array
     {
         $query = UserRole::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId);
 
         return BindingValidity::whereActiveOn($query, $businessDate)
@@ -64,10 +61,9 @@ final class EloquentUserAudienceDirectory implements UserAudienceDirectory
             ->all();
     }
 
-    public function displayName(int $tenantId, int $userId): ?string
+    public function displayName(int $userId): ?string
     {
         $name = User::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($userId)
             ->value('username');
 

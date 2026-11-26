@@ -59,7 +59,6 @@ final class MePermissionsPageGrantTest extends TestCase
         $user = User::factory()->create(['auth_version' => 1]);
         $this->grant($user, 'people.employee.read');
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'role_code' => 'HR_ADMIN',
             'valid_from' => '2025-01-01 00:00:00',
@@ -84,7 +83,6 @@ final class MePermissionsPageGrantTest extends TestCase
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
-            tenantId: 1,
             employmentId: 1,
             authVersion: (int) $user->auth_version,
             privileged: false,
@@ -101,7 +99,6 @@ final class MePermissionsPageGrantTest extends TestCase
     private function role(User $user, string $roleCode): void
     {
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'role_code' => $roleCode,
             'valid_from' => '2026-01-01 00:00:00',
@@ -115,7 +112,7 @@ final class MePermissionsPageGrantTest extends TestCase
     private function grant(User $user, string $capability): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => $capability,

@@ -20,8 +20,8 @@ final class WebAuthnChallengeTest extends TestCase
     public function test_challenge_is_random_stored_once_and_expires(): void
     {
         $service = app(WebAuthnService::class);
-        $first = $service->beginRegistration(1, 10);
-        $second = $service->beginRegistration(1, 10);
+        $first = $service->beginRegistration(10);
+        $second = $service->beginRegistration(10);
 
         $this->assertNotSame($first['challenge'], $second['challenge']);
         $this->assertSame('webauthn.create', $first['public_key']['challenge_type'] ?? 'webauthn.create');
@@ -31,7 +31,7 @@ final class WebAuthnChallengeTest extends TestCase
     public function test_client_data_with_wrong_challenge_or_origin_is_rejected(): void
     {
         $service = app(WebAuthnService::class);
-        $options = $service->beginRegistration(1, 10);
+        $options = $service->beginRegistration(10);
         $challenge = $options['challenge'];
 
         $badChallenge = $this->clientData('webauthn.create', 'd3JvbmctY2hhbGxlbmdl', 'https://app.example.test');
@@ -39,7 +39,7 @@ final class WebAuthnChallengeTest extends TestCase
 
         foreach ([$badChallenge, $badOrigin] as $clientData) {
             try {
-                $service->verifyRegistrationClientData(1, 10, $clientData);
+                $service->verifyRegistrationClientData(10, $clientData);
                 $this->fail('Invalid client data must be rejected.');
             } catch (ValidationException $exception) {
                 $this->assertSame('WEBAUTHN_INVALID', $exception->details()['reason']);
@@ -50,25 +50,25 @@ final class WebAuthnChallengeTest extends TestCase
     public function test_challenge_is_single_use(): void
     {
         $service = app(WebAuthnService::class);
-        $options = $service->beginRegistration(1, 10);
+        $options = $service->beginRegistration(10);
         $clientData = $this->clientData('webauthn.create', $options['challenge'], 'http://localhost');
 
-        $service->verifyRegistrationClientData(1, 10, $clientData);
+        $service->verifyRegistrationClientData(10, $clientData);
 
         $this->expectException(ValidationException::class);
-        $service->verifyRegistrationClientData(1, 10, $clientData);
+        $service->verifyRegistrationClientData(10, $clientData);
     }
 
     public function test_assertion_requires_authentication_type_and_challenge(): void
     {
         $service = app(WebAuthnService::class);
-        $options = $service->beginAssertion(1, 10);
+        $options = $service->beginAssertion(10);
         $clientData = $this->clientData('webauthn.get', $options['challenge'], 'http://localhost');
 
-        $service->verifyAssertionClientData(1, 10, $clientData);
+        $service->verifyAssertionClientData(10, $clientData);
 
         $this->expectException(ValidationException::class);
-        $service->verifyAssertionClientData(1, 10, $this->clientData('webauthn.create', $options['challenge'], 'http://localhost'));
+        $service->verifyAssertionClientData(10, $this->clientData('webauthn.create', $options['challenge'], 'http://localhost'));
     }
 
     private function clientData(string $type, string $challenge, string $origin): string

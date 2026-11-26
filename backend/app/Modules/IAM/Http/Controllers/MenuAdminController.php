@@ -15,7 +15,7 @@ use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +27,7 @@ final class MenuAdminController
         private readonly MenuOverrideWriter $overrides,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -39,7 +39,7 @@ final class MenuAdminController
             'page_code' => ['sometimes', 'nullable', 'string', 'max:120'],
         ]);
 
-        $rows = $this->overrides->overrides($principal->tenantId());
+        $rows = $this->overrides->overrides();
 
         if (isset($data['page_code'])) {
             $rows = array_values(array_filter($rows, static fn (array $row): bool => $row['page_code'] === (string) $data['page_code']));
@@ -55,7 +55,7 @@ final class MenuAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -85,8 +85,8 @@ final class MenuAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.menu.override.create', 'iam.menu.override.created'),
             payload: $payload,
-            operation: function () use ($principal, $payload): array {
-                $override = $this->overrides->create($principal->tenantId(), $payload);
+            operation: function () use ($payload): array {
+                $override = $this->overrides->create($payload);
 
                 return [
                     'http_status' => 201,
@@ -119,8 +119,8 @@ final class MenuAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.menu.override.update', 'iam.menu.override.updated'),
             payload: $payload,
-            operation: function () use ($principal, $payload): array {
-                $override = $this->overrides->update($principal->tenantId(), (string) $payload['page_code'], $payload);
+            operation: function () use ($payload): array {
+                $override = $this->overrides->update((string) $payload['page_code'], $payload);
 
                 return [
                     'http_status' => 200,
@@ -143,8 +143,8 @@ final class MenuAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.menu.override.delete', 'iam.menu.override.deleted'),
             payload: ['page_code' => $pageCode],
-            operation: function () use ($principal, $pageCode): array {
-                $this->overrides->delete($principal->tenantId(), $pageCode);
+            operation: function () use ($pageCode): array {
+                $this->overrides->delete($pageCode);
 
                 return [
                     'http_status' => 200,

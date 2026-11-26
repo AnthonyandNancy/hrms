@@ -19,10 +19,9 @@ final class FieldPolicyService
     /**
      * @return list<array{field_key: string, profile: string, declared_profile: string, can_tighten: bool}>
      */
-    public function rows(int $tenantId): array
+    public function rows(): array
     {
         $stored = FieldPolicy::query()
-            ->where('tenant_id', $tenantId)
             ->get()
             ->keyBy('field_key');
 
@@ -46,7 +45,7 @@ final class FieldPolicyService
     /**
      * @return array{field_key: string, profile: string, declared_profile: string, can_tighten: bool}
      */
-    public function update(int $tenantId, string $fieldKey, string $profile): array
+    public function update(string $fieldKey, string $profile): array
     {
         $declared = SensitiveFieldCatalog::declared($fieldKey);
 
@@ -77,10 +76,9 @@ final class FieldPolicyService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $fieldKey, $requested, $declared): array {
+        return DB::transaction(function () use ($fieldKey, $requested, $declared): array {
             /** @var FieldPolicy|null $existing */
             $existing = FieldPolicy::query()
-                ->where('tenant_id', $tenantId)
                 ->where('field_key', $fieldKey)
                 ->first();
 
@@ -88,12 +86,11 @@ final class FieldPolicyService
 
             /** @var FieldPolicy $policy */
             $policy = FieldPolicy::query()->updateOrCreate(
-                ['tenant_id' => $tenantId, 'field_key' => $fieldKey],
+                ['field_key' => $fieldKey],
                 ['field_profile' => $requested->value],
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: \App\Shared\RequestContext::userId(),
                 action: 'iam.field_policy.updated',
                 aggregateType: 'field_policy',

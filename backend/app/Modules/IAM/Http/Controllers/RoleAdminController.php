@@ -48,8 +48,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.create', 'iam.role.created'),
             payload: $payload,
-            operation: function () use ($principal, $payload): array {
-                $role = $this->roles->create($principal->tenantId(), $payload);
+            operation: function () use ($payload): array {
+                $role = $this->roles->create($payload);
 
                 return [
                     'http_status' => 201,
@@ -84,8 +84,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.copy', 'iam.role.copied'),
             payload: $payload,
-            operation: function () use ($principal, $payload, $id): array {
-                $role = $this->roles->copy($principal->tenantId(), $id, $payload);
+            operation: function () use ($payload, $id): array {
+                $role = $this->roles->copy($id, $payload);
 
                 return [
                     'http_status' => 201,
@@ -118,8 +118,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.capabilities.replace', 'iam.role.capabilities.changed'),
             payload: $payload,
-            operation: function () use ($principal, $payload, $id): array {
-                $role = $this->roles->replaceCapabilities($principal->tenantId(), $id, $payload['capabilities']);
+            operation: function () use ($payload, $id): array {
+                $role = $this->roles->replaceCapabilities($id, $payload['capabilities']);
 
                 return [
                     'http_status' => 200,

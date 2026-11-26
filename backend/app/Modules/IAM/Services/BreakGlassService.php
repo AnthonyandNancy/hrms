@@ -44,7 +44,6 @@ final class BreakGlassService
         }
 
         $approver = User::query()
-            ->where('tenant_id', $requester->tenant_id)
             ->whereKey($approverUserId)
             ->where('status', User::STATUS_ACTIVE)
             ->first();
@@ -69,7 +68,6 @@ final class BreakGlassService
         $grant = DB::transaction(function () use ($request, $requester, $approver, $reason, $scope, $now, $expiresAt): BreakGlassGrant {
             /** @var BreakGlassGrant $grant */
             $grant = BreakGlassGrant::query()->create([
-                'tenant_id' => (int) $requester->tenant_id,
                 'requester_user_id' => (int) $requester->id,
                 'approver_user_id' => (int) $approver->id,
                 'reason' => trim($reason),
@@ -83,7 +81,6 @@ final class BreakGlassService
             $this->audit($grant, 'security.break_glass.activated', (int) $requester->id, $request);
 
             $this->outbox->record(
-                tenantId: (int) $grant->tenant_id,
                 eventType: 'security.break_glass.activated',
                 aggregateType: 'break_glass_grant',
                 aggregateId: (string) $grant->id,
@@ -98,7 +95,6 @@ final class BreakGlassService
             );
 
             $this->events->record(
-                (int) $grant->tenant_id,
                 (int) $requester->id,
                 'break_glass.activated',
                 'SUCCESS',
@@ -116,7 +112,6 @@ final class BreakGlassService
     {
         /** @var BreakGlassGrant|null $grant */
         $grant = BreakGlassGrant::query()
-            ->where('tenant_id', $actor->tenant_id)
             ->whereKey($grantId)
             ->where(function ($query) use ($actor): void {
                 $query->where('requester_user_id', $actor->id)->orWhere('approver_user_id', $actor->id);
@@ -136,7 +131,6 @@ final class BreakGlassService
 
             $this->audit($grant, 'security.break_glass.revoked', (int) $actor->id, $request);
             $this->outbox->record(
-                tenantId: (int) $grant->tenant_id,
                 eventType: 'security.break_glass.revoked',
                 aggregateType: 'break_glass_grant',
                 aggregateId: (string) $grant->id,
@@ -148,7 +142,6 @@ final class BreakGlassService
             );
 
             $this->events->record(
-                (int) $grant->tenant_id,
                 (int) $actor->id,
                 'break_glass.revoked',
                 'SUCCESS',
@@ -189,7 +182,6 @@ final class BreakGlassService
     private function audit(BreakGlassGrant $grant, string $action, int $actorId, Request $request): void
     {
         $this->audit->record(
-            tenantId: (int) $grant->tenant_id,
             actorUserId: $actorId,
             action: $action,
             aggregateType: 'break_glass_grant',

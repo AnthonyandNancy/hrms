@@ -17,10 +17,8 @@ final class EmployeeStub extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'org_unit_id',
-        'legal_entity_id',
         'case_id',
         'payroll_run_id',
         'name',
@@ -38,10 +36,8 @@ final class EmployeeStubFactory extends Factory
     public function definition(): array
     {
         return [
-            'tenant_id' => 1,
             'employment_id' => fake()->numberBetween(1, 1000),
             'org_unit_id' => 1,
-            'legal_entity_id' => 1,
             'case_id' => null,
             'payroll_run_id' => null,
             'name' => fake()->name(),

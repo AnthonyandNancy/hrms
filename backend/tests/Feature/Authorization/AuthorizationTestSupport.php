@@ -77,7 +77,6 @@ abstract class AuthorizationTestSupport extends TestCase
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
-            tenantId: (int) $user->tenant_id,
             employmentId: $employmentId,
             authVersion: (int) $user->auth_version,
             privileged: (bool) $user->is_privileged,
@@ -98,13 +97,12 @@ abstract class AuthorizationTestSupport extends TestCase
     protected function systemAdmin(): User
     {
         $user = User::factory()->create([
-            'tenant_id' => 1,
             'auth_version' => 1,
             'is_privileged' => true,
         ]);
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => CapabilityWildcard::WILDCARD,
@@ -115,7 +113,6 @@ abstract class AuthorizationTestSupport extends TestCase
 
         $now = app(\App\Shared\Time\Clock::class)->now();
         MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => Crypt::encryptString(app(TotpService::class)->generateSecret()),
@@ -123,8 +120,6 @@ abstract class AuthorizationTestSupport extends TestCase
             'confirmed_at' => $now,
         ]);
         $user->forceFill(['mfa_enrolled_at' => $now])->save();
-
-        $this->organization->knownLegalEntities = [1];
         $this->people->employmentByUser[(int) $user->id] = [1];
 
         $principal = $this->actingAsUser($user, 1, true, 'test-session');

@@ -39,7 +39,6 @@ final class SessionManager
         $session = Session::query()->create([
             'id' => (string) Str::ulid(),
             'user_id' => (int) $user->id,
-            'tenant_id' => (int) $user->tenant_id,
             'token_hash' => hash('sha256', $token),
             'csrf_hash' => hash('sha256', $csrf),
             'ip' => $request->ip(),
@@ -71,7 +70,6 @@ final class SessionManager
         $session = Session::query()->create([
             'id' => (string) Str::ulid(),
             'user_id' => (int) $user->id,
-            'tenant_id' => (int) $user->tenant_id,
             'token_hash' => hash('sha256', $this->randomToken()),
             'csrf_hash' => hash('sha256', $this->randomToken()),
             'ip' => $request->ip(),
@@ -109,7 +107,7 @@ final class SessionManager
 
         $user = User::query()->whereKey($session->user_id)->first();
 
-        if (! $user instanceof User || (int) $user->tenant_id !== (int) $session->tenant_id) {
+        if (! $user instanceof User) {
             throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
         }
 
@@ -148,7 +146,7 @@ final class SessionManager
 
             $user = User::query()->whereKey($locked->user_id)->first();
 
-            if (! $user instanceof User || (int) $user->tenant_id !== (int) $locked->tenant_id) {
+            if (! $user instanceof User) {
                 throw new AuthenticationFailedException('MFA_CHALLENGE_INVALID');
             }
 
@@ -248,10 +246,9 @@ final class SessionManager
         }
     }
 
-    public function revokeAllForUser(int $tenantId, int $userId, ?string $exceptSessionId = null): int
+    public function revokeAllForUser(int $userId, ?string $exceptSessionId = null): int
     {
         return Session::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->whereNull('revoked_at')
             ->when($exceptSessionId !== null, fn ($query) => $query->whereKeyNot($exceptSessionId))

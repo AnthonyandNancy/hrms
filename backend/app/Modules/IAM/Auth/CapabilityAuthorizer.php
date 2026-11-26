@@ -26,10 +26,10 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Default-deny authorization engine.
  *
- * Resolution order for one binding: tenant -> principal+auth_version ->
- * capability -> effective dates -> anchor target. Row predicates are
- * unions; field profiles are resolved per covered row and never merged across
- * bindings that do not cover the row.
+ * Resolution order for one binding: principal+auth_version -> capability ->
+ * effective dates -> anchor target. The single-company instance has no tenant
+ * predicate. Row predicates are unions; field profiles are resolved per
+ * covered row and never merged across bindings that do not cover the row.
  */
 final class CapabilityAuthorizer implements Authorizer
 {
@@ -236,11 +236,10 @@ final class CapabilityAuthorizer implements Authorizer
 
         if ($sensitive !== []) {
             $this->auditor->record(
-                tenantId: $p->tenantId(),
                 userId: $p->userId(),
+                capabilityCode: $capability,
                 resourceType: $row->resourceType,
-                resourceId: (string) $row->id,
-                capability: $capability,
+                resourceId: $row->id,
                 fields: $sensitive,
                 context: ['profile' => $effective->value],
             );
@@ -255,7 +254,6 @@ final class CapabilityAuthorizer implements Authorizer
     private function matchingBindings(Principal $p, string $capability, string $businessDate): array
     {
         $grants = $this->bindings->effectiveBindings(
-            $p->tenantId(),
             $p->userId(),
             $capability,
             $p->authVersion(),
@@ -264,8 +262,7 @@ final class CapabilityAuthorizer implements Authorizer
 
         return array_values(array_filter(
             $grants,
-            static fn (BindingGrant $grant): bool => $grant->tenantId === $p->tenantId()
-                && $grant->principalId === $p->userId()
+            static fn (BindingGrant $grant): bool => $grant->principalId === $p->userId()
                 && $grant->authVersion === $p->authVersion()
                 && $grant->isEffectiveOn($businessDate),
         ));
@@ -284,16 +281,14 @@ final class CapabilityAuthorizer implements Authorizer
         string $businessDate,
         string $table,
     ): void {
-        $query->where("{$table}.tenant_id", $principal->tenantId());
-
         switch ($grant->anchorType) {
             case Anchor::SELF:
-                $employmentIds = $this->people->employmentIdsForUser($principal->tenantId(), $principal->userId());
+                $employmentIds = $this->people->employmentIdsForUser($principal->userId(), $businessDate);
                 $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
                 break;
 
             case Anchor::MANAGED:
-                $employmentIds = $this->people->managedEmploymentIds($principal->tenantId(), $principal->userId(), $businessDate);
+                $employmentIds = $this->people->managerEmploymentIds($principal->userId(), $businessDate);
                 $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
                 break;
 
@@ -305,7 +300,7 @@ final class CapabilityAuthorizer implements Authorizer
             case Anchor::ORG_SUBTREE:
                 $unitIds = $grant->anchorId === null
                     ? []
-                    : $this->organization->descendantUnitIds($principal->tenantId(), $grant->anchorId, $businessDate);
+                    : $this->organization->descendantOrgUnitIds($grant->anchorId);
                 $this->whereColumnIn($query, $this->orgColumn($query), $unitIds);
                 break;
 
@@ -396,13 +391,13 @@ final class CapabilityAuthorizer implements Authorizer
             // grant: it must not widen the anchor the template was bound to.
             return match ($grant->anchorType) {
                 Anchor::SELF => true,
-                Anchor::MANAGED => $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate) !== [],
+                Anchor::MANAGED => $this->people->managerEmploymentIds($p->userId(), $businessDate) !== [],
                 Anchor::ORG_UNIT => $anchorId !== null
                     && $anchorId === $grant->anchorId
-                    && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate),
+                    && $this->organization->orgUnitExists($anchorId),
                 Anchor::ORG_SUBTREE => $anchorId !== null
-                    && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate)
-                    && in_array($anchorId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId ?? 0, $businessDate), true),
+                    && $this->organization->orgUnitExists($anchorId)
+                    && in_array($anchorId, $this->organization->descendantOrgUnitIds($grant->anchorId ?? 0), true),
                 Anchor::CASE => $anchorId !== null && $anchorId === $grant->anchorId,
                 Anchor::PAYROLL_RUN => $anchorId !== null && $anchorId === $grant->anchorId,
                 Anchor::COMPANY => $grant->anchorId === null,
@@ -411,43 +406,39 @@ final class CapabilityAuthorizer implements Authorizer
 
         return match ($grant->anchorType) {
             Anchor::SELF => in_array($capability, self::INTRINSIC_SELF_CAPABILITIES, true)
-                || $this->people->employmentIdsForUser($p->tenantId(), $p->userId()) !== [],
-            Anchor::MANAGED => $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate) !== [],
+                || $this->people->employmentIdsForUser($p->userId(), $businessDate) !== [],
+            Anchor::MANAGED => $this->people->managerEmploymentIds($p->userId(), $businessDate) !== [],
             Anchor::ORG_UNIT => $anchorId !== null
                 && $anchorId === $grant->anchorId
-                && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate),
+                && $this->organization->orgUnitExists($anchorId),
             Anchor::ORG_SUBTREE => $anchorId !== null
-                && $this->organization->isUnitInTenant($p->tenantId(), $anchorId, $businessDate)
-                && in_array($anchorId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId ?? 0, $businessDate), true),
+                && $this->organization->orgUnitExists($anchorId)
+                && in_array($anchorId, $this->organization->descendantOrgUnitIds($grant->anchorId ?? 0), true),
             Anchor::CASE => $anchorId !== null
                 && $anchorId === $grant->anchorId
-                && $this->cases->isMember($p->tenantId(), $p->userId(), $anchorId, $capability),
+                && $this->cases->isMember($p->userId(), $anchorId, $capability),
             Anchor::PAYROLL_RUN => $anchorId !== null
                 && $anchorId === $grant->anchorId
-                && $this->payroll->isMember($p->tenantId(), $p->userId(), $anchorId, $capability),
+                && $this->payroll->isMember($p->userId(), $anchorId, $capability),
             Anchor::COMPANY => $grant->anchorId === null,
         };
     }
 
     private function resourceCoveredByGrant(BindingGrant $grant, Principal $p, ResourceRef $row, string $capability, string $businessDate): bool
     {
-        if ($row->tenantId !== null && $row->tenantId !== $p->tenantId()) {
-            return false;
-        }
-
         if (CapabilityWildcard::is($grant->capabilityCode)) {
             // Same row scope as a concrete grant; `*` removes only the
             // capability membership check, never the anchor boundary.
             return match ($grant->anchorType) {
                 Anchor::SELF => $row->employmentId !== null
-                    && in_array($row->employmentId, $this->people->employmentIdsForUser($p->tenantId(), $p->userId()), true)
+                    && in_array($row->employmentId, $this->people->employmentIdsForUser($p->userId(), $businessDate), true)
                     && $grant->anchorId === null,
                 Anchor::MANAGED => $row->employmentId !== null
-                    && in_array($row->employmentId, $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate), true),
+                    && in_array($row->employmentId, $this->people->managerEmploymentIds($p->userId(), $businessDate), true),
                 Anchor::ORG_UNIT => $row->orgUnitId !== null && $row->orgUnitId === $grant->anchorId,
                 Anchor::ORG_SUBTREE => $row->orgUnitId !== null
                     && $grant->anchorId !== null
-                    && in_array($row->orgUnitId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId, $businessDate), true),
+                    && in_array($row->orgUnitId, $this->organization->descendantOrgUnitIds($grant->anchorId), true),
                 Anchor::CASE => $row->caseId !== null && $row->caseId === $grant->anchorId,
                 Anchor::PAYROLL_RUN => $row->payrollRunId !== null && $row->payrollRunId === $grant->anchorId,
                 Anchor::COMPANY => $grant->anchorId === null,
@@ -456,38 +447,38 @@ final class CapabilityAuthorizer implements Authorizer
 
         return match ($grant->anchorType) {
             Anchor::SELF => $row->employmentId !== null
-                && in_array($row->employmentId, $this->people->employmentIdsForUser($p->tenantId(), $p->userId()), true)
+                && in_array($row->employmentId, $this->people->employmentIdsForUser($p->userId(), $businessDate), true)
                 && $grant->anchorId === null,
             Anchor::MANAGED => $row->employmentId !== null
-                && in_array($row->employmentId, $this->people->managedEmploymentIds($p->tenantId(), $p->userId(), $businessDate), true),
+                && in_array($row->employmentId, $this->people->managerEmploymentIds($p->userId(), $businessDate), true),
             Anchor::ORG_UNIT => $row->orgUnitId !== null && $row->orgUnitId === $grant->anchorId,
             Anchor::ORG_SUBTREE => $row->orgUnitId !== null
                 && $grant->anchorId !== null
-                && in_array($row->orgUnitId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId, $businessDate), true),
+                && in_array($row->orgUnitId, $this->organization->descendantOrgUnitIds($grant->anchorId), true),
             Anchor::CASE => $row->caseId !== null
                 && $row->caseId === $grant->anchorId
-                && $this->cases->isMember($p->tenantId(), $p->userId(), $row->caseId, $capability),
+                && $this->cases->isMember($p->userId(), $row->caseId, $capability),
             Anchor::PAYROLL_RUN => $row->payrollRunId !== null
                 && $row->payrollRunId === $grant->anchorId
-                && $this->payroll->isMember($p->tenantId(), $p->userId(), $row->payrollRunId, $capability),
+                && $this->payroll->isMember($p->userId(), $row->payrollRunId, $capability),
             Anchor::COMPANY => $grant->anchorId === null,
         };
     }
 
     private function assertLiveSubject(Principal $p): void
     {
-        if (! $this->subjects->isEnabled($p->tenantId(), $p->userId())) {
+        if (! $this->subjects->isEnabled($p->userId())) {
             throw new NotFoundOrForbiddenException;
         }
 
-        if ($this->subjects->currentAuthVersion($p->tenantId(), $p->userId()) !== $p->authVersion()) {
+        if ($this->subjects->currentAuthVersion($p->userId()) !== $p->authVersion()) {
             throw new NotFoundOrForbiddenException;
         }
     }
 
     private function assertPrincipalIntegrity(Principal $p): void
     {
-        if ($p->userId() <= 0 || $p->tenantId() <= 0 || $p->authVersion() <= 0) {
+        if ($p->userId() <= 0 || $p->authVersion() <= 0) {
             throw new NotFoundOrForbiddenException;
         }
     }
@@ -501,7 +492,7 @@ final class CapabilityAuthorizer implements Authorizer
         }
 
         $scope = app(\App\Shared\Authorization\Contracts\ElevationGrantDirectory::class)
-            ->activeCapabilities($principal->tenantId(), $principal->userId(), $grantId);
+            ->activeCapabilities($principal->userId(), $grantId);
 
         if ($scope === null) {
             return false;

@@ -65,7 +65,6 @@ final class BindRoleCommand extends Command
         $anchorType = (string) $template->grants[0]->anchorType->value;
 
         $alreadyBound = AuthorityBinding::query()
-            ->where('tenant_id', (int) $user->tenant_id)
             ->where('principal_id', (int) $user->id)
             ->whereIn('capability_code', $template->capabilityCodes())
             ->where('anchor_type', $anchorType)
@@ -86,7 +85,6 @@ final class BindRoleCommand extends Command
             $currentVersion = (int) $locked->auth_version;
 
             UserRole::query()->firstOrCreate([
-                'tenant_id' => (int) $locked->tenant_id,
                 'user_id' => (int) $locked->id,
                 'role_code' => $template->code,
                 'valid_from' => $from,
@@ -103,7 +101,6 @@ final class BindRoleCommand extends Command
                 $anchorId = null;
 
                 AuthorityBinding::query()->firstOrCreate([
-                    'tenant_id' => (int) $locked->tenant_id,
                     'principal_id' => (int) $locked->id,
                     'capability_code' => (string) $grant->capabilityCode,
                     'anchor_type' => (string) $grant->anchorType->value,

@@ -55,9 +55,7 @@ final class NoActiveEmploymentTest extends AuthorizationTestSupport
     private function adminWithoutEmployment(): User
     {
         $this->people->employmentByUser = [];
-        $this->organization->knownLegalEntities = [1];
         $user = User::factory()->create([
-            'tenant_id' => 1,
             'auth_version' => 1,
             'is_privileged' => true,
             'mfa_enrolled_at' => now(),
@@ -65,7 +63,7 @@ final class NoActiveEmploymentTest extends AuthorizationTestSupport
 
         foreach (['iam.session.manage', 'time.leave.read', 'time.attendance.read', 'payroll.payslip.read.self'] as $capability) {
             AuthorityBinding::factory()
-                ->forPrincipal(1, (int) $user->id, 1)
+                ->forPrincipal((int) $user->id, (int) $user->auth_version)
                 ->anchor(AnchorType::SELF, null, FieldProfile::P1_INTERNAL)
                 ->create([
                     'capability_code' => $capability,

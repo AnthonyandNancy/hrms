@@ -16,20 +16,18 @@ final class AuthorizationScopeTest extends PeopleTestCase
     public function test_self_scope_resolves_only_the_principals_employment(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'AUTH-SELF');
-        $self = $scenario->employment($scenario->person(), $entity, 'SELF-1');
-        $other = $scenario->employment($scenario->person(), $entity, 'SELF-2');
+        $org = $scenario->orgUnit('AUTH-SELF');
+        $self = $scenario->employment($scenario->person(), 'SELF-1');
+        $other = $scenario->employment($scenario->person(), 'SELF-2');
         $scenario->assignment($self, $org);
         $scenario->assignment($other, $org);
         $scenario->userLink(77, $self);
 
-        $principal = new TestPrincipal(1, 77, $self->id);
+        $principal = new TestPrincipal(userId: 77, employmentId: $self->id);
         $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
         $authorizer = new DirectoryScopeAuthorizer(
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
-            $principal,
             'SELF',
         );
         $this->app->instance(Authorizer::class, $authorizer);
@@ -43,21 +41,19 @@ final class AuthorizationScopeTest extends PeopleTestCase
     public function test_managed_scope_resolves_direct_reports(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'AUTH-MANAGED');
-        $managerEmployment = $scenario->employment($scenario->person(), $entity, 'MGR-1');
+        $org = $scenario->orgUnit('AUTH-MANAGED');
+        $managerEmployment = $scenario->employment($scenario->person(), 'MGR-1');
         $managerAssignment = $scenario->assignment($managerEmployment, $org);
-        $report = $scenario->employment($scenario->person(), $entity, 'REP-1');
+        $report = $scenario->employment($scenario->person(), 'REP-1');
         $scenario->assignment($report, $org, ['manager_assignment_id' => $managerAssignment->id]);
-        $unrelated = $scenario->employment($scenario->person(), $entity, 'UNRELATED-1');
+        $unrelated = $scenario->employment($scenario->person(), 'UNRELATED-1');
         $scenario->assignment($unrelated, $org);
 
-        $principal = new TestPrincipal(1, 90, $managerEmployment->id);
+        $principal = new TestPrincipal(userId: 90, employmentId: $managerEmployment->id);
         $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
         $this->app->instance(Authorizer::class, new DirectoryScopeAuthorizer(
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
-            $principal,
             'MANAGED',
         ));
 
@@ -70,20 +66,18 @@ final class AuthorizationScopeTest extends PeopleTestCase
     public function test_org_subtree_scope_resolves_descendant_org_members(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $division = $scenario->orgUnit($entity, 'AUTH-DIV', null, 'Division', 'DIVISION');
-        $team = $scenario->orgUnit($entity, 'AUTH-TEAM', $division);
-        $outside = $scenario->orgUnit($entity, 'AUTH-OUTSIDE');
-        $inTeam = $scenario->employment($scenario->person(), $entity, 'DEPT-1');
+        $division = $scenario->orgUnit('AUTH-DIV', null, 'Division', 'DIVISION');
+        $team = $scenario->orgUnit('AUTH-TEAM', $division);
+        $outside = $scenario->orgUnit('AUTH-OUTSIDE');
+        $inTeam = $scenario->employment($scenario->person(), 'DEPT-1');
         $scenario->assignment($inTeam, $team);
-        $out = $scenario->employment($scenario->person(), $entity, 'OUT-1');
+        $out = $scenario->employment($scenario->person(), 'OUT-1');
         $scenario->assignment($out, $outside);
 
-        $principal = new TestPrincipal(1, 91);
+        $principal = new TestPrincipal(userId: 91);
         $this->app->instance(Authorizer::class, new DirectoryScopeAuthorizer(
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
-            $principal,
             'ORG_SUBTREE',
             $division->id,
         ));
@@ -94,45 +88,47 @@ final class AuthorizationScopeTest extends PeopleTestCase
             ->assertJsonPath('data.items.0.employment_id', $inTeam->id);
     }
 
-    public function test_legal_entity_scope_is_isolated(): void
+    public function test_company_scope_does_not_leak_into_department_scope(): void
     {
         $scenario = $this->scenario();
-        $cn = $scenario->legalEntity('CN');
-        $sg = $scenario->legalEntity('SG', 'Singapore', 'Asia/Singapore', 'SGD');
-        $cnOrg = $scenario->orgUnit($cn, 'CN-ORG');
-        $sgOrg = $scenario->orgUnit($sg, 'SG-ORG');
-        $cnEmployment = $scenario->employment($scenario->person(), $cn, 'CN-1');
-        $sgEmployment = $scenario->employment($scenario->person(), $sg, 'SG-1');
-        $scenario->assignment($cnEmployment, $cnOrg);
-        $scenario->assignment($sgEmployment, $sgOrg);
+        $hr = $scenario->orgUnit('HR-SCOPE');
+        $finance = $scenario->orgUnit('FIN-SCOPE');
+        $hrEmployment = $scenario->employment($scenario->person(), 'HR-1');
+        $financeEmployment = $scenario->employment($scenario->person(), 'FIN-1');
+        $scenario->assignment($hrEmployment, $hr);
+        $scenario->assignment($financeEmployment, $finance);
 
-        $principal = new TestPrincipal(1, 92);
+        $principal = new TestPrincipal(userId: 92);
         $this->app->instance(Authorizer::class, new DirectoryScopeAuthorizer(
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
-            $principal,
-            'COMPANY',
-            $cn->id,
+            'ORG_UNIT',
+            $hr->id,
         ));
 
         $this->getJson('/v1/employees?as_of=2026-11-23')
             ->assertOk()
             ->assertJsonPath('data.total', 1)
-            ->assertJsonPath('data.items.0.employment_id', $cnEmployment->id);
+            ->assertJsonPath('data.items.0.employment_id', $hrEmployment->id);
     }
 
-    public function test_cross_tenant_detail_is_404(): void
+    public function test_out_of_scope_employee_detail_and_unknown_department_are_hidden(): void
     {
-        $scenario = $this->scenario(1);
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'TENANT-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'TENANT-1');
+        $scenario = $this->scenario();
+        $org = $scenario->orgUnit('SCOPE-ORG');
+        $employment = $scenario->employment($scenario->person(), 'SCOPE-1');
         $scenario->assignment($employment, $org);
 
-        $this->actAs(tenantId: 2, userId: 99);
+        $principal = new TestPrincipal(userId: 99);
+        $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
+        $this->app->instance(Authorizer::class, new DirectoryScopeAuthorizer(
+            app(PeopleDirectory::class),
+            app(OrganizationDirectory::class),
+            'ORG_UNIT',
+            $org->id + 5000,
+        ));
 
         $this->getJson("/v1/employees/{$employment->id}?as_of=2026-11-23")->assertNotFound();
-        $this->getJson("/v1/org-units/tree?as_of=2026-11-23&legal_entity_id={$entity->id}")->assertNotFound();
     }
 
     public function test_unauthenticated_request_is_401(): void

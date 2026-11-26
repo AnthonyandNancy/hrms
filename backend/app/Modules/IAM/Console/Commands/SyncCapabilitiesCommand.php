@@ -56,7 +56,6 @@ final class SyncCapabilitiesCommand extends Command
                 Role::query()->updateOrCreate(
                     ['code' => $template->code],
                     [
-                        'tenant_id' => null,
                         'name' => $template->name,
                         'is_template' => true,
                         'owner' => null,
@@ -69,7 +68,6 @@ final class SyncCapabilitiesCommand extends Command
 
                 foreach ($template->grants as $grant) {
                     RoleCapability::query()->create([
-                        'tenant_id' => null,
                         'role_code' => $grant->roleCode,
                         'capability_code' => $grant->capabilityCode,
                         'anchor_type' => $grant->anchorType->value,

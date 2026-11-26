@@ -20,7 +20,6 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'tenant_id' => 1,
             'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'password_hash' => self::$passwordHash ??= app(PasswordHasher::class)->hash('Correct-Horse-9!'),
@@ -37,7 +36,6 @@ class UserFactory extends Factory
         ])->afterCreating(static function (User $user): void {
             $now = app(\App\Shared\Time\Clock::class)->now();
             \App\Modules\IAM\Models\MfaFactor::query()->create([
-                'tenant_id' => (int) $user->tenant_id,
                 'user_id' => (int) $user->id,
                 'type' => \App\Modules\IAM\Models\MfaFactor::TYPE_TOTP,
                 'secret_ciphertext' => \Illuminate\Support\Facades\Crypt::encryptString(app(\App\Modules\IAM\Services\TotpService::class)->generateSecret()),

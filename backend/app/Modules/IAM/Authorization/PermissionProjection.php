@@ -31,9 +31,9 @@ final class PermissionProjection
     /**
      * @return array<string, mixed>
      */
-    public function forUser(int $tenantId, int $userId, int $authVersion): array
+    public function forUser(int $userId, int $authVersion): array
     {
-        [$rows, $wildcard] = $this->effectiveBindings($tenantId, $userId, $authVersion);
+        [$rows, $wildcard] = $this->effectiveBindings($userId, $authVersion);
 
         $actions = [];
         $fieldProfilesByCapability = [];
@@ -52,7 +52,6 @@ final class PermissionProjection
 
         $now = $this->clock->now();
         $roles = UserRole::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->where('auth_version', $authVersion)
             ->where('valid_from', '<=', $now)
@@ -70,7 +69,7 @@ final class PermissionProjection
         $rolePageSet = array_fill_keys($rolePages, true);
 
         $overrides = [];
-        foreach ($this->menuOverrides->overrides($tenantId) as $override) {
+        foreach ($this->menuOverrides->overrides() as $override) {
             $overrides[(string) $override['page_code']] = $override;
         }
 
@@ -130,13 +129,12 @@ final class PermissionProjection
     /**
      * @return array{0: list<array<string, mixed>>, 1: bool}
      */
-    public function effectiveBindings(int $tenantId, int $userId, int $authVersion): array
+    public function effectiveBindings(int $userId, int $authVersion): array
     {
         $businessDate = $this->clock->now()->toDateString();
 
         $bindings = BindingValidity::whereActiveOn(
             AuthorityBinding::query()
-                ->where('tenant_id', $tenantId)
                 ->where('principal_id', $userId)
                 ->where('auth_version', $authVersion),
             $businessDate,

@@ -45,7 +45,7 @@ final class AuthController
             ->count();
 
         if ($failures >= (int) config('iam.login.max_failures', 10)) {
-            $this->events->record(0, null, 'login.failure', 'FAILURE', ['reason' => 'LOCKED'], $request);
+            $this->events->record(null, 'login.failure', 'FAILURE', ['reason' => 'LOCKED'], $request);
 
             return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication failed.', 401, ['reason' => 'ACCOUNT_LOCKED']);
         }
@@ -58,7 +58,7 @@ final class AuthController
             ->count();
 
         if ($recent >= (int) config('iam.login.rate_limit_per_minute', 5)) {
-            $this->events->record(0, null, 'login.failure', 'FAILURE', ['reason' => 'RATE_LIMITED'], $request);
+            $this->events->record(null, 'login.failure', 'FAILURE', ['reason' => 'RATE_LIMITED'], $request);
 
             return ApiResponse::error(ErrorCode::RATE_LIMITED->value, ErrorCode::RATE_LIMITED->defaultMessage(), 429, ['reason' => 'LOGIN_RATE_LIMITED']);
         }
@@ -69,7 +69,6 @@ final class AuthController
             && $this->passwords->verify((string) $validated['password'], $user->password_hash);
 
         LoginAttempt::query()->create([
-            'tenant_id' => $user?->tenant_id,
             'username' => $username,
             'ip' => $ip,
             'succeeded' => $valid && $user->isActive(),
@@ -77,7 +76,7 @@ final class AuthController
         ]);
 
         if (! $valid || ! $user instanceof User || ! $user->isActive()) {
-            $this->events->record($user === null ? 0 : (int) $user->tenant_id, $user?->id, 'login.failure', 'FAILURE', ['reason' => 'BAD_CREDENTIALS'], $request);
+            $this->events->record($user?->id, 'login.failure', 'FAILURE', ['reason' => 'BAD_CREDENTIALS'], $request);
 
             return ApiResponse::error(ErrorCode::UNAUTHENTICATED->value, 'Authentication failed.', 401, ['reason' => 'BAD_CREDENTIALS']);
         }
@@ -91,7 +90,7 @@ final class AuthController
 
             $user->forceFill(['last_login_at' => $this->clock->now()])->save();
 
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'login.mfa_challenge', 'SUCCESS', [
+            $this->events->record((int) $user->id, 'login.mfa_challenge', 'SUCCESS', [
                 'session_id' => (string) $issued['session']->id,
             ], $request);
 
@@ -106,7 +105,7 @@ final class AuthController
         $issued = $this->sessions->issue($user, $request, (bool) $user->is_privileged);
         $user->forceFill(['last_login_at' => $this->clock->now()])->save();
 
-        $this->events->record((int) $user->tenant_id, (int) $user->id, 'login.succeeded', 'SUCCESS', [
+        $this->events->record((int) $user->id, 'login.succeeded', 'SUCCESS', [
             'session_id' => (string) $issued['session']->id,
             'method' => 'PASSWORD',
         ], $request);
@@ -124,7 +123,7 @@ final class AuthController
             $this->sessions->revoke($session);
         }
 
-        $this->events->record($principal->tenantId(), $principal->userId(), 'logout', 'SUCCESS', ['session_id' => $sessionId], $request);
+        $this->events->record($principal->userId(), 'logout', 'SUCCESS', ['session_id' => $sessionId], $request);
 
         return ApiResponse::ok(['logged_out' => true])->withCookie($this->forgetCookie());
     }
@@ -138,8 +137,8 @@ final class AuthController
             // Logout is a session lifecycle event, not an authorization change.
             // Bumping auth_version here would invalidate every binding snapshot
             // while leaving its rows on the old generation.
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'logout.all', 'SUCCESS', [], $request);
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record((int) $user->id, 'logout.all', 'SUCCESS', [], $request);
         });
 
         return ApiResponse::ok(['logged_out' => true, 'sessions_revoked' => true])->withCookie($this->forgetCookie());
@@ -156,7 +155,7 @@ final class AuthController
         $user = User::query()->whereKey($principal->userId())->firstOrFail();
 
         if (! $this->passwords->verify((string) $validated['current_password'], $user->password_hash)) {
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'password.change', 'FAILURE', ['reason' => 'BAD_CURRENT_PASSWORD'], $request);
+            $this->events->record((int) $user->id, 'password.change', 'FAILURE', ['reason' => 'BAD_CURRENT_PASSWORD'], $request);
 
             throw new ValidationException(['current_password' => ['The current password is incorrect.']], 'The given data was invalid.', ['reason' => 'BAD_CURRENT_PASSWORD']);
         }
@@ -168,8 +167,8 @@ final class AuthController
 
             // Password rotation revokes sessions only. Authorization remains
             // the same snapshot until an actual grant/revocation occurs.
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'password.change', 'SUCCESS', ['session_id' => $principal->sessionId()], $request);
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record((int) $user->id, 'password.change', 'SUCCESS', ['session_id' => $principal->sessionId()], $request);
         });
 
         return ApiResponse::ok(['password_changed' => true, 'reauth_required' => true])->withCookie($this->forgetCookie());

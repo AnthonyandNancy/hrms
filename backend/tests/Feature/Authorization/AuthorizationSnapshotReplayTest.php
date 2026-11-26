@@ -65,11 +65,10 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
     {
         $this->freeze();
         $user = User::factory()->create([
-            'tenant_id' => 1,
             'auth_version' => 1,
         ]);
         $binding = AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
@@ -78,7 +77,6 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
                 'purpose_code' => 'TEST',
             ]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'role_code' => 'HR_SPECIALIST',
             'valid_from' => CarbonImmutable::parse('2026-01-01 00:00:00', 'UTC'),
@@ -116,10 +114,10 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
     public function test_replay_does_not_copy_expired_or_future_bindings(): void
     {
         $this->freeze();
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
@@ -127,7 +125,7 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
                 'valid_to' => '2025-01-01 00:00:00',
             ]);
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'org.unit.read',
@@ -158,13 +156,12 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
     private function userWithSessionCapability(): User
     {
         $user = User::factory()->create([
-            'tenant_id' => 1,
             'auth_version' => 1,
             'mfa_enrolled_at' => now(),
         ]);
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create([
                 'capability_code' => 'iam.session.manage',

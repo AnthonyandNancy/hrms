@@ -37,7 +37,7 @@ final class RoleAdminService
      * @param  array{code: string, name: string, purpose: string, owner: int, expires_at: string|null, capabilities: list<array{capability: string, anchor_type: string, field_profile: string}>}  $data
      * @return array<string, mixed>
      */
-    public function create(int $tenantId, array $data): array
+    public function create(array $data): array
     {
         $code = strtoupper(trim($data['code']));
 
@@ -52,11 +52,10 @@ final class RoleAdminService
         $this->assertNonEmptyPurpose((string) $data['purpose']);
         $grants = $this->validateGrants($data['capabilities']);
 
-        return DB::transaction(function () use ($tenantId, $data, $code, $grants): array {
+        return DB::transaction(function () use ($data, $code, $grants): array {
             /** @var Role $role */
             $role = Role::query()->create([
                 'code' => $code,
-                'tenant_id' => $tenantId,
                 'name' => trim((string) $data['name']),
                 'is_template' => false,
                 'owner' => (int) $data['owner'],
@@ -64,7 +63,7 @@ final class RoleAdminService
                 'expires_at' => $data['expires_at'] ?? $this->clock->now()->addYear(),
             ]);
 
-            $this->replaceGrants($tenantId, $code, $grants);
+            $this->replaceGrants($code, $grants);
 
             return $this->payload($role);
         });
@@ -74,7 +73,7 @@ final class RoleAdminService
      * @param  array{code: string, name: string, purpose: string, owner: int}  $data
      * @return array<string, mixed>
      */
-    public function copy(int $tenantId, string $sourceCode, array $data): array
+    public function copy(string $sourceCode, array $data): array
     {
         /** @var Role|null $source */
         $source = Role::query()->whereKey($sourceCode)->first();
@@ -107,11 +106,10 @@ final class RoleAdminService
 
         $validated = $this->validateGrants($grants);
 
-        return DB::transaction(function () use ($tenantId, $data, $code, $validated): array {
+        return DB::transaction(function () use ($data, $code, $validated): array {
             /** @var Role $role */
             $role = Role::query()->create([
                 'code' => $code,
-                'tenant_id' => $tenantId,
                 'name' => trim((string) $data['name']),
                 'is_template' => false,
                 'owner' => (int) $data['owner'],
@@ -119,7 +117,7 @@ final class RoleAdminService
                 'expires_at' => $this->clock->now()->addYear(),
             ]);
 
-            $this->replaceGrants($tenantId, $code, $validated);
+            $this->replaceGrants($code, $validated);
 
             return $this->payload($role);
         });
@@ -129,7 +127,7 @@ final class RoleAdminService
      * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
      * @return array<string, mixed>
      */
-    public function replaceCapabilities(int $tenantId, string $roleCode, array $capabilities): array
+    public function replaceCapabilities(string $roleCode, array $capabilities): array
     {
         /** @var Role|null $role */
         $role = Role::query()->whereKey($roleCode)->first();
@@ -144,18 +142,16 @@ final class RoleAdminService
 
         $grants = $this->validateGrants($capabilities);
 
-        return DB::transaction(function () use ($tenantId, $role, $grants): array {
-            $this->replaceGrants($tenantId, (string) $role->code, $grants);
+        return DB::transaction(function () use ($role, $grants): array {
+            $this->replaceGrants((string) $role->code, $grants);
 
             UserRole::query()
-                ->where('tenant_id', $tenantId)
                 ->where('role_code', (string) $role->code)
                 ->orderBy('user_id')
                 ->pluck('user_id')
                 ->unique()
-                ->each(function (mixed $userId) use ($tenantId): void {
+                ->each(function (mixed $userId): void {
                     $user = User::query()
-                        ->where('tenant_id', $tenantId)
                         ->whereKey((int) $userId)
                         ->first();
 
@@ -235,13 +231,12 @@ final class RoleAdminService
     /**
      * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $grants
      */
-    private function replaceGrants(int $tenantId, string $roleCode, array $grants): void
+    private function replaceGrants(string $roleCode, array $grants): void
     {
         RoleCapability::query()->where('role_code', $roleCode)->delete();
 
         foreach ($grants as $grant) {
             RoleCapability::query()->create([
-                'tenant_id' => $tenantId,
                 'role_code' => $roleCode,
                 'capability_code' => $grant['capability'],
                 'anchor_type' => $grant['anchor_type'],

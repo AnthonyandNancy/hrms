@@ -23,36 +23,35 @@ final class FieldPolicyEscalationTest extends AuthorizationTestSupport
         $auth = $this->loginAs($actor);
         $this->stepUp();
 
-        $this->getJson('/v1/system/field-policies', ['X-Legal-Entity-Id' => '1'])
+        $this->getJson('/v1/system/field-policies', [])
             ->assertOk()
             ->assertJsonFragment(['field_key' => 'employee.salary', 'profile' => 'P3_RESTRICTED']);
 
         $this->putJson('/v1/system/field-policies/employee.salary', [
             'field_profile' => 'P1_INTERNAL',
-        ], ['Idempotency-Key' => 'field-widen', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'field-widen', 'X-CSRF-Token' => $auth['csrf']])
             ->assertStatus(409)
             ->assertJsonPath('data.reason', 'FIELD_POLICY_WIDENING_REJECTED');
 
         $this->putJson('/v1/system/field-policies/employee.salary', [
             'field_profile' => 'P3_RESTRICTED',
-        ], ['Idempotency-Key' => 'field-tighten', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'field-tighten', 'X-CSRF-Token' => $auth['csrf']])
             ->assertOk()
             ->assertJsonPath('data.profile', 'P3_RESTRICTED');
 
         $this->putJson('/v1/system/field-policies/employee.not_registered', [
             'field_profile' => 'P3_RESTRICTED',
-        ], ['Idempotency-Key' => 'field-unknown', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'field-unknown', 'X-CSRF-Token' => $auth['csrf']])
             ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'UNKNOWN_FIELD_POLICY');
     }
 
     public function test_p3_field_projection_still_writes_sensitive_access_audit(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $user->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => 'people.employee.read',
@@ -65,7 +64,7 @@ final class FieldPolicyEscalationTest extends AuthorizationTestSupport
         app(\App\Modules\IAM\Auth\CapabilityAuthorizer::class)->fields(
             $principal,
             'people.employee.read',
-            new ResourceRef('employee', 99, ['salary' => 1000000], tenantId: 1, employmentId: 1, legalEntityId: 1),
+            new ResourceRef('employee', 99, ['salary' => 1000000], employmentId: 1),
         );
 
         $this->assertNotEmpty($this->sensitiveAuditor->records);
@@ -74,13 +73,12 @@ final class FieldPolicyEscalationTest extends AuthorizationTestSupport
 
     private function fieldManager(): User
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $user->id] = [1];
-        $this->organization->knownLegalEntities = [1];
 
         foreach (['iam.field.manage' => FieldProfile::P2_SENSITIVE] as $capability => $profile) {
             AuthorityBinding::factory()
-                ->forPrincipal(1, (int) $user->id, 1)
+                ->forPrincipal((int) $user->id, (int) $user->auth_version)
                 ->anchor(AnchorType::COMPANY, null, $profile)
                 ->create([
                     'capability_code' => $capability,

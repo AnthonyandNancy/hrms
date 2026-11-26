@@ -29,7 +29,6 @@ final class MfaService
         $secret = $this->totp->generateSecret();
 
         $factor = MfaFactor::query()->create([
-            'tenant_id' => (int) $user->tenant_id,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => Crypt::encryptString($secret),
@@ -48,7 +47,6 @@ final class MfaService
     public function confirmTotpEnrollment(User $user, int $factorId, string $code): array
     {
         $factor = MfaFactor::query()
-            ->where('tenant_id', $user->tenant_id)
             ->where('user_id', $user->id)
             ->whereKey($factorId)
             ->where('type', MfaFactor::TYPE_TOTP)
@@ -62,7 +60,7 @@ final class MfaService
         $secret = Crypt::decryptString((string) $factor->secret_ciphertext);
 
         if (! $this->totp->verify($secret, $code, $this->clock->now()->getTimestamp())) {
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'mfa.enroll.failure', 'FAILURE', ['reason' => 'BAD_TOTP', 'factor_type' => 'TOTP']);
+            $this->events->record((int) $user->id, 'mfa.enroll.failure', 'FAILURE', ['reason' => 'BAD_TOTP', 'factor_type' => 'TOTP']);
 
             throw new ValidationException([], 'The verification code is invalid.', ['reason' => 'MFA_CODE_INVALID']);
         }
@@ -83,14 +81,13 @@ final class MfaService
             $raw = strtoupper(bin2hex(random_bytes(5)));
             $codes[] = $raw;
             RecoveryCode::query()->create([
-                'tenant_id' => (int) $user->tenant_id,
                 'user_id' => (int) $user->id,
                 'code_hash' => hash('sha256', $raw),
                 'created_at' => $now,
             ]);
         }
 
-        $this->events->record((int) $user->tenant_id, (int) $user->id, 'mfa.enrolled', 'SUCCESS', ['factor_type' => 'TOTP']);
+        $this->events->record((int) $user->id, 'mfa.enrolled', 'SUCCESS', ['factor_type' => 'TOTP']);
 
         return $codes;
     }
@@ -115,7 +112,7 @@ final class MfaService
         };
 
         if (! $verified) {
-            $this->events->record((int) $user->tenant_id, (int) $user->id, 'mfa.step_up.failure', 'FAILURE', [
+            $this->events->record((int) $user->id, 'mfa.step_up.failure', 'FAILURE', [
                 'reason' => 'MFA_CODE_INVALID',
                 'factor_type' => $type,
             ]);
@@ -124,7 +121,7 @@ final class MfaService
         }
 
         $this->sessions->markMfaVerified($session);
-        $this->events->record((int) $user->tenant_id, (int) $user->id, 'mfa.step_up', 'SUCCESS', [
+        $this->events->record((int) $user->id, 'mfa.step_up', 'SUCCESS', [
             'factor_type' => $type,
             'session_id' => (string) $session->id,
         ]);
@@ -132,9 +129,9 @@ final class MfaService
 
     public function verifyWebAuthnStepUp(User $user, Session $session, string $clientDataJson): void
     {
-        app(WebAuthnService::class)->verifyAssertionClientData((int) $user->tenant_id, (int) $user->id, $clientDataJson);
+        app(WebAuthnService::class)->verifyAssertionClientData((int) $user->id, $clientDataJson);
         $this->sessions->markMfaVerified($session);
-        $this->events->record((int) $user->tenant_id, (int) $user->id, 'mfa.step_up', 'SUCCESS', [
+        $this->events->record((int) $user->id, 'mfa.step_up', 'SUCCESS', [
             'factor_type' => 'WEBAUTHN',
             'session_id' => (string) $session->id,
         ]);
@@ -148,7 +145,6 @@ final class MfaService
     private function verifyTotp(User $user, string $code): bool
     {
         $factor = MfaFactor::query()
-            ->where('tenant_id', $user->tenant_id)
             ->where('user_id', $user->id)
             ->where('type', MfaFactor::TYPE_TOTP)
             ->whereNotNull('confirmed_at')
@@ -169,7 +165,6 @@ final class MfaService
     {
         $normalized = strtoupper(trim($code));
         $record = RecoveryCode::query()
-            ->where('tenant_id', $user->tenant_id)
             ->where('user_id', $user->id)
             ->where('code_hash', hash('sha256', $normalized))
             ->whereNull('used_at')

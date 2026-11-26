@@ -20,7 +20,7 @@ final class SeedDemoCommand extends Command
 {
     protected $signature = 'iam:seed-demo';
 
-    protected $description = 'Idempotently seed synthetic demo users for the DEMO tenant.';
+    protected $description = 'Idempotently seed synthetic demo users for the demo company.';
 
     public function handle(PasswordHasher $passwords, Clock $clock): int
     {
@@ -34,13 +34,11 @@ final class SeedDemoCommand extends Command
 
         $hash = $passwords->hash($password);
 
-        // Anchor role grants to the seeded legal entity so COMPANY
-        // capabilities resolve against a real row. When the demo organization
-        // has not been seeded, grants stay null and remain fail-closed.
-        // iam:seed-demo may run before people:seed-demo. Provisioning the
-        // synthetic organization here keeps role anchors valid in either
+        // COMPANY is the whole single-company instance and needs no anchor id.
+        // iam:seed-demo may run before people:seed-demo, so provisioning the
+        // synthetic organization here keeps the demo data coherent in either
         // order; the seeder is idempotent.
-        $entityId = app(DemoOrganizationSeeder::class)->seedDemo()['legal_entity_id'];
+        app(DemoOrganizationSeeder::class)->seedDemo();
 
         $users = [
             ['demo.admin', true, ['SYSTEM_ADMIN']],
@@ -51,7 +49,7 @@ final class SeedDemoCommand extends Command
 
         foreach ($users as [$username, $privileged, $roles]) {
             $user = User::query()->firstOrCreate(
-                ['tenant_id' => 1, 'username' => $username],
+                ['username' => $username],
                 [
                     'email' => $username.'@example.test',
                     'password_hash' => $hash,
@@ -95,7 +93,6 @@ final class SeedDemoCommand extends Command
                         'auth_version' => (int) $user->auth_version,
                     ],
                     [
-                        'tenant_id' => 1,
                         'valid_from' => $clock->now()->startOfDay(),
                         'valid_to' => $clock->now()->addYear()->startOfDay(),
                         'granted_by' => null,
@@ -109,9 +106,10 @@ final class SeedDemoCommand extends Command
                 $grants = RoleCapability::query()->where('role_code', $roleCode)->get();
 
                 foreach ($grants as $grant) {
-                    $isEntityAnchor = (string) $grant->anchor_type === 'COMPANY';
-                    $anchorId = $isEntityAnchor ? $entityId : null;
-                    $anchorKey = $isEntityAnchor ? (int) $entityId : 0;
+                    // Every scope either carries its own anchor id or, for
+                    // COMPANY, uses null/0 as the instance-wide anchor key.
+                    $anchorId = null;
+                    $anchorKey = 0;
 
                     AuthorityBinding::query()->firstOrCreate([
                         'principal_id' => (int) $user->id,
@@ -120,7 +118,6 @@ final class SeedDemoCommand extends Command
                         'anchor_key' => $anchorKey,
                         'valid_from' => $clock->now()->startOfDay(),
                     ], [
-                        'tenant_id' => 1,
                         'anchor_id' => $anchorId,
                         'field_profile' => (string) $grant->field_profile,
                         'purpose_code' => 'DEMO_'.$roleCode,
@@ -161,7 +158,6 @@ final class SeedDemoCommand extends Command
         $secret = $totp->generateSecret();
 
         MfaFactor::query()->create([
-            'tenant_id' => (int) $user->tenant_id,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => Crypt::encryptString($secret),

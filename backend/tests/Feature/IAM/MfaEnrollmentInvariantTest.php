@@ -26,7 +26,6 @@ final class MfaEnrollmentInvariantTest extends TestCase
     {
         $user = User::factory()->create(['mfa_enrolled_at' => now(), 'auth_version' => 1]);
         MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => 'x',
@@ -41,7 +40,6 @@ final class MfaEnrollmentInvariantTest extends TestCase
     {
         $user = User::factory()->create(['mfa_enrolled_at' => null, 'auth_version' => 1]);
         MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => 'x',
@@ -56,7 +54,6 @@ final class MfaEnrollmentInvariantTest extends TestCase
     {
         $user = User::factory()->create(['mfa_enrolled_at' => now(), 'auth_version' => 1]);
         MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => 'x',

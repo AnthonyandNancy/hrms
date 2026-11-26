@@ -95,7 +95,7 @@ final class MfaDisabledApiAccessTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability, FieldProfile $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, $profile)
             ->create([
                 'capability_code' => $capability,

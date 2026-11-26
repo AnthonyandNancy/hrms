@@ -32,7 +32,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
                 ['capability' => 'reporting.export', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
         ];
-        $headers = ['Idempotency-Key' => 'role-1', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'];
+        $headers = ['Idempotency-Key' => 'role-1', 'X-CSRF-Token' => $auth['csrf']];
 
         $this->postJson('/v1/roles', $body, $headers)->assertCreated()->assertJsonPath('data.code', 'TEMP_REPORT_VIEWER');
         $this->assertDatabaseHas('roles', ['code' => 'TEMP_REPORT_VIEWER', 'is_template' => false]);
@@ -57,7 +57,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'capabilities' => [
                 ['capability' => 'not.a.real.capability', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
-        ], ['Idempotency-Key' => 'role-unknown', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'role-unknown', 'X-CSRF-Token' => $auth['csrf']])
             ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'UNKNOWN_CAPABILITY');
 
@@ -68,7 +68,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'capabilities' => [
                 ['capability' => 'reporting.export', 'anchor_type' => 'SELF', 'field_profile' => 'P1_INTERNAL'],
             ],
-        ], ['Idempotency-Key' => 'role-bad-anchor', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'role-bad-anchor', 'X-CSRF-Token' => $auth['csrf']])
             ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'CAPABILITY_ANCHOR_NOT_ALLOWED');
 
@@ -79,7 +79,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'capabilities' => [
                 ['capability' => 'reporting.export', 'anchor_type' => 'COMPANY', 'field_profile' => 'P3_RESTRICTED'],
             ],
-        ], ['Idempotency-Key' => 'role-bad-field', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'role-bad-field', 'X-CSRF-Token' => $auth['csrf']])
             ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'FIELD_PROFILE_EXCEEDS_CAPABILITY');
 
@@ -93,11 +93,11 @@ final class RoleAdminTest extends AuthorizationTestSupport
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
         $actor = $this->roleManager();
-        $target = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $target = User::factory()->create(['auth_version' => 1]);
         $this->enableMfa($actor);
         $auth = $this->loginAs($actor);
         $this->stepUp();
-        $headers = ['X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'];
+        $headers = ['X-CSRF-Token' => $auth['csrf']];
 
         $this->postJson('/v1/roles/HR_SPECIALIST/copy', [
             'code' => 'HR_SPECIALIST_COPY',
@@ -110,7 +110,6 @@ final class RoleAdminTest extends AuthorizationTestSupport
 
         Role::query()->create([
             'code' => 'TEMP_OVERRIDE',
-            'tenant_id' => 1,
             'name' => 'Temporary override',
             'is_template' => false,
             'owner' => (int) $actor->id,
@@ -118,7 +117,6 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'expires_at' => '2027-12-31 00:00:00',
         ]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $target->id,
             'role_code' => 'TEMP_OVERRIDE',
             'valid_from' => '2026-01-01 00:00:00',
@@ -152,18 +150,17 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'capabilities' => [
                 ['capability' => 'people.employee.read', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
-        ], ['Idempotency-Key' => 'role-template-1', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
+        ], ['Idempotency-Key' => 'role-template-1', 'X-CSRF-Token' => $auth['csrf']])
             ->assertStatus(409)
             ->assertJsonPath('data.reason', 'TEMPLATE_ROLE_IMMUTABLE');
     }
 
     private function roleManager(): User
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $user->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'iam.role.manage',

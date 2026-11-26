@@ -64,7 +64,7 @@ final class SuperadminBaselineTest extends TestCase
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
         $admin = User::factory()->create(['username' => 'installer', 'auth_version' => 1]);
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $admin->id, 1)
+            ->forPrincipal((int) $admin->id, 1)
             ->anchor(\App\Shared\Authorization\AnchorType::COMPANY, null, \App\Shared\Authorization\FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => '*',
@@ -81,7 +81,6 @@ final class SuperadminBaselineTest extends TestCase
         RolePage::query()->where('role_code', 'SYSTEM_ADMIN')->limit(1)->delete();
         $admin = User::factory()->create(['username' => 'installer', 'auth_version' => 1]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $admin->id,
             'role_code' => 'SYSTEM_ADMIN',
             'valid_from' => '2026-01-01 00:00:00',
@@ -91,7 +90,7 @@ final class SuperadminBaselineTest extends TestCase
             'created_at' => now(),
         ]);
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $admin->id, 1)
+            ->forPrincipal((int) $admin->id, 1)
             ->anchor(\App\Shared\Authorization\AnchorType::COMPANY, null, \App\Shared\Authorization\FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => '*',

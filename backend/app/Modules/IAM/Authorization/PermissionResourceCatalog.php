@@ -2637,7 +2637,7 @@ final class PermissionResourceCatalog
                 'order' => 111,
                 'icon' => 'Menu',
                 'component_key' => 'system/system-calendars',
-                'required_apis' => ['GET /v1/time/calendars/{legal_entity_id}', 'POST /v1/system/calendars/{legal_entity_id}/publish'],
+                'required_apis' => ['GET /v1/time/calendars', 'POST /v1/system/calendars/publish'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'platform',

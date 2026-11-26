@@ -12,7 +12,6 @@ final class RoleCapability extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'role_code',
         'capability_code',
         'anchor_type',
@@ -24,6 +23,6 @@ final class RoleCapability extends Model
      */
     protected function casts(): array
     {
-        return ['tenant_id' => 'integer'];
+        return [];
     }
 }

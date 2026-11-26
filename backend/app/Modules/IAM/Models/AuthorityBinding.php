@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $principal_id
  * @property string $capability_code
  * @property string $anchor_type
@@ -33,7 +32,6 @@ final class AuthorityBinding extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'principal_id',
         'capability_code',
         'anchor_type',
@@ -56,7 +54,6 @@ final class AuthorityBinding extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'principal_id' => 'integer',
             'anchor_id' => 'integer',
             'anchor_key' => 'integer',

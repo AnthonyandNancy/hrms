@@ -39,7 +39,7 @@ final class AnchorScopeTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::ORG_UNIT, 30, FieldProfile::P1_INTERNAL);
-        $this->organization->legalEntityByUnit[30] = 1;
+        $this->organization->knownUnits[30] = true;
 
         $this->assertTrue($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::orgUnit(30), $this->date()));
         $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::orgUnit(31), $this->date()));
@@ -49,8 +49,8 @@ final class AnchorScopeTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::ORG_SUBTREE, 40, FieldProfile::P1_INTERNAL);
-        $this->organization->legalEntityByUnit[40] = 1;
-        $this->organization->legalEntityByUnit[41] = 1;
+        $this->organization->knownUnits[40] = true;
+        $this->organization->knownUnits[41] = true;
         $this->organization->descendants[40] = [40, 41, 42];
 
         $this->assertTrue($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::orgSubtree(41), $this->date()));
@@ -88,15 +88,19 @@ final class AnchorScopeTest extends AuthorizationTestSupport
         $this->assertFalse(AnchorType::COMPANY->requiresAnchorId());
     }
 
-    public function test_cross_tenant_user_never_uses_another_tenants_binding(): void
+    public function test_company_anchor_is_not_implied_by_another_principals_department_binding(): void
     {
-        $user = User::factory()->create(['tenant_id' => 2]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        AuthorityBinding::factory()->forPrincipal((int) $other->id)->anchor(AnchorType::ORG_UNIT, 30)->create([
             'capability_code' => 'people.employee.read',
         ]);
-        $this->organization->knownLegalEntities = [80];
+        $this->organization->knownUnits[30] = true;
 
-        $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::company(), $this->date()));
+        $principal = $this->actingAsUser($user);
+
+        $this->assertFalse($this->authorizer()->allows($principal, 'people.employee.read', AnchorRef::company(), $this->date()));
+        $this->assertFalse($this->authorizer()->allows($principal, 'people.employee.read', AnchorRef::orgUnit(30), $this->date()));
     }
 
     public function test_every_binding_carries_a_known_anchor_type(): void
@@ -112,7 +116,7 @@ final class AnchorScopeTest extends AuthorizationTestSupport
     {
         /** @var AuthorityBinding $binding */
         $binding = AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create(['capability_code' => $capability]);
 

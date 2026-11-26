@@ -43,7 +43,7 @@ final class PageCatalogApiTest extends AuthorizationTestSupport
         $actor = User::factory()->create(['auth_version' => 1]);
         if ($grant) {
             AuthorityBinding::factory()
-                ->forPrincipal(1, (int) $actor->id, 1)
+                ->forPrincipal((int) $actor->id, 1)
                 ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
                 ->create([
                     'capability_code' => 'iam.role.manage',
@@ -52,7 +52,6 @@ final class PageCatalogApiTest extends AuthorizationTestSupport
                 ]);
         }
         $this->people->employmentByUser[(int) $actor->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         $this->enableMfa($actor);
         $auth = $this->loginAs($actor);
         $this->stepUp();

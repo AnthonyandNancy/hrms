@@ -22,7 +22,6 @@ class SessionFactory extends Factory
         return [
             'id' => (string) Str::ulid(),
             'user_id' => 1,
-            'tenant_id' => 1,
             'token_hash' => hash('sha256', Str::random(32)),
             'csrf_hash' => hash('sha256', Str::random(32)),
             'ip' => '127.0.0.1',

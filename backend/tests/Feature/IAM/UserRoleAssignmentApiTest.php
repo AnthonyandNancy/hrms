@@ -93,10 +93,9 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
     {
         $actor = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $actor->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         foreach (['iam.role.manage', 'iam.user.read'] as $capability) {
             AuthorityBinding::factory()
-                ->forPrincipal(1, (int) $actor->id, 1)
+                ->forPrincipal((int) $actor->id, 1)
                 ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
                 ->create([
                     'capability_code' => $capability,
@@ -114,7 +113,6 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
     private function assign(User $target, string $roleCode): void
     {
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $target->id,
             'role_code' => $roleCode,
             'valid_from' => '2026-01-01 00:00:00',
@@ -129,7 +127,7 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
     private function grant(User $target, string $capability, string $purpose): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $target->id, (int) $target->auth_version)
+            ->forPrincipal((int) $target->id, (int) $target->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => $capability,

@@ -14,7 +14,6 @@ final class UserRole extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'user_id',
         'role_code',
         'valid_from',
@@ -31,7 +30,6 @@ final class UserRole extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'user_id' => 'integer',
             'granted_by' => 'integer',
             'auth_version' => 'integer',

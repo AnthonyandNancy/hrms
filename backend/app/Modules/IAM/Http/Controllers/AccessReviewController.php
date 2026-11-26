@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\IAM\Http\Controllers;
 
-use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Shared\ApiResponse;
@@ -22,12 +21,10 @@ final class AccessReviewController
     public function __construct(
         private readonly Clock $clock,
         private readonly CapabilityCatalog $catalog,
-        private readonly AuthenticationContext $context,
     ) {}
 
     public function show(): JsonResponse
     {
-        $tenantId = $this->context->requirePrincipal()->tenantId();
         $now = $this->clock->now();
         $cutoff = $now->subDays(90);
 
@@ -40,7 +37,6 @@ final class AccessReviewController
         ));
 
         $unusedQuery = AuthorityBinding::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('capability_code', $highRiskCodes)
             ->where('created_at', '<', $cutoff);
 
@@ -56,7 +52,7 @@ final class AccessReviewController
             ])
             ->all();
 
-        $activeQuery = AuthorityBinding::query()->where('tenant_id', $tenantId);
+        $activeQuery = AuthorityBinding::query();
 
         $byPrincipal = [];
         foreach (BindingValidity::whereActiveOn($activeQuery, $now->toDateString())->get() as $binding) {

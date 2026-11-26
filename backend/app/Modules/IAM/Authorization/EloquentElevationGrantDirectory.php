@@ -9,10 +9,12 @@ use App\Shared\Authorization\Contracts\ElevationGrantDirectory;
 
 final class EloquentElevationGrantDirectory implements ElevationGrantDirectory
 {
-    public function activeCapabilities(int $tenantId, int $userId, int $grantId): ?array
+    /**
+     * @return list<string>
+     */
+    public function activeCapabilities(int $userId, int $grantId): array
     {
         $grant = BreakGlassGrant::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($grantId)
             ->where(function ($query) use ($userId): void {
                 $query->where('requester_user_id', $userId)
@@ -23,7 +25,7 @@ final class EloquentElevationGrantDirectory implements ElevationGrantDirectory
             ->first();
 
         if ($grant === null) {
-            return null;
+            return [];
         }
 
         /** @var list<string>|null $scope */

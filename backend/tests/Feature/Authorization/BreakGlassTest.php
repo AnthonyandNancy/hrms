@@ -35,7 +35,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
     {
         $this->freeze();
         $requester = $this->breakGlassRequester();
-        $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now()]);
+        $approver = User::factory()->create(['mfa_enrolled_at' => now()]);
         $this->loginAs($requester);
         $this->stepUp();
 
@@ -54,7 +54,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
     {
         $this->freeze();
         $requester = $this->breakGlassRequester();
-        $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now()]);
+        $approver = User::factory()->create(['mfa_enrolled_at' => now()]);
         $this->loginAs($requester);
         $this->stepUp();
 
@@ -87,7 +87,7 @@ final class BreakGlassTest extends AuthorizationTestSupport
             'reason' => 'Emergency payroll correction for audit.',
         ]);
         if ($response->status() !== 201) {
-            $approver = User::factory()->create(['tenant_id' => 1]);
+            $approver = User::factory()->create([]);
             $response = $this->postJson('/v1/auth/break-glass', [
                 'approver_user_id' => (int) $approver->id,
                 'reason' => 'Emergency payroll correction for audit.',
@@ -96,20 +96,20 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $response->assertCreated();
 
         $grant = BreakGlassGrant::query()->findOrFail((int) $response->json('data.grant_id'));
-        $this->assertNotNull(app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
-            ->activeCapabilities(1, (int) $requester->id, (int) $grant->id));
+        $this->assertNotEmpty(app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
+            ->activeCapabilities((int) $requester->id, (int) $grant->id));
 
         $this->advance(1801);
 
-        $this->assertNull(app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
-            ->activeCapabilities(1, (int) $requester->id, (int) $grant->id));
+        $this->assertSame([], app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
+            ->activeCapabilities((int) $requester->id, (int) $grant->id));
     }
 
     public function test_either_party_can_revoke_and_revocation_is_audited(): void
     {
         $this->freeze();
         $requester = $this->breakGlassRequester();
-        $approver = User::factory()->create(['tenant_id' => 1, 'mfa_enrolled_at' => now(), 'password_hash' => app(\App\Modules\IAM\Services\PasswordHasher::class)->hash('Correct-Horse-9!')]);
+        $approver = User::factory()->create(['mfa_enrolled_at' => now(), 'password_hash' => app(\App\Modules\IAM\Services\PasswordHasher::class)->hash('Correct-Horse-9!')]);
         $this->loginAs($requester);
         $this->stepUp();
 
@@ -122,8 +122,8 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $this->assertNotNull($revoke->json('data.revoked_at'));
         $this->assertDatabaseHas('audit_events', ['action' => 'security.break_glass.revoked']);
 
-        $this->assertNull(app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
-            ->activeCapabilities(1, (int) $requester->id, (int) $response->json('data.grant_id')));
+        $this->assertSame([], app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
+            ->activeCapabilities((int) $requester->id, (int) $response->json('data.grant_id')));
     }
 
     public function test_grant_id_header_is_bound_to_actions_and_unknown_grant_does_not_elevate(): void
@@ -137,15 +137,15 @@ final class BreakGlassTest extends AuthorizationTestSupport
         $this->withHeader('X-Break-Glass-Grant', '999999');
         $this->getJson('/v1/me')->assertOk();
 
-        $this->assertNull(app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
-            ->activeCapabilities(1, (int) $requester->id, 999999));
+        $this->assertSame([], app(\App\Modules\IAM\Authorization\EloquentElevationGrantDirectory::class)
+            ->activeCapabilities((int) $requester->id, 999999));
     }
 
     public function test_reason_is_never_exposed_in_grant_json(): void
     {
         $this->freeze();
         $requester = $this->breakGlassRequester();
-        $approver = User::factory()->create(['tenant_id' => 1]);
+        $approver = User::factory()->create([]);
         $this->loginAs($requester);
         $this->stepUp();
 
@@ -160,10 +160,10 @@ final class BreakGlassTest extends AuthorizationTestSupport
 
     private function breakGlassRequester(): User
     {
-        $user = User::factory()->create(['tenant_id' => 1]);
+        $user = User::factory()->create([]);
         $this->enableMfa($user);
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create(['capability_code' => 'iam.session.manage']);
 

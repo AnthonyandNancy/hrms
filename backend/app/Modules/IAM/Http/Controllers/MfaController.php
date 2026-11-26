@@ -74,14 +74,14 @@ final class MfaController
     {
         $user = $this->currentUser();
 
-        return ApiResponse::ok($this->webauthn->beginRegistration((int) $user->tenant_id, (int) $user->id));
+        return ApiResponse::ok($this->webauthn->beginRegistration((int) $user->id));
     }
 
     public function webauthnAssertOptions(Request $request): JsonResponse
     {
         $user = $this->currentUser();
 
-        return ApiResponse::ok($this->webauthn->beginAssertion((int) $user->tenant_id, (int) $user->id));
+        return ApiResponse::ok($this->webauthn->beginAssertion((int) $user->id));
     }
 
     /**

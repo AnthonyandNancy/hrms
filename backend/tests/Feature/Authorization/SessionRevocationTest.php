@@ -35,7 +35,7 @@ final class SessionRevocationTest extends AuthorizationTestSupport
         $auth = $this->loginAs($user);
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create(['capability_code' => 'org.tree.read']);
 
@@ -133,7 +133,7 @@ final class SessionRevocationTest extends AuthorizationTestSupport
         $user = User::factory()->create(['mfa_enrolled_at' => now()]);
         $this->people->employmentByUser[(int) $user->id] = [1];
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create(['capability_code' => $capability, 'valid_from' => '2025-01-01 00:00:00', 'valid_to' => '2030-01-01 00:00:00']);
 

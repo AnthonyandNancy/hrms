@@ -23,7 +23,7 @@ final class PermissionPreviewController
             throw new NotFoundOrForbiddenException;
         }
 
-        $projection = $this->projection->forUser(1, (int) $target->id, (int) $target->auth_version);
+        $projection = $this->projection->forUser((int) $target->id, (int) $target->auth_version);
 
         return ApiResponse::ok([
             'user' => ['id' => (int) $target->id, 'username' => (string) $target->username],

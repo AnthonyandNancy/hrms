@@ -10,10 +10,10 @@ namespace App\Modules\IAM\Contracts;
  */
 interface UserDirectory
 {
-    public function userIdForPerson(int $tenantId, int $personId): ?int;
+    public function userIdForPerson(int $personId): ?int;
 
     /**
      * @return list<int>
      */
-    public function userIdsForPerson(int $tenantId, int $personId): array;
+    public function userIdsForPerson(int $personId): array;
 }

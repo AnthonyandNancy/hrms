@@ -8,7 +8,6 @@ use App\Modules\IAM\Auth\AuthenticatedPrincipal;
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\IAM\Models\User;
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Models\Position;
 use App\Modules\People\Models\Assignment;
@@ -84,7 +83,7 @@ final class WorkspaceProjectionTest extends TestCase
 
     public function test_workspace_without_an_employment_returns_an_empty_but_well_formed_projection(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1]);
+        $user = User::factory()->create();
         $this->actAs($user);
 
         $response = $this->getJson('/v1/me/workspace');
@@ -110,7 +109,6 @@ final class WorkspaceProjectionTest extends TestCase
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
-            tenantId: (int) $user->tenant_id,
             employmentId: null,
             authVersion: (int) $user->auth_version,
             privileged: false,
@@ -125,25 +123,12 @@ final class WorkspaceProjectionTest extends TestCase
      */
     private function seedEmploymentWithTerms(string $employeeNo, string $legalName): array
     {
-        $entity = LegalEntity::query()->create([
-            'tenant_id' => 1,
-            'code' => 'DEMO-LE',
-            'name' => '澄明科技（上海）有限公司',
-            'country_code' => 'CN',
-            'timezone' => 'Asia/Shanghai',
-            'currency_code' => 'CNY',
-            'status' => 'ACTIVE',
-        ]);
-
         $managerPerson = Person::query()->create([
-            'tenant_id' => 1,
             'legal_name' => '演示经理',
             'email' => 'manager@example.test',
         ]);
         $managerEmployment = Employment::query()->create([
-            'tenant_id' => 1,
             'person_id' => (int) $managerPerson->id,
-            'legal_entity_id' => (int) $entity->id,
             'employee_no' => 'DEMO-9000',
             'employment_type' => 'FULL_TIME',
             'status' => 'ACTIVE',
@@ -155,8 +140,6 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         $orgUnit = OrgUnit::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => (int) $entity->id,
             'parent_id' => null,
             'code' => 'HR',
             'name' => '人力资源部',
@@ -168,8 +151,6 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         $position = Position::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => (int) $entity->id,
             'org_unit_id' => (int) $orgUnit->id,
             'code' => 'HR-SPECIALIST',
             'title' => '高级人事专员',
@@ -181,7 +162,6 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         $managerAssignment = Assignment::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $managerEmployment->id,
             'org_unit_id' => (int) $orgUnit->id,
             'position_id' => null,
@@ -194,15 +174,12 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         $person = Person::query()->create([
-            'tenant_id' => 1,
             'legal_name' => $legalName,
             'email' => 'qinghe.xu@example.test',
         ]);
 
         $employment = Employment::query()->create([
-            'tenant_id' => 1,
             'person_id' => (int) $person->id,
-            'legal_entity_id' => (int) $entity->id,
             'employee_no' => $employeeNo,
             'employment_type' => 'FULL_TIME',
             'status' => 'ACTIVE',
@@ -214,7 +191,6 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         Assignment::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $employment->id,
             'org_unit_id' => (int) $orgUnit->id,
             'position_id' => (int) $position->id,
@@ -227,7 +203,6 @@ final class WorkspaceProjectionTest extends TestCase
         ]);
 
         EmploymentTerms::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $employment->id,
             'version' => 1,
             'effective_from' => '2026-01-01',
@@ -245,9 +220,8 @@ final class WorkspaceProjectionTest extends TestCase
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $user = User::factory()->create(['tenant_id' => 1, 'username' => 'demo-9001']);
+        $user = User::factory()->create(['username' => 'demo-9001']);
         EmploymentUserLink::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'employment_id' => (int) $employment->id,
             'valid_from' => '2026-01-01',

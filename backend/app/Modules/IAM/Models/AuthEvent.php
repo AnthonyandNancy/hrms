@@ -20,7 +20,6 @@ final class AuthEvent extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'user_id',
         'event_type',
         'result',
@@ -48,7 +47,6 @@ final class AuthEvent extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'user_id' => 'integer',
             'metadata_json' => 'array',
             'occurred_at' => 'immutable_datetime',

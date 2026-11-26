@@ -30,7 +30,6 @@ final class MfaTest extends AuthorizationTestSupport
     {
         $user = User::factory()->withoutMfa()->create(['is_privileged' => true]);
         $this->grant($user, 'iam.user.read', FieldProfile::P1_INTERNAL);
-        $this->organization->knownLegalEntities = [1];
 
         $login = $this->postJson('/v1/auth/login', [
             'username' => $user->username,
@@ -44,7 +43,7 @@ final class MfaTest extends AuthorizationTestSupport
         $login->assertStatus(202)->assertJsonPath('data.status', 'MFA_REQUIRED');
         $this->assertNull($login->getCookie((string) config('iam.session.cookie'), false));
 
-        $this->getJson('/v1/users', ['X-Legal-Entity-Id' => '1'])
+        $this->getJson('/v1/users', [])
             ->assertUnauthorized();
     }
 
@@ -53,7 +52,6 @@ final class MfaTest extends AuthorizationTestSupport
         $user = User::factory()->withoutMfa()->create();
         $this->grant($user, 'payroll.run.prepare', FieldProfile::P2_SENSITIVE, AnchorType::PAYROLL_RUN, 5);
         $this->grant($user, 'org.tree.read', FieldProfile::P0_PUBLIC, AnchorType::COMPANY, null, false);
-        $this->organization->knownLegalEntities = [1];
         $this->payroll->runsByUser[(int) $user->id] = [5];
         $this->payroll->memberships[5] = ['payroll.run.prepare'];
 
@@ -106,7 +104,6 @@ final class MfaTest extends AuthorizationTestSupport
         $authenticator = app(TotpService::class);
         $secret = $authenticator->generateSecret();
         $factor = MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => Crypt::encryptString($secret),
@@ -172,7 +169,7 @@ final class MfaTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability, FieldProfile $profile, AnchorType $anchor = AnchorType::SELF, ?int $anchorId = null, bool $active = true): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor($anchor, $anchorId, $profile)
             ->create([
                 'capability_code' => $capability,

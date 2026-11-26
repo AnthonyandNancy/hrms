@@ -35,7 +35,6 @@ final class PasswordOnlyLoginTest extends TestCase
         ]);
 
         MfaFactor::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'type' => MfaFactor::TYPE_TOTP,
             'secret_ciphertext' => Crypt::encryptString(app(TotpService::class)->generateSecret()),

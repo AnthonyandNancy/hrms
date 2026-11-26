@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Artisan;
  * It creates reference data and one administrator, and deliberately creates no
  * employees, payroll runs or workflow cases. Every step is idempotent, and a
  * failure stops the run with a non-zero exit code instead of leaving a
- * half-configured tenant that looks healthy.
+ * half-configured instance that looks healthy.
  */
 final class InstallCommand extends Command
 {
@@ -65,7 +65,7 @@ final class InstallCommand extends Command
 
         if (strlen($password) < 12) {
             // Validate before the first write so a bad invocation leaves no
-            // partial tenant behind.
+            // partial install behind.
             $this->error('The administrator password must be at least 12 characters. Nothing was created.');
 
             return self::FAILURE;
@@ -82,7 +82,6 @@ final class InstallCommand extends Command
             }
         }
 
-        $tenantId = 1;
         $admin = null;
 
         try {
@@ -97,10 +96,9 @@ final class InstallCommand extends Command
             $report->record('root_org_unit', $bootstrap['root_org_unit_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['root_org_unit_id']);
 
             $this->runStep($report, 'capabilities', 'iam:sync-capabilities');
-            $this->runStep($report, 'workflow_templates', 'workflow:seed-templates', ['--tenant-id' => $tenantId]);
-            $this->runStep($report, 'lifecycle_templates', 'lifecycle:seed-templates', ['--tenant' => $tenantId]);
+            $this->runStep($report, 'workflow_templates', 'workflow:seed-templates');
+            $this->runStep($report, 'lifecycle_templates', 'lifecycle:seed-templates');
             $this->runStep($report, 'leave_types', 'time:seed-leave-types', array_filter([
-                '--tenant' => $tenantId,
                 '--annual-days' => $this->option('annual-days'),
                 '--legal-basis' => $this->option('legal-basis'),
             ], static fn ($value): bool => $value !== null && $value !== ''));
@@ -121,7 +119,7 @@ final class InstallCommand extends Command
             }
 
             $admin = User::query()->firstOrCreate(
-                ['tenant_id' => $tenantId, 'username' => mb_strtolower($username)],
+                ['username' => mb_strtolower($username)],
                 [
                     'email' => $email,
                     'password_hash' => $passwords->hash($password),
@@ -180,15 +178,14 @@ final class InstallCommand extends Command
                     throw new \RuntimeException("Unknown feature flag '{$requestedFlag}'. Known: ".implode(', ', array_keys($flagNames)));
                 }
 
-                $this->runStep($report, "feature:{$requestedFlag}", 'feature:set', ['flag' => $flag, 'state' => 'on', '--tenant' => $tenantId, '--reason' => 'installer baseline', '--actor' => (int) $admin->id]);
+                $this->runStep($report, "feature:{$requestedFlag}", 'feature:set', ['flag' => $flag, 'state' => 'on', '--reason' => 'installer baseline', '--actor' => (int) $admin->id]);
             }
 
             $audit->record(
-                tenantId: $tenantId,
                 actorUserId: (int) $admin->id,
                 action: 'install.completed',
-                aggregateType: 'tenant',
-                aggregateId: (string) $tenantId,
+                aggregateType: 'company_profile',
+                aggregateId: (string) $bootstrap['company_profile_id'],
                 metadata: ['steps' => array_map(static fn (InstallStep $step): array => ['name' => $step->name, 'status' => $step->status, 'detail' => $step->detail], $report->steps())],
             );
         } catch (\Throwable $exception) {

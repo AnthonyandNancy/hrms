@@ -26,7 +26,6 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
         $this->useClock('2026-11-25T00:42:38Z');
 
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-25 00:42:38',
             'valid_to' => '2027-11-26 00:42:38',
@@ -51,7 +50,6 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
         $this->useClock('2026-11-25T09:00:00Z');
 
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-01 09:00:00',
             'valid_to' => '2026-11-25 00:00:00',
@@ -69,7 +67,6 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
         $this->useClock('2026-11-24T09:00:00Z');
 
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-01 09:00:00',
             'valid_to' => '2026-11-25 00:00:00',
@@ -93,7 +90,7 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
     private function grant(User $user, AnchorType $anchor, ?int $anchorId, array $overrides = []): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => CapabilityWildcard::WILDCARD,

@@ -14,14 +14,15 @@ use App\Shared\Authorization\FieldProfile;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * SQL-backed, tenant-safe binding repository with a short per-principal cache.
+ * SQL-backed binding repository with a short per-principal cache. The
+ * single-company instance has no tenant predicate; revocation is expressed by
+ * auth_version so a stale cache entry can never be served.
  * Revocation is expressed by auth_version, so an auth_version mismatch can
  * never be served from a stale cache entry.
  */
 final class EloquentAuthorityBindingRepository implements AuthorityBindingRepository
 {
     public function effectiveBindings(
-        int $tenantId,
         int $principalId,
         string $capabilityCode,
         int $authVersion,
@@ -29,13 +30,12 @@ final class EloquentAuthorityBindingRepository implements AuthorityBindingReposi
     ): array {
         $candidates = array_values(array_unique([$capabilityCode, CapabilityWildcard::WILDCARD]));
         $candidateKey = crc32(implode('|', $candidates));
-        $cacheKey = sprintf('iam:bindings:%d:%d:%d:%d:%s', $tenantId, $principalId, $authVersion, $candidateKey, $businessDate);
+        $cacheKey = sprintf('iam:bindings:%d:%d:%d:%s', $principalId, $authVersion, $candidateKey, $businessDate);
         $ttl = (int) config('iam.authorization.binding_cache_seconds', 60);
 
         /** @var list<array<string, mixed>> $rows */
-        $rows = Cache::remember($cacheKey, $ttl, function () use ($tenantId, $principalId, $candidates, $authVersion, $businessDate): array {
+        $rows = Cache::remember($cacheKey, $ttl, function () use ($principalId, $candidates, $authVersion, $businessDate): array {
             $query = AuthorityBinding::query()
-                ->where('tenant_id', $tenantId)
                 ->where('principal_id', $principalId)
                 ->whereIn('capability_code', $candidates)
                 ->where('auth_version', $authVersion);
@@ -45,7 +45,6 @@ final class EloquentAuthorityBindingRepository implements AuthorityBindingReposi
                 ->get()
                 ->map(fn (AuthorityBinding $binding): array => [
                     'id' => (int) $binding->id,
-                    'tenant_id' => (int) $binding->tenant_id,
                     'principal_id' => (int) $binding->principal_id,
                     'capability_code' => (string) $binding->capability_code,
                     'anchor_type' => (string) $binding->anchor_type,
@@ -61,7 +60,6 @@ final class EloquentAuthorityBindingRepository implements AuthorityBindingReposi
 
         return array_map(static fn (array $row): BindingGrant => new BindingGrant(
             id: (int) $row['id'],
-            tenantId: (int) $row['tenant_id'],
             principalId: (int) $row['principal_id'],
             capabilityCode: (string) $row['capability_code'],
             anchorType: AnchorType::from((string) $row['anchor_type']),

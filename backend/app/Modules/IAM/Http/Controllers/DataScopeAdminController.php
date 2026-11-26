@@ -13,7 +13,7 @@ use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,7 +27,7 @@ final class DataScopeAdminController
         private readonly AuthenticationContext $context,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -40,7 +40,7 @@ final class DataScopeAdminController
 
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $items = app(\App\Modules\IAM\Services\DataScopePolicyService::class)->rows($principal->tenantId());
+        $items = app(\App\Modules\IAM\Services\DataScopePolicyService::class)->rows();
         $total = count($items);
 
         return $this->projections->ok(new ProjectionResult(
@@ -48,7 +48,7 @@ final class DataScopeAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -106,8 +106,8 @@ final class DataScopeAdminController
         $result = $this->commands->run(
             definition: $this->definition(),
             payload: $payload,
-            operation: function () use ($principal, $payload): array {
-                $row = app(\App\Modules\IAM\Services\DataScopePolicyService::class)->upsert($principal->tenantId(), $payload);
+            operation: function () use ($payload): array {
+                $row = app(\App\Modules\IAM\Services\DataScopePolicyService::class)->upsert($payload);
 
                 return [
                     'http_status' => 200,

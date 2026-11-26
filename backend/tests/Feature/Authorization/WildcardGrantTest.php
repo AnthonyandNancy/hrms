@@ -25,7 +25,6 @@ final class WildcardGrantTest extends AuthorizationTestSupport
     public function test_a_wildcard_binding_permits_every_catalogued_capability(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, '*', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
 
         $authorizer = app(CapabilityAuthorizer::class);
@@ -43,7 +42,6 @@ final class WildcardGrantTest extends AuthorizationTestSupport
     public function test_a_wildcard_binding_covers_an_anchored_resource(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, '*', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
 
         $this->assertTrue(app(CapabilityAuthorizer::class)->allows(
@@ -54,26 +52,23 @@ final class WildcardGrantTest extends AuthorizationTestSupport
         ));
     }
 
-    public function test_constrain_scopes_a_company_wildcard_to_all_rows_of_the_single_company_tenant(): void
+    public function test_constrain_scopes_a_company_wildcard_to_all_rows_of_the_single_company(): void
     {
         $this->clock = new FrozenClock('2026-11-24T09:00:00Z');
         $this->app->instance(Clock::class, $this->clock);
 
         Schema::create('wildcard_scope_rows', function ($table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id');
             $table->unsignedBigInteger('employment_id');
         });
 
         DB::table('wildcard_scope_rows')->insert([
-            ['tenant_id' => 1, 'employment_id' => 501],
-            ['tenant_id' => 1, 'employment_id' => 502],
-            ['tenant_id' => 2, 'employment_id' => 501],
+            ['employment_id' => 501],
+            ['employment_id' => 502],
+            ['employment_id' => 503],
         ]);
 
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
-        $this->organization->unitsByLegalEntity[1] = [12];
         $this->people->employmentByOrgUnit[12] = [501];
         $this->grant($user, '*', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
 
@@ -89,7 +84,7 @@ final class WildcardGrantTest extends AuthorizationTestSupport
             '2026-11-24',
         );
 
-        $this->assertSame([501, 502], $query->pluck('employment_id')->all());
+        $this->assertSame([501, 502, 503], $query->pluck('employment_id')->all());
     }
 
     public function test_fields_projects_a_concrete_employee_for_a_wildcard_grant(): void
@@ -98,7 +93,6 @@ final class WildcardGrantTest extends AuthorizationTestSupport
         $this->app->instance(Clock::class, $this->clock);
 
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         $this->grant($user, '*', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
 
         $set = app(CapabilityAuthorizer::class)->fields(
@@ -111,10 +105,8 @@ final class WildcardGrantTest extends AuthorizationTestSupport
                     'display_name' => 'Ada Lovelace',
                     'salary' => '999999',
                 ],
-                tenantId: 1,
                 employmentId: 501,
                 orgUnitId: 12,
-                legalEntityId: 1,
             ),
         );
 
@@ -127,9 +119,7 @@ final class WildcardGrantTest extends AuthorizationTestSupport
     public function test_an_expired_wildcard_binding_permits_nothing(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->organization->knownLegalEntities = [1];
         AuthorityBinding::query()->create([
-            'tenant_id' => 1,
             'principal_id' => (int) $user->id,
             'capability_code' => '*',
             'anchor_type' => 'COMPANY',
@@ -154,12 +144,12 @@ final class WildcardGrantTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability, AnchorType $anchor, ?int $anchorId, FieldProfile $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create(['capability_code' => $capability]);
     }
 
-    public function test_a_company_wildcard_covers_the_single_company_but_not_another_tenant(): void
+    public function test_a_company_wildcard_covers_company_rows_but_not_unrelated_employment_rows(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
         $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
@@ -174,20 +164,18 @@ final class WildcardGrantTest extends AuthorizationTestSupport
             resourceType: 'employee',
             id: 17,
             row: ['display_name' => 'Ada', 'salary' => '1'],
-            tenantId: 1,
             employmentId: 501,
         );
-        $otherTenant = new ResourceRef(
+        $unrelatedEmployment = new ResourceRef(
             resourceType: 'employee',
             id: 18,
             row: ['display_name' => 'Grace', 'salary' => '1'],
-            tenantId: 2,
             employmentId: 502,
         );
 
         $this->assertTrue($authorizer->fields($principal, 'people.employee.read', $sameCompany)->isVisible('display_name'));
-
-        $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
-        $authorizer->fields($principal, 'people.employee.read', $otherTenant);
+        // COMPANY is the whole single company: every row is in scope, so a
+        // fabricated different-employee ResourceRef cannot narrow the grant.
+        $this->assertTrue($authorizer->fields($principal, 'people.employee.read', $unrelatedEmployment)->isVisible('display_name'));
     }
 }

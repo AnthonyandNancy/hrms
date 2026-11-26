@@ -13,7 +13,7 @@ final class RecoveryCode extends Model
     protected $table = 'recovery_codes';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'user_id', 'code_hash', 'used_at', 'created_at'];
+    protected $fillable = ['user_id', 'code_hash', 'used_at', 'created_at'];
 
     /** @var list<string> */
     protected $hidden = ['code_hash'];
@@ -25,7 +25,6 @@ final class RecoveryCode extends Model
     {
         return [
             'user_id' => 'integer',
-            'tenant_id' => 'integer',
             'used_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
         ];

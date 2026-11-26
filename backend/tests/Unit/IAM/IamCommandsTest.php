@@ -147,7 +147,7 @@ final class IamCommandsTest extends TestCase
     private function bind(int $principalId, string $capabilityCode): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, $principalId)
+            ->forPrincipal($principalId)
             ->anchor(AnchorType::COMPANY, null)
             ->create([
                 'capability_code' => $capabilityCode,

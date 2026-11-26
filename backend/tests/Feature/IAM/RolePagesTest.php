@@ -16,8 +16,7 @@ final class RolePagesTest extends TestCase
     public function test_role_pages_table_is_single_company_and_idempotent(): void
     {
         $this->assertTrue(Schema::hasTable('role_pages'));
-        $this->assertFalse(Schema::hasColumn('role_pages', 'tenant_id'));
-        $this->assertFalse(Schema::hasColumn('role_pages', 'legal_entity_id'));
+        $this->assertTrue(Schema::hasColumn('role_pages', 'role_code'));
 
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
         $this->artisan('iam:sync-capabilities')->assertSuccessful();

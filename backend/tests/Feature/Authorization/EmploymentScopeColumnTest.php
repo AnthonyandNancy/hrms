@@ -22,23 +22,22 @@ final class EmploymentScopeColumnTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_legal_entity_scope_returns_employments_for_the_entity(): void
+    public function test_company_anchor_returns_employments_for_the_single_company(): void
     {
         $clock = new \App\Shared\Time\FrozenClock('2026-11-23T01:00:00Z');
         $this->app->instance(\App\Shared\Time\Clock::class, $clock);
-        $scenario = new PeopleScenario(1, $clock);
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'ORG-SCOPE', null, 'Scope Org');
+        $scenario = new PeopleScenario($clock);
+        $org = $scenario->orgUnit('ORG-SCOPE', null, 'Scope Org');
 
-        $employmentA = $scenario->employment($scenario->person(['legal_name' => 'Scope A']), $entity, 'SCOPE-1');
-        $employmentB = $scenario->employment($scenario->person(['legal_name' => 'Scope B']), $entity, 'SCOPE-2');
+        $employmentA = $scenario->employment($scenario->person(['legal_name' => 'Scope A']), 'SCOPE-1');
+        $employmentB = $scenario->employment($scenario->person(['legal_name' => 'Scope B']), 'SCOPE-2');
         $scenario->assignment($employmentA, $org);
         $scenario->assignment($employmentB, $org);
 
-        $user = User::factory()->create(['tenant_id' => 1]);
+        $user = User::factory()->create();
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
-            ->anchor(AnchorType::COMPANY, (int) $entity->id, FieldProfile::P1_INTERNAL)
+            ->forPrincipal((int) $user->id)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create(['capability_code' => 'people.employee.read']);
 
         // This regression targets the real Eloquent adapter and the generated
@@ -53,7 +52,7 @@ final class EmploymentScopeColumnTest extends TestCase
             \App\Modules\Organization\Authorization\EloquentOrganizationScopeDirectory::class,
         );
 
-        $principal = new TestPrincipal(1, (int) $user->id);
+        $principal = new TestPrincipal(userId: (int) $user->id);
         $authorizer = app(\App\Shared\Authorization\Authorizer::class);
 
         $count = $authorizer
