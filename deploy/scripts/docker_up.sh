@@ -74,9 +74,9 @@ if [[ "${DEMO}" -eq 1 ]]; then
         --admin-password="${DEMO_SEED_PASSWORD}" \
         --annual-days=15.00 --legal-basis="Synthetic demo policy, not legal advice" \
         --enable=payroll,time,self_service
-    compose exec -T php-app php backend/artisan iam:seed-demo \n        || die "iam:seed-demo failed (DEMO_SEED_PASSWORD must reach the php-app container)"
-    compose exec -T php-app php backend/artisan people:seed-demo \n        || die "people:seed-demo failed"
-    compose exec -T php-app php backend/artisan talent:seed-demo \n        || die "talent:seed-demo failed"
+    compose exec -T php-app php backend/artisan iam:seed-demo || die "iam:seed-demo failed"
+    compose exec -T php-app php backend/artisan people:seed-demo || die "people:seed-demo failed"
+    compose exec -T php-app php backend/artisan talent:seed-demo || die "talent:seed-demo failed"
 else
     log "installing the production reference baseline"
     : "${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (>=12 chars)}"
