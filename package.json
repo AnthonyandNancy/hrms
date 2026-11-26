@@ -12,6 +12,7 @@
     "lint": "node scripts/frontend-workspace.mjs lint",
     "test:unit": "node scripts/frontend-workspace.mjs test:unit",
     "test:e2e": "node scripts/frontend-workspace.mjs test:e2e",
+    "actions:generate": "node scripts/generate_action_manifest.mjs",
     "actions:check": "node scripts/audit_action_manifest.mjs",
     "page-components:check": "node scripts/audit_page_components.mjs",
     "page-model:check": "node scripts/audit_page_model.mjs",

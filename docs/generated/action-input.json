@@ -1,0 +1,31 @@
+{
+  "actions": [
+    {
+      "pageCode": "account-mfa",
+      "key": "account.mfa.enroll",
+      "label": "绑定动态口令",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/enroll",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "account-mfa",
+      "key": "account.mfa.confirm",
+      "label": "确认动态口令",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/confirm",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "account-sessions",
+      "key": "account.sessions.revoke-all",
+      "label": "退出全部会话",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/logout-all",
+      "ui": "danger",
+      "confirm": "danger"
+    }
+  ]
+}
