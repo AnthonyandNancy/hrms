@@ -137,3 +137,15 @@ Task 7: complete (commit 1b6d7d8, reviewer approved). Backlog:
 - Task 1: confirm refix verdict covers all four ADRs, page-model invariant, MFA narrowing, IAM numbering.
 Task 2: complete (commits 9d14679 + 98c4348). Baseline evidence records: backend 1123 tests / 51283 assertions / 1 expected failure (NoTenantNoLegalEntityTest); frontend unit gate red (pageComponentUniqueness.spec.ts syntax error + stale generated api types) — pre-existing, must be fixed before Volume 1 exit; Docker/real stack NOT RUN.
 Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 with documented baseline: page-model 12 failures, ui-primitives and copy counts recorded in docs/audit/2026-11-26-v2-gate-baseline.md). Not claimed as passing.
+
+## Volume 1 task ledger (as of 2026-11-26 18:05)
+- Task 1: complete (4c6886e + e523c82 fix; ADR files exist, six sections verified; refix still listed 2 normative contradictions to resolve at volume close).
+- Task 2: complete (9d14679 + 98c4348).
+- Task 3: complete (2f8c464; 160/160 routes, 140/140 capabilities, 0 deprecate). Backlog: approval predicate fail-open; add invariant tests.
+- Task 4: in progress (retry2).
+- Task 5: complete (0388ab6; generator+audit 13/13; parity 1 pass/17 assertions; 3 page actions; 170 gaps each owned).
+- Task 6: in progress.
+- Task 7: complete (1b6d7d8) with backlog.
+- Task 8: complete (6750ccf; real gates red by design, baselined).
+- Task 9: runner complete (4baaa72 + e811cb0 all node tests 70/70); acceptance must be regenerated after Task 4/6 land.
+- Pre-existing frontend gate fixed: pageComponentUniqueness now 15/15 (334c68f, e811cb0).
