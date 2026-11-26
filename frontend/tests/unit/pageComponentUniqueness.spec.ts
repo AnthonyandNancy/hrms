@@ -9,7 +9,7 @@ import {
   auditPageComponents,
   discoverPageComponentManifest,
   parseRegistryComponentKeys,
-} from '../../../scripts/audit_page_components.mjs'
+} from '../../../scripts/audit_page_components_lib.mjs'
 
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const repoRoot = resolve(frontendDir, '..')
