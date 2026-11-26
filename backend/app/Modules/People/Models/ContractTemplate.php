@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Model;
  * PUBLISHED version; publishing the next version archives the prior one.
  *
  * @property int $id
- * @property int $tenant_id
  * @property string $code
  * @property string $name
  * @property int $version
@@ -28,7 +27,6 @@ final class ContractTemplate extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'code',
         'name',
         'version',
@@ -45,7 +43,6 @@ final class ContractTemplate extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'version' => 'integer',
             'published_at' => 'immutable_datetime',
         ];

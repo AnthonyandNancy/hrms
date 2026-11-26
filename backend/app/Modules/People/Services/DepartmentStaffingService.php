@@ -9,14 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 final class DepartmentStaffingService implements DepartmentStaffingDirectory
 {
-    public function activeHeadcount(int $tenantId, array $orgUnitIds, string $on): array
+    public function activeHeadcount(array $orgUnitIds, string $on): array
     {
         if ($orgUnitIds === []) {
             return [];
         }
 
         return DB::table('assignments')
-            ->where('tenant_id', $tenantId)
             ->whereIn('org_unit_id', $orgUnitIds)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -26,10 +25,9 @@ final class DepartmentStaffingService implements DepartmentStaffingDirectory
             ->all();
     }
 
-    public function members(int $tenantId, int $orgUnitId, string $on): array
+    public function members(int $orgUnitId, string $on): array
     {
         return DB::table('assignments')
-            ->where('tenant_id', $tenantId)
             ->where('org_unit_id', $orgUnitId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)

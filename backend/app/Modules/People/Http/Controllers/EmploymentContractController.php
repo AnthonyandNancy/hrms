@@ -11,7 +11,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +22,7 @@ final class EmploymentContractController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly EmploymentContractService $contracts,
     ) {}
 
@@ -32,7 +32,7 @@ final class EmploymentContractController
         $this->assertEmployment($principal, $employmentId);
         $this->assertCapability($principal, 'people.contract.read');
 
-        $items = $this->contracts->list($principal->tenantId(), $employmentId);
+        $items = $this->contracts->list($employmentId);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -53,7 +53,7 @@ final class EmploymentContractController
             'terms_summary' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        return ApiResponse::created($this->contracts->open($principal->tenantId(), $employmentId, $data, $principal->userId()));
+        return ApiResponse::created($this->contracts->open($employmentId, $data, $principal->userId()));
     }
 
     public function show(Request $request, int $employmentId, int $id): JsonResponse
@@ -62,7 +62,7 @@ final class EmploymentContractController
         $this->assertEmployment($principal, $employmentId);
         $this->assertCapability($principal, 'people.contract.read');
 
-        return ApiResponse::ok($this->contracts->show($principal->tenantId(), $employmentId, $id));
+        return ApiResponse::ok($this->contracts->show($employmentId, $id));
     }
 
     public function expiring(Request $request): JsonResponse
@@ -72,14 +72,11 @@ final class EmploymentContractController
         $data = $request->validate([
             'within_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
             'as_of' => ['nullable', new BusinessDateRule],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
         ]);
-        $asOf = $data['as_of'] ?? $this->businessDates->today($principal->tenantId())->value();
+        $asOf = $data['as_of'] ?? $this->businessDates->today()->value();
         $items = $this->contracts->expiring(
-            $principal->tenantId(),
             $asOf,
             (int) ($data['within_days'] ?? 60),
-            isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null,
         );
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
@@ -87,14 +84,22 @@ final class EmploymentContractController
 
     private function assertEmployment(Principal $principal, int $employmentId): void
     {
-        if (! Employment::query()->where('tenant_id', $principal->tenantId())->whereKey($employmentId)->exists()) {
+        $today = $this->businessDates->today()->value();
+        $visible = $this->authorizer->constrain(
+            Employment::query()->whereKey($employmentId),
+            $principal,
+            'people.contract.read',
+            $today,
+        )->exists();
+
+        if (! $visible) {
             throw new NotFoundOrForbiddenException;
         }
     }
 
     private function assertCapability(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');

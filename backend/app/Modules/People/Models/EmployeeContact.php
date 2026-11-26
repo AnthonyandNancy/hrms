@@ -15,7 +15,6 @@ final class EmployeeContact extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'name',
         'relationship',

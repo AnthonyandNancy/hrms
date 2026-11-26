@@ -32,12 +32,10 @@ final class AsOfEmployeeQuery
         int $pageSize,
     ): array {
         $query = Employment::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereExists(function ($sub) use ($on): void {
                 $sub->selectRaw('1')
                     ->from('assignments')
                     ->whereColumn('assignments.employment_id', 'employments.id')
-                    ->whereColumn('assignments.tenant_id', 'employments.tenant_id')
                     ->where('assignments.valid_from', '<=', $on)
                     ->where('assignments.valid_to', '>', $on);
             })
@@ -54,7 +52,6 @@ final class AsOfEmployeeQuery
                 $sub->selectRaw('1')
                     ->from('assignments')
                     ->whereColumn('assignments.employment_id', 'employments.id')
-                    ->whereColumn('assignments.tenant_id', 'employments.tenant_id')
                     ->where('assignments.org_unit_id', $orgUnitId)
                     ->where('assignments.valid_from', '<=', $on)
                     ->where('assignments.valid_to', '>', $on);
@@ -69,7 +66,6 @@ final class AsOfEmployeeQuery
                         $sub->selectRaw('1')
                             ->from('persons')
                             ->whereColumn('persons.id', 'employments.person_id')
-                            ->whereColumn('persons.tenant_id', 'employments.tenant_id')
                             ->where('persons.legal_name', 'like', $term);
                     });
             });
@@ -93,9 +89,8 @@ final class AsOfEmployeeQuery
      */
     public function detail(Employment $employment, string $on): array
     {
-        $person = Person::query()->where('tenant_id', (int) $employment->tenant_id)->whereKey((int) $employment->person_id)->first();
+        $person = Person::query()->whereKey((int) $employment->person_id)->first();
         $terms = EmploymentTerms::query()
-            ->where('tenant_id', (int) $employment->tenant_id)
             ->where('employment_id', (int) $employment->id)
             ->where('effective_from', '<=', $on)
             ->where('effective_to', '>', $on)
@@ -132,7 +127,6 @@ final class AsOfEmployeeQuery
     private function projection(Employment $employment, string $on): array
     {
         $assignment = Assignment::query()
-            ->where('tenant_id', (int) $employment->tenant_id)
             ->where('employment_id', (int) $employment->id)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -144,21 +138,19 @@ final class AsOfEmployeeQuery
 
         if ($assignment !== null && $assignment->manager_assignment_id !== null) {
             $managerEmploymentId = Assignment::query()
-                ->where('tenant_id', (int) $employment->tenant_id)
                 ->whereKey((int) $assignment->manager_assignment_id)
                 ->where('valid_from', '<=', $on)
                 ->where('valid_to', '>', $on)
                 ->value('employment_id');
         }
 
-        $person = Person::query()->where('tenant_id', (int) $employment->tenant_id)->whereKey((int) $employment->person_id)->first();
+        $person = Person::query()->whereKey((int) $employment->person_id)->first();
 
         return [
             'employment_id' => (int) $employment->id,
             'person_id' => (int) $employment->person_id,
             'person_name' => $person !== null ? (string) $person->legal_name : null,
             'employee_no' => (string) $employment->employee_no,
-            'legal_entity_id' => (int) $employment->legal_entity_id,
             'status' => (string) $employment->status,
             'employment_type' => (string) $employment->employment_type,
             'valid_from' => (string) $employment->valid_from,

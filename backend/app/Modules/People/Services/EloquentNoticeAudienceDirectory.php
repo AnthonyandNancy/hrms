@@ -12,14 +12,13 @@ use App\Shared\Time\AsOfQuery;
 final class EloquentNoticeAudienceDirectory implements NoticeAudienceDirectory
 {
     /** @return list<int> */
-    public function employmentIdsForOrgUnits(int $tenantId, array $orgUnitIds, string $on): array
+    public function employmentIdsForOrgUnits(array $orgUnitIds, string $on): array
     {
         if ($orgUnitIds === []) {
             return [];
         }
 
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('org_unit_id', $orgUnitIds)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
             ->orderBy('employment_id')
@@ -31,14 +30,13 @@ final class EloquentNoticeAudienceDirectory implements NoticeAudienceDirectory
     }
 
     /** @return list<int> */
-    public function userIdsForEmployments(int $tenantId, array $employmentIds, string $on): array
+    public function userIdsForEmployments(array $employmentIds, string $on): array
     {
         if ($employmentIds === []) {
             return [];
         }
 
         return EmploymentUserLink::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('employment_id', $employmentIds)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
             ->orderBy('user_id')
@@ -50,10 +48,9 @@ final class EloquentNoticeAudienceDirectory implements NoticeAudienceDirectory
     }
 
     /** @return list<int> */
-    public function employmentOrgUnitIds(int $tenantId, int $employmentId, string $on): array
+    public function employmentOrgUnitIds(int $employmentId, string $on): array
     {
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
             ->orderBy('org_unit_id')

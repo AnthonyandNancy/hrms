@@ -13,7 +13,6 @@ final readonly class PeopleWorkspaceProfile
 {
     public function __construct(
         public int $employmentId,
-        public int $legalEntityId,
         public string $personName,
         public string $employeeNo,
         public string $initials,

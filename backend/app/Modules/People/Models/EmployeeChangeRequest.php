@@ -15,7 +15,6 @@ final class EmployeeChangeRequest extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'requested_by',
         'status',

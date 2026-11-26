@@ -13,7 +13,6 @@ final readonly class WorkforceReportingRow
     public function __construct(
         public int $employmentId,
         public int $personId,
-        public int $legalEntityId,
         public ?int $orgUnitId,
         public string $employeeNo,
         public ?string $displayName,
@@ -21,6 +20,5 @@ final readonly class WorkforceReportingRow
         public ?string $probationEndDate,
         public ?string $contractEndDate,
         public ?string $orgName,
-        public ?string $legalEntityName,
     ) {}
 }

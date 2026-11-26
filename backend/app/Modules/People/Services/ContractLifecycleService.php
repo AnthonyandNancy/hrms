@@ -41,7 +41,7 @@ final class ContractLifecycleService
     ) {}
 
     /**
-     * @param  array{legal_entity_id?: int|null, status?: string|null}  $filters
+     * @param  array{status?: string|null}  $filters
      */
     public function contracts(
         Principal $principal,
@@ -52,15 +52,12 @@ final class ContractLifecycleService
         int $pageSize,
     ): ProjectionResult {
         $query = EmploymentContract::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->when(($filters['legal_entity_id'] ?? null) !== null, fn ($builder) => $builder->where('legal_entity_id', (string) $filters['legal_entity_id']))
             ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', (string) $filters['status']));
 
         // Contracts have no org column; scope the assignment rows instead so
         // SELF/MANAGED/ORG_UNIT/ORG_SUBTREE/COMPANY grants all reduce to a
         // set of visible employment ids before pagination.
         $visibleEmployments = Assignment::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('valid_from', '<=', $asOf)
             ->where('valid_to', '>', $asOf)
             ->select('employment_id');
@@ -73,12 +70,10 @@ final class ContractLifecycleService
         $contracts = $query->orderByDesc('start_date')->orderByDesc('id')->forPage($page, $pageSize)->get();
 
         $employments = Employment::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereIn('id', $contracts->pluck('employment_id')->map(static fn (mixed $id): int => (int) $id)->all())
             ->get()
             ->keyBy('id');
         $persons = Person::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereIn('id', $employments->pluck('person_id')->map(static fn (mixed $id): int => (int) $id)->unique()->all())
             ->get()
             ->keyBy('id');
@@ -100,10 +95,10 @@ final class ContractLifecycleService
         ], $contracts->map(static fn (EmploymentContract $row): array => [(int) $row->id, (string) $row->updated_at])->all());
     }
 
-    public function amendmentHistory(int $tenantId, int $contractId, string $asOf, int $page, int $pageSize): ProjectionResult
+    public function amendmentHistory(int $contractId, string $asOf, int $page, int $pageSize): ProjectionResult
     {
-        $contract = $this->findContract($tenantId, $contractId);
-        $history = $this->versions->history($tenantId, (int) $contract->id);
+        $contract = $this->findContract($contractId);
+        $history = $this->versions->history((int) $contract->id);
         $total = count($history);
         $items = array_slice($history, max(0, ($page - 1) * $pageSize), $pageSize);
 
@@ -117,12 +112,11 @@ final class ContractLifecycleService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function amend(int $tenantId, int $contractId, array $data, int $actorUserId): array
+    public function amend(int $contractId, array $data, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $contractId, $data, $actorUserId): array {
+        return DB::transaction(function () use ($contractId, $data, $actorUserId): array {
             /** @var EmploymentContract $contract */
             $contract = EmploymentContract::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($contractId)
                 ->lockForUpdate()
                 ->first();
@@ -174,7 +168,6 @@ final class ContractLifecycleService
             $after = $this->contractPayload($contract);
             $effectiveTo = $contract->end_date !== null ? (string) $contract->end_date : BusinessDate::OPEN_END;
             $version = $this->versions->append(
-                tenantId: $tenantId,
                 contractId: (int) $contract->id,
                 employmentId: (int) $contract->employment_id,
                 changeType: 'AMENDMENT',
@@ -186,7 +179,6 @@ final class ContractLifecycleService
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.amended',
                 aggregateType: 'employment_contract',
@@ -204,12 +196,11 @@ final class ContractLifecycleService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function terminate(int $tenantId, int $contractId, array $data, int $actorUserId): array
+    public function terminate(int $contractId, array $data, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $contractId, $data, $actorUserId): array {
+        return DB::transaction(function () use ($contractId, $data, $actorUserId): array {
             /** @var EmploymentContract $contract */
             $contract = EmploymentContract::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($contractId)
                 ->lockForUpdate()
                 ->first();
@@ -240,7 +231,6 @@ final class ContractLifecycleService
             ])->save();
             $after = $this->contractPayload($contract);
             $version = $this->versions->append(
-                tenantId: $tenantId,
                 contractId: (int) $contract->id,
                 employmentId: (int) $contract->employment_id,
                 changeType: 'TERMINATION',
@@ -252,7 +242,6 @@ final class ContractLifecycleService
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.terminated',
                 aggregateType: 'employment_contract',
@@ -272,12 +261,11 @@ final class ContractLifecycleService
      *
      * @return array<string, mixed>
      */
-    public function softDelete(int $tenantId, int $contractId, string $reason, int $actorUserId): array
+    public function softDelete(int $contractId, string $reason, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $contractId, $reason, $actorUserId): array {
+        return DB::transaction(function () use ($contractId, $reason, $actorUserId): array {
             /** @var EmploymentContract $contract */
             $contract = EmploymentContract::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($contractId)
                 ->lockForUpdate()
                 ->first();
@@ -294,7 +282,6 @@ final class ContractLifecycleService
             $contract->delete();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.soft_deleted',
                 aggregateType: 'employment_contract',
@@ -311,12 +298,11 @@ final class ContractLifecycleService
     /**
      * @return array<string, mixed>
      */
-    public function restore(int $tenantId, int $contractId, int $actorUserId): array
+    public function restore(int $contractId, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $contractId, $actorUserId): array {
+        return DB::transaction(function () use ($contractId, $actorUserId): array {
             /** @var EmploymentContract|null $contract */
             $contract = EmploymentContract::withTrashed()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($contractId)
                 ->lockForUpdate()
                 ->first();
@@ -334,7 +320,6 @@ final class ContractLifecycleService
             $after = $this->contractPayload($contract);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.restored',
                 aggregateType: 'employment_contract',
@@ -363,7 +348,6 @@ final class ContractLifecycleService
         }
 
         $query = ContractTemplate::query()
-            ->where('tenant_id', $principal->tenantId())
             ->when(($filters['code'] ?? null) !== null, fn ($builder) => $builder->where('code', strtoupper(trim((string) $filters['code']))))
             ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', strtoupper((string) $filters['status'])));
 
@@ -381,12 +365,11 @@ final class ContractLifecycleService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function createTemplate(int $tenantId, array $data, int $actorUserId): array
+    public function createTemplate(array $data, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $data, $actorUserId): array {
+        return DB::transaction(function () use ($data, $actorUserId): array {
             $code = strtoupper(trim((string) $data['code']));
             $latest = ContractTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', $code)
                 ->orderByDesc('version')
                 ->lockForUpdate()
@@ -394,7 +377,6 @@ final class ContractLifecycleService
 
             /** @var ContractTemplate $template */
             $template = ContractTemplate::query()->create([
-                'tenant_id' => $tenantId,
                 'code' => $code,
                 'name' => (string) $data['name'],
                 'version' => $latest !== null ? (int) $latest->version + 1 : 1,
@@ -404,7 +386,6 @@ final class ContractLifecycleService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.template.created',
                 aggregateType: 'contract_template',
@@ -419,12 +400,11 @@ final class ContractLifecycleService
     /**
      * @return array<string, mixed>
      */
-    public function publishTemplate(int $tenantId, int $templateId, int $actorUserId): array
+    public function publishTemplate(int $templateId, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $templateId, $actorUserId): array {
+        return DB::transaction(function () use ($templateId, $actorUserId): array {
             /** @var ContractTemplate $template */
             $template = ContractTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($templateId)
                 ->lockForUpdate()
                 ->first();
@@ -438,7 +418,6 @@ final class ContractLifecycleService
             }
 
             ContractTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', (string) $template->code)
                 ->where('status', 'PUBLISHED')
                 ->update(['status' => 'ARCHIVED', 'updated_at' => $this->clock->now()]);
@@ -449,7 +428,6 @@ final class ContractLifecycleService
             ])->save();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.template.published',
                 aggregateType: 'contract_template',
@@ -486,10 +464,9 @@ final class ContractLifecycleService
         );
     }
 
-    private function findContract(int $tenantId, int $contractId): EmploymentContract
+    private function findContract(int $contractId): EmploymentContract
     {
         $contract = EmploymentContract::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($contractId)
             ->first();
 
@@ -515,7 +492,6 @@ final class ContractLifecycleService
         return [
             'id' => (int) $contract->id,
             'employment_id' => (int) $contract->employment_id,
-            'legal_entity_id' => $contract->legal_entity_id !== null ? (int) $contract->legal_entity_id : null,
             'contract_no' => (string) $contract->contract_no,
             'contract_type' => (string) $contract->contract_type,
             'start_date' => (string) $contract->start_date,

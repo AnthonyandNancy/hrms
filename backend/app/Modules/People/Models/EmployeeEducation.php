@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  */
 final class EmployeeEducation extends Model
@@ -17,7 +16,6 @@ final class EmployeeEducation extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'school',
         'degree',

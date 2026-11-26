@@ -14,5 +14,5 @@ interface PositionOccupancyDirectory
      * @param  list<int>  $positionIds
      * @return array<int, int> position id => active incumbent count
      */
-    public function occupancy(int $tenantId, array $positionIds, string $on): array;
+    public function occupancy(array $positionIds, string $on): array;
 }

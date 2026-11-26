@@ -9,7 +9,7 @@ use App\Modules\People\Services\PersonService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -20,14 +20,14 @@ final class PersonController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly PersonPrivacy $privacy,
     ) {}
 
     public function store(Request $request, PersonService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
 
         if (! $this->authorizer->permits($principal, 'people.employee.manage', $today->value())) {
             throw new AuthorizationException('Forbidden.');
@@ -45,7 +45,7 @@ final class PersonController
             'email' => ['nullable', 'email', 'max:254'],
         ]);
 
-        $person = $service->open($principal->tenantId(), $data, $principal->userId());
+        $person = $service->open($data, $principal->userId());
 
         return ApiResponse::created($this->privacy->project($person, 'P1_INTERNAL'));
     }

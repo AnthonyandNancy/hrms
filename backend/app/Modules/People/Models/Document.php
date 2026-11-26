@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $owner_type
  * @property int $owner_id
  * @property string $category
@@ -25,7 +24,6 @@ final class Document extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'owner_type',
         'owner_id',
         'category',
@@ -52,7 +50,6 @@ final class Document extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'owner_id' => 'integer',
             'file_object_id' => 'integer',
             'version' => 'integer',

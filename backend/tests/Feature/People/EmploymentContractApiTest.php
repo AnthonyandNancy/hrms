@@ -12,9 +12,8 @@ final class EmploymentContractApiTest extends PeopleTestCase
     public function test_hr_creates_contract_and_renewal_preserves_previous_version(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'CON-0001');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'CON-ORG'));
+        $employment = $scenario->employment($scenario->person(), 'CON-0001');
+        $scenario->assignment($employment, $scenario->orgUnit('CON-ORG'));
 
         $created = $this->postJson("/v1/employments/{$employment->id}/contracts", [
             'contract_no' => 'CT-2026-0001',
@@ -57,12 +56,10 @@ final class EmploymentContractApiTest extends PeopleTestCase
     public function test_expiring_contracts_are_listed_without_duplicates(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'EXP-0001');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'EXP-ORG'));
+        $employment = $scenario->employment($scenario->person(), 'EXP-0001');
+        $scenario->assignment($employment, $scenario->orgUnit('EXP-ORG'));
 
         EmploymentContract::query()->create([
-            'tenant_id' => 1,
             'employment_id' => $employment->id,
             'contract_no' => 'CT-EXP-1',
             'contract_type' => 'FIXED_TERM',
@@ -82,13 +79,11 @@ final class EmploymentContractApiTest extends PeopleTestCase
             ->assertJsonPath('data.items.0.days_to_expiry', 8);
     }
 
-    public function test_cross_tenant_contract_read_is_404(): void
+    public function test_out_of_scope_contract_read_is_404(): void
     {
-        $scenario = $this->scenario(1);
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'X-CON');
+        $scenario = $this->scenario();
+        $employment = $scenario->employment($scenario->person(), 'X-CON');
         $con = EmploymentContract::query()->create([
-            'tenant_id' => 1,
             'employment_id' => $employment->id,
             'contract_no' => 'X-CON-1',
             'contract_type' => 'FIXED_TERM',
@@ -101,7 +96,15 @@ final class EmploymentContractApiTest extends PeopleTestCase
             'source_type' => 'TEST',
         ]);
 
-        $this->actAs(tenantId: 2, userId: 999);
+        $this->actAs(userId: 999);
+        $this->app->instance(
+            \App\Shared\Authorization\Authorizer::class,
+            new \Tests\Support\DirectoryScopeAuthorizer(
+                app(\App\Modules\People\Contracts\PeopleDirectory::class),
+                app(\App\Modules\Organization\Contracts\OrganizationDirectory::class),
+                'SELF',
+            ),
+        );
 
         $this->getJson("/v1/employments/{$employment->id}/contracts/{$con->id}")->assertNotFound();
     }

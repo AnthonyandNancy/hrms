@@ -31,7 +31,7 @@ final class PeopleAsOfCheckCommand extends Command
             ->where(function ($query): void {
                 $query->where('assignment_type', 'PRIMARY')->orWhere('is_primary', true);
             })
-            ->select(['id', 'tenant_id', 'employment_id', 'valid_from', 'valid_to'])
+            ->select(['id', 'employment_id', 'valid_from', 'valid_to'])
             ->orderBy('employment_id')
             ->orderBy('id')
             ->get();
@@ -39,7 +39,7 @@ final class PeopleAsOfCheckCommand extends Command
         $byEmployment = [];
 
         foreach ($primaries as $primary) {
-            $key = $primary->tenant_id.':'.$primary->employment_id;
+            $key = (string) $primary->employment_id;
 
             if (isset($byEmployment[$key])) {
                 $violations++;

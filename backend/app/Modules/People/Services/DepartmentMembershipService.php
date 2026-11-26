@@ -19,11 +19,10 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
         private readonly AuditRecorder $audit,
     ) {}
 
-    public function moveMember(int $tenantId, int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array
+    public function moveMember(int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $targetOrgUnitId, $employmentId, $effectiveFrom, $actorUserId): array {
+        return DB::transaction(function () use ($targetOrgUnitId, $employmentId, $effectiveFrom, $actorUserId): array {
             $current = Assignment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('is_primary', true)
                 ->where('valid_from', '<=', $effectiveFrom)
@@ -44,7 +43,6 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
 
             /** @var Assignment $next */
             $next = Assignment::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'org_unit_id' => $targetOrgUnitId,
                 'position_id' => $current->position_id,
@@ -58,7 +56,6 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.department.member_moved',
                 aggregateType: 'assignment',

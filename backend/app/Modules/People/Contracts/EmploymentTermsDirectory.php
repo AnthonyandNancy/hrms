@@ -10,5 +10,5 @@ namespace App\Modules\People\Contracts;
  */
 interface EmploymentTermsDirectory
 {
-    public function termsAsOf(int $tenantId, int $employmentId, string $on): ?EmploymentTermsSnapshot;
+    public function termsAsOf(int $employmentId, string $on): ?EmploymentTermsSnapshot;
 }

@@ -13,5 +13,5 @@ interface DepartmentMembershipPort
     /**
      * @return array{assignment_id: int, employment_id: int, org_unit_id: int, valid_from: string}
      */
-    public function moveMember(int $tenantId, int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array;
+    public function moveMember(int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array;
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\People;
 
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\People\Models\EmploymentTerms;
 use Tests\Support\PeopleTestCase;
 
@@ -13,9 +12,8 @@ final class RequirementGapsTest extends PeopleTestCase
     public function test_assignment_outside_org_active_window_is_rejected(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'SHORT-ORG', null, 'Short', 'DEPARTMENT', '2026-01-01', '2026-06-01');
-        $employment = $scenario->employment($scenario->person(), $entity, 'SHORT-EMP');
+        $org = $scenario->orgUnit('SHORT-ORG', null, 'Short', 'DEPARTMENT', '2026-01-01', '2026-06-01');
+        $employment = $scenario->employment($scenario->person(), 'SHORT-EMP');
 
         $this->postJson("/v1/employments/{$employment->id}/assignments", [
             'org_unit_id' => $org->id,
@@ -28,8 +26,7 @@ final class RequirementGapsTest extends PeopleTestCase
     public function test_terms_effective_to_is_clipped_to_employment_window(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'CLIP-EMP', ['valid_to' => '2026-12-31']);
+        $employment = $scenario->employment($scenario->person(), 'CLIP-EMP', ['valid_to' => '2026-12-31']);
 
         $response = $this->postJson("/v1/employments/{$employment->id}/terms", [
             'effective_from' => '2026-01-01',
@@ -44,9 +41,8 @@ final class RequirementGapsTest extends PeopleTestCase
     public function test_manager_assignment_must_exist_and_be_valid(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'MGR-VALID');
-        $employment = $scenario->employment($scenario->person(), $entity, 'MGR-VALID-EMP');
+        $org = $scenario->orgUnit('MGR-VALID');
+        $employment = $scenario->employment($scenario->person(), 'MGR-VALID-EMP');
 
         $this->postJson("/v1/employments/{$employment->id}/assignments", [
             'org_unit_id' => $org->id,
@@ -56,15 +52,13 @@ final class RequirementGapsTest extends PeopleTestCase
         ])->assertUnprocessable();
     }
 
-    public function test_document_requires_same_tenant_file_object(): void
+    public function test_document_requires_an_existing_file_object(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'DOC-TENANT');
-        $fileId = $scenario->fileObject(tenantId: 2);
+        $employment = $scenario->employment($scenario->person(), 'DOC-TENANT');
 
         $this->postJson("/v1/employments/{$employment->id}/documents", [
-            'file_object_id' => $fileId,
+            'file_object_id' => 999999,
             'category' => 'CONTRACT',
             'retention_class' => 'CONTRACT_10Y',
         ])->assertUnprocessable();
@@ -73,8 +67,7 @@ final class RequirementGapsTest extends PeopleTestCase
     public function test_document_versions_increment_per_category(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'DOC-VER');
+        $employment = $scenario->employment($scenario->person(), 'DOC-VER');
 
         $first = $this->postJson("/v1/employments/{$employment->id}/documents", [
             'file_object_id' => $scenario->fileObject(),
@@ -94,8 +87,7 @@ final class RequirementGapsTest extends PeopleTestCase
     public function test_document_download_returns_no_storage_key_and_requires_both_capabilities(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'DOC-DL');
+        $employment = $scenario->employment($scenario->person(), 'DOC-DL');
         $document = $scenario->document($employment, $scenario->fileObject());
 
         $response = $this->getJson("/v1/documents/{$document->id}/download")->assertOk();
@@ -106,34 +98,10 @@ final class RequirementGapsTest extends PeopleTestCase
         $this->getJson("/v1/documents/{$document->id}/download")->assertForbidden();
     }
 
-    public function test_legal_entity_timezone_and_currency_are_validated(): void
-    {
-        $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-
-        $entity->timezone = 'Mars/Olympus';
-        try {
-            $entity->save();
-            $this->fail('Invalid IANA timezone should be rejected.');
-        } catch (\App\Shared\Exceptions\ValidationException $exception) {
-            $this->assertArrayHasKey('timezone', $exception->details()['fields']);
-        }
-
-        $entity = LegalEntity::query()->findOrFail($entity->id);
-        $entity->currency_code = 'CN';
-        try {
-            $entity->save();
-            $this->fail('Invalid currency should be rejected.');
-        } catch (\App\Shared\Exceptions\ValidationException $exception) {
-            $this->assertArrayHasKey('currency_code', $exception->details()['fields']);
-        }
-    }
-
     public function test_terms_historical_row_is_not_overwritten_when_new_version_closes_it(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'TERMS-HIST');
+        $employment = $scenario->employment($scenario->person(), 'TERMS-HIST');
         $scenario->terms($employment, 1, ['effective_from' => '2026-01-01', 'work_location' => 'Shanghai']);
 
         $this->postJson("/v1/employments/{$employment->id}/terms", [

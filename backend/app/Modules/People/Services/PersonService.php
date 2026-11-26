@@ -18,7 +18,7 @@ final class PersonService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function open(int $tenantId, array $input, ?int $actorUserId): Person
+    public function open(array $input, ?int $actorUserId): Person
     {
         $idType = isset($input['id_type']) ? mb_strtoupper((string) $input['id_type']) : null;
         $idNumber = isset($input['id_number']) ? (string) $input['id_number'] : null;
@@ -26,15 +26,14 @@ final class PersonService
             ? $this->privacy->hashIdentity($idType, $idNumber)
             : null;
 
-        if ($identityHash !== null && Person::query()->where('tenant_id', $tenantId)->where('id_type', $idType)->where('id_number_hash', $identityHash)->exists()) {
+        if ($identityHash !== null && Person::query()->where('id_type', $idType)->where('id_number_hash', $identityHash)->exists()) {
             throw new ConflictException(
-                'A person with the same identity document already exists in this tenant.',
+                'A person with the same identity document already exists.',
                 ['reason' => 'PERSON_IDENTITY_DUPLICATE'],
             );
         }
 
         $person = Person::query()->create([
-            'tenant_id' => $tenantId,
             'legal_name' => (string) $input['legal_name'],
             'preferred_name' => $input['preferred_name'] ?? null,
             'id_type' => $idType,
@@ -48,7 +47,6 @@ final class PersonService
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.person.created',
             aggregateType: 'person',

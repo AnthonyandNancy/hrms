@@ -20,7 +20,7 @@ use App\Shared\Time\Clock;
 
 /**
  * Transaction-participating People writer used by Lifecycle effects. It owns
- * all People table writes; callers supply validated, tenant-scoped commands.
+ * all People table writes; callers supply validated commands.
  */
 final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
 {
@@ -32,14 +32,14 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         private readonly AssignmentTimeline $timeline,
     ) {}
 
-    public function createPerson(int $tenantId, array $person, ?int $actorUserId): int
+    public function createPerson(array $person, ?int $actorUserId): int
     {
-        $created = $this->persons->open($tenantId, $person, $actorUserId);
+        $created = $this->persons->open($person, $actorUserId);
 
         return (int) $created->id;
     }
 
-    public function createEmployment(int $tenantId, array $input, ?int $actorUserId): int
+    public function createEmployment(array $input, ?int $actorUserId): int
     {
         $validFrom = BusinessDate::from((string) $input['valid_from']);
         $validTo = BusinessDate::from((string) ($input['valid_to'] ?? BusinessDate::OPEN_END));
@@ -49,23 +49,19 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         }
 
         $employeeNoTaken = Employment::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', (int) $input['legal_entity_id'])
             ->where('employee_no', (string) $input['employee_no'])
             ->lockForUpdate()
             ->exists();
 
         if ($employeeNoTaken) {
-            throw new ConflictException('Employee number must be unique per tenant and legal entity.', [
+            throw new ConflictException('Employee number must be unique.', [
                 'reason' => 'EMPLOYEE_NO_DUPLICATE',
             ]);
         }
 
         $now = $this->clock->now();
         $employment = Employment::query()->create([
-            'tenant_id' => $tenantId,
             'person_id' => (int) $input['person_id'],
-            'legal_entity_id' => (int) $input['legal_entity_id'],
             'employee_no' => (string) $input['employee_no'],
             'employment_type' => (string) $input['employment_type'],
             'status' => (string) ($input['status'] ?? 'ACTIVE'),
@@ -80,7 +76,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.employment.created',
             aggregateType: 'employment',
@@ -88,14 +83,12 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
             after: [
                 'employment_id' => (int) $employment->id,
                 'person_id' => (int) $employment->person_id,
-                'legal_entity_id' => (int) $employment->legal_entity_id,
                 'employee_no' => (string) $employment->employee_no,
                 'valid_from' => (string) $employment->valid_from,
             ],
         );
 
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: 'employment.created.v1',
             aggregateType: 'employment',
             aggregateId: (string) $employment->id,
@@ -103,7 +96,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
             payload: [
                 'employment_id' => (int) $employment->id,
                 'person_id' => (int) $employment->person_id,
-                'legal_entity_id' => (int) $employment->legal_entity_id,
                 'valid_from' => (string) $employment->valid_from,
             ],
         );
@@ -111,10 +103,9 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         return (int) $employment->id;
     }
 
-    public function createAssignment(int $tenantId, int $employmentId, array $input, ?int $actorUserId): int
+    public function createAssignment(int $employmentId, array $input, ?int $actorUserId): int
     {
         $existing = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->lockForUpdate()
             ->get()
@@ -139,7 +130,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         $this->timeline->assertNoPrimaryOverlap($existing);
 
         $assignment = Assignment::query()->create([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'org_unit_id' => (int) $input['org_unit_id'],
             'position_id' => isset($input['position_id']) ? (int) $input['position_id'] : null,
@@ -154,7 +144,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.assignment.created',
             aggregateType: 'assignment',
@@ -170,7 +159,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
 
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: 'employment.assignment.changed.v1',
             aggregateType: 'employment',
             aggregateId: (string) $employmentId,
@@ -185,9 +173,9 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         return (int) $assignment->id;
     }
 
-    public function appendTerms(int $tenantId, int $employmentId, array $input, ?int $actorUserId): int
+    public function appendTerms(int $employmentId, array $input, ?int $actorUserId): int
     {
-        $employment = Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->first();
+        $employment = Employment::query()->whereKey($employmentId)->first();
 
         if ($employment === null) {
             throw new NotFoundOrForbiddenException;
@@ -201,7 +189,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         }
 
         $latest = EmploymentTerms::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderByDesc('version')
             ->lockForUpdate()
@@ -219,7 +206,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         }
 
         $terms = EmploymentTerms::query()->create([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'version' => $latest !== null ? (int) $latest->version + 1 : 1,
             'effective_from' => $effectiveFrom->value(),
@@ -240,7 +226,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.terms.versioned',
             aggregateType: 'employment',
@@ -253,7 +238,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
 
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: 'employment.terms.changed.v1',
             aggregateType: 'employment',
             aggregateId: (string) $employmentId,
@@ -269,9 +253,9 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         return (int) $terms->id;
     }
 
-    public function endAssignment(int $tenantId, int $assignmentId, string $endExclusive, ?int $actorUserId, string $sourceType, ?int $sourceId = null): void
+    public function endAssignment(int $assignmentId, string $endExclusive, ?int $actorUserId, string $sourceType, ?int $sourceId = null): void
     {
-        $assignment = Assignment::query()->where('tenant_id', $tenantId)->whereKey($assignmentId)->lockForUpdate()->first();
+        $assignment = Assignment::query()->whereKey($assignmentId)->lockForUpdate()->first();
 
         if ($assignment === null) {
             throw new NotFoundOrForbiddenException;
@@ -289,7 +273,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         ])->save();
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.assignment.ended',
             aggregateType: 'assignment',
@@ -298,9 +281,9 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
     }
 
-    public function endEmployment(int $tenantId, int $employmentId, string $endExclusive, string $lastWorkingDate, ?int $actorUserId, string $sourceType, ?int $sourceId = null): void
+    public function endEmployment(int $employmentId, string $endExclusive, string $lastWorkingDate, ?int $actorUserId, string $sourceType, ?int $sourceId = null): void
     {
-        $employment = Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->lockForUpdate()->first();
+        $employment = Employment::query()->whereKey($employmentId)->lockForUpdate()->first();
 
         if ($employment === null) {
             throw new NotFoundOrForbiddenException;
@@ -322,7 +305,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         ])->save();
 
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: 'employment.terminated.v1',
             aggregateType: 'employment',
             aggregateId: (string) $employmentId,
@@ -335,13 +317,13 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
     }
 
-    public function setEmploymentStatus(int $tenantId, int $employmentId, string $status, ?int $actorUserId): void
+    public function setEmploymentStatus(int $employmentId, string $status, ?int $actorUserId): void
     {
         if (! in_array($status, Employment::STATUSES, true)) {
             throw new ValidationException(['status' => ['Unsupported employment status.']]);
         }
 
-        $employment = Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->lockForUpdate()->first();
+        $employment = Employment::query()->whereKey($employmentId)->lockForUpdate()->first();
 
         if ($employment === null) {
             throw new NotFoundOrForbiddenException;
@@ -351,7 +333,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         $employment->forceFill(['status' => $status])->save();
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.employment.status_changed',
             aggregateType: 'employment',
@@ -361,7 +342,6 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
 
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: 'employment.status.changed.v1',
             aggregateType: 'employment',
             aggregateId: (string) $employmentId,
@@ -370,17 +350,15 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         );
     }
 
-    public function appendDocument(int $tenantId, int $employmentId, array $input, ?int $actorUserId): int
+    public function appendDocument(int $employmentId, array $input, ?int $actorUserId): int
     {
         $version = (int) Document::query()
-            ->where('tenant_id', $tenantId)
             ->where('owner_type', 'EMPLOYMENT')
             ->where('owner_id', $employmentId)
             ->where('category', 'CONTRACT')
             ->max('version') + 1;
 
         $document = Document::query()->create([
-            'tenant_id' => $tenantId,
             'owner_type' => 'EMPLOYMENT',
             'owner_id' => $employmentId,
             'category' => 'CONTRACT',
@@ -396,76 +374,10 @@ final class PeopleEmploymentWriterService implements PeopleEmploymentWriter
         return (int) $document->id;
     }
 
-    public function transferLegalEntity(int $tenantId, int $employmentId, array $input, ?int $actorUserId): int
-    {
-        $old = Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->lockForUpdate()->first();
-
-        if ($old === null) {
-            throw new NotFoundOrForbiddenException;
-        }
-
-        $effectiveFrom = BusinessDate::from((string) $input['effective_from']);
-
-        if (! $effectiveFrom->isAfter(BusinessDate::from((string) $old->valid_from))) {
-            throw new ValidationException(['effective_from' => ['Transfer must start after the current employment start.']]);
-        }
-
-        if ((int) $old->legal_entity_id === (int) $input['legal_entity_id']) {
-            throw new ValidationException(['legal_entity_id' => ['A legal-entity transfer must target a different entity.']]);
-        }
-
-        Assignment::query()
-            ->where('tenant_id', $tenantId)
-            ->where('employment_id', $employmentId)
-            ->where('valid_to', '>', $effectiveFrom->value())
-            ->update(['valid_to' => $effectiveFrom->value(), 'superseded_at' => $this->clock->now()]);
-
-        $old->forceFill([
-            'valid_to' => $effectiveFrom->value(),
-            'termination_date' => $effectiveFrom->addDays(-1)->value(),
-            'status' => 'TERMINATED',
-            'superseded_at' => $this->clock->now(),
-        ])->save();
-
-        $new = Employment::query()->create([
-            'tenant_id' => $tenantId,
-            'person_id' => (int) $old->person_id,
-            'legal_entity_id' => (int) $input['legal_entity_id'],
-            'employee_no' => (string) ($input['employee_no'] ?? $old->employee_no),
-            'employment_type' => (string) ($input['employment_type'] ?? $old->employment_type),
-            'status' => 'ACTIVE',
-            'valid_from' => $effectiveFrom->value(),
-            'valid_to' => (string) ($input['valid_to'] ?? BusinessDate::OPEN_END),
-            'hire_date' => $effectiveFrom->value(),
-            'termination_date' => null,
-            'seniority_start_date' => (string) ($input['seniority_start_date'] ?? $old->seniority_start_date),
-            'recorded_at' => $this->clock->now(),
-            'source_type' => 'TRANSFER',
-            'source_id' => isset($input['case_id']) ? (int) $input['case_id'] : null,
-        ]);
-
-        $this->outbox->record(
-            tenantId: $tenantId,
-            eventType: 'employment.transferred.v1',
-            aggregateType: 'employment',
-            aggregateId: (string) $new->id,
-            aggregateVersion: 1,
-            payload: [
-                'person_id' => (int) $old->person_id,
-                'old_employment_id' => (int) $old->id,
-                'new_employment_id' => (int) $new->id,
-                'effective_from' => $effectiveFrom->value(),
-            ],
-        );
-
-        return (int) $new->id;
-    }
-
-    public function linkUser(int $tenantId, int $userId, int $employmentId, string $validFrom, ?string $validTo, ?int $actorUserId): void
+    public function linkUser(int $userId, int $employmentId, string $validFrom, ?string $validTo, ?int $actorUserId): void
     {
         EmploymentUserLink::query()->firstOrCreate(
             [
-                'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'employment_id' => $employmentId,
                 'valid_from' => $validFrom,

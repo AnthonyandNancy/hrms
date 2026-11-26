@@ -11,7 +11,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +19,7 @@ use Illuminate\Http\Request;
 /**
  * Employee-profile subresources. Read uses people.employee.read; write uses
  * people.employee.manage. Every employment id is re-scoped through the
- * tenant and the authorizer before any row is touched.
+ * authorizer before any row is touched.
  */
 final class EmployeeProfileController
 {
@@ -35,7 +35,7 @@ final class EmployeeProfileController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly EmployeeProfileService $profiles,
     ) {}
 
@@ -46,7 +46,7 @@ final class EmployeeProfileController
         $this->assertEmploymentVisible($principal, $employmentId);
         $this->assertPermits($principal, $this->config($resource)['read']);
 
-        $items = $this->profiles->list($resource, $principal->tenantId(), $employmentId);
+        $items = $this->profiles->list($resource, $employmentId);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -59,7 +59,7 @@ final class EmployeeProfileController
         $this->assertPermits($principal, $this->config($resource)['write']);
 
         $validated = $this->validate($request, $resource);
-        $row = $this->profiles->open($resource, $principal->tenantId(), $employmentId, $validated, $principal->userId());
+        $row = $this->profiles->open($resource, $employmentId, $validated, $principal->userId());
 
         return ApiResponse::created($row);
     }
@@ -72,7 +72,7 @@ final class EmployeeProfileController
         $this->assertPermits($principal, $this->config($resource)['write']);
 
         $validated = $this->validate($request, $resource, true);
-        $row = $this->profiles->revise($resource, $principal->tenantId(), $employmentId, $id, $validated);
+        $row = $this->profiles->revise($resource, $employmentId, $id, $validated);
 
         return ApiResponse::ok($row);
     }
@@ -84,7 +84,6 @@ final class EmployeeProfileController
         $this->assertPermits($principal, 'people.employee.manage');
 
         return ApiResponse::ok($this->profiles->submitChangeRequest(
-            $principal->tenantId(),
             $employmentId,
             $id,
             $principal->userId(),
@@ -93,9 +92,8 @@ final class EmployeeProfileController
 
     private function assertEmploymentVisible(Principal $principal, int $employmentId): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $exists = Employment::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($employmentId)
             ->exists();
 
@@ -104,7 +102,7 @@ final class EmployeeProfileController
         }
 
         $visible = $this->authorizer->constrain(
-            Employment::query()->where('tenant_id', $principal->tenantId())->whereKey($employmentId),
+            Employment::query()->whereKey($employmentId),
             $principal,
             'people.employee.read',
             $today,
@@ -117,7 +115,7 @@ final class EmployeeProfileController
 
     private function assertPermits(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');

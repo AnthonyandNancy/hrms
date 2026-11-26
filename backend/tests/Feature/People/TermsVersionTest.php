@@ -12,9 +12,8 @@ final class TermsVersionTest extends PeopleTestCase
     public function test_versions_increment_and_history_is_preserved(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TV-1');
+        $employment = $scenario->employment($person, 'TV-1');
 
         $this->postJson("/v1/employments/{$employment->id}/terms", [
             'effective_from' => '2026-01-01',
@@ -36,10 +35,9 @@ final class TermsVersionTest extends PeopleTestCase
     public function test_historical_terms_are_returned_as_of_the_requested_date(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TV-2');
-        $org = $scenario->orgUnit($entity, 'TV-ORG');
+        $employment = $scenario->employment($person, 'TV-2');
+        $org = $scenario->orgUnit('TV-ORG');
         $scenario->assignment($employment, $org);
 
         $this->postJson("/v1/employments/{$employment->id}/terms", [
@@ -66,9 +64,8 @@ final class TermsVersionTest extends PeopleTestCase
     public function test_terms_are_not_edited_in_place(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TV-3');
+        $employment = $scenario->employment($person, 'TV-3');
 
         $this->postJson("/v1/employments/{$employment->id}/terms", [
             'effective_from' => '2026-01-01',
@@ -99,9 +96,8 @@ final class TermsVersionTest extends PeopleTestCase
     public function test_non_monotonic_effective_date_is_a_conflict(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TV-4');
+        $employment = $scenario->employment($person, 'TV-4');
         $scenario->terms($employment, 1, ['effective_from' => '2026-06-01']);
 
         $this->postJson("/v1/employments/{$employment->id}/terms", [

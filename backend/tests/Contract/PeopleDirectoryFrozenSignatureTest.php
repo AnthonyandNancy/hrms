@@ -15,12 +15,11 @@ final class PeopleDirectoryFrozenSignatureTest extends TestCase
     public function test_people_directory_methods_match_the_interface_freeze(): void
     {
         $expected = [
-            'employmentForUser' => [['int', 'int'], '?int'],
-            'managedEmploymentIds' => [['int', 'int', 'string'], 'array'],
-            'employmentIdsForLegalEntities' => [['int', 'array', 'string'], 'array'],
-            'employmentSnapshot' => [['int', 'int', 'string'], '?'.EmploymentSnapshot::class],
-            'employmentExistsInTenant' => [['int', 'int'], 'bool'],
-            'legalEntityIdsForEmployment' => [['int', 'int'], 'array'],
+            'employmentForUser' => [['int'], '?int'],
+            'managedEmploymentIds' => [['int', 'string'], 'array'],
+            'employmentIdsAsOf' => [['string'], 'array'],
+            'employmentSnapshot' => [['int', 'string'], '?'.EmploymentSnapshot::class],
+            'employmentExistsInTenant' => [['int'], 'bool'],
         ];
 
         $this->assertFrozenSignatures(PeopleDirectory::class, $expected);
@@ -29,10 +28,9 @@ final class PeopleDirectoryFrozenSignatureTest extends TestCase
     public function test_organization_directory_methods_match_the_interface_freeze(): void
     {
         $expected = [
-            'orgUnitIds' => [['int', 'array', 'string'], 'array'],
-            'subtreeIds' => [['int', 'int', 'string'], 'array'],
-            'tree' => [['int', 'int', 'string'], 'array'],
-            'legalEntityOfOrg' => [['int', 'int', 'string'], '?int'],
+            'orgUnitIds' => [['array', 'string'], 'array'],
+            'subtreeIds' => [['int', 'string'], 'array'],
+            'tree' => [['string'], 'array'],
         ];
 
         $this->assertFrozenSignatures(OrganizationDirectory::class, $expected);

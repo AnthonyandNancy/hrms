@@ -15,10 +15,9 @@ use App\Modules\People\Models\EmploymentUserLink;
 
 final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDirectory
 {
-    public function employmentsForPerson(int $tenantId, int $personId): array
+    public function employmentsForPerson(int $personId): array
     {
         return Employment::query()
-            ->where('tenant_id', $tenantId)
             ->where('person_id', $personId)
             ->orderBy('valid_from')
             ->orderBy('id')
@@ -27,10 +26,9 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
             ->all();
     }
 
-    public function employment(int $tenantId, int $employmentId, ?string $knownAt = null): ?EmploymentLifecycleSnapshot
+    public function employment(int $employmentId, ?string $knownAt = null): ?EmploymentLifecycleSnapshot
     {
         $query = Employment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($employmentId);
 
         if ($knownAt !== null) {
@@ -42,42 +40,36 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
         return $employment !== null ? $this->employmentSnapshot($employment) : null;
     }
 
-    public function hasOverlappingEmployment(int $tenantId, int $personId, int $legalEntityId, string $validFrom, string $validTo): bool
+    public function hasOverlappingEmployment(int $personId, string $validFrom, string $validTo): bool
     {
         return Employment::query()
-            ->where('tenant_id', $tenantId)
             ->where('person_id', $personId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('valid_from', '<', $validTo)
             ->where('valid_to', '>', $validFrom)
             ->where('status', '!=', 'TERMINATED')
             ->exists();
     }
 
-    public function employeeNumberExists(int $tenantId, int $legalEntityId, string $employeeNo, ?int $exceptEmploymentId = null): bool
+    public function employeeNumberExists(string $employeeNo, ?int $exceptEmploymentId = null): bool
     {
         return Employment::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('employee_no', $employeeNo)
             ->when($exceptEmploymentId !== null, fn ($query) => $query->whereKeyNot($exceptEmploymentId))
             ->exists();
     }
 
-    public function activeManagerAssignment(int $tenantId, int $managerAssignmentId, string $on): bool
+    public function activeManagerAssignment(int $managerAssignmentId, string $on): bool
     {
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($managerAssignmentId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
             ->exists();
     }
 
-    public function primaryAssignmentId(int $tenantId, int $employmentId, string $on): ?int
+    public function primaryAssignmentId(int $employmentId, string $on): ?int
     {
         $id = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('is_primary', true)
             ->where('valid_from', '<=', $on)
@@ -88,20 +80,18 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
         return $id !== null ? (int) $id : null;
     }
 
-    public function isAssignmentActive(int $tenantId, int $assignmentId, string $on): bool
+    public function isAssignmentActive(int $assignmentId, string $on): bool
     {
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($assignmentId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
             ->exists();
     }
 
-    public function termsVersions(int $tenantId, int $employmentId): array
+    public function termsVersions(int $employmentId): array
     {
         return EmploymentTerms::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderBy('version')
             ->get()
@@ -109,10 +99,9 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
             ->all();
     }
 
-    public function termsAsOf(int $tenantId, int $employmentId, string $on): ?EmploymentTermsSnapshot
+    public function termsAsOf(int $employmentId, string $on): ?EmploymentTermsSnapshot
     {
         $terms = EmploymentTerms::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('effective_from', '<=', $on)
             ->where('effective_to', '>', $on)
@@ -122,10 +111,9 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
         return $terms !== null ? $this->termsSnapshot($terms) : null;
     }
 
-    public function assignments(int $tenantId, int $employmentId): array
+    public function assignments(int $employmentId): array
     {
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderBy('valid_from')
             ->orderBy('id')
@@ -134,10 +122,9 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
             ->all();
     }
 
-    public function assignmentAsOf(int $tenantId, int $employmentId, string $on): ?EmploymentAssignmentSnapshot
+    public function assignmentAsOf(int $employmentId, string $on): ?EmploymentAssignmentSnapshot
     {
         $assignment = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -148,10 +135,9 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
         return $assignment !== null ? $this->assignmentSnapshot($assignment) : null;
     }
 
-    public function linkedUserIds(int $tenantId, int $employmentId, string $on): array
+    public function linkedUserIds(int $employmentId, string $on): array
     {
         return EmploymentUserLink::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -166,9 +152,7 @@ final class EmploymentLifecycleDirectoryService implements EmploymentLifecycleDi
     {
         return new EmploymentLifecycleSnapshot(
             id: (int) $employment->id,
-            tenantId: (int) $employment->tenant_id,
             personId: (int) $employment->person_id,
-            legalEntityId: (int) $employment->legal_entity_id,
             employeeNo: (string) $employment->employee_no,
             employmentType: (string) $employment->employment_type,
             status: (string) $employment->status,

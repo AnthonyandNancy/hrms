@@ -20,43 +20,37 @@ final class SeedPeopleDemoCommand extends Command
 {
     protected $signature = 'people:seed-demo';
 
-    protected $description = 'Idempotently seed the DEMO tenant organization and synthetic people';
+    protected $description = 'Idempotently seed the DEMO company organization and synthetic people';
 
     public function handle(Clock $clock, DemoOrganizationSeeder $organizationSeeder, OrganizationFacts $organization): int
     {
         DB::transaction(function () use ($clock, $organizationSeeder, $organization): void {
             $seeded = $organizationSeeder->seedDemo();
-            $entity = $organization->legalEntity(1, $seeded['legal_entity_id']);
-
-            if ($entity === null) {
-                throw new \RuntimeException('Demo legal entity was not seeded.');
-            }
-
-            $platform = $organization->orgUnit(1, $seeded['org_unit_ids']['platform']);
-            $sales = $organization->orgUnit(1, $seeded['org_unit_ids']['sales']);
+            $platform = $organization->orgUnit($seeded['org_unit_ids']['platform']);
+            $sales = $organization->orgUnit($seeded['org_unit_ids']['sales']);
 
             if ($platform === null || $sales === null) {
                 throw new \RuntimeException('Demo organization units were not seeded.');
             }
 
             $managerPerson = $this->person('DEMO-MANAGER', 'Demo Manager');
-            $manager = $this->employment($managerPerson, $entity->id, 'DEMO-0001', $clock);
+            $manager = $this->employment($managerPerson, 'DEMO-0001', $clock);
             $managerAssignment = $this->assignment($manager, $platform->id, null, 'PRIMARY', true, $clock);
             $this->terms($manager, $clock, baseSalaryMinor: 1_800_000);
 
             $employeePerson = $this->person('DEMO-EMPLOYEE', 'Demo Employee');
-            $employee = $this->employment($employeePerson, $entity->id, 'DEMO-0002', $clock);
+            $employee = $this->employment($employeePerson, 'DEMO-0002', $clock);
             $this->assignment($employee, $platform->id, (int) $managerAssignment->id, 'PRIMARY', true, $clock);
             $this->terms($employee, $clock, baseSalaryMinor: 900_000);
 
             $secondmentPerson = $this->person('DEMO-SECOND', 'Demo Secondment');
-            $secondment = $this->employment($secondmentPerson, $entity->id, 'DEMO-0003', $clock);
+            $secondment = $this->employment($secondmentPerson, 'DEMO-0003', $clock);
             $this->assignment($secondment, $platform->id, (int) $managerAssignment->id, 'PRIMARY', true, $clock);
             $this->assignment($secondment, $sales->id, null, 'SECONDMENT', false, $clock, '2026-02-01', '2026-03-01');
             $this->terms($secondment, $clock, baseSalaryMinor: 1_100_000);
 
             $transferPerson = $this->person('DEMO-TRANSFER', 'Demo Transfer');
-            $transferEmployment = $this->employment($transferPerson, $entity->id, 'DEMO-0004', $clock);
+            $transferEmployment = $this->employment($transferPerson, 'DEMO-0004', $clock);
             $this->assignment($transferEmployment, $platform->id, null, 'PRIMARY', true, $clock, '2026-01-01', '2026-12-01');
             $this->assignment($transferEmployment, $sales->id, null, 'PRIMARY', true, $clock, '2026-12-01', '9999-12-31');
             $this->terms($transferEmployment, $clock, baseSalaryMinor: 1_200_000);
@@ -78,14 +72,14 @@ final class SeedPeopleDemoCommand extends Command
     private function linkDemoUser(Employment $employment, string $username, Clock $clock): void
     {
         $userId = (int) (app(DemoUserDirectory::class)
-            ->userIdForUsername(1, $username) ?? 0);
+            ->userIdForUsername($username) ?? 0);
 
         if ($userId === 0) {
             return;
         }
 
         EmploymentUserLink::query()->firstOrCreate(
-            ['tenant_id' => 1, 'user_id' => $userId, 'employment_id' => (int) $employment->id, 'valid_from' => '2026-01-01'],
+            ['user_id' => $userId, 'employment_id' => (int) $employment->id, 'valid_from' => '2026-01-01'],
             [
                 'valid_to' => '9999-12-31',
                 'recorded_at' => $clock->now(),
@@ -99,7 +93,7 @@ final class SeedPeopleDemoCommand extends Command
         $idNumber = 'SYNTHETIC-'.$key;
 
         return Person::query()->firstOrCreate(
-            ['tenant_id' => 1, 'legal_name' => $name],
+            ['legal_name' => $name],
             [
                 'preferred_name' => null,
                 'id_type' => 'DEMO',
@@ -114,10 +108,10 @@ final class SeedPeopleDemoCommand extends Command
         );
     }
 
-    private function employment(Person $person, int $legalEntityId, string $employeeNo, Clock $clock): Employment
+    private function employment(Person $person, string $employeeNo, Clock $clock): Employment
     {
         return Employment::query()->firstOrCreate(
-            ['tenant_id' => 1, 'legal_entity_id' => $legalEntityId, 'employee_no' => $employeeNo],
+            ['employee_no' => $employeeNo],
             [
                 'person_id' => (int) $person->id,
                 'employment_type' => 'FULL_TIME',
@@ -154,7 +148,6 @@ final class SeedPeopleDemoCommand extends Command
         }
 
         return Assignment::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $employment->id,
             'org_unit_id' => $orgUnitId,
             'position_id' => null,
@@ -177,7 +170,6 @@ final class SeedPeopleDemoCommand extends Command
         EmploymentTerms::query()->firstOrCreate(
             ['employment_id' => (int) $employment->id, 'version' => 1],
             [
-                'tenant_id' => 1,
                 'effective_from' => '2026-01-01',
                 'effective_to' => '9999-12-31',
                 'probation_end_date' => null,

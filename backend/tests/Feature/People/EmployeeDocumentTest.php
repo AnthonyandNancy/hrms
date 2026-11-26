@@ -20,9 +20,8 @@ final class EmployeeDocumentTest extends PeopleTestCase
     private function employment(string $employeeNo = 'DOC-0001'): Employment
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'DOC-ORG-'.$employeeNo);
-        $employment = $scenario->employment($scenario->person(), $entity, $employeeNo);
+        $org = $scenario->orgUnit('DOC-ORG-'.$employeeNo);
+        $employment = $scenario->employment($scenario->person(), $employeeNo);
         $scenario->assignment($employment, $org);
 
         return $employment;
@@ -99,10 +98,10 @@ final class EmployeeDocumentTest extends PeopleTestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('documents', ['id' => $documentId]);
-        $this->assertFalse(app(\App\Modules\Platform\Contracts\FileObjectReader::class)->exists(1, $fileObjectId));
+        $this->assertFalse(app(\App\Modules\Platform\Contracts\FileObjectReader::class)->exists($fileObjectId));
     }
 
-    public function test_documents_are_tenant_and_employment_scoped(): void
+    public function test_documents_are_employment_scoped(): void
     {
         $employment = $this->employment('DOC-0002');
         $other = $this->employment('DOC-0003');

@@ -13,14 +13,13 @@ final class OrgAssignmentImpactService implements OrgAssignmentImpactDirectory
     /**
      * @param  list<int>  $orgUnitIds
      */
-    public function impactCounts(int $tenantId, array $orgUnitIds, string $on): OrgAssignmentImpact
+    public function impactCounts(array $orgUnitIds, string $on): OrgAssignmentImpact
     {
         if ($orgUnitIds === []) {
             return new OrgAssignmentImpact(0, 0);
         }
 
         $query = DB::table('assignments')
-            ->where('tenant_id', $tenantId)
             ->whereIn('org_unit_id', $orgUnitIds)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on);

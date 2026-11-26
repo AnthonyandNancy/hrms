@@ -11,5 +11,5 @@ namespace App\Modules\People\Contracts;
  */
 interface PeopleWorkspaceDirectory
 {
-    public function profile(int $tenantId, int $employmentId, string $on): ?PeopleWorkspaceProfile;
+    public function profile(int $employmentId, string $on): ?PeopleWorkspaceProfile;
 }

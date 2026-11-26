@@ -18,8 +18,8 @@ final class EmploymentTermsDirectoryService implements EmploymentTermsDirectory
 {
     public function __construct(private readonly EmploymentLifecycleDirectory $lifecycle) {}
 
-    public function termsAsOf(int $tenantId, int $employmentId, string $on): ?EmploymentTermsSnapshot
+    public function termsAsOf(int $employmentId, string $on): ?EmploymentTermsSnapshot
     {
-        return $this->lifecycle->termsAsOf($tenantId, $employmentId, BusinessDate::from($on)->value());
+        return $this->lifecycle->termsAsOf($employmentId, BusinessDate::from($on)->value());
     }
 }

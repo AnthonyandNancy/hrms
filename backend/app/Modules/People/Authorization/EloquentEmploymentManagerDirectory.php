@@ -15,10 +15,9 @@ use App\Shared\Time\AsOfQuery;
  */
 final class EloquentEmploymentManagerDirectory implements EmploymentManagerDirectory
 {
-    public function managerUserIdForEmployment(int $tenantId, int $employmentId, string $businessDate): ?int
+    public function managerUserIdForEmployment(int $employmentId, string $businessDate): ?int
     {
         $managerEmploymentId = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderByDesc('is_primary')
@@ -30,7 +29,6 @@ final class EloquentEmploymentManagerDirectory implements EmploymentManagerDirec
         }
 
         $managerEmployment = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $managerEmploymentId)
             ->value('employment_id');
 
@@ -39,7 +37,6 @@ final class EloquentEmploymentManagerDirectory implements EmploymentManagerDirec
         }
 
         $userId = EmploymentUserLink::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', (int) $managerEmployment)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderBy('user_id')

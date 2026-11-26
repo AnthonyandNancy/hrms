@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Versioned People-owned profile subresources. Controllers never write models;
- * this service enforces tenant scope, append-only history and masked P2 output.
+ * this service enforces append-only history and masked P2 output.
  */
 final class EmployeeProfileService
 {
@@ -29,12 +29,12 @@ final class EmployeeProfileService
     /**
      * @return list<array<string, mixed>>
      */
-    public function list(string $resource, int $tenantId, int $employmentId): array
+    public function list(string $resource, int $employmentId): array
     {
         $model = $this->model($resource);
-        $query = $model::query()->where('tenant_id', $tenantId);
+        $query = $model::query();
 
-        // Import batches are tenant-level evidence, not employment-scoped.
+        // Import batches are company-level evidence, not employment-scoped.
         // Filtering them by employment_id referenced a non-existent column and
         // produced a real 500 in the Compose route audit.
         if ($resource !== 'imports') {
@@ -55,11 +55,10 @@ final class EmployeeProfileService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function open(string $resource, int $tenantId, int $employmentId, array $data, int $actorUserId): array
+    public function open(string $resource, int $employmentId, array $data, int $actorUserId): array
     {
         $model = $this->model($resource);
         $normalized = $this->normalize($resource, $data);
-        $normalized['tenant_id'] = $tenantId;
 
         if ($resource !== 'imports') {
             $normalized['employment_id'] = $employmentId;
@@ -92,13 +91,12 @@ final class EmployeeProfileService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function revise(string $resource, int $tenantId, int $employmentId, int $id, array $data): array
+    public function revise(string $resource, int $employmentId, int $id, array $data): array
     {
         $model = $this->model($resource);
 
-        return DB::transaction(function () use ($resource, $tenantId, $employmentId, $id, $data, $model): array {
+        return DB::transaction(function () use ($resource, $employmentId, $id, $data, $model): array {
             $query = $model::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($id);
 
             if ($resource !== 'imports') {
@@ -138,10 +136,9 @@ final class EmployeeProfileService
     /**
      * @return array<string, mixed>
      */
-    public function submitChangeRequest(int $tenantId, int $employmentId, int $id, int $actorUserId): array
+    public function submitChangeRequest(int $employmentId, int $id, int $actorUserId): array
     {
         $request = EmployeeChangeRequest::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereKey($id)
             ->where('status', 'DRAFT')

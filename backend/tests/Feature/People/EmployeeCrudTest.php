@@ -12,10 +12,9 @@ final class EmployeeCrudTest extends PeopleTestCase
     public function test_archive_hides_from_default_list_preserves_history_and_can_be_restored(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'ARCH-0001');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'ARCH-ORG'));
+        $employment = $scenario->employment($person, 'ARCH-0001');
+        $scenario->assignment($employment, $scenario->orgUnit('ARCH-ORG'));
 
         $this->deleteJson("/v1/employees/{$employment->id}", [
             'reason' => 'Synthetic leaver archive',
@@ -49,9 +48,8 @@ final class EmployeeCrudTest extends PeopleTestCase
     public function test_include_archived_is_an_explicit_opt_in(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'ARCH-0002');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'ARCH-ORG-2'));
+        $employment = $scenario->employment($scenario->person(), 'ARCH-0002');
+        $scenario->assignment($employment, $scenario->orgUnit('ARCH-ORG-2'));
 
         $this->deleteJson("/v1/employees/{$employment->id}", ['reason' => 'Synthetic archive'])->assertOk();
 
@@ -63,14 +61,12 @@ final class EmployeeCrudTest extends PeopleTestCase
     public function test_employee_number_is_never_reused_after_archive(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'ARCH-0003');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'ARCH-ORG-3'));
+        $employment = $scenario->employment($scenario->person(), 'ARCH-0003');
+        $scenario->assignment($employment, $scenario->orgUnit('ARCH-ORG-3'));
         $this->deleteJson("/v1/employees/{$employment->id}", ['reason' => 'Synthetic archive'])->assertOk();
 
         $this->postJson('/v1/employments', [
             'person_id' => (int) $scenario->person()->id,
-            'legal_entity_id' => (int) $entity->id,
             'employee_no' => 'ARCH-0003',
             'employment_type' => 'FULL_TIME',
             'valid_from' => '2026-11-01',

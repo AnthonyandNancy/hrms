@@ -9,7 +9,7 @@ use App\Modules\People\Models\EmployeeEducation;
 use Tests\Support\PeopleTestCase;
 
 /**
- * Employee profile subresources are tenant-scoped, capability-guarded and
+ * Employee profile subresources are scope-guarded, capability-guarded and
  * return masked P2 values. These tests exercise the real HTTP stack.
  */
 final class EmployeeProfileApiTest extends PeopleTestCase
@@ -17,9 +17,8 @@ final class EmployeeProfileApiTest extends PeopleTestCase
     public function test_hr_creates_and_lists_education_for_an_employment(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'EDU-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'EDU-0001');
+        $org = $scenario->orgUnit('EDU-ORG');
+        $employment = $scenario->employment($scenario->person(), 'EDU-0001');
         $scenario->assignment($employment, $org);
 
         $created = $this->postJson("/v1/employees/{$employment->id}/education", [
@@ -33,7 +32,6 @@ final class EmployeeProfileApiTest extends PeopleTestCase
         $id = (int) $created->json('data.id');
         $this->assertDatabaseHas('employee_educations', [
             'id' => $id,
-            'tenant_id' => 1,
             'employment_id' => $employment->id,
             'school' => 'Synthetic University',
         ]);
@@ -47,9 +45,8 @@ final class EmployeeProfileApiTest extends PeopleTestCase
     public function test_contact_phone_is_never_returned_in_plaintext(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'CONTACT-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'CONTACT-1');
+        $org = $scenario->orgUnit('CONTACT-ORG');
+        $employment = $scenario->employment($scenario->person(), 'CONTACT-1');
         $scenario->assignment($employment, $org);
 
         $this->postJson("/v1/employees/{$employment->id}/contacts", [
@@ -74,14 +71,21 @@ final class EmployeeProfileApiTest extends PeopleTestCase
         $this->assertTrue(EmployeeContact::query()->where('employment_id', $employment->id)->exists());
     }
 
-    public function test_cross_tenant_profile_read_is_404(): void
+    public function test_out_of_scope_profile_read_is_404(): void
     {
-        $scenario = $this->scenario(1);
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'CROSS-1');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'CROSS-ORG'));
+        $scenario = $this->scenario();
+        $employment = $scenario->employment($scenario->person(), 'CROSS-1');
+        $scenario->assignment($employment, $scenario->orgUnit('CROSS-ORG'));
 
-        $this->actAs(tenantId: 2, userId: 999);
+        $this->actAs(userId: 999);
+        $this->app->instance(
+            \App\Shared\Authorization\Authorizer::class,
+            new \Tests\Support\DirectoryScopeAuthorizer(
+                app(\App\Modules\People\Contracts\PeopleDirectory::class),
+                app(\App\Modules\Organization\Contracts\OrganizationDirectory::class),
+                'SELF',
+            ),
+        );
 
         $this->getJson("/v1/employees/{$employment->id}/education")->assertNotFound();
     }
@@ -89,9 +93,8 @@ final class EmployeeProfileApiTest extends PeopleTestCase
     public function test_missing_write_capability_is_403(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'DENY-1');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'DENY-ORG'));
+        $employment = $scenario->employment($scenario->person(), 'DENY-1');
+        $scenario->assignment($employment, $scenario->orgUnit('DENY-ORG'));
 
         $this->authorizer->deniedCapabilities = ['people.employee.manage'];
 
@@ -105,9 +108,8 @@ final class EmployeeProfileApiTest extends PeopleTestCase
     public function test_profile_update_is_versioned_by_superseding_the_old_row(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'VER-1');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'VER-ORG'));
+        $employment = $scenario->employment($scenario->person(), 'VER-1');
+        $scenario->assignment($employment, $scenario->orgUnit('VER-ORG'));
 
         $created = $this->postJson("/v1/employees/{$employment->id}/education", [
             'school' => 'Old University',

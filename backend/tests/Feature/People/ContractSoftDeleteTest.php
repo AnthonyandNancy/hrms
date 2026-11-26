@@ -12,10 +12,8 @@ final class ContractSoftDeleteTest extends PeopleTestCase
     public function test_contract_delete_is_soft_audited_and_can_be_restored(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'SOFT-0001');
+        $employment = $scenario->employment($scenario->person(), 'SOFT-0001');
         $contract = EmploymentContract::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $employment->id,
             'contract_no' => 'CON-SOFT-001',
             'contract_type' => 'FIXED_TERM',
@@ -23,7 +21,6 @@ final class ContractSoftDeleteTest extends PeopleTestCase
             'end_date' => '2026-12-31',
             'status' => 'ACTIVE',
             'version' => 1,
-            'legal_entity_id' => (string) $entity->id,
             'terms_summary' => 'Synthetic contract',
             'recorded_at' => '2026-01-01 00:00:00',
         ]);
@@ -59,11 +56,9 @@ final class ContractSoftDeleteTest extends PeopleTestCase
     public function test_default_contract_ledger_hides_soft_deleted_rows(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'SOFT-0002');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'SOFT-ORG'));
+        $employment = $scenario->employment($scenario->person(), 'SOFT-0002');
+        $scenario->assignment($employment, $scenario->orgUnit('SOFT-ORG'));
         $contract = EmploymentContract::query()->create([
-            'tenant_id' => 1,
             'employment_id' => (int) $employment->id,
             'contract_no' => 'CON-SOFT-002',
             'contract_type' => 'FIXED_TERM',
@@ -71,7 +66,6 @@ final class ContractSoftDeleteTest extends PeopleTestCase
             'end_date' => '2026-12-31',
             'status' => 'ACTIVE',
             'version' => 1,
-            'legal_entity_id' => (string) $entity->id,
             'terms_summary' => 'Synthetic hidden contract',
             'recorded_at' => '2026-01-01 00:00:00',
         ]);

@@ -11,11 +11,10 @@ final class AsOfQueryTest extends PeopleTestCase
     public function test_t_minus_one_t_and_t_plus_one_for_employment_assignment_and_terms(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $a = $scenario->orgUnit($entity, 'A');
-        $b = $scenario->orgUnit($entity, 'B');
+        $a = $scenario->orgUnit('A');
+        $b = $scenario->orgUnit('B');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'ASOF-1', ['valid_from' => '2026-01-01', 'valid_to' => '9999-12-31']);
+        $employment = $scenario->employment($person, 'ASOF-1', ['valid_from' => '2026-01-01', 'valid_to' => '9999-12-31']);
         $scenario->assignment($employment, $a, ['valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
         $scenario->assignment($employment, $b, ['valid_from' => '2026-06-01', 'valid_to' => '9999-12-31']);
         $scenario->terms($employment, 1, ['effective_from' => '2026-01-01', 'effective_to' => '2026-06-01', 'work_location' => 'Shanghai']);
@@ -38,10 +37,9 @@ final class AsOfQueryTest extends PeopleTestCase
     public function test_terminated_employee_is_absent_after_the_termination_date(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'TERM');
+        $org = $scenario->orgUnit('TERM');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'TERM-1', [
+        $employment = $scenario->employment($person, 'TERM-1', [
             'valid_from' => '2026-01-01',
             'valid_to' => '2026-06-01',
             'status' => 'TERMINATED',
@@ -63,10 +61,9 @@ final class AsOfQueryTest extends PeopleTestCase
     public function test_future_hire_is_absent_before_hire_date(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'FUTURE');
+        $org = $scenario->orgUnit('FUTURE');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'FUT-1', ['valid_from' => '2026-12-01']);
+        $employment = $scenario->employment($person, 'FUT-1', ['valid_from' => '2026-12-01']);
         $scenario->assignment($employment, $org, ['valid_from' => '2026-12-01']);
 
         $this->getJson('/v1/employees?as_of=2026-11-30')
@@ -91,10 +88,9 @@ final class AsOfQueryTest extends PeopleTestCase
     public function test_list_and_detail_agree_at_the_same_as_of(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'CONSISTENT');
+        $org = $scenario->orgUnit('CONSISTENT');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'CON-1');
+        $employment = $scenario->employment($person, 'CON-1');
         $scenario->assignment($employment, $org);
 
         $list = $this->getJson('/v1/employees?as_of=2026-11-23')->assertOk();
@@ -102,6 +98,6 @@ final class AsOfQueryTest extends PeopleTestCase
 
         $this->assertSame($detail->json('data.current_assignment.id'), $list->json('data.items.0.current_assignment.id'));
         $this->assertSame($detail->json('data.person_id'), $list->json('data.items.0.person_id'));
-        $this->assertSame($detail->json('data.legal_entity_id'), $list->json('data.items.0.legal_entity_id'));
+        $this->assertSame($detail->json('data.employee_no'), $list->json('data.items.0.employee_no'));
     }
 }

@@ -13,7 +13,6 @@ final readonly class EmploymentSnapshot
     public function __construct(
         public int $employmentId,
         public int $personId,
-        public int $legalEntityId,
         public ?int $orgUnitId,
         public ?int $positionId,
         public ?int $managerEmploymentId,

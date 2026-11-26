@@ -26,10 +26,9 @@ final class EmploymentContractService
     /**
      * @return list<array<string, mixed>>
      */
-    public function list(int $tenantId, int $employmentId): array
+    public function list(int $employmentId): array
     {
         return EmploymentContract::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderByDesc('start_date')
             ->orderByDesc('id')
@@ -42,11 +41,10 @@ final class EmploymentContractService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function open(int $tenantId, int $employmentId, array $data, int $actorUserId): array
+    public function open(int $employmentId, array $data, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $employmentId, $data, $actorUserId): array {
+        return DB::transaction(function () use ($employmentId, $data, $actorUserId): array {
             $current = EmploymentContract::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->whereIn('status', ['ACTIVE', 'EXPIRING'])
                 ->orderByDesc('start_date')
@@ -54,13 +52,12 @@ final class EmploymentContractService
                 ->lockForUpdate()
                 ->first();
 
-            if (EmploymentContract::query()->where('tenant_id', $tenantId)->where('contract_no', (string) $data['contract_no'])->exists()) {
-                throw new ConflictException('Contract number must be unique within the tenant.', ['reason' => 'CONTRACT_NO_DUPLICATE']);
+            if (EmploymentContract::query()->where('contract_no', (string) $data['contract_no'])->exists()) {
+                throw new ConflictException('Contract number must be unique.', ['reason' => 'CONTRACT_NO_DUPLICATE']);
             }
 
             /** @var EmploymentContract $contract */
             $contract = EmploymentContract::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'contract_no' => (string) $data['contract_no'],
                 'contract_type' => (string) $data['contract_type'],
@@ -79,7 +76,6 @@ final class EmploymentContractService
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: $current !== null ? 'people.contract.renewed' : 'people.contract.created',
                 aggregateType: 'employment_contract',
@@ -94,10 +90,9 @@ final class EmploymentContractService
     /**
      * @return array<string, mixed>
      */
-    public function show(int $tenantId, int $employmentId, int $id): array
+    public function show(int $employmentId, int $id): array
     {
         $contract = EmploymentContract::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereKey($id)
             ->first();
@@ -112,18 +107,16 @@ final class EmploymentContractService
     /**
      * @return list<array<string, mixed>>
      */
-    public function expiring(int $tenantId, string $asOf, int $withinDays, ?int $legalEntityId = null): array
+    public function expiring(string $asOf, int $withinDays): array
     {
         $from = CarbonImmutable::parse($asOf, 'UTC');
         $to = $from->addDays($withinDays);
 
         return EmploymentContract::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('status', ['ACTIVE', 'EXPIRING'])
             ->whereNotNull('end_date')
             ->where('end_date', '>=', $from->toDateString())
             ->where('end_date', '<=', $to->toDateString())
-            ->when($legalEntityId !== null, fn ($query) => $query->where('legal_entity_id', (string) $legalEntityId))
             ->orderBy('end_date')
             ->orderBy('id')
             ->get()

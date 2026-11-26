@@ -9,14 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 final class PositionOccupancyService implements PositionOccupancyDirectory
 {
-    public function occupancy(int $tenantId, array $positionIds, string $on): array
+    public function occupancy(array $positionIds, string $on): array
     {
         if ($positionIds === []) {
             return [];
         }
 
         return DB::table('assignments')
-            ->where('tenant_id', $tenantId)
             ->whereIn('position_id', $positionIds)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)

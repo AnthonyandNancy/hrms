@@ -14,10 +14,9 @@ final class FieldPrivacyTest extends PeopleTestCase
     public function test_identity_number_never_appears_in_profile_or_timeline_responses(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'PRIV');
+        $org = $scenario->orgUnit('PRIV');
         $person = $scenario->person(['id_number' => 'SECRET-IDENTITY-123']);
-        $employment = $scenario->employment($person, $entity, 'PRIV-1');
+        $employment = $scenario->employment($person, 'PRIV-1');
         $scenario->assignment($employment, $org);
 
         $profile = $this->getJson("/v1/employees/{$employment->id}?as_of=2026-11-23")->assertOk();
@@ -34,7 +33,6 @@ final class FieldPrivacyTest extends PeopleTestCase
     public function test_mobile_is_masked_for_p1_profile(): void
     {
         $person = Person::query()->create([
-            'tenant_id' => 1,
             'legal_name' => 'Masked Person',
             'id_type' => null,
             'id_number_ciphertext' => null,
@@ -56,9 +54,8 @@ final class FieldPrivacyTest extends PeopleTestCase
     public function test_document_download_requires_capability(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'DOC-1');
+        $employment = $scenario->employment($person, 'DOC-1');
         $document = $scenario->document($employment, $scenario->fileObject());
 
         $this->authorizer->deniedCapabilities = ['people.document.download'];
@@ -68,9 +65,8 @@ final class FieldPrivacyTest extends PeopleTestCase
     public function test_document_metadata_hides_storage_key_and_hash(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'DOC-2');
+        $employment = $scenario->employment($person, 'DOC-2');
         $fileId = $scenario->fileObject();
 
         $response = $this->postJson("/v1/employments/{$employment->id}/documents", [

@@ -18,16 +18,11 @@ use App\Shared\Time\AsOfQuery;
 final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirectory
 {
     /** @return list<int> */
-    public function employmentIdsForUser(int $tenantId, int $userId): array
+    public function employmentIdsForUser(int $userId, string $businessDate): array
     {
-        // Authorization must be deterministic relative to the injected clock
-        // and the tenant's business date, never the host wall clock.
-        $today = app(\App\Shared\Time\TenantBusinessDate::class)->today($tenantId)->value();
-
         return EmploymentUserLink::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $today))
+            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderBy('employment_id')
             ->pluck('employment_id')
             ->map(static fn (mixed $id): int => (int) $id)
@@ -36,30 +31,16 @@ final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirecto
             ->all();
     }
 
-    public function userIdForEmployment(int $tenantId, int $employmentId): ?int
-    {
-        $today = app(\App\Shared\Time\TenantBusinessDate::class)->today($tenantId)->value();
-        $userId = EmploymentUserLink::query()
-            ->where('tenant_id', $tenantId)
-            ->where('employment_id', $employmentId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $today))
-            ->orderBy('user_id')
-            ->value('user_id');
-
-        return $userId === null ? null : (int) $userId;
-    }
-
     /** @return list<int> */
-    public function managedEmploymentIds(int $tenantId, int $managerUserId, string $businessDate): array
+    public function managerEmploymentIds(int $userId, string $businessDate): array
     {
-        $employmentIds = $this->employmentIdsForUser($tenantId, $managerUserId);
+        $employmentIds = $this->employmentIdsForUser($userId, $businessDate);
 
         if ($employmentIds === []) {
             return [];
         }
 
         $managerAssignmentIds = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('employment_id', $employmentIds)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->pluck('id')
@@ -70,7 +51,6 @@ final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirecto
         }
 
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('manager_assignment_id', $managerAssignmentIds)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderBy('employment_id')
@@ -82,14 +62,13 @@ final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirecto
     }
 
     /** @return list<int> */
-    public function employmentIdsForOrgUnits(int $tenantId, array $orgUnitIds, string $businessDate): array
+    public function employmentIdsForOrgUnits(array $orgUnitIds, string $businessDate): array
     {
         if ($orgUnitIds === []) {
             return [];
         }
 
         return Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('org_unit_id', $orgUnitIds)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderBy('employment_id')
@@ -100,10 +79,9 @@ final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirecto
             ->all();
     }
 
-    public function employmentContext(int $tenantId, int $employmentId, string $businessDate): ?EmploymentRef
+    public function findEmployment(int $employmentId): ?EmploymentRef
     {
         $employment = Employment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($employmentId)
             ->first();
 
@@ -112,18 +90,24 @@ final class EloquentPersonEmploymentDirectory implements PersonEmploymentDirecto
         }
 
         $assignment = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
             ->orderByDesc('is_primary')
             ->orderBy('id')
             ->first();
 
+        $userId = EmploymentUserLink::query()
+            ->where('employment_id', $employmentId)
+            ->orderByDesc('valid_from')
+            ->value('user_id');
+
         return new EmploymentRef(
-            tenantId: $tenantId,
             employmentId: $employmentId,
+            personId: (int) $employment->person_id,
+            userId: $userId !== null ? (int) $userId : null,
             orgUnitId: $assignment !== null ? (int) $assignment->org_unit_id : null,
-            legalEntityId: (int) $employment->legal_entity_id,
+            managerEmploymentId: null,
+            validFrom: (string) $employment->valid_from,
+            validTo: (string) $employment->valid_to,
         );
     }
 }
