@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $payslip_id
  * @property string $item_code
  * @property string $category
@@ -24,15 +22,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayslipLine extends Model
 {
-    use BelongsToTenant;
-
     public const UPDATED_AT = null;
 
     protected $table = 'payslip_lines';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'payslip_id',
         'item_code',
         'category',

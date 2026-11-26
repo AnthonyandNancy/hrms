@@ -19,9 +19,8 @@ final class PayrollCatalogController
 
     public function items(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
-        $legalEntityId = $request->query('legal_entity_id');
-        $items = $this->runs->items($principal->tenantId(), is_numeric($legalEntityId) ? (int) $legalEntityId : null);
+        $this->principals->resolve();
+        $items = $this->runs->items();
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -30,7 +29,6 @@ final class PayrollCatalogController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z][A-Za-z0-9_]{1,63}$/'],
             'name' => ['required', 'string', 'max:160'],
             'type' => ['required', 'string', 'in:EARNING,DEDUCTION,EMPLOYER_COST,INFO'],
@@ -41,7 +39,7 @@ final class PayrollCatalogController
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $item = $this->runs->createItem($principal->tenantId(), $principal->userId(), $data);
+        $item = $this->runs->createItem($principal->userId(), $data);
 
         return ApiResponse::created([
             'id' => (int) $item->id,
@@ -58,9 +56,8 @@ final class PayrollCatalogController
 
     public function schemes(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
-        $legalEntityId = $request->query('legal_entity_id');
-        $schemes = $this->runs->schemes($principal->tenantId(), is_numeric($legalEntityId) ? (int) $legalEntityId : null);
+        $this->principals->resolve();
+        $schemes = $this->runs->schemes();
 
         return ApiResponse::ok(ApiResponse::list($schemes, 1, max(1, count($schemes)), count($schemes)));
     }
@@ -69,7 +66,6 @@ final class PayrollCatalogController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z][A-Za-z0-9_-]{1,63}$/'],
             'name' => ['required', 'string', 'max:160'],
             'currency' => ['required', 'string', 'regex:/^[A-Z]{3}$/'],
@@ -93,7 +89,7 @@ final class PayrollCatalogController
             'items.*.taxable' => ['nullable', 'boolean'],
         ]);
 
-        $scheme = $this->runs->createScheme($principal->tenantId(), $principal->userId(), $data);
+        $scheme = $this->runs->createScheme($principal->userId(), $data);
 
         return ApiResponse::created([
             'id' => (int) $scheme->id,

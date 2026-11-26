@@ -21,16 +21,14 @@ final class PayrollYtdService
 {
     public function __construct(private readonly Clock $clock) {}
 
-    public function opening(int $tenantId, int $employmentId, int $taxYear): PayrollYtd
+    public function opening(int $employmentId, int $taxYear): PayrollYtd
     {
         $row = PayrollYtd::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('tax_year', $taxYear)
             ->first();
 
         return $row ?? new PayrollYtd([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'tax_year' => $taxYear,
             'taxable_income_cents' => 0,
@@ -68,14 +66,12 @@ final class PayrollYtdService
         return DB::transaction(function () use ($run, $employee): PayrollYtd {
             $taxYear = (int) substr((string) $run->period, 0, 4);
             $row = PayrollYtd::query()
-                ->where('tenant_id', $run->tenant_id)
                 ->where('employment_id', $employee->employment_id)
                 ->where('tax_year', $taxYear)
                 ->lockForUpdate()
                 ->first();
 
             $row ??= new PayrollYtd([
-                'tenant_id' => $run->tenant_id,
                 'employment_id' => $employee->employment_id,
                 'tax_year' => $taxYear,
                 'taxable_income_cents' => 0,

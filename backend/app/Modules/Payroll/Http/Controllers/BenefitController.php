@@ -13,7 +13,7 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ final class BenefitController
 {
     public function __construct(
         private readonly \App\Shared\Authorization\PrincipalResolver $principals,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly BenefitService $benefits,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -37,11 +37,9 @@ final class BenefitController
         $principal = $this->principals->resolve();
         $asOf = $this->businessDates->resolve(
             $request->query('as_of') !== null ? (string) $request->query('as_of') : null,
-            $principal->tenantId(),
         )->value();
         $data = $request->validate([
             'code' => ['sometimes', 'nullable', 'string', 'max:64'],
-            'legal_entity_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
@@ -51,7 +49,6 @@ final class BenefitController
             $principal,
             [
                 'code' => isset($data['code']) ? (string) $data['code'] : null,
-                'legal_entity_id' => isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null,
             ],
             $asOf,
             $page,
@@ -71,7 +68,6 @@ final class BenefitController
             'employee_rate' => ['required', 'string', 'max:32'],
             'effective_from' => ['required', new BusinessDateRule],
             'effective_to' => ['nullable', new BusinessDateRule],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $result = $this->commands->run(
@@ -87,7 +83,7 @@ final class BenefitController
             $data,
             function () use ($data): array {
                 $principal = $this->principals->resolve();
-                $plan = $this->benefits->createPlan($principal->tenantId(), $principal->userId(), $data);
+                $plan = $this->benefits->createPlan($principal->userId(), $data);
 
                 return [
                     'http_status' => 201,
@@ -105,7 +101,7 @@ final class BenefitController
     public function enrollments(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->businessDates->today($principal->tenantId())->value();
+        $asOf = $this->businessDates->today()->value();
         $data = $request->validate([
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'plan_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
@@ -115,7 +111,6 @@ final class BenefitController
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
         $result = $this->benefits->listEnrollments(
-            $principal->tenantId(),
             [
                 'employment_id' => isset($data['employment_id']) ? (int) $data['employment_id'] : null,
                 'plan_id' => isset($data['plan_id']) ? (int) $data['plan_id'] : null,
@@ -124,7 +119,6 @@ final class BenefitController
             $pageSize,
         );
         $plans = BenefitPlan::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereIn('id', $result['rows']->pluck('plan_id')->all())
             ->get()
             ->keyBy('id');
@@ -163,7 +157,6 @@ final class BenefitController
                 $principal = $this->principals->resolve();
                 $enrollment = $this->benefits->createEnrollment($principal, $data);
                 $plan = BenefitPlan::query()
-                    ->where('tenant_id', $principal->tenantId())
                     ->whereKey((int) $enrollment->plan_id)
                     ->firstOrFail();
 
@@ -183,7 +176,7 @@ final class BenefitController
     public function transactions(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->businessDates->today($principal->tenantId())->value();
+        $asOf = $this->businessDates->today()->value();
         $data = $request->validate([
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'enrollment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
@@ -195,7 +188,6 @@ final class BenefitController
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
         $result = $this->benefits->listTransactions(
-            $principal->tenantId(),
             [
                 'employment_id' => isset($data['employment_id']) ? (int) $data['employment_id'] : null,
                 'enrollment_id' => isset($data['enrollment_id']) ? (int) $data['enrollment_id'] : null,
@@ -231,7 +223,7 @@ final class BenefitController
             $data,
             function () use ($data): array {
                 $principal = $this->principals->resolve();
-                $transaction = $this->benefits->createTransaction($principal->tenantId(), $principal->userId(), $data);
+                $transaction = $this->benefits->createTransaction($principal->userId(), $data);
 
                 return [
                     'http_status' => 201,

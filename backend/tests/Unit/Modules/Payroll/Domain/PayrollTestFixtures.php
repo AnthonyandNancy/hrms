@@ -28,7 +28,6 @@ trait PayrollTestFixtures
         bool $allowNegativeNet = false,
     ): PayrollContext {
         return new PayrollContext(
-            legalEntityId: 1,
             currency: 'CNY',
             timezone: 'Asia/Shanghai',
             rounding: new RoundingConfig($roundingMode, 2),

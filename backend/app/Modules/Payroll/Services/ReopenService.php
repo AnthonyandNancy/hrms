@@ -29,7 +29,7 @@ final class ReopenService
     /**
      * @param  list<int>  $approverUserIds
      */
-    public function reopen(int $tenantId, int $runId, int $actorUserId, array $approverUserIds, string $reason): PayrollRun
+    public function reopen(int $runId, int $actorUserId, array $approverUserIds, string $reason): PayrollRun
     {
         if (mb_strlen(trim($reason)) < 10) {
             throw new ValidationException(['reason' => ['A reopen reason of at least 10 characters is required.']]);
@@ -46,8 +46,8 @@ final class ReopenService
             throw new ValidationException(['approver_user_ids' => ['The requester cannot approve their own reopen.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $approvers, $reason): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $approvers, $reason): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $status = $run->status instanceof PayrollRunStatus
                 ? $run->status
                 : PayrollRunStatus::from((string) $run->status);
@@ -98,7 +98,6 @@ final class ReopenService
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.reopened',
                 aggregateType: 'payroll_run',

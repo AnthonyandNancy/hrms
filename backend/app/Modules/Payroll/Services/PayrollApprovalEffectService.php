@@ -19,11 +19,10 @@ final class PayrollApprovalEffectService implements PayrollApprovalEffectPort
 {
     public function __construct(private readonly PayrollStateMachine $stateMachine) {}
 
-    public function applyApproval(int $tenantId, int $runId, int $actorUserId): void
+    public function applyApproval(int $runId, int $actorUserId): void
     {
-        DB::transaction(function () use ($tenantId, $runId, $actorUserId): void {
+        DB::transaction(function () use ($runId, $actorUserId): void {
             $run = PayrollRun::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($runId)
                 ->lockForUpdate()
                 ->first();

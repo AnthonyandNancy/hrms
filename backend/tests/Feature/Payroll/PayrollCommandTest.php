@@ -39,7 +39,6 @@ final class PayrollCommandTest extends PayrollTestCase
         // reported explicitly and fail the check even when the legacy export
         // has no row for it either.
         \App\Modules\Payroll\Models\PayrollRunEmployee::query()->create([
-            'tenant_id' => $this->tenantId,
             'run_id' => (int) $run->id,
             'employment_id' => 999_001,
             'status' => \App\Modules\Payroll\Enums\PayrollEmployeeStatus::FAILED,
@@ -145,18 +144,15 @@ final class PayrollCommandTest extends PayrollTestCase
         ])->assertFailed();
     }
 
-    public function test_seed_parameters_requires_entity_year_and_evidence_actor(): void
+    public function test_seed_parameters_requires_year_and_evidence_actor(): void
     {
         $this->artisan('payroll:seed-parameters')->assertFailed();
         $this->artisan('payroll:seed-parameters', [
-            '--legal-entity' => (string) $this->legalEntityId,
             '--year' => '2026',
             '--approved-by' => '99',
         ])->assertSuccessful();
 
         $this->assertDatabaseHas('statutory_parameters', [
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $this->legalEntityId,
             'parameter_set' => 'TAX',
             'is_demo' => true,
         ]);
@@ -174,8 +170,8 @@ final class PayrollCommandTest extends PayrollTestCase
         $this->employmentId = (int) $base['employment_id'];
 
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
         $this->run = $run->refresh();
     }

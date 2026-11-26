@@ -11,8 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * a new version row; historical rows are never rewritten.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $employment_id
  * @property int $plan_id
  * @property int $base_amount_cents
@@ -29,8 +27,6 @@ final class BenefitEnrollment extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'employment_id',
         'plan_id',
         'base_amount_cents',
@@ -47,8 +43,6 @@ final class BenefitEnrollment extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'employment_id' => 'integer',
             'plan_id' => 'integer',
             'base_amount_cents' => 'integer',

@@ -9,20 +9,18 @@ use App\Modules\Payroll\Contracts\PayrollCostRow;
 
 final class UnavailablePayrollCostDirectory implements PayrollCostDirectory
 {
-    public function available(int $tenantId): bool
+    public function available(): bool
     {
         return false;
     }
 
-    public function unavailableReason(int $tenantId): ?string
+    public function unavailableReason(): string
     {
-        $reason = $tenantId <= 0 ? null : 'Payroll run tables exist, but no Payroll-owned Reporting projection publishes finalized cost by legal entity yet; payroll cost is unavailable rather than estimated from unfinalized runs.';
-
-        return $reason;
+        return 'Payroll run tables exist, but no Payroll-owned Reporting projection publishes finalized company cost yet; payroll cost is unavailable rather than estimated from unfinalized runs.';
     }
 
     /** @return list<PayrollCostRow> */
-    public function costByEntity(int $tenantId, string $asOf): array
+    public function costByEntity(string $asOf): array
     {
         return [];
     }

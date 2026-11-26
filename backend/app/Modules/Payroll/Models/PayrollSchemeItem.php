@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $scheme_id
  * @property int|null $payroll_item_id
  * @property string $item_code
@@ -24,13 +22,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayrollSchemeItem extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'payroll_scheme_items';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'scheme_id',
         'payroll_item_id',
         'item_code',

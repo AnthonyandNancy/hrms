@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $code
  * @property string $name
  * @property string $frequency
@@ -29,14 +26,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class PayrollScheme extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'payroll_schemes';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'code',
         'name',
         'frequency',

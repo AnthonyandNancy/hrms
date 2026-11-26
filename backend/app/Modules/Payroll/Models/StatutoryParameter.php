@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $parameter_set
  * @property string $code
  * @property string|null $value_decimal
@@ -26,14 +23,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class StatutoryParameter extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'statutory_parameters';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'parameter_set',
         'code',
         'value_decimal',
@@ -53,7 +46,6 @@ final class StatutoryParameter extends Model
     protected function casts(): array
     {
         return [
-            'legal_entity_id' => 'integer',
             'value_int' => 'integer',
             'approved_by' => 'integer',
             'approved_at' => 'immutable_datetime',

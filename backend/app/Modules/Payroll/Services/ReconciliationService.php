@@ -20,10 +20,9 @@ final class ReconciliationService
     /**
      * @return array{run_id: int, period: string, status: string, employee_count: int, payslip_count: int, gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int, differences: list<array<string, mixed>>, chain: array<string, mixed>, passed: bool}
      */
-    public function reconcile(int $tenantId, int $runId): array
+    public function reconcile(int $runId): array
     {
         $run = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($runId)
             ->first();
 
@@ -32,12 +31,10 @@ final class ReconciliationService
         }
 
         $employees = PayrollRunEmployee::query()
-            ->where('tenant_id', $tenantId)
             ->where('run_id', $runId)
             ->orderBy('employment_id')
             ->get();
         $payslips = Payslip::query()
-            ->where('tenant_id', $tenantId)
             ->where('run_id', $runId)
             ->orderBy('employment_id')
             ->get();
@@ -113,7 +110,7 @@ final class ReconciliationService
             }
         }
 
-        $chain = $this->chain($tenantId, $run);
+        $chain = $this->chain($run);
 
         if ($run->run_type->value === 'CORRECTION' && ($chain['passed'] ?? true) === false) {
             $differences[] = [
@@ -143,7 +140,7 @@ final class ReconciliationService
      *
      * @return array<string, mixed>
      */
-    public function chain(int $tenantId, PayrollRun $run): array
+    public function chain(PayrollRun $run): array
     {
         if ($run->correction_of_run_id === null) {
             return [
@@ -154,7 +151,6 @@ final class ReconciliationService
         }
 
         $original = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $run->correction_of_run_id)
             ->first();
 
@@ -168,7 +164,6 @@ final class ReconciliationService
         }
 
         $corrections = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->where('correction_of_run_id', $original->id)
             ->whereIn('status', [
                 PayrollRunStatus::PUBLISHED->value,
@@ -188,7 +183,6 @@ final class ReconciliationService
         ];
 
         $payslipTotals = Payslip::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('run_id', [$original->id, ...$corrections->pluck('id')->all()])
             ->selectRaw('COALESCE(SUM(gross_cents),0) as gross, COALESCE(SUM(net_cents),0) as net')
             ->first();

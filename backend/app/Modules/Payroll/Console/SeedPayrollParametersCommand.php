@@ -16,20 +16,18 @@ use Illuminate\Console\Command;
 final class SeedPayrollParametersCommand extends Command
 {
     protected $signature = 'payroll:seed-parameters
-        {--legal-entity= : Legal entity id}
         {--year= : Tax year to seed}
         {--approved-by= : Approver user id (required evidence)}';
 
-    protected $description = 'Seed DEMO-only, versioned statutory parameters for one legal entity';
+    protected $description = 'Seed DEMO-only, versioned statutory parameters for the company';
 
     public function handle(TaxParameterResolver $parameters): int
     {
-        $legalEntityId = (int) $this->option('legal-entity');
         $year = (int) $this->option('year');
         $approvedBy = (int) $this->option('approved-by');
 
-        if ($legalEntityId < 1 || $year < 2000 || $year > 9999) {
-            $this->error('Both --legal-entity and a four-digit --year are required.');
+        if ($year < 2000 || $year > 9999) {
+            $this->error('A four-digit --year is required.');
 
             return self::FAILURE;
         }
@@ -40,9 +38,6 @@ final class SeedPayrollParametersCommand extends Command
             return self::FAILURE;
         }
 
-        $tenantId = \App\Shared\RequestContext::tenantId();
-        $tenantId = $tenantId > 0 ? $tenantId : 1;
-
         // These are obviously synthetic placeholders, not any jurisdiction's
         // real tax or contribution schedule.
         $from = sprintf('%04d-01-01', $year);
@@ -51,19 +46,17 @@ final class SeedPayrollParametersCommand extends Command
         $evidence = 'DEMO-SYNTHETIC-NOT-LEGAL-ADVICE';
 
         $already = StatutoryParameter::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('version', $version)
             ->exists();
 
         if ($already) {
-            $this->info('DEMO parameters already exist for this legal entity and year.');
+            $this->info('DEMO parameters already exist for this year.');
 
             return self::SUCCESS;
         }
 
         try {
-            $parameters->createVersion($tenantId, $legalEntityId, [
+            $parameters->createVersion([
                 'parameter_set' => 'TAX',
                 'version' => $version,
                 'effective_from' => $from,
@@ -76,7 +69,7 @@ final class SeedPayrollParametersCommand extends Command
                 ],
             ], $approvedBy, true, $evidence);
 
-            $parameters->createVersion($tenantId, $legalEntityId, [
+            $parameters->createVersion([
                 'parameter_set' => 'SOCIAL_INSURANCE',
                 'version' => $version,
                 'effective_from' => $from,
@@ -87,7 +80,7 @@ final class SeedPayrollParametersCommand extends Command
                 'EMPLOYER_RATE' => '16.000000',
             ], $approvedBy, true, $evidence);
 
-            $parameters->createVersion($tenantId, $legalEntityId, [
+            $parameters->createVersion([
                 'parameter_set' => 'HOUSING_FUND',
                 'version' => $version,
                 'effective_from' => $from,

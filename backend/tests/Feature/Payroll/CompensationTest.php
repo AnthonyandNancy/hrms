@@ -344,7 +344,6 @@ final class CompensationTest extends PayrollTestCase
     private function headers(string $idempotencyKey = ''): array
     {
         $headers = [
-            'X-Legal-Entity-Id' => (string) $this->legalEntityId,
             'X-CSRF-Token' => 'test-csrf-token',
         ];
 
@@ -361,7 +360,6 @@ final class CompensationTest extends PayrollTestCase
     private function createCase(string $status, array $payload = []): int
     {
         $case = \App\Modules\Workflow\Models\CaseModel::query()->create([
-            'tenant_id' => $this->tenantId,
             'case_no' => 'SYN-'.bin2hex(random_bytes(4)),
             'type' => 'TERMS_CHANGE',
             'subject_type' => 'employment',

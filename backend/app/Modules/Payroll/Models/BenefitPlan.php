@@ -11,8 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * to change a rate: create the next version instead.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int|null $legal_entity_id
  * @property string $code
  * @property string $name
  * @property string $employer_rate
@@ -30,8 +28,6 @@ final class BenefitPlan extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'code',
         'name',
         'employer_rate',
@@ -49,8 +45,6 @@ final class BenefitPlan extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'version' => 'integer',
             'created_by' => 'integer',
             'created_at' => 'immutable_datetime',

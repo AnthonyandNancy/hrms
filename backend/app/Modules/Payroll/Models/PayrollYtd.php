@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -14,7 +13,6 @@ use Illuminate\Database\Eloquent\Model;
  */
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property int $tax_year
  * @property int $taxable_income_cents
@@ -32,13 +30,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayrollYtd extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'payroll_ytd';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'tax_year',
         'taxable_income_cents',

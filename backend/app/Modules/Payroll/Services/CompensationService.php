@@ -41,13 +41,13 @@ final class CompensationService
     ) {}
 
     /**
-     * @param  array{employment_id?: int|null, legal_entity_id?: int|null}  $filters
+     * @param  array{employment_id?: int|null}  $filters
      * @return array{rows: Collection<int, EmployeeCompensation>, total: int}
      */
     public function listCompensations(Principal $principal, string $businessDate, array $filters, int $page, int $pageSize): array
     {
         $query = $this->authorizer->constrain(
-            EmployeeCompensation::query()->where('tenant_id', $principal->tenantId()),
+            EmployeeCompensation::query(),
             $principal,
             'payroll.compensation.read',
             $businessDate,
@@ -55,10 +55,6 @@ final class CompensationService
 
         if (($filters['employment_id'] ?? null) !== null) {
             $query->where('employment_id', (int) $filters['employment_id']);
-        }
-
-        if (($filters['legal_entity_id'] ?? null) !== null) {
-            $query->where('legal_entity_id', (int) $filters['legal_entity_id']);
         }
 
         $total = (int) (clone $query)->count();
@@ -70,13 +66,13 @@ final class CompensationService
     }
 
     /**
-     * @param  array{employment_id?: int|null, legal_entity_id?: int|null}  $filters
+     * @param  array{employment_id?: int|null}  $filters
      * @return array{rows: Collection<int, SalaryAdjustment>, total: int}
      */
     public function listAdjustments(Principal $principal, string $businessDate, array $filters, int $page, int $pageSize): array
     {
         $query = $this->authorizer->constrain(
-            SalaryAdjustment::query()->where('tenant_id', $principal->tenantId()),
+            SalaryAdjustment::query(),
             $principal,
             'payroll.compensation.read',
             $businessDate,
@@ -84,10 +80,6 @@ final class CompensationService
 
         if (($filters['employment_id'] ?? null) !== null) {
             $query->where('employment_id', (int) $filters['employment_id']);
-        }
-
-        if (($filters['legal_entity_id'] ?? null) !== null) {
-            $query->where('legal_entity_id', (int) $filters['legal_entity_id']);
         }
 
         $total = (int) (clone $query)->count();
@@ -102,7 +94,6 @@ final class CompensationService
      * @param  array{employment_id: int, effective_from: string, base_salary_cents: int, currency?: string, salary_scheme_code?: string|null}  $data
      */
     public function createCompensation(
-        int $tenantId,
         int $actorUserId,
         array $data,
         ?int $caseId = null,
@@ -111,15 +102,14 @@ final class CompensationService
         $employmentId = (int) $data['employment_id'];
         $effectiveFrom = BusinessDate::from((string) $data['effective_from']);
         $baseSalary = Money::fromMinor((int) $data['base_salary_cents'], (string) ($data['currency'] ?? 'CNY'));
-        $employment = $this->people->employmentSnapshot($tenantId, $employmentId, $effectiveFrom->value());
+        $employment = $this->people->employmentSnapshot($employmentId, $effectiveFrom->value());
 
-        if ($employment === null || $this->people->legalEntityIdsForEmployment($tenantId, $employmentId) === []) {
+        if ($employment === null) {
             throw new NotFoundOrForbiddenException;
         }
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data, $caseId, $capability, $employmentId, $effectiveFrom, $baseSalary, $employment): EmployeeCompensation {
+        return DB::transaction(function () use ($actorUserId, $data, $caseId, $capability, $employmentId, $effectiveFrom, $baseSalary): EmployeeCompensation {
             $existing = EmployeeCompensation::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('effective_from', $effectiveFrom->value())
                 ->lockForUpdate()
@@ -132,8 +122,6 @@ final class CompensationService
             }
 
             $compensation = EmployeeCompensation::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $employment->legalEntityId,
                 'employment_id' => $employmentId,
                 'effective_from' => $effectiveFrom->value(),
                 'currency' => $baseSalary->currency(),
@@ -144,7 +132,6 @@ final class CompensationService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.compensation.versioned',
                 aggregateType: 'employee_compensation',
@@ -161,11 +148,10 @@ final class CompensationService
             // ADR-0024: writing a P3 amount is itself sensitive access and
             // must leave field-name evidence (never the amount value).
             $this->sensitiveAuditor->record(
-                tenantId: $tenantId,
                 userId: $actorUserId,
+                capabilityCode: $capability,
                 resourceType: 'employee_compensation',
-                resourceId: (string) $compensation->id,
-                capability: $capability,
+                resourceId: (int) $compensation->id,
                 fields: ['base_salary_cents'],
                 context: [
                     'access' => 'WRITE',
@@ -185,10 +171,10 @@ final class CompensationService
      * @param  array{employment_id: int, effective_from: string, base_salary_cents: int, currency?: string, reason: string, case_id: int, salary_scheme_code?: string|null}  $data
      * @return array{adjustment: SalaryAdjustment, compensation: EmployeeCompensation}
      */
-    public function createAdjustment(int $tenantId, int $actorUserId, array $data): array
+    public function createAdjustment(int $actorUserId, array $data): array
     {
         $caseId = (int) $data['case_id'];
-        $case = $this->workflow->caseForTenant($tenantId, $caseId);
+        $case = $this->workflow->caseFor($caseId);
 
         if ($case === null) {
             throw new NotFoundOrForbiddenException;
@@ -197,9 +183,8 @@ final class CompensationService
         $employmentId = (int) $data['employment_id'];
         $this->assertApprovedSalaryCase($case, $employmentId, (string) $data['effective_from'], (int) $data['base_salary_cents']);
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data, $case, $employmentId): array {
+        return DB::transaction(function () use ($actorUserId, $data, $case, $employmentId): array {
             $alreadyApplied = SalaryAdjustment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('case_id', (int) $case->id)
                 ->lockForUpdate()
                 ->exists();
@@ -210,17 +195,15 @@ final class CompensationService
                 ]);
             }
 
-            $compensation = $this->createCompensation($tenantId, $actorUserId, [
+            $compensation = $this->createCompensation($actorUserId, [
                 'employment_id' => $employmentId,
                 'effective_from' => (string) $data['effective_from'],
                 'base_salary_cents' => (int) $data['base_salary_cents'],
                 'currency' => (string) ($data['currency'] ?? 'CNY'),
-                'salary_scheme_code' => $data['salary_scheme_code'] ?? $this->salarySchemeFor($tenantId, $employmentId, (string) $data['effective_from']),
+                'salary_scheme_code' => $data['salary_scheme_code'] ?? $this->salarySchemeFor($employmentId, (string) $data['effective_from']),
             ], (int) $case->id, 'payroll.salary-adjustment.manage');
 
             $adjustment = SalaryAdjustment::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $compensation->legal_entity_id,
                 'employment_id' => $employmentId,
                 'effective_from' => (string) $compensation->effective_from,
                 'currency' => (string) $compensation->currency,
@@ -233,7 +216,6 @@ final class CompensationService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.salary_adjustment.created',
                 aggregateType: 'salary_adjustment',
@@ -248,11 +230,10 @@ final class CompensationService
             );
 
             $this->sensitiveAuditor->record(
-                tenantId: $tenantId,
                 userId: $actorUserId,
+                capabilityCode: 'payroll.salary-adjustment.manage',
                 resourceType: 'salary_adjustment',
-                resourceId: (string) $adjustment->id,
-                capability: 'payroll.salary-adjustment.manage',
+                resourceId: (int) $adjustment->id,
                 fields: ['base_salary_cents'],
                 context: [
                     'access' => 'WRITE',
@@ -266,9 +247,9 @@ final class CompensationService
         });
     }
 
-    private function salarySchemeFor(int $tenantId, int $employmentId, string $effectiveOn): ?string
+    private function salarySchemeFor(int $employmentId, string $effectiveOn): ?string
     {
-        return $this->terms->termsAsOf($tenantId, $employmentId, $effectiveOn)?->salarySchemeCode;
+        return $this->terms->termsAsOf($employmentId, $effectiveOn)?->salarySchemeCode;
     }
 
     private function assertApprovedSalaryCase(WorkflowCaseRecord $case, int $employmentId, string $effectiveFrom, int $baseSalaryCents): void

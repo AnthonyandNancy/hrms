@@ -29,8 +29,6 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
         [$employment] = $this->fixture(salaryCents: 1_000_000);
 
         $this->artisan('payroll:seed-demo-run', [
-            '--tenant' => 1,
-            '--legal-entity' => 1,
             '--period' => '2026-11',
         ])->assertFailed();
 
@@ -43,8 +41,6 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
         $this->fixture(salaryCents: null);
 
         $this->artisan('payroll:seed-demo-run', [
-            '--tenant' => 1,
-            '--legal-entity' => 1,
             '--period' => '2026-11',
         ])->assertFailed();
 
@@ -65,8 +61,6 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
 
         try {
             $exit = Artisan::call('payroll:seed-demo-run', [
-                '--tenant' => 1,
-                '--legal-entity' => 1,
                 '--period' => '2026-11',
                 '--actor' => 1,
             ]);
@@ -119,13 +113,9 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
         $this->fixture(salaryCents: 1_200_000);
 
         Artisan::call('payroll:seed-demo-run', [
-            '--tenant' => 1,
-            '--legal-entity' => 1,
             '--period' => '2026-11',
         ]);
         Artisan::call('payroll:seed-demo-run', [
-            '--tenant' => 1,
-            '--legal-entity' => 1,
             '--period' => '2026-11',
         ]);
 
@@ -137,10 +127,9 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
      */
     private function fixture(?int $salaryCents): array
     {
-        $scenario = new PeopleScenario(1, app(\App\Shared\Time\Clock::class));
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'PAY-UNIT');
-        $employment = $scenario->employment($scenario->person(), $entity, 'PAY-0001');
+        $scenario = new PeopleScenario(app(\App\Shared\Time\Clock::class));
+        $unit = $scenario->orgUnit('PAY-UNIT');
+        $employment = $scenario->employment($scenario->person(), 'PAY-0001');
         $scenario->assignment($employment, $unit);
         if ($salaryCents === null) {
             $scenario->terms($employment, 1);
@@ -162,7 +151,7 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
     {
         $parameters = app(TaxParameterResolver::class);
 
-        $parameters->createVersion(1, 1, [
+        $parameters->createVersion([
             'parameter_set' => 'TAX',
             'version' => 'DEMO-TAX-2026',
             'effective_from' => '2026-01-01',
@@ -176,7 +165,7 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
         ], 99, true, 'DEMO-SYNTHETIC-NOT-LEGAL-ADVICE');
 
         foreach (['SOCIAL_INSURANCE', 'HOUSING_FUND'] as $set) {
-            $parameters->createVersion(1, 1, [
+            $parameters->createVersion([
                 'parameter_set' => $set,
                 'version' => 'DEMO-'.$set.'-2026',
                 'effective_from' => '2026-01-01',
@@ -189,8 +178,6 @@ final class SeedDemoPayrollRunCommandTest extends TestCase
         }
 
         PayrollScheme::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'code' => 'DEMO-MONTHLY',
             'name' => 'Synthetic demo monthly scheme',
             'frequency' => 'MONTHLY',

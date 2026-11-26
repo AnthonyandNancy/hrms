@@ -97,11 +97,10 @@ final class AllowAllAuthorizer implements Authorizer
 
         if ($sensitive !== []) {
             app(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class)->record(
-                tenantId: (int) $principal->tenantId(),
                 userId: (int) $principal->userId(),
+                capabilityCode: $capability,
                 resourceType: $row->resourceType,
-                resourceId: (string) $row->id,
-                capability: $capability,
+                resourceId: (int) $row->id,
                 fields: $sensitive,
                 context: ['profile' => $profile->value, 'access' => 'READ'],
             );

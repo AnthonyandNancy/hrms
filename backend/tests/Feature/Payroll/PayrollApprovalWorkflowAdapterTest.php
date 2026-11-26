@@ -22,9 +22,9 @@ final class PayrollApprovalWorkflowAdapterTest extends PayrollTestCase
         $run = $this->reviewedRun();
 
         $port = app(PayrollApprovalWorkflow::class);
-        $caseId = $port->open($this->tenantId, 10, (int) $run->id, 12, '2026-01-31');
+        $caseId = $port->open(10, (int) $run->id, 12, '2026-01-31');
 
-        $result = $port->approve($this->tenantId, $caseId, 12, 'Approved in workflow test.', '2026-01-31');
+        $result = $port->approve($caseId, 12, 'Approved in workflow test.', '2026-01-31');
 
         $this->assertSame('APPROVED', $result['application_status']);
         $this->assertSame('APPLIED', $result['effect_status']);
@@ -35,10 +35,10 @@ final class PayrollApprovalWorkflowAdapterTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
-        return app(ApprovalService::class)->review($this->tenantId, (int) $run->id, 11);
+        return app(ApprovalService::class)->review((int) $run->id, 11);
     }
 }

@@ -20,14 +20,10 @@ final class PayrollStatutoryParameterController
 
     public function index(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
-        $legalEntityId = $request->query('legal_entity_id');
+        $this->principals->resolve();
 
         $rows = StatutoryParameter::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->when(is_numeric($legalEntityId), fn ($q) => $q->where('legal_entity_id', (int) $legalEntityId))
             ->when(is_string($request->query('parameter_set')), fn ($q) => $q->where('parameter_set', $request->query('parameter_set')))
-            ->orderBy('legal_entity_id')
             ->orderBy('parameter_set')
             ->orderByDesc('effective_from')
             ->orderBy('code')
@@ -35,7 +31,6 @@ final class PayrollStatutoryParameterController
 
         $items = $rows->map(static fn (StatutoryParameter $row): array => [
             'id' => (int) $row->id,
-            'legal_entity_id' => (int) $row->legal_entity_id,
             'parameter_set' => (string) $row->parameter_set,
             'code' => (string) $row->code,
             'value_decimal' => $row->value_decimal,
@@ -55,7 +50,6 @@ final class PayrollStatutoryParameterController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'parameter_set' => ['required', 'string', 'in:TAX,SOCIAL_INSURANCE,HOUSING_FUND,ROUNDING'],
             'version' => ['required', 'string', 'max:64'],
             'effective_from' => ['required', 'date_format:Y-m-d'],
@@ -76,8 +70,6 @@ final class PayrollStatutoryParameterController
         ]);
 
         $rows = $this->parameters->createVersion(
-            $principal->tenantId(),
-            (int) $data['legal_entity_id'],
             $data,
             $principal->userId(),
             (bool) ($data['is_demo'] ?? false),

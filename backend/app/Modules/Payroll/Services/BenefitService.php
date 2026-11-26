@@ -18,7 +18,7 @@ use App\Shared\Money\RoundingMode;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -31,28 +31,21 @@ final class BenefitService
     public function __construct(
         private readonly Authorizer $authorizer,
         private readonly PeopleDirectory $people,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
     ) {}
 
     /**
-     * @param  array{code?: string|null, legal_entity_id?: int|null}  $filters
+     * @param  array{code?: string|null}  $filters
      * @return array{rows: Collection<int, BenefitPlan>, total: int, as_of: string}
      */
     public function listPlans(Principal $principal, array $filters, string $asOf, int $page, int $pageSize): array
     {
-        $query = BenefitPlan::query()->where('tenant_id', $principal->tenantId());
+        $query = BenefitPlan::query();
 
         if (($filters['code'] ?? null) !== null) {
             $query->where('code', (string) $filters['code']);
-        }
-
-        if (($filters['legal_entity_id'] ?? null) !== null) {
-            $query->where(function ($scope) use ($filters): void {
-                $scope->whereNull('legal_entity_id')
-                    ->orWhere('legal_entity_id', (int) $filters['legal_entity_id']);
-            });
         }
 
         $total = (int) (clone $query)->count();
@@ -65,9 +58,9 @@ final class BenefitService
     }
 
     /**
-     * @param  array{code: string, name: string, employer_rate: string, employee_rate: string, effective_from: string, effective_to?: string|null, legal_entity_id?: int|null}  $data
+     * @param  array{code: string, name: string, employer_rate: string, employee_rate: string, effective_from: string, effective_to?: string|null}  $data
      */
-    public function createPlan(int $tenantId, int $actorUserId, array $data): BenefitPlan
+    public function createPlan(int $actorUserId, array $data): BenefitPlan
     {
         $employerRate = $this->normalizeRate((string) $data['employer_rate'], 'employer_rate');
         $employeeRate = $this->normalizeRate((string) $data['employee_rate'], 'employee_rate');
@@ -83,9 +76,8 @@ final class BenefitService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data, $code, $employerRate, $employeeRate, $effectiveFrom, $effectiveTo): BenefitPlan {
+        return DB::transaction(function () use ($actorUserId, $data, $code, $employerRate, $employeeRate, $effectiveFrom, $effectiveTo): BenefitPlan {
             $latest = BenefitPlan::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', $code)
                 ->lockForUpdate()
                 ->orderByDesc('version')
@@ -106,8 +98,6 @@ final class BenefitService
             }
 
             $plan = BenefitPlan::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => isset($data['legal_entity_id']) ? (int) $data['legal_entity_id'] : null,
                 'code' => $code,
                 'name' => trim((string) $data['name']),
                 'employer_rate' => $employerRate,
@@ -120,7 +110,6 @@ final class BenefitService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'benefit.plan.versioned',
                 aggregateType: 'benefit_plan',
@@ -142,9 +131,9 @@ final class BenefitService
      * @param  array{employment_id?: int|null, plan_id?: int|null, payroll_run_id?: int|null}  $filters
      * @return array{rows: Collection<int, BenefitEnrollment>, total: int}
      */
-    public function listEnrollments(int $tenantId, array $filters, int $page, int $pageSize): array
+    public function listEnrollments(array $filters, int $page, int $pageSize): array
     {
-        $query = BenefitEnrollment::query()->where('tenant_id', $tenantId);
+        $query = BenefitEnrollment::query();
 
         if (($filters['employment_id'] ?? null) !== null) {
             $query->where('employment_id', (int) $filters['employment_id']);
@@ -167,8 +156,7 @@ final class BenefitService
      */
     public function createEnrollment(Principal $principal, array $data): BenefitEnrollment
     {
-        $tenantId = $principal->tenantId();
-        $businessDate = $this->businessDates->today($tenantId)->value();
+        $businessDate = $this->businessDates->today()->value();
         $employmentId = (int) $data['employment_id'];
         $planId = (int) $data['plan_id'];
         $baseAmount = (int) $data['base_amount_cents'];
@@ -181,7 +169,7 @@ final class BenefitService
             );
         }
 
-        $snapshot = $this->people->employmentSnapshot($tenantId, $employmentId, $businessDate);
+        $snapshot = $this->people->employmentSnapshot($employmentId, $businessDate);
 
         if ($snapshot === null
             || ! $this->authorizer->allows($principal, 'benefit.manage', \App\Shared\Authorization\AnchorRef::company(), $businessDate)) {
@@ -189,7 +177,6 @@ final class BenefitService
         }
 
         $plan = BenefitPlan::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($planId)
             ->first();
 
@@ -208,10 +195,9 @@ final class BenefitService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $principal, $snapshot, $plan, $baseAmount, $effectiveFrom, $effectiveTo): BenefitEnrollment {
+        return DB::transaction(function () use ($principal, $snapshot, $plan, $baseAmount, $effectiveFrom, $effectiveTo): BenefitEnrollment {
             /** @var BenefitEnrollment|null $latest */
             $latest = BenefitEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $snapshot->employmentId)
                 ->where('plan_id', (int) $plan->id)
                 ->lockForUpdate()
@@ -233,8 +219,6 @@ final class BenefitService
             }
 
             $enrollment = BenefitEnrollment::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $snapshot->legalEntityId,
                 'employment_id' => $snapshot->employmentId,
                 'plan_id' => (int) $plan->id,
                 'base_amount_cents' => $baseAmount,
@@ -246,7 +230,6 @@ final class BenefitService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $principal->userId(),
                 action: 'benefit.enrollment.versioned',
                 aggregateType: 'benefit_enrollment',
@@ -267,7 +250,7 @@ final class BenefitService
     /**
      * @param  array{enrollment_id: int, period: string, payroll_run_id?: int|null}  $data
      */
-    public function createTransaction(int $tenantId, int $actorUserId, array $data): BenefitTransaction
+    public function createTransaction(int $actorUserId, array $data): BenefitTransaction
     {
         $period = (string) $data['period'];
 
@@ -280,7 +263,6 @@ final class BenefitService
         }
 
         $enrollment = BenefitEnrollment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $data['enrollment_id'])
             ->first();
 
@@ -289,7 +271,6 @@ final class BenefitService
         }
 
         $plan = BenefitPlan::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $enrollment->plan_id)
             ->first();
 
@@ -301,9 +282,8 @@ final class BenefitService
         $employerAmount = $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employer_rate);
         $payrollRunId = isset($data['payroll_run_id']) ? (int) $data['payroll_run_id'] : null;
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $enrollment, $period, $employeeAmount, $employerAmount, $payrollRunId): BenefitTransaction {
+        return DB::transaction(function () use ($actorUserId, $enrollment, $period, $employeeAmount, $employerAmount, $payrollRunId): BenefitTransaction {
             if ($payrollRunId !== null && BenefitTransaction::query()
-                ->where('tenant_id', $tenantId)
                 ->where('payroll_run_id', $payrollRunId)
                 ->exists()) {
                 throw new ConflictException(
@@ -313,7 +293,6 @@ final class BenefitService
             }
 
             if (BenefitTransaction::query()
-                ->where('tenant_id', $tenantId)
                 ->where('enrollment_id', (int) $enrollment->id)
                 ->where('period', $period)
                 ->exists()) {
@@ -324,8 +303,6 @@ final class BenefitService
             }
 
             $transaction = BenefitTransaction::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $enrollment->legal_entity_id,
                 'employment_id' => (int) $enrollment->employment_id,
                 'enrollment_id' => (int) $enrollment->id,
                 'period' => $period,
@@ -340,7 +317,6 @@ final class BenefitService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'benefit.transaction.recorded',
                 aggregateType: 'benefit_transaction',
@@ -361,9 +337,9 @@ final class BenefitService
      * @param  array{employment_id?: int|null, period?: string|null, enrollment_id?: int|null, payroll_run_id?: int|null}  $filters
      * @return array{rows: Collection<int, BenefitTransaction>, total: int}
      */
-    public function listTransactions(int $tenantId, array $filters, int $page, int $pageSize): array
+    public function listTransactions(array $filters, int $page, int $pageSize): array
     {
-        $query = BenefitTransaction::query()->where('tenant_id', $tenantId);
+        $query = BenefitTransaction::query();
 
         foreach (['employment_id', 'enrollment_id', 'payroll_run_id'] as $field) {
             if (($filters[$field] ?? null) !== null) {
@@ -392,7 +368,6 @@ final class BenefitService
             'id' => (int) $enrollment->id,
             'plan_id' => (int) $enrollment->plan_id,
             'employment_id' => (int) $enrollment->employment_id,
-            'legal_entity_id' => (int) $enrollment->legal_entity_id,
             'base_amount_cents' => (int) $enrollment->base_amount_cents,
             'employee_rate' => (string) $plan->employee_rate,
             'employer_rate' => (string) $plan->employer_rate,
@@ -413,7 +388,6 @@ final class BenefitService
             'id' => (int) $plan->id,
             'code' => (string) $plan->code,
             'name' => (string) $plan->name,
-            'legal_entity_id' => $plan->legal_entity_id !== null ? (int) $plan->legal_entity_id : null,
             'employer_rate' => (string) $plan->employer_rate,
             'employee_rate' => (string) $plan->employee_rate,
             'effective_from' => (string) $plan->effective_from,
@@ -431,7 +405,6 @@ final class BenefitService
             'id' => (int) $transaction->id,
             'enrollment_id' => (int) $transaction->enrollment_id,
             'employment_id' => (int) $transaction->employment_id,
-            'legal_entity_id' => (int) $transaction->legal_entity_id,
             'period' => (string) $transaction->period,
             'base_amount_cents' => (int) $transaction->base_amount_cents,
             'employee_amount_cents' => (int) $transaction->employee_amount_cents,

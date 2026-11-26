@@ -38,7 +38,6 @@ final class PayrollValueObjectTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new PayrollContext(
-            legalEntityId: 1,
             currency: 'CNY',
             timezone: 'Mars/Olympus',
             rounding: new RoundingConfig(RoundingMode::HALF_UP),
@@ -51,7 +50,6 @@ final class PayrollValueObjectTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         new PayrollContext(
-            legalEntityId: 1,
             currency: 'cny',
             timezone: 'Asia/Shanghai',
             rounding: new RoundingConfig(RoundingMode::HALF_UP),

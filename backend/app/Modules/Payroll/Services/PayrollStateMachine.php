@@ -88,10 +88,9 @@ final class PayrollStateMachine
         return $run->refresh();
     }
 
-    public static function lockRun(int $tenantId, int $runId): PayrollRun
+    public static function lockRun(int $runId): PayrollRun
     {
         $run = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($runId)
             ->lockForUpdate()
             ->first();

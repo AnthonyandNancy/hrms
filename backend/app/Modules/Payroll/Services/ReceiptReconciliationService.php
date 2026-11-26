@@ -27,9 +27,9 @@ final class ReceiptReconciliationService
     /**
      * @return array{reconciled: bool, reason: string|null, receipt_id: int|null}
      */
-    public function record(int $tenantId, int $runId, string $type, int $actorUserId, string $fileHash, ?string $externalReference = null): array
+    public function record(int $runId, string $type, int $actorUserId, string $fileHash, ?string $externalReference = null): array
     {
-        $run = PayrollRun::query()->where('tenant_id', $tenantId)->whereKey($runId)->first();
+        $run = PayrollRun::query()->whereKey($runId)->first();
 
         if ($run === null) {
             throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -46,7 +46,7 @@ final class ReceiptReconciliationService
             ]);
         }
 
-        return DB::transaction(function () use ($tenantId, $run, $runId, $type, $actorUserId, $fileHash, $externalReference): array {
+        return DB::transaction(function () use ($run, $runId, $type, $actorUserId, $fileHash, $externalReference): array {
             $expected = $type === PayrollReceiptType::BANK->value ? $run->bank_export_hash : $run->tax_export_hash;
 
             if ($expected === null) {
@@ -58,7 +58,6 @@ final class ReceiptReconciliationService
 
             $matches = hash_equals((string) $expected, $fileHash);
             $receipt = PayrollReceipt::query()->create([
-                'tenant_id' => $tenantId,
                 'run_id' => $runId,
                 'type' => $type,
                 'file_hash' => $fileHash,
@@ -70,7 +69,6 @@ final class ReceiptReconciliationService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.receipt.recorded',
                 aggregateType: 'payroll_run',

@@ -14,10 +14,9 @@ use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
  */
 final class EloquentPayrollRunMembershipDirectory implements PayrollRunMembershipDirectory
 {
-    public function isMember(int $tenantId, int $userId, int $payrollRunId, string $capabilityCode): bool
+    public function isMember(int $userId, int $payrollRunId, string $capabilityCode): bool
     {
         $run = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($payrollRunId)
             ->first();
 
@@ -36,10 +35,9 @@ final class EloquentPayrollRunMembershipDirectory implements PayrollRunMembershi
     }
 
     /** @return list<int> */
-    public function runIdsForUser(int $tenantId, int $userId, string $businessDate): array
+    public function runIdsForUser(int $userId, string $businessDate): array
     {
         return PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($userId): void {
                 $query->where('prepared_by', $userId)
                     ->orWhere('reviewed_by', $userId)
@@ -50,15 +48,5 @@ final class EloquentPayrollRunMembershipDirectory implements PayrollRunMembershi
             ->pluck('id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
-    }
-
-    public function legalEntityForRun(int $tenantId, int $payrollRunId): ?int
-    {
-        $value = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
-            ->whereKey($payrollRunId)
-            ->value('legal_entity_id');
-
-        return $value === null ? null : (int) $value;
     }
 }

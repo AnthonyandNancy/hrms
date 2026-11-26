@@ -13,5 +13,5 @@ interface PayslipWorkspaceDirectory
     /**
      * @return list<array{id: int, period: string, payDate: string|null, netCents: int, state: string}>
      */
-    public function recentForEmployment(int $tenantId, int $employmentId, int $limit = 2): array;
+    public function recentForEmployment(int $employmentId, int $limit = 2): array;
 }

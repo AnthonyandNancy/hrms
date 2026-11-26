@@ -44,11 +44,9 @@ final class PayrollRunController
         $pageSize = min(100, max(1, (int) $request->query('page_size', '20')));
 
         $data = $this->runs->listRuns(
-            $principal->tenantId(),
             [
                 'period' => is_string($request->query('period')) ? $request->query('period') : null,
                 'status' => is_string($request->query('status')) ? $request->query('status') : null,
-                'legal_entity_id' => $request->query('legal_entity_id'),
             ],
             $page,
             $pageSize,
@@ -64,7 +62,7 @@ final class PayrollRunController
             // ADR-0024 requires P3 reads to be audited. Listing runs does not
             // call the row-level field projection by itself, so resolve the
             // field set per run; that path records field names (never values).
-            foreach ($this->runs->runsByIds($principal->tenantId(), array_map(static fn (array $item): int => (int) $item['id'], $data['items'])) as $run) {
+            foreach ($this->runs->runsByIds(array_map(static fn (array $item): int => (int) $item['id'], $data['items'])) as $run) {
                 $this->moneyFields($principal, 'payroll.payslip.read', $run);
             }
         }
@@ -75,7 +73,7 @@ final class PayrollRunController
     public function show(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $run = $this->runs->findRun($id);
 
         return ApiResponse::ok($this->runs->runDetail($run, $this->canSeeAmounts($principal)));
     }
@@ -83,7 +81,7 @@ final class PayrollRunController
     public function employees(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $run = $this->runs->findRun($id);
 
         // A payroll.run.read holder may see the run summary but not amounts.
         // Amount visibility is decided by the payroll.payslip.read field
@@ -116,8 +114,6 @@ final class PayrollRunController
                 resourceType: 'payslip',
                 id: (int) $run->id,
                 row: [],
-                tenantId: (int) $run->tenant_id,
-                legalEntityId: (int) $run->legal_entity_id,
                 payrollRunId: (int) $run->id,
             ));
         } catch (NotFoundOrForbiddenException) {
@@ -132,7 +128,7 @@ final class PayrollRunController
     public function inputs(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $run = $this->runs->findRun($id);
         $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
         $rows = $this->runs->inputSnapshots($run, $fields);
 
@@ -151,7 +147,7 @@ final class PayrollRunController
             'rule_version' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $run = $this->runs->createRun($principal->tenantId(), $principal->userId(), $data);
+        $run = $this->runs->createRun($principal->userId(), $data);
 
         return ApiResponse::created($this->runs->runDetail($run));
     }
@@ -159,7 +155,7 @@ final class PayrollRunController
     public function lockInputs(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->lockInputs($principal->tenantId(), $id, $principal->userId());
+        $run = $this->runs->lockInputs($id, $principal->userId());
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -167,12 +163,12 @@ final class PayrollRunController
     public function calculate(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $run = $this->runs->findRun($id);
         $result = $this->calculation->calculate($run, $principal->userId());
 
         return ApiResponse::ok([
             ...$result,
-            'run' => $this->runs->runDetail($this->runs->findRun($principal->tenantId(), $id)),
+            'run' => $this->runs->runDetail($this->runs->findRun($id)),
         ]);
     }
 
@@ -180,7 +176,7 @@ final class PayrollRunController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate(['comment' => ['nullable', 'string', 'max:1000']]);
-        $run = $this->approval->review($principal->tenantId(), $id, $principal->userId(), (string) ($data['comment'] ?? ''));
+        $run = $this->approval->review($id, $principal->userId(), (string) ($data['comment'] ?? ''));
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -189,7 +185,7 @@ final class PayrollRunController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate(['comment' => ['nullable', 'string', 'max:1000']]);
-        $run = $this->approval->approve($principal->tenantId(), $id, $principal->userId(), (string) ($data['comment'] ?? ''));
+        $run = $this->approval->approve($id, $principal->userId(), (string) ($data['comment'] ?? ''));
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -198,7 +194,7 @@ final class PayrollRunController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
-        $run = $this->approval->publish($principal->tenantId(), $id, $principal->userId(), (string) ($data['reason'] ?? ''));
+        $run = $this->approval->publish($id, $principal->userId(), (string) ($data['reason'] ?? ''));
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -211,7 +207,6 @@ final class PayrollRunController
             'manual_confirmation_reason' => ['nullable', 'string', 'min:10', 'max:1000'],
         ]);
         $run = $this->approval->markPaid(
-            $principal->tenantId(),
             $id,
             $principal->userId(),
             (string) ($data['reference'] ?? ''),
@@ -224,7 +219,7 @@ final class PayrollRunController
     public function close(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->approval->close($principal->tenantId(), $id, $principal->userId());
+        $run = $this->approval->close($id, $principal->userId());
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -233,7 +228,7 @@ final class PayrollRunController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:1000']]);
-        $run = $this->approval->cancel($principal->tenantId(), $id, $principal->userId(), (string) $data['reason']);
+        $run = $this->approval->cancel($id, $principal->userId(), (string) $data['reason']);
 
         return ApiResponse::ok($this->runs->runDetail($run));
     }
@@ -247,7 +242,6 @@ final class PayrollRunController
             'approver_user_ids.*' => ['integer', 'min:1'],
         ]);
         $run = $this->reopen->reopen(
-            $principal->tenantId(),
             $id,
             $principal->userId(),
             array_map('intval', (array) $data['approver_user_ids']),
@@ -266,7 +260,6 @@ final class PayrollRunController
         ]);
 
         $run = $this->corrections->create(
-            $principal->tenantId(),
             $id,
             $principal->userId(),
             (string) $data['period'],
@@ -279,22 +272,22 @@ final class PayrollRunController
     public function reconciliation(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $run = $this->runs->findRun($principal->tenantId(), $id);
+        $run = $this->runs->findRun($id);
 
-        return ApiResponse::ok($this->reconciliation->reconcile($principal->tenantId(), (int) $run->id));
+        return ApiResponse::ok($this->reconciliation->reconcile((int) $run->id));
     }
 
     public function exportBank(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
 
-        return ApiResponse::ok($this->exports->bankCsv($principal->tenantId(), $id, $principal->userId()));
+        return ApiResponse::ok($this->exports->bankCsv($id, $principal->userId()));
     }
 
     public function exportTax(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
 
-        return ApiResponse::ok($this->exports->taxCsv($principal->tenantId(), $id, $principal->userId()));
+        return ApiResponse::ok($this->exports->taxCsv($id, $principal->userId()));
     }
 }

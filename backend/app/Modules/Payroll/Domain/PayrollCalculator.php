@@ -279,7 +279,7 @@ final class PayrollCalculator
         $warnings = [];
 
         // 11-12: net and employer cost. A negative net is a hard failure unless
-        // the legal entity's configuration explicitly allows it. If allowed,
+        // the company's configuration explicitly allows it. If allowed,
         // the exact negative amount is returned and flagged for review.
         if ($netCents < 0) {
             if (! $input->context->allowNegativeNet) {

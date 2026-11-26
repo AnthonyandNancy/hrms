@@ -14,5 +14,5 @@ interface PayrollApprovalEffectPort
      * Apply the approval effect. Must be idempotent and fail closed if the run
      * is no longer in a state where approval may be applied.
      */
-    public function applyApproval(int $tenantId, int $runId, int $actorUserId): void;
+    public function applyApproval(int $runId, int $actorUserId): void;
 }

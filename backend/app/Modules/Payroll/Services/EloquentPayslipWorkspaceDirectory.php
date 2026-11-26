@@ -17,10 +17,9 @@ final class EloquentPayslipWorkspaceDirectory implements PayslipWorkspaceDirecto
     /**
      * @return list<array{id: int, period: string, payDate: string|null, netCents: int, state: string}>
      */
-    public function recentForEmployment(int $tenantId, int $employmentId, int $limit = 2): array
+    public function recentForEmployment(int $employmentId, int $limit = 2): array
     {
         $payslips = Payslip::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereNotNull('published_at')
             ->orderByDesc('published_at')
@@ -32,7 +31,6 @@ final class EloquentPayslipWorkspaceDirectory implements PayslipWorkspaceDirecto
         }
 
         $runs = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $payslips->pluck('run_id')->unique()->all())
             ->get()
             ->keyBy('id');

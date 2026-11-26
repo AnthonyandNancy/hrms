@@ -14,9 +14,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Shared payroll fixture. Creates a legal entity, one salaried employment and
- * a complete synthetic statutory parameter version. All values are obviously
- * DEMO data, never real statutory rates.
+ * Shared payroll fixture. Creates one salaried employment and a complete
+ * synthetic statutory parameter version. All values are obviously DEMO data,
+ * never real statutory rates.
  */
 abstract class PayrollTestCase extends TestCase
 {
@@ -25,10 +25,6 @@ abstract class PayrollTestCase extends TestCase
     protected FrozenClock $clock;
 
     protected PayrollScenario $scenario;
-
-    protected int $tenantId = 1;
-
-    protected int $legalEntityId = 1;
 
     protected function setUp(): void
     {
@@ -49,15 +45,14 @@ abstract class PayrollTestCase extends TestCase
 
         $this->app->instance(Authorizer::class, new AllowAllAuthorizer);
 
-        $this->scenario = new PayrollScenario($this->tenantId, $this->clock);
-        $this->legalEntityId = (int) $this->scenario->legalEntity()->id;
+        $this->scenario = new PayrollScenario($this->clock);
 
         $this->actAs(10, null);
     }
 
     protected function actAs(int $userId, ?int $employmentId = null, bool $mfa = true): TestPrincipal
     {
-        $principal = new TestPrincipal($this->tenantId, $userId, $employmentId, mfa: $mfa);
+        $principal = new TestPrincipal($userId, $employmentId, mfa: $mfa);
         $this->app->instance(Principal::class, $principal);
         $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
 
@@ -76,13 +71,11 @@ abstract class PayrollTestCase extends TestCase
         $employment = $this->scenario->employment('E0001', $baseSalaryCents);
         $scheme = $this->scenario->scheme();
 
-        if (\App\Modules\Payroll\Models\StatutoryParameter::query()->where('tenant_id', $this->tenantId)->exists()) {
+        if (\App\Modules\Payroll\Models\StatutoryParameter::query()->exists()) {
             return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
         }
 
         app(TaxParameterResolver::class)->createVersion(
-            $this->tenantId,
-            $this->legalEntityId,
             [
                 'parameter_set' => 'TAX',
                 'version' => 'DEMO-TAX-2026',
@@ -102,8 +95,6 @@ abstract class PayrollTestCase extends TestCase
 
         foreach (['SOCIAL_INSURANCE', 'HOUSING_FUND'] as $set) {
             app(TaxParameterResolver::class)->createVersion(
-                $this->tenantId,
-                $this->legalEntityId,
                 [
                     'parameter_set' => $set,
                     'version' => 'DEMO-'.$set.'-2026',
@@ -128,8 +119,6 @@ abstract class PayrollTestCase extends TestCase
         $start = $period.'-01';
 
         return \App\Modules\Payroll\Models\PayrollRun::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $this->legalEntityId,
             'scheme_id' => $schemeId,
             'period' => $period,
             'earning_period_start' => $start,

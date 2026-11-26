@@ -8,7 +8,7 @@ use App\Shared\Money\Percentage;
 use InvalidArgumentException;
 
 /**
- * Versioned social-insurance parameters for one legal entity and insurance
+ * Versioned social-insurance parameters for the company and insurance
  * locality. Base bounds and both contribution rates are caller supplied; no
  * statutory rate or bound is hardcoded in this domain.
  */
