@@ -7,6 +7,7 @@ namespace App\Modules\IAM\Services;
 use App\Modules\IAM\Auth\AuthenticationFailedException;
 use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
+use App\Shared\Authorization\AuthorizationSnapshot;
 use App\Shared\Time\Clock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,10 @@ use Illuminate\Support\Str;
  */
 final class SessionManager
 {
-    public function __construct(private readonly Clock $clock) {}
+    public function __construct(
+        private readonly Clock $clock,
+        private readonly AuthorizationSnapshot $snapshot,
+    ) {}
 
     /**
      * @return array{session: Session, token: string, csrf_token: string}
@@ -253,6 +257,34 @@ final class SessionManager
             ->whereNull('revoked_at')
             ->when($exceptSessionId !== null, fn ($query) => $query->whereKeyNot($exceptSessionId))
             ->update(['revoked_at' => $this->clock->now()]);
+    }
+
+    /**
+     * Invalidate every live session for a user and create exactly one new
+     * authorization generation, in one transaction.
+     *
+     * Use this for disable, password reset, role revocation and any other
+     * change to authority or session validity. The auth_version bump is the
+     * durable revocation signal: even a session row missed by the update can
+     * never pass PrincipalResolver::assertAuthVersion() again.
+     *
+     * @return array{sessions_revoked: int, auth_version: int}
+     */
+    public function invalidateForAuthorityChange(int $userId, string $reason): array
+    {
+        return DB::transaction(function () use ($userId, $reason): array {
+            /** @var User|null $locked */
+            $locked = User::query()->whereKey($userId)->lockForUpdate()->first();
+
+            if (! $locked instanceof User) {
+                return ['sessions_revoked' => 0, 'auth_version' => 0];
+            }
+
+            $revoked = $this->revokeAllForUser($userId);
+            $version = $this->snapshot->replay($locked, $reason);
+
+            return ['sessions_revoked' => $revoked, 'auth_version' => $version];
+        });
     }
 
     public function markMfaVerified(Session $session): void

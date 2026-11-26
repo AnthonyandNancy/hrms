@@ -60,6 +60,73 @@ final class AuthorizationSnapshot
         });
     }
 
+    /**
+     * Replay every user currently holding the role, exactly once per user.
+     *
+     * A role can have more than one live user_roles row (renewals, overlapping
+     * grants); the distinct user list ensures one authority mutation produces
+     * one generation bump per affected account. The whole fan-out is one
+     * transaction, so a failure in any user leaves every snapshot untouched.
+     */
+    public function replayRole(string $roleCode, string $reason): int
+    {
+        $roleCode = strtoupper(trim($roleCode));
+
+        return DB::transaction(function () use ($roleCode, $reason): int {
+            $userIds = UserRole::query()
+                ->where('role_code', $roleCode)
+                ->distinct()
+                ->orderBy('user_id')
+                ->pluck('user_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+
+            $replayed = 0;
+
+            foreach ($userIds as $userId) {
+                /** @var User|null $user */
+                $user = User::query()->whereKey($userId)->lockForUpdate()->first();
+
+                if (! $user instanceof User) {
+                    continue;
+                }
+
+                $this->replay($user, $reason);
+                $replayed++;
+            }
+
+            return $replayed;
+        });
+    }
+
+    /**
+     * Replay the supplied users exactly once each. Duplicate ids are ignored.
+     *
+     * @param  list<int>  $userIds
+     */
+    public function replayUsers(array $userIds, string $reason): int
+    {
+        $unique = array_values(array_unique(array_map(static fn (mixed $id): int => (int) $id, $userIds)));
+
+        return DB::transaction(function () use ($unique, $reason): int {
+            $replayed = 0;
+
+            foreach ($unique as $userId) {
+                /** @var User|null $user */
+                $user = User::query()->whereKey($userId)->lockForUpdate()->first();
+
+                if (! $user instanceof User) {
+                    continue;
+                }
+
+                $this->replay($user, $reason);
+                $replayed++;
+            }
+
+            return $replayed;
+        });
+    }
+
     private function copyEffectiveBindings(User $user, int $fromVersion, int $toVersion): void
     {
         $now = $this->clock->now();
