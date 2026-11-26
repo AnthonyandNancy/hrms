@@ -63,9 +63,19 @@ final class CompanyPreflightCommand extends Command
     {
         // Driver-neutral inventory: Schema::getTables() plus Schema::hasColumn()
         // runs on SQLite in tests and on MySQL 8.4 in the rehearsal stack.
-        $tables = collect(Schema::getTables())
+        // Scope the inventory to the connected schema. On MySQL,
+        // Schema::getTables() without a schema argument reads the whole server,
+        // so co-located databases (a restore rehearsal copy, for example) would
+        // otherwise be reported and counted as if they were ours. SQLite names
+        // its schema "main"/"temp", so it is passed no schema at all.
+        $driver = (string) DB::connection()->getDriverName();
+        $schema = (string) DB::connection()->getDatabaseName();
+        $tables = collect(Schema::getTables($driver === 'mysql' ? $schema : null))
+            ->filter(static fn (array $table): bool => $driver !== 'mysql'
+                || ($table['schema'] ?? $schema) === $schema)
             ->pluck('name')
             ->map(static fn (mixed $name): string => (string) $name)
+            ->unique()
             ->sort()
             ->values();
 
@@ -78,7 +88,7 @@ final class CompanyPreflightCommand extends Command
             'legal_entity_bindings' => Schema::hasTable('authority_bindings')
                 ? DB::table('authority_bindings')->where('anchor_type', 'LEGAL_ENTITY')->count() // single-company:preflight-only
                 : 0,
-            'tables' => $tables->map(function (string $table): array {
+            'tables' => $tables->map(function (string $table) use ($driver, $schema): array {
                 $legacy = array_values(array_filter(
                     ['tenant_id', 'legal_entity_id'], // single-company:preflight-only
                     static fn (string $column): bool => Schema::hasColumn($table, $column),
@@ -86,7 +96,9 @@ final class CompanyPreflightCommand extends Command
 
                 return [
                     'table' => $table,
-                    'rows' => DB::table($table)->count(),
+                    'rows' => $driver === 'mysql'
+                        ? DB::table($schema.'.'.$table)->count()
+                        : DB::table($table)->count(),
                     'legacy_columns' => $legacy,
                 ];
             })->all(),
