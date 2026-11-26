@@ -93,10 +93,10 @@ describe('gap marker parser', () => {
 })
 
 describe('frozen cluster membership', () => {
-  it('pins every one of the 63 pages to a cluster', () => {
+  it('pins every one of the 62 pages to a cluster', () => {
     const entries = Object.entries(CLUSTER_MEMBERSHIP)
 
-    expect(entries).toHaveLength(63)
+    expect(entries).toHaveLength(62)
   })
 
   it('matches the documented 12-cluster counts', () => {
@@ -111,7 +111,7 @@ describe('frozen cluster membership', () => {
       K8: 6,
       K9: 10,
       K10: 7,
-      K11: 15,
+      K11: 14,
       K12: 5,
     })
   })
@@ -124,7 +124,7 @@ describe('frozen cluster membership', () => {
       actual.set(match[2], match[1])
     }
 
-    expect(actual.size).toBe(63)
+    expect(actual.size).toBe(62)
     expect(Object.fromEntries([...actual.entries()].sort())).toEqual(
       Object.fromEntries(Object.entries(CLUSTER_MEMBERSHIP).sort()),
     )

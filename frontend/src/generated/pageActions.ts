@@ -105,6 +105,23 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
+  "hr-contracts": [
+    {
+      "pageCode": "hr-contracts",
+      "key": "people.contracts.create",
+      "label": "签订劳动合同",
+      "capability": "people.contract.manage",
+      "api": "POST /v1/employments/{employmentId}/contracts",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
   "hr-departments": [
     {
       "pageCode": "hr-departments",
@@ -169,6 +186,85 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
+  "hr-positions": [
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.create",
+      "label": "新增岗位",
+      "capability": "org.position.manage",
+      "api": "POST /v1/positions",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.edit",
+      "label": "编辑岗位",
+      "capability": "org.position.manage",
+      "api": "PATCH /v1/positions/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "notices": [
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.archive",
+      "label": "归档公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/archive",
+      "ui": "secondary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.create",
+      "label": "发布公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.restore",
+      "label": "恢复公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/restore",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
   "recruitment-candidates": [
     {
       "pageCode": "recruitment-candidates",
@@ -195,6 +291,21 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "api": "POST /v1/recruitment/requisitions/{id}/close",
       "ui": "danger",
       "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.create",
+      "label": "发起招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "POST /v1/recruitment/requisitions",
+      "ui": "primary",
+      "confirm": "none",
       "anchorTypes": [
         "ORG_UNIT",
         "ORG_SUBTREE",

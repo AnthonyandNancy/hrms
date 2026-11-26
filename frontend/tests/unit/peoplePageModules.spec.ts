@@ -10,6 +10,7 @@ import type { Component } from 'vue'
 import { PAGE_REGISTRY } from '@/router/registry'
 import { matureView } from '@/router/pageComponents'
 import { PAGE_COMPONENTS } from '@/modules/people/pages'
+import { useSessionStore } from '@/stores/session'
 import PeopleWorkspace from '@/modules/people/components/PeopleWorkspace.vue'
 
 const resource = vi.hoisted(() => ({
@@ -64,6 +65,27 @@ const DEDICATED_EMPLOYEE_PAGES: ReadonlyMap<string, { target: string; shape: Reg
     },
   ],
   [
+    'DepartmentTreePage.vue',
+    {
+      target: '../../departments/pages/DepartmentWorkspacePage.vue',
+      shape: /import\s+DepartmentWorkspacePage\s+from\s+['"]\.\.\/departments\/pages\/DepartmentWorkspacePage\.vue['"][\s\S]*<DepartmentWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'PositionCatalogPage.vue',
+    {
+      target: '../../positions/pages/PositionWorkspacePage.vue',
+      shape: /import\s+PositionWorkspacePage\s+from\s+['"]\.\.\/positions\/pages\/PositionWorkspacePage\.vue['"][\s\S]*<PositionWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'ContractLedgerPage.vue',
+    {
+      target: '../../contracts/pages/ContractWorkspacePage.vue',
+      shape: /import\s+ContractWorkspacePage\s+from\s+['"]\.\.\/contracts\/pages\/ContractWorkspacePage\.vue['"][\s\S]*<ContractWorkspacePage\s*\/>/,
+    },
+  ],
+  [
     'EmployeeDetailPage.vue',
     {
       target: 'EmployeeDetailPage.vue',
@@ -106,6 +128,9 @@ async function mountPage(key: string, path: string) {
 
   const pinia = createPinia()
   setActivePinia(pinia)
+  const session = useSessionStore()
+  session.capabilities = ['people.employee.read', 'people.contract.read', 'org.unit.read', 'org.position.read']
+  session.status = 'authenticated'
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -136,21 +161,22 @@ beforeEach(() => {
 })
 
 describe('People page module manifest', () => {
-  it('has 39 distinct page files and a loader for every People registry key', async () => {
-    expect(peopleKeys).toHaveLength(39)
-    expect(new Set(peopleKeys).size).toBe(39)
+  it('has 35 distinct page files and a loader for every People registry key', async () => {
+    // ADR-0035: the four People form routes are now workspace actions.
+    expect(peopleKeys).toHaveLength(35)
+    expect(new Set(peopleKeys).size).toBe(35)
 
     const pageFiles = readdirSync(pagesDir)
       .filter((name) => name.endsWith('.vue'))
       .sort()
-    expect(pageFiles).toHaveLength(39)
-    expect(new Set(pageFiles).size).toBe(39)
+    expect(pageFiles).toHaveLength(35)
+    expect(new Set(pageFiles).size).toBe(35)
 
     const manifestSource = readFileSync(join(pagesDir, 'index.ts'), 'utf8')
     const mappedFiles = [...manifestSource.matchAll(/import\(['"]\.\/([^'"]+\.vue)['"]\)/g)]
       .map((match) => match[1])
-    expect(mappedFiles).toHaveLength(39)
-    expect(new Set(mappedFiles).size).toBe(39)
+    expect(mappedFiles).toHaveLength(35)
+    expect(new Set(mappedFiles).size).toBe(35)
     expect(mappedFiles.sort()).toEqual(pageFiles)
 
     expect(Object.keys(loaders).sort()).toEqual([...peopleKeys].sort())
@@ -168,6 +194,7 @@ describe('People page module manifest', () => {
     const cases = [
       {
         key: 'hr/employees/index',
+        file: 'EmployeeListPage.vue',
         path: '/hr/employees',
         api: '/v1/employees',
         response: () => listResponse([
@@ -177,6 +204,7 @@ describe('People page module manifest', () => {
       },
       {
         key: 'hr/departments/index',
+        file: 'DepartmentTreePage.vue',
         path: '/hr/departments',
         api: '/v1/org-units/tree',
         response: () => listResponse([
@@ -186,6 +214,7 @@ describe('People page module manifest', () => {
       },
       {
         key: 'hr/contracts/index',
+        file: 'ContractLedgerPage.vue',
         path: '/hr/contracts',
         api: '/v1/employments/contracts',
         response: () => projectionResponse([
@@ -218,11 +247,10 @@ describe('People page module manifest', () => {
       expect(resource.get, testCase.key).toHaveBeenCalledWith(testCase.api, expect.any(Object))
       expect(wrapper.text(), testCase.key).toContain(testCase.text)
 
-      if (testCase.key === 'hr/employees/index') {
-        // The employee list is a dedicated workspace now; its config-driven
-        // shell must never come back.
+      if (DEDICATED_EMPLOYEE_PAGES.has(testCase.file)) {
+        // Dedicated workspaces own their own tables/drawers; the config-driven
+        // shell must never come back for them.
         expect(wrapper.findComponent(PeopleWorkspace).exists(), testCase.key).toBe(false)
-        expect(wrapper.find('[data-testid="employee-table"]').exists(), testCase.key).toBe(true)
         observedConfigs.push(testCase.key)
         continue
       }
@@ -242,7 +270,10 @@ describe('People page module manifest', () => {
     const expectedApis: string[] = [
       ...cases.map((testCase) => testCase.api as string),
       '/v1/departments',
+      '/v1/departments/10/members',
+      '/v1/org-units/tree',
       '/v1/positions',
+      '/v1/employees',
     ]
     expect(new Set(observedApis)).toEqual(new Set(expectedApis))
     expect(new Set(observedConfigs)).toEqual(new Set(cases.map((testCase) => testCase.key)))

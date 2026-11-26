@@ -19,7 +19,9 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pathToFileURL } from 'node:url'
 
-const EXPECTED_REGISTRY_COUNT = 162
+// ADR-0035: seven create/edit/archive form routes became workspace actions,
+// so the registry is 155 entries (6 base + 134 business + 15 platform).
+const EXPECTED_REGISTRY_COUNT = 155
 const accountSecurityView = 'frontend/src/views/AccountSecurityView.vue'
 
 /**

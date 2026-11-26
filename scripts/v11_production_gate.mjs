@@ -54,7 +54,7 @@ const GATES = [
   },
   {
     id: 'real-stack',
-    label: 'real Docker stack serves 160 pages and release traceability',
+    label: 'real Docker stack serves 155 pages and release traceability',
     command: ['bash', ['deploy/scripts/verify_real_stack.sh']],
   },
   {

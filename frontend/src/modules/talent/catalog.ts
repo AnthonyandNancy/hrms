@@ -36,7 +36,6 @@ const CALIBRATION_CREATES: readonly TalentFormKind[] = ['calibration-create']
 const RESULT_CREATES: readonly TalentFormKind[] = ['cycle-publish']
 const TEMPLATE_CREATES: readonly TalentFormKind[] = ['template-create']
 const REVIEW_CREATES: readonly TalentFormKind[] = ['review-create', 'review-submit', 'review-appeal']
-const REQUISITION_CREATES: readonly TalentFormKind[] = ['requisition-create']
 const APPROVAL_CREATES: readonly TalentFormKind[] = ['requisition-approve']
 const IMPORT_CREATES: readonly TalentFormKind[] = ['candidate-import']
 const OPENING_CREATES: readonly TalentFormKind[] = ['opening-publish']
@@ -311,17 +310,6 @@ const REQUEST_PAGES: TalentPageConfig[] = [
     readLabel: '招聘需求',
     columns: REQUISITION_COLUMNS,
     forms: [],
-    panels: [PANEL.openings],
-  },
-  {
-    ...RECRUITMENT_REQUEST_BASE,
-    key: 'recruitment/requests/create',
-    title: '招聘需求新建',
-    description: '创建后自动进入审批流程，审批通过后才允许开放岗位。',
-    readPath: '/v1/recruitment/requisitions',
-    readLabel: '现有招聘需求',
-    columns: REQUISITION_COLUMNS,
-    forms: REQUISITION_CREATES,
     panels: [PANEL.openings],
   },
   {

@@ -5,6 +5,7 @@ import { resourceDelete, resourceGet, resourcePatch, resourcePost, resourcePut }
 import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { FIELD_PROFILE_LABEL } from '@/utils/status'
+import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import { useSessionStore } from '@/stores/session'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -81,7 +82,6 @@ const benefitTransactions = ref<PlatformRow[]>([])
 const noticeAudience = ref<PlatformRow | null>(null)
 const noticeReads = ref<PlatformRow[]>([])
 const noticeTemplates = ref<PlatformRow[]>([])
-const archivedNotices = ref<PlatformRow[]>([])
 const noticeDecisionComment = ref('')
 
 const benefitPlanForm = reactive({
@@ -129,16 +129,6 @@ const subscriptionForm = reactive({
   frequency: 'MONTHLY',
 })
 
-const noticeForm = reactive({
-  title: '',
-  body: '',
-  audience: 'ALL' as 'ALL' | 'ORG' | 'ROLE',
-  audienceLabel: '全体员工',
-  orgUnitIds: '',
-  roleCodes: '',
-  requiresAck: true,
-})
-
 const userForm = reactive({
   username: '',
   email: '',
@@ -146,8 +136,8 @@ const userForm = reactive({
   isPrivileged: false,
 })
 
-const userStatusForm = reactive({
-  status: 'ACTIVE',
+const userStatusForm = reactive<{ status: string; reason: string }>({
+  status: DISPLAY_CODES.userStatus.active,
   reason: '',
 })
 
@@ -165,7 +155,7 @@ const bindingForm = reactive({
   capabilityCode: '',
   anchorType: 'COMPANY',
   anchorId: '',
-  fieldProfile: 'P1_INTERNAL',
+  fieldProfile: DISPLAY_CODES.fieldProfile.p1Internal,
   purposeCode: '',
   validFrom: '',
   validTo: '',
@@ -183,7 +173,7 @@ const roleCreateForm = reactive({
   purpose: '',
   capability: '',
   anchorType: 'COMPANY',
-  fieldProfile: 'P1_INTERNAL',
+  fieldProfile: DISPLAY_CODES.fieldProfile.p1Internal,
   expiresAt: '',
 })
 
@@ -191,7 +181,7 @@ const roleCapabilityForm = reactive({
   roleCode: '',
   capability: '',
   anchorType: 'COMPANY',
-  fieldProfile: 'P1_INTERNAL',
+  fieldProfile: DISPLAY_CODES.fieldProfile.p1Internal,
 })
 
 const menuForm = reactive({
@@ -210,7 +200,7 @@ const dataScopeForm = reactive({
 
 const fieldPolicyForm = reactive({
   fieldKey: '',
-  fieldProfile: 'P1_INTERNAL',
+  fieldProfile: DISPLAY_CODES.fieldProfile.p1Internal,
 })
 
 const dictionaryForm = reactive({
@@ -400,7 +390,7 @@ const empty = computed(() => {
     case 'notice-list':
       return notices.value.length === 0
     case 'notice-governance':
-      return notices.value.length === 0 && noticeTemplates.value.length === 0 && archivedNotices.value.length === 0
+      return notices.value.length === 0 && noticeTemplates.value.length === 0
     case 'account':
       return meData.value === null
     case 'users':
@@ -429,8 +419,6 @@ const empty = computed(() => {
       return auditEvents.value.length === 0 && unusedBindings.value.length === 0 && sodRisks.value.length === 0
     case 'benefits':
       return benefitsPlans.value.length === 0 && benefitEnrollments.value.length === 0 && benefitTransactions.value.length === 0
-    case 'notice-create':
-      return false
     default:
       return true
   }
@@ -488,13 +476,6 @@ function parsePositiveIds(value: string): number[] {
     .map((item) => item.trim())
     .filter((item) => /^\d+$/.test(item))
     .map((item) => Number(item))
-}
-
-function parseRoleCodes(value: string): string[] {
-  return value
-    .split(',')
-    .map((item) => item.trim().toUpperCase())
-    .filter((item) => /^[A-Z][A-Z0-9_]{2,63}$/.test(item))
 }
 
 function bodyParagraphs(value: unknown): string[] {
@@ -638,13 +619,6 @@ async function loadNoticeGovernance(): Promise<void> {
   if (panel === 'templates') {
     const payload = await resourceGet<unknown>('/v1/engagement/notice-templates')
     noticeTemplates.value = rowsFrom(payload)
-    partial.value = partialFlag(payload)
-    return
-  }
-
-  if (panel === 'archive') {
-    const payload = await resourceGet<unknown>('/v1/engagement/notices/archive', { page: 1, page_size: 50 })
-    archivedNotices.value = rowsFrom(payload)
     partial.value = partialFlag(payload)
     return
   }
@@ -798,25 +772,6 @@ async function archiveNotice(row: PlatformRow): Promise<void> {
     )
     row.status = 'ARCHIVED'
     successMessage.value = '公告已归档。'
-  } catch (reason) {
-    failAction(reason)
-  }
-}
-
-async function restoreNotice(row: PlatformRow): Promise<void> {
-  const id = idText(row.id)
-  if (id === '') return
-  resetFeedback()
-
-  try {
-    const payload = await resourcePost<unknown>(
-      `/v1/engagement/notices/${id}/restore`,
-      {},
-      { idempotencyKey: nextIdempotencyKey('notice-restore'), headers: writeHeaders() },
-    )
-    const updated = recordFrom(payload)
-    if (updated !== null) row.status = updated.status
-    successMessage.value = '公告已恢复。'
   } catch (reason) {
     failAction(reason)
   }
@@ -1020,7 +975,6 @@ async function load(): Promise<void> {
         await loadExportHistory()
         break
       case 'notice-list':
-      case 'notice-create':
         await loadNotices()
         break
       case 'notice-governance':
@@ -1134,54 +1088,6 @@ async function retractNotice(row: PlatformRow): Promise<void> {
   }
 }
 
-async function submitNotice(): Promise<void> {
-  resetFeedback()
-  const title = noticeForm.title.trim()
-  const body = noticeForm.body.trim()
-  if (title === '' || body === '') {
-    actionError.value = { message: '标题与正文为必填项。', requestId: null, reason: 'NOTICE_CONTENT_REQUIRED' }
-    return
-  }
-
-  const payload: Record<string, unknown> = {
-    title,
-    body,
-    audience: noticeForm.audience,
-    audienceLabel: noticeForm.audienceLabel.trim(),
-    requiresAck: noticeForm.requiresAck,
-  }
-
-  if (noticeForm.audience === 'ORG') {
-    const orgIds = parsePositiveIds(noticeForm.orgUnitIds)
-    if (orgIds.length === 0) {
-      actionError.value = { message: '按组织发布时至少填写一个真实组织 ID。', requestId: null, reason: 'ORG_AUDIENCE_REQUIRED' }
-      return
-    }
-    payload.orgUnitIds = orgIds
-  }
-
-  if (noticeForm.audience === 'ROLE') {
-    const roleCodes = parseRoleCodes(noticeForm.roleCodes)
-    if (roleCodes.length === 0) {
-      actionError.value = { message: '按角色发布时至少填写一个合法角色码。', requestId: null, reason: 'ROLE_AUDIENCE_REQUIRED' }
-      return
-    }
-    payload.roleCodes = roleCodes
-  }
-
-  try {
-    await resourcePost<unknown>('/v1/engagement/notices', payload, {
-      idempotencyKey: nextIdempotencyKey('notice-create'),
-      headers: writeHeaders(),
-    })
-    successMessage.value = '公告已发布；目标受众会在公告中心看到。'
-    noticeForm.title = ''
-    noticeForm.body = ''
-  } catch (reason) {
-    failAction(reason)
-  }
-}
-
 async function enrollMfa(): Promise<void> {
   resetFeedback()
   try {
@@ -1284,7 +1190,7 @@ async function createUser(): Promise<void> {
 
 function selectUser(row: PlatformRow): void {
   selectedUser.value = row
-  userStatusForm.status = rowText(row, 'status', 'ACTIVE')
+  userStatusForm.status = rowText(row, 'status', DISPLAY_CODES.userStatus.active)
   userStatusForm.reason = ''
   bindings.value = []
   actionError.value = null
@@ -2225,7 +2131,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">可用报表定义</h2>
-              <p class="panel__subtitle">定义、字段档位与可导出口径均由 GET /v1/reporting/definitions 返回。</p>
+              <p class="panel__subtitle">定义、字段档位与可导出口径均由报表定义接口返回。</p>
             </div>
           </div>
           <div v-if="definitions.length > 0" class="platform-table-wrap">
@@ -2436,7 +2342,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">导出历史</h2>
-              <p class="panel__subtitle">GET /v1/reporting/exports 返回 source_hash、字段白名单与审计轨迹；下载链接短效签名。</p>
+              <p class="panel__subtitle">导出记录包含来源摘要、字段白名单与审计轨迹；下载链接短效签名。</p>
             </div>
             <span class="plain-chip">{{ exportHistory.length }} 个任务</span>
           </div>
@@ -2486,7 +2392,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">绩效报表</h2>
-              <p class="panel__subtitle">来自 GET /v1/performance/reports 的授权投影；没有周期时只显示空状态。</p>
+              <p class="panel__subtitle">来自绩效报表的授权投影；没有周期时只显示空状态。</p>
             </div>
             <span class="plain-chip">{{ talentPerformanceRows.length }} 个周期</span>
           </div>
@@ -2524,7 +2430,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">培训报表</h2>
-              <p class="panel__subtitle">来自 GET /v1/training/reports 的计划级完训、考试与反馈聚合；金额为整数分。</p>
+              <p class="panel__subtitle">来自培训报表的计划级完训、考试与反馈聚合；金额为整数分。</p>
             </div>
             <span class="plain-chip">{{ talentTrainingRows.length }} 个计划</span>
           </div>
@@ -2642,7 +2548,7 @@ watch(selectedExportDefinition, () => {
               {{ option.label }}
             </button>
           </div>
-          <RouterLink to="/notices/editor" class="platform-link">发布公告 →</RouterLink>
+          <RouterLink to="/notices" class="platform-link">发布公告 →</RouterLink>
         </div>
 
         <section v-if="notices.length > 0" class="platform-card-list">
@@ -2862,103 +2768,14 @@ watch(selectedExportDefinition, () => {
           </div>
           <div v-else class="panel__body"><p class="empty-inline">尚未发布模板。</p></div>
         </section>
-
-        <section v-if="mode === 'notice-governance' && config?.noticePanel === 'archive'" class="panel" data-testid="notice-archive-panel">
-          <div class="panel__header"><h2 class="panel__title">公告归档</h2></div>
-          <div v-if="archivedNotices.length > 0" class="platform-table-wrap">
-            <table class="platform-table">
-              <caption class="visually-hidden">已归档公告</caption>
-              <thead><tr><th scope="col">标题</th><th scope="col">归档时间</th><th scope="col">摘要</th><th scope="col">操作</th></tr></thead>
-              <tbody>
-                <tr v-for="notice in archivedNotices" :key="`archived-${idText(notice.id)}`">
-                  <td>{{ rowText(notice, 'title') }}</td>
-                  <td>{{ formatDateTimeInTimezone(rowText(notice, 'archivedAt', '')) }}</td>
-                  <td>{{ rowText(notice, 'summary') }}</td>
-                  <td><el-button size="small" @click="restoreNotice(notice)">恢复</el-button></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="panel__body"><p class="empty-inline">没有已归档公告。</p></div>
-        </section>
       </template>
 
-      <template v-else-if="mode === 'notice-create'">
-        <section class="panel">
-          <div class="panel__header">
-            <div>
-              <h2 class="panel__title">发布真实公告</h2>
-              <p class="panel__subtitle">受众类型、组织 ID 与角色码由服务端重新校验；无受众不发布。</p>
-            </div>
-          </div>
-          <div class="panel__body platform-form">
-            <label class="platform-field">
-              <span>标题</span>
-              <input v-model="noticeForm.title" data-testid="notice-title" maxlength="200" placeholder="例：关于 12 月薪酬发放日的安排" />
-            </label>
-            <label class="platform-field">
-              <span>正文</span>
-              <textarea v-model="noticeForm.body" data-testid="notice-body" rows="7" maxlength="20000" placeholder="填写员工实际看到的公告正文" />
-            </label>
-            <div class="platform-form-grid">
-              <label class="platform-field">
-                <span>受众类型</span>
-                <select v-model="noticeForm.audience" data-testid="notice-audience">
-                  <option value="ALL">全员</option>
-                  <option value="ORG">按组织</option>
-                  <option value="ROLE">按角色</option>
-                </select>
-              </label>
-              <label class="platform-field">
-                <span>受众说明</span>
-                <input v-model="noticeForm.audienceLabel" maxlength="120" data-testid="notice-audience-label" />
-              </label>
-            </div>
-            <label v-if="noticeForm.audience === 'ORG'" class="platform-field">
-              <span>组织 ID（逗号分隔）</span>
-              <input v-model="noticeForm.orgUnitIds" inputmode="numeric" placeholder="例：10,12" data-testid="notice-org-ids" />
-            </label>
-            <label v-if="noticeForm.audience === 'ROLE'" class="platform-field">
-              <span>角色码（逗号分隔）</span>
-              <input v-model="noticeForm.roleCodes" placeholder="例：HR_ADMIN,LINE_MANAGER" data-testid="notice-role-codes" />
-            </label>
-            <label class="platform-check">
-              <input v-model="noticeForm.requiresAck" type="checkbox" data-testid="notice-requires-ack" />
-              要求阅读确认并生成待办
-            </label>
-            <div class="platform-inline-actions">
-              <el-button type="primary" data-testid="notice-submit" @click="submitNotice">发布并记录审计</el-button>
-              <RouterLink to="/notices" class="platform-link">返回公告列表</RouterLink>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel__header">
-            <h2 class="panel__title">已发布公告</h2>
-          </div>
-          <div class="panel__body">
-            <p v-if="notices.length === 0" class="empty-inline">当前列表未返回已发布公告。</p>
-            <ul v-else class="platform-list">
-              <li v-for="notice in notices" :key="idText(notice.id)">
-                <div>
-                  <p class="platform-list__title">{{ rowText(notice, 'title') }}</p>
-                  <p class="small muted">{{ rowText(notice, 'audienceLabel') }}</p>
-                </div>
-                <span class="plain-chip">{{ statusText(rowText(notice, 'status')) }}</span>
-              </li>
-            </ul>
-          </div>
-        </section>
-      </template>
-
-      <!-- Account -->
       <template v-else-if="mode === 'account'">
         <section v-if="meData" class="panel">
           <div class="panel__header">
             <div>
               <h2 class="panel__title">当前账号</h2>
-              <p class="panel__subtitle">身份、公司与 MFA 状态来自 GET /v1/me。</p>
+              <p class="panel__subtitle">身份、公司与 MFA 状态来自当前账号接口。</p>
             </div>
             <span class="plain-chip">{{ meData.has_mfa ? 'MFA 已启用' : 'MFA 未启用' }}</span>
           </div>
@@ -3107,9 +2924,9 @@ watch(selectedExportDefinition, () => {
                 <label class="platform-field">
                   <span>状态</span>
                   <select v-model="userStatusForm.status" data-testid="user-status">
-                    <option value="ACTIVE">启用</option>
-                    <option value="LOCKED">锁定</option>
-                    <option value="DISABLED">停用</option>
+                    <option :value="DISPLAY_CODES.userStatus.active">{{ translate('platform', 'userStatus', DISPLAY_CODES.userStatus.active).label }}</option>
+                    <option :value="DISPLAY_CODES.userStatus.locked">{{ translate('platform', 'userStatus', DISPLAY_CODES.userStatus.locked).label }}</option>
+                    <option :value="DISPLAY_CODES.userStatus.disabled">{{ translate('platform', 'userStatus', DISPLAY_CODES.userStatus.disabled).label }}</option>
                   </select>
                 </label>
                 <label class="platform-field">
@@ -3224,10 +3041,10 @@ watch(selectedExportDefinition, () => {
                 <label class="platform-field">
                   <span>字段档位</span>
                   <select v-model="bindingForm.fieldProfile">
-                    <option value="P0_PUBLIC">P0 公开</option>
-                    <option value="P1_INTERNAL">P1 内部</option>
-                    <option value="P2_SENSITIVE">P2 敏感</option>
-                    <option value="P3_RESTRICTED">P3 受限</option>
+                    <option :value="DISPLAY_CODES.fieldProfile.p0Public">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p0Public).label }}</option>
+                    <option :value="DISPLAY_CODES.fieldProfile.p1Internal">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p1Internal).label }}</option>
+                    <option :value="DISPLAY_CODES.fieldProfile.p2Sensitive">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p2Sensitive).label }}</option>
+                    <option :value="DISPLAY_CODES.fieldProfile.p3Restricted">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p3Restricted).label }}</option>
                   </select>
                 </label>
                 <label class="platform-field">
@@ -3280,7 +3097,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">创建例外角色</h2>
-              <p class="panel__subtitle">POST /v1/roles · 能力码来自只读目录，服务端校验锚点与字段上限。</p>
+              <p class="panel__subtitle">新建角色 · 能力码来自只读目录，服务端校验锚点与字段上限。</p>
             </div>
           </div>
           <div class="panel__body platform-form-grid">
@@ -3312,10 +3129,10 @@ watch(selectedExportDefinition, () => {
             <label class="platform-field">
               <span>字段档位</span>
               <select v-model="roleCreateForm.fieldProfile" data-testid="role-create-field-profile">
-                <option value="P0_PUBLIC">P0_PUBLIC</option>
-                <option value="P1_INTERNAL">P1_INTERNAL</option>
-                <option value="P2_SENSITIVE">P2_SENSITIVE</option>
-                <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p0Public">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p0Public).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p1Internal">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p1Internal).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p2Sensitive">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p2Sensitive).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p3Restricted">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p3Restricted).label }}</option>
               </select>
             </label>
             <label class="platform-field">
@@ -3332,7 +3149,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">替换角色能力包</h2>
-              <p class="panel__subtitle">PUT /v1/roles/{id}/capabilities · 模板角色由代码拥有，服务端返回 409。</p>
+              <p class="panel__subtitle">保存角色能力 · 模板角色由代码拥有，服务端返回 409。</p>
             </div>
           </div>
           <div class="panel__body platform-form-grid">
@@ -3356,10 +3173,10 @@ watch(selectedExportDefinition, () => {
             <label class="platform-field">
               <span>字段档位</span>
               <select v-model="roleCapabilityForm.fieldProfile" data-testid="role-capability-field-profile">
-                <option value="P0_PUBLIC">P0_PUBLIC</option>
-                <option value="P1_INTERNAL">P1_INTERNAL</option>
-                <option value="P2_SENSITIVE">P2_SENSITIVE</option>
-                <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p0Public">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p0Public).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p1Internal">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p1Internal).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p2Sensitive">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p2Sensitive).label }}</option>
+                <option :value="DISPLAY_CODES.fieldProfile.p3Restricted">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p3Restricted).label }}</option>
               </select>
             </label>
             <div class="platform-inline-actions">
@@ -3375,7 +3192,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">可见菜单与页面</h2>
-              <p class="panel__subtitle">来自 GET /v1/me/permissions；页面可见性不会由父菜单隐式授予。</p>
+              <p class="panel__subtitle">来自当前账号的权限投影；页面可见性不会由父菜单隐式授予。</p>
             </div>
             <span class="plain-chip">{{ visiblePages.length }} 个可见页面</span>
           </div>
@@ -3410,7 +3227,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">能力目录（只读）</h2>
-              <p class="panel__subtitle">来自 GET /v1/capabilities；不提供前端新建能力码。</p>
+              <p class="panel__subtitle">来自能力目录；不提供前端新建能力码。</p>
             </div>
           </div>
           <div v-if="capabilityRows.length > 0" class="platform-table-wrap">
@@ -3471,7 +3288,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">菜单覆盖</h2>
-                <p class="panel__subtitle">GET/POST/DELETE /v1/system/menus · 仅影响展示标签、排序与可见性。</p>
+                <p class="panel__subtitle">菜单配置 · 仅影响展示标签、排序与可见性。</p>
               </div>
               <span class="plain-chip">{{ menuOverrideRows.length }} 条覆盖</span>
             </div>
@@ -3520,7 +3337,7 @@ watch(selectedExportDefinition, () => {
         </template>
         <section v-if="mode === 'permissions'" class="panel">
           <div class="panel__body">
-            <p class="small muted">能力码与语义由代码拥有；角色能力包的写入入口在“角色管理”页面，通过 PUT /v1/roles/{id}/capabilities 完成。</p>
+            <p class="small muted">能力码与语义由代码拥有；角色能力包的写入入口在“角色管理”页面完成。</p>
           </div>
         </section>
         <template v-if="mode === 'data-scopes'">
@@ -3528,7 +3345,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">数据范围模板</h2>
-                <p class="panel__subtitle">GET /v1/system/data-scopes · 只允许代码白名单模板，拒绝任意谓词。</p>
+                <p class="panel__subtitle">数据范围配置 · 只允许代码白名单模板，拒绝任意谓词。</p>
               </div>
             </div>
             <div v-if="dataScopeRows.length > 0" class="platform-table-wrap">
@@ -3584,7 +3401,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">敏感字段策略</h2>
-                <p class="panel__subtitle">GET /v1/system/field-policies · 只允许收紧，放宽请求返回 409。</p>
+                <p class="panel__subtitle">字段策略 · 只允许收紧，放宽请求返回 409。</p>
               </div>
             </div>
             <div v-if="fieldPolicyRows.length > 0" class="platform-table-wrap">
@@ -3618,10 +3435,10 @@ watch(selectedExportDefinition, () => {
               <label class="platform-field">
                 <span>目标档位</span>
                 <select v-model="fieldPolicyForm.fieldProfile" data-testid="field-policy-profile">
-                  <option value="P0_PUBLIC">P0_PUBLIC</option>
-                  <option value="P1_INTERNAL">P1_INTERNAL</option>
-                  <option value="P2_SENSITIVE">P2_SENSITIVE</option>
-                  <option value="P3_RESTRICTED">P3_RESTRICTED</option>
+                  <option :value="DISPLAY_CODES.fieldProfile.p0Public">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p0Public).label }}</option>
+                  <option :value="DISPLAY_CODES.fieldProfile.p1Internal">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p1Internal).label }}</option>
+                  <option :value="DISPLAY_CODES.fieldProfile.p2Sensitive">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p2Sensitive).label }}</option>
+                  <option :value="DISPLAY_CODES.fieldProfile.p3Restricted">{{ translate('platform', 'fieldProfile', DISPLAY_CODES.fieldProfile.p3Restricted).label }}</option>
                 </select>
               </label>
               <div class="platform-inline-actions">
@@ -3635,7 +3452,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">字典项</h2>
-                <p class="panel__subtitle">GET/POST/PATCH /v1/system/dictionaries · 写入经 Platform 服务校验。</p>
+                <p class="panel__subtitle">字典维护 · 写入经平台服务校验。</p>
               </div>
               <div class="platform-inline-actions">
                 <el-button type="primary" data-testid="parameter-save" @click="saveParameter">保存参数</el-button>
@@ -3664,11 +3481,11 @@ watch(selectedExportDefinition, () => {
             <div class="panel__body platform-form-grid">
               <label class="platform-field">
                 <span>类型</span>
-                <input v-model="dictionaryForm.type" data-testid="dictionary-type" placeholder="EMPLOYEE_STATUS" />
+                <input v-model="dictionaryForm.type" data-testid="dictionary-type" placeholder="例如：员工状态" />
               </label>
               <label class="platform-field">
                 <span>编码</span>
-                <input v-model="dictionaryForm.code" data-testid="dictionary-code" placeholder="PROBATION" />
+                <input v-model="dictionaryForm.code" data-testid="dictionary-code" placeholder="例如：在职" />
               </label>
               <label class="platform-field">
                 <span>标签</span>
@@ -3688,7 +3505,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">系统参数</h2>
-                <p class="panel__subtitle">GET/PUT /v1/system/parameters · 敏感值加密存储，投影只返回遮罩。</p>
+                <p class="panel__subtitle">系统参数 · 敏感值加密存储，投影只返回遮罩。</p>
               </div>
             </div>
             <div v-if="parameterRows.length > 0" class="platform-table-wrap">
@@ -3741,7 +3558,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">我的待办</h2>
-              <p class="panel__subtitle">GET /v1/tasks/my 只返回指派给当前主体的 PENDING 任务。</p>
+              <p class="panel__subtitle">只返回指派给当前主体的待处理任务。</p>
             </div>
           </div>
           <div v-if="tasks.length > 0" class="platform-table-wrap">
@@ -3768,7 +3585,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">流程模板</h2>
-              <p class="panel__subtitle">模板版本与节点来自 GET /v1/workflow/templates；不渲染脚本或原始 JSON。</p>
+              <p class="panel__subtitle">模板版本与节点来自流程模板目录；不渲染脚本或原始 JSON。</p>
             </div>
           </div>
           <div v-if="workflowTemplates.length > 0" class="platform-card-list">
@@ -3794,7 +3611,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">我的档案</h2>
-              <p class="panel__subtitle">GET /v1/me/workspace 只返回当前员工的投影。</p>
+              <p class="panel__subtitle">只返回当前员工的投影。</p>
             </div>
             <span class="plain-chip">{{ workspaceData.employment_linked === true ? '已关联任职' : '未关联任职' }}</span>
           </div>
@@ -4038,7 +3855,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">发布日历版本</h2>
-              <p class="panel__subtitle">POST /v1/system/calendars/{id}/publish · 版本递增并写审计，节假日按发布快照替换。</p>
+              <p class="panel__subtitle">发布日历 · 版本递增并写审计，节假日按发布快照替换。</p>
             </div>
           </div>
           <div class="panel__body platform-form-grid">
@@ -4069,7 +3886,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">我的待办提醒</h2>
-                <p class="panel__subtitle">来自 GET /v1/tasks/my。</p>
+                <p class="panel__subtitle">来自当前账号的待办任务。</p>
               </div>
             </div>
             <div v-if="tasks.length > 0" class="platform-table-wrap">
@@ -4093,7 +3910,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">公告通知</h2>
-                <p class="panel__subtitle">来自 GET /v1/engagement/notices。</p>
+                <p class="panel__subtitle">来自公告中心。</p>
               </div>
             </div>
             <ul v-if="notices.length > 0" class="platform-list">
@@ -4113,7 +3930,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">通知模板</h2>
-              <p class="panel__subtitle">GET/POST /v1/notification-templates · 模板编码由租户维护，事件派发按 event_key 幂等。</p>
+              <p class="panel__subtitle">通知模板 · 模板编码由公司维护，事件派发按事件键幂等。</p>
             </div>
           </div>
           <div v-if="notificationTemplateRows.length > 0" class="platform-table-wrap">
@@ -4167,7 +3984,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">投递记录</h2>
-              <p class="panel__subtitle">GET /v1/notifications/deliveries · FAILED 记录可重试，重试递增 attempts 并保留证据。</p>
+              <p class="panel__subtitle">通知投递记录 · 失败记录可重试，重试次数与证据均保留。</p>
             </div>
             <span class="plain-chip">{{ notificationDeliveryRows.length }} 条投递</span>
           </div>
@@ -4226,7 +4043,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">认证与授权事件</h2>
-              <p class="panel__subtitle">GET /v1/auth/events · 保留 request_id 作为支持证据。</p>
+              <p class="panel__subtitle">认证事件 · 保留请求编号作为支持证据。</p>
             </div>
           </div>
           <div v-if="accessEvents.length > 0" class="platform-table-wrap">
@@ -4253,7 +4070,7 @@ watch(selectedExportDefinition, () => {
             <div class="panel__header">
               <div>
                 <h2 class="panel__title">访问复核 · 未使用高危绑定</h2>
-                <p class="panel__subtitle">GET /v1/access-review 只读投影。</p>
+                <p class="panel__subtitle">访问复核只读投影。</p>
               </div>
             </div>
             <div v-if="unusedBindings.length > 0" class="platform-table-wrap">

@@ -110,7 +110,8 @@ describe('platform module page split', () => {
   it('maps every Platform registry key to exactly one distinct lazy page file', async () => {
     const platformOwnedKeys = platformRegistryKeys.filter((key) => !MOVED_TO_REPORTING.has(key))
 
-    expect(platformOwnedKeys).toHaveLength(34)
+    // ADR-0035: notice editor/archive form routes became workspace actions.
+    expect(platformOwnedKeys).toHaveLength(32)
     expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual(platformOwnedKeys)
 
     const loadedComponents = new Set<object>()
@@ -121,10 +122,11 @@ describe('platform module page split', () => {
       .filter((name) => name.endsWith('.vue'))
       .sort()
 
-    expect(componentFiles).toHaveLength(34)
-    expect(new Set(componentFiles).size).toBe(34)
-    // 33 platform screens plus the three reporting workspaces that moved out.
-    expect(vueFiles).toHaveLength(36)
+    expect(componentFiles).toHaveLength(32)
+    expect(new Set(componentFiles).size).toBe(32)
+    // 34 platform-owned screens plus the three reporting workspaces that moved out
+    // (minus the two notice form-route screens that are now workspace actions).
+    expect(vueFiles).toHaveLength(34)
 
     for (const key of platformRegistryKeys) {
       if (MOVED_TO_REPORTING.has(key)) continue
@@ -135,7 +137,7 @@ describe('platform module page split', () => {
       loadedComponents.add(module.default)
     }
 
-    expect(loadedComponents.size).toBe(34)
+    expect(loadedComponents.size).toBe(32)
     expect(platformPageConfig('system/system-users')).not.toBeNull()
     expect(platformPageConfig('system/system-users')?.title).toBe('用户管理')
   })

@@ -18,11 +18,11 @@ final class PagePermissionCoverageTest extends TestCase
 
     private const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-    public function test_the_catalog_contains_exactly_160_unique_page_resources(): void
+    public function test_the_catalog_contains_exactly_153_unique_page_resources(): void
     {
         $pages = (new PermissionResourceCatalog)->pages();
 
-        $this->assertCount(160, $pages);
+        $this->assertCount(153, $pages);
 
         $paths = array_map(static fn (array $page): string => $page['path'], $pages);
         $codes = array_map(static fn (array $page): string => $page['page_code'], $pages);
@@ -31,7 +31,7 @@ final class PagePermissionCoverageTest extends TestCase
         $this->assertSame(count($codes), count(array_unique($codes)), 'Page codes must be unique.');
 
         $layers = array_count_values(array_map(static fn (array $page): string => $page['layer'], $pages));
-        $this->assertSame(140, $layers['business'] ?? 0);
+        $this->assertSame(133, $layers['business'] ?? 0);
         $this->assertSame(14, $layers['platform'] ?? 0);
         $this->assertSame(6, $layers['base'] ?? 0);
     }
@@ -81,7 +81,7 @@ final class PagePermissionCoverageTest extends TestCase
         }
     }
 
-    public function test_all_140_inventory_business_paths_are_present(): void
+    public function test_all_133_inventory_business_paths_are_present(): void
     {
         $inventory = file_get_contents(self::INVENTORY_PATH);
         $this->assertIsString($inventory);
@@ -89,7 +89,7 @@ final class PagePermissionCoverageTest extends TestCase
         preg_match_all('/^\|\s*\d+\s*\|[^|]*\|[^|]*\|\s*`(\/[^`]+)`\s*\|/m', $inventory, $matches);
         $inventoryPaths = array_values(array_unique($matches[1]));
 
-        $this->assertCount(140, $inventoryPaths);
+        $this->assertCount(133, $inventoryPaths);
 
         $catalogPaths = array_column((new PermissionResourceCatalog)->pages(), 'path');
 
@@ -126,7 +126,7 @@ final class PagePermissionCoverageTest extends TestCase
             $sorted = $rolePages;
             sort($sorted);
 
-            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 160 pages.");
+            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 153 pages.");
         }
 
         $employeePages = $assignments->pagesForRole('EMPLOYEE');

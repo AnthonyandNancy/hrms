@@ -15,13 +15,13 @@ final class PageCatalogApiTest extends AuthorizationTestSupport
 {
     use AuthenticatesRequests;
 
-    public function test_catalog_returns_all_160_pages_to_a_role_manager(): void
+    public function test_catalog_returns_all_153_pages_to_a_role_manager(): void
     {
         [, $headers] = $this->viewer(true);
 
         $data = $this->getJson('/v1/pages/catalog', $headers)->assertOk()->json('data');
 
-        $this->assertCount(160, $data['pages']);
+        $this->assertCount(153, $data['pages']);
         $this->assertTrue($data['read_only']);
         $codes = array_column($data['pages'], 'page_code');
         $this->assertContains('hr-employees', $codes);

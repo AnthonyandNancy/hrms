@@ -216,9 +216,10 @@ beforeEach(() => {
 })
 
 describe('Wave 2 people domain components', () => {
-  it('maps all 39 Wave 2 registry component keys to real components', () => {
-    expect(PEOPLE_COMPONENT_KEYS).toHaveLength(39)
-    expect(new Set(PEOPLE_COMPONENT_KEYS).size).toBe(39)
+  it('maps all 35 Wave 2 registry component keys to real components', () => {
+    // ADR-0035: the four People create/edit form routes are workspace actions.
+    expect(PEOPLE_COMPONENT_KEYS).toHaveLength(35)
+    expect(new Set(PEOPLE_COMPONENT_KEYS).size).toBe(35)
     expect([...PEOPLE_COMPONENT_KEYS].sort()).toEqual([...wave2Keys].sort())
     for (const key of wave2Keys) {
       expect(PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS], key).toBeTypeOf('function')

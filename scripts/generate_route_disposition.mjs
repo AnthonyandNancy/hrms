@@ -27,7 +27,6 @@ export const LEGACY_PAGE_CODE_ALIASES = Object.freeze({
  */
 export const BRIEF_REQUIRED_MAPPINGS = Object.freeze([
   ['hr-employees', 'keep', 'employees'],
-  ['hr-employees-create', 'action', 'employees'],
   ['hr-employees-by-id', 'keep', 'employee-detail'],
   ['hr-employees-by-id-education', 'view', 'employee-detail'],
   ['hr-employees-by-id-work-history', 'view', 'employee-detail'],
@@ -38,13 +37,10 @@ export const BRIEF_REQUIRED_MAPPINGS = Object.freeze([
   ['hr-employees-by-id-changes', 'view', 'employee-detail'],
   ['hr-employees-imports', 'flow', 'employees-import'],
   ['hr-departments', 'keep', 'departments'],
-  ['hr-departments-editor', 'action', 'departments'],
   ['hr-positions', 'keep', 'positions'],
-  ['hr-positions-editor', 'action', 'positions'],
   ['hr-movements', 'keep', 'movements'],
   ['hr-movements-by-id', 'keep', 'movement-detail'],
   ['hr-contracts', 'keep', 'contracts'],
-  ['hr-contracts-editor', 'action', 'contracts'],
   ['system-users', 'keep', 'system-users'],
   ['system-roles', 'keep', 'system-roles'],
 ])
@@ -79,7 +75,6 @@ export const DECISIONS = Object.freeze({
   'reports-exports': { disposition: 'keep', targetPageCode: 'reports-exports', owner: 'Reporting', evidence: '导出任务保留为独立工作区，用于查看任务、字段白名单和审计结果。' },
 
   'hr-employees': { disposition: 'keep', targetPageCode: 'employees', owner: 'People', evidence: '员工列表收敛为 employees 主工作台，承载查询、新建入口与行操作。' },
-  'hr-employees-create': { disposition: 'action', targetPageCode: 'employees', owner: 'People', evidence: '新增员工并入 employees 页头的新建抽屉，由原子建档命令一次提交。' },
   'employee-detail': { disposition: 'keep', targetPageCode: 'employee-detail', owner: 'People', evidence: '员工档案详情保留为 employee-detail 深链接；brief 中旧码 hr-employees-by-id 已收敛为当前注册表码。' },
   'hr-employees-by-id-education': { disposition: 'view', targetPageCode: 'employee-detail', owner: 'People', evidence: '教育经历并入 employee-detail 的同一员工视图页签。' },
   'hr-employees-by-id-work-history': { disposition: 'view', targetPageCode: 'employee-detail', owner: 'People', evidence: '工作经历并入 employee-detail 的同一员工视图页签。' },
@@ -92,13 +87,11 @@ export const DECISIONS = Object.freeze({
 
   'hr-departments': { disposition: 'keep', targetPageCode: 'departments', owner: 'Organization', evidence: '组织架构树收敛为 departments 主工作台。' },
   'hr-departments-list': { disposition: 'view', targetPageCode: 'departments', owner: 'Organization', evidence: '部门列表并入 departments 的树表切换视图，保持同一组织范围。' },
-  'hr-departments-editor': { disposition: 'action', targetPageCode: 'departments', owner: 'Organization', evidence: '新建与编辑部门并入 departments 的编辑抽屉动作。' },
   'hr-departments-members': { disposition: 'view', targetPageCode: 'departments', owner: 'Organization', evidence: '部门成员并入 departments 选中部门的成员视图。' },
   'hr-departments-move': { disposition: 'action', targetPageCode: 'departments', owner: 'Organization', evidence: '部门迁移并入 departments 选中部门的移动动作，提交前确认影响范围。' },
   'hr-departments-staffing': { disposition: 'view', targetPageCode: 'departments', owner: 'Organization', evidence: '部门编制并入 departments 选中部门的编制视图与占用统计。' },
 
   'hr-positions': { disposition: 'keep', targetPageCode: 'positions', owner: 'Organization', evidence: '岗位目录收敛为 positions 主工作台。' },
-  'hr-positions-editor': { disposition: 'action', targetPageCode: 'positions', owner: 'Organization', evidence: '岗位编辑并入 positions 的版本化编辑抽屉动作。' },
   'hr-positions-headcount': { disposition: 'view', targetPageCode: 'positions', owner: 'Organization', evidence: '岗位编制并入 positions 的岗位编制视图。' },
   'hr-positions-requirements': { disposition: 'view', targetPageCode: 'positions', owner: 'Organization', evidence: '岗位任职资格并入 positions 的岗位资格视图，保留版本历史。' },
   'hr-positions-grades': { disposition: 'view', targetPageCode: 'positions', owner: 'Organization', evidence: '职级与职等并入 positions 的职级目录视图。' },
@@ -115,7 +108,6 @@ export const DECISIONS = Object.freeze({
   'hr-movements-calendar': { disposition: 'view', targetPageCode: 'movements', owner: 'Lifecycle', evidence: '异动日历并入 movements 的日历视图，保持同一授权范围。' },
 
   'hr-contracts': { disposition: 'keep', targetPageCode: 'contracts', owner: 'Contracts', evidence: '合同台账收敛为 contracts 主工作台。' },
-  'hr-contracts-editor': { disposition: 'action', targetPageCode: 'contracts', owner: 'Contracts', evidence: '合同录入与续签并入 contracts 的编辑抽屉动作。' },
   'hr-contracts-by-id': { disposition: 'keep', targetPageCode: 'contract-detail', owner: 'Contracts', evidence: '合同详情保留为 contract-detail 深链接，承载版本与附件。' },
   'hr-contracts-renewals': { disposition: 'flow', targetPageCode: 'contract-detail', owner: 'Contracts', evidence: '合同续签保留为 contract-detail 的版本化续签长流程。' },
   'hr-contracts-changes': { disposition: 'flow', targetPageCode: 'contract-detail', owner: 'Contracts', evidence: '合同变更与终止保留为 contract-detail 的版本化长流程。' },
@@ -182,7 +174,6 @@ export const DECISIONS = Object.freeze({
   'performance-reports': { disposition: 'view', targetPageCode: 'performance', owner: 'Performance', evidence: '绩效报表并入 performance 的分布与趋势视图。' },
 
   'recruitment-requests': { disposition: 'keep', targetPageCode: 'recruitment-requests', owner: 'Recruitment', evidence: '招聘需求列表收敛为 recruitment-requests 主工作台。' },
-  'recruitment-requests-create': { disposition: 'action', targetPageCode: 'recruitment-requests', owner: 'Recruitment', evidence: '招聘需求新建并入 recruitment-requests 的创建抽屉动作。' },
   'recruitment-requests-approval': { disposition: 'flow', targetPageCode: 'recruitment-requests', owner: 'Recruitment', evidence: '招聘需求审批并入 recruitment-requests 的审批 Case 长流程。' },
   'recruitment-requests-openings': { disposition: 'action', targetPageCode: 'recruitment-requests', owner: 'Recruitment', evidence: '招聘岗位发布并入 recruitment-requests 已批准需求的发布动作。' },
   'recruitment-requests-board': { disposition: 'view', targetPageCode: 'recruitment-requests', owner: 'Recruitment', evidence: '招聘进度看板并入 recruitment-requests 的看板视图。' },
@@ -211,15 +202,15 @@ export const DECISIONS = Object.freeze({
   'training-reports': { disposition: 'view', targetPageCode: 'training-reports', owner: 'Training', evidence: '培训报表保留为 training-reports 的参训与完成率视图。' },
 
   notices: { disposition: 'keep', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告列表收敛为 notices 主工作台。' },
-  'notices-editor': { disposition: 'action', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告编辑并入 notices 的编辑抽屉动作。' },
   'notices-approval': { disposition: 'flow', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告审核并入 notices 的审批 Case 长流程。' },
   'notices-audience': { disposition: 'view', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告发布范围并入 notices 编辑中的受众视图。' },
   'notices-reads': { disposition: 'view', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告阅读记录并入 notices 的阅读统计视图。' },
   'notices-templates': { disposition: 'flow', targetPageCode: 'notices-templates', owner: 'Engagement', evidence: '公告模板保留为 notices-templates 的模板维护长流程。' },
-  'notices-archive': { disposition: 'action', targetPageCode: 'notices', owner: 'Engagement', evidence: '公告归档并入 notices 的归档动作，保留审计与可恢复状态。' },
 
   account: { disposition: 'keep', targetPageCode: 'account', owner: 'Platform', evidence: '我的账号平台页保留，聚合账号安全与自助入口。' },
   'system-users': { disposition: 'keep', targetPageCode: 'system-users', owner: 'Platform', evidence: '用户管理保留为 system-users 治理工作台。' },
+  'workflow-case-detail': { disposition: 'keep', targetPageCode: 'workflow-case-detail', owner: 'Platform', evidence: '审批案例详情保留为 workflow 深链接，menu: null，由案例列表进入。' },
+  'payroll-run-detail': { disposition: 'keep', targetPageCode: 'payroll-run-detail', owner: 'Payroll', evidence: '工资批次详情保留为 payroll 深链接，menu: null，由批次列表进入。' },
   'system-roles': { disposition: 'keep', targetPageCode: 'system-roles', owner: 'Platform', evidence: '角色管理保留为 system-roles 治理工作台。' },
   'system-menus': { disposition: 'keep', targetPageCode: 'system-menus', owner: 'Platform', evidence: '菜单与页面管理保留为 system-menus 治理工作台。' },
   'system-permissions': { disposition: 'keep', targetPageCode: 'system-permissions', owner: 'Platform', evidence: '操作权限配置保留为 system-permissions 治理工作台。' },
@@ -488,7 +479,7 @@ function markdownCell(value) {
 export function buildRouteDispositionMarkdown(rows) {
   const summary = summarizeRows(rows)
   const lines = [
-    '# FactoryHR V2.1 160 路由最终处置表',
+    '# FactoryHR V2.1 155 路由最终处置表',
     '',
     '- 生成命令：`node scripts/generate_route_disposition.mjs`',
     '- 来源：`frontend/src/router/registry.ts` 的 `PAGE_REGISTRY`（唯一注册表来源）',
@@ -532,9 +523,9 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
     '# FactoryHR V2.1 能力等价表',
     '',
     '- 生成命令：`node scripts/generate_route_disposition.mjs`',
-    '- 来源：`frontend/src/router/registry.ts` 的 160 条页面能力域与 `HRMS-V1.1实施书.md` 的 140 个 03A 业务页面/能力点。',
+    '- 来源：`frontend/src/router/registry.ts` 的 155 条页面能力域与 `HRMS-V1.1实施书.md` 的 133 个 03A 页面/能力点。',
     '- 等价口径：V1.1 的每个业务能力点都保留一个 keep/action/view/flow 去向；合并只改变入口形态，不删除能力、API、权限或测试要求。',
-    '- 统计口径：业务能力点按注册表 `layer: business` 的 140 条计数；平台 14 条与基础 6 条同样列出，但不计入 V1.1 业务能力点。',
+    '- 统计口径：业务能力点按注册表 `layer: business` 的 134 条计数；平台 15 条与基础 6 条同样列出，但不计入 V1.1 业务能力点。',
     '- 废弃规则：本表没有用户签认废弃项，因此 `deprecate` 为 0。',
     '',
     '| # | V1.1 能力点（旧页面码） | 路径 | 层 | 能力码（保持） | 处置 | 目标页面码 | Owner | 证据 |',
@@ -558,9 +549,9 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
     '',
     '## 判定',
     '',
-    `- 140 个业务能力点全部有目标页面码与处置，无未映射项。`,
+    `- 134 个业务能力点全部有目标页面码与处置，无未映射项。`,
     `- 用户签认废弃为 ${summary.userApprovedDeprecated}；本表不依赖任何未签认废弃。`,
-    `- 平台 14 条与基础 6 条也全部有处置，注册表总计 ${summary.total} 条。`,
+    `- 平台 15 条与基础 6 条也全部有处置，注册表总计 ${summary.total} 条。`,
     '',
   )
 
@@ -568,7 +559,8 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
 }
 
 function assertExpectedCounts(summary) {
-  const expected = { total: 160, business: 140, platform: 14, base: 6, mappedBusiness: 140, userApprovedDeprecated: 0, unmappedBusiness: 0 }
+  // ADR-0035: seven form routes became workspace actions (160 -> 155).
+  const expected = { total: 155, business: 134, platform: 15, base: 6, mappedBusiness: 134, userApprovedDeprecated: 0, unmappedBusiness: 0 }
   for (const [key, value] of Object.entries(expected)) {
     if (summary[key] !== value) {
       throw new Error(`expected ${key}=${value}, got ${summary[key]}`)
@@ -591,7 +583,7 @@ function assertRequiredMappings(decisions) {
 
 function main() {
   const registry = parseRegistryPages(readFileSync(registryPath, 'utf8'))
-  if (registry.length !== 160) throw new Error(`expected 160 registry pages, got ${registry.length}`)
+  if (registry.length !== 155) throw new Error(`expected 155 registry pages, got ${registry.length}`)
 
   const registryNames = new Set(registry.map((page) => page.name))
   const staleDecisions = Object.keys(DECISIONS).filter((name) => !registryNames.has(name))

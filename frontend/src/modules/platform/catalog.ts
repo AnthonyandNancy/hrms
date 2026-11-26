@@ -7,7 +7,6 @@ export type PlatformMode =
   | 'reports-subscriptions'
   | 'reports-talent'
   | 'notice-list'
-  | 'notice-create'
   | 'notice-governance'
   | 'account'
   | 'users'
@@ -45,7 +44,7 @@ export type PlatformPageConfig = {
   limitation?: string
   limitationPath?: string
   /** Notice governance panel served by a real API. */
-  noticePanel?: 'approval' | 'audience' | 'reads' | 'templates' | 'archive'
+  noticePanel?: 'approval' | 'audience' | 'reads' | 'templates'
 }
 
 const DASHBOARD_DESCRIPTION =
@@ -177,13 +176,6 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     mode: 'notice-list',
   },
   {
-    key: 'notices/editor',
-    title: '公告编辑',
-    breadcrumb: '公告通知',
-    description: '创建公告时使用真实标题、正文、受众与确认要求；创建结果由服务端返回。',
-    mode: 'notice-create',
-  },
-  {
     key: 'notices/approval',
     title: '公告审核',
     breadcrumb: '公告通知',
@@ -214,14 +206,6 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     description: '公告模板按代码版本化发布；变量由服务端校验，历史版本不被覆盖。',
     mode: 'notice-governance',
     noticePanel: 'templates',
-  },
-  {
-    key: 'notices/archive',
-    title: '公告归档',
-    breadcrumb: '公告通知',
-    description: '归档列表与恢复均来自真实接口；恢复回到归档前的服务端状态。',
-    mode: 'notice-governance',
-    noticePanel: 'archive',
   },
   {
     key: 'account',
@@ -321,7 +305,7 @@ export const PLATFORM_PAGE_CONFIGS: PlatformPageConfig[] = [
     description: '认证事件与访问复核使用 IAM 审计接口；备份恢复和任务监控由外部运维平台承担，HRMS API 尚未提供查询端点。',
     mode: 'audit',
     limitation: '备份恢复与任务监控尚未提供',
-    limitationPath: 'GET /v1/auth/events · GET /v1/access-review',
+    limitationPath: '认证事件与访问复核已接入真实接口',
   },
 ]
 

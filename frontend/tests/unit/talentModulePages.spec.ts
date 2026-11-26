@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { useSessionStore } from '@/stores/session'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
@@ -24,6 +25,7 @@ import { PAGE_COMPONENTS } from '@/modules/talent/pages'
 import TalentWorkspacePage from '@/modules/talent/components/TalentWorkspacePage.vue'
 import PerformanceTemplatesPage from '@/modules/talent/pages/PerformanceTemplatesPage.vue'
 import RequisitionListPage from '@/modules/talent/pages/RequisitionListPage.vue'
+import RequisitionWorkspacePage from '@/modules/talent/recruiting/pages/RequisitionWorkspacePage.vue'
 import TrainingSessionsPage from '@/modules/talent/pages/TrainingSessionsPage.vue'
 
 const pagesDir = resolve(
@@ -44,6 +46,9 @@ function listResponse(items: unknown[] = []) {
 async function mountPage(component: Component, path: string) {
   const pinia = createPinia()
   setActivePinia(pinia)
+  const session = useSessionStore()
+  session.capabilities = ['recruitment.requisition.read', 'recruitment.requisition.manage', 'org.unit.read', 'performance.template.read', 'training.session.read']
+  session.status = 'authenticated'
   const routePattern = path.replace(/\/\d+(?=\/|$)/g, '/:id')
   const router = createRouter({
     history: createMemoryHistory(),
@@ -68,7 +73,8 @@ describe('Talent module pages', () => {
   })
 
   it('maps every Talent registry key to one distinct .vue page file', async () => {
-    expect(talentKeys).toHaveLength(36)
+    // ADR-0035: the requisition create form is a workspace action, not a page.
+    expect(talentKeys).toHaveLength(35)
     expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual([...talentKeys].sort())
     for (const key of talentKeys) {
       expect(matureView(key), key).not.toBeNull()
@@ -77,14 +83,14 @@ describe('Talent module pages', () => {
     const pageFiles = readdirSync(pagesDir)
       .filter((name) => name.endsWith('.vue'))
       .sort()
-    expect(pageFiles).toHaveLength(36)
+    expect(pageFiles).toHaveLength(35)
 
     const manifestSource = readFileSync(resolve(pagesDir, 'index.ts'), 'utf8')
     const importedFiles = [...manifestSource.matchAll(/\(\)\s*=>\s*import\('\.\/([^']+\.vue)'\)/g)]
       .map((match) => match[1])
       .filter((name): name is string => name !== undefined)
-    expect(importedFiles).toHaveLength(36)
-    expect(new Set(importedFiles).size).toBe(36)
+    expect(importedFiles).toHaveLength(35)
+    expect(new Set(importedFiles).size).toBe(35)
     for (const fileName of importedFiles) {
       expect(existsSync(resolve(pagesDir, fileName)), fileName).toBe(true)
     }
@@ -93,7 +99,7 @@ describe('Talent module pages', () => {
       Object.values(PAGE_COMPONENTS).map(async (loader) => loader()),
     )
     expect(loaded.every((module) => module.default !== undefined)).toBe(true)
-    expect(new Set(loaded.map((module) => module.default)).size).toBe(36)
+    expect(new Set(loaded.map((module) => module.default)).size).toBe(35)
   })
 
   it('keeps page identity out of every Talent page component and its shared shell', () => {
@@ -124,13 +130,16 @@ describe('Talent module pages', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/performance/templates', expect.any(Object))
   })
 
-  it('renders the requisition list page with its own config and endpoint', async () => {
+  it('renders the requisition list page with the dedicated workspace and endpoint', async () => {
     resource.get.mockResolvedValue(listResponse())
     const wrapper = await mountPage(RequisitionListPage, '/recruitment/requests')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('招聘需求列表')
-    expect(wrapper.getComponent(TalentWorkspacePage).props('config').key).toBe('recruitment/requests/index')
+    // ADR-0035: the list route now hosts the requisition workspace, including
+    // its create/edit drawers, rather than the config-driven shell.
+    expect(wrapper.findComponent(RequisitionWorkspacePage).exists()).toBe(true)
+    expect(wrapper.findComponent(TalentWorkspacePage).exists()).toBe(false)
+    expect(wrapper.text()).toContain('招聘需求')
     expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/requisitions', expect.any(Object))
   })
 

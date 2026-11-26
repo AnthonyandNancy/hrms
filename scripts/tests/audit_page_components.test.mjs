@@ -174,13 +174,14 @@ test('fails closed when an allowlisted shared group has no documented reason', (
   assert.match(result.failures.join('\n'), /must document a reason/)
 })
 
-test('parses the actual registry component keys and pins 162 unique keys', () => {
+test('parses the actual registry component keys and pins 155 unique keys', () => {
   const source = readFileSync(join(repoRoot, 'frontend/src/router/registry.ts'), 'utf8')
   const parsed = parseRegistryComponentKeys(source)
 
   assert.deepEqual(parsed.errors, [])
-  assert.equal(parsed.keys.length, 162)
-  assert.equal(new Set(parsed.keys).size, 162)
+  // ADR-0035: form routes moved into workspace actions, so the registry is 155.
+  assert.equal(parsed.keys.length, 155)
+  assert.equal(new Set(parsed.keys).size, 155)
   assert.ok(parsed.keys.includes('hr/employees/index'))
   assert.ok(parsed.keys.includes('base/AccountMfaView'))
 })

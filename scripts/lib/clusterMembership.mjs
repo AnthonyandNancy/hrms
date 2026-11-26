@@ -1,5 +1,5 @@
 /**
- * Frozen cluster membership for the 63 gap pages.
+ * Frozen cluster membership for the 62 gap pages.
  *
  * Counts alone are not a contract: swapping two same-sized clusters keeps every
  * total identical while silently reassigning pages. The audit and the frontend
@@ -25,7 +25,6 @@ export const CLUSTER_MEMBERSHIP = {
   'hr/positions/staff': 'K1',
   'leave/cancellations': 'K5',
   'notices/approval': 'K11',
-  'notices/archive': 'K11',
   'notices/audience': 'K11',
   'notices/reads': 'K11',
   'notices/templates': 'K11',

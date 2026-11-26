@@ -17,7 +17,7 @@
     "capabilityGapsResolvedNow": 0,
     "capabilityGapDefinition": "Each tracked page capability is absent from OpenAPI; the exact owning Volume 3 task and a one-line reason are recorded. A gap is invalid once any OpenAPI operation carries the capability.",
     "writeGapsAtThisTaskStart": 158,
-    "writeGapsNow": 155,
+    "writeGapsNow": 149,
     "writeGapsClosedByThisTask": 3
   },
   "gaps": [
@@ -85,11 +85,6 @@
       "api": "PATCH /v1/onboarding-tasks/{id}",
       "reason": "PATCH /v1/onboarding-tasks/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
       "owner": "Volume 3 Task 7"
-    },
-    {
-      "api": "PATCH /v1/positions/{id}",
-      "reason": "PATCH /v1/positions/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 6.",
-      "owner": "Volume 3 Task 6"
     },
     {
       "api": "PATCH /v1/reporting/subscriptions/{subscriptionId}",
@@ -252,11 +247,6 @@
       "owner": "Volume 3 Task 8"
     },
     {
-      "api": "POST /v1/employments/{employmentId}/contracts",
-      "reason": "POST /v1/employments/{employmentId}/contracts has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 8.",
-      "owner": "Volume 3 Task 8"
-    },
-    {
       "api": "POST /v1/employments/{employment_id}/document-files",
       "reason": "POST /v1/employments/{employment_id}/document-files has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
       "owner": "Volume 3 Task 4"
@@ -282,18 +272,8 @@
       "owner": "Volume 3 Task 16"
     },
     {
-      "api": "POST /v1/engagement/notices",
-      "reason": "POST /v1/engagement/notices has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
       "api": "POST /v1/engagement/notices/{notice}/acknowledge",
       "reason": "POST /v1/engagement/notices/{notice}/acknowledge has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "POST /v1/engagement/notices/{notice}/archive",
-      "reason": "POST /v1/engagement/notices/{notice}/archive has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
     },
     {
@@ -304,11 +284,6 @@
     {
       "api": "POST /v1/engagement/notices/{notice}/publish",
       "reason": "POST /v1/engagement/notices/{notice}/publish has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "POST /v1/engagement/notices/{notice}/restore",
-      "reason": "POST /v1/engagement/notices/{notice}/restore has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
     },
     {
@@ -542,11 +517,6 @@
       "owner": "Volume 3 Task 1"
     },
     {
-      "api": "POST /v1/positions",
-      "reason": "POST /v1/positions has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 6.",
-      "owner": "Volume 3 Task 6"
-    },
-    {
       "api": "POST /v1/positions/grades",
       "reason": "POST /v1/positions/grades has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 6.",
       "owner": "Volume 3 Task 6"
@@ -599,11 +569,6 @@
     {
       "api": "POST /v1/recruitment/offers/{id}/accept",
       "reason": "POST /v1/recruitment/offers/{id}/accept has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
-      "api": "POST /v1/recruitment/requisitions",
-      "reason": "POST /v1/recruitment/requisitions has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
       "owner": "Volume 3 Task 14"
     },
     {

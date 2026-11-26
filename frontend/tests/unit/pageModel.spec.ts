@@ -87,13 +87,14 @@ describe('page model', () => {
     expect(result.errors.join('\n')).toContain('base page must have menu: null')
   })
 
-  it('classifies the real 162-entry registry with 13 hidden detail pages', () => {
-    expect(PAGE_REGISTRY).toHaveLength(162)
+  it('classifies the real 155-entry registry with 13 hidden detail pages', () => {
+    // ADR-0035: seven create/edit/archive form routes became workspace actions.
+    expect(PAGE_REGISTRY).toHaveLength(155)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail')).toHaveLength(13)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'base')).toHaveLength(6)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'workspace')).toHaveLength(129)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'workspace')).toHaveLength(122)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'governance')).toHaveLength(14)
-    expect(PAGE_REGISTRY.filter((page) => page.menu !== null)).toHaveLength(143)
+    expect(PAGE_REGISTRY.filter((page) => page.menu !== null)).toHaveLength(136)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail').every((page) => page.menu === null)).toBe(true)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'base').every((page) => page.menu === null)).toBe(true)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail').every((page) => page.detailOf !== undefined)).toBe(true)

@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { peoplePageConfig } from '../catalog'
-import PeopleWorkspace from '../components/PeopleWorkspace.vue'
+import DepartmentWorkspacePage from '../departments/pages/DepartmentWorkspacePage.vue'
 
 defineOptions({ name: 'DepartmentTreePage' })
-
-const config = peoplePageConfig('hr/departments/index')!
 </script>
 
 <template>
-  <PeopleWorkspace :config="config" />
+  <DepartmentWorkspacePage />
 </template>

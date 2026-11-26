@@ -9,7 +9,7 @@
 
 The frontend page registry hand-wrote its own `actions` arrays while the backend
 `PermissionResourceCatalog` and OpenAPI each described write capabilities
-separately. In the current registry 158 of 160 pages declare `actions: []`, so
+separately. At adoption 158 of the then-160-entry registry declared `actions: []`, so
 role administration cannot show which buttons a page really supports, and a
 write API can exist without a corresponding action or vice versa. Any
 hand-maintained second list would repeat the same drift, and serving the
@@ -26,7 +26,7 @@ path and invite runtime file access.
 
 ## Alternatives
 
-- Keep hand-written action arrays in `frontend/src/router/registry.ts`: rejected; they already drifted to 158/160 empty pages and cannot be trusted by role administration.
+- Keep hand-written action arrays in `frontend/src/router/registry.ts`: rejected; they already drifted to 158 empty pages and cannot be trusted by role administration.
 - Let the frontend read `docs/generated/page-actions.json` at runtime: rejected; it makes a build artifact a runtime dependency, exposes repo layout and requires runtime file access.
 - Derive actions from OpenAPI alone: rejected; OpenAPI has no page code, label, confirmation or field profile, and capability semantics live in `PermissionResourceCatalog`.
 - Generate the manifest from the registry instead: rejected; the registry is the consumer, so generation would preserve the same missing/incorrect actions instead of detecting them.
