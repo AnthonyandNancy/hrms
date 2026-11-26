@@ -135,6 +135,29 @@ describe('page component uniqueness audit', () => {
     expect(DEFAULT_SHARED_ALLOWLIST[0]?.reason).toMatch(/MFA/)
   })
 
+  it('does not let a third page join the allowlisted shared component', () => {
+    const result = auditPageComponents({
+      registryKeys: [
+        'base/AccountMfaView',
+        'base/AccountSessionsView',
+        'base/AccountExtraView',
+      ],
+      manifest: {
+        'base/AccountMfaView': accountSecurityView,
+        'base/AccountSessionsView': accountSecurityView,
+        'base/AccountExtraView': accountSecurityView,
+      },
+      existingFiles: new Set([accountSecurityView]),
+      sharedAllowlist: DEFAULT_SHARED_ALLOWLIST,
+      expectedRegistryCount: 3,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.failures.join('\n')).toContain(
+      'shared component used by base/AccountMfaView',
+    )
+  })
+
   it('fails closed when a shared allowlist entry has no documented reason', () => {
     const result = auditPageComponents({
       registryKeys: ['base/AccountMfaView', 'base/AccountSessionsView'],
