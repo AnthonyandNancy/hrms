@@ -145,7 +145,7 @@ $ phpstan analyse ... app/Shared tests/Unit/Shared tests/Fakes/... ...
 ### Required filtered suite — PASS
 
 ```text
-$ artisan test --compact --filter='Tests\Unit|Tests\Integration'
+$ artisan test --compact --filter='Tests\\Unit|Tests\\Integration'
 Tests: 337 passed (34907 assertions)
 ```
 
