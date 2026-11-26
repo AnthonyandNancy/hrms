@@ -67,8 +67,8 @@ if [[ "${DEMO}" -eq 1 ]]; then
     : "${DEMO_SEED_PASSWORD:?DEMO_SEED_PASSWORD must be set (>=12 chars)}"
 
     compose exec -T php-app php backend/artisan hrms:install \
-        --legal-entity-code=DEMO-CN \
-        --legal-entity-name="Demo China Co Ltd" \
+        --company-code=DEMO-CN \
+        --company-name="Demo China Co Ltd" \
         --country=CN --timezone=Asia/Shanghai --currency=CNY \
         --admin-username=demo.admin --admin-email=demo.admin@example.test \
         --admin-password="${DEMO_SEED_PASSWORD}" \
@@ -79,16 +79,16 @@ if [[ "${DEMO}" -eq 1 ]]; then
 else
     log "installing the production reference baseline"
     : "${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set (>=12 chars)}"
-    : "${LEGAL_ENTITY_CODE:?LEGAL_ENTITY_CODE must be set}"
-    : "${LEGAL_ENTITY_NAME:?LEGAL_ENTITY_NAME must be set}"
+    : "${COMPANY_CODE:?COMPANY_CODE must be set}"
+    : "${COMPANY_NAME:?COMPANY_NAME must be set}"
     : "${ADMIN_USERNAME:?ADMIN_USERNAME must be set}"
     : "${ADMIN_EMAIL:?ADMIN_EMAIL must be set}"
     : "${ANNUAL_DAYS:?ANNUAL_DAYS must be set (statutory entitlement is a legal decision)}"
     : "${LEGAL_BASIS:?LEGAL_BASIS must be set}"
 
     compose exec -T php-app php backend/artisan hrms:install \
-        --legal-entity-code="${LEGAL_ENTITY_CODE}" \
-        --legal-entity-name="${LEGAL_ENTITY_NAME}" \
+        --company-code="${COMPANY_CODE}" \
+        --company-name="${COMPANY_NAME}" \
         --country="${COUNTRY:-CN}" \
         --timezone="${TIMEZONE:-Asia/Shanghai}" \
         --currency="${CURRENCY:-CNY}" \
