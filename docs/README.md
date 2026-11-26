@@ -13,6 +13,8 @@
 | 最高权限完整性、生产基线数据与去演示化 | `superpowers/specs/2026-11-24-superuser-coverage-and-production-baseline-design.md` | `superpowers/plans/2026-11-24-superuser-coverage-and-production-baseline.md` | 已批准，按 Subagent-Driven 执行 |
 | V1.1 生产完整性（17 菜单、140 业务页、14 平台模块、6 基础页、26 工作包） | `superpowers/specs/2026-11-25-v11-production-completion-design.md` | `superpowers/plans/2026-11-25-v11-production-completion-implementation-plan.md` | **已确认**；页面/权限蓝皮书 `audit/2026-11-25-v11-page-access-blueprint.md`；清单 `audit/2026-11-25-v11-page-inventory.md`；审计 `audit/2026-11-25-v11-gap-audit.md` |
 | V1.1 缺口补全（63 项 → 12 能力集群 + 3 内核） | `superpowers/specs/2026-11-25-v11-gap-completion-design.md` | `superpowers/plans/2026-11-25-v11-gap-completion-implementation-plan.md` | **已确认（生产上线标准）**；24 Task；ADR-0028～0032 |
+| FactoryHR V2.1 全量整改（权限、单公司、密码登录、160/140 能力闭环） | `superpowers/specs/2026-11-26-factoryhr-v2-1-full-remediation-design.md` | `superpowers/plans/2026-11-26-v2-1-remediation-master-plan.md` + 四册计划 | **已批准（2026-11-26）**；四册顺序执行，每册独立闭环 |
+| 信息架构、业务页面统一性与生产化文案（旧草稿） | `superpowers/specs/2026-11-26-ia-presentation-production-readiness-design.md` | `superpowers/plans/2026-11-26-ia-presentation-production-readiness-implementation-plan.md` | **Superseded**；有效内容并入 V2.1 第 1/3 册，不再单独执行 |
 
 该提案修订（不重写）上述两份已批准交付件，涉及 ADR-0004 第 7 条与 ADR-0013 的表述边界，并新增 ADR-0016、ADR-0017。
 
