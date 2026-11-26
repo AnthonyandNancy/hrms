@@ -19,7 +19,8 @@
     "openapi:validate": "redocly lint --config .redocly.yaml docs/openapi/openapi.yaml",
     "openapi:check": "node scripts/frontend-workspace.mjs openapi:check",
     "modules:check": "node scripts/audit_frontend_modules.mjs",
-    "v11:gate": "node scripts/v11_production_gate.mjs"
+    "v11:gate": "node scripts/v11_production_gate.mjs",
+    "baseline:collect": "node scripts/collect_v2_baseline.mjs"
   },
   "devDependencies": {
     "@redocly/cli": "2.82.0",
