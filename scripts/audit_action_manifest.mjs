@@ -21,12 +21,15 @@ import {
   GAP_OWNER_PATTERN,
   PUBLIC_WRITE_EXCEPTIONS,
   WRITE_METHODS,
+  buildServiceIndex,
   parseCapabilityCatalog,
   parseCapabilityCodes,
   parseOpenApi,
   parseRegistryPages,
   splitApi,
   validateActionManifest,
+  validateCapabilityGaps,
+  validateWorkbenchCoverage,
 } from './generate_action_manifest.mjs'
 
 export { PUBLIC_WRITE_EXCEPTIONS }
@@ -61,6 +64,8 @@ function emptyResult(failures, pageCount = 0) {
     pagesWithActions: 0,
     actionCount: 0,
     gapsUsed: 0,
+    capabilityGapsRetained: 0,
+    workbenchSkipped: [],
     publicWriteExceptionsUsed: [],
   }
 }
@@ -112,7 +117,9 @@ function auditGeneratedManifest({
   registry,
   openapi,
   gaps = [],
+  capabilityGaps = [],
   catalog,
+  serviceIndex,
   publicWriteExceptions = PUBLIC_WRITE_EXCEPTIONS,
 }) {
   const failures = []
@@ -184,8 +191,25 @@ function auditGeneratedManifest({
     requireGapReason: true,
     requireLabels: true,
     publicWriteExceptions,
+    serviceIndex,
   })
   failures.push(...validation.errors)
+
+  const capabilityValidation = validateCapabilityGaps({
+    capabilityGaps,
+    pages,
+    catalog: [...capabilities],
+    openapi: openapiDocument,
+    requireReason: true,
+  })
+  failures.push(...capabilityValidation.errors)
+
+  const workbenchValidation = validateWorkbenchCoverage({
+    pages,
+    manifest,
+    serviceIndex,
+  })
+  failures.push(...workbenchValidation.errors)
 
   let writePageCount = 0
   let pagesWithActions = 0
@@ -208,6 +232,8 @@ function auditGeneratedManifest({
     pagesWithActions,
     actionCount: actions.length,
     gapsUsed,
+    capabilityGapsRetained: capabilityValidation.retained.length,
+    workbenchSkipped: workbenchValidation.skipped,
     publicWriteExceptionsUsed: validation.publicWriteExceptionsUsed ?? [],
   }
 }
@@ -355,6 +381,9 @@ function main() {
     manifestDocument = readJson('docs/generated/page-actions.json')
     gapDocument = readJson('docs/audit/2026-11-26-v2-action-gaps.json')
     if (!Array.isArray(gapDocument.gaps)) throw new Error('gap document must contain a gaps array')
+    if (gapDocument.capabilityGaps !== undefined && !Array.isArray(gapDocument.capabilityGaps)) {
+      throw new Error('gap document capabilityGaps must be an array')
+    }
 
     result = auditActionManifest({
       manifest: manifestDocument,
@@ -362,6 +391,8 @@ function main() {
       openapi: openapiDocument,
       catalog: new Set(catalogEntries.map((entry) => entry.code)),
       gaps: gapDocument.gaps,
+      capabilityGaps: gapDocument.capabilityGaps ?? [],
+      serviceIndex: buildServiceIndex(),
     })
   } catch (error) {
     console.error(`actions:check FAIL: ${error.message}`)
@@ -376,10 +407,14 @@ function main() {
     return
   }
 
+  for (const skip of result.workbenchSkipped ?? []) {
+    console.log(`workbench skip ${skip.pageCode} (${skip.owner}): ${skip.reason}`)
+  }
   console.log(
     `actions:check OK (${result.pageCount} pages, ${result.writePageCount} write pages, `
     + `${result.pagesWithActions} pages with actions, ${result.actionCount} actions, `
-    + `${result.gapsUsed} explicit gaps, ${result.publicWriteExceptionsUsed.length} public write exceptions)`,
+    + `${result.gapsUsed} explicit write gaps, ${result.capabilityGapsRetained} owned capability gaps, `
+    + `${result.publicWriteExceptionsUsed.length} public write exceptions)`,
   )
 
   const generatedJson = read('docs/generated/page-actions.json')
@@ -402,6 +437,7 @@ function main() {
       openapi: openapiDocument,
       actions: readJson('docs/generated/action-input.json').actions,
       gaps: gapDocument.gaps,
+      serviceIndex: buildServiceIndex(),
     })
     expectedJson = serializeManifestJson(manifest)
     expectedTs = renderPageActionsTs(manifest)

@@ -14,7 +14,7 @@
  *   - frontend/src/generated/pageActions.ts
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import YAML from 'yaml'
@@ -25,6 +25,29 @@ export const ACTION_UI = Object.freeze(['primary', 'secondary', 'danger', 'hidde
 export const ACTION_CONFIRM = Object.freeze(['none', 'danger', 'sod'])
 export const CAPABILITY_PATTERN = /^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/
 export const GAP_OWNER_PATTERN = /^Volume (?:2|3) Task [1-9][0-9]*$/
+export const SERVICE_REFERENCE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][A-Za-z0-9_]*)*::[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * Frozen permission-workbench coverage contract. A writable page must expose
+ * at least one action once it declares a write API; a read-only page must
+ * expose neither. Pages without a registry entry are reported as explicit
+ * skips with the owning task rather than failing while those tasks land.
+ */
+export const WORKBENCH_PAGES = Object.freeze({
+  'system-users': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 6' }),
+  'system-roles': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 7' }),
+  'system-menus': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
+  'system-permissions': Object.freeze({ mode: 'read-only', owner: 'Volume 2 Task 8' }),
+  'system-data-scopes': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
+  'system-field-policies': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
+})
+
+/** Pages whose actions must declare the backend services they invoke. */
+export const SERVICE_MANDATORY_PAGES = Object.freeze([
+  'system-menus',
+  'system-data-scopes',
+  'system-field-policies',
+])
 
 /**
  * The only public write exception is the documented backend allowlisted
@@ -325,6 +348,88 @@ export function parseCapabilityCodes(source) {
   return new Set(parseCapabilityCatalog(source).map((entry) => entry.code))
 }
 
+function phpFilesUnder(directory) {
+  const files = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const absolute = resolve(directory, entry.name)
+    if (entry.isDirectory()) files.push(...phpFilesUnder(absolute))
+    else if (entry.isFile() && entry.name.endsWith('.php')) files.push(absolute)
+  }
+  return files.sort()
+}
+
+/**
+ * Parse backend PHP classes into short-name and fully-qualified-name service
+ * maps. An action may declare `services: ['RolePageService::save']`; the
+ * generator rejects references that do not resolve to a real public method.
+ * Short names must be unambiguous, so a duplicate service class name can
+ * never silently validate the wrong class.
+ */
+export function buildServiceIndex(root = resolve(repoRoot, 'backend/app')) {
+  let directory
+  try {
+    directory = statSync(root).isDirectory() ? root : null
+  } catch {
+    throw new Error(`backend/app directory not found at ${root}`)
+  }
+  if (directory === null) throw new Error(`backend/app is not a directory: ${root}`)
+
+  const entries = []
+  for (const file of phpFilesUnder(directory)) {
+    const source = readFileSync(file, 'utf8')
+    const namespace = /^namespace\s+([A-Za-z0-9_\\]+)\s*;/m.exec(source)?.[1]
+    const classMatch = /^[ \t]*(?:final\s+|abstract\s+|readonly\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)/m.exec(source)
+    const interfaceMatch = /^[ \t]*(?:abstract\s+)*interface\s+([A-Za-z_][A-Za-z0-9_]*)/m.exec(source)
+    const match = classMatch ?? interfaceMatch
+    if (match === null) continue
+    const shortName = match[1]
+    const methods = new Set()
+    for (const methodMatch of source.matchAll(/^[ \t]*public\s+(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm)) {
+      methods.add(methodMatch[1])
+    }
+    entries.push({
+      shortName,
+      fullyQualified: namespace === undefined ? shortName : `${namespace}\\${shortName}`,
+      file,
+      methods,
+    })
+  }
+
+  const shortNameCounts = new Map()
+  for (const entry of entries) {
+    shortNameCounts.set(entry.shortName, (shortNameCounts.get(entry.shortName) ?? 0) + 1)
+  }
+
+  const index = new Map()
+  for (const entry of entries) {
+    const value = Object.freeze({ file: entry.file, methods: entry.methods })
+    index.set(entry.fullyQualified, value)
+    if (shortNameCounts.get(entry.shortName) === 1) index.set(entry.shortName, value)
+    else index.set(entry.shortName, Object.freeze({ ambiguous: true, methods: new Set(), file: entry.file }))
+  }
+  return index
+}
+
+function assertServiceReferences(services, serviceIndex, label) {
+  if (services === undefined) return
+  if (!Array.isArray(services) || services.length === 0) {
+    throw new Error(`${label}: services must be a non-empty array when present`)
+  }
+  const seen = new Set()
+  for (const reference of services) {
+    if (typeof reference !== 'string' || !SERVICE_REFERENCE_PATTERN.test(reference)) {
+      throw new Error(`${label}: invalid service reference ${String(reference)}; expected Class::method`)
+    }
+    if (seen.has(reference)) throw new Error(`${label}: duplicate service reference ${reference}`)
+    seen.add(reference)
+    const [className, method] = reference.split('::')
+    const entry = serviceIndex?.get(className)
+    if (entry === undefined) throw new Error(`${label}: unknown service class ${className}`)
+    if (entry.ambiguous === true) throw new Error(`${label}: ambiguous service class ${className}; use a fully-qualified name`)
+    if (!entry.methods.has(method)) throw new Error(`${label}: ${className} has no method ${method}`)
+  }
+}
+
 export function parseOpenApi(source) {
   let document
   try {
@@ -354,18 +459,19 @@ function actionLabel(api, openapi) {
  * pure API for fixture use; the CLI always supplies it, so any capability-
  * guarded write outside the explicit gap list must carry x-action-label.
  */
-export function buildActionManifest({ pages, catalog, openapi, actions, gaps = [] }) {
+export function buildActionManifest({ pages, catalog, openapi, actions, gaps = [], serviceIndex }) {
   if (!Array.isArray(pages)) throw new Error('pages must be an array')
   if (!Array.isArray(catalog)) throw new Error('catalog must be an array')
   if (!Array.isArray(actions)) throw new Error('actions must be an array')
   if (!Array.isArray(gaps)) throw new Error('gaps must be an array')
+  if (serviceIndex !== undefined && !(serviceIndex instanceof Map)) throw new Error('serviceIndex must be a Map')
 
   const pageNames = new Set(pages.map((page) => page.name))
   const capabilities = new Map(catalog.map((entry) => [entry.code, entry]))
   const gapApis = new Set(gaps.map((gap) => gap.api))
   const result = { version: 1, pages: {} }
   const keys = new Set()
-  const covered = new Set()
+  const pageApis = new Set()
 
   for (const action of actions) {
     if (typeof action.pageCode !== 'string' || action.pageCode.trim() === '') {
@@ -382,7 +488,10 @@ export function buildActionManifest({ pages, catalog, openapi, actions, gaps = [
     }
 
     if (!isWriteApi(action.api)) throw new Error(`action ${action.key} must use a write API`)
-    if (covered.has(action.api)) throw new Error(`duplicate action API ${action.api}`)
+    const pageApi = JSON.stringify([action.pageCode, action.api])
+    if (pageApis.has(pageApi)) {
+      throw new Error(`duplicate action API ${action.api} on page ${action.pageCode}`)
+    }
 
     const { method, path } = splitApi(action.api)
     const operation = operationFor(openapi, method, path)
@@ -395,14 +504,18 @@ export function buildActionManifest({ pages, catalog, openapi, actions, gaps = [
     if (typeof operation['x-action-label'] !== 'string' || operation['x-action-label'].trim() === '') {
       throw new Error(`missing x-action-label for ${action.api}`)
     }
+    if (serviceIndex !== undefined) assertServiceReferences(action.services, serviceIndex, action.key)
 
-    covered.add(action.api)
+    pageApis.add(pageApi)
     result.pages[action.pageCode] ??= []
-    result.pages[action.pageCode].push({
+    const projected = {
       ...action,
       anchorTypes: [...capability.anchorTypes],
       fieldProfileMax: capability.fieldProfileMax,
-    })
+    }
+    if (action.services === undefined) delete projected.services
+    else projected.services = [...action.services]
+    result.pages[action.pageCode].push(projected)
   }
 
   // A capability-guarded write outside the explicit gap list is a live page
@@ -439,15 +552,18 @@ export function validateActionManifest({
   requireGapReason = false,
   requireLabels = false,
   publicWriteExceptions = [],
+  serviceIndex,
 }) {
   const errors = []
   const pageByName = new Map(pages.map((page) => [page.name, page]))
   const manifestPages = manifest?.pages ?? {}
-  const coveredCounts = new Map()
+  const perPageCounts = new Map()
+  const coveredApis = new Set()
   const exceptionsByPage = new Map(publicWriteExceptions.map((exception) => [exception.pageCode, exception]))
   const publicWriteExceptionsUsed = []
 
   if (manifest?.version !== 1) errors.push('manifest version must be 1')
+  if (serviceIndex !== undefined && !(serviceIndex instanceof Map)) errors.push('serviceIndex must be a Map')
 
   // Registry -> manifest: every declared write API must have an action, except
   // the exact, explicitly documented public write exception.
@@ -480,7 +596,9 @@ export function validateActionManifest({
       if (actionKeys.has(action.key)) errors.push(`${action.key}: duplicate action key`)
       actionKeys.add(action.key)
       if (!isWriteApi(action.api)) errors.push(`${pageCode}/${action.key}: action API must be a write`)
-      coveredCounts.set(action.api, (coveredCounts.get(action.api) ?? 0) + 1)
+      coveredApis.add(action.api)
+      const pageApi = JSON.stringify([pageCode, action.api])
+      perPageCounts.set(pageApi, (perPageCounts.get(pageApi) ?? 0) + 1)
 
       const { method, path } = splitApi(action.api)
       const operation = operationFor(openapi, method, path)
@@ -496,16 +614,31 @@ export function validateActionManifest({
       if (!page.requiredApis.includes(action.api)) {
         errors.push(`${pageCode}/${action.key}: API ${action.api} is not in requiredApis`)
       }
+      if (serviceIndex !== undefined) {
+        if (action.services === undefined) {
+          if (SERVICE_MANDATORY_PAGES.includes(pageCode)) {
+            errors.push(`${pageCode}/${action.key}: must declare at least one backend service`)
+          }
+        } else {
+          try {
+            assertServiceReferences(action.services, serviceIndex, `${pageCode}/${action.key}`)
+          } catch (error) {
+            errors.push(error.message)
+          }
+        }
+      }
     }
   }
 
-  for (const [api, count] of coveredCounts) {
-    if (count !== 1) errors.push(`${api}: has ${count} actions; exactly one is required`)
+  for (const [pageApi, count] of perPageCounts) {
+    if (count === 1) continue
+    const [pageCode, api] = JSON.parse(pageApi)
+    errors.push(`${api} has ${count} actions on ${pageCode}; exactly one per page is required`)
   }
 
   // OpenAPI -> manifest: every capability-guarded write operation must have
   // exactly one action unless it is named in the explicit gap list.
-  const covered = new Set([...coveredCounts.keys()])
+  const covered = coveredApis
   const gapByApi = new Map()
   const duplicateGaps = new Set()
   for (const gap of gaps) {
@@ -595,6 +728,160 @@ export function validateActionManifest({
   return { ok: errors.length === 0, errors, publicWriteExceptionsUsed }
 }
 
+/**
+ * Validate the separately tracked page capability gaps. A gap entry is only
+ * legitimate when:
+ *   - its capability exists in CapabilityCatalog;
+ *   - every listed page exists in the registry and actually declares the
+ *     capability in PermissionResourceCatalog (`page.actions`);
+ *   - no OpenAPI operation carries the exact x-capability yet (otherwise the
+ *     gap is stale and the capability must become a real page action);
+ *   - it has a one-line reason and an explicit Volume 2/3 owner.
+ * This section never exempts a capability-guarded write; it tracks missing
+ * read/export/admin contracts only.
+ */
+export function validateCapabilityGaps({
+  capabilityGaps = [],
+  pages,
+  catalog,
+  openapi,
+  permissionPages,
+  requireReason = true,
+}) {
+  const errors = []
+  if (!Array.isArray(capabilityGaps)) return { ok: false, errors: ['capabilityGaps must be an array'], retained: [], resolved: [] }
+  if (!Array.isArray(pages)) errors.push('pages must be an array')
+  if (!Array.isArray(catalog)) errors.push('catalog must be an array')
+
+  const catalogCodes = new Set(catalog.map((entry) => (typeof entry === 'string' ? entry : entry.code)))
+  const pageNames = new Set((pages ?? []).map((page) => page.name))
+  const permissionByName = new Map((permissionPages ?? []).map((page) => [page.page_code, page]))
+  const opByCapability = new Map()
+  for (const [path, operations] of Object.entries(openapi?.paths ?? {})) {
+    for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+      const operation = operations?.[method]
+      const capability = operation?.['x-capability']
+      if (typeof capability !== 'string') continue
+      opByCapability.set(capability, [...(opByCapability.get(capability) ?? []), `${method.toUpperCase()} ${path}`])
+    }
+  }
+
+  const seen = new Set()
+  const retained = []
+  const resolved = []
+  for (const gap of capabilityGaps) {
+    const capability = gap?.capability
+    const label = typeof capability === 'string' && capability !== '' ? capability : '(missing capability)'
+    if (typeof capability !== 'string' || !CAPABILITY_PATTERN.test(capability)) {
+      errors.push(`gap ${label} has an invalid capability`)
+      continue
+    }
+    if (seen.has(capability)) errors.push(`duplicate capability gap ${capability}`)
+    seen.add(capability)
+    if (!catalogCodes.has(capability)) errors.push(`gap ${capability} is not in CapabilityCatalog`)
+    if (typeof gap.owner !== 'string' || !GAP_OWNER_PATTERN.test(gap.owner)) {
+      errors.push(`gap ${capability} has invalid owner: ${String(gap.owner)}`)
+    }
+    if (requireReason && (typeof gap.reason !== 'string' || gap.reason.trim() === '' || /[\r\n]/.test(gap.reason))) {
+      errors.push(`gap ${capability} must have a one-line reason`)
+    }
+    if (!Array.isArray(gap.pages) || gap.pages.length === 0) {
+      errors.push(`gap ${capability} must list at least one page`)
+      continue
+    }
+    for (const pageName of gap.pages) {
+      if (!pageNames.has(pageName)) errors.push(`gap ${capability} references unknown page ${pageName}`)
+      if (permissionPages !== undefined) {
+        const permissionPage = permissionByName.get(pageName)
+        if (permissionPage !== undefined && !(permissionPage.actions ?? []).includes(capability)) {
+          errors.push(`gap ${capability} is not declared by page ${pageName} in PermissionResourceCatalog`)
+        }
+      }
+    }
+    const operations = opByCapability.get(capability)
+    if (operations !== undefined && operations.length > 0) {
+      errors.push(`stale capability gap ${capability}: OpenAPI already carries it on ${operations.join(', ')}; add the page action and remove the gap`)
+      continue
+    }
+    retained.push(gap)
+  }
+
+  return { ok: errors.length === 0, errors, retained, resolved }
+}
+
+/**
+ * Enforce the frozen permission-workbench shape. Writable pages need at least
+ * one action and at least one write API; the read-only permission catalogue
+ * must have neither. Pages not yet present in the registry are explicit skips
+ * owned by the landing task, so this tightens automatically once they land.
+ */
+export function validateWorkbenchCoverage({ pages, manifest, serviceIndex }) {
+  const errors = []
+  const manifestPages = manifest?.pages ?? {}
+  const pageByName = new Map((pages ?? []).map((page) => [page.name, page]))
+  const skipped = []
+  let writableChecked = 0
+  let readOnlyChecked = 0
+
+  for (const [pageCode, spec] of Object.entries(WORKBENCH_PAGES)) {
+    const page = pageByName.get(pageCode)
+    if (page === undefined) {
+      skipped.push({
+        pageCode,
+        owner: spec.owner,
+        reason: 'page is not yet present in PAGE_REGISTRY; the owning task has not landed it',
+      })
+      continue
+    }
+    const actions = manifestPages[pageCode] ?? []
+    if (!Array.isArray(actions)) {
+      errors.push(`${pageCode}: manifest actions must be an array`)
+      continue
+    }
+    const writeApis = (page.requiredApis ?? []).filter(isWriteApi)
+
+    if (spec.mode === 'read-only') {
+      readOnlyChecked += 1
+      if (actions.length !== 0) errors.push(`${pageCode} is read-only but declares ${actions.length} action(s)`)
+      if (writeApis.length !== 0) errors.push(`${pageCode} is read-only but declares write API ${writeApis.join(', ')}`)
+      continue
+    }
+
+    if (writeApis.length === 0) {
+      skipped.push({
+        pageCode,
+        owner: spec.owner,
+        reason: 'writable page has no declared write API yet; the owning task has not landed its governance write declaration',
+      })
+      continue
+    }
+    writableChecked += 1
+    if (actions.length === 0) {
+      errors.push(`${pageCode} is writable but has no action`)
+      continue
+    }
+    const actionApis = new Set(actions.map((action) => action.api))
+    for (const writeApi of writeApis) {
+      if (!actionApis.has(writeApi)) errors.push(`${pageCode} is writable but write API ${writeApi} has no action`)
+    }
+    if (SERVICE_MANDATORY_PAGES.includes(pageCode) && serviceIndex !== undefined) {
+      for (const action of actions) {
+        if (action.services === undefined) {
+          errors.push(`${pageCode}/${action.key}: must declare at least one backend service`)
+          continue
+        }
+        try {
+          assertServiceReferences(action.services, serviceIndex, `${pageCode}/${action.key}`)
+        } catch (error) {
+          errors.push(error.message)
+        }
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors, skipped, writableChecked, readOnlyChecked }
+}
+
 export function serializeManifestJson(manifest) {
   return `${JSON.stringify(manifest, null, 2)}\n`
 }
@@ -612,6 +899,7 @@ export function renderPageActionsTs(manifest) {
     '  api: string',
     "  ui: 'primary' | 'secondary' | 'danger' | 'hidden'",
     "  confirm?: 'none' | 'danger' | 'sod'",
+    '  services?: string[]',
     '  anchorTypes: string[]',
     '  fieldProfileMax: string',
     '}',
@@ -642,10 +930,13 @@ export function runCli() {
     const gapDocument = JSON.parse(read('docs/audit/2026-11-26-v2-action-gaps.json'))
     const actions = actionInput.actions
     const gaps = gapDocument.gaps
+    const capabilityGaps = gapDocument.capabilityGaps ?? []
     if (!Array.isArray(actions)) throw new Error('action-input.json must contain an actions array')
     if (!Array.isArray(gaps)) throw new Error('gap document must contain a gaps array')
+    if (!Array.isArray(capabilityGaps)) throw new Error('gap document capabilityGaps must be an array')
+    const serviceIndex = buildServiceIndex()
 
-    const manifest = buildActionManifest({ pages, catalog, openapi, actions, gaps })
+    const manifest = buildActionManifest({ pages, catalog, openapi, actions, gaps, serviceIndex })
     const validation = validateActionManifest({
       pages,
       manifest,
@@ -653,22 +944,36 @@ export function runCli() {
       gaps,
       requireGapReason: true,
       publicWriteExceptions: PUBLIC_WRITE_EXCEPTIONS,
+      serviceIndex,
     })
-    if (!validation.ok) {
+    const capabilityValidation = validateCapabilityGaps({
+      capabilityGaps,
+      pages,
+      catalog,
+      openapi,
+      requireReason: true,
+    })
+    const workbenchValidation = validateWorkbenchCoverage({ pages, manifest, serviceIndex })
+    const errors = [...validation.errors, ...capabilityValidation.errors, ...workbenchValidation.errors]
+    if (errors.length > 0) {
       console.error('action manifest FAIL')
-      for (const error of validation.errors) console.error(`  - ${error}`)
+      for (const error of errors) console.error(`  - ${error}`)
       console.error(`not written: ${outputPaths.join(', ')}`)
       process.exitCode = 1
-      return validation
+      return { ok: false, errors }
     }
 
     writeFileSync(jsonOutput, serializeManifestJson(manifest), 'utf8')
     writeFileSync(tsOutput, renderPageActionsTs(manifest), 'utf8')
     console.log(`wrote ${outputPaths[0]}`)
     console.log(`wrote ${outputPaths[1]}`)
+    for (const skip of workbenchValidation.skipped) {
+      console.log(`workbench skip ${skip.pageCode} (${skip.owner}): ${skip.reason}`)
+    }
     console.log(
       `action manifest OK (${Object.keys(manifest.pages).length} pages, `
-      + `${Object.values(manifest.pages).flat().length} actions, ${gaps.length} explicit gaps)`,
+      + `${Object.values(manifest.pages).flat().length} actions, ${gaps.length} explicit write gaps, `
+      + `${capabilityValidation.retained.length} owned capability gaps)`,
     )
     return { ok: true, errors: [], manifest }
   } catch (error) {

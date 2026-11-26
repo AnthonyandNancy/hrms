@@ -9,6 +9,7 @@ export type GeneratedPageAction = {
   api: string
   ui: 'primary' | 'secondary' | 'danger' | 'hidden'
   confirm?: 'none' | 'danger' | 'sod'
+  services?: string[]
   anchorTypes: string[]
   fieldProfileMax: string
 }
@@ -119,6 +120,92 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "system-data-scopes": [
+    {
+      "pageCode": "system-data-scopes",
+      "key": "system.data.scopes.save",
+      "label": "保存数据范围",
+      "capability": "iam.scope.manage",
+      "api": "PUT /v1/system/data-scopes/{id}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "DataScopePolicyService::upsert"
+      ],
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "system-field-policies": [
+    {
+      "pageCode": "system-field-policies",
+      "key": "system.field.policies.save",
+      "label": "保存字段策略",
+      "capability": "iam.field.manage",
+      "api": "PUT /v1/system/field-policies/{field_key}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "FieldPolicyService::update"
+      ],
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "system-menus": [
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.create",
+      "label": "新增菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "POST /v1/system/menus",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::create"
+      ],
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.delete",
+      "label": "删除菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "DELETE /v1/system/menus/{page_code}",
+      "ui": "danger",
+      "confirm": "danger",
+      "services": [
+        "MenuOverrideService::delete"
+      ],
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.update",
+      "label": "编辑菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "PATCH /v1/system/menus/{page_code}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::update"
+      ],
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
     }
   ],
   "system-roles": [

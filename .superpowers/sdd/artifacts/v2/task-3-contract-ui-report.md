@@ -78,24 +78,32 @@ that the request carries no entity field and that the picker is gone.
 
 | Gate | Result |
 | --- | --- |
-| `phpunit --filter=NoTenantNoLegalEntityTest` | `OK (4 tests, 6 assertions)` — 0 hits |
+| `phpunit --filter=NoTenantNoLegalEntityTest` | `OK (4 tests, 6 assertions)` — **0 hits** |
 | `node deploy/scripts/openapi-lint.mjs` | `openapi-lint: OK (251 paths, 323 operations, 3.1.0)` |
 | `pnpm openapi:validate` | `Your API description is valid.` (2 pre-existing `operation-4xx-response` warnings on health probes) |
-| `phpunit --filter='OpenApiContractTest\|OpenApiSchemaContractTest\|PagePermissionCoverageTest\|OpenApiActionLabelTest'` | `OK (26 tests, 9746 assertions)`; schema report 0 success-schema / 0 error-set / 0 capability violations across 323 operations |
+| `phpunit --filter='OpenApiContractTest\|OpenApiSchemaContractTest\|PagePermissionCoverageTest\|OpenApiActionLabelTest'` | `OK (26 tests, 9751 assertions)`; 0 success-schema / 0 error-set / 0 capability violations across 323 operations |
 | `pnpm openapi:check` | `generated/api.ts is current` |
-| `pnpm typecheck` | PASS (`vue-tsc -b`, no output) |
-| `pnpm lint` | PASS (`eslint . --max-warnings=0`, no output) |
-| `pnpm test:unit` | PASS — 48 files / 324 tests at the time of the scoped run; my 9 owned spec files pass 150/150 |
+| `pnpm actions:check` | `OK (160 pages, 10 write pages, 9 pages with actions, 20 actions, 155 explicit write gaps, 15 owned capability gaps, 1 public write exceptions)` |
 | `node scripts/audit_single_company.mjs` | `{"ok": true, "failures": []}` |
+| `pnpm test:unit` (my 9 spec files) | **150 / 150 PASS** |
+| `pnpm test:unit` (whole suite) | earlier clean run 324/324; final tree shows 4 failures in `platformModulePages.spec.ts` + `systemUsersPage.spec.ts` owned by concurrent v2-task6/7 agents (see concern 1) |
+| `vue-tsc` scoped to every path this commit touches | **0 errors** |
+| `eslint` scoped to every path this commit touches | **exit 0, 0 warnings** |
+| `pnpm typecheck` / `pnpm lint` (whole tree) | blocked by concurrent agents' in-flight files, not by this commit (see concern 1) |
 
 ## Concerns / notes for the lead
 
 1. **Concurrent agents were actively writing the same worktree.** `SystemMenusPage.vue`, `SystemDataScopesPage.vue`,
-   `SystemFieldPoliciesPage.vue`, `SystemPermissionsPage.vue`, `UserCreateDialog.vue`, `UserRoleDrawer.vue` and
-   `tests/unit/systemGovernancePages.spec.ts` changed under me (v2-task6/7/8). Whole-tree `pnpm typecheck`/`pnpm lint`
-   transiently failed on *their* in-flight files (`UserCreateDialog.vue` unused `CreatePayload`/`setFieldError`,
-   a momentary syntax error in `SystemDataScopesPage.vue`). I did not edit those files. Re-run the three frontend gates
-   after those tasks land; my paths typecheck/lint clean.
+   `SystemFieldPoliciesPage.vue`, `SystemPermissionsPage.vue`, `SystemUsersPage.vue`, `UserCreateDialog.vue`,
+   `UserPermissionPreview.vue`, `UserRoleDrawer.vue`, `generated/pageActions.ts` and `tests/unit/systemUsersPage.spec.ts`
+   changed under me (v2-task5/6/7/8). Whole-tree `pnpm typecheck` currently reports only their in-flight errors
+   (`UserCreateDialog.vue` unused `CreatePayload`/`setFieldError`, `UserPermissionPreview.vue` undefined index type,
+   `SystemUsersPage.vue` unused `currentStatus`); whole-tree `pnpm lint` reports the same `SystemUsersPage.vue` error plus
+   multi-component warnings in `tests/unit/systemUsersPage.spec.ts`. Whole-tree `pnpm test:unit` has 4 failures
+   (`platformModulePages.spec.ts` still expects `platformPageConfig(...)` in pages that task 6/7 rewrote, and 2
+   `systemUsersPage.spec.ts` create-role/create-dialog expectations). **None of these are my files** — I did not touch
+   platform pages, dialogs or those specs. Every path in this commit passes `vue-tsc` and `eslint` clean, and my 9
+   spec files pass 150/150. Re-run the three whole-tree frontend gates once tasks 5–8 land.
 2. **`pnpm actions:check` fails on a stale gap entry**, not on my change: `docs/audit/2026-11-26-v2-action-gaps.json`
    still declares `POST /v1/system/calendars/{legal_entity_id}/publish`, a path that already disappeared in commit
    `d92725f` (before this task). Refreshing the gap list is outside my scope (`scripts/**` / audit docs are not mine).

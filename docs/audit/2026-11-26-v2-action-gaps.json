@@ -11,7 +11,14 @@
       "POST /v1/auth/login",
       "POST /v1/auth/mfa/challenge"
     ],
-    "gapDefinition": "Every capability-guarded write absent from all PAGE_REGISTRY.requiredApis is listed individually; no wildcard owner or ignore pattern is accepted."
+    "gapDefinition": "Every capability-guarded write absent from all PAGE_REGISTRY.requiredApis is listed individually; no wildcard owner or ignore pattern is accepted.",
+    "capabilityGapsAtThisTaskStart": 15,
+    "capabilityGapsOwnedNow": 15,
+    "capabilityGapsResolvedNow": 0,
+    "capabilityGapDefinition": "Each tracked page capability is absent from OpenAPI; the exact owning Volume 3 task and a one-line reason are recorded. A gap is invalid once any OpenAPI operation carries the capability.",
+    "writeGapsAtThisTaskStart": 158,
+    "writeGapsNow": 155,
+    "writeGapsClosedByThisTask": 3
   },
   "gaps": [
     {
@@ -38,11 +45,6 @@
       "api": "DELETE /v1/reporting/subscriptions/{subscriptionId}",
       "reason": "DELETE /v1/reporting/subscriptions/{subscriptionId} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "DELETE /v1/system/menus/{page_code}",
-      "reason": "DELETE /v1/system/menus/{page_code} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
-      "owner": "Volume 2 Task 8"
     },
     {
       "api": "DELETE /v1/users/{id}/roles/{roleCode}",
@@ -98,11 +100,6 @@
       "api": "PATCH /v1/system/dictionaries/{id}",
       "reason": "PATCH /v1/system/dictionaries/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "PATCH /v1/system/menus/{page_code}",
-      "reason": "PATCH /v1/system/menus/{page_code} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
-      "owner": "Volume 2 Task 8"
     },
     {
       "api": "POST /v1/auth/break-glass",
@@ -635,19 +632,14 @@
       "owner": "Volume 2 Task 7"
     },
     {
-      "api": "POST /v1/system/calendars/{legal_entity_id}/publish",
-      "reason": "POST /v1/system/calendars/{legal_entity_id}/publish has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
+      "api": "POST /v1/system/calendars/publish",
+      "reason": "POST /v1/system/calendars/publish has no page mapping in PAGE_REGISTRY; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
     },
     {
       "api": "POST /v1/system/dictionaries",
       "reason": "POST /v1/system/dictionaries has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "POST /v1/system/menus",
-      "reason": "POST /v1/system/menus has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 8.",
-      "owner": "Volume 2 Task 8"
     },
     {
       "api": "POST /v1/time/attendance/closings",
@@ -820,7 +812,8 @@
         "hr-employees-by-id-changes"
       ],
       "missing": "Employee export operation (GET /v1/employees/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 4"
+      "owner": "Volume 3 Task 4",
+      "reason": "Employee export operation (GET /v1/employees/export) is absent from OpenAPI and routes; no operation carries people.employee.export."
     },
     {
       "capability": "people.contract.export",
@@ -830,7 +823,8 @@
         "hr-contracts-expiry"
       ],
       "missing": "Contract export operation (GET /v1/employments/contracts/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 8"
+      "owner": "Volume 3 Task 8",
+      "reason": "Contract export operation (GET /v1/employments/contracts/export) is absent from OpenAPI and routes; no operation carries people.contract.export."
     },
     {
       "capability": "org.unit.export",
@@ -839,7 +833,8 @@
         "hr-departments-list"
       ],
       "missing": "Organization export operation (GET /v1/org-units/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 5"
+      "owner": "Volume 3 Task 5",
+      "reason": "Organization export operation (GET /v1/org-units/export) is absent from OpenAPI and routes; no operation carries org.unit.export."
     },
     {
       "capability": "org.position.export",
@@ -847,7 +842,8 @@
         "hr-positions"
       ],
       "missing": "Position export operation (GET /v1/positions/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 6"
+      "owner": "Volume 3 Task 6",
+      "reason": "Position export operation (GET /v1/positions/export) is absent from OpenAPI and routes; no operation carries org.position.export."
     },
     {
       "capability": "recruitment.requisition.export",
@@ -855,7 +851,8 @@
         "recruitment-requests"
       ],
       "missing": "Requisition export operation (GET /v1/recruitment/requisitions/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 14"
+      "owner": "Volume 3 Task 14",
+      "reason": "Requisition export operation (GET /v1/recruitment/requisitions/export) is absent from OpenAPI and routes; no operation carries recruitment.requisition.export."
     },
     {
       "capability": "payroll.payslip.read",
@@ -863,7 +860,8 @@
         "payroll-payslips"
       ],
       "missing": "Admin payslip read operation is absent; only payroll.payslip.read.self is routed for GET /v1/payroll/payslips.",
-      "owner": "Volume 3 Task 12"
+      "owner": "Volume 3 Task 12",
+      "reason": "Admin payslip read operation is absent; GET /v1/payroll/payslips and /{id} carry payroll.payslip.read.self only."
     },
     {
       "capability": "time.leave.admin",
@@ -872,7 +870,8 @@
         "leave-policies"
       ],
       "missing": "Leave type/policy administration writes are absent from OpenAPI and routes; GET endpoints require time.leave.read.",
-      "owner": "Volume 3 Task 10"
+      "owner": "Volume 3 Task 10",
+      "reason": "Leave type/policy administration writes are absent; existing leave reads carry time.leave.read and requests carry time.leave.request."
     },
     {
       "capability": "time.overtime.manage",
@@ -883,7 +882,8 @@
         "overtime-settlement"
       ],
       "missing": "Overtime policy administration writes are absent; reads use time.overtime.read and confirm uses time.overtime.confirm.",
-      "owner": "Volume 3 Task 11"
+      "owner": "Volume 3 Task 11",
+      "reason": "Overtime policy administration writes are absent; reads carry time.overtime.read and confirmations carry time.overtime.confirm."
     },
     {
       "capability": "time.travel.manage",
@@ -891,7 +891,8 @@
         "travel-changes"
       ],
       "missing": "Travel request change/administration operation is absent; available writes use time.travel.request/approve.",
-      "owner": "Volume 3 Task 11"
+      "owner": "Volume 3 Task 11",
+      "reason": "Travel request change/administration operation is absent; available writes carry time.travel.request/time.travel.approve."
     },
     {
       "capability": "workflow.template.manage",
@@ -899,7 +900,8 @@
         "workflow"
       ],
       "missing": "Workflow template governance write carries workflow.case.admin; no operation carries workflow.template.manage.",
-      "owner": "Volume 3 Task 17"
+      "owner": "Volume 3 Task 17",
+      "reason": "Workflow template governance write carries workflow.case.admin; no operation carries workflow.template.manage."
     },
     {
       "capability": "notification.manage",
@@ -907,7 +909,8 @@
         "notifications"
       ],
       "missing": "Notification administration operation is absent; templates use notification.template.manage and deliveries use notification.delivery.manage.",
-      "owner": "Volume 3 Task 16"
+      "owner": "Volume 3 Task 16",
+      "reason": "Notification administration operation is absent; templates carry notification.template.manage and deliveries carry notification.delivery.manage."
     },
     {
       "capability": "iam.permission.read",
@@ -915,7 +918,8 @@
         "system-permissions"
       ],
       "missing": "GET /v1/capabilities is guarded by iam.role.manage; no operation carries iam.permission.read.",
-      "owner": "Volume 3 Task 17"
+      "owner": "Volume 3 Task 17",
+      "reason": "GET /v1/capabilities is guarded by iam.role.manage; no operation carries iam.permission.read."
     },
     {
       "capability": "system.settings.manage",
@@ -923,7 +927,8 @@
         "system-settings"
       ],
       "missing": "No operation carries system.settings.manage; dictionaries and parameters use system.dictionary.manage/system.parameter.manage.",
-      "owner": "Volume 3 Task 17"
+      "owner": "Volume 3 Task 17",
+      "reason": "No operation carries system.settings.manage; dictionaries carry system.dictionary.manage and parameters carry system.parameter.manage."
     },
     {
       "capability": "notification.read",
@@ -931,7 +936,8 @@
         "notifications"
       ],
       "missing": "GET and mark-read notification routes carry engagement.notification.read; no operation carries notification.read.",
-      "owner": "Volume 3 Task 16"
+      "owner": "Volume 3 Task 16",
+      "reason": "GET /v1/engagement/notifications and POST /{notification}/read carry engagement.notification.read; no operation carries notification.read."
     },
     {
       "capability": "reporting.report.create",
@@ -939,7 +945,8 @@
         "reports-builder"
       ],
       "missing": "Legacy code for saving a report definition is replaced by reporting.definition.manage on POST /v1/reporting/definitions.",
-      "owner": "Volume 3 Task 16"
+      "owner": "Volume 3 Task 16",
+      "reason": "Legacy save-definition capability is replaced by reporting.definition.manage on POST /v1/reporting/definitions; no operation carries reporting.report.create."
     }
   ]
 }
