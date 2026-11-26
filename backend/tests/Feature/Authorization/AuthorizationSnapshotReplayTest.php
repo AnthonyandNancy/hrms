@@ -70,7 +70,7 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
         ]);
         $binding = AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
                 'valid_from' => '2026-01-01 00:00:00',
@@ -120,7 +120,7 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
 
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
                 'valid_from' => '2020-01-01 00:00:00',
@@ -128,7 +128,7 @@ final class AuthorizationSnapshotReplayTest extends AuthorizationTestSupport
             ]);
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'org.unit.read',
                 'valid_from' => '2027-01-01 00:00:00',

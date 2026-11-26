@@ -9,7 +9,7 @@ namespace App\Modules\Platform\Contracts;
  *
  * Scope semantics (ADR-0031 decision 4): parameters are layered, most specific
  * first. `get()` resolves the requested scope, then falls back through
- * `LEGAL_ENTITY` to `TENANT`, so an override never silently disappears.
+ * `COMPANY` to `TENANT`, so an override never silently disappears.
  *
  * Storage shape: `value_json` must be a JSON object containing a `value` key,
  * for example `{"value": 200}`. Rows that do not follow that shape are treated

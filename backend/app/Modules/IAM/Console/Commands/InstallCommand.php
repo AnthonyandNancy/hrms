@@ -25,8 +25,8 @@ use Illuminate\Support\Facades\Artisan;
 final class InstallCommand extends Command
 {
     protected $signature = 'hrms:install
-        {--legal-entity-code= : Legal entity code, e.g. ACME-CN}
-        {--legal-entity-name= : Legal entity display name}
+        {--company-code=ACME-CN : Stable company code used for the root unit}
+        {--company-name= : Company display name}
         {--country=CN : ISO country code}
         {--timezone=Asia/Shanghai : IANA timezone}
         {--currency=CNY : ISO currency code}
@@ -49,13 +49,13 @@ final class InstallCommand extends Command
     ): int {
         $report = new InstallReport;
 
-        $code = trim((string) $this->option('legal-entity-code'));
-        $name = trim((string) $this->option('legal-entity-name'));
+        $code = trim((string) $this->option('company-code'));
+        $name = trim((string) $this->option('company-name'));
         $username = trim((string) $this->option('admin-username'));
         $email = trim((string) $this->option('admin-email'));
         $password = (string) ($this->option('admin-password') ?: config('iam.install.admin_password', ''));
 
-        foreach (['--legal-entity-code' => $code, '--legal-entity-name' => $name, '--admin-username' => $username, '--admin-email' => $email] as $option => $value) {
+        foreach (['--company-code' => $code, '--company-name' => $name, '--admin-username' => $username, '--admin-email' => $email] as $option => $value) {
             if ($value === '') {
                 $this->error("{$option} is required.");
 
@@ -86,17 +86,15 @@ final class InstallCommand extends Command
         $admin = null;
 
         try {
-            $bootstrap = app(OrganizationBootstrap::class)->ensureLegalEntityWithRoot(
-                $tenantId,
+            $bootstrap = app(OrganizationBootstrap::class)->ensureCompanyWithRoot(
                 $code,
                 $name,
                 (string) $this->option('country'),
                 (string) $this->option('timezone'),
                 (string) $this->option('currency'),
             );
-            $report->record('legal_entity', $bootstrap['legal_entity_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['legal_entity_id']);
+            $report->record('company_profile', $bootstrap['company_profile_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['company_profile_id']);
             $report->record('root_org_unit', $bootstrap['root_org_unit_created'] ? InstallStep::STATUS_CREATED : InstallStep::STATUS_SKIPPED, 'id='.$bootstrap['root_org_unit_id']);
-            $entityId = $bootstrap['legal_entity_id'];
 
             $this->runStep($report, 'capabilities', 'iam:sync-capabilities');
             $this->runStep($report, 'workflow_templates', 'workflow:seed-templates', ['--tenant-id' => $tenantId]);
@@ -108,14 +106,12 @@ final class InstallCommand extends Command
             ], static fn ($value): bool => $value !== null && $value !== ''));
 
             $this->runStep($report, 'calendar', 'time:seed-calendar', array_filter([
-                '--legal-entity' => $entityId,
                 '--timezone' => $this->option('timezone'),
                 '--holidays-file' => $this->option('holidays-file'),
             ], static fn ($value): bool => $value !== null && $value !== ''));
 
             if ($this->option('approved-by') !== null && $this->option('payroll-year') !== null) {
                 $this->runStep($report, 'payroll_parameters', 'payroll:seed-parameters', [
-                    '--legal-entity' => $entityId,
                     '--year' => (int) $this->option('payroll-year'),
                     '--approved-by' => (int) $this->option('approved-by'),
                 ]);
@@ -139,7 +135,6 @@ final class InstallCommand extends Command
             $this->runStep($report, 'administrator_role', 'iam:bind-role', [
                 '--user' => (int) $admin->id,
                 '--role' => 'SYSTEM_ADMIN',
-                '--legal-entity' => $entityId,
             ]);
 
             $factors = MfaFactor::query()->where('user_id', $admin->id)->whereNotNull('confirmed_at')->whereNull('disabled_at')->count();

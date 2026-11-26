@@ -75,7 +75,7 @@ final class TravelExpenseController
             new CommandDefinition(
                 name: 'time.travel.expense.claim',
                 capability: 'time.travel.expense.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

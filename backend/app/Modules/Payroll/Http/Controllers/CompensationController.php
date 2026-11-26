@@ -94,7 +94,7 @@ final class CompensationController
             new CommandDefinition(
                 name: 'payroll.compensation.version.create',
                 capability: 'payroll.compensation.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -170,7 +170,7 @@ final class CompensationController
             new CommandDefinition(
                 name: 'payroll.salary_adjustment.create',
                 capability: 'payroll.salary-adjustment.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

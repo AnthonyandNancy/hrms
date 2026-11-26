@@ -32,7 +32,7 @@ final class RecruitmentController
     public function requisitions(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.requisition.read', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.requisition.read', AnchorRef::company());
 
         $items = \App\Modules\Talent\Models\Requisition::query()
             ->where('tenant_id', $principal->tenantId())
@@ -54,7 +54,7 @@ final class RecruitmentController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::legalEntity((int) $request->input('legal_entity_id', 1)));
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
 
         $data = $request->validate([
             'legal_entity_id' => ['required', 'integer', 'min:1'],
@@ -73,7 +73,7 @@ final class RecruitmentController
     public function candidates(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
 
         $items = \App\Modules\Talent\Models\Candidate::query()
             ->where('tenant_id', $principal->tenantId())
@@ -92,7 +92,7 @@ final class RecruitmentController
     public function storeCandidate(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
 
         $data = $request->validate([
             'display_name' => ['required', 'string', 'max:120'],
@@ -107,7 +107,7 @@ final class RecruitmentController
     public function storeInterview(Request $request, int $candidateId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.interview.manage', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.interview.manage', AnchorRef::company());
 
         $data = $request->validate([
             'requisition_id' => ['required', 'integer', 'min:1'],
@@ -125,7 +125,7 @@ final class RecruitmentController
     public function offers(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::company());
         $data = $request->validate([
             'candidate_id' => ['nullable', 'integer', 'min:1'],
             'requisition_id' => ['nullable', 'integer', 'min:1'],
@@ -150,7 +150,7 @@ final class RecruitmentController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::company());
 
         $data = $request->validate([
             'candidate_id' => ['required', 'integer', 'min:1'],
@@ -167,7 +167,7 @@ final class RecruitmentController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->allow($principal, 'recruitment.offer.accept', AnchorRef::legalEntity(1));
+        $this->allow($principal, 'recruitment.offer.accept', AnchorRef::company());
 
         $data = $request->validate([
             'legal_entity_id' => ['required', 'integer', 'min:1'],

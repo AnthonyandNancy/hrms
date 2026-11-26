@@ -132,20 +132,20 @@ abstract class ReportingTestCase extends PeopleTestCase
         $broadPrincipal = $this->authenticate((int) $broadUser->id, (int) $a1->id, (int) $broadUser->auth_version);
         $narrowPrincipal = $this->authenticate((int) $narrowUser->id, (int) $a2->id, (int) $narrowUser->auth_version);
 
-        $this->grant($broadUser, 'reporting.dashboard.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($broadUser, 'reporting.report.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($broadUser, 'reporting.definition.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($broadUser, 'reporting.subscription.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($broadUser, 'reporting.export', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($broadUser, 'reporting.export.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($broadUser, 'reporting.dashboard.read', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.report.read', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.definition.manage', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.subscription.manage', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.export', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.export.read', AnchorType::COMPANY, null);
         $this->grant($narrowUser, 'reporting.dashboard.read', AnchorType::ORG_UNIT, (int) $orgA->id);
         $this->grant($narrowUser, 'reporting.report.read', AnchorType::ORG_UNIT, (int) $orgA->id);
         $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::ORG_UNIT, (int) $orgA->id);
-        $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($narrowUser, 'reporting.subscription.manage', AnchorType::COMPANY, null);
         // The export route itself is legal-entity anchored; row scope for the
         // exported report still comes from reporting.report.read above.
-        $this->grant($narrowUser, 'reporting.export', AnchorType::LEGAL_ENTITY, (int) $entity->id);
-        $this->grant($narrowUser, 'reporting.export.read', AnchorType::LEGAL_ENTITY, (int) $entity->id);
+        $this->grant($narrowUser, 'reporting.export', AnchorType::COMPANY, null);
+        $this->grant($narrowUser, 'reporting.export.read', AnchorType::COMPANY, null);
 
         return [
             'entity_id' => (int) $entity->id,

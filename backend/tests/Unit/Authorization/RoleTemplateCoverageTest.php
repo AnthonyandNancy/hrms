@@ -18,7 +18,7 @@ final class RoleTemplateCoverageTest extends TestCase
             $this->assertNotNull($template);
             $this->assertCount(1, $template->grants, "{$code} must have exactly one grant.");
             $this->assertSame([CapabilityWildcard::WILDCARD], $template->capabilityCodes(), "{$code} must be a single wildcard grant.");
-            $this->assertSame('LEGAL_ENTITY', $template->grants[0]->anchorType->value);
+            $this->assertSame('COMPANY', $template->grants[0]->anchorType->value);
             $this->assertSame('P3_RESTRICTED', $template->grants[0]->fieldProfile->value);
         }
     }

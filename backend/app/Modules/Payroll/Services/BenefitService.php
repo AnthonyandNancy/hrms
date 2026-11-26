@@ -184,7 +184,7 @@ final class BenefitService
         $snapshot = $this->people->employmentSnapshot($tenantId, $employmentId, $businessDate);
 
         if ($snapshot === null
-            || ! $this->authorizer->allows($principal, 'benefit.manage', \App\Shared\Authorization\AnchorRef::legalEntity($snapshot->legalEntityId), $businessDate)) {
+            || ! $this->authorizer->allows($principal, 'benefit.manage', \App\Shared\Authorization\AnchorRef::company(), $businessDate)) {
             throw new NotFoundOrForbiddenException;
         }
 

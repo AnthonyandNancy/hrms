@@ -105,7 +105,7 @@ abstract class AuthorizationTestSupport extends TestCase
 
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => CapabilityWildcard::WILDCARD,
                 'purpose_code' => 'SYSTEM_ADMIN',

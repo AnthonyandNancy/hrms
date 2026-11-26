@@ -62,7 +62,7 @@ final class AccessReviewEndpointTest extends AuthorizationTestSupport
     {
         AuthorityBinding::factory()
             ->forPrincipal($tenantId, (int) $user->id, (int) $user->auth_version)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::from($profile))
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::from($profile))
             ->create([
                 'tenant_id' => $tenantId,
                 'capability_code' => $capability,

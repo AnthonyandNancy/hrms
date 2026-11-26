@@ -58,7 +58,7 @@ final class ReportSubscriptionController
             new CommandDefinition(
                 name: 'reporting.subscription.create',
                 capability: 'reporting.subscription.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -86,7 +86,7 @@ final class ReportSubscriptionController
             new CommandDefinition(
                 name: 'reporting.subscription.update',
                 capability: 'reporting.subscription.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -106,7 +106,7 @@ final class ReportSubscriptionController
             new CommandDefinition(
                 name: 'reporting.subscription.delete',
                 capability: 'reporting.subscription.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

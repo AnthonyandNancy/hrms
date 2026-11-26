@@ -21,6 +21,8 @@ function registryRoute(page: PageSpec, nested = true): RouteRecordRaw {
     props: loader ? (page.path.includes(':id') ? true : false) : { page },
     meta: {
       title: page.menu?.label ?? page.name,
+      navKey: page.name,
+      pageCode: page.name,
       capability: page.capability === 'public' ? undefined : page.capability,
       public: page.capability === 'public',
       menu: page.menu,

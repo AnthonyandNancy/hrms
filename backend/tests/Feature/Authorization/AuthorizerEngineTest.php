@@ -22,7 +22,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
         $this->assertFalse(app(CapabilityAuthorizer::class)->allows(
             $this->actingAsUser($user),
             'people.employee.read',
-            AnchorRef::legalEntity(1),
+            AnchorRef::company(),
             '2026-11-23',
         ));
     }
@@ -40,7 +40,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
         $authorizer = app(CapabilityAuthorizer::class);
 
         $this->assertTrue($authorizer->allows($principal, 'people.employee.read', AnchorRef::self(), '2026-11-23'));
-        $this->assertFalse($authorizer->allows($principal, 'people.employee.read', AnchorRef::legalEntity(1), '2026-11-23'));
+        $this->assertFalse($authorizer->allows($principal, 'people.employee.read', AnchorRef::company(), '2026-11-23'));
         $this->assertFalse($authorizer->allows($principal, 'people.employee.manage', AnchorRef::self(), '2026-11-23'));
     }
 
@@ -61,7 +61,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_expired_and_future_bindings_do_not_grant(): void
     {
         $user = User::factory()->create();
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::LEGAL_ENTITY, 1)->create([
+        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'org.tree.read',
             'valid_from' => '2025-01-01 00:00:00',
             'valid_to' => '2026-01-01 00:00:00',
@@ -71,7 +71,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
         $this->assertFalse(app(CapabilityAuthorizer::class)->allows(
             $this->actingAsUser($user),
             'org.tree.read',
-            AnchorRef::legalEntity(1),
+            AnchorRef::company(),
             '2026-11-23',
         ));
     }
@@ -79,7 +79,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_tenant_mismatch_never_grants(): void
     {
         $user = User::factory()->create(['tenant_id' => 2]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::LEGAL_ENTITY, 1)->create([
+        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'org.tree.read',
         ]);
         $this->organization->knownLegalEntities = [1];
@@ -87,7 +87,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
         $this->assertFalse(app(CapabilityAuthorizer::class)->allows(
             $this->actingAsUser($user),
             'org.tree.read',
-            AnchorRef::legalEntity(1),
+            AnchorRef::company(),
             '2026-11-23',
         ));
     }
@@ -113,7 +113,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_stale_auth_version_is_not_granted(): void
     {
         $user = User::factory()->create(['auth_version' => 4]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id, 3)->anchor(AnchorType::LEGAL_ENTITY, 1)->create([
+        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id, 3)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'org.tree.read',
         ]);
         $this->organization->knownLegalEntities = [1];
@@ -122,7 +122,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
 
         $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
 
-        app(CapabilityAuthorizer::class)->allows($principal, 'org.tree.read', AnchorRef::legalEntity(1), '2026-11-23');
+        app(CapabilityAuthorizer::class)->allows($principal, 'org.tree.read', AnchorRef::company(), '2026-11-23');
     }
 
     public function test_constrain_pushes_scope_into_sql_before_pagination(): void

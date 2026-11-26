@@ -134,7 +134,7 @@ final class IamCommandsTest extends TestCase
     {
         AuthorityBinding::factory()
             ->forPrincipal(1, $principalId)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1)
+            ->anchor(AnchorType::COMPANY, null)
             ->create([
                 'capability_code' => $capabilityCode,
                 'valid_from' => '2025-01-01 00:00:00',

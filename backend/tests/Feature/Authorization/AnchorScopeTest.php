@@ -79,25 +79,24 @@ final class AnchorScopeTest extends AuthorizationTestSupport
         $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'payroll.run.review', AnchorRef::payrollRun(71), $this->date()));
     }
 
-    public function test_legal_entity_anchor_and_cross_entity_isolation(): void
+    public function test_company_anchor_is_instance_wide_and_does_not_require_an_id(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 80, FieldProfile::P1_INTERNAL);
-        $this->organization->knownLegalEntities = [80, 81];
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL);
 
-        $this->assertTrue($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::legalEntity(80), $this->date()));
-        $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::legalEntity(81), $this->date()));
+        $this->assertTrue($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::company(), $this->date()));
+        $this->assertFalse(AnchorType::COMPANY->requiresAnchorId());
     }
 
     public function test_cross_tenant_user_never_uses_another_tenants_binding(): void
     {
         $user = User::factory()->create(['tenant_id' => 2]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::LEGAL_ENTITY, 80)->create([
+        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'people.employee.read',
         ]);
         $this->organization->knownLegalEntities = [80];
 
-        $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::legalEntity(80), $this->date()));
+        $this->assertFalse($this->authorizer()->allows($this->actingAsUser($user), 'people.employee.read', AnchorRef::company(), $this->date()));
     }
 
     public function test_every_binding_carries_a_known_anchor_type(): void

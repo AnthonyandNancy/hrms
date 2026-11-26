@@ -22,7 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
  * middleware parameters: metadata is both executable policy and the evidence
  * inspected by capability:audit.
  *
- * Usage: ->middleware('capability:people.employee.read,LEGAL_ENTITY,id')
+ * Usage: ->middleware('capability:people.employee.read,COMPANY') or
+ *        ->middleware('capability:people.employee.read,ORG_UNIT,orgUnit')
  */
 final class RequireCapability
 {
@@ -61,7 +62,7 @@ final class RequireCapability
             // Route gates answer the feature question; row scope is applied
             // later by Authorizer::constrain() or by a controller assertion on
             // the concrete resource. Asking only for SELF here would wrongly
-            // deny LEGAL_ENTITY/ORG_UNIT holders on entity-scoped reads.
+            // deny COMPANY/ORG_UNIT holders on entity-scoped reads.
             $allowed = $anchor === AnchorType::SELF && $anchorParameter === null
                 ? $this->authorizer->permits($principal, $capability, $businessDate)
                 : $this->authorizer->allows(
@@ -90,7 +91,7 @@ final class RequireCapability
     private function anchorIdFor(Request $request, AnchorType $anchor, ?string $parameter): ?int
     {
         if ($parameter !== null && $parameter !== '') {
-            $value = $request->route($parameter) ?? $request->input($parameter) ?? $request->header('X-Legal-Entity-Id');
+            $value = $request->route($parameter) ?? $request->input($parameter);
 
             return is_numeric($value) ? (int) $value : null;
         }
@@ -99,7 +100,7 @@ final class RequireCapability
             AnchorType::ORG_UNIT, AnchorType::ORG_SUBTREE => [$request->route('orgUnit'), $request->route('org_unit'), $request->route('id')],
             AnchorType::CASE => [$request->route('case'), $request->route('caseId'), $request->route('id')],
             AnchorType::PAYROLL_RUN => [$request->route('payrollRun'), $request->route('run'), $request->route('id')],
-            AnchorType::LEGAL_ENTITY => [$request->route('legalEntity'), $request->route('legal_entity'), $request->route('id')],
+            AnchorType::COMPANY => [null],
             AnchorType::SELF, AnchorType::MANAGED => [null],
         };
 

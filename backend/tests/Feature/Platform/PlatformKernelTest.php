@@ -58,7 +58,7 @@ final class PlatformKernelTest extends TestCase
     public function test_a_legal_entity_override_wins_over_the_tenant_default(): void
     {
         SystemParameter::query()->create(['tenant_id' => 1, 'key' => 'pagination.max_page_size', 'value_json' => ['value' => 200], 'scope' => 'TENANT']);
-        SystemParameter::query()->create(['tenant_id' => 1, 'key' => 'pagination.max_page_size', 'value_json' => ['value' => 50], 'scope' => 'LEGAL_ENTITY:7']);
+        SystemParameter::query()->create(['tenant_id' => 1, 'key' => 'pagination.max_page_size', 'value_json' => ['value' => 50], 'scope' => 'COMPANY:7']);
 
         $reader = app(ParameterReader::class);
 

@@ -78,7 +78,7 @@ final class BenefitController
             new CommandDefinition(
                 name: 'payroll.benefit.plan.version.create',
                 capability: 'benefit.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -152,7 +152,7 @@ final class BenefitController
             new CommandDefinition(
                 name: 'payroll.benefit.enrollment.version.create',
                 capability: 'benefit.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -222,7 +222,7 @@ final class BenefitController
             new CommandDefinition(
                 name: 'payroll.benefit.transaction.record',
                 capability: 'benefit.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

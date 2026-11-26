@@ -44,8 +44,8 @@ final class DataScopeTemplateCatalog
                 'description' => 'An organization unit and its declared descendants.',
             ],
             [
-                'template' => 'LEGAL_ENTITY',
-                'anchor_type' => AnchorType::LEGAL_ENTITY->value,
+                'template' => 'COMPANY',
+                'anchor_type' => AnchorType::COMPANY->value,
                 'label' => '本公司/法人',
                 'description' => 'One legal entity.',
             ],

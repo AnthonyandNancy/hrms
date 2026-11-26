@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Console;
 
-use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Time\Models\ShiftTemplate;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\ShiftService;
@@ -18,56 +18,33 @@ use Illuminate\Console\Command;
 final class SeedCalendarCommand extends Command
 {
     protected $signature = 'time:seed-calendar
-        {--legal-entity= : Legal entity id}
-        {--timezone= : IANA timezone; defaults to the legal entity timezone}
+        {--timezone= : IANA timezone; defaults to the company profile timezone}
         {--workweek=1,2,3,4,5 : ISO weekdays worked}
         {--standard-day-minutes=480 : Standard working minutes per day}
         {--holidays-file= : CSV with date,name,type columns}';
 
-    protected $description = 'Create the legal entity calendar, a STANDARD shift and optional public holidays (idempotent)';
+    protected $description = 'Create the company calendar, a STANDARD shift and optional public holidays (idempotent)';
 
     public function handle(BusinessCalendar $calendar, ShiftService $shifts): int
     {
-        $entityId = (int) $this->option('legal-entity');
-
-        if ($entityId < 1) {
-            $this->error('--legal-entity is required.');
-
-            return self::FAILURE;
-        }
-
-        $entities = app(OrganizationFacts::class)->legalEntitiesForTenant(1);
-        $entity = null;
-
-        foreach ($entities as $candidate) {
-            if ($candidate->id === $entityId) {
-                $entity = $candidate;
-                break;
-            }
-        }
-
-        if ($entity === null) {
-            $this->error("Legal entity {$entityId} does not exist.");
-
-            return self::FAILURE;
-        }
-
-        $timezone = (string) ($this->option('timezone') ?: $entity->timezone);
+        $tenantId = 1;
+        $profile = app(CompanyProfileReader::class)->current();
+        $calendarId = 1;
+        $timezone = (string) ($this->option('timezone') ?: $profile->timezone);
         $workweek = array_map('intval', explode(',', (string) $this->option('workweek')));
         $minutes = (int) $this->option('standard-day-minutes');
 
-        $calendar->configure($entity->tenantId, $entityId, $timezone, $workweek, $minutes);
-        $this->info("Calendar configured for legal entity {$entityId} ({$timezone}).");
+        $calendar->configure($tenantId, $calendarId, $timezone, $workweek, $minutes);
+        $this->info("Calendar configured for the single company ({$timezone}).");
 
         $existing = ShiftTemplate::query()
-            ->where('tenant_id', $entity->tenantId)
-            ->where('legal_entity_id', $entityId)
+            ->where('tenant_id', $tenantId)
             ->where('code', 'STANDARD')
             ->exists();
 
         if (! $existing) {
-            $shifts->createTemplate($entity->tenantId, [
-                'legal_entity_id' => $entityId,
+            $shifts->createTemplate($tenantId, [
+                'legal_entity_id' => $calendarId,
                 'code' => 'STANDARD',
                 'name' => 'Standard day',
                 'start_local_time' => '09:00',
@@ -101,8 +78,8 @@ final class SeedCalendarCommand extends Command
                 }
 
                 $calendar->addHoliday(
-                    $entity->tenantId,
-                    $entityId,
+                    $tenantId,
+                    $calendarId,
                     $date,
                     $name,
                     $type,

@@ -117,7 +117,7 @@ final class DirectoryContractTest extends PeopleTestCase
         );
 
         $hrPrincipal = new TestPrincipal(1, 701);
-        $legalEntity = new DirectoryScopeAuthorizer($people, $organization, $hrPrincipal, 'LEGAL_ENTITY', $entity->id);
+        $legalEntity = new DirectoryScopeAuthorizer($people, $organization, $hrPrincipal, 'COMPANY', $entity->id);
         $this->assertCount(
             3,
             $legalEntity->constrain(\App\Modules\People\Models\Employment::query(), $hrPrincipal, 'people.employee.read', '2026-11-23')->get(),

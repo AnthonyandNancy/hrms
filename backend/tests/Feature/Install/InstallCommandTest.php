@@ -32,7 +32,13 @@ final class InstallCommandTest extends TestCase
 
     public function test_it_creates_the_reference_baseline_and_exactly_one_admin(): void
     {
-        $this->artisan('hrms:install', $this->installOptions())->assertExitCode(0);
+        $exit = \Illuminate\Support\Facades\Artisan::call('hrms:install', $this->installOptions());
+        if ($exit !== 0) {
+            fwrite(STDERR, "INSTALL OUTPUT:
+".\Illuminate\Support\Facades\Artisan::output()."
+");
+        }
+        $this->assertSame(0, $exit);
 
         $this->assertSame(1, User::query()->count(), 'The installer must create exactly one account.');
         $this->assertDatabaseHas('users', ['username' => 'installer', 'is_privileged' => true]);
@@ -99,8 +105,8 @@ final class InstallCommandTest extends TestCase
     private function installOptions(): array
     {
         return [
-            '--legal-entity-code' => 'ACME-CN',
-            '--legal-entity-name' => 'Acme China',
+            '--company-code' => 'ACME-CN',
+            '--company-name' => 'Acme China',
             '--country' => 'CN',
             '--timezone' => 'Asia/Shanghai',
             '--currency' => 'CNY',
@@ -133,7 +139,7 @@ final class InstallCommandTest extends TestCase
         ]);
 
         $this->artisan('hrms:install', $options)
-            ->expectsOutputToContain('legal_entity')
+            ->expectsOutputToContain('capabilities')
             ->assertExitCode(1);
     }
 }

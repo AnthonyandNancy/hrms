@@ -35,7 +35,7 @@ final readonly class TimeActor
         return match ($this->scope) {
             'SELF' => $this->employmentId === $employmentId,
             'MANAGED' => in_array($employmentId, $this->managedEmploymentIds, true),
-            'LEGAL_ENTITY', 'HR', 'ADMIN' => $legalEntityId !== null
+            'COMPANY', 'HR', 'ADMIN' => $legalEntityId !== null
                 ? in_array($legalEntityId, $this->legalEntityIds, true)
                 : $this->employmentId !== null && $this->legalEntityIds !== [],
             default => $this->employmentId === $employmentId,

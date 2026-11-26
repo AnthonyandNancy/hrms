@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Architecture;
+
+use App\Modules\Organization\Models\CompanyProfile;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+final class SingleCompanyMigrationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_company_profile_is_a_singleton_with_company_locale_settings(): void
+    {
+        $this->assertTrue(Schema::hasTable('company_profile'));
+
+        $profile = CompanyProfile::query()->firstOrCreate([], [
+            'name' => 'Synthetic Single Company',
+            'country_code' => 'CN',
+            'timezone' => 'Asia/Shanghai',
+            'currency_code' => 'CNY',
+        ]);
+
+        $this->assertSame(1, (int) $profile->id);
+        $this->assertSame('Asia/Shanghai', $profile->timezone);
+        $this->assertSame('CNY', $profile->currency_code);
+    }
+
+    public function test_legacy_tenant_and_legal_entity_columns_are_gone_from_target_tables(): void
+    {
+        foreach (['users', 'sessions', 'roles', 'user_roles', 'authority_bindings', 'org_units', 'positions', 'employments'] as $table) {
+            $this->assertFalse(Schema::hasColumn($table, 'tenant_id'), "{$table}.tenant_id must be removed.");
+            $this->assertFalse(Schema::hasColumn($table, 'legal_entity_id'), "{$table}.legal_entity_id must be removed.");
+        }
+
+        $this->assertFalse(Schema::hasTable('legal_entities'));
+    }
+}

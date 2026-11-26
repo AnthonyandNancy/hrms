@@ -86,7 +86,7 @@ final class AttendanceOpsController
             new CommandDefinition(
                 name: 'time.attendance.rule.publish',
                 capability: 'time.attendance.rule.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -202,7 +202,7 @@ final class AttendanceOpsController
             new CommandDefinition(
                 name: 'time.shift.schedule.create',
                 capability: 'time.shift.schedule.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

@@ -51,7 +51,7 @@ final class OrganizationCsvImporter extends AbstractCsvImporter
         $legalEntity = trim($values['legal_entity_code'] ?? '');
 
         if ($legalEntity !== '' && $references->legalEntityCodes !== [] && ! isset($references->legalEntityCodes[$legalEntity])) {
-            $this->addIssue($sourceRow, $issues, IssueCode::ORPHAN_LEGAL_ENTITY, "Legal entity '{$legalEntity}' is not present in reference data.", 'legal_entity_code');
+            $this->addIssue($sourceRow, $issues, IssueCode::ORPHAN_COMPANY, "Legal entity '{$legalEntity}' is not present in reference data.", 'legal_entity_code');
         }
 
         $code = trim($values['code'] ?? '');

@@ -1,13 +1,13 @@
 # 03 — Organization, People and Employment Data Model
 
 Status: Task 3 reference implementation
-Sources: solution §5–§6, plan §4.3, decision register D-02/D-03/D-06.
+Sources: solution §5–§6, plan §4.3, decision register D-02/D-03/D-06; single-company override by ADR-0034.
 
 ## Ownership
 
 | Table | Sole writer | Read via |
 |---|---|---|
-| `legal_entities`, `org_units`, `org_unit_closure`, `positions` | Organization | `App\Modules\Organization\Contracts\OrganizationDirectory` |
+| `company_profile`, `org_units`, `org_unit_closure`, `positions` | Organization | `App\Modules\Organization\Contracts\OrganizationDirectory`、`CompanyProfileReader` |
 | `persons`, `employments`, `assignments`, `employment_terms`, `documents`, `employment_user_links` | People | `App\Modules\People\Contracts\PeopleDirectory` |
 | `audit_events`, `outbox_events`, `idempotency_keys`, `file_objects` | Platform | Platform services only |
 
@@ -17,7 +17,7 @@ People or Organization models directly.
 ## Text ERD
 
 ```text
-legal_entities 1 ── N org_units                       (tenant-scoped legal employer)
+company_profile 1 ── 1 instance                       (single company; no tenant/legal entity)
 org_units      N ── N org_unit_closure                (effective-dated ancestor paths)
 org_units      1 ── N positions                       (position catalog)
 persons        1 ── N employments                     (natural person is long-lived)
@@ -48,16 +48,16 @@ constraints in production. Application code validates the same invariant before 
 
 | Table | Constraint / index |
 |---|---|
-| `legal_entities` | UNIQUE `(tenant_id, code)` |
-| `org_units` | UNIQUE `(tenant_id, code)`; as-of `(tenant_id, legal_entity_id, valid_from, valid_to)` |
+| `company_profile` | singleton row; `name`, `timezone`, `currency_code` |
+| `org_units` | UNIQUE `(code)`; as-of `(valid_from, valid_to)` |
 | `org_unit_closure` | PK `(ancestor_id, descendant_id, valid_from)`; descendant and ancestor as-of indexes |
-| `positions` | UNIQUE `(tenant_id, legal_entity_id, code)` |
-| `persons` | UNIQUE `(tenant_id, id_type, id_number_hash)` when identity present |
-| `employments` | UNIQUE `(tenant_id, legal_entity_id, employee_no)`; as-of index |
+| `positions` | UNIQUE `(code)` |
+| `persons` | UNIQUE `(id_type, id_number_hash)` when identity present |
+| `employments` | UNIQUE `(employee_no)`; as-of index |
 | `assignments` | employment/org/manager as-of indexes; PRIMARY overlap enforced transactionally |
 | `employment_terms` | UNIQUE `(employment_id, version)`; history is append-only |
 | `documents` | UNIQUE `(owner_type, owner_id, category, version)` |
-| `employment_user_links` | UNIQUE `(tenant_id, user_id, employment_id, valid_from)`; as-of index |
+| `employment_user_links` | UNIQUE `(user_id, employment_id, valid_from)`; as-of index |
 
 ## Invariants
 
@@ -65,13 +65,13 @@ constraints in production. Application code validates the same invariant before 
    employment and its assignment rows, then `AssignmentTimeline::assertNoPrimaryOverlap`
    rejects intersecting half-open ranges with `409 CONFLICT` / reason
    `PRIMARY_ASSIGNMENT_OVERLAP`. Concurrent SECONDMENT/MATRIX/PROJECT assignments are allowed.
-2. **Legal-entity boundary.** An assignment's org must belong to the employment legal entity
-   during the assignment window. Violations return `422 VALIDATION_FAILED` with reason
-   `CROSS_LEGAL_ENTITY_ASSIGNMENT`.
-3. **Cross-entity transfer** ends the old employment at the effective date and creates a new
-   employment for the same person in the new legal entity. Full workflow is Task 5.
-4. **Employee number** is unique per `(tenant_id, legal_entity_id)`; the same value is legal in
-   another entity.
+2. **Single-company boundary.** All org units and employments belong to the one
+   `company_profile`; there is no legal-entity or tenant boundary. An assignment must
+   reference an org unit in the same company (always true by construction).
+3. **Transfer** keeps one employment and appends a new assignment; it never creates a
+   second employment for a different company/org scope.
+4. **Employee number** is unique across the company (`employee_no`); it is never reused
+   after archive.
 5. **Person dedupe** uses HMAC-SHA256 over normalized id type/value; reuse with a different ID
    type is legal. Plaintext identity and mobile are encrypted with Laravel Crypt and never
    serialized in API, audit, or outbox payloads.
@@ -81,8 +81,9 @@ constraints in production. Application code validates the same invariant before 
    `effective_from`; new paths are appended. `org_units.id` is the stable identity; the
    historical parent is derived from closure depth 1 rows, so as-of tree queries are exact.
    A later move must start strictly after the latest closure version.
-8. **Tenant isolation.** Every directory and HTTP read is scoped by `tenant_id`; cross-tenant
-   detail returns 404 to prevent enumeration.
+8. **Company scope.** Every directory and HTTP read is scoped by organization/self/managed
+   predicates; there is no tenant or legal-entity filter. Detail outside the binding returns
+   404 to prevent enumeration.
 
 ## As-of query rules
 
@@ -94,11 +95,11 @@ AND (superseded_at IS NULL OR :known_at < superseded_at)
 ```
 
 - `App\Shared\Time\BusinessDate` validates real calendar dates (`2026-02-30` is rejected) and
-  computes today from the legal entity IANA timezone through the injected `Clock`.
+  computes today from `company_profile.timezone` through the injected `Clock`.
 - `App\Shared\Time\DateRange` models the half-open interval and `App\Shared\Time\AsOfQuery`
   applies the validity and known-at predicates. Business code is forbidden from `whereDate`
   (architecture test).
-- `as_of` defaults to today in the tenant timezone. List, detail, org tree, timeline and
+- `as_of` defaults to today in the company timezone. List, detail, org tree, timeline and
   directory snapshots all use the same business date.
 - A future-dated assignment does not change today's projection; it automatically becomes
   current when the business date reaches `valid_from`.
@@ -122,16 +123,16 @@ AND (superseded_at IS NULL OR :known_at < superseded_at)
 - `documents` stores metadata and a `file_object_id`; signed download URL issuance is modeled
   as a descriptor and belongs to the Platform file-storage task.
 - Payroll cost-center impact is always `0` until Payroll (Task 7) exists.
-- HTTP capability enforcement requires IAM Task 2 middleware. Until it is merged, every route
-  carries `capability:<code>` metadata and the shared Authorizer is fail-closed.
+- HTTP capability enforcement requires the IAM capability middleware. Every route carries
+  `capability:<code>` metadata and the shared Authorizer is fail-closed.
 
 ## Migration and seeding
 
 - Forward-only anonymous migration classes.
 - SQLite: compatibility triggers enforce date-range ordering; MySQL: `CHECK` constraints.
-- `php artisan people:seed-demo` is idempotent and seeds `DEMO` / `DEMO-CN` with synthetic
+- `php artisan people:seed-demo` is idempotent and seeds the single synthetic company with
   persons, a manager/report chain, a concurrent secondment, and a future primary transfer.
-- `php artisan org:rebuild-closure --legal-entity=N` appends missing closure paths.
+- `php artisan org:rebuild-closure` appends missing closure paths for the single company.
 - `php artisan people:as-of-check --date=YYYY-MM-DD` exits non-zero on overlapping PRIMARY
   assignments or orphan assignments.
 
@@ -140,5 +141,5 @@ AND (superseded_at IS NULL OR :known_at < superseded_at)
 - `PeopleServiceProvider` binds `PeopleDirectory`, `OrganizationDirectory`, `Clock`, and a
   fail-closed `Authorizer`.
 - CAPABILITY / `capability:<code>` metadata is present on every new `/v1` route.
-- IAM Task 2 replaces the fail-closed Authorizer/Principal/middleware bindings; directory
-  signatures in this module follow the frozen interface exactly.
+- IAM owns the Authorizer/Principal/middleware bindings; directory signatures in this module
+  follow the frozen interface exactly.

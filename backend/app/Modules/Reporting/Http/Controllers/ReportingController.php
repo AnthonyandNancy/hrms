@@ -69,7 +69,7 @@ final class ReportingController
         $definition = new \App\Shared\Commands\CommandDefinition(
             name: 'reporting.definition.create',
             capability: 'reporting.definition.manage',
-            anchor: \App\Shared\Authorization\AnchorType::LEGAL_ENTITY,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -133,7 +133,7 @@ final class ReportingController
         $definition = new \App\Shared\Commands\CommandDefinition(
             name: 'reporting.export.create',
             capability: 'reporting.export',
-            anchor: \App\Shared\Authorization\AnchorType::LEGAL_ENTITY,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

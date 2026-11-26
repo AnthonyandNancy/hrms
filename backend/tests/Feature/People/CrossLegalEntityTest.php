@@ -27,8 +27,8 @@ final class CrossLegalEntityTest extends PeopleTestCase
         $response->assertUnprocessable()
             ->assertJsonPath('code', 'VALIDATION_FAILED')
             // The stable reason is carried in the error envelope; message text is user-facing.
-            ->assertJsonPath('data.reason', 'CROSS_LEGAL_ENTITY_ASSIGNMENT')
-            ->assertJsonPath('data.fields.org_unit_id.0', 'CROSS_LEGAL_ENTITY_ASSIGNMENT: assignment organization must belong to the employment legal entity.');
+            ->assertJsonPath('data.reason', 'CROSS_COMPANY_ASSIGNMENT')
+            ->assertJsonPath('data.fields.org_unit_id.0', 'CROSS_COMPANY_ASSIGNMENT: assignment organization must belong to the employment legal entity.');
     }
 
     public function test_cross_entity_transfer_ends_old_and_creates_new_employment_for_same_person(): void

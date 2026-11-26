@@ -1,0 +1,269 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * Destructive single-company cutover. Legacy bindings are merged into the
+ * COMPANY anchor before the isolation columns are removed. This migration is
+ * forward-only; rollback requires the paired database snapshot.
+ */
+return new class extends Migration
+{
+    /** @var list<string> */
+    private const TABLES = [
+        'assignments', 'attendance_corrections', 'attendance_days', 'attendance_devices',
+        'attendance_period_closures', 'attendance_rule_versions', 'audit_events', 'auth_events',
+        'authority_bindings', 'benefit_enrollments', 'benefit_plans', 'benefit_transactions',
+        'break_glass_grants', 'business_trip_records', 'candidate_communications',
+        'candidate_conversions', 'candidate_evaluations', 'candidate_imports', 'candidates',
+        'case_events', 'case_members', 'cases', 'contract_templates', 'dashboard_snapshots',
+        'decisions', 'demo_datasets', 'documents', 'effects', 'employee_certificates',
+        'employee_change_requests', 'employee_compensations', 'employee_contacts',
+        'employee_educations', 'employee_experiences', 'employee_import_batches',
+        'employment_contract_versions', 'employment_contracts', 'employment_terms',
+        'employment_user_links', 'employments', 'export_jobs', 'feature_flags', 'file_objects',
+        'holidays', 'iam_data_scope_policies', 'iam_field_policies', 'idempotency_keys',
+        'interviews', 'leave_accounts', 'leave_balances', 'leave_ledger_entries',
+        'leave_request_projections', 'leave_types', 'legal_entity_calendars', 'legal_holds',
+        'lifecycle_intents', 'lifecycle_tasks', 'login_attempts', 'menu_overrides', 'mfa_factors',
+        'migration_issues', 'migration_runs', 'migration_shadow_rows', 'notice_acknowledgements',
+        'notice_templates', 'notices', 'notification_deliveries', 'notification_outbox',
+        'notification_templates', 'notifications', 'offers', 'onboarding_checklist_templates',
+        'org_unit_closure', 'org_units', 'outbox_events', 'overtime_records', 'overtime_requests',
+        'overtime_settlements', 'payroll_adjustments', 'payroll_input_snapshots', 'payroll_items',
+        'payroll_receipts', 'payroll_run_employees', 'payroll_runs', 'payroll_scheme_items',
+        'payroll_schemes', 'payroll_ytd', 'payslip_lines', 'payslips', 'performance_appeals',
+        'performance_calibrations', 'performance_cycles', 'performance_feedback',
+        'performance_goals', 'performance_indicators', 'performance_reviews',
+        'performance_templates', 'persons', 'position_grades', 'position_qualifications',
+        'positions', 'punch_records', 'recovery_codes', 'recruitment_requisitions',
+        'report_definitions', 'report_runs', 'report_subscriptions', 'reporting_projection_rows',
+        'requisition_openings', 'retention_purge_runs', 'role_capabilities', 'roles',
+        'salary_adjustments', 'sessions', 'shift_assignments', 'shift_schedules', 'shift_templates',
+        'statutory_parameters', 'sys_dictionaries', 'sys_parameters', 'talent_pool_tags',
+        'tax_brackets', 'training_checkins', 'training_courses', 'training_enrollments',
+        'training_exams', 'training_feedback', 'training_plans', 'training_programs',
+        'training_sessions', 'travel_expenses', 'travel_policies', 'user_roles', 'users',
+        'workflow_delegations', 'workflow_instances', 'workflow_tasks', 'workflow_template_nodes',
+        'workflow_templates',
+    ];
+
+    public function up(): void
+    {
+        DB::transaction(function (): void {
+            $this->performUp();
+        });
+    }
+
+    private function performUp(): void
+    {
+        if (Schema::hasTable('authority_bindings') && Schema::hasColumn('authority_bindings', 'anchor_type')) {
+            DB::table('authority_bindings')
+                ->where('anchor_type', 'LEGAL_ENTITY')
+                ->update(['anchor_type' => 'COMPANY', 'anchor_id' => null, 'anchor_key' => 0]);
+        }
+
+        $sqlite = DB::connection()->getDriverName() === 'sqlite';
+
+        if ($sqlite) {
+            // SQLite validates every trigger when a referenced table is
+            // renamed. Defer all triggers until after the table rebuilds.
+            $deferredTriggers = DB::select("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND sql IS NOT NULL");
+            foreach ($deferredTriggers as $trigger) {
+                DB::statement('DROP TRIGGER IF EXISTS "'.(string) $trigger->name.'"');
+            }
+
+            foreach (self::TABLES as $table) {
+                if (Schema::hasTable($table)) {
+                    $this->rebuildSqliteTable($table);
+                }
+            }
+
+            foreach ($deferredTriggers as $trigger) {
+                $sql = (string) $trigger->sql;
+                if (! str_contains($sql, 'tenant_id') && ! str_contains($sql, 'legal_entity_id')) {
+                    DB::statement($sql);
+                }
+            }
+        } else {
+            foreach (self::TABLES as $table) {
+                if (Schema::hasTable($table)) {
+                    $this->dropMysqlColumns($table);
+                }
+            }
+        }
+
+        Schema::dropIfExists('legal_entities');
+    }
+
+    public function down(): void
+    {
+        throw new \RuntimeException('The single-company cutover is forward-only; restore the migration snapshot to roll back.');
+    }
+
+    private function dropMysqlColumns(string $table): void
+    {
+        $legacy = array_values(array_filter(
+            ['tenant_id', 'legal_entity_id'],
+            static fn (string $column): bool => Schema::hasColumn($table, $column),
+        ));
+
+        if ($legacy === []) {
+            return;
+        }
+
+        foreach (DB::select('SHOW INDEX FROM `'.$table.'`') as $index) {
+            $columns = array_map(static fn (object $row): string => (string) $row->Column_name, DB::select('SHOW INDEX FROM `'.$table.'` WHERE Key_name = ?', [(string) $index->Key_name]));
+            if (array_intersect($legacy, $columns) !== [] && (string) $index->Key_name !== 'PRIMARY') {
+                DB::statement('ALTER TABLE `'.$table.'` DROP INDEX `'.$index->Key_name.'`');
+            }
+        }
+
+        Schema::table($table, function ($blueprint) use ($legacy): void {
+            $blueprint->dropColumn($legacy);
+        });
+    }
+
+    private function rebuildSqliteTable(string $table): void
+    {
+        $row = DB::selectOne("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", [$table]);
+        $createSql = is_object($row) ? (string) ($row->sql ?? '') : '';
+        if ($createSql === '') {
+            return;
+        }
+
+        $columns = array_values(array_filter(
+            array_map(static fn (object $column): string => (string) $column->name, DB::select('PRAGMA table_info("'.$table.'")')),
+            static fn (string $column): bool => ! in_array($column, ['tenant_id', 'legal_entity_id'], true),
+        ));
+        if ($columns === []) {
+            return;
+        }
+
+        $temporary = $table.'__single_company';
+        $columnList = implode(', ', array_map(static fn (string $column): string => '"'.$column.'"', $columns));
+
+        // Recreate the original table shape without the legacy columns and
+        // constraints that reference them.
+        DB::statement($this->rewriteCreateTable($createSql, $table, $temporary, $columns));
+        DB::statement('INSERT INTO "'.$temporary.'" ('.$columnList.') SELECT '.$columnList.' FROM "'.$table.'"');
+
+        $indexes = DB::select("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", [$table]);
+
+        DB::statement('DROP TABLE "'.$table.'"');
+        DB::statement('ALTER TABLE "'.$temporary.'" RENAME TO "'.$table.'"');
+
+        foreach ($indexes as $index) {
+            $sql = (string) $index->sql;
+            $rewritten = $this->rewriteIndex($sql, $table, $columns);
+            if ($rewritten !== null) {
+                DB::statement($rewritten);
+            }
+        }
+
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function rewriteCreateTable(string $sql, string $table, string $temporary, array $columns): string
+    {
+        $open = strpos($sql, '(');
+        $close = strrpos($sql, ')');
+        if ($open === false || $close === false || $close <= $open) {
+            throw new \RuntimeException("Cannot parse SQLite schema for {$table}.");
+        }
+
+        $body = substr($sql, $open + 1, $close - $open - 1);
+        $parts = $this->splitTopLevel($body);
+        $kept = [];
+
+        foreach ($parts as $part) {
+            $trimmed = trim($part);
+            $lower = strtolower($trimmed);
+
+            if ($this->legacyDefinition($lower)) {
+                continue;
+            }
+
+            if (preg_match('/^"([^"]+)"/', $trimmed, $matches) === 1) {
+                if (! in_array($matches[1], $columns, true)) {
+                    continue;
+                }
+            }
+
+            $kept[] = $trimmed;
+        }
+
+        return 'CREATE TABLE "'.$temporary.'" ('.implode(', ', $kept).')';
+    }
+
+    private function legacyDefinition(string $lower): bool
+    {
+        if (str_starts_with($lower, '"tenant_id"') || str_starts_with($lower, '"legal_entity_id"')) {
+            return true;
+        }
+
+        return (str_starts_with($lower, 'unique') || str_starts_with($lower, 'primary key') || str_starts_with($lower, 'foreign key') || str_starts_with($lower, 'constraint'))
+            && (str_contains($lower, 'tenant_id') || str_contains($lower, 'legal_entity_id') || str_contains($lower, 'legal_entities'));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitTopLevel(string $body): array
+    {
+        $parts = [];
+        $depth = 0;
+        $start = 0;
+        $length = strlen($body);
+
+        for ($i = 0; $i < $length; $i++) {
+            $character = $body[$i];
+            if ($character === '(') {
+                $depth++;
+            } elseif ($character === ')') {
+                $depth--;
+            } elseif ($character === ',' && $depth === 0) {
+                $parts[] = substr($body, $start, $i - $start);
+                $start = $i + 1;
+            }
+        }
+
+        $parts[] = substr($body, $start);
+
+        return $parts;
+    }
+
+    /**
+     * @param  list<string>  $allowedColumns
+     */
+    private function rewriteIndex(string $sql, string $table, array $allowedColumns): ?string
+    {
+        if (preg_match('/^CREATE\s+(UNIQUE\s+)?INDEX\s+"([^"]+)"\s+ON\s+"'.preg_quote($table, '/').'"\s*\((.+)\)$/i', trim($sql), $matches) !== 1) {
+            return null;
+        }
+
+        $kept = [];
+        foreach ($this->splitTopLevel($matches[3]) as $column) {
+            $trimmed = trim($column);
+            $name = trim($trimmed, '" ');
+            if (! in_array($name, $allowedColumns, true)) {
+                continue;
+            }
+            $kept[] = $trimmed;
+        }
+
+        if ($kept === []) {
+            return null;
+        }
+
+        $unique = trim((string) $matches[1]) !== '' ? 'UNIQUE ' : '';
+
+        return 'CREATE '.$unique.'INDEX "'.$matches[2].'_single_company" ON "'.$table.'" ('.implode(', ', $kept).')';
+    }
+};

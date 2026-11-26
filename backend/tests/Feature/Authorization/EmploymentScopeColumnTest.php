@@ -14,7 +14,7 @@ use Tests\Support\TestPrincipal;
 use Tests\TestCase;
 
 /**
- * Regression: LEGAL_ENTITY/SELF/MANAGED scopes must constrain the employee
+ * Regression: COMPANY/SELF/MANAGED scopes must constrain the employee
  * query on `employments.id`, not on a non-existent `employment_id` column.
  * The previous predicate silently returned zero rows.
  */
@@ -38,7 +38,7 @@ final class EmploymentScopeColumnTest extends TestCase
         $user = User::factory()->create(['tenant_id' => 1]);
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id)
-            ->anchor(AnchorType::LEGAL_ENTITY, (int) $entity->id, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, (int) $entity->id, FieldProfile::P1_INTERNAL)
             ->create(['capability_code' => 'people.employee.read']);
 
         // This regression targets the real Eloquent adapter and the generated

@@ -41,7 +41,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.onboarding.manage', AnchorRef::legalEntity((int) $request->input('legal_entity_id', 1)), $today->value());
+        $this->assertAllows($principal, 'lifecycle.onboarding.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'person_id' => ['nullable', 'integer', 'min:1'],
@@ -80,7 +80,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.probation.manage', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.probation.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -96,7 +96,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.transfer.manage', AnchorRef::legalEntity((int) $request->input('legal_entity_id', 1)), $today->value());
+        $this->assertAllows($principal, 'lifecycle.transfer.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -119,7 +119,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.terms.manage', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.terms.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -138,7 +138,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.offboard.manage', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.offboard.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -161,7 +161,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.contract.manage', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.contract.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'employment_id' => ['required', 'integer', 'min:1'],
@@ -181,7 +181,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.rehire.manage', AnchorRef::legalEntity((int) $request->input('legal_entity_id', 1)), $today->value());
+        $this->assertAllows($principal, 'lifecycle.rehire.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'person_id' => ['required', 'integer', 'min:1'],
@@ -210,7 +210,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
         $data = $request->validate([
             'case_type' => ['nullable', 'string', 'max:64'],
             'status' => ['nullable', 'string', 'max:24'],
@@ -237,7 +237,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
         $data = $this->projection->detail($principal->tenantId(), $caseId);
 
         return ApiResponse::ok($data);
@@ -247,7 +247,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
         $items = $this->projection->checklistForEmployment($principal->tenantId(), $employmentId);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
@@ -257,7 +257,7 @@ final class LifecycleController
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'lifecycle.checklist.manage', AnchorRef::legalEntity(1), $today->value());
+        $this->assertAllows($principal, 'lifecycle.checklist.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'status' => ['required', 'string', Rule::in(['DONE', 'WAIVED'])],

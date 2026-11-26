@@ -25,6 +25,7 @@ export type NavigationItem = {
   label: string
   path: string
   icon: string
+  expandable: boolean
   capability?: string
   group: NavigationGroup
   badge?: 'approvals' | 'notices'
@@ -37,6 +38,7 @@ export type NavigationChild = {
   path: string
   capability: string
   order: number
+  icon: string
 }
 
 const GROUP_BY_MENU: Record<string, NavigationGroup> = {
@@ -132,6 +134,7 @@ export const NAVIGATION: NavigationItem[] = (() => {
       path: page.path,
       capability: page.capability,
       order: page.menu.order,
+      icon: page.menu.icon,
     })
     groups.set(group, children)
     groupOrder.set(group, Math.min(groupOrder.get(group) ?? Number.MAX_SAFE_INTEGER, page.menu.order))
@@ -143,6 +146,7 @@ export const NAVIGATION: NavigationItem[] = (() => {
       label: '我的工作台',
       path: '/workspace',
       icon: 'HomeFilled',
+      expandable: false,
       group: 'dashboard',
       children: [],
     },
@@ -155,6 +159,7 @@ export const NAVIGATION: NavigationItem[] = (() => {
           label: GROUP_LABEL[group],
           path: first?.path ?? '/workspace',
           icon: ICON_BY_GROUP[group],
+          expandable: children.length > 0,
           group,
           badge: BADGE_BY_GROUP[group],
           children: children.sort((a, b) => a.order - b.order),

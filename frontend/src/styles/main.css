@@ -1521,9 +1521,32 @@ textarea {
   background: transparent;
 }
 
+.nav-link--group-active {
+  color: #fff;
+  background: rgb(255 255 255 / 7%);
+}
+
+.nav-link__chevron {
+  flex: 0 0 auto;
+  margin-left: 2px;
+  color: #a9c8c3;
+  font-size: 14px;
+}
+
+.nav-link--group-active .nav-link__chevron {
+  color: #f2d48b;
+}
+
 .nav-link--child {
-  padding-left: 34px;
-  font-size: 11.5px;
+  gap: 8px;
+  padding-left: 22px;
+  font-size: 12px;
+}
+
+.nav-link__child-icon {
+  flex: 0 0 auto;
+  color: #8fb4ae;
+  font-size: 14px;
 }
 
 .sidebar__children {
@@ -1531,4 +1554,9 @@ textarea {
   flex-direction: column;
   gap: 2px;
   padding: 2px 0 4px;
+}
+
+.app-shell--collapsed .nav-link__chevron,
+.app-shell--collapsed .nav-link__child-icon {
+  display: none;
 }

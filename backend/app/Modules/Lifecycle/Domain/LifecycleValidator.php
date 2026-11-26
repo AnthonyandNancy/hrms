@@ -38,7 +38,7 @@ final class LifecycleValidator
 
         if ($org->legalEntityId !== (int) $payload['legal_entity_id']) {
             throw (new ValidationException(['org_unit_id' => ['The organization unit must belong to the selected legal entity.']]))
-                ->withReason('ORG_LEGAL_ENTITY_MISMATCH');
+                ->withReason('ORG_COMPANY_MISMATCH');
         }
 
         if ($this->employments->employeeNumberExists($tenantId, (int) $payload['legal_entity_id'], (string) $payload['employee_no'])) {

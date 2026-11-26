@@ -327,12 +327,12 @@ final class DictionaryAdminController
             return;
         }
 
-        if (preg_match('/^LEGAL_ENTITY:([1-9][0-9]{0,18})$/', $scope) === 1) {
+        if (preg_match('/^COMPANY:([1-9][0-9]{0,18})$/', $scope) === 1) {
             return;
         }
 
         throw new ValidationException(
-            ['scope' => ['Parameter scope must be TENANT or LEGAL_ENTITY:{id}.']],
+            ['scope' => ['Parameter scope must be TENANT or COMPANY:{id}.']],
             'The given data was invalid.',
             ['reason' => 'INVALID_PARAMETER_SCOPE'],
         );
@@ -376,7 +376,7 @@ final class DictionaryAdminController
         return new CommandDefinition(
             name: $name,
             capability: 'system.dictionary.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -389,7 +389,7 @@ final class DictionaryAdminController
         return new CommandDefinition(
             name: 'system.parameter.upsert',
             capability: 'system.parameter.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

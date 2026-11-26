@@ -133,7 +133,7 @@ final class DataScopeAdminController
         return new CommandDefinition(
             name: 'iam.data_scope.upsert',
             capability: 'iam.scope.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

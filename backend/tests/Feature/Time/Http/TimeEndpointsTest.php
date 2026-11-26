@@ -21,7 +21,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
 
     public function test_punch_import_is_idempotent_by_payload_hash(): void
     {
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'LEGAL_ENTITY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
 
         $payload = [
             'employment_id' => 1,
@@ -69,7 +69,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
 
     public function test_attendance_scoped_read_returns_projection_rows(): void
     {
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'LEGAL_ENTITY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
         AttendanceDay::query()->create([
             'tenant_id' => 1,
             'employment_id' => 1,
@@ -212,7 +212,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $this->leaveAccount($type);
         app(LeaveLedgerService::class)->grant(1, 1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'LEGAL_ENTITY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
 
         $this->getJson('/v1/leave/balances/1?as_of=2026-11-23')->assertOk()->assertJsonPath('data.0.leaveTypeCode', 'ANNUAL');
         $this->getJson('/v1/leave/ledger/1?leave_type_id='.$type->id.'&as_of=2026-11-23')->assertOk()->assertJsonPath('data.leave_type_code', 'ANNUAL');
@@ -221,7 +221,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
     public function test_other_tenant_balance_is_not_visible_as_404(): void
     {
         $this->people->add(TimeTestFixtures::employment(2, 88, 8));
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'LEGAL_ENTITY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
 
         $this->getJson('/v1/leave/balances/88?as_of=2026-11-23')->assertNotFound();
     }

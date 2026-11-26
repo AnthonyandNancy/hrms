@@ -27,7 +27,7 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
 
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, AnchorType::LEGAL_ENTITY, 1, [
+        $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-25 00:42:38',
             'valid_to' => '2027-11-26 00:42:38',
         ]);
@@ -41,7 +41,7 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
         $this->assertTrue($authorizer->allows(
             $principal,
             'org.tree.read',
-            new AnchorRef(AnchorType::LEGAL_ENTITY, 1),
+            new AnchorRef(AnchorType::COMPANY, null),
             $date,
         ));
     }
@@ -52,7 +52,7 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
 
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, AnchorType::LEGAL_ENTITY, 1, [
+        $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-01 09:00:00',
             'valid_to' => '2026-11-25 00:00:00',
         ]);
@@ -70,7 +70,7 @@ final class BindingValidityHttpTest extends AuthorizationTestSupport
 
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, AnchorType::LEGAL_ENTITY, 1, [
+        $this->grant($user, AnchorType::COMPANY, null, [
             'valid_from' => '2026-11-01 09:00:00',
             'valid_to' => '2026-11-25 00:00:00',
         ]);

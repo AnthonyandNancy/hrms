@@ -73,7 +73,7 @@ final class TimeHttpAuthorizationTest extends TimeHttpTestCase
 
         $hr = TimeTestFixtures::actor(
             employmentId: null,
-            scope: 'LEGAL_ENTITY',
+            scope: 'COMPANY',
             legalEntityIds: [1],
         );
         $this->actAsHttp($hr);
@@ -88,7 +88,7 @@ final class TimeHttpAuthorizationTest extends TimeHttpTestCase
 
         $hr = TimeTestFixtures::actor(
             employmentId: null,
-            scope: 'LEGAL_ENTITY',
+            scope: 'COMPANY',
             legalEntityIds: [1, 8],
         );
         $this->actAsHttp($hr);

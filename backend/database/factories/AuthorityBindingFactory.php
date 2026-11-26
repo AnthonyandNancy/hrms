@@ -22,9 +22,9 @@ class AuthorityBindingFactory extends Factory
             'tenant_id' => 1,
             'principal_id' => 1,
             'capability_code' => 'people.employee.read',
-            'anchor_type' => AnchorType::LEGAL_ENTITY->value,
-            'anchor_id' => 1,
-            'anchor_key' => 1,
+            'anchor_type' => AnchorType::COMPANY->value,
+            'anchor_id' => null,
+            'anchor_key' => 0,
             'field_profile' => FieldProfile::P1_INTERNAL->value,
             'purpose_code' => 'test',
             // Validity must follow the injected clock, not the wall clock.

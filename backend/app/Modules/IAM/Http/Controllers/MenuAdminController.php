@@ -175,7 +175,7 @@ final class MenuAdminController
         return new CommandDefinition(
             name: $name,
             capability: 'iam.menu.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

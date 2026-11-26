@@ -83,11 +83,16 @@ final class OpenApiSchemaContractTest extends TestCase
      */
     private array $spec;
 
+    private function repositoryRoot(): string
+    {
+        return (string) realpath(__DIR__.'/../../..');
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $path = realpath(self::SPEC_PATH);
+        $path = realpath($this->repositoryRoot().'/docs/openapi/openapi.yaml');
         $this->assertNotFalse($path, 'OpenAPI spec is missing at docs/openapi/openapi.yaml');
         $this->spec = Yaml::parseFile($path);
     }

@@ -79,7 +79,7 @@ final class PositionCatalogController
         $definition = new CommandDefinition(
             name: 'org.position.qualification.version',
             capability: 'org.position.qualification.manage',
-            anchor: \App\Shared\Authorization\AnchorType::LEGAL_ENTITY,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -161,7 +161,7 @@ final class PositionCatalogController
         $definition = new CommandDefinition(
             name: 'org.position.grade.upsert',
             capability: 'org.position.grade.manage',
-            anchor: \App\Shared\Authorization\AnchorType::LEGAL_ENTITY,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -235,7 +235,7 @@ final class PositionCatalogController
         throw new \App\Shared\Exceptions\ValidationException(
             ['legal_entity_id' => ['The legal_entity_id field is required.']],
             'The given data was invalid.',
-            ['reason' => 'LEGAL_ENTITY_REQUIRED'],
+            ['reason' => 'COMPANY_REQUIRED'],
         );
     }
 
@@ -262,7 +262,7 @@ final class PositionCatalogController
         $allowed = $this->authorizer->allows(
             $principal,
             $capability,
-            AnchorRef::legalEntity((int) $position->legal_entity_id),
+            AnchorRef::company(),
             $today,
         );
 

@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  * A position id resolves through the Organization facts contract; an
  * employment id resolves through the People lifecycle contract. The resolved
  * entity is merged into the request under `legal_entity_id`, which is the
- * parameter the following `capability:...,LEGAL_ENTITY,legal_entity_id`
+ * parameter the following `capability:...,COMPANY,legal_entity_id`
  * middleware reads. Unknown or out-of-tenant resources become 404 before any
  * capability question is asked, so an id cannot be used to probe scope.
  */

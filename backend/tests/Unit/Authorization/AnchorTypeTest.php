@@ -19,7 +19,7 @@ class AnchorTypeTest extends TestCase
             'ORG_SUBTREE',
             'CASE',
             'PAYROLL_RUN',
-            'LEGAL_ENTITY',
+            'COMPANY',
         ], array_map(static fn (AnchorType $type): string => $type->value, AnchorType::cases()));
     }
 

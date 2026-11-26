@@ -155,7 +155,7 @@ final class TravelController
             ),
             $payload,
             function () use ($actor, $id, $payload): array {
-                $legalEntityWide = in_array($actor->scope, ['LEGAL_ENTITY', 'HR', 'ADMIN'], true);
+                $legalEntityWide = in_array($actor->scope, ['COMPANY', 'HR', 'ADMIN'], true);
                 $body = $this->travel->approve(
                     $actor->tenantId,
                     $id,

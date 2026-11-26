@@ -139,7 +139,7 @@ final class RoleAdminController
         return new CommandDefinition(
             name: $name,
             capability: 'iam.role.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

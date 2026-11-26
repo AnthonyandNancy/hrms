@@ -1,5 +1,7 @@
 # ADR-0016: Wildcard superuser and separation-of-duties layering
 
+> **Superseded in part by ADR-0034 (2026-11-25):** wildcard superuser and SoD layering remain; the wildcard anchor is now `COMPANY`, not `LEGAL_ENTITY`.
+
 - **Status:** Accepted — 2026-11-24
 - **Decision IDs:** D-19
 - **Supersedes:** ADR-0004 decision 7; the absolute "no permanent superuser" wording in ADR-0013 is narrowed to "no superuser without an expiry, MFA and quarterly review"

@@ -30,7 +30,7 @@ final class MenuOverrideTest extends PeopleTestCase
         $this->actAs(1, (int) $user->id, 1);
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
                 'valid_from' => '2025-01-01 00:00:00',

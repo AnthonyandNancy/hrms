@@ -1,5 +1,7 @@
 # ADR-0024: 管理员至高权限与 P3 薪资审计
 
+> **Superseded in part by ADR-0034 (2026-11-25):** full superuser authority and P3 audit remain; the wildcard anchor is now `COMPANY`, not `LEGAL_ENTITY`, and the system is a single company.
+
 - **状态：** Accepted — 2026-11-25
 - **决策：** C6（管理员全权）
 - **取代：** ADR-0016 中“wildcard 不隐含 P3”的默认建议；保留其 SoD 分层与审计机制

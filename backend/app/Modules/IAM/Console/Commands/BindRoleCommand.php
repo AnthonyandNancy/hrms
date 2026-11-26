@@ -8,7 +8,6 @@ use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
-use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -18,15 +17,14 @@ use Illuminate\Support\Facades\DB;
  *
  * The command is the installer's role-assignment path. It enforces the
  * wildcard time-box (SUPER_ADMIN 30 days, SYSTEM_ADMIN 366 days), validates
- * that the anchor belongs to the user's tenant, bumps auth_version so stale
- * sessions die, and is idempotent while the binding is still live.
+ * that the single-company scope is valid, bumps auth_version so stale sessions
+ * die, and is idempotent while the binding is still live.
  */
 final class BindRoleCommand extends Command
 {
     protected $signature = 'iam:bind-role
         {--user= : User id}
         {--role= : Code-owned role template, e.g. SYSTEM_ADMIN}
-        {--legal-entity= : Legal entity anchor id}
         {--days= : Validity in days; defaults to the role ceiling}';
 
     protected $description = 'Bind a role template to a user, enforcing the wildcard time-box (idempotent)';
@@ -35,27 +33,11 @@ final class BindRoleCommand extends Command
     {
         $userId = (int) $this->option('user');
         $roleCode = strtoupper(trim((string) $this->option('role')));
-        $legalEntityId = (int) $this->option('legal-entity');
-
         $user = User::query()->whereKey($userId)->first();
         $template = RoleTemplateCatalog::find($roleCode);
 
-        if ($user === null || $template === null || $legalEntityId < 1) {
-            $this->error('A valid --user, --role and --legal-entity are required.');
-
-            return self::FAILURE;
-        }
-
-        $entity = null;
-        foreach (app(OrganizationFacts::class)->legalEntitiesForTenant((int) $user->tenant_id) as $candidate) {
-            if ($candidate->id === $legalEntityId) {
-                $entity = $candidate;
-                break;
-            }
-        }
-
-        if ($entity === null) {
-            $this->error("Legal entity {$legalEntityId} does not exist in tenant {$user->tenant_id}.");
+        if ($user === null || $template === null) {
+            $this->error('A valid --user and --role are required.');
 
             return self::FAILURE;
         }
@@ -87,7 +69,7 @@ final class BindRoleCommand extends Command
             ->where('principal_id', (int) $user->id)
             ->whereIn('capability_code', $template->capabilityCodes())
             ->where('anchor_type', $anchorType)
-            ->where('anchor_id', $legalEntityId)
+            ->where('anchor_id', null)
             ->where('auth_version', (int) $user->auth_version)
             ->where('valid_to', '>', $now)
             ->exists();
@@ -98,7 +80,7 @@ final class BindRoleCommand extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($user, $template, $legalEntityId, $from, $to, $clock): void {
+        DB::transaction(function () use ($user, $template, $from, $to, $clock): void {
             /** @var User $locked */
             $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $currentVersion = (int) $locked->auth_version;
@@ -117,7 +99,8 @@ final class BindRoleCommand extends Command
             ]);
 
             foreach ($template->grants as $grant) {
-                $anchorId = $grant->anchorType->requiresAnchorId() ? $legalEntityId : null;
+                // COMPANY is the whole single-company instance and uses no anchor id.
+                $anchorId = null;
 
                 AuthorityBinding::query()->firstOrCreate([
                     'tenant_id' => (int) $locked->tenant_id,

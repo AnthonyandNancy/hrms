@@ -29,7 +29,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'name' => 'Temporary report viewer',
             'purpose' => 'Synthetic quarterly reporting access.',
             'capabilities' => [
-                ['capability' => 'reporting.export', 'anchor_type' => 'LEGAL_ENTITY', 'field_profile' => 'P1_INTERNAL'],
+                ['capability' => 'reporting.export', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
         ];
         $headers = ['Idempotency-Key' => 'role-1', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'];
@@ -55,7 +55,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'name' => 'Temporary unknown',
             'purpose' => 'Synthetic rejected role.',
             'capabilities' => [
-                ['capability' => 'not.a.real.capability', 'anchor_type' => 'LEGAL_ENTITY', 'field_profile' => 'P1_INTERNAL'],
+                ['capability' => 'not.a.real.capability', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
         ], ['Idempotency-Key' => 'role-unknown', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
             ->assertUnprocessable()
@@ -77,7 +77,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
             'name' => 'Temporary bad field',
             'purpose' => 'Synthetic rejected role.',
             'capabilities' => [
-                ['capability' => 'reporting.export', 'anchor_type' => 'LEGAL_ENTITY', 'field_profile' => 'P3_RESTRICTED'],
+                ['capability' => 'reporting.export', 'anchor_type' => 'COMPANY', 'field_profile' => 'P3_RESTRICTED'],
             ],
         ], ['Idempotency-Key' => 'role-bad-field', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
             ->assertUnprocessable()
@@ -131,7 +131,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
 
         $this->putJson('/v1/roles/TEMP_OVERRIDE/capabilities', [
             'capabilities' => [
-                ['capability' => 'people.employee.read', 'anchor_type' => 'LEGAL_ENTITY', 'field_profile' => 'P1_INTERNAL'],
+                ['capability' => 'people.employee.read', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
         ], ['Idempotency-Key' => 'role-cap-1'] + $headers)->assertOk();
 
@@ -150,7 +150,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
 
         $this->putJson('/v1/roles/HR_SPECIALIST/capabilities', [
             'capabilities' => [
-                ['capability' => 'people.employee.read', 'anchor_type' => 'LEGAL_ENTITY', 'field_profile' => 'P1_INTERNAL'],
+                ['capability' => 'people.employee.read', 'anchor_type' => 'COMPANY', 'field_profile' => 'P1_INTERNAL'],
             ],
         ], ['Idempotency-Key' => 'role-template-1', 'X-CSRF-Token' => $auth['csrf'], 'X-Legal-Entity-Id' => '1'])
             ->assertStatus(409)
@@ -164,7 +164,7 @@ final class RoleAdminTest extends AuthorizationTestSupport
         $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'iam.role.manage',
                 'valid_from' => '2025-01-01 00:00:00',

@@ -68,7 +68,7 @@ final class CalendarAdminController
             definition: new CommandDefinition(
                 name: 'time.calendar.publish',
                 capability: 'time.calendar.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

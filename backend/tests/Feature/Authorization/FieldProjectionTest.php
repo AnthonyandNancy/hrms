@@ -22,7 +22,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_a_p3_binding_sees_salary_but_cannot_filter_or_export_it(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
         $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
@@ -51,7 +51,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_a_p2_binding_does_not_see_salary(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
@@ -67,7 +67,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_p2_is_not_filterable_and_throws_domain_422(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
@@ -80,26 +80,36 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $set->assertFilterable('id_number');
     }
 
-    public function test_caller_without_field_coverage_gets_404_not_partial_projection(): void
+    public function test_caller_without_field_coverage_gets_404_while_same_company_rows_are_covered(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 2, FieldProfile::P3_RESTRICTED);
-        $this->organization->knownLegalEntities = [1, 2];
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
+
+        $this->assertTrue(
+            app(Authorizer::class)->fields(
+                $this->actingAsUser($user),
+                'people.employee.read',
+                $this->resourceRow(),
+            )->isVisible('display_name'),
+        );
+
+        $otherTenant = new ResourceRef(
+            resourceType: 'employee',
+            id: 18,
+            row: ['display_name' => 'Grace'],
+            tenantId: 2,
+            employmentId: 502,
+        );
 
         $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
-
-        app(Authorizer::class)->fields(
-            $this->actingAsUser($user),
-            'people.employee.read',
-            $this->resourceRow(),
-        );
+        app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $otherTenant);
     }
 
     public function test_export_flag_only_applies_to_export_capability_and_never_unlocks_p3(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
-        $this->grant($user, 'reporting.export', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'reporting.export', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
         $readSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
@@ -113,7 +123,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_sensitive_field_access_is_audited_without_values(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
         $this->organization->knownLegalEntities = [1];
 
         app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
@@ -128,8 +138,8 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_p3_values_are_never_exportable_or_filterable_even_when_visible(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
-        $this->grant($user, 'reporting.export', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'reporting.export', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
         $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
@@ -145,7 +155,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     public function test_revealing_a_restricted_field_writes_an_audit_event(): void
     {
         $user = User::factory()->create();
-        $this->grant($user, 'people.employee.read', AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED);
+        $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
         $this->organization->knownLegalEntities = [1];
 
         app(Authorizer::class)->fields(

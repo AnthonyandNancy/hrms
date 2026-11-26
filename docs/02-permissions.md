@@ -1,7 +1,7 @@
 # 02 — Permissions and authorization (IAM)
 
 Status: 生产基线（授权引擎已落地并通过门禁）。来源：solution §7 与 §7.11、
-plan §4.2/§5.2/§7、ADR-0016、ADR-0018。
+plan §4.2/§5.2/§7、ADR-0016、ADR-0018；单公司边界见 ADR-0034。
 
 ## Model
 
@@ -12,17 +12,18 @@ Authorization is **Capability × Anchor × Field profile**:
   create/edit API. Adding a code requires code review, a negative test and
   audit metadata.
 - **Anchor** — exactly one of seven data scopes: `SELF`, `MANAGED`, `ORG_UNIT`,
-  `ORG_SUBTREE`, `CASE`, `PAYROLL_RUN`, `LEGAL_ENTITY`. There is no `CUSTOM`
-  anchor and no `condition_json` or arbitrary SQL predicate.
+  `ORG_SUBTREE`, `CASE`, `PAYROLL_RUN`, `COMPANY`. There is no `CUSTOM`
+  anchor and no `condition_json` or arbitrary SQL predicate. `COMPANY` replaces
+  the former `LEGAL_ENTITY` anchor (ADR-0034: one company, no tenant/legal entity).
 - **Field profile** — ordered sensitivity `P0_PUBLIC < P1_INTERNAL <
   P2_SENSITIVE < P3_RESTRICTED`. Row scope and field projection are resolved
   from the *same* binding, per row. Profiles never merge across bindings that
   do not cover the row.
 - **Roles are capability packages.** A role expands into authority bindings;
-  the role code is never an authorization check. There are ten templates and
+  the role code is never an authorization check. There are fourteen code-owned templates and
   no person or department names may be used as role codes.
 - **Deny by default.** A request with no matching binding, a stale
-  `auth_version`, a disabled/locked user, a tenant mismatch, or an expired
+  `auth_version`, a disabled/locked user, an organization outside the binding, or an expired
   binding is denied before any row is returned.
 - **Separation of duties is two different controls.** Cumulative risk (for
   example `iam.binding.manage` plus `iam.audit.read`) is allowed with an
@@ -34,7 +35,7 @@ Authorization is **Capability × Anchor × Field profile**:
 
 1. authentication and session validity,
 2. live enabled user + current `auth_version`,
-3. tenant match,
+3. organization/company scope,
 4. capability + effective binding dates,
 5. anchor target (organisation, case membership, payroll run membership),
 6. field-level visibility.
@@ -42,6 +43,17 @@ Authorization is **Capability × Anchor × Field profile**:
 Object-level separation-of-duties checks run inside the owning service after
 the object is loaded (for example `ApprovalService::assertSod()`); they are not
 capability-set rules and are not bypassed by a wildcard grant.
+
+## Page grants and action buttons
+
+Page visibility is a separate authorization layer from action capability:
+
+- `role_pages(role_code, page_code)` is the sole source of page visibility. There is no `tenant_id` or `legal_entity_id`; this is a single-company instance (ADR-0034).
+- A page is visible only when the caller has at least one effective role granting that page; the page's `required_capability` is then checked for its read action.
+- Action endpoints still require their own capability middleware. A page grant never authorizes a write/export/approval API.
+- Every non-GET action button must be declared by `PageActionSpec` and rendered through `Can` or `ActionGate`. The button's `capability` must equal the endpoint's `x-capability`.
+- `SUPER_ADMIN`/`SYSTEM_ADMIN` receive all 160 `role_pages` rows and all capabilities. `iam:verify-superadmin` fails if either side is incomplete.
+- The role editor has four tabs: pages, buttons, data scope, field profile. Parent menu selection does not implicitly grant child pages.
 
 ## Seven anchors
 
@@ -53,7 +65,7 @@ capability-set rules and are not bypassed by a wildcard grant.
 | `ORG_SUBTREE` | an organization subtree | closure/as-of descendant ids | `org.tree.read` |
 | `CASE` | one workflow case the user belongs to | `CaseMembershipDirectory::isMember` | `workflow.case.decide` |
 | `PAYROLL_RUN` | one payroll run the user participates in | `PayrollRunMembershipDirectory::isMember` | `payroll.run.approve` |
-| `LEGAL_ENTITY` | one legal entity | `OrganizationScopeDirectory` | `iam.user.manage` |
+| `COMPANY` | the whole single-company instance | no id required; company profile | `iam.user.manage` |
 
 IAM depends only on narrow ports in `App\Shared\Authorization\Contracts`:
 `PersonEmploymentDirectory`, `OrganizationScopeDirectory`,
@@ -67,73 +79,80 @@ All codes are owned by `App\Modules\IAM\Authorization\CapabilityCatalog`.
 
 | Capability | Resource | Anchors | Max field profile | Risk |
 |---|---|---|---|---|
-| `iam.user.read` | user | SELF, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
-| `iam.user.manage` | user | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | critical |
-| `iam.role.manage` | role | LEGAL_ENTITY | P1_INTERNAL | critical |
-| `iam.binding.manage` | authority_binding | LEGAL_ENTITY | P1_INTERNAL | critical |
+| `iam.user.read` | user | SELF, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | high |
+| `iam.user.manage` | user | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | critical |
+| `iam.role.manage` | role | COMPANY | P1_INTERNAL | critical |
+| `iam.binding.manage` | authority_binding | COMPANY | P1_INTERNAL | critical |
 | `iam.session.manage` | session | SELF | P0_PUBLIC | low (intrinsic, non-delegable) |
-| `iam.audit.read` | auth_event | LEGAL_ENTITY | P2_SENSITIVE | high |
-| `org.unit.read` | org_unit | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `org.unit.manage` | org_unit | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
-| `org.tree.read` | org_tree | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P0_PUBLIC | low |
+| `iam.audit.read` | auth_event | COMPANY | P2_SENSITIVE | high |
+| `org.unit.read` | org_unit | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `org.unit.manage` | org_unit | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | high |
+| `org.tree.read` | org_tree | ORG_UNIT, ORG_SUBTREE, COMPANY | P0_PUBLIC | low |
 | `people.employee.read` | employee | all seven | P2_SENSITIVE | high |
-| `people.employee.manage` | employee | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `people.assignment.manage` | assignment | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
-| `people.contract.read` | contract | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `people.contract.manage` | contract | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `workflow.case.read` | case | SELF, MANAGED, CASE, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `workflow.case.create` | case | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
+| `people.employee.manage` | employee | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
+| `people.employee.archive` | employee | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
+| `people.employee.restore` | employee | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | medium |
+| `people.assignment.manage` | assignment | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | high |
+| `people.contract.read` | contract | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
+| `people.contract.manage` | contract | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
+| `people.contract.delete` | contract | COMPANY | P2_SENSITIVE | high |
+| `people.contract.restore` | contract | COMPANY | P2_SENSITIVE | medium |
+| `workflow.case.read` | case | SELF, MANAGED, CASE, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `workflow.case.create` | case | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
 | `workflow.case.decide` | case | CASE, MANAGED | P1_INTERNAL | high |
-| `workflow.case.admin` | case | CASE, LEGAL_ENTITY | P2_SENSITIVE | critical |
-| `time.attendance.read` | attendance_day | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `time.attendance.manage` | attendance_day | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
-| `time.punch.import` | punch_record | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | high |
-| `time.attendance.correct.request` | attendance_correction | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `time.calendar.read` | legal_entity_calendar | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | low |
-| `time.shift.read` | shift_template | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | low |
-| `time.leave.read` | leave_account | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
+| `workflow.case.admin` | case | CASE, COMPANY | P2_SENSITIVE | critical |
+| `time.attendance.read` | attendance_day | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `time.attendance.manage` | attendance_day | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | high |
+| `time.punch.import` | punch_record | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | high |
+| `time.attendance.correct.request` | attendance_correction | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `time.calendar.read` | company_calendar | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | low |
+| `time.shift.read` | shift_template | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | low |
+| `time.leave.read` | leave_account | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
 | `time.leave.request` | leave_request | SELF | P0_PUBLIC | low |
-| `time.leave.admin` | leave_account | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
+| `time.leave.admin` | leave_account | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
 | `time.leave.request.cancel` | leave_request | SELF | P0_PUBLIC | low |
-| `time.leave.ledger.read` | leave_ledger | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `payroll.run.read` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `payroll.run.prepare` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
-| `payroll.run.review` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
-| `payroll.run.approve` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
-| `payroll.run.publish` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P2_SENSITIVE | critical |
-| `payroll.payslip.read` | payslip | SELF, PAYROLL_RUN, LEGAL_ENTITY | P3_RESTRICTED | high |
+| `time.leave.ledger.read` | leave_ledger | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `payroll.run.read` | payroll_run | PAYROLL_RUN, COMPANY | P2_SENSITIVE | high |
+| `payroll.run.prepare` | payroll_run | PAYROLL_RUN, COMPANY | P2_SENSITIVE | critical |
+| `payroll.run.review` | payroll_run | PAYROLL_RUN, COMPANY | P2_SENSITIVE | critical |
+| `payroll.run.approve` | payroll_run | PAYROLL_RUN, COMPANY | P2_SENSITIVE | critical |
+| `payroll.run.publish` | payroll_run | PAYROLL_RUN, COMPANY | P2_SENSITIVE | critical |
+| `payroll.payslip.read` | payslip | SELF, PAYROLL_RUN, COMPANY | P3_RESTRICTED | high |
 | `payroll.payslip.read.self` | payslip | SELF | P3_RESTRICTED | medium |
-| `payroll.export` | payroll_run | PAYROLL_RUN, LEGAL_ENTITY | P3_RESTRICTED | critical |
-| `talent.recruitment.manage` | recruitment | ORG_UNIT, ORG_SUBTREE, CASE, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `talent.performance.manage` | performance | MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
-| `talent.training.manage` | training | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `engagement.notice.read` | notice | SELF, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | low |
-| `engagement.notice.manage` | notice | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `reporting.dashboard.read` | dashboard | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P1_INTERNAL | medium |
-| `reporting.export` | report | ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY | P2_SENSITIVE | high |
+| `payroll.export` | payroll_run | PAYROLL_RUN, COMPANY | P3_RESTRICTED | critical |
+| `talent.recruitment.manage` | recruitment | ORG_UNIT, ORG_SUBTREE, CASE, COMPANY | P2_SENSITIVE | high |
+| `talent.performance.manage` | performance | MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
+| `talent.training.manage` | training | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `engagement.notice.read` | notice | SELF, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | low |
+| `engagement.notice.manage` | notice | ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `reporting.dashboard.read` | dashboard | SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY | P1_INTERNAL | medium |
+| `reporting.export` | report | ORG_UNIT, ORG_SUBTREE, COMPANY | P2_SENSITIVE | high |
 
 `iam.session.manage` is intrinsic self-service: middleware grants it only when
 the request has a live server-side session. It is not issued by any role and
 cannot be delegated.
 
-## Ten role templates
+## Fourteen role templates
 
 | Template | Purpose | Representative anchors |
 |---|---|---|
-| `SUPER_ADMIN` | emergency administration; time-boxed and reviewed | LEGAL_ENTITY |
-| `SYSTEM_ADMIN` | 全能力通配绑定（`*`），含薪酬与审计；受 366 天上限、季度复核与 SoD 风险确认约束 | LEGAL_ENTITY |
-| `HR_ADMIN` | people, contracts, organization and HR case execution | LEGAL_ENTITY |
+| `SUPER_ADMIN` | emergency administration; time-boxed and reviewed | COMPANY |
+| `SYSTEM_ADMIN` | 全能力通配绑定（`*`），含薪酬与审计；受 366 天上限、季度复核与 SoD 风险确认约束 | COMPANY |
+| `HR_ADMIN` | people, contracts, organization and HR case execution | COMPANY |
 | `HR_SPECIALIST` | day-to-day employee, assignment, contract work | ORG_UNIT |
 | `RECRUITER` | recruitment pipeline and candidate cases | ORG_UNIT, CASE |
-| `PAYROLL_SPECIALIST` | prepare payroll only; approval/publication are separate | PAYROLL_RUN, LEGAL_ENTITY |
+| `PAYROLL_SPECIALIST` | prepare payroll only; approval/publication are separate | PAYROLL_RUN, COMPANY |
+| `PAYROLL_APPROVER` | review/approve payroll within assigned runs | PAYROLL_RUN, COMPANY |
 | `ATTENDANCE_SPECIALIST` | attendance correction and leave administration | ORG_UNIT |
 | `LINE_MANAGER` | team approvals and team visibility | MANAGED |
 | `EMPLOYEE` | own profile, leave, attendance, payslips, notices | SELF |
-| `AUDITOR` | read-only audit evidence and organization context | LEGAL_ENTITY |
+| `AUDITOR` | read-only audit evidence and organization context | COMPANY |
+| `TRAINING_ADMIN` | training plans, sessions and enrollment administration | ORG_UNIT, COMPANY |
+| `BENEFITS_ADMIN` | benefit plans and enrollment administration | ORG_UNIT, COMPANY |
+| `REPORT_VIEWER` | read-only reports within granted organization scope | ORG_UNIT, ORG_SUBTREE, COMPANY |
 
 Role assignments must supply every required anchor id
-(`binding_anchors.<ANCHOR>`); `LEGAL_ENTITY` may be taken from the request's
-legal-entity header. Codes must match `^[A-Z][A-Z0-9_]{2,63}$`.
+(`binding_anchors.<ANCHOR>`); `COMPANY` requires no anchor id and no request header. Codes must match `^[A-Z][A-Z0-9_]{2,63}$`.
 
 ## Field profiles
 
@@ -180,7 +199,7 @@ no post-filtering after pagination. Returning P2/P3 data emits a
   least 10 characters and MFA enrollment. Grants last 30 minutes, are revocable
   by either party, emit `security.break_glass.activated` audit + outbox events
   and expire automatically. `SUPER_ADMIN` and `SYSTEM_ADMIN` hold the
-  wildcard `*` under `LEGAL_ENTITY`/`P3_RESTRICTED`, time-boxed to 30/366 days
+  wildcard `*` under `COMPANY`/`P3_RESTRICTED`, time-boxed to 30/366 days
   by `iam:bind-role`; no unreviewed permanent super administrator exists.
 
 ## Negative test matrix

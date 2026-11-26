@@ -46,8 +46,8 @@ final class AnchorRef
         return new self(AnchorType::PAYROLL_RUN, $id);
     }
 
-    public static function legalEntity(int $id): self
+    public static function company(): self
     {
-        return new self(AnchorType::LEGAL_ENTITY, $id);
+        return new self(AnchorType::COMPANY);
     }
 }

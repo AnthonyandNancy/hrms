@@ -8,8 +8,9 @@ use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Authorization\PermissionResourceCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
-use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Models\RolePage;
 use App\Modules\IAM\Models\UserRole;
+use App\Modules\IAM\Models\User;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Platform\Contracts\MenuOverrideReader;
 use App\Shared\ApiResponse;
@@ -106,9 +107,26 @@ final class MeController
             $overrides[$override['page_code']] = $override;
         }
 
+        $now = $this->clock->now();
+        $rolePages = RolePage::query()
+            ->whereIn('role_code', UserRole::query()
+                ->where('user_id', $principal->userId())
+                ->where('auth_version', $principal->authVersion())
+                ->where('valid_from', '<=', $now->toDateTimeString())
+                ->where('valid_to', '>', $now->toDateTimeString())
+                ->pluck('role_code'))
+            ->pluck('page_code')
+            ->map(static fn (mixed $code): string => (string) $code)
+            ->all();
+        $rolePageSet = array_fill_keys($rolePages, true);
+
         foreach ($catalog->pages() as $page) {
             $required = (string) $page['required_capability'];
             $override = $overrides[(string) $page['page_code']] ?? null;
+
+            if ($required !== 'public' && ! isset($rolePageSet[(string) $page['page_code']])) {
+                continue;
+            }
 
             if ($required !== 'public' && ! isset($actions[$required])) {
                 continue;
@@ -138,7 +156,7 @@ final class MeController
             'ORG_SUBTREE' => '本部门及子部门',
             'CASE' => '指定案例',
             'PAYROLL_RUN' => '指定工资批次',
-            'LEGAL_ENTITY' => '本公司/法人',
+            'COMPANY' => '本公司',
         ];
         $scopeLabels = [];
 

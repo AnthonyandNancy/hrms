@@ -65,7 +65,7 @@ final class FieldPolicyAdminController
             definition: new CommandDefinition(
                 name: 'iam.field_policy.update',
                 capability: 'iam.field.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

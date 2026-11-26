@@ -38,7 +38,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
         $wildcardBinding = $this->grantCapability(
             $user,
             CapabilityWildcard::WILDCARD,
-            'LEGAL_ENTITY',
+            'COMPANY',
             1,
             'P3_RESTRICTED',
             purposeCode: 'SYSTEM_ADMIN',
@@ -79,7 +79,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
         foreach ($rows as $row) {
             $capability = (string) $row['capability'];
 
-            $this->assertSame('LEGAL_ENTITY', $row['anchor_type'], "{$capability} must keep the wildcard binding's anchor.");
+            $this->assertSame('COMPANY', $row['anchor_type'], "{$capability} must keep the wildcard binding's anchor.");
             $this->assertSame(1, $row['anchor_id'], "{$capability} must keep the wildcard binding's anchor id.");
             $this->assertSame('P3_RESTRICTED', $row['field_profile'], "{$capability} must keep the wildcard binding's field profile.");
             $this->assertSame('SYSTEM_ADMIN', $row['purpose_code'], "{$capability} must keep the wildcard binding's purpose.");
@@ -96,9 +96,9 @@ final class MeCapabilitiesWildcardTest extends TestCase
     {
         $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
 
-        $this->grantCapability($user, CapabilityWildcard::WILDCARD, 'LEGAL_ENTITY', 1, 'P3_RESTRICTED', purposeCode: 'SYSTEM_ADMIN');
-        $this->grantCapability($user, 'iam.user.read', 'LEGAL_ENTITY', 2, 'P1_INTERNAL', purposeCode: 'READ');
-        $this->grantCapability($user, 'iam.user.read', 'LEGAL_ENTITY', 3, 'P2_SENSITIVE', purposeCode: 'READ');
+        $this->grantCapability($user, CapabilityWildcard::WILDCARD, 'COMPANY', 1, 'P3_RESTRICTED', purposeCode: 'SYSTEM_ADMIN');
+        $this->grantCapability($user, 'iam.user.read', 'COMPANY', 2, 'P1_INTERNAL', purposeCode: 'READ');
+        $this->grantCapability($user, 'iam.user.read', 'COMPANY', 3, 'P2_SENSITIVE', purposeCode: 'READ');
 
         $response = $this->actAs($user)->getJson('/v1/me/capabilities');
 
@@ -134,7 +134,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
         ));
 
         $this->assertCount(1, $expanded);
-        $this->assertSame('LEGAL_ENTITY', $expanded[0]['anchor_type']);
+        $this->assertSame('COMPANY', $expanded[0]['anchor_type']);
         $this->assertSame(1, $expanded[0]['anchor_id']);
         $this->assertSame('P3_RESTRICTED', $expanded[0]['field_profile']);
         $this->assertSame('SYSTEM_ADMIN', $expanded[0]['purpose_code']);
@@ -146,7 +146,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
     public function test_a_non_wildcard_holder_reports_wildcard_false_and_keeps_the_existing_row_shape(): void
     {
         $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
-        $binding = $this->grantCapability($user, 'iam.user.read', 'LEGAL_ENTITY', 5, 'P1_INTERNAL', purposeCode: 'READ');
+        $binding = $this->grantCapability($user, 'iam.user.read', 'COMPANY', 5, 'P1_INTERNAL', purposeCode: 'READ');
 
         $before = $this->bindingSnapshot();
 
@@ -172,7 +172,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
             'The non-wildcard response must keep the existing binding row shape.',
         );
         $this->assertSame('iam.user.read', $rows[0]['capability']);
-        $this->assertSame('LEGAL_ENTITY', $rows[0]['anchor_type']);
+        $this->assertSame('COMPANY', $rows[0]['anchor_type']);
         $this->assertSame(5, $rows[0]['anchor_id']);
         $this->assertSame('P1_INTERNAL', $rows[0]['field_profile']);
         $this->assertSame('READ', $rows[0]['purpose_code']);
@@ -191,13 +191,13 @@ final class MeCapabilitiesWildcardTest extends TestCase
         $this->grantCapability(
             $user,
             CapabilityWildcard::WILDCARD,
-            'LEGAL_ENTITY',
+            'COMPANY',
             99,
             'P0_PUBLIC',
             tenantId: 2,
             purposeCode: 'SYSTEM_ADMIN',
         );
-        $this->grantCapability($user, 'people.employee.read', 'LEGAL_ENTITY', 99, 'P0_PUBLIC', tenantId: 2);
+        $this->grantCapability($user, 'people.employee.read', 'COMPANY', 99, 'P0_PUBLIC', tenantId: 2);
 
         $this->actAs($user, tenantId: 1)
             ->getJson('/v1/me/capabilities')

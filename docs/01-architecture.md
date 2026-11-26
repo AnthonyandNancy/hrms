@@ -3,7 +3,7 @@
 Status: Accepted baseline for the reference implementation.
 Authoritative sources: approved solution v1.1 §04, §10 and plan v1.1 §02.
 
-This document describes how the repository implements the approved architecture. It does not reopen decisions D-01–D-25; changes require an ADR.
+This document describes how the repository implements the approved architecture. It does not reopen decisions D-01–D-25; changes require an ADR. ADR-0034 supersedes the tenant/legal-entity parts of D-02/D-03: this is a single-company instance with no tenant or legal-entity context.
 
 ## 1. Five-layer model
 
@@ -17,7 +17,7 @@ The solution describes five layers. A feature change should first identify which
 | Ledger | Append-only balances and immutable financial/leave entries | LeaveLedgerEntry, PayrollRun, Payslip, AuditEvent, Outbox | Mutate posted entries; store derived current values as truth |
 | Projection | Rebuildable read models and reports | Current profile, headcount, leave balance view, dashboards | Be used as a source of truth or written back to kernel tables |
 
-The contract layer is the only public API surface. The fact kernel and ledger are append/version oriented. Projections may lag and must expose freshness; they are never used to reconstruct legal or payroll facts.
+The contract layer is the only public API surface. The fact kernel and ledger are append/version oriented. Projections may lag and must expose freshness; they are never used to reconstruct financial or payroll facts.
 
 ## 2. Modules and ownership
 
@@ -26,8 +26,8 @@ Eleven modules live under `backend/app/Modules/<Module>/`. Directories may exist
 | Module | Owned tables (reference names) | Allowed dependencies |
 | --- | --- | --- |
 | Talent | `recruitment_requisitions`, `requisition_openings`, `candidates`, `candidate_evaluations`, `candidate_communications`, `talent_pool_tags`, `candidate_imports`, `candidate_conversions`, `interviews`, `offers`, `performance_cycles`, `performance_templates`, `performance_reviews`, `performance_appeals`, `performance_indicators`, `performance_goals`, `performance_feedback`, `performance_calibrations`, `training_programs`, `training_sessions`, `training_enrollments`, `training_plans`, `training_courses`, `training_checkins`, `training_exams`, `training_feedback` | People/Organization Contracts, Workflow Contracts, Lifecycle Contracts, IAM Contracts, Shared |
-| IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities`, `user_roles`, `iam_data_scope_policies`, `iam_field_policies` | Platform Contracts, Shared |
-| Organization | `org_units`, `org_unit_closure`, `positions`, `position_qualifications`, `position_grades` | People Contracts/IDs, Shared |
+| IAM | `users`, `sessions`, `capabilities`, `authority_bindings`, `auth_events`, `roles`, `role_capabilities`, `user_roles`, `role_pages`, `iam_data_scope_policies`, `iam_field_policies` | Platform Contracts, Shared |
+| Organization | `company_profile`, `org_units`, `org_unit_closure`, `positions`, `position_qualifications`, `position_grades` | People Contracts/IDs, Shared |
 | People | `persons`, `employments`, `assignments`, `employment_terms`, `documents`, `employment_user_links`, `employment_contracts`, `contract_templates` | Organization Contracts/IDs, IAM Contracts/IDs, Lifecycle `EmploymentContractVersionLedger` contract, Shared |
 | Lifecycle | `cases`, `decisions`, `effects`, `lifecycle_tasks`, `lifecycle_intents`, `onboarding_checklist_templates`, `employment_contract_versions` | People, Workflow Contracts, Time/IAM/Talent Contracts, Shared |
 | Workflow | `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_tasks`, `workflow_delegations` | IAM Contracts, Shared |
@@ -130,4 +130,4 @@ The following are deliberate scope exclusions (solution §13.4), not unfinished 
 - `condition_json`, arbitrary field policies, independent ownership tables or user-authored `CUSTOM` SQL in authorization.
 - Event sourcing as the primary store; audit/outbox are evidence, not the fact kernel.
 - Graph databases, native mobile apps, face-recognition algorithms, a tax filing engine or bank clearing.
-- Multi-tenant SaaS control plane; `tenant_id` is an isolation column, not a commercial tenancy product.
+- Multi-tenant SaaS control plane, tenant switching or legal-entity modelling; the system serves exactly one company (ADR-0034). There is no `tenant_id` or `legal_entity_id` in the target schema.

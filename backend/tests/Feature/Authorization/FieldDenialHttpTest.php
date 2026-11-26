@@ -19,7 +19,7 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
         $user = User::factory()->create();
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P2_SENSITIVE)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE)
             ->create(['capability_code' => 'people.employee.read']);
         $this->organization->knownLegalEntities = [1];
 
@@ -39,20 +39,20 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
 
     public function test_idor_user_cannot_read_another_users_bindings(): void
     {
-        $caller = User::factory()->create();
-        $other = User::factory()->create(['tenant_id' => 1]);
+        $caller = User::factory()->create(['tenant_id' => 1]);
+        $other = User::factory()->create(['tenant_id' => 2]);
 
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $caller->id)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1)
+            ->anchor(AnchorType::COMPANY, null)
             ->create(['capability_code' => 'iam.binding.manage']);
 
         $this->people->employmentByUser[(int) $caller->id] = [1];
         $auth = $this->loginAs($caller);
 
         $response = $this->withHeader('X-CSRF-Token', $auth['csrf'])
-            ->getJson('/v1/users/'.$other->id.'/bindings', ['X-Legal-Entity-Id' => '1']);
+            ->getJson('/v1/users/'.$other->id.'/bindings');
 
-        $response->assertStatus(403)->assertJsonPath('code', 'FORBIDDEN');
+        $response->assertNotFound()->assertJsonPath('code', 'NOT_FOUND');
     }
 }

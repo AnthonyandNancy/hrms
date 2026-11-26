@@ -135,6 +135,11 @@ class OpenApiContractTest extends TestCase
         $this->assertSame(5, $schemas['DashboardData']['properties']['contractAlerts']['maxItems']);
     }
 
+    private function repositoryRoot(): string
+    {
+        return (string) realpath(__DIR__.'/../../..');
+    }
+
     /**
      * @return list<string>
      */
@@ -148,7 +153,7 @@ class OpenApiContractTest extends TestCase
      */
     private function parseSpec(): array
     {
-        $path = realpath(self::SPEC_PATH);
+        $path = realpath($this->repositoryRoot().'/docs/openapi/openapi.yaml');
         $this->assertNotFalse($path, 'OpenAPI spec is missing at docs/openapi/openapi.yaml');
 
         $contents = (string) file_get_contents($path);

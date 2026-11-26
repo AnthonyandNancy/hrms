@@ -30,7 +30,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
         $target = User::factory()->create(['auth_version' => 1]);
         $this->grant($target, 'iam.binding.manage');
 
-        $this->postJson("/v1/users/{$target->id}/bindings", $this->bindingPayload('iam.audit.read', 'AUDIT_READ'), ['X-Legal-Entity-Id' => '1'])
+        $this->postJson("/v1/users/{$target->id}/bindings", $this->bindingPayload('iam.audit.read', 'AUDIT_READ'))
             ->assertStatus(422)
             ->assertJsonPath('data.reason', 'SOD_RISK_NOT_ACKNOWLEDGED')
             ->assertJsonPath('data.risks.0.kind', SodRules::KIND_CUMULATIVE)
@@ -54,7 +54,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
         $response = $this->postJson("/v1/users/{$target->id}/bindings", [
             ...$this->bindingPayload('iam.audit.read', 'AUDIT_READ'),
             'acknowledge_sod_risk' => true,
-        ], ['X-Legal-Entity-Id' => '1'])
+        ])
             ->assertCreated()
             ->assertJsonPath('data.capability', 'iam.audit.read')
             ->assertJsonPath('data.warnings.0.kind', SodRules::KIND_CUMULATIVE);
@@ -65,8 +65,8 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
 
         $this->assertSame((int) $target->id, $metadata['target_user_id']);
         $this->assertSame('iam.audit.read', $metadata['capability']);
-        $this->assertSame('LEGAL_ENTITY', $metadata['anchor_type']);
-        $this->assertSame(1, $metadata['anchor_id']);
+        $this->assertSame('COMPANY', $metadata['anchor_type']);
+        $this->assertNull($metadata['anchor_id']);
         $this->assertSame($risks, $metadata['risks']);
     }
 
@@ -80,7 +80,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
             ...$this->bindingPayload('*', 'ESCALATION_ATTEMPT'),
             'field_profile' => 'P3_RESTRICTED',
             'acknowledge_sod_risk' => true,
-        ], ['X-Legal-Entity-Id' => '1'])
+        ])
             ->assertStatus(422)
             ->assertJsonPath('data.reason', 'WILDCARD_NOT_GRANTABLE');
 
@@ -100,7 +100,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
         $this->postJson("/v1/users/{$target->id}/roles", [
             'role_code' => 'AUDITOR',
             'reason' => 'Independent audit coverage.',
-        ], ['X-Legal-Entity-Id' => '1'])
+        ])
             ->assertStatus(422)
             ->assertJsonPath('data.reason', 'SOD_RISK_NOT_ACKNOWLEDGED');
 
@@ -120,7 +120,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
             'role_code' => 'AUDITOR',
             'reason' => 'Independent audit coverage.',
             'acknowledge_sod_risk' => true,
-        ], ['X-Legal-Entity-Id' => '1'])
+        ])
             ->assertCreated()
             ->assertJsonPath('data.role_code', 'AUDITOR')
             ->assertJsonPath('data.warnings.0.kind', SodRules::KIND_CUMULATIVE);
@@ -146,7 +146,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
             'capabilities' => [['capability_code' => '*']],
             'reason' => 'Attempted privilege escalation.',
             'acknowledge_sod_risk' => true,
-        ], ['X-Legal-Entity-Id' => '1'])
+        ])
             ->assertStatus(422)
             ->assertJsonStructure(['data' => ['fields' => ['role_code']]]);
 
@@ -163,7 +163,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
             'capability_code' => '*',
             'capabilities' => [['capability_code' => '*']],
             'reason' => 'Self-service access.',
-        ], ['X-Legal-Entity-Id' => '1'])->assertCreated();
+        ])->assertCreated();
 
         $this->assertSame(0, AuthorityBinding::query()
             ->where('capability_code', '*')
@@ -202,8 +202,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
     {
         return [
             'capability_code' => $capability,
-            'anchor_type' => 'LEGAL_ENTITY',
-            'anchor_id' => 1,
+            'anchor_type' => 'COMPANY',
             'field_profile' => 'P2_SENSITIVE',
             'purpose_code' => $purpose,
         ];
@@ -213,7 +212,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
     {
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => $capability,
                 'valid_from' => '2025-01-01 00:00:00',

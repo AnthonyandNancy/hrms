@@ -11,8 +11,8 @@ final class CrossLegalEntityAssignmentException extends ValidationException
     public function __construct()
     {
         parent::__construct(
-            ['org_unit_id' => ['CROSS_LEGAL_ENTITY_ASSIGNMENT: assignment organization must belong to the employment legal entity.']],
-            'CROSS_LEGAL_ENTITY_ASSIGNMENT',
+            ['org_unit_id' => ['CROSS_COMPANY_ASSIGNMENT: assignment organization must belong to the employment legal entity.']],
+            'CROSS_COMPANY_ASSIGNMENT',
         );
     }
 
@@ -21,6 +21,6 @@ final class CrossLegalEntityAssignmentException extends ValidationException
      */
     public function details(): array
     {
-        return ['reason' => 'CROSS_LEGAL_ENTITY_ASSIGNMENT', 'fields' => parent::details()['fields'] ?? []];
+        return ['reason' => 'CROSS_COMPANY_ASSIGNMENT', 'fields' => parent::details()['fields'] ?? []];
     }
 }

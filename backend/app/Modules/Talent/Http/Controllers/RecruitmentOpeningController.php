@@ -53,7 +53,7 @@ final class RecruitmentOpeningController
     {
         $today = $this->businessDates->today($principal->tenantId())->value();
 
-        if (! $this->authorizer->allows($principal, $capability, AnchorRef::legalEntity(1), $today)) {
+        if (! $this->authorizer->allows($principal, $capability, AnchorRef::company(), $today)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

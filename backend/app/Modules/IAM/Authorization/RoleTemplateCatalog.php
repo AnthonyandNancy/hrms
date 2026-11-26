@@ -54,7 +54,7 @@ final class RoleTemplateCatalog
      */
     private static function build(): array
     {
-        $le = AnchorType::LEGAL_ENTITY;
+        $le = AnchorType::COMPANY;
         $ou = AnchorType::ORG_UNIT;
         $sub = AnchorType::ORG_SUBTREE;
         $self = AnchorType::SELF;

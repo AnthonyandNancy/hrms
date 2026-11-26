@@ -1,5 +1,7 @@
 # ADR-0004: Capability × Anchor authorization with field profiles
 
+> **Superseded in part by ADR-0034 (2026-11-25):** the Capability × Anchor × FieldProfile model remains; `LEGAL_ENTITY` is replaced by `COMPANY` (no id, single-company instance). The anchor count remains seven.
+
 - **Status:** Accepted — 2026-11-24
 - **Decision IDs:** D-04 (Capability × Anchor × field profile, deny by default)
 - **Supersedes:** none

@@ -101,7 +101,7 @@ final class PeopleCsvImporter extends AbstractCsvImporter
             $this->addIssue(
                 $sourceRow,
                 $issues,
-                IssueCode::ORPHAN_LEGAL_ENTITY,
+                IssueCode::ORPHAN_COMPANY,
                 "Legal entity '{$legalEntity}' is not present in reference data.",
                 'legal_entity_code',
             );

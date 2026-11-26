@@ -32,10 +32,10 @@ final class TestCapabilityMiddleware
         $clock = app(Clock::class);
         $today = BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), $clock)->value();
 
-        // People tests inject an Authorizer whose scope is described by a
-        // concrete anchor; use a legal-entity anchor so the test double can
-        // approve narrowed scopes. Production uses the route's explicit anchor.
-        $anchor = AnchorRef::legalEntity(1);
+        // Single-company tests inject an Authorizer whose scope is described
+        // by the instance-wide COMPANY anchor. Production uses the route's
+        // explicit anchor; this seam only proves the feature-level gate.
+        $anchor = AnchorRef::company();
 
         if (! app(Authorizer::class)->allows($principal, $capability, $anchor, $today)) {
             throw new AuthorizationException('Forbidden.');

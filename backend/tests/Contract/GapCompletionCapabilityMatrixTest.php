@@ -65,7 +65,7 @@ final class GapCompletionCapabilityMatrixTest extends TestCase
         $missing = [];
 
         foreach ($this->matrix() as $route => $entry) {
-            if ($entry['anchor'] !== 'LEGAL_ENTITY') {
+            if ($entry['anchor'] !== 'COMPANY') {
                 continue;
             }
 

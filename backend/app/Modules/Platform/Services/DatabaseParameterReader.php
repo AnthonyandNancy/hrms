@@ -20,7 +20,7 @@ final class DatabaseParameterReader implements ParameterReader
         $scopes = ['TENANT'];
 
         if (isset($context['legal_entity_id'])) {
-            array_unshift($scopes, 'LEGAL_ENTITY:'.$context['legal_entity_id']);
+            array_unshift($scopes, 'COMPANY:'.$context['legal_entity_id']);
         }
 
         foreach ($scopes as $scope) {

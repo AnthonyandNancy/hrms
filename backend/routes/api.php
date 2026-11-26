@@ -113,59 +113,59 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/auth/webauthn/register/options', [MfaController::class, 'webauthnRegisterOptions'])->middleware('capability:iam.session.manage,SELF')->name('auth.webauthn.register.options');
     Route::post('/auth/webauthn/assert/options', [MfaController::class, 'webauthnAssertOptions'])->middleware('capability:iam.session.manage,SELF')->name('auth.webauthn.assert.options');
 
-    Route::get('/users', [UserAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.user.read,LEGAL_ENTITY,legal_entity_id'])->name('users.index');
-    Route::post('/users', [UserAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,LEGAL_ENTITY,legal_entity_id'])->name('users.store');
-    Route::patch('/users/{id}', [UserAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,LEGAL_ENTITY,legal_entity_id'])->name('users.update');
-    Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('users.roles.store');
+    Route::get('/users', [UserAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.user.read,COMPANY'])->name('users.index');
+    Route::post('/users', [UserAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,COMPANY'])->name('users.store');
+    Route::patch('/users/{id}', [UserAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,COMPANY'])->name('users.update');
+    Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('users.roles.store');
 
-    Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.index');
-    Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.store');
-    Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.copy');
-    Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('roles.capabilities.replace');
-    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,LEGAL_ENTITY,legal_entity_id'])->name('capabilities.index');
+    Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.index');
+    Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.store');
+    Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.copy');
+    Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.capabilities.replace');
+    Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('capabilities.index');
 
-    Route::get('/system/menus', [MenuAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.index');
-    Route::post('/system/menus', [MenuAdminController::class, 'store'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.store');
-    Route::patch('/system/menus/{page_code}', [MenuAdminController::class, 'update'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.update');
-    Route::delete('/system/menus/{page_code}', [MenuAdminController::class, 'destroy'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.menus.destroy');
+    Route::get('/system/menus', [MenuAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.index');
+    Route::post('/system/menus', [MenuAdminController::class, 'store'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.store');
+    Route::patch('/system/menus/{page_code}', [MenuAdminController::class, 'update'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.update');
+    Route::delete('/system/menus/{page_code}', [MenuAdminController::class, 'destroy'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.destroy');
 
-    Route::get('/system/data-scopes', [DataScopeAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.scope.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.data-scopes.index');
-    Route::put('/system/data-scopes/{id}', [DataScopeAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.scope.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.data-scopes.update');
+    Route::get('/system/data-scopes', [DataScopeAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.scope.manage,COMPANY'])->name('system.data-scopes.index');
+    Route::put('/system/data-scopes/{id}', [DataScopeAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.scope.manage,COMPANY'])->name('system.data-scopes.update');
 
-    Route::get('/system/field-policies', [FieldPolicyAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.field.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.field-policies.index');
-    Route::put('/system/field-policies/{field_key}', [FieldPolicyAdminController::class, 'update'])->where('field_key', '.*')->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.field.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.field-policies.update');
+    Route::get('/system/field-policies', [FieldPolicyAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.field.manage,COMPANY'])->name('system.field-policies.index');
+    Route::put('/system/field-policies/{field_key}', [FieldPolicyAdminController::class, 'update'])->where('field_key', '.*')->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.field.manage,COMPANY'])->name('system.field-policies.update');
 
-    Route::get('/system/dictionaries', [DictionaryAdminController::class, 'dictionaries'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.index');
-    Route::post('/system/dictionaries', [DictionaryAdminController::class, 'storeDictionary'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.store');
-    Route::patch('/system/dictionaries/{id}', [DictionaryAdminController::class, 'updateDictionary'])->whereNumber('id')->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.dictionaries.update');
+    Route::get('/system/dictionaries', [DictionaryAdminController::class, 'dictionaries'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,COMPANY'])->name('system.dictionaries.index');
+    Route::post('/system/dictionaries', [DictionaryAdminController::class, 'storeDictionary'])->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,COMPANY'])->name('system.dictionaries.store');
+    Route::patch('/system/dictionaries/{id}', [DictionaryAdminController::class, 'updateDictionary'])->whereNumber('id')->middleware(['mfa.enrolled', 'capability:system.dictionary.manage,COMPANY'])->name('system.dictionaries.update');
 
-    Route::get('/system/parameters', [DictionaryAdminController::class, 'parameters'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.parameters.index');
-    Route::put('/system/parameters', [DictionaryAdminController::class, 'updateParameter'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,LEGAL_ENTITY,legal_entity_id'])->name('system.parameters.update');
+    Route::get('/system/parameters', [DictionaryAdminController::class, 'parameters'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,COMPANY'])->name('system.parameters.index');
+    Route::put('/system/parameters', [DictionaryAdminController::class, 'updateParameter'])->middleware(['mfa.enrolled', 'capability:system.parameter.manage,COMPANY'])->name('system.parameters.update');
 
     Route::post('/system/calendars/{legal_entity_id}/publish', [CalendarAdminController::class, 'publish'])
         ->whereNumber('legal_entity_id')
-        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:time.calendar.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:time.calendar.manage,COMPANY'])
         ->name('system.calendars.publish');
 
-    Route::get('/users/{id}/bindings', [AuthorizationAdminController::class, 'bindings'])->middleware(['mfa.enrolled', 'capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id'])->name('bindings.index');
-    Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id'])->name('bindings.store');
-    Route::delete('/bindings/{id}', [AuthorizationAdminController::class, 'destroyBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,LEGAL_ENTITY,legal_entity_id'])->name('bindings.destroy');
+    Route::get('/users/{id}/bindings', [AuthorizationAdminController::class, 'bindings'])->middleware(['mfa.enrolled', 'capability:iam.binding.manage,COMPANY'])->name('bindings.index');
+    Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,COMPANY'])->name('bindings.store');
+    Route::delete('/bindings/{id}', [AuthorizationAdminController::class, 'destroyBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,COMPANY'])->name('bindings.destroy');
 
     Route::post('/auth/break-glass', [BreakGlassController::class, 'activate'])->middleware(['mfa.step-up', 'capability:iam.session.manage,SELF'])->name('auth.break-glass.activate');
     Route::post('/auth/break-glass/{id}/revoke', [BreakGlassController::class, 'revoke'])->middleware('capability:iam.session.manage,SELF')->name('auth.break-glass.revoke');
 
-    Route::get('/access-review', [AccessReviewController::class, 'show'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,LEGAL_ENTITY,legal_entity_id'])->name('access-review.show');
+    Route::get('/access-review', [AccessReviewController::class, 'show'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,COMPANY'])->name('access-review.show');
 
-    Route::get('/auth/events', [AuthorizationAdminController::class, 'authEvents'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,LEGAL_ENTITY,legal_entity_id'])->name('auth.events');
+    Route::get('/auth/events', [AuthorizationAdminController::class, 'authEvents'])->middleware(['mfa.enrolled', 'capability:iam.audit.read,COMPANY'])->name('auth.events');
 });
 
 Route::prefix('employees')->middleware('auth.session')->group(function (): void {
     Route::get('/', [EmployeeController::class, 'index'])
-        ->middleware('capability:people.employee.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:people.employee.read,COMPANY')
         ->name('employees.index');
     Route::get('/{employment_id}', [EmployeeController::class, 'show'])
         ->whereNumber('employment_id')
-        ->middleware('capability:people.employee.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:people.employee.read,COMPANY')
         ->name('employees.show');
 });
 
@@ -365,22 +365,22 @@ Route::prefix('departments')->middleware('auth.session')->group(function (): voi
 
 Route::prefix('positions')->middleware('auth.session')->group(function (): void {
     Route::get('/grades', [PositionCatalogController::class, 'grades'])
-        ->middleware('capability:org.position.grade.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:org.position.grade.manage,COMPANY')
         ->name('positions.grades.index');
     Route::post('/grades', [PositionCatalogController::class, 'storeGrade'])
-        ->middleware(['mfa.enrolled', 'capability:org.position.grade.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'capability:org.position.grade.manage,COMPANY'])
         ->name('positions.grades.store');
     Route::get('/{id}/requirements', [PositionCatalogController::class, 'requirements'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.qualification.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.qualification.manage,COMPANY'])
         ->name('positions.requirements.index');
     Route::post('/{id}/requirements', [PositionCatalogController::class, 'storeRequirements'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'mfa.enrolled', 'capability:org.position.qualification.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'mfa.enrolled', 'capability:org.position.qualification.manage,COMPANY'])
         ->name('positions.requirements.store');
     Route::get('/{id}/staff', [PositionCatalogController::class, 'staff'])
         ->whereNumber('id')
-        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.staff.read,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveResourceLegalEntityContext::class.':position', 'capability:org.position.staff.read,COMPANY'])
         ->name('positions.staff.index');
     Route::get('/', [PositionController::class, 'index'])
         ->middleware('capability:org.position.read')
@@ -603,17 +603,17 @@ Route::prefix('travel')->middleware(['auth.session', 'csrf.header', ResolveLegal
         ->name('time.travel.requests.approve');
 
     Route::get('/policies', [TravelPolicyController::class, 'index'])
-        ->middleware('capability:time.travel.policy.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:time.travel.policy.read,COMPANY')
         ->name('time.travel.policies.index');
     Route::post('/policies', [TravelPolicyController::class, 'store'])
-        ->middleware(['mfa.enrolled', 'capability:time.travel.policy.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'capability:time.travel.policy.manage,COMPANY'])
         ->name('time.travel.policies.store');
 
     Route::get('/expenses', [TravelExpenseController::class, 'index'])
         ->middleware('capability:time.travel.expense')
         ->name('time.travel.expenses.index');
     Route::post('/expenses', [TravelExpenseController::class, 'store'])
-        ->middleware(['mfa.enrolled', 'capability:time.travel.expense.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'capability:time.travel.expense.manage,COMPANY'])
         ->name('time.travel.expenses.store');
 });
 
@@ -659,7 +659,7 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->middleware('capability:engagement.notice.read')
         ->name('engagement.notices.show');
     Route::post('/notices', [NoticeController::class, 'store'])
-        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,COMPANY'])
         ->name('engagement.notices.store');
     Route::post('/notices/{notice}/acknowledge', [NoticeController::class, 'acknowledge'])
         ->whereNumber('notice')
@@ -667,7 +667,7 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->name('engagement.notices.acknowledge');
     Route::post('/notices/{notice}/retract', [NoticeController::class, 'retract'])
         ->whereNumber('notice')
-        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveLegalEntityContext::class, 'capability:engagement.notice.manage,COMPANY'])
         ->name('engagement.notices.retract');
 
     // Notice approval is a Workflow Case decision, never a status write.
@@ -727,23 +727,23 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
 
 Route::prefix('notification-templates')->middleware(['auth.session'])->group(function (): void {
     Route::get('/', [NotificationAdminController::class, 'templates'])
-        ->middleware('capability:notification.template.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:notification.template.manage,COMPANY')
         ->name('notification-templates.index');
     Route::post('/', [NotificationAdminController::class, 'storeTemplate'])
-        ->middleware('capability:notification.template.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:notification.template.manage,COMPANY')
         ->name('notification-templates.store');
 });
 
 Route::prefix('notifications')->middleware(['auth.session'])->group(function (): void {
     Route::get('/deliveries', [NotificationAdminController::class, 'deliveries'])
-        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:notification.delivery.manage,COMPANY')
         ->name('notifications.deliveries.index');
     Route::post('/dispatch', [NotificationAdminController::class, 'dispatch'])
-        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:notification.delivery.manage,COMPANY')
         ->name('notifications.dispatch');
     Route::post('/deliveries/{id}/retry', [NotificationAdminController::class, 'retry'])
         ->whereNumber('id')
-        ->middleware('capability:notification.delivery.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:notification.delivery.manage,COMPANY')
         ->name('notifications.deliveries.retry');
 });
 
@@ -759,13 +759,13 @@ Route::prefix('notifications')->middleware(['auth.session'])->group(function ():
 */
 Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): void {
     Route::post('/onboarding', [LifecycleController::class, 'onboarding'])
-        ->middleware('capability:lifecycle.onboarding.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:lifecycle.onboarding.manage,COMPANY')
         ->name('lifecycle.onboarding.store');
     Route::post('/probation-confirmations', [LifecycleController::class, 'probationConfirmation'])
         ->middleware('capability:lifecycle.probation.manage')
         ->name('lifecycle.probation.store');
     Route::post('/transfers', [LifecycleController::class, 'transfer'])
-        ->middleware('capability:lifecycle.transfer.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:lifecycle.transfer.manage,COMPANY')
         ->name('lifecycle.transfers.store');
     Route::post('/salary-changes', [LifecycleController::class, 'salaryChange'])
         ->middleware('capability:lifecycle.terms.manage')
@@ -777,13 +777,13 @@ Route::prefix('lifecycle')->middleware(['auth.session'])->group(function (): voi
         ->middleware('capability:lifecycle.contract.manage')
         ->name('lifecycle.contract-renewals.store');
     Route::post('/rehires', [LifecycleController::class, 'rehire'])
-        ->middleware('capability:lifecycle.rehire.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:lifecycle.rehire.manage,COMPANY')
         ->name('lifecycle.rehires.store');
     Route::get('/secondments', [SecondmentController::class, 'index'])
-        ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'capability:lifecycle.secondment.manage,COMPANY'])
         ->name('lifecycle.secondments.index');
     Route::post('/secondments', [SecondmentController::class, 'store'])
-        ->middleware([ResolveResourceLegalEntityContext::class.':employment', 'mfa.enrolled', 'capability:lifecycle.secondment.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware([ResolveResourceLegalEntityContext::class.':employment', 'mfa.enrolled', 'capability:lifecycle.secondment.manage,COMPANY'])
         ->name('lifecycle.secondments.store');
     Route::get('/cases', [LifecycleController::class, 'cases'])
         ->middleware('capability:lifecycle.case.read')
@@ -856,13 +856,13 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
         ->name('recruitment.candidates.talent-pool.store');
     Route::post('/candidates/{id}/convert', [RecruitmentFunnelController::class, 'convert'])
         ->whereNumber('id')
-        ->middleware(['csrf.header', 'mfa.enrolled', 'capability:recruitment.candidate.convert,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['csrf.header', 'mfa.enrolled', 'capability:recruitment.candidate.convert,COMPANY'])
         ->name('recruitment.candidates.convert');
     Route::get('/requisitions', [RecruitmentController::class, 'requisitions'])
         ->middleware('capability:recruitment.requisition.read')
         ->name('recruitment.requisitions.index');
     Route::post('/requisitions', [RecruitmentController::class, 'storeRequisition'])
-        ->middleware('capability:recruitment.requisition.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:recruitment.requisition.manage,COMPANY')
         ->name('recruitment.requisitions.store');
     Route::get('/requisitions/{id}/openings', [App\Modules\Talent\Http\Controllers\RecruitmentOpeningController::class, 'index'])
         ->whereNumber('id')
@@ -957,16 +957,16 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
 
 Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/plans', [TrainingController::class, 'plans'])
-        ->middleware('capability:training.plan.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.plan.manage,COMPANY')
         ->name('training.plans.index');
     Route::post('/plans', [TrainingController::class, 'storePlan'])
-        ->middleware('capability:training.plan.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.plan.manage,COMPANY')
         ->name('training.plans.store');
     Route::get('/courses', [TrainingController::class, 'courses'])
-        ->middleware('capability:training.course.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.course.manage,COMPANY')
         ->name('training.courses.index');
     Route::post('/courses', [TrainingController::class, 'storeCourse'])
-        ->middleware('capability:training.course.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.course.manage,COMPANY')
         ->name('training.courses.store');
     Route::get('/programs', [TrainingController::class, 'programs'])
         ->middleware('capability:training.program.read')
@@ -982,14 +982,14 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
         ->name('training.sessions.store');
     Route::get('/sessions/{id}/checkins', [TrainingController::class, 'checkins'])
         ->whereNumber('id')
-        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.checkin.manage,COMPANY')
         ->name('training.sessions.checkins.index');
     Route::post('/sessions/{id}/checkins', [TrainingController::class, 'storeCheckin'])
         ->whereNumber('id')
-        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.checkin.manage,COMPANY')
         ->name('training.sessions.checkins.store');
     Route::get('/checkins', [TrainingController::class, 'checkins'])
-        ->middleware('capability:training.checkin.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.checkin.manage,COMPANY')
         ->name('training.checkins.index');
     Route::get('/enrollments', [TrainingController::class, 'enrollments'])
         ->middleware('capability:training.enrollment.manage')
@@ -1002,26 +1002,26 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
         ->middleware('capability:training.completion.manage')
         ->name('training.enrollments.complete');
     Route::get('/exams', [TrainingController::class, 'exams'])
-        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.exam.manage,COMPANY')
         ->name('training.exams.index');
     Route::post('/exams', [TrainingController::class, 'storeExam'])
-        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.exam.manage,COMPANY')
         ->name('training.exams.store');
     Route::post('/exams/{id}/publish', [TrainingController::class, 'publishExam'])
         ->whereNumber('id')
-        ->middleware('capability:training.exam.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.exam.manage,COMPANY')
         ->name('training.exams.publish');
     Route::get('/feedback', [TrainingController::class, 'feedback'])
-        ->middleware('capability:training.feedback.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.feedback.manage,COMPANY')
         ->name('training.feedback.index');
     Route::post('/feedback', [TrainingController::class, 'storeFeedback'])
-        ->middleware('capability:training.feedback.manage,LEGAL_ENTITY')
+        ->middleware('capability:training.feedback.manage,COMPANY')
         ->name('training.feedback.store');
     Route::get('/records', [TrainingController::class, 'records'])
-        ->middleware('capability:training.record.read,LEGAL_ENTITY')
+        ->middleware('capability:training.record.read,COMPANY')
         ->name('training.records.index');
     Route::get('/records/export', [TrainingController::class, 'exportRecords'])
-        ->middleware('capability:training.record.read,LEGAL_ENTITY')
+        ->middleware('capability:training.record.read,COMPANY')
         ->name('training.records.export');
     Route::get('/reports', [TrainingController::class, 'reports'])
         ->middleware('capability:training.report.read')
@@ -1044,26 +1044,26 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
 */
 Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/items', [PayrollCatalogController::class, 'items'])
-        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.items.index');
     Route::post('/items', [PayrollCatalogController::class, 'storeItem'])
         ->middleware(IdempotentCommand::class)
-        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.prepare,COMPANY')
         ->name('payroll.items.store');
     Route::get('/schemes', [PayrollCatalogController::class, 'schemes'])
-        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.schemes.index');
     Route::post('/schemes', [PayrollCatalogController::class, 'storeScheme'])
         ->middleware(IdempotentCommand::class)
-        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.prepare,COMPANY')
         ->name('payroll.schemes.store');
 
     Route::get('/runs', [PayrollRunController::class, 'index'])
-        ->middleware('capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.runs.index');
     Route::post('/runs', [PayrollRunController::class, 'store'])
         ->middleware(IdempotentCommand::class)
-        ->middleware('capability:payroll.run.prepare,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.run.prepare,COMPANY')
         ->name('payroll.runs.store');
     Route::get('/runs/{id}', [PayrollRunController::class, 'show'])
         ->whereNumber('id')
@@ -1151,27 +1151,27 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->name('payroll.payslips.show');
 
     Route::get('/statutory-parameters', [PayrollStatutoryParameterController::class, 'index'])
-        ->middleware('capability:payroll.parameters.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.parameters.read,COMPANY')
         ->name('payroll.parameters.index');
     Route::post('/statutory-parameters', [PayrollStatutoryParameterController::class, 'store'])
         ->middleware(IdempotentCommand::class)
-        ->middleware(['mfa.step-up', 'capability:payroll.parameters.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.step-up', 'capability:payroll.parameters.manage,COMPANY'])
         ->name('payroll.parameters.store');
 
     // Effective-dated compensation archive and case-approved salary
     // adjustments. Reads use the ProjectionResponder envelope; writes use
     // CommandRunner (Idempotency-Key is required by the runner itself).
     Route::get('/employee-plans', [CompensationController::class, 'plans'])
-        ->middleware('capability:payroll.compensation.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.compensation.read,COMPANY')
         ->name('payroll.employee-plans.index');
     Route::post('/employee-plans', [CompensationController::class, 'storePlan'])
-        ->middleware('capability:payroll.compensation.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.compensation.manage,COMPANY')
         ->name('payroll.employee-plans.store');
     Route::get('/adjustments', [CompensationController::class, 'adjustments'])
-        ->middleware('capability:payroll.compensation.read,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.compensation.read,COMPANY')
         ->name('payroll.adjustments.index');
     Route::post('/adjustments', [CompensationController::class, 'storeAdjustment'])
-        ->middleware('capability:payroll.salary-adjustment.manage,LEGAL_ENTITY,legal_entity_id')
+        ->middleware('capability:payroll.salary-adjustment.manage,COMPANY')
         ->name('payroll.adjustments.store');
 });
 
@@ -1191,19 +1191,19 @@ Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(fu
         ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.plans.index');
     Route::post('/plans', [BenefitController::class, 'storePlan'])
-        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
         ->name('benefits.plans.store');
     Route::get('/enrollments', [BenefitController::class, 'enrollments'])
         ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.enrollments.index');
     Route::post('/enrollments', [BenefitController::class, 'storeEnrollment'])
-        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
         ->name('benefits.enrollments.store');
     Route::get('/transactions', [BenefitController::class, 'transactions'])
         ->middleware(['mfa.enrolled', 'capability:benefit.read,SELF'])
         ->name('benefits.transactions.index');
     Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
-        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
         ->name('benefits.transactions.store');
 });
 
@@ -1223,7 +1223,7 @@ Route::prefix('reporting')->middleware('auth.session')->group(function (): void 
         ->middleware('capability:reporting.report.read')
         ->name('reporting.definitions.index');
     Route::post('/definitions', [ReportingController::class, 'createDefinition'])
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.definition.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.definition.manage,COMPANY'])
         ->name('reporting.definitions.store');
     Route::post('/run', [ReportingController::class, 'run'])
         ->middleware('capability:reporting.report.read')
@@ -1232,21 +1232,21 @@ Route::prefix('reporting')->middleware('auth.session')->group(function (): void 
         ->middleware('capability:reporting.subscription.manage')
         ->name('reporting.subscriptions.index');
     Route::post('/subscriptions', [ReportSubscriptionController::class, 'store'])
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.store');
     Route::patch('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'update'])
         ->whereNumber('subscriptionId')
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.update');
     Route::delete('/subscriptions/{subscriptionId}', [ReportSubscriptionController::class, 'destroy'])
         ->whereNumber('subscriptionId')
-        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.subscription.manage,COMPANY'])
         ->name('reporting.subscriptions.destroy');
     Route::get('/exports', [ReportingController::class, 'exports'])
         ->middleware('capability:reporting.export.read')
         ->name('reporting.exports.index');
     Route::post('/exports', [ReportingController::class, 'createExport'])
-        ->middleware(['throttle:10,1', 'mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.export,LEGAL_ENTITY,legal_entity_id'])
+        ->middleware(['throttle:10,1', 'mfa.step-up', ResolveLegalEntityContext::class, 'capability:reporting.export,COMPANY'])
         ->name('reporting.exports.store');
     Route::get('/exports/{jobId}/download', [ReportingController::class, 'download'])
         ->whereNumber('jobId')

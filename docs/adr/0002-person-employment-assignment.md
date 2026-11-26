@@ -1,5 +1,7 @@
 # ADR-0002: Person–Employment–Assignment with a legal-entity employer boundary
 
+> **Superseded in part by ADR-0034 (2026-11-25):** tenant and legal-entity boundaries are removed; the system is a single company. Person–Employment–Assignment remains, but `tenant_id`/`legal_entity_id`, cross-entity transfer and per-entity employee-number rules no longer apply.
+
 - **Status:** Accepted — 2026-11-24
 - **Decision IDs:** D-01 (Person–Employment–Assignment), D-02 (`tenant_id` isolation and `legal_entity_id` employer boundary)
 - **Supersedes:** the working "platform baseline" ADR that previously occupied number 0002; its content now lives in ADR-0011

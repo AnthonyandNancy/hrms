@@ -63,7 +63,7 @@ final class SecondmentService
             throw new ValidationException(
                 ['host_org_unit_id' => ['A secondment host must belong to the employment legal entity.']],
                 'The secondment host is outside the employment legal entity.',
-                ['reason' => 'SECONDMENT_CROSS_LEGAL_ENTITY'],
+                ['reason' => 'SECONDMENT_CROSS_COMPANY'],
             );
         }
 

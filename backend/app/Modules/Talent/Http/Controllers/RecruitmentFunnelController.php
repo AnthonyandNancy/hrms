@@ -153,7 +153,7 @@ final class RecruitmentFunnelController
         $definition = new CommandDefinition(
             name: 'talent.recruitment.candidate.convert',
             capability: 'recruitment.candidate.convert',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -197,7 +197,7 @@ final class RecruitmentFunnelController
         $definition = new CommandDefinition(
             name: 'talent.'.$scope,
             capability: $capability,
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

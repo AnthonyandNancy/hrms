@@ -33,7 +33,7 @@ final class SeedDemoCommand extends Command
 
         $hash = $passwords->hash($password);
 
-        // Anchor role grants to the seeded legal entity so LEGAL_ENTITY
+        // Anchor role grants to the seeded legal entity so COMPANY
         // capabilities resolve against a real row. When the demo organization
         // has not been seeded, grants stay null and remain fail-closed.
         // iam:seed-demo may run before people:seed-demo. Provisioning the
@@ -86,7 +86,7 @@ final class SeedDemoCommand extends Command
                 $grants = RoleCapability::query()->where('role_code', $roleCode)->get();
 
                 foreach ($grants as $grant) {
-                    $isEntityAnchor = (string) $grant->anchor_type === 'LEGAL_ENTITY';
+                    $isEntityAnchor = (string) $grant->anchor_type === 'COMPANY';
                     $anchorId = $isEntityAnchor ? $entityId : null;
                     $anchorKey = $isEntityAnchor ? (int) $entityId : 0;
 

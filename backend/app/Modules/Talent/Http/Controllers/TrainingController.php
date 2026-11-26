@@ -360,7 +360,7 @@ final class TrainingController
         $definition = new CommandDefinition(
             name: $name,
             capability: $capability,
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

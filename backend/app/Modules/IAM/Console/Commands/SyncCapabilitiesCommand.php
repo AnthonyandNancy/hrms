@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Console\Commands;
 
 use App\Modules\IAM\Authorization\CapabilityCatalog;
+use App\Modules\IAM\Authorization\RolePageAssignmentCatalog;
 use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
+use App\Modules\IAM\Models\RolePage;
 use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
@@ -77,7 +79,25 @@ final class SyncCapabilitiesCommand extends Command
             }
         });
 
-        $this->info(sprintf('Synced %d capabilities and %d role templates.', count($definitions), count(RoleTemplateCatalog::templates())));
+        $rolePages = new RolePageAssignmentCatalog;
+        $pageCount = 0;
+
+        DB::transaction(function () use ($rolePages, $now, &$pageCount): void {
+            RolePage::query()->delete();
+
+            foreach (RoleTemplateCatalog::templates() as $template) {
+                foreach ($rolePages->pagesForRole($template->code) as $page) {
+                    RolePage::query()->create([
+                        'role_code' => $template->code,
+                        'page_code' => (string) $page['page_code'],
+                        'created_at' => $now,
+                    ]);
+                    $pageCount++;
+                }
+            }
+        });
+
+        $this->info(sprintf('Synced %d capabilities, %d role templates and %d role page grants.', count($definitions), count(RoleTemplateCatalog::templates()), $pageCount));
 
         return self::SUCCESS;
     }

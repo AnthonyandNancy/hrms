@@ -6,7 +6,9 @@ import PageErrorBoundary from '@/components/PageErrorBoundary.vue'
 import { isChunkLoadError } from '@/utils/renderErrors'
 import {
   ArrowDown,
+  ArrowRight,
   Bell,
+  Briefcase,
   Calendar,
   Clock,
   DataAnalysis,
@@ -59,6 +61,7 @@ const app = useAppStore()
 
 const icons: Record<string, unknown> = {
   Bell,
+  Briefcase,
   Calendar,
   Clock,
   DataAnalysis,
@@ -83,7 +86,31 @@ const icons: Record<string, unknown> = {
 const buildSha = import.meta.env.VITE_BUILD_SHA ?? 'unknown'
 const currentNavKey = computed(() => (typeof route.meta.navKey === 'string' ? route.meta.navKey : ''))
 const groupedNavigation = computed(() => session.navigation)
-const expandedGroups = ref<Set<string>>(new Set())
+
+const NAV_EXPANDED_KEY = 'hrms.nav.expanded'
+
+/** Restore only the user's display preference, never an authorization result. */
+function readExpandedGroups(): Set<string> {
+  try {
+    const raw = localStorage.getItem(NAV_EXPANDED_KEY)
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw)
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [],
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+const expandedGroups = ref<Set<string>>(readExpandedGroups())
+
+function persistExpandedGroups(groups: Set<string>): void {
+  try {
+    localStorage.setItem(NAV_EXPANDED_KEY, JSON.stringify([...groups]))
+  } catch {
+    // Menu expansion remains usable when storage is unavailable or full.
+  }
+}
 
 function isGroupOpen(item: NavigationItem): boolean {
   return expandedGroups.value.has(item.key) || item.children.some((child) => child.key === currentNavKey.value)
@@ -97,6 +124,7 @@ function toggleGroup(item: NavigationItem): void {
     next.add(item.key)
   }
   expandedGroups.value = next
+  persistExpandedGroups(next)
 }
 
 function isChildActive(childKey: string): boolean {
@@ -196,7 +224,9 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="nav-link nav-link--group"
+              :class="{ 'nav-link--group-active': isGroupOpen(item) }"
               :aria-expanded="isGroupOpen(item)"
+              :aria-controls="`nav-group-${item.key}`"
               :title="app.sidebarCollapsed ? item.label : undefined"
               @click="toggleGroup(item)"
             >
@@ -207,8 +237,16 @@ onBeforeUnmount(() => {
               <span v-if="badgeFor(item)" class="nav-link__badge" :aria-label="`${badgeFor(item)} 条待处理`">
                 {{ badgeFor(item) }}
               </span>
+              <el-icon class="nav-link__chevron" aria-hidden="true">
+                <ArrowDown v-if="isGroupOpen(item)" />
+                <ArrowRight v-else />
+              </el-icon>
             </button>
-            <div v-if="isGroupOpen(item) && !app.sidebarCollapsed" class="sidebar__children">
+            <div
+              v-if="isGroupOpen(item) && !app.sidebarCollapsed"
+              :id="`nav-group-${item.key}`"
+              class="sidebar__children"
+            >
               <RouterLink
                 v-for="child in item.children"
                 :key="child.key"
@@ -218,6 +256,9 @@ onBeforeUnmount(() => {
                 :aria-current="isChildActive(child.key) ? 'page' : undefined"
                 @click="closeMobileNav"
               >
+                <el-icon class="nav-link__child-icon" aria-hidden="true">
+                  <component :is="icons[child.icon] ?? Document" />
+                </el-icon>
                 <span class="nav-link__label">{{ child.label }}</span>
               </RouterLink>
             </div>

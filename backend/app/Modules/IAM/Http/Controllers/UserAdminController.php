@@ -267,7 +267,7 @@ final class UserAdminController
 
     /**
      * Role templates can span anchors. Every anchor that requires an id must
-     * be supplied explicitly, except LEGAL_ENTITY which may come from the
+     * be supplied explicitly, except COMPANY which may come from the
      * route's legal entity header.
      *
      * @param  \Illuminate\Database\Eloquent\Collection<int, RoleCapability>  $grants
@@ -293,7 +293,7 @@ final class UserAdminController
 
             $value = $provided[$anchor->value] ?? null;
 
-            if ($value === null && $anchor === AnchorType::LEGAL_ENTITY && is_numeric($legalEntity)) {
+            if ($value === null && $anchor === AnchorType::COMPANY && is_numeric($legalEntity)) {
                 $value = (int) $legalEntity;
             }
 

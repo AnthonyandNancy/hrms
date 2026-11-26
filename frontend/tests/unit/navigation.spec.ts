@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { can, firstAllowedPath, visibleCaseActions, visibleNavigation } from '@/router/navigation'
+import router from '@/router'
+import { PAGE_REGISTRY } from '@/router/registry'
+import { NAVIGATION, can, firstAllowedPath, visibleCaseActions, visibleNavigation } from '@/router/navigation'
 
 describe('capability-driven navigation', () => {
   it('hides child pages for which the server did not grant the capability', () => {
@@ -53,5 +55,52 @@ describe('capability-driven navigation', () => {
     expect(firstAllowedPath(['people.employee.read'])).toBe('/workspace')
     expect(can([], undefined)).toBe(true)
     expect(can([], 'people.employee.read')).toBe(false)
+  })
+})
+
+
+describe('expandable navigation affordance', () => {
+  it('marks every child-bearing menu group expandable while leaving the workspace entry plain', () => {
+    const parents = NAVIGATION.filter((item) => item.children.length > 0 && item.key !== 'workspace')
+    expect(parents.length).toBeGreaterThan(0)
+    expect(parents.every((item) => item.expandable === true)).toBe(true)
+    expect(NAVIGATION.find((item) => item.key === 'workspace')?.expandable).toBe(false)
+  })
+
+  it('gives every child an explicit icon inherited from its registry page', () => {
+    const children = new Map(NAVIGATION.flatMap((item) => item.children).map((child) => [child.key, child]))
+
+    for (const page of PAGE_REGISTRY) {
+      if (page.menu === null) continue
+      const child = children.get(page.name)
+      expect(child, page.name).toBeDefined()
+      expect(child?.icon, page.name).toBe(page.menu.icon)
+      expect(child?.icon, page.name).not.toBe('')
+    }
+  })
+
+  it('uses a distinct semantic icon for every registry menu group', () => {
+    const iconByGroup = new Map<string, string>()
+
+    for (const page of PAGE_REGISTRY) {
+      if (page.menu === null) continue
+      const existing = iconByGroup.get(page.menu.group)
+      if (existing !== undefined) {
+        expect(page.menu.icon, page.menu.group).toBe(existing)
+      } else {
+        iconByGroup.set(page.menu.group, page.menu.icon)
+      }
+    }
+
+    expect(iconByGroup.size).toBe(18)
+    expect([...iconByGroup.values()].every((icon) => icon !== 'Menu')).toBe(true)
+    expect(new Set(iconByGroup.values()).size).toBe(iconByGroup.size)
+  })
+
+  it('stamps meta.navKey on every registry-backed route', () => {
+    for (const page of PAGE_REGISTRY) {
+      const resolved = router.resolve(page.path.replace(/:id/g, '1'))
+      expect(resolved.meta.navKey, page.path).toBe(page.name)
+    }
   })
 })

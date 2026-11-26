@@ -95,7 +95,7 @@ final class MfaPolicyTest extends TestCase
     ): void {
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, $authVersion)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, $profile)
+            ->anchor(AnchorType::COMPANY, null, $profile)
             ->create([
                 'capability_code' => $code,
                 'valid_from' => '2025-01-01 00:00:00',

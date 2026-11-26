@@ -8,6 +8,7 @@ use App\Modules\IAM\Auth\AuthenticatedPrincipal;
 use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\IAM\Models\AuthorityBinding;
+use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\FieldProfile;
@@ -44,7 +45,7 @@ final class MePermissionsTest extends TestCase
     public function test_permissions_returns_menu_actions_field_capabilities_scope_labels_and_auth_version(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->grant($user, 'people.employee.read', 'LEGAL_ENTITY', 1, 'P1_INTERNAL', 'READ');
+        $this->grant($user, 'people.employee.read', 'COMPANY', null, 'P1_INTERNAL', 'READ');
 
         $this->actAs($user)
             ->getJson('/v1/me/permissions')
@@ -65,7 +66,9 @@ final class MePermissionsTest extends TestCase
     public function test_permissions_filters_pages_and_actions_to_the_callers_capabilities(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->grant($user, 'people.employee.read', 'LEGAL_ENTITY', 1, 'P1_INTERNAL', 'READ');
+        $this->grant($user, 'people.employee.read', 'COMPANY', null, 'P1_INTERNAL', 'READ');
+        $this->assignRole($user, 'HR_ADMIN');
+        $this->grantPage('HR_ADMIN', 'hr-employees');
 
         $response = $this->actAs($user)->getJson('/v1/me/permissions')->assertOk();
 
@@ -102,7 +105,9 @@ final class MePermissionsTest extends TestCase
     public function test_parent_menu_visibility_does_not_grant_or_include_a_child_page(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->grant($user, 'people.contract.read', 'LEGAL_ENTITY', 1, 'P2_SENSITIVE', 'READ');
+        $this->grant($user, 'people.contract.read', 'COMPANY', null, 'P2_SENSITIVE', 'READ');
+        $this->assignRole($user, 'HR_ADMIN');
+        $this->grantPage('HR_ADMIN', 'hr-contracts');
 
         $response = $this->actAs($user)->getJson('/v1/me/permissions')->assertOk();
 
@@ -126,7 +131,11 @@ final class MePermissionsTest extends TestCase
     public function test_a_wildcard_principal_receives_every_catalogued_page_and_capability(): void
     {
         $user = User::factory()->create(['auth_version' => 1]);
-        $this->grant($user, '*', 'LEGAL_ENTITY', 1, 'P3_RESTRICTED', 'SYSTEM_ADMIN');
+        $this->grant($user, '*', 'COMPANY', null, 'P3_RESTRICTED', 'SYSTEM_ADMIN');
+        $this->assignRole($user, 'SYSTEM_ADMIN');
+        foreach ((new \App\Modules\IAM\Authorization\PermissionResourceCatalog)->pageCodes() as $pageCode) {
+            $this->grantPage('SYSTEM_ADMIN', $pageCode);
+        }
 
         $response = $this->actAs($user)->getJson('/v1/me/permissions')->assertOk();
 
@@ -163,6 +172,29 @@ final class MePermissionsTest extends TestCase
         $this->app->make(AuthenticationContext::class)->set($principal);
 
         return $this;
+    }
+
+    private function assignRole(User $user, string $roleCode): void
+    {
+        UserRole::query()->create([
+            'tenant_id' => 1,
+            'user_id' => (int) $user->id,
+            'role_code' => $roleCode,
+            'valid_from' => '2026-01-01 00:00:00',
+            'valid_to' => '2027-01-01 00:00:00',
+            'reason' => 'TEST',
+            'auth_version' => (int) $user->auth_version,
+            'created_at' => now(),
+        ]);
+    }
+
+    private function grantPage(string $roleCode, string $pageCode): void
+    {
+        \App\Modules\IAM\Models\RolePage::query()->create([
+            'role_code' => $roleCode,
+            'page_code' => $pageCode,
+            'created_at' => now(),
+        ]);
     }
 
     private function grant(

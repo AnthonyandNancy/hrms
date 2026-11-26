@@ -52,7 +52,7 @@ final class MfaTest extends AuthorizationTestSupport
     {
         $user = User::factory()->withoutMfa()->create();
         $this->grant($user, 'payroll.run.prepare', FieldProfile::P2_SENSITIVE, AnchorType::PAYROLL_RUN, 5);
-        $this->grant($user, 'org.tree.read', FieldProfile::P0_PUBLIC, AnchorType::LEGAL_ENTITY, 1, false);
+        $this->grant($user, 'org.tree.read', FieldProfile::P0_PUBLIC, AnchorType::COMPANY, null, false);
         $this->organization->knownLegalEntities = [1];
         $this->payroll->runsByUser[(int) $user->id] = [5];
         $this->payroll->memberships[5] = ['payroll.run.prepare'];

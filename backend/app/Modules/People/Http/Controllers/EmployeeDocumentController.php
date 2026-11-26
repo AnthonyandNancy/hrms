@@ -70,7 +70,7 @@ final class EmployeeDocumentController
         $definition = new CommandDefinition(
             name: 'people.document.open',
             capability: 'people.document.read',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -171,7 +171,7 @@ final class EmployeeDocumentController
         $definition = new CommandDefinition(
             name: 'people.document.delete',
             capability: 'people.employee.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

@@ -72,8 +72,12 @@ final class TimeActorBridge implements TimeActorResolver
             $anchor = strtoupper($grant['anchor_type']);
             $anchorId = $grant['anchor_id'];
 
-            if ($anchor === 'LEGAL_ENTITY' && $anchorId !== null) {
-                $ids[] = $anchorId;
+            if ($anchor === 'COMPANY') {
+                // The single company has no numeric anchor. Preserve the
+                // company-wide scope flag by using the sentinel 0; callers
+                // treat any non-empty id set as "entire company" while the
+                // physical legal_entity_id columns are migrated away.
+                $ids[] = $anchorId ?? 0;
             }
 
             if (in_array($anchor, ['ORG_UNIT', 'ORG_SUBTREE'], true) && $anchorId !== null) {
@@ -106,12 +110,12 @@ final class TimeActorBridge implements TimeActorResolver
         $capabilities = array_column($grants, 'capability');
         $adminScope = in_array('time.attendance.manage', $capabilities, true)
             || in_array('time.leave.admin', $capabilities, true)
-            || in_array('LEGAL_ENTITY', $anchors, true)
+            || in_array('COMPANY', $anchors, true)
             || in_array('ORG_UNIT', $anchors, true)
             || in_array('ORG_SUBTREE', $anchors, true);
 
         if ($adminScope && $legalEntityIds !== []) {
-            return 'LEGAL_ENTITY';
+            return 'COMPANY';
         }
 
         if ($managedEmploymentIds !== [] && in_array('MANAGED', $anchors, true)) {

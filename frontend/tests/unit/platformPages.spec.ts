@@ -6,6 +6,7 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { todayBusinessDate } from '@/utils/format'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -163,7 +164,7 @@ describe('Wave 5 platform and business pages', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/reporting/dashboard', expect.any(Object))
     expect(resource.get).toHaveBeenCalledWith(
       '/v1/reporting/dashboard/metrics/headcount',
-      expect.objectContaining({ as_of: '2026-11-25' }),
+      expect.objectContaining({ as_of: todayBusinessDate() }),
     )
     expect(wrapper.text()).toContain('Synthetic Manufacturing Department')
     expect(wrapper.text()).toContain('Synthetic Employee')

@@ -317,9 +317,10 @@ final class CapabilityAuthorizer implements Authorizer
                 $this->whereColumnIn($query, 'payroll_run_id', [$grant->anchorId]);
                 break;
 
-            case Anchor::LEGAL_ENTITY:
-                $employmentIds = $this->employmentIdsForLegalEntity($principal->tenantId(), $grant->anchorId, $businessDate);
-                $this->whereColumnIn($query, $this->employmentColumn($query), $employmentIds);
+            case Anchor::COMPANY:
+                // COMPANY is the whole single-company instance. It removes the
+                // entity predicate but not the organization/ownership predicates
+                // carried by other grants. No predicate is needed here.
                 break;
         }
     }
@@ -425,9 +426,7 @@ final class CapabilityAuthorizer implements Authorizer
                     && in_array($anchorId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId ?? 0, $businessDate), true),
                 Anchor::CASE => $anchorId !== null && $anchorId === $grant->anchorId,
                 Anchor::PAYROLL_RUN => $anchorId !== null && $anchorId === $grant->anchorId,
-                Anchor::LEGAL_ENTITY => $anchorId !== null
-                    && $anchorId === $grant->anchorId
-                    && $this->organization->legalEntityExists($p->tenantId(), $anchorId),
+                Anchor::COMPANY => $grant->anchorId === null,
             };
         }
 
@@ -447,9 +446,7 @@ final class CapabilityAuthorizer implements Authorizer
             Anchor::PAYROLL_RUN => $anchorId !== null
                 && $anchorId === $grant->anchorId
                 && $this->payroll->isMember($p->tenantId(), $p->userId(), $anchorId, $capability),
-            Anchor::LEGAL_ENTITY => $anchorId !== null
-                && $anchorId === $grant->anchorId
-                && $this->organization->legalEntityExists($p->tenantId(), $anchorId),
+            Anchor::COMPANY => $grant->anchorId === null,
         };
     }
 
@@ -474,7 +471,7 @@ final class CapabilityAuthorizer implements Authorizer
                     && in_array($row->orgUnitId, $this->organization->descendantUnitIds($p->tenantId(), $grant->anchorId, $businessDate), true),
                 Anchor::CASE => $row->caseId !== null && $row->caseId === $grant->anchorId,
                 Anchor::PAYROLL_RUN => $row->payrollRunId !== null && $row->payrollRunId === $grant->anchorId,
-                Anchor::LEGAL_ENTITY => $row->legalEntityId !== null && $row->legalEntityId === $grant->anchorId,
+                Anchor::COMPANY => $grant->anchorId === null,
             };
         }
 
@@ -494,7 +491,7 @@ final class CapabilityAuthorizer implements Authorizer
             Anchor::PAYROLL_RUN => $row->payrollRunId !== null
                 && $row->payrollRunId === $grant->anchorId
                 && $this->payroll->isMember($p->tenantId(), $p->userId(), $row->payrollRunId, $capability),
-            Anchor::LEGAL_ENTITY => $row->legalEntityId !== null && $row->legalEntityId === $grant->anchorId,
+            Anchor::COMPANY => $grant->anchorId === null,
         };
     }
 

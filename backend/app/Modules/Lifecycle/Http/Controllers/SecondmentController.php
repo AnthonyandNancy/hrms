@@ -84,7 +84,7 @@ final class SecondmentController
         $definition = new CommandDefinition(
             name: 'lifecycle.secondment.start',
             capability: 'lifecycle.secondment.manage',
-            anchor: \App\Shared\Authorization\AnchorType::LEGAL_ENTITY,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,
@@ -163,7 +163,7 @@ final class SecondmentController
         throw new \App\Shared\Exceptions\ValidationException(
             ['legal_entity_id' => ['The legal_entity_id field is required.']],
             'The given data was invalid.',
-            ['reason' => 'LEGAL_ENTITY_REQUIRED'],
+            ['reason' => 'COMPANY_REQUIRED'],
         );
     }
 

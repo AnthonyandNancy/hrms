@@ -48,7 +48,7 @@ final class SyncCapabilitiesWildcardTest extends TestCase
             'tenant_id' => 1,
             'principal_id' => (int) $user->id,
             'capability_code' => $capabilityCode,
-            'anchor_type' => 'LEGAL_ENTITY',
+            'anchor_type' => 'COMPANY',
             'anchor_id' => 1,
             'anchor_key' => 1,
             'field_profile' => 'P3_RESTRICTED',

@@ -82,7 +82,7 @@ final class TravelPolicyController
             new CommandDefinition(
                 name: 'time.travel.policy.publish',
                 capability: 'time.travel.policy.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,

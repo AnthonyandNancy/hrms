@@ -37,7 +37,7 @@ final class DirectoryScopeAuthorizer implements Authorizer
                 : $this->people->managedEmploymentIds($principal->tenantId(), $principal->employmentId(), $businessDate),
             'ORG_UNIT' => $this->employmentIdsInOrg((int) $this->anchorId, $businessDate, false),
             'ORG_SUBTREE' => $this->employmentIdsInOrg((int) $this->anchorId, $businessDate, true),
-            'LEGAL_ENTITY' => $this->people->employmentIdsForLegalEntities($principal->tenantId(), [(int) $this->anchorId], $businessDate),
+            'COMPANY' => $this->people->employmentIdsForLegalEntities($principal->tenantId(), [(int) $this->anchorId], $businessDate),
             default => [],
         };
 

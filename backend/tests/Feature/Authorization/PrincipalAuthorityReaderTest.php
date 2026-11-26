@@ -22,7 +22,7 @@ final class PrincipalAuthorityReaderTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::LEGAL_ENTITY, 1);
+        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::COMPANY, null);
 
         $codes = array_column(
             app(PrincipalAuthorityReader::class)->grants($this->actingAsUser($user), '2026-11-23'),
@@ -39,13 +39,13 @@ final class PrincipalAuthorityReaderTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::LEGAL_ENTITY, 1);
+        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::COMPANY, null);
 
         $grants = app(PrincipalAuthorityReader::class)->grants($this->actingAsUser($user), '2026-11-23');
         $workflow = $this->rowFor($grants, 'workflow.case.admin');
 
-        $this->assertSame('LEGAL_ENTITY', $workflow['anchor_type']);
-        $this->assertSame(1, $workflow['anchor_id']);
+        $this->assertSame('COMPANY', $workflow['anchor_type']);
+        $this->assertNull($workflow['anchor_id']);
         $this->assertSame(FieldProfile::P3_RESTRICTED->value, $workflow['field_profile']);
     }
 
@@ -55,7 +55,7 @@ final class PrincipalAuthorityReaderTest extends AuthorizationTestSupport
         $this->organization->knownLegalEntities = [1];
 
         $this->grant($user, 'workflow.case.admin', AnchorType::ORG_UNIT, 7, FieldProfile::P1_INTERNAL);
-        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::LEGAL_ENTITY, 1);
+        $this->grant($user, CapabilityWildcard::WILDCARD, AnchorType::COMPANY, null);
 
         $grants = app(PrincipalAuthorityReader::class)->grants($this->actingAsUser($user), '2026-11-23');
         $matches = array_values(array_filter(
@@ -72,7 +72,7 @@ final class PrincipalAuthorityReaderTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create(['auth_version' => 1]);
         $this->organization->knownLegalEntities = [1];
-        $this->grant($user, 'workflow.case.read', AnchorType::LEGAL_ENTITY, 1);
+        $this->grant($user, 'workflow.case.read', AnchorType::COMPANY, null);
 
         $codes = array_column(
             app(PrincipalAuthorityReader::class)->grants($this->actingAsUser($user), '2026-11-23'),

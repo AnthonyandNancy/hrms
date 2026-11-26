@@ -53,7 +53,7 @@ final class FieldPolicyEscalationTest extends AuthorizationTestSupport
         $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create([
                 'capability_code' => 'people.employee.read',
                 'valid_from' => '2025-01-01 00:00:00',
@@ -81,7 +81,7 @@ final class FieldPolicyEscalationTest extends AuthorizationTestSupport
         foreach (['iam.field.manage' => FieldProfile::P2_SENSITIVE] as $capability => $profile) {
             AuthorityBinding::factory()
                 ->forPrincipal(1, (int) $user->id, 1)
-                ->anchor(AnchorType::LEGAL_ENTITY, 1, $profile)
+                ->anchor(AnchorType::COMPANY, null, $profile)
                 ->create([
                     'capability_code' => $capability,
                     'valid_from' => '2025-01-01 00:00:00',

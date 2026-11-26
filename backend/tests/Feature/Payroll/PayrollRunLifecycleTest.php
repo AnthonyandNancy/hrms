@@ -203,7 +203,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $organization = app(OrganizationScopeDirectory::class);
         $organization->knownLegalEntities = [$this->legalEntityId];
 
-        $anchor = AnchorRef::legalEntity($this->legalEntityId);
+        $anchor = AnchorRef::company();
         $authorizer = app(CapabilityAuthorizer::class);
         $this->assertTrue($authorizer->allows($principal, 'payroll.run.prepare', $anchor, '2026-11-23'));
         $this->assertTrue($authorizer->allows($principal, 'payroll.run.approve', $anchor, '2026-11-23'));
@@ -222,7 +222,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     {
         AuthorityBinding::factory()
             ->forPrincipal($this->tenantId, $userId, 1)
-            ->anchor(AnchorType::LEGAL_ENTITY, $this->legalEntityId, FieldProfile::P2_SENSITIVE)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE)
             ->create([
                 'capability_code' => $capability,
                 'valid_from' => '2025-01-01 00:00:00',

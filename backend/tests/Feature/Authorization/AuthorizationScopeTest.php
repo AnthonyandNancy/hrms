@@ -111,7 +111,7 @@ final class AuthorizationScopeTest extends PeopleTestCase
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
             $principal,
-            'LEGAL_ENTITY',
+            'COMPANY',
             $cn->id,
         ));
 

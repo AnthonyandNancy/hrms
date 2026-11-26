@@ -99,7 +99,7 @@ final class DashboardService
         // ReportingApprovalDirectory is tenant-wide and exposes no assignee
         // field, so this preview is not "assigned to me" at the source. Scope
         // is enforced on the Reporting projection by Authorizer::constrain():
-        // SELF/MANAGED/LEGAL_ENTITY narrow employment_id and ORG_* narrow
+        // SELF/MANAGED/COMPANY narrow employment_id and ORG_* narrow
         // org_unit_id. Workflow rows without an employment subject therefore
         // have no anchor and are excluded unless a caller's grant would admit
         // them through the same projection predicate as the metric.

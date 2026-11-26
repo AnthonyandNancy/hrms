@@ -36,7 +36,7 @@ final class CommandRunnerTest extends TestCase
         return new CommandDefinition(
             name: 'test.command',
             capability: 'people.employee.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: $invariants,
             effect: null,

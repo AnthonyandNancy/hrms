@@ -355,7 +355,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
     {
         $this->actAsHttp(TimeTestFixtures::actor(
             employmentId: 1,
-            scope: 'LEGAL_ENTITY',
+            scope: 'COMPANY',
             capabilities: ['time.attendance.read'],
             legalEntityIds: [1],
         ));
@@ -392,7 +392,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->shift(code: 'DAY');
         $this->actAsHttp(TimeTestFixtures::actor(
             employmentId: 1,
-            scope: 'LEGAL_ENTITY',
+            scope: 'COMPANY',
             // Explicitly holds the read capabilities but neither manage one.
             capabilities: [
                 'time.attendance.read',
@@ -531,7 +531,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
     {
         $this->actAsHttp(TimeTestFixtures::actor(
             employmentId: 1,
-            scope: 'LEGAL_ENTITY',
+            scope: 'COMPANY',
             capabilities: [
                 'time.attendance.read',
                 'time.attendance.manage',

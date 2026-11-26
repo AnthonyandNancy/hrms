@@ -1,5 +1,7 @@
 # ADR-0003: Four timelines, half-open validity and legal-entity business dates
 
+> **Superseded in part by ADR-0034 (2026-11-25):** four-timeline semantics and UTC storage remain; the business-date timezone is now `company_profile.timezone`, not a legal-entity timezone.
+
 - **Status:** Accepted — 2026-11-24
 - **Decision IDs:** D-03 (valid time, transaction time, business date, payroll period), D-17 (business calendar, statutory annual leave floor)
 - **Supersedes:** the working "lifecycle effect" ADR that previously occupied number 0003; its content now lives in ADR-0005

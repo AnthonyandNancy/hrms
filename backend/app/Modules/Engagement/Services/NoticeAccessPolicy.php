@@ -47,7 +47,7 @@ final class NoticeAccessPolicy
             : null;
 
         if ($snapshot !== null
-            && $this->authorizer->allows($principal, 'engagement.notice.manage', AnchorRef::legalEntity($snapshot->legalEntityId), $businessDate)) {
+            && $this->authorizer->allows($principal, 'engagement.notice.manage', AnchorRef::company(), $businessDate)) {
             return true;
         }
 

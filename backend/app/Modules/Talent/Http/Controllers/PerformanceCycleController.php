@@ -152,7 +152,7 @@ final class PerformanceCycleController
         $definition = new CommandDefinition(
             name: 'talent.'.$scope,
             capability: 'performance.cycle.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

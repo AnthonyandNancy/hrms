@@ -80,7 +80,7 @@ final class PerformanceTemplateController
     {
         $today = $this->businessDates->today($principal->tenantId())->value();
 
-        if (! $this->authorizer->allows($principal, $capability, \App\Shared\Authorization\AnchorRef::legalEntity(1), $today)) {
+        if (! $this->authorizer->allows($principal, $capability, \App\Shared\Authorization\AnchorRef::company(), $today)) {
             throw new AuthorizationException('Forbidden.');
         }
     }

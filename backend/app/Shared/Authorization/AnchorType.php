@@ -16,13 +16,13 @@ enum AnchorType: string
     case ORG_SUBTREE = 'ORG_SUBTREE';
     case CASE = 'CASE';
     case PAYROLL_RUN = 'PAYROLL_RUN';
-    case LEGAL_ENTITY = 'LEGAL_ENTITY';
+    case COMPANY = 'COMPANY';
 
     public function requiresAnchorId(): bool
     {
         return match ($this) {
-            self::ORG_UNIT, self::ORG_SUBTREE, self::CASE, self::PAYROLL_RUN, self::LEGAL_ENTITY => true,
-            self::SELF, self::MANAGED => false,
+            self::ORG_UNIT, self::ORG_SUBTREE, self::CASE, self::PAYROLL_RUN => true,
+            self::SELF, self::MANAGED, self::COMPANY => false,
         };
     }
 }

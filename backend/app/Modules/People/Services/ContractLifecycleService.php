@@ -57,7 +57,7 @@ final class ContractLifecycleService
             ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', (string) $filters['status']));
 
         // Contracts have no org column; scope the assignment rows instead so
-        // SELF/MANAGED/ORG_UNIT/ORG_SUBTREE/LEGAL_ENTITY grants all reduce to a
+        // SELF/MANAGED/ORG_UNIT/ORG_SUBTREE/COMPANY grants all reduce to a
         // set of visible employment ids before pagination.
         $visibleEmployments = Assignment::query()
             ->where('tenant_id', $principal->tenantId())

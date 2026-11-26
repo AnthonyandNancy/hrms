@@ -153,7 +153,7 @@ final class CapabilityCatalogCoverageTest extends TestCase
             $this->assertSame([CapabilityWildcard::WILDCARD], $template->capabilityCodes());
             $this->assertCount(1, $template->grants);
             $this->assertSame(FieldProfile::P3_RESTRICTED, $template->grants[0]->fieldProfile);
-            $this->assertSame(AnchorType::LEGAL_ENTITY, $template->grants[0]->anchorType);
+            $this->assertSame(AnchorType::COMPANY, $template->grants[0]->anchorType);
         }
     }
 

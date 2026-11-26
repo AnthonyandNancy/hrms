@@ -67,7 +67,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
             'reason' => 'Payroll onboarding.',
             'binding_anchors' => [
                 'PAYROLL_RUN' => 77,
-                'LEGAL_ENTITY' => 1,
+                'COMPANY' => 1,
             ],
         ], ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']])->assertCreated();
 
@@ -106,7 +106,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
             'reason' => 'Conflicting role.',
             'binding_anchors' => [
                 'PAYROLL_RUN' => 77,
-                'LEGAL_ENTITY' => 1,
+                'COMPANY' => 1,
             ],
         ], $auth)
             ->assertStatus(422)
@@ -120,7 +120,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
         $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create(['capability_code' => 'iam.role.manage']);
 
         return $user;

@@ -12,10 +12,9 @@ namespace App\Modules\Organization\Contracts;
 interface OrganizationBootstrap
 {
     /**
-     * @return array{legal_entity_id: int, legal_entity_created: bool, root_org_unit_id: int, root_org_unit_created: bool}
+     * @return array{company_profile_id: int, company_profile_created: bool, root_org_unit_id: int, root_org_unit_created: bool}
      */
-    public function ensureLegalEntityWithRoot(
-        int $tenantId,
+    public function ensureCompanyWithRoot(
         string $code,
         string $name,
         string $countryCode,

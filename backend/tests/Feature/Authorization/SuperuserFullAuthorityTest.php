@@ -32,7 +32,7 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
         $this->assertTrue($authorizer->allows(
             $principal,
             'payroll.run.read',
-            \App\Shared\Authorization\AnchorRef::legalEntity(1),
+            \App\Shared\Authorization\AnchorRef::company(),
             $date,
         ));
     }
@@ -119,7 +119,7 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
     {
         return AuthorityBinding::factory()
             ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
-            ->anchor(AnchorType::LEGAL_ENTITY, 1, FieldProfile::P3_RESTRICTED)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create(['capability_code' => CapabilityWildcard::WILDCARD]);
     }
 }

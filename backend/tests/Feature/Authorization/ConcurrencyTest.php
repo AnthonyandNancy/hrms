@@ -22,7 +22,7 @@ final class ConcurrencyTest extends AuthorizationTestSupport
         $this->freeze();
         $admin = User::factory()->create(['mfa_enrolled_at' => now()]);
         $this->people->employmentByUser[(int) $admin->id] = [1];
-        $this->grant($admin, 'iam.binding.manage', AnchorType::LEGAL_ENTITY, 1);
+        $this->grant($admin, 'iam.binding.manage', AnchorType::COMPANY, null);
         $this->organization->knownLegalEntities = [1];
         $target = User::factory()->create();
         $this->enableMfa($admin);

@@ -33,7 +33,9 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
-Local development uses SQLite (`DB_CONNECTION=sqlite`, `backend/database/database.sqlite`). Set `APP_TIMEZONE=UTC`; business dates are evaluated in a legal entity's IANA timezone by application code, never by changing the process timezone.
+Local development uses SQLite (`DB_CONNECTION=sqlite`, `backend/database/database.sqlite`). Set `APP_TIMEZONE=UTC`; business dates are evaluated in the `company_profile` IANA timezone by application code, never by changing the process timezone.
+
+The product is a **single-company instance**: there is no tenant, legal entity or company switcher (ADR-0034). Company name, timezone and currency live in the singleton `company_profile` table.
 
 From the repository root:
 

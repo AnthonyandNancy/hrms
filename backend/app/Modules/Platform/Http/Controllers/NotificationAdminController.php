@@ -388,7 +388,7 @@ final class NotificationAdminController
         return new CommandDefinition(
             name: $name,
             capability: $name === 'notification.template.create' ? 'notification.template.manage' : 'notification.delivery.manage',
-            anchor: AnchorType::LEGAL_ENTITY,
+            anchor: AnchorType::COMPANY,
             idempotent: true,
             invariants: [],
             effect: null,

@@ -114,7 +114,7 @@ final class ContractLifecycleController
             new CommandDefinition(
                 name: 'people.contract.amend',
                 capability: 'people.contract.amend',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -144,7 +144,7 @@ final class ContractLifecycleController
             new CommandDefinition(
                 name: 'people.contract.terminate',
                 capability: 'people.contract.terminate',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -197,7 +197,7 @@ final class ContractLifecycleController
             new CommandDefinition(
                 name: 'people.contract.template.create',
                 capability: 'people.contract.template.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -220,7 +220,7 @@ final class ContractLifecycleController
             new CommandDefinition(
                 name: 'people.contract.template.publish',
                 capability: 'people.contract.template.manage',
-                anchor: AnchorType::LEGAL_ENTITY,
+                anchor: AnchorType::COMPANY,
                 idempotent: true,
                 invariants: [],
                 effect: null,
@@ -288,7 +288,7 @@ final class ContractLifecycleController
         $checks = [
             AnchorRef::self(),
             AnchorRef::managed(),
-            AnchorRef::legalEntity((int) $contract->legal_entity_id),
+            AnchorRef::company(),
         ];
 
         $assignment = Assignment::query()
