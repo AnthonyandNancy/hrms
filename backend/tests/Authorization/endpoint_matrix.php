@@ -205,6 +205,18 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'field_or_export', 'mfa_required'],
     ],
+    'DELETE /v1/employees/{employment_id}' => [
+        'capability' => 'people.employee.archive',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
+    ],
+    'POST /v1/employees/{employment_id}/restore' => [
+        'capability' => 'people.employee.restore',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
+    ],
     'GET /v1/employees/{employment_id}' => [
         'capability' => 'people.employee.read',
         'anchor' => 'COMPANY',
@@ -492,6 +504,18 @@ return [
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+    ],
+    'GET /v1/roles/{id}/pages' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
+    ],
+    'PUT /v1/roles/{id}/pages' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
     ],
     'GET /v1/roles' => [
         'capability' => 'iam.role.manage',
@@ -1308,6 +1332,18 @@ return [
         'anchor' => 'COMPANY',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity'],
+    ],
+    'DELETE /v1/employment-contracts/{id}' => [
+        'capability' => 'people.contract.delete',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
+    ],
+    'POST /v1/employment-contracts/{id}/restore' => [
+        'capability' => 'people.contract.restore',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
     ],
     'GET /v1/employment-contracts/{id}/amendments' => [
         'capability' => 'people.contract.read',

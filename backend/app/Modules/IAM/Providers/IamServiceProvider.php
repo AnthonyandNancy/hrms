@@ -52,6 +52,7 @@ final class IamServiceProvider extends ServiceProvider
         \App\Modules\IAM\Console\Commands\BindRoleCommand::class,
         \App\Modules\IAM\Console\Commands\InstallCommand::class,
         \App\Modules\IAM\Console\Commands\VerifyMfaEnrollmentCommand::class,
+        \App\Modules\IAM\Console\Commands\VerifySuperadminCommand::class,
     ];
 
     public function register(): void

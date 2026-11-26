@@ -167,3 +167,9 @@ POST /v1/users/{id}/bindings
 POST /v1/users/{id}/roles
 POST /v1/workflow/templates
 PUT /v1/platform/features/{flag}
+DELETE /v1/employees/{employment_id}
+DELETE /v1/employment-contracts/{id}
+GET /v1/roles/{id}/pages
+POST /v1/employees/{employment_id}/restore
+POST /v1/employment-contracts/{id}/restore
+PUT /v1/roles/{id}/pages

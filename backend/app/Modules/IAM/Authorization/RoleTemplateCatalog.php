@@ -77,6 +77,10 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'people.assignment.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'people.contract.read', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'people.contract.manage', $le, FieldProfile::P2_SENSITIVE),
+                $grant('HR_ADMIN', 'people.contract.delete', $le, FieldProfile::P2_SENSITIVE),
+                $grant('HR_ADMIN', 'people.contract.restore', $le, FieldProfile::P2_SENSITIVE),
+                $grant('HR_ADMIN', 'people.employee.archive', $le, FieldProfile::P2_SENSITIVE),
+                $grant('HR_ADMIN', 'people.employee.restore', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'org.unit.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'org.unit.manage', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'org.tree.read', $le, FieldProfile::P0_PUBLIC),
@@ -185,6 +189,7 @@ final class RoleTemplateCatalog
             new RoleTemplate('HR_SPECIALIST', 'HR specialist', 'Day-to-day employee, assignment and contract maintenance.', [
                 $grant('HR_SPECIALIST', 'people.employee.read', $ou, FieldProfile::P2_SENSITIVE),
                 $grant('HR_SPECIALIST', 'people.employee.manage', $ou, FieldProfile::P2_SENSITIVE),
+                $grant('HR_SPECIALIST', 'people.employee.archive', $ou, FieldProfile::P2_SENSITIVE),
                 $grant('HR_SPECIALIST', 'people.assignment.manage', $ou, FieldProfile::P1_INTERNAL),
                 $grant('HR_SPECIALIST', 'people.contract.read', $ou, FieldProfile::P2_SENSITIVE),
                 $grant('HR_SPECIALIST', 'people.contract.manage', $ou, FieldProfile::P2_SENSITIVE),

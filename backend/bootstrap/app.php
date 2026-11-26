@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         App\Modules\Workflow\Console\CheckWorkflowCommand::class,
         App\Modules\Workflow\Console\SeedWorkflowTemplatesCommand::class,
         App\Modules\Time\Console\LedgerReconcileCommand::class,
+        App\Console\Commands\CrudAuditCommand::class,
     ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

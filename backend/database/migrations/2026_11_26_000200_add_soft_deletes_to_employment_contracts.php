@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('employment_contracts', function (Blueprint $table): void {
+            $table->softDeletes();
+            $table->unsignedBigInteger('deleted_by')->nullable();
+            $table->string('delete_reason', 500)->nullable();
+            $table->index('deleted_at', 'employment_contracts_deleted_idx');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('employment_contracts', function (Blueprint $table): void {
+            $table->dropIndex('employment_contracts_deleted_idx');
+            $table->dropColumn(['deleted_at', 'deleted_by', 'delete_reason']);
+        });
+    }
+};

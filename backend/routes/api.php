@@ -15,6 +15,7 @@ use App\Modules\IAM\Http\Controllers\MeController;
 use App\Modules\IAM\Http\Controllers\MenuAdminController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\RoleAdminController;
+use App\Modules\IAM\Http\Controllers\RolePageController;
 use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\IAM\Http\Controllers\WorkspaceController;
 use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
@@ -122,6 +123,8 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.store');
     Route::post('/roles/{id}/copy', [RoleAdminController::class, 'copy'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.copy');
     Route::put('/roles/{id}/capabilities', [RoleAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.capabilities.replace');
+    Route::get('/roles/{id}/pages', [RolePageController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.index');
+    Route::put('/roles/{id}/pages', [RolePageController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.pages.replace');
     Route::get('/capabilities', [AuthorizationAdminController::class, 'capabilities'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('capabilities.index');
 
     Route::get('/system/menus', [MenuAdminController::class, 'index'])->middleware(['mfa.enrolled', 'capability:iam.menu.manage,COMPANY'])->name('system.menus.index');
@@ -167,6 +170,14 @@ Route::prefix('employees')->middleware('auth.session')->group(function (): void 
         ->whereNumber('employment_id')
         ->middleware('capability:people.employee.read,COMPANY')
         ->name('employees.show');
+    Route::delete('/{employment_id}', [EmployeeController::class, 'archive'])
+        ->whereNumber('employment_id')
+        ->middleware(['mfa.step-up', 'capability:people.employee.archive,COMPANY'])
+        ->name('employees.archive');
+    Route::post('/{employment_id}/restore', [EmployeeController::class, 'restore'])
+        ->whereNumber('employment_id')
+        ->middleware(['mfa.step-up', 'capability:people.employee.restore,COMPANY'])
+        ->name('employees.restore');
 });
 
 Route::prefix('employees/{employmentId}')->middleware('auth.session')->group(function (): void {
@@ -206,6 +217,14 @@ Route::get('/employments/contracts', [ContractLifecycleController::class, 'contr
     ->name('employments.contracts.ledger');
 
 Route::prefix('employment-contracts/{id}')->middleware('auth.session')->group(function (): void {
+    Route::delete('/', [ContractLifecycleController::class, 'destroy'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.delete')
+        ->name('employment-contracts.destroy');
+    Route::post('/restore', [ContractLifecycleController::class, 'restore'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.restore')
+        ->name('employment-contracts.restore');
     Route::get('/amendments', [ContractLifecycleController::class, 'amendments'])
         ->whereNumber('id')
         ->middleware('capability:people.contract.read')

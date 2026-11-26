@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\People\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class EmploymentContract extends Model
 {
+    use SoftDeletes;
+
     public const TYPES = ['FIXED_TERM', 'OPEN_ENDED', 'INTERNSHIP', 'CONSULTANT'];
 
     public const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRING', 'RENEWED', 'TERMINATED', 'ARCHIVED'];
@@ -47,5 +50,18 @@ final class EmploymentContract extends Model
         'source_id',
         'created_at',
         'updated_at',
+        'deleted_by',
+        'delete_reason',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'deleted_at' => 'immutable_datetime',
+            'deleted_by' => 'integer',
+        ];
+    }
 }

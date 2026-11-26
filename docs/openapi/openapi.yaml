@@ -3266,6 +3266,45 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RoleCapabilityGrant"
+        page_count:
+          type: integer
+          minimum: 0
+        member_count:
+          type: integer
+          minimum: 0
+    RolePage:
+      type: object
+      required: [page_code, path, menu_group, menu_label, required_capability]
+      properties:
+        page_code: { type: string }
+        path: { type: string }
+        menu_group: { type: string }
+        menu_label: { type: string }
+        required_capability: { type: string }
+        component_key: { type: string }
+        actions:
+          type: array
+          items: { type: string }
+    RolePageData:
+      type: object
+      required: [role_code, pages, page_codes]
+      properties:
+        role_code: { type: string }
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/RolePage"
+        page_codes:
+          type: array
+          items: { type: string }
+    RolePageReplaceRequest:
+      type: object
+      required: [pages]
+      properties:
+        pages:
+          type: array
+          maxItems: 160
+          items: { type: string }
     RoleCatalogData:
       type: object
       required:
@@ -6792,13 +6831,6 @@ paths:
       tags:
         - IAM Audit
       summary: Quarterly read-only access review
-      parameters:
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
-            minimum: 1
       responses:
         "200":
           description: Quarterly access review
@@ -6909,11 +6941,6 @@ paths:
       summary: Read append-only authentication and authorization events
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema:
@@ -7669,11 +7696,6 @@ paths:
       summary: Revoke an authority binding immediately
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: id
           in: path
           required: true
@@ -7712,11 +7734,6 @@ paths:
       description: There is deliberately no create, update or delete endpoint.
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Capability catalog
@@ -9851,6 +9868,89 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.read
+    delete:
+      operationId: archiveEmployee
+      tags:
+        - People
+      summary: Archive an employee without deleting historical records
+      description: Employee numbers remain reserved forever; use include_archived to audit them.
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200":
+          description: Employee archived
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.archive
+  /v1/employees/{employment_id}/restore:
+    post:
+      operationId: restoreEmployee
+      tags:
+        - People
+      summary: Restore an archived employee
+      parameters:
+        - name: employment_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Employee restored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.restore
   /v1/employees/{employment_id}/onboarding-checklist:
     get:
       operationId: lifecycleOnboardingChecklist
@@ -9875,6 +9975,94 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.case.read
+  /v1/employment-contracts/{id}:
+    delete:
+      operationId: softDeleteEmploymentContract
+      tags:
+        - People
+      summary: Soft-delete a contract while preserving its version history
+      description: The contract number is never reused; restore clears the delete metadata.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200":
+          description: Contract soft-deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.delete
+  /v1/employment-contracts/{id}/restore:
+    post:
+      operationId: restoreEmploymentContract
+      tags:
+        - People
+      summary: Restore a soft-deleted contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Contract restored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.restore
   /v1/employment-contracts/{id}/amendments:
     get:
       operationId: listEmploymentContractAmendments
@@ -12245,11 +12433,6 @@ paths:
       summary: List notification templates
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -12285,11 +12468,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -12327,11 +12505,6 @@ paths:
       summary: List notification delivery attempts
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: status
           in: query
           schema: { type: string, enum: [PENDING, SENT, FAILED] }
@@ -12375,11 +12548,6 @@ paths:
           schema: { type: integer, minimum: 1 }
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Delivery retried
@@ -12413,11 +12581,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16131,11 +16294,6 @@ paths:
       summary: List the ten templates and tenant exception roles
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Role catalog
@@ -16168,11 +16326,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16202,6 +16355,85 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+  /v1/roles/{id}/pages:
+    get:
+      operationId: getRolePages
+      tags:
+        - IAM Administration
+      summary: Read a role's page grants with catalogue details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Role page grants
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RolePageData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+    put:
+      operationId: replaceRolePages
+      tags:
+        - IAM Administration
+      summary: Replace a custom role's page grants and replay affected users
+      description: Template roles are code-owned and return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolePageReplaceRequest"
+      responses:
+        "200":
+          description: Page grants replaced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RolePageData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
   /v1/roles/{id}/capabilities:
     put:
       operationId: replaceRoleCapabilities
@@ -16217,11 +16449,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16267,11 +16494,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16316,11 +16538,6 @@ paths:
           schema: { type: integer, minimum: 1 }
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16358,11 +16575,6 @@ paths:
       summary: List code-owned data scope templates with tenant selections
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -16405,11 +16617,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16449,11 +16656,6 @@ paths:
       summary: List tenant dictionary entries
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: type
           in: query
           schema: { type: string }
@@ -16492,11 +16694,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16539,11 +16736,6 @@ paths:
           schema: { type: integer, minimum: 1 }
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16581,11 +16773,6 @@ paths:
       summary: List code-owned sensitive fields and their effective profiles
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -16628,11 +16815,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16672,11 +16854,6 @@ paths:
       summary: List presentation-only menu overrides
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema: { type: integer, minimum: 1 }
@@ -16713,11 +16890,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16761,11 +16933,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -16808,11 +16975,6 @@ paths:
             type: string
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Override deleted
@@ -16848,11 +17010,6 @@ paths:
       summary: List typed tenant parameters (sensitive values masked)
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: key
           in: query
           schema: { type: string }
@@ -16895,11 +17052,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -20124,11 +20276,6 @@ paths:
       summary: List access subjects in the caller legal entity
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: page
           in: query
           schema:
@@ -20168,11 +20315,6 @@ paths:
       summary: Create an access subject (requires MFA enrollment and fresh step-up)
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
       requestBody:
         required: true
         content:
@@ -20230,11 +20372,6 @@ paths:
       summary: Change user status; increments auth_version and revokes sessions
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: id
           in: path
           required: true
@@ -20294,11 +20431,6 @@ paths:
       summary: List authority bindings for one access subject
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: id
           in: path
           required: true
@@ -20333,11 +20465,6 @@ paths:
       summary: Create an authority binding (requires fresh MFA step-up)
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: id
           in: path
           required: true
@@ -20429,11 +20556,6 @@ paths:
       summary: Expand a role template into authority bindings
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
-        - name: X-Legal-Entity-Id
-          in: header
-          required: true
-          schema:
-            type: integer
         - name: id
           in: path
           required: true

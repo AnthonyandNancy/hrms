@@ -9,6 +9,8 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
+use App\Modules\IAM\Models\RolePage;
+use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
@@ -58,6 +60,11 @@ final class AuthorizationAdminController
                     'purpose' => $role->purpose,
                     'expires_at' => $role->expires_at instanceof \Carbon\CarbonInterface ? $role->expires_at->toIso8601ZuluString() : null,
                     'capabilities' => $grants,
+                    'page_count' => RolePage::query()->where('role_code', $role->code)->count(),
+                    'member_count' => UserRole::query()
+                        ->where('role_code', $role->code)
+                        ->distinct()
+                        ->count('user_id'),
                 ];
             })
             ->all();

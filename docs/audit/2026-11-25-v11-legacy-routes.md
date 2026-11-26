@@ -345,3 +345,9 @@
 | `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影 |
 | `/v1/employees*`、`/v1/employments*`、`/v1/persons` | People 主档既有读写 | C1 迁移岗位与组织；员工主档 E3 收敛 |
 | `/v1/platform/features` | Feature flag 管理 | D1 迁移 |
+| 315 | `GET` | `/v1/roles/{id}/pages` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 316 | `PUT` | `/v1/roles/{id}/pages` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 317 | `DELETE` | `/v1/employees/{employment_id}` | `people.employee.archive` | `COMPANY` | kernel | — |
+| 318 | `POST` | `/v1/employees/{employment_id}/restore` | `people.employee.restore` | `COMPANY` | kernel | — |
+| 319 | `DELETE` | `/v1/employment-contracts/{id}` | `people.contract.delete` | `COMPANY` | kernel | — |
+| 320 | `POST` | `/v1/employment-contracts/{id}/restore` | `people.contract.restore` | `COMPANY` | kernel | — |

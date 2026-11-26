@@ -137,6 +137,8 @@ final class InstallCommand extends Command
                 '--role' => 'SYSTEM_ADMIN',
             ]);
 
+            $this->runStep($report, 'superadmin_baseline', 'iam:verify-superadmin', ['--username' => $username]);
+
             $factors = MfaFactor::query()->where('user_id', $admin->id)->whereNotNull('confirmed_at')->whereNull('disabled_at')->count();
 
             if (! (bool) config('iam.mfa.enabled', false)) {

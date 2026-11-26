@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
 final class AsOfEmployeeQuery
 {
     /**
-     * @param  array{org_unit_id?: int|null, q?: string|null}  $filters
+     * @param  array{org_unit_id?: int|null, q?: string|null, include_archived?: bool|null}  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
     public function paginate(
@@ -43,6 +43,10 @@ final class AsOfEmployeeQuery
             })
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on);
+
+        if (! (bool) ($filters['include_archived'] ?? false)) {
+            $query->whereNull('archived_at');
+        }
 
         if (($filters['org_unit_id'] ?? null) !== null) {
             $orgUnitId = (int) $filters['org_unit_id'];
@@ -159,6 +163,9 @@ final class AsOfEmployeeQuery
             'employment_type' => (string) $employment->employment_type,
             'valid_from' => (string) $employment->valid_from,
             'valid_to' => (string) $employment->valid_to,
+            'archived_at' => $employment->archived_at !== null ? $employment->archived_at->toIso8601ZuluString() : null,
+            'archived_by' => $employment->archived_by !== null ? (int) $employment->archived_by : null,
+            'archive_reason' => $employment->archive_reason !== null ? (string) $employment->archive_reason : null,
             'current_assignment' => $assignment !== null ? [
                 'id' => (int) $assignment->id,
                 'org_unit_id' => (int) $assignment->org_unit_id,

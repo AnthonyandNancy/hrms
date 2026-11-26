@@ -8,6 +8,7 @@ use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
+use App\Modules\People\Services\EmploymentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
@@ -35,6 +36,7 @@ final class EmployeeController
             'q' => ['nullable', 'string', 'max:120'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'include_archived' => ['nullable', 'boolean'],
         ]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId());
 
@@ -43,7 +45,11 @@ final class EmployeeController
             $this->authorizer,
             'people.employee.read',
             $asOf->value(),
-            ['org_unit_id' => $data['org_unit_id'] ?? null, 'q' => $data['q'] ?? null],
+            [
+                'org_unit_id' => $data['org_unit_id'] ?? null,
+                'q' => $data['q'] ?? null,
+                'include_archived' => (bool) ($data['include_archived'] ?? false),
+            ],
             (int) ($data['page'] ?? 1),
             (int) ($data['page_size'] ?? 20),
         );
@@ -115,6 +121,39 @@ final class EmployeeController
         $projection['active_contracts'] = $contracts;
 
         return ApiResponse::ok($projection);
+    }
+
+    public function archive(Request $request, int $employmentId, EmploymentService $service): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $employment = $service->archive(
+            $principal->tenantId(),
+            $employmentId,
+            (string) $data['reason'],
+            $principal->userId(),
+        );
+
+        return ApiResponse::ok([
+            'employment_id' => (int) $employment->id,
+            'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+            'archived_by' => $employment->archived_by !== null ? (int) $employment->archived_by : null,
+            'archive_reason' => $employment->archive_reason,
+        ]);
+    }
+
+    public function restore(Request $request, int $employmentId, EmploymentService $service): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $employment = $service->restore($principal->tenantId(), $employmentId, $principal->userId());
+
+        return ApiResponse::ok([
+            'employment_id' => (int) $employment->id,
+            'archived_at' => null,
+        ]);
     }
 
     public function timeline(Request $request, int $employmentId): JsonResponse

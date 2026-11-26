@@ -44,6 +44,9 @@ final class Employment extends Model
         'superseded_at',
         'source_type',
         'source_id',
+        'archived_at',
+        'archived_by',
+        'archive_reason',
     ];
 
     /**
@@ -59,6 +62,8 @@ final class Employment extends Model
             'superseded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
+            'archived_at' => 'immutable_datetime',
+            'archived_by' => 'integer',
         ];
     }
 }

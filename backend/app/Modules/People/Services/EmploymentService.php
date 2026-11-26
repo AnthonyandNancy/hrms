@@ -117,6 +117,94 @@ final class EmploymentService
         });
     }
 
+    public function archive(int $tenantId, int $employmentId, string $reason, int $actorUserId): Employment
+    {
+        return DB::transaction(function () use ($tenantId, $employmentId, $reason, $actorUserId): Employment {
+            /** @var Employment $employment */
+            $employment = Employment::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($employmentId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($employment === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if ($employment->archived_at !== null) {
+                return $employment;
+            }
+
+            $before = [
+                'employment_id' => (int) $employment->id,
+                'status' => (string) $employment->status,
+                'archived_at' => null,
+            ];
+            $employment->forceFill([
+                'archived_at' => $this->clock->now(),
+                'archived_by' => $actorUserId,
+                'archive_reason' => $reason,
+            ])->save();
+
+            $this->audit->record(
+                tenantId: $tenantId,
+                actorUserId: $actorUserId,
+                action: 'people.employee.archived',
+                aggregateType: 'employment',
+                aggregateId: $employment->id,
+                before: $before,
+                after: [
+                    'employment_id' => (int) $employment->id,
+                    'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+                    'archived_by' => $employment->archived_by,
+                    'archive_reason' => $reason,
+                ],
+            );
+
+            return $employment;
+        });
+    }
+
+    public function restore(int $tenantId, int $employmentId, int $actorUserId): Employment
+    {
+        return DB::transaction(function () use ($tenantId, $employmentId, $actorUserId): Employment {
+            /** @var Employment $employment */
+            $employment = Employment::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($employmentId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($employment === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            $before = [
+                'employment_id' => (int) $employment->id,
+                'archived_at' => $employment->archived_at?->toIso8601ZuluString(),
+                'archived_by' => $employment->archived_by,
+                'archive_reason' => $employment->archive_reason,
+            ];
+            $employment->forceFill([
+                'archived_at' => null,
+                'archived_by' => null,
+                'archive_reason' => null,
+            ])->save();
+
+            $this->audit->record(
+                tenantId: $tenantId,
+                actorUserId: $actorUserId,
+                action: 'people.employee.restored',
+                aggregateType: 'employment',
+                aggregateId: $employment->id,
+                before: $before,
+                after: ['employment_id' => (int) $employment->id, 'archived_at' => null],
+            );
+
+            return $employment;
+        });
+    }
+
     /**
      * Cross-entity transfer contract: end the old employment and create a new
      * employment for the same person. The full effect workflow is Task 5.

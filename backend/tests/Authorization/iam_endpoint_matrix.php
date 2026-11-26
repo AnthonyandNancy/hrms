@@ -134,6 +134,22 @@ return [
         ],
         [
             'method' => 'GET',
+            'path' => '/v1/roles/{id}/pages',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'mfa_required'],
+        ],
+        [
+            'method' => 'PUT',
+            'path' => '/v1/roles/{id}/pages',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'mfa_required', 'csrf_missing'],
+        ],
+        [
+            'method' => 'GET',
             'path' => '/v1/roles',
             'capability' => 'iam.role.manage',
             'anchor' => 'COMPANY',

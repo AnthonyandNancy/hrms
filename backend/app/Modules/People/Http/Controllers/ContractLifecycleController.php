@@ -158,6 +158,55 @@ final class ContractLifecycleController
         );
     }
 
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        return $this->command(
+            $request,
+            new CommandDefinition(
+                name: 'people.contract.soft-delete',
+                capability: 'people.contract.delete',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.contract.soft_deleted',
+            ),
+            ['contract_id' => $id, ...$data],
+            fn (): array => $this->contracts->softDelete($principal->tenantId(), $id, (string) $data['reason'], $principal->userId()),
+            200,
+            'employment_contract',
+            (string) $id,
+        );
+    }
+
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+
+        return $this->command(
+            $request,
+            new CommandDefinition(
+                name: 'people.contract.restore',
+                capability: 'people.contract.restore',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.contract.restored',
+            ),
+            ['contract_id' => $id],
+            fn (): array => $this->contracts->restore($principal->tenantId(), $id, $principal->userId()),
+            200,
+            'employment_contract',
+            (string) $id,
+        );
+    }
+
     public function templates(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();

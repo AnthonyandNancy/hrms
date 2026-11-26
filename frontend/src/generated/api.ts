@@ -918,6 +918,27 @@ export interface paths {
         get: operations["getEmployee"];
         put?: never;
         post?: never;
+        /**
+         * Archive an employee without deleting historical records
+         * @description Employee numbers remain reserved forever; use include_archived to audit them.
+         */
+        delete: operations["archiveEmployee"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{employment_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an archived employee */
+        post: operations["restoreEmployee"];
         delete?: never;
         options?: never;
         head?: never;
@@ -935,6 +956,43 @@ export interface paths {
         get: operations["lifecycleOnboardingChecklist"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employment-contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Soft-delete a contract while preserving its version history
+         * @description The contract number is never reused; restore clears the delete metadata.
+         */
+        delete: operations["softDeleteEmploymentContract"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employment-contracts/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a soft-deleted contract */
+        post: operations["restoreEmploymentContract"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3302,6 +3360,27 @@ export interface paths {
          *     Idempotency-Key.
          */
         post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/roles/{id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a role's page grants with catalogue details */
+        get: operations["getRolePages"];
+        /**
+         * Replace a custom role's page grants and replay affected users
+         * @description Template roles are code-owned and return 409.
+         */
+        put: operations["replaceRolePages"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5945,6 +6024,25 @@ export interface components {
             /** Format: date-time */
             expires_at: string | null;
             capabilities: components["schemas"]["RoleCapabilityGrant"][];
+            page_count?: number;
+            member_count?: number;
+        };
+        RolePage: {
+            page_code: string;
+            path: string;
+            menu_group: string;
+            menu_label: string;
+            required_capability: string;
+            component_key?: string;
+            actions?: string[];
+        };
+        RolePageData: {
+            role_code: string;
+            pages: components["schemas"]["RolePage"][];
+            page_codes: string[];
+        };
+        RolePageReplaceRequest: {
+            pages: string[];
         };
         RoleCatalogData: {
             roles: components["schemas"]["RoleDefinition"][];
@@ -7510,9 +7608,7 @@ export interface operations {
     getAccessReview: {
         parameters: {
             query?: never;
-            header: {
-                "X-Legal-Entity-Id": number;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7601,7 +7697,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -8195,7 +8290,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -8227,7 +8321,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -9723,6 +9816,79 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    archiveEmployee: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Employee archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    restoreEmployee: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                employment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Employee restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     lifecycleOnboardingChecklist: {
         parameters: {
             query?: never;
@@ -9738,6 +9904,80 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    softDeleteEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract soft-deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    restoreEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -11532,7 +11772,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -11562,7 +11801,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -11600,7 +11838,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -11630,7 +11867,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -11663,7 +11899,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -14733,7 +14968,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -14762,7 +14996,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -14791,13 +15024,79 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getRolePages: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role page grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RolePageData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    replaceRolePages: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePageReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Page grants replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RolePageData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     replaceRoleCapabilities: {
         parameters: {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: string;
@@ -14835,7 +15134,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: string;
@@ -14873,7 +15171,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 legal_entity_id: number;
@@ -14912,7 +15209,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -14942,7 +15238,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: string;
@@ -14983,7 +15278,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15013,7 +15307,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15048,7 +15341,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -15087,7 +15379,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15117,7 +15408,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 field_key: string;
@@ -15157,7 +15447,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15187,7 +15476,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15222,7 +15510,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 page_code: string;
@@ -15258,7 +15545,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 page_code: string;
@@ -15299,7 +15585,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -15329,7 +15614,6 @@ export interface operations {
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -17717,7 +18001,6 @@ export interface operations {
             };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -17745,7 +18028,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path?: never;
             cookie?: never;
@@ -17787,7 +18069,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -17828,7 +18109,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -17859,7 +18139,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;
@@ -17917,7 +18196,6 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
-                "X-Legal-Entity-Id": number;
             };
             path: {
                 id: number;

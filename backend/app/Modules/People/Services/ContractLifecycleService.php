@@ -267,6 +267,86 @@ final class ContractLifecycleService
     }
 
     /**
+     * Soft-delete a contract while preserving its version history. The unique
+     * contract number remains reserved because the row is never removed.
+     *
+     * @return array<string, mixed>
+     */
+    public function softDelete(int $tenantId, int $contractId, string $reason, int $actorUserId): array
+    {
+        return DB::transaction(function () use ($tenantId, $contractId, $reason, $actorUserId): array {
+            /** @var EmploymentContract $contract */
+            $contract = EmploymentContract::query()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($contractId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($contract === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            $before = $this->contractPayload($contract);
+            $contract->forceFill([
+                'deleted_by' => $actorUserId,
+                'delete_reason' => $reason,
+            ])->save();
+            $contract->delete();
+
+            $this->audit->record(
+                tenantId: $tenantId,
+                actorUserId: $actorUserId,
+                action: 'people.contract.soft_deleted',
+                aggregateType: 'employment_contract',
+                aggregateId: (int) $contract->id,
+                before: $before,
+                after: [...$before, 'deleted_at' => $contract->deleted_at?->toIso8601ZuluString()],
+                metadata: ['reason' => $reason, 'version_history_preserved' => true],
+            );
+
+            return [...$before, 'deleted_at' => $contract->deleted_at?->toIso8601ZuluString(), 'delete_reason' => $reason];
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function restore(int $tenantId, int $contractId, int $actorUserId): array
+    {
+        return DB::transaction(function () use ($tenantId, $contractId, $actorUserId): array {
+            /** @var EmploymentContract|null $contract */
+            $contract = EmploymentContract::withTrashed()
+                ->where('tenant_id', $tenantId)
+                ->whereKey($contractId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($contract === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if ($contract->deleted_at === null) {
+                throw new ConflictException('The contract is not deleted.', ['reason' => 'CONTRACT_NOT_DELETED']);
+            }
+
+            $contract->restore();
+            $contract->forceFill(['deleted_by' => null, 'delete_reason' => null])->save();
+            $after = $this->contractPayload($contract);
+
+            $this->audit->record(
+                tenantId: $tenantId,
+                actorUserId: $actorUserId,
+                action: 'people.contract.restored',
+                aggregateType: 'employment_contract',
+                aggregateId: (int) $contract->id,
+                after: $after,
+            );
+
+            return $after;
+        });
+    }
+
+    /**
      * @param  array{code?: string|null, status?: string|null}  $filters
      */
     public function templates(
