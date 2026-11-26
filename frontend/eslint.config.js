@@ -52,6 +52,26 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/modules/**/*.{ts,vue}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/views', '@/views/*'],
+              message: '模块页面不得依赖旧 views 壳；请迁入 modules。',
+            },
+            {
+              group: ['@/modules/*/pages', '@/modules/*/pages/*'],
+              message: '页面之间不得互相 import；共享逻辑放 components/ 或 shared/。',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['scripts/**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },

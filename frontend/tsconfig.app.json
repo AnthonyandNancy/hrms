@@ -25,5 +25,5 @@
     },
     "types": ["vite/client", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/unit/**/*.ts", "../scripts/lib/gate-libs.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "tests/unit/**/*.ts", "../scripts/lib/gate-libs.d.ts", "../scripts/lib/audit_page_components.d.ts"]
 }
