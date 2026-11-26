@@ -157,3 +157,35 @@ will fail at runtime.
   shared component, or other page file was edited.
 - No money/payroll code, no fake rows, no local UTC "today" computation.
 - No cross-module page imports; module boundary audit passes.
+
+
+## Follow-up: alignment with real attendance routes
+
+Peer commit `90af76d` retargeted the attendance API from the brief-only paths to
+the routes that actually exist:
+
+- month/day reads use `GET /v1/time/attendance?month=YYYY-MM` or
+  `GET /v1/time/attendance/{employment_id}?from=&to=`;
+- exceptions are derived from the same authorised month snapshot (late, early,
+  absent, incomplete; leave is not an exception);
+- “resolving” an exception submits the audited
+  `POST /v1/time/attendance/corrections` command with the real business date,
+  `WRONG_STATUS`, and the required note.
+
+The peer change left four stale tests expecting `/attendance/days`,
+`/attendance/exceptions`, and `/attendance/exceptions/{id}/resolve`. They were
+updated to assert the real route, one-snapshot exception derivation, and the
+correction payload. The page now makes a single month read per load/refetch
+rather than issuing a duplicate exceptions read.
+
+Fix commit: `dc6dd288291523e25d8453c4aaf43133e202071b` —
+`fix(time): align attendance workspace with real routes` (explicit Task 9 paths
+only).
+
+Post-fix verification:
+
+- `pnpm exec vitest run tests/unit/AttendanceWorkspace.spec.ts` → **10/10**.
+- `pnpm test:unit` → **54 files / 392 tests passed**.
+- `pnpm typecheck` → **PASS**.
+- Task 9 file lint (`eslint src/modules/time/attendance tests/unit/AttendanceWorkspace.spec.ts`)
+  → **PASS**.
