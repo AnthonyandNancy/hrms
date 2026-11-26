@@ -93,15 +93,16 @@ that the request carries no entity field and that the picker is gone.
 
 ## Concerns / notes for the lead
 
-1. **The strict gate was re-broken by v2-task8 after this commit landed.** `NoTenantNoLegalEntityTest` showed 0 hits at
-   the moment of commit and in the immediately following runs. Afterwards the governance-pages agent added a private
-   `singleCompanyRules()` to `DataScopeAdminController`, `FieldPolicyAdminController` and `MenuAdminController` whose
-   literal array keys `'tenant_id'` and `'legal_entity_id'` re-trip the scanner (6 hits at
-   `DataScopeAdminController:143,145`, `FieldPolicyAdminController:128,130`, `MenuAdminController:176,178`). Those files
-   are `backend/app/**` and outside my scope, so I did not edit them. The rule can keep its behaviour without the literal
-   keys (e.g. reject the fields from a constant list, or let the existing 422 validation stand). Re-run the gate after
-   that fix; nothing in my 43 committed paths contributes to it.
-
+1. **The strict gate was re-broken by the governance/role agents after this commit landed.** It reported 0 hits at
+   commit time and `git grep` over both of my commits (`41b8bdd`, `b7f7024`) with the gate's exact pattern and roots
+   returns **0 hits**. Newly committed/in-flight code then reintroduced literals:
+   `DataScopeAdminController:143,145`, `FieldPolicyAdminController:128,130`, `MenuAdminController:176,178`
+   (a `singleCompanyRules()` array whose keys are `'tenant_id'` / `'legal_entity_id'`, committed in `c255074`),
+   `UserAdminController:59,60,170,171` (in-flight, uncommitted) and
+   `frontend/src/modules/platform/components/RoleScopeEditor.vue:128` (a user-facing string containing the token
+   `LEGAL_ENTITY`, untracked and still being written). All of these are outside my scope (`backend/app/**`, and frontend
+   files owned by v2-task7). The rules can keep their behaviour without the literal tokens; the copy string can say
+   "法人实体" without the enum spelling. Re-run the gate after those land.
 2. **Concurrent agents were actively writing the same worktree.** `SystemMenusPage.vue`, `SystemDataScopesPage.vue`,
    `SystemFieldPoliciesPage.vue`, `SystemPermissionsPage.vue`, `SystemUsersPage.vue`, `UserCreateDialog.vue`,
    `UserPermissionPreview.vue`, `UserRoleDrawer.vue`, `generated/pageActions.ts` and `tests/unit/systemUsersPage.spec.ts`
