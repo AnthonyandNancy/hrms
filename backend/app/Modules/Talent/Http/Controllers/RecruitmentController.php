@@ -5,13 +5,23 @@ declare(strict_types=1);
 namespace App\Modules\Talent\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
+use App\Modules\Talent\Models\Candidate;
+use App\Modules\Talent\Models\CandidateConversion;
+use App\Modules\Talent\Models\Interview;
+use App\Modules\Talent\Models\Offer;
+use App\Modules\Talent\Models\Requisition;
 use App\Modules\Talent\Services\RecruitmentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Exceptions\ConflictException;
+use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -21,12 +31,24 @@ use Illuminate\Support\Facades\DB;
 
 final class RecruitmentController
 {
+    /** Pipeline stages that a recruiter may set through a generic stage move. */
+    private const MOVABLE_CANDIDATE_STAGES = [
+        'NEW',
+        'SCREENING',
+        'INTERVIEW',
+        'OFFER',
+        'OFFER_ACCEPTED',
+        'REJECTED',
+    ];
+
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
         private readonly CompanyBusinessDate $businessDates,
         private readonly RecruitmentService $recruitment,
         private readonly IdempotencyRunner $idempotency,
+        private readonly OrganizationFacts $organization,
+        private readonly SensitiveAccessAuditor $sensitiveAuditor,
     ) {}
 
     public function requisitions(Request $request): JsonResponse
@@ -34,19 +56,34 @@ final class RecruitmentController
         $principal = $this->principals->resolve();
         $this->allow($principal, 'recruitment.requisition.read', AnchorRef::company());
 
-        $items = \App\Modules\Talent\Models\Requisition::query()
-            ->orderBy('id')
-            ->get()
-            ->map(static fn (\App\Modules\Talent\Models\Requisition $requisition): array => [
-                'requisition_id' => (int) $requisition->id,
-                'requisition_no' => (string) $requisition->requisition_no,
-                'title' => (string) $requisition->title,
-                'status' => (string) $requisition->status,
-                'headcount' => (int) $requisition->headcount,
-                'case_id' => $requisition->case_id,
-            ])->all();
+        $data = $request->validate([
+            'status' => ['nullable', 'string', 'max:24'],
+            'search' => ['nullable', 'string', 'max:160'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
-        return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
+        $page = (int) ($data['page'] ?? 1);
+        $pageSize = (int) ($data['page_size'] ?? 50);
+
+        $query = Requisition::query()
+            ->when(isset($data['status']) && $data['status'] !== '', fn ($builder) => $builder->where('status', (string) $data['status']))
+            ->when(isset($data['search']) && trim((string) $data['search']) !== '', function ($builder) use ($data): void {
+                $term = '%'.trim((string) $data['search']).'%';
+                $builder->where(function ($inner) use ($term): void {
+                    $inner->where('title', 'like', $term)
+                        ->orWhere('requisition_no', 'like', $term);
+                });
+            })
+            ->orderBy('id');
+
+        $total = (int) (clone $query)->count();
+        $items = $query->forPage($page, $pageSize)->get()
+            ->map(fn (Requisition $requisition): array => $this->requisitionData($requisition))
+            ->values()
+            ->all();
+
+        return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
     }
 
     public function storeRequisition(Request $request): JsonResponse
@@ -68,20 +105,180 @@ final class RecruitmentController
         return $this->command($request, 'requisition', $data, fn (): array => $this->recruitment->createRequisition($principal->userId(), $data, $today->value()));
     }
 
+    public function updateRequisition(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+
+        $data = $request->validate([
+            'org_unit_id' => ['sometimes', 'integer', 'min:1'],
+            'title' => ['sometimes', 'string', 'max:160'],
+            'headcount' => ['sometimes', 'integer', 'min:1', 'max:1000'],
+            'budget_minor' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'budget_currency' => ['sometimes', 'nullable', 'string', 'size:3'],
+            'target_start_date' => ['sometimes', 'nullable', new BusinessDateRule],
+        ]);
+
+        return $this->command(
+            $request,
+            "requisition-{$id}-update",
+            $data,
+            fn (): array => $this->applyRequisitionUpdate($principal->userId(), $id, $data),
+            path: "requisitions/{$id}",
+            method: 'PATCH',
+            createdStatus: 200,
+        );
+    }
+
+    public function closeRequisition(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return $this->command(
+            $request,
+            "requisition-{$id}-close",
+            $data,
+            fn (): array => $this->applyRequisitionClose($principal->userId(), $id, $data),
+            path: "requisitions/{$id}/close",
+            method: 'POST',
+            createdStatus: 200,
+        );
+    }
+
     public function candidates(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
         $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
 
-        $items = \App\Modules\Talent\Models\Candidate::query()
-            ->orderBy('id')
-            ->get()
-            ->map(static fn (\App\Modules\Talent\Models\Candidate $candidate): array => [
-                'candidate_id' => (int) $candidate->id,
-                'display_name' => (string) $candidate->display_name,
-                'status' => (string) $candidate->status,
-                'has_email' => $candidate->email_hash !== null,
-            ])->all();
+        $data = $request->validate([
+            'requisition_id' => ['nullable', 'integer', 'min:1'],
+            'status' => ['nullable', 'string', 'max:24'],
+            'search' => ['nullable', 'string', 'max:120'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $page = (int) ($data['page'] ?? 1);
+        $pageSize = (int) ($data['page_size'] ?? 100);
+        $requisitionId = isset($data['requisition_id']) ? (int) $data['requisition_id'] : null;
+
+        $candidateIdsForRequisition = null;
+
+        if ($requisitionId !== null) {
+            $candidateIdsForRequisition = Interview::query()
+                ->where('requisition_id', $requisitionId)
+                ->pluck('candidate_id')
+                ->merge(Offer::query()->where('requisition_id', $requisitionId)->pluck('candidate_id'))
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $query = Candidate::query()
+            ->when($candidateIdsForRequisition !== null, fn ($builder) => $builder->whereIn('id', $candidateIdsForRequisition === [] ? [-1] : $candidateIdsForRequisition))
+            ->when(isset($data['status']) && $data['status'] !== '', fn ($builder) => $builder->where('status', (string) $data['status']))
+            ->when(isset($data['search']) && trim((string) $data['search']) !== '', fn ($builder) => $builder->where('display_name', 'like', '%'.trim((string) $data['search']).'%'))
+            ->orderBy('id');
+
+        $total = (int) (clone $query)->count();
+        $items = $query->forPage($page, $pageSize)->get()
+            ->map(fn (Candidate $candidate): array => $this->candidateData($candidate, $requisitionId))
+            ->values()
+            ->all();
+
+        return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
+    }
+
+    public function moveCandidateStage(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+
+        $data = $request->validate([
+            'status' => ['required', 'string', 'max:24'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return $this->command(
+            $request,
+            "candidate-{$id}-stage",
+            $data,
+            fn (): array => $this->applyCandidateStageMove($principal->userId(), $id, $data),
+            path: "candidates/{$id}/stage",
+            method: 'PATCH',
+            createdStatus: 200,
+        );
+    }
+
+    public function interviews(Request $request, int $candidateId): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+
+        $candidate = Candidate::query()->whereKey($candidateId)->first();
+
+        if ($candidate === null) {
+            throw NotFoundException::forResource();
+        }
+
+        $canSeeFeedback = $this->authorizer->allows(
+            $principal,
+            'recruitment.evaluation.manage',
+            AnchorRef::company(),
+            $this->businessDates->today()->value(),
+        );
+
+        $items = [];
+
+        foreach (Interview::query()
+            ->where('candidate_id', $candidateId)
+            ->orderByDesc('scheduled_at')
+            ->orderByDesc('id')
+            ->get() as $interview) {
+            $data = [
+                'interview_id' => (int) $interview->id,
+                'candidate_id' => (int) $interview->candidate_id,
+                'requisition_id' => (int) $interview->requisition_id,
+                'scheduled_at' => $this->iso($interview->getAttribute('scheduled_at')),
+                'duration_minutes' => (int) $interview->duration_minutes,
+                'interviewer' => (string) $interview->interviewer,
+                'mode' => (string) $interview->mode,
+                'status' => (string) $interview->status,
+                'feedback_restricted' => ! $canSeeFeedback,
+            ];
+
+            if ($canSeeFeedback) {
+                $data['feedback'] = $interview->feedback;
+                $data['recommendation'] = $interview->recommendation;
+
+                $fields = [];
+                if ($interview->feedback !== null && $interview->feedback !== '') {
+                    $fields[] = 'feedback';
+                }
+                if ($interview->recommendation !== null && $interview->recommendation !== '') {
+                    $fields[] = 'recommendation';
+                }
+
+                if ($fields !== []) {
+                    $this->sensitiveAuditor->record(
+                        userId: $principal->userId(),
+                        capabilityCode: 'recruitment.evaluation.manage',
+                        resourceType: 'candidate_interview',
+                        resourceId: (int) $interview->id,
+                        fields: $fields,
+                        context: ['access' => 'DETAIL'],
+                    );
+                }
+            }
+
+            $items[] = $data;
+        }
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -176,10 +373,157 @@ final class RecruitmentController
 
     /**
      * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyRequisitionUpdate(int $actorUserId, int $id, array $data): array
+    {
+        $requisition = Requisition::query()->whereKey($id)->first();
+
+        if ($requisition === null) {
+            throw NotFoundException::forResource();
+        }
+
+        if ((string) $requisition->status === 'CLOSED') {
+            throw new ConflictException('A closed requisition cannot be edited.', [
+                'reason' => 'REQUISITION_CLOSED',
+            ]);
+        }
+
+        $before = $this->requisitionData($requisition);
+        $attributes = [];
+
+        foreach (['org_unit_id', 'title', 'headcount', 'budget_minor', 'budget_currency', 'target_start_date'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $attributes[$field] = $field === 'budget_currency' && $data[$field] !== null
+                    ? mb_strtoupper((string) $data[$field])
+                    : $data[$field];
+            }
+        }
+
+        if ($attributes !== []) {
+            $requisition->forceFill($attributes)->save();
+        }
+
+        $fresh = $requisition->fresh() ?? $requisition;
+        $after = $this->requisitionData($fresh);
+
+        app(AuditRecorder::class)->record(
+            actorUserId: $actorUserId,
+            action: 'talent.requisition.updated',
+            aggregateType: 'recruitment_requisition',
+            aggregateId: (int) $fresh->id,
+            before: $before,
+            after: $after,
+        );
+
+        return [...$after, 'replayed' => false];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyRequisitionClose(int $actorUserId, int $id, array $data): array
+    {
+        $requisition = Requisition::query()->whereKey($id)->lockForUpdate()->first();
+
+        if ($requisition === null) {
+            throw NotFoundException::forResource();
+        }
+
+        if ((string) $requisition->status === 'CLOSED') {
+            return [...$this->requisitionData($requisition), 'replayed' => true];
+        }
+
+        $before = $this->requisitionData($requisition);
+        $requisition->forceFill(['status' => 'CLOSED'])->save();
+
+        app(AuditRecorder::class)->record(
+            actorUserId: $actorUserId,
+            action: 'talent.requisition.closed',
+            aggregateType: 'recruitment_requisition',
+            aggregateId: (int) $requisition->id,
+            before: $before,
+            after: $this->requisitionData($requisition),
+            metadata: ['reason' => $data['reason'] ?? null],
+        );
+
+        return [...$this->requisitionData($requisition->fresh() ?? $requisition), 'replayed' => false];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyCandidateStageMove(int $actorUserId, int $id, array $data): array
+    {
+        $candidate = Candidate::query()->whereKey($id)->lockForUpdate()->first();
+
+        if ($candidate === null) {
+            throw NotFoundException::forResource();
+        }
+
+        $next = mb_strtoupper(trim((string) $data['status']));
+
+        if (! in_array($next, self::MOVABLE_CANDIDATE_STAGES, true)) {
+            throw new ValidationException(
+                ['status' => ['Only pipeline stages may be moved explicitly.']],
+                'The candidate stage cannot be set by this command.',
+                ['reason' => 'INVALID_CANDIDATE_STAGE'],
+            );
+        }
+
+        $current = (string) $candidate->status;
+
+        if ($current === $next) {
+            return [
+                'candidate_id' => (int) $candidate->id,
+                'status' => $next,
+                'previous_status' => $current,
+                'replayed' => true,
+            ];
+        }
+
+        if (in_array($current, ['CONVERTED', 'HIRED'], true)) {
+            throw new ConflictException('A hired candidate cannot be moved back through the pipeline.', [
+                'reason' => 'CANDIDATE_ALREADY_HIRED',
+                'status' => $current,
+            ]);
+        }
+
+        $candidate->forceFill(['status' => $next])->save();
+
+        app(AuditRecorder::class)->record(
+            actorUserId: $actorUserId,
+            action: 'talent.candidate.stage_moved',
+            aggregateType: 'candidate',
+            aggregateId: (int) $candidate->id,
+            before: ['status' => $current],
+            after: ['status' => $next],
+            metadata: ['reason' => $data['reason'] ?? null],
+        );
+
+        return [
+            'candidate_id' => (int) $candidate->id,
+            'status' => $next,
+            'previous_status' => $current,
+            'replayed' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
      * @param  \Closure(): array<string, mixed>  $operation
      */
-    private function command(Request $request, string $scope, array $data, \Closure $operation): JsonResponse
-    {
+    private function command(
+        Request $request,
+        string $scope,
+        array $data,
+        \Closure $operation,
+        string $path = '',
+        string $method = 'POST',
+        int $createdStatus = 201,
+    ): JsonResponse {
         $principal = $this->principals->resolve();
         $key = (string) $request->header('Idempotency-Key', '');
 
@@ -187,16 +531,19 @@ final class RecruitmentController
             throw new ValidationException(['idempotency_key' => ['A valid Idempotency-Key header is required.']]);
         }
 
+        $idempotencyPath = $path !== '' ? $path : $scope;
+        $httpStatus = $createdStatus;
+
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
             principalId: $principal->userId(),
-            scope: 'POST:/v1/recruitment/'.$scope,
+            scope: $method.':/v1/recruitment/'.$idempotencyPath,
             key: $key,
             payload: $data,
-            operation: function () use ($operation): array {
+            operation: function () use ($operation, $httpStatus): array {
                 $body = $operation();
 
                 return [
-                    'http_status' => 201,
+                    'http_status' => $httpStatus,
                     'body' => $body,
                     'resource_type' => 'talent',
                     'resource_id' => (string) ($body['candidate_id'] ?? $body['offer_id'] ?? $body['requisition_id'] ?? ''),
@@ -206,14 +553,111 @@ final class RecruitmentController
 
         /** @var array<string, mixed> $body */
         $body = $result->body;
-        $createdStatus = ($body['replayed'] ?? false) === true ? 200 : 201;
-        $response = $result->replayed || $createdStatus === 200 ? ApiResponse::ok($body) : ApiResponse::created($body);
+        $businessReplayed = ($body['replayed'] ?? false) === true;
+        $response = $result->replayed || $businessReplayed || $createdStatus === 200
+            ? ApiResponse::ok($body)
+            : ApiResponse::created($body);
 
-        if ($result->replayed) {
+        if ($result->replayed || $businessReplayed) {
             $response->headers->set('Idempotency-Replayed', 'true');
         }
 
         return $response;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function requisitionData(Requisition $requisition): array
+    {
+        $orgUnit = $this->organization->orgUnit((int) $requisition->org_unit_id);
+
+        return [
+            'requisition_id' => (int) $requisition->id,
+            'requisition_no' => (string) $requisition->requisition_no,
+            'title' => (string) $requisition->title,
+            'org_unit_id' => (int) $requisition->org_unit_id,
+            'org_unit_name' => $orgUnit?->name,
+            'status' => (string) $requisition->status,
+            'headcount' => (int) $requisition->headcount,
+            'budget_minor' => $requisition->budget_minor !== null ? (int) $requisition->budget_minor : null,
+            'budget_currency' => $requisition->budget_currency !== null ? (string) $requisition->budget_currency : null,
+            'target_start_date' => $requisition->target_start_date !== null ? (string) $requisition->target_start_date : null,
+            'opened_at' => $this->iso($requisition->getAttribute('recorded_at')),
+            'case_id' => $requisition->case_id !== null ? (int) $requisition->case_id : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function candidateData(Candidate $candidate, ?int $requisitionId = null): array
+    {
+        $interview = $requisitionId === null ? null : Interview::query()
+            ->where('candidate_id', (int) $candidate->id)
+            ->where('requisition_id', $requisitionId)
+            ->orderByDesc('id')
+            ->first();
+        $offer = $requisitionId === null ? null : Offer::query()
+            ->where('candidate_id', (int) $candidate->id)
+            ->where('requisition_id', $requisitionId)
+            ->orderByDesc('version')
+            ->first();
+
+        if ($requisitionId === null) {
+            $interview = Interview::query()
+                ->where('candidate_id', (int) $candidate->id)
+                ->orderByDesc('id')
+                ->first();
+            $offer = Offer::query()
+                ->where('candidate_id', (int) $candidate->id)
+                ->orderByDesc('version')
+                ->first();
+        }
+
+        $conversion = CandidateConversion::query()
+            ->where('candidate_id', (int) $candidate->id)
+            ->first();
+
+        $this->sensitiveAuditor->record(
+            userId: $this->principals->resolve()->userId(),
+            capabilityCode: 'recruitment.candidate.read',
+            resourceType: 'candidate',
+            resourceId: (int) $candidate->id,
+            fields: array_values(array_filter([
+                $candidate->email_hash !== null ? 'email' : null,
+                $candidate->mobile_hash !== null ? 'mobile' : null,
+            ])),
+            context: ['access' => 'LIST', 'minimized' => true],
+        );
+
+        return [
+            'candidate_id' => (int) $candidate->id,
+            'display_name' => (string) $candidate->display_name,
+            'status' => (string) $candidate->status,
+            'has_email' => $candidate->email_hash !== null,
+            'has_mobile' => $candidate->mobile_hash !== null,
+            'source' => $candidate->source,
+            'requisition_id' => $requisitionId ?? ($interview !== null ? (int) $interview->requisition_id : ($offer !== null ? (int) $offer->requisition_id : null)),
+            'offer_id' => $offer !== null ? (int) $offer->id : null,
+            'offer_status' => $offer !== null ? (string) $offer->status : null,
+            'base_salary_minor' => $offer !== null ? (int) $offer->base_salary_minor : null,
+            'salary_currency' => $offer !== null ? (string) $offer->salary_currency : null,
+            'offer_start_date' => $offer !== null ? (string) $offer->start_date : null,
+            'next_interview_at' => $interview === null ? null : $this->iso($interview->getAttribute('scheduled_at')),
+            'converted_employment_id' => $conversion !== null ? (int) $conversion->employment_id : null,
+            'converted_employee_no' => $conversion !== null ? (string) $conversion->employee_no : null,
+            'recorded_at' => $this->iso($candidate->getAttribute('recorded_at')),
+        ];
+    }
+
+    private function iso(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return \Carbon\CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
     }
 
     private function allow(Principal $principal, string $capability, AnchorRef $anchor): void
