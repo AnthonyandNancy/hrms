@@ -18,6 +18,7 @@ const page: PageSpec = {
   name: 'hr-departments-list',
   componentKey: 'hr/departments/list',
   capability: 'org.unit.read',
+  kind: 'workspace',
   menu: { group: '部门管理', label: '部门列表', order: 28, icon: 'Menu' },
   layer: 'business',
   wave: 'Wave 2',
