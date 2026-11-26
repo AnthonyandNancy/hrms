@@ -56,8 +56,14 @@ const DEDICATED_PAGES = new Set([
   'system/system-permissions',
   'system/system-data-scopes',
   'system/system-field-policies',
-  // Volume 3 Task 16 replaced the dashboard/reports/notices config shells with
-  // the reporting workspace (metrics, report runner, notices).
+  // Volume 3 Task 17 replaced the remaining Platform config shells with
+  // purpose-built workflow, calendar, settings, notification and audit pages.
+  'workflow',
+  'workflow/cases/by-id',
+  'system/system-calendars',
+  'system/system-settings',
+  'notifications',
+  'system/system-audit',
 ])
 
 // Volume 3 Task 16: dashboard, reports and notices are their own module now and
@@ -104,7 +110,7 @@ describe('platform module page split', () => {
   it('maps every Platform registry key to exactly one distinct lazy page file', async () => {
     const platformOwnedKeys = platformRegistryKeys.filter((key) => !MOVED_TO_REPORTING.has(key))
 
-    expect(platformOwnedKeys).toHaveLength(33)
+    expect(platformOwnedKeys).toHaveLength(34)
     expect(Object.keys(PAGE_COMPONENTS).sort()).toEqual(platformOwnedKeys)
 
     const loadedComponents = new Set<object>()
@@ -115,8 +121,8 @@ describe('platform module page split', () => {
       .filter((name) => name.endsWith('.vue'))
       .sort()
 
-    expect(componentFiles).toHaveLength(33)
-    expect(new Set(componentFiles).size).toBe(33)
+    expect(componentFiles).toHaveLength(34)
+    expect(new Set(componentFiles).size).toBe(34)
     // 33 platform screens plus the three reporting workspaces that moved out.
     expect(vueFiles).toHaveLength(36)
 
@@ -129,7 +135,7 @@ describe('platform module page split', () => {
       loadedComponents.add(module.default)
     }
 
-    expect(loadedComponents.size).toBe(33)
+    expect(loadedComponents.size).toBe(34)
     expect(platformPageConfig('system/system-users')).not.toBeNull()
     expect(platformPageConfig('system/system-users')?.title).toBe('用户管理')
   })
@@ -137,11 +143,11 @@ describe('platform module page split', () => {
   it('keeps every page config-bound and free of componentKey identity lookups', () => {
     const manifestSource = readFileSync(join(pagesDir, 'index.ts'), 'utf8')
     const mappings = [...manifestSource.matchAll(/'([^']+)':\s*\(\)\s*=>\s*import\('([^']+\.vue)'\)/g)]
-    const filenames = new Map(mappings.map((match) => [match[1], match[2]?.replace('./', '')]))
+    const filenames = new Map(mappings.map((match) => [match[1], match[2] ?? '']))
 
     for (const key of platformRegistryKeys) {
       if (MOVED_TO_REPORTING.has(key)) continue
-      const source = readFileSync(join(pagesDir, filenames.get(key) ?? ''), 'utf8')
+      const source = readFileSync(resolve(pagesDir, filenames.get(key) ?? ''), 'utf8')
       expect(source, key).not.toMatch(/\bcomponentKey\b/)
       if (DEDICATED_PAGES.has(key)) {
         expect(source, key).not.toContain('PlatformWorkspace')

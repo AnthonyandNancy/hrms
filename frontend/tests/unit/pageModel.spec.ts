@@ -87,9 +87,9 @@ describe('page model', () => {
     expect(result.errors.join('\n')).toContain('base page must have menu: null')
   })
 
-  it('classifies the real 161-entry registry with 12 hidden detail pages', () => {
-    expect(PAGE_REGISTRY).toHaveLength(161)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail')).toHaveLength(12)
+  it('classifies the real 162-entry registry with 13 hidden detail pages', () => {
+    expect(PAGE_REGISTRY).toHaveLength(162)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail')).toHaveLength(13)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'base')).toHaveLength(6)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'workspace')).toHaveLength(129)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'governance')).toHaveLength(14)

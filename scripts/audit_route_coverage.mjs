@@ -174,17 +174,17 @@ if (pageComponentProblem !== null) {
   else console.warn(`WARN ${message}`)
 }
 
-if (requireMature && matureComponents.length < 161) {
-  failures.push(`mature business views=${matureComponents.length}/161; remaining ${161 - matureComponents.length} are registry fallbacks`)
+if (requireMature && matureComponents.length < 162) {
+  failures.push(`mature business views=${matureComponents.length}/162; remaining ${162 - matureComponents.length} are registry fallbacks`)
 }
 if (inventoryPages.length !== 140) failures.push(`inventory business pages=${inventoryPages.length}, expected 140`)
 if (inventoryModules.length !== 14) failures.push(`inventory platform modules=${inventoryModules.length}, expected 14`)
-if (registryPaths.length !== 161) failures.push(`registry entries=${registryPaths.length}, expected 161`)
+if (registryPaths.length !== 162) failures.push(`registry entries=${registryPaths.length}, expected 162`)
 if (new Set(registryNames).size !== registryNames.length) failures.push(`duplicate page names: ${[...new Set(duplicateNames)].join(', ')}`)
 if (duplicatePaths.length > 0) failures.push(`duplicate paths: ${[...new Set(duplicatePaths)].join(', ')}`)
-if (requiredApiCount !== 161) failures.push(`entries missing requiredApis=${161 - requiredApiCount}`)
-if (statesCount !== 161) failures.push(`entries missing five-state declaration=${161 - statesCount}`)
-if (negativeCount !== 161) failures.push(`entries missing negative-test declaration=${161 - negativeCount}`)
+if (requiredApiCount !== 162) failures.push(`entries missing requiredApis=${162 - requiredApiCount}`)
+if (statesCount !== 162) failures.push(`entries missing five-state declaration=${162 - statesCount}`)
+if (negativeCount !== 162) failures.push(`entries missing negative-test declaration=${162 - negativeCount}`)
 if (missingBusiness.length > 0) failures.push(`inventory pages missing from registry: ${missingBusiness.map((p) => p.path).join(', ')}`)
 if (extraBusiness.length > 0) failures.push(`extra registry paths not in inventory: ${extraBusiness.join(', ')}`)
 if (clusterTotal !== 63) failures.push(`registry cluster pages=${clusterTotal}, expected 63`)

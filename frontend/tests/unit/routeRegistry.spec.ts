@@ -7,10 +7,10 @@ import {
 } from '@/router/registry'
 
 describe('V1.1 controlled page registry', () => {
-  it('registers exactly 141 business pages, 14 platform modules and 6 base pages', () => {
-    expect(PAGE_REGISTRY).toHaveLength(161)
+  it('registers exactly 141 business pages, 15 platform entries and 6 base pages', () => {
+    expect(PAGE_REGISTRY).toHaveLength(162)
     expect(PAGE_REGISTRY.filter((page) => page.layer === 'business')).toHaveLength(141)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(14)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(15)
     expect(PAGE_REGISTRY.filter((page) => page.layer === 'base')).toHaveLength(6)
   })
 

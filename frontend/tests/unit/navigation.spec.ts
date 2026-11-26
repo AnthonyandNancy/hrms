@@ -174,11 +174,11 @@ describe('menu-only navigation model', () => {
     expect(menu.flatMap((group) => group.pages.map((page) => page.name))).not.toContain('login')
   })
 
-  it('derives the effective menu from the 161-entry registry without dropping menu groups', () => {
+  it('derives the effective menu from the 162-entry registry without dropping menu groups', () => {
     const menu = buildMenu(PAGE_REGISTRY)
     const children = menu.flatMap((group) => group.pages)
 
-    expect(PAGE_REGISTRY).toHaveLength(161)
+    expect(PAGE_REGISTRY).toHaveLength(162)
     expect(children).toHaveLength(143)
     expect(menu).toHaveLength(18)
     expect(new Set(children.map((page) => page.name)).size).toBe(children.length)

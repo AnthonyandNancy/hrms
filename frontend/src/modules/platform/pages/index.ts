@@ -29,6 +29,7 @@ export const PAGE_COMPONENTS = {
   'system/system-data-scopes': () => import('./SystemDataScopesPage.vue'),
   'system/system-field-policies': () => import('./SystemFieldPoliciesPage.vue'),
   'workflow': () => import('./WorkflowCenterPage.vue'),
+  'workflow/cases/by-id': () => import('../workflow/pages/WorkflowCaseDetailPage.vue'),
   'self-service': () => import('./SelfServicePage.vue'),
   'benefits': () => import('./BenefitsPage.vue'),
   'system/system-calendars': () => import('./SystemCalendarsPage.vue'),

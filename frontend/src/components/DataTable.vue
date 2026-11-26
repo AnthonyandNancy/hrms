@@ -25,6 +25,7 @@ const props = withDefaults(
     searchValue?: string
     showSearch?: boolean
     rowKey?: string
+    rowTestId?: (row: Record<string, unknown>) => string
   }>(),
   {
     loading: false,
@@ -125,7 +126,12 @@ const pageCount = computed(() => Math.max(1, Math.ceil(props.total / props.pageS
           </tr>
         </tbody>
         <tbody v-else>
-          <tr v-for="(row, index) in rows" :key="String(row[rowKey] ?? index)" class="data-table__row">
+          <tr
+            v-for="(row, index) in rows"
+            :key="String(row[rowKey] ?? index)"
+            class="data-table__row"
+            :data-testid="rowTestId?.(row)"
+          >
             <td
               v-for="column in columns"
               :key="column.key"

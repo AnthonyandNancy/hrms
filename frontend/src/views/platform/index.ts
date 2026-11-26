@@ -17,9 +17,10 @@ function pageComponent(key: string): Component {
 const COMPONENTS = new Map<string, Component>()
 
 for (const key of Object.keys(PAGE_COMPONENTS)) {
-  if (platformPageConfig(key) === null) {
-    throw new Error(`Missing platform page config for ${key}`)
-  }
+  // Dedicated workspaces and hidden detail pages are resolved directly by the
+  // router from PAGE_COMPONENTS; only remaining config-driven shells belong in
+  // this legacy PlatformWorkspace adapter.
+  if (platformPageConfig(key) === null) continue
   COMPONENTS.set(key, pageComponent(key))
 }
 

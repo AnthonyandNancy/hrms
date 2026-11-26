@@ -197,7 +197,7 @@ describe('V1.1 expandable shell menu', () => {
     expect(groups.every((group) => group.attributes('aria-controls')?.startsWith('nav-group-'))).toBe(true)
     // ADR-0035: the 12 employee/movement/contract/candidate/payroll detail routes are
     // deep links (menu: null), so the sidebar renders menu-bearing pages only.
-    // 161 registry keys - 6 base and 12 detail menus = 143.
+    // 162 registry keys - 6 base and 13 detail menus = 143.
     expect(children).toHaveLength(ALL_MENU_PAGES.length)
     expect(ALL_MENU_PAGES.length).toBe(143)
     expect(children.every((child) => child.find('.nav-link__child-icon').exists())).toBe(true)
