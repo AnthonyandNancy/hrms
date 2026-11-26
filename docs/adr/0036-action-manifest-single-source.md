@@ -1,0 +1,19 @@
+# ADR-0036: Action Manifest Is Generated from Capability and OpenAPI
+
+- Status: Accepted — 2026-11-26
+- Date: 2026-11-26
+- Approval: 用户 2026-11-26 批准 FactoryHR V2.1 全量整改规格与四册计划；本 ADR 为该批准的可执行化
+- Related: ADR-0035, ADR-0027
+
+## Decision
+
+1. Backend CapabilityCatalog and OpenAPI are the only action truth sources.
+2. `docs/generated/page-actions.json` is generated, never hand-edited.
+3. Frontend imports a generated TypeScript module (`frontend/src/generated/pageActions.ts`) at build time; it never reads `docs/` at runtime and never enables runtime file access.
+4. CI fails when a write API lacks an action, an action lacks an API, or capability differs.
+5. Runtime never reads documentation files.
+
+## Validation
+
+- `pnpm actions:generate` produces a deterministic file.
+- `pnpm actions:check` fails on each mismatch class in fixture tests.

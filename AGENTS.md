@@ -24,4 +24,4 @@ node deploy/scripts/openapi-lint.mjs
 pnpm openapi:validate
 ```
 
-10. **UTC storage, explicit business time.** Timestamps are stored in UTC. Business dates are computed from the legal entity's timezone and calendar through the shared clock/calendar contracts.
+10. **UTC storage, explicit business time.** Timestamps are stored in UTC. Business dates are computed from the single company profile's timezone and calendar through the shared clock/calendar contracts.
