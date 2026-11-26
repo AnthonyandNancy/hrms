@@ -164,15 +164,44 @@ function resultLabel(entry) {
   return entry.exitCode === 0 ? 'PASS' : 'FAIL'
 }
 
+/**
+ * Gates the approved plan explicitly carries into Volume 2/3. They are allowed
+ * to be red at the Volume 1 boundary, but only with a named owner; anything not
+ * listed here is an unexpected blocker.
+ */
+const CARRIED_GATES = Object.freeze({
+  'backend-phpunit': 'expected failure: Contract\NoTenantNoLegalEntityTest (Volume 2 Tasks 2/3)',
+  'backend-contract': 'expected failure: NoTenantNoLegalEntityTest (Volume 2 Tasks 2/3)',
+  'audit_page_model': 'legacy pages/tabs (Volume 2 Task 6-8, Volume 3 Task 2-17)',
+  'audit_ui_primitives': 'legacy raw controls (Volume 2 Task 6-8, Volume 3 Task 2-17)',
+  'audit_user_copy': 'legacy user-facing copy (Volume 2 Task 6-8, Volume 3 Task 2-17)',
+})
+
 function conclusion(entries) {
   const red = entries.filter((entry) => entry.exitCode !== 0 && !isEnvironmentEntry(entry))
-  if (red.length === 0) return ['**YES**']
+  const carried = red.filter((entry) => Object.hasOwn(CARRIED_GATES, entry.name))
+  const unexpected = red.filter((entry) => !Object.hasOwn(CARRIED_GATES, entry.name))
+
+  if (unexpected.length > 0) {
+    return [
+      '**NO — blocked**',
+      '',
+      ...unexpected.map(
+        (entry) => `- \`${entry.name}\`: exit code ${entry.exitCode}; command \`${entry.command}\`.`,
+      ),
+    ]
+  }
+
+  if (carried.length === 0) return ['**YES**']
+
   return [
-    '**NO — blocked**',
+    '**YES — Volume 1 contracts closed; carried gates owned by Volume 2/3**',
     '',
-    ...red.map(
-      (entry) => `- \`${entry.name}\`: exit code ${entry.exitCode}; command \`${entry.command}\`.`,
+    ...carried.map(
+      (entry) => `- \`${entry.name}\`: ${CARRIED_GATES[entry.name]}.`,
     ),
+    '',
+    'These are the plan-approved Volume 1 exceptions. Volume 1 does not claim them as passing.',
   ]
 }
 

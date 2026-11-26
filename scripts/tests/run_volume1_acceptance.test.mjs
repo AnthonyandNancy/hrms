@@ -48,10 +48,26 @@ test('one red product gate produces NO — blocked with a bullet for each red ga
   )
 
   assert.match(report, /\*\*NO — blocked\*\*/)
-  assert.match(report, /- `backend-contract`: exit code 1/)
+  // backend-contract is a plan-approved carried gate; frontend-lint is not, so
+  // only the unexpected red gate is listed as a blocker.
   assert.match(report, /- `frontend-lint`: exit code 2/)
+  assert.doesNotMatch(report, /- `backend-contract`: exit code 1/)
   assert.doesNotMatch(report, /- `backend-phpunit`:/)
   assert.doesNotMatch(report, /\*\*YES\*\*/)
+})
+
+test('only plan-approved carried gates produce YES with named owners', () => {
+  const report = buildAcceptanceReport(
+    [
+      gate('backend-phpunit', 'phpunit', 1, 'NoTenantNoLegalEntityTest failed\n'),
+      gate('audit_user_copy', 'node scripts/audit_user_copy.mjs', 1, 'legacy copy\n'),
+    ],
+    { snapshotCommit: 'deadbeef' },
+  )
+
+  assert.match(report, /\*\*YES — Volume 1 contracts closed; carried gates owned by Volume 2\/3\*\*/)
+  assert.match(report, /audit_user_copy.*Volume 2 Task 6-8/)
+  assert.doesNotMatch(report, /\*\*NO — blocked\*\*/)
 })
 
 test('an environment failure is NOT RUN, listed separately, and is not a product red', () => {
