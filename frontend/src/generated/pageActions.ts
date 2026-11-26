@@ -105,6 +105,53 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
+  "hr-departments": [
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.create",
+      "label": "新建部门",
+      "capability": "org.unit.manage",
+      "api": "POST /v1/departments",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.move",
+      "label": "调整部门层级",
+      "capability": "org.unit.manage",
+      "api": "PATCH /v1/departments/{id}",
+      "ui": "secondary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.remove.member",
+      "label": "移除部门成员",
+      "capability": "org.unit.manage",
+      "api": "DELETE /v1/departments/{id}/members/{employmentId}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
   "hr-employees": [
     {
       "pageCode": "hr-employees",
@@ -113,6 +160,55 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "capability": "people.employee.manage",
       "api": "POST /v1/employments",
       "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "recruitment-candidates": [
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.move.stage",
+      "label": "推进候选人阶段",
+      "capability": "recruitment.candidate.manage",
+      "api": "PATCH /v1/recruitment/candidates/{id}/stage",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "recruitment-requests": [
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.close",
+      "label": "关闭招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "POST /v1/recruitment/requisitions/{id}/close",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.update",
+      "label": "修改招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "PATCH /v1/recruitment/requisitions/{id}",
+      "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
         "ORG_UNIT",
@@ -216,6 +312,32 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "capability": "iam.role.manage",
       "api": "POST /v1/roles",
       "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.delete",
+      "label": "删除角色",
+      "capability": "iam.role.manage",
+      "api": "DELETE /v1/roles/{id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.rename",
+      "label": "重命名角色",
+      "capability": "iam.role.manage",
+      "api": "PATCH /v1/roles/{id}",
+      "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
         "COMPANY"
