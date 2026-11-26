@@ -471,6 +471,30 @@ return [
         'risk' => 'critical',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
+    'PATCH /v1/recruitment/requisitions/{id}' => [
+        'capability' => 'recruitment.requisition.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'closed_requisition_immutable'],
+    ],
+    'POST /v1/recruitment/requisitions/{id}/close' => [
+        'capability' => 'recruitment.requisition.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'already_closed'],
+    ],
+    'PATCH /v1/recruitment/candidates/{id}/stage' => [
+        'capability' => 'recruitment.candidate.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'invalid_stage_transition'],
+    ],
+    'GET /v1/recruitment/candidates/{id}/interviews' => [
+        'capability' => 'recruitment.interview.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'idor'],
+    ],
     'GET /v1/recruitment/requisitions' => [
         'capability' => 'recruitment.requisition.read',
         'anchor' => 'SELF',

@@ -3167,7 +3167,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/recruitment/candidates/{id}/interviews": {
+    "/v1/recruitment/candidates/{id}/stage": {
         parameters: {
             query?: never;
             header?: never;
@@ -3175,6 +3175,24 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Move a candidate to another pipeline stage */
+        patch: operations["moveCandidateStage"];
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a candidate's interview records */
+        get: operations["listCandidateInterviews"];
         put?: never;
         /** Schedule an interview */
         post: operations["recruitmentInterviewsStore"];
@@ -3234,6 +3252,43 @@ export interface paths {
         put?: never;
         /** Create a requisition approval Case */
         post: operations["recruitmentRequisitionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/requisitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an open requisition
+         * @description A closed requisition is immutable and returns 409.
+         */
+        patch: operations["updateRequisition"];
+        trace?: never;
+    };
+    "/v1/recruitment/requisitions/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a requisition */
+        post: operations["closeRequisition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14773,6 +14828,71 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    moveCandidateStage: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    stage: "NEW" | "SCREENING" | "INTERVIEW" | "OFFER" | "HIRED" | "REJECTED";
+                    reason?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Candidate stage updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listCandidateInterviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Interview records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     recruitmentInterviewsStore: {
         parameters: {
             query?: never;
@@ -14903,6 +15023,84 @@ export interface operations {
             201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateRequisition: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    headcount?: number;
+                    org_unit_id?: number;
+                    /** @enum {string} */
+                    status?: "DRAFT" | "OPEN" | "PAUSED" | "CLOSED";
+                };
+            };
+        };
+        responses: {
+            /** @description Requisition updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    closeRequisition: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Requisition closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];

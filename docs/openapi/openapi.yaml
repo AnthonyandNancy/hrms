@@ -15907,7 +15907,79 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.manage
       x-action-label: 新增候选人
+  /v1/recruitment/candidates/{id}/stage:
+    patch:
+      operationId: moveCandidateStage
+      tags:
+        - Talent
+      summary: Move a candidate to another pipeline stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stage]
+              properties:
+                stage:
+                  type: string
+                  enum: [NEW, SCREENING, INTERVIEW, OFFER, HIRED, REJECTED]
+                reason: { type: [string, "null"], maxLength: 255 }
+      responses:
+        "200":
+          description: Candidate stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.candidate.manage
+      x-action-label: 推进候选人阶段
   /v1/recruitment/candidates/{id}/interviews:
+    get:
+      operationId: listCandidateInterviews
+      tags:
+        - Talent
+      summary: List a candidate's interview records
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Interview records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.interview.manage
     post:
       operationId: recruitmentInterviewsStore
       tags:
@@ -16087,6 +16159,94 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.requisition.manage
       x-action-label: 发起招聘需求
+  /v1/recruitment/requisitions/{id}:
+    patch:
+      operationId: updateRequisition
+      tags:
+        - Talent
+      summary: Update an open requisition
+      description: A closed requisition is immutable and returns 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 160 }
+                headcount: { type: integer, minimum: 1 }
+                org_unit_id: { type: integer, minimum: 1 }
+                status: { type: string, enum: [DRAFT, OPEN, PAUSED, CLOSED] }
+      responses:
+        "200":
+          description: Requisition updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.requisition.manage
+      x-action-label: 修改招聘需求
+  /v1/recruitment/requisitions/{id}/close:
+    post:
+      operationId: closeRequisition
+      tags:
+        - Talent
+      summary: Close a requisition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 255 }
+      responses:
+        "200":
+          description: Requisition closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.requisition.manage
+      x-action-label: 关闭招聘需求
   /v1/recruitment/requisitions/{id}/openings:
     get:
       operationId: listRequisitionOpenings

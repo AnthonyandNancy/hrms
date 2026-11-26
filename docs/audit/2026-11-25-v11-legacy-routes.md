@@ -361,3 +361,7 @@
 | 263 | `POST` | `/v1/departments` | `org.unit.manage` | `COMPANY` | kernel | — |
 | 264 | `PATCH` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 265 | `DELETE` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 266 | `PATCH` | `/v1/recruitment/requisitions/{id}` | `recruitment.*` | `COMPANY` | kernel | — |
+| 267 | `POST` | `/v1/recruitment/requisitions/{id}/close` | `recruitment.*` | `COMPANY` | kernel | — |
+| 268 | `PATCH` | `/v1/recruitment/candidates/{id}/stage` | `recruitment.*` | `COMPANY` | kernel | — |
+| 269 | `GET` | `/v1/recruitment/candidates/{id}/interviews` | `recruitment.*` | `COMPANY` | kernel | — |

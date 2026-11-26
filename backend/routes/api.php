@@ -902,6 +902,22 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
     Route::post('/requisitions', [RecruitmentController::class, 'storeRequisition'])
         ->middleware('capability:recruitment.requisition.manage,COMPANY')
         ->name('recruitment.requisitions.store');
+    Route::patch('/requisitions/{id}', [RecruitmentController::class, 'updateRequisition'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.requisition.manage,COMPANY'])
+        ->name('recruitment.requisitions.update');
+    Route::post('/requisitions/{id}/close', [RecruitmentController::class, 'closeRequisition'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.requisition.manage,COMPANY'])
+        ->name('recruitment.requisitions.close');
+    Route::patch('/candidates/{id}/stage', [RecruitmentController::class, 'moveCandidateStage'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:recruitment.candidate.manage'])
+        ->name('recruitment.candidates.stage');
+    Route::get('/candidates/{id}/interviews', [RecruitmentController::class, 'interviews'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.interview.manage')
+        ->name('recruitment.interviews.index');
     Route::get('/requisitions/{id}/openings', [App\Modules\Talent\Http\Controllers\RecruitmentOpeningController::class, 'index'])
         ->whereNumber('id')
         ->middleware('capability:recruitment.requisition.read')
