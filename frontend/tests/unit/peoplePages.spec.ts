@@ -6,6 +6,7 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { useSessionStore } from '@/stores/session'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -175,9 +176,14 @@ function projectionResponse(items: unknown[] = []) {
   }
 }
 
-async function mountAt(key: string, path: string) {
+async function mountAt(key: string, path: string, capabilities: string[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
+
+  // Dedicated workspaces gate on the session capability set (Volume 3).
+  useSessionStore().capabilities = capabilities.length > 0
+    ? capabilities
+    : ['lifecycle.case.read', 'workflow.case.read', 'people.contract.read']
   const dynamic = wave2.map<RouteRecordRaw>((page) => ({
     path: page.path,
     name: page.name,
@@ -318,7 +324,7 @@ describe('Wave 2 people domain components', () => {
   it('loads movement cases from the live lifecycle collection endpoint', async () => {
     resource.get.mockResolvedValue(listResponse([lifecycleCase]))
 
-    const wrapper = await mountAt('hr/movements/index', '/hr/movements')
+    const wrapper = await mountAt('hr/movements/index', '/hr/movements', ['lifecycle.case.read'])
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/lifecycle/cases', expect.objectContaining({

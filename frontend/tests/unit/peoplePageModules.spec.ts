@@ -40,6 +40,22 @@ const routerSourcePath = resolve(unitDir, '../../src/router/pageComponents.ts')
 // workspaces. The legacy files stay as one-line re-exports so the registry and
 // route integration do not change; they must not regress into PeopleWorkspace.
 const DEDICATED_EMPLOYEE_PAGES: ReadonlyMap<string, { target: string; shape: RegExp }> = new Map([
+  // Volume 3 Task 7: the movement workspace and its detail page are dedicated
+  // implementations; the legacy files are thin re-exports of them.
+  [
+    'MovementListPage.vue',
+    {
+      target: '../../lifecycle/pages/MovementWorkspacePage.vue',
+      shape: /import\s+MovementWorkspacePage\s+from\s+['"]\.\.\/lifecycle\/pages\/MovementWorkspacePage\.vue['"][\s\S]*<MovementWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'MovementDetailPage.vue',
+    {
+      target: '../../lifecycle/pages/MovementDetailPage.vue',
+      shape: /import\s+MovementDetailPage\s+from\s+['"]\.\.\/lifecycle\/pages\/MovementDetailPage\.vue['"][\s\S]*<MovementDetailPage\s*\/>/,
+    },
+  ],
   [
     'EmployeeListPage.vue',
     {
