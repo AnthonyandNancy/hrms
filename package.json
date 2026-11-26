@@ -17,6 +17,7 @@
     "page-model:check": "node scripts/audit_page_model.mjs",
     "ui-primitives:check": "node scripts/audit_ui_primitives.mjs",
     "copy:check": "node scripts/audit_user_copy.mjs",
+    "single-company:check": "node scripts/audit_single_company.mjs",
     "openapi:lint": "node deploy/scripts/openapi-lint.mjs",
     "openapi:generate": "node scripts/frontend-workspace.mjs openapi:generate",
     "openapi:validate": "redocly lint --config .redocly.yaml docs/openapi/openapi.yaml",
