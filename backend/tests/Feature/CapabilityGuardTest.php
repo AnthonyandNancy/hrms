@@ -59,14 +59,14 @@ final class CapabilityGuardTest extends TestCase
             ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create(['capability_code' => 'platform.feature.manage']);
 
         // Production authority changes bump auth_version, which invalidates
         // the binding cache; mirror that invariant here.
         $user->forceFill(['auth_version' => 2])->save();
-        $principal = new TestPrincipal(1, (int) $user->id, null, 2);
+        $principal = new TestPrincipal((int) $user->id, null, 2);
         $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
         $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
         $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
