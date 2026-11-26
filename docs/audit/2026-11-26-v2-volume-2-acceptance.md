@@ -12,7 +12,7 @@
 | 后端 PHPStan | **PASS** | `[OK] No errors` |
 | capability:audit | **PASS** | `Public routes (explicit allowlist): 6` / `Capability audit OK.` |
 | arch:test | **PASS** | `Module boundaries OK.`（4 条既有非阻断警告） |
-| 单公司严格扫描 | **PASS** | `NoTenantNoLegalEntityTest` `OK (4 tests, 6 assertions)`；生产代码 0 命中（仅预检命令 2 行显式标记） |
+| 单公司严格扫描 | **PASS** | `NoTenantNoLegalEntityTest` `OK (4 tests, 6 assertions)`，在 worktree `backend/` 目录内执行；生产代码 0 命中（仅预检命令 2 行显式标记）。**注意**：若在该目录之外用相对路径调用 `vendor/bin/phpunit`，PHPUnit 会解析到主检出的配置并扫描另一份代码树，得到假红；复跑必须 `cd backend` 或显式 `--configuration backend/phpunit.xml`。 |
 | 前端 typecheck | **PASS** | `vue-tsc -b` 无输出 |
 | 前端 lint | **PASS** | `eslint . --max-warnings=0` |
 | 前端单测 | **PASS** | `50 files / 348 tests` |
@@ -28,7 +28,7 @@
 - 预检（迁移前）：`connection=mysql`，156 张表，171 个 `tenant_id`/`legal_entity_id` 列实例（与独立 SQL 计数一致），`company_profile=1`，`data_disposition=REBUILD`。
 - `migrate:fresh --force`：**exit 0**，56 个迁移全部 DONE，含 `000300 migrate_legal_entity_bindings_to_company` 与 `000320 drop_tenant_and_legal_entity_columns`。
 - 预检（迁移后）：`connection=mysql`，**155 张表，0 个旧列实例，`legal_entities` 已不存在，`company_profile=1`**。
-- 迁移套件（MySQL 8.4 上直跑）：`OK (7 tests, 639 assertions)`。
+- 迁移套件（MySQL 8.4 上直跑）：`OK (7 tests, 639 assertions)`；同一套件在 SQLite 内存库上是 `OK (7 tests, 327 assertions)`。断言数差异来自 MySQL 上额外的 schema/index 断言，两者都是通过。
 - 恢复校验：把演练库 dump 后还原到独立库 `factoryhr_restore_check`，得到 **155 张表、0 个旧列**，说明备份→还原路径可用。
 
 演练中发现并修复的真实缺陷：`company:preflight` 的 `Schema::getTables()` 在 MySQL 上未限定 schema，会把同实例内的其他数据库（例如恢复副本）当成自己的表来计数，导致删列后仍报 `legal_entities` 不存在。修复为按连接 schema 过滤（SQLite 走 `main` 分支）。
