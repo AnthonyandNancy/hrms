@@ -218,9 +218,9 @@ public function test_same_decision_is_idempotent_and_conflicting_decision_is_rej
     $case = $this->pendingCaseFor($this->manager());
     $key = 'decision-'.Str::uuid();
 
-    $this->actingAs($this->manager())->postJson("/v1/workflow/cases/{$case->id}/decision", ['decision' => 'APPROVE'], ['Idempotency-Key' => $key])->assertOk();
-    $this->actingAs($this->manager())->postJson("/v1/workflow/cases/{$case->id}/decision", ['decision' => 'APPROVE'], ['Idempotency-Key' => $key])->assertOk();
-    $this->actingAs($this->manager())->postJson("/v1/workflow/cases/{$case->id}/decision", ['decision' => 'REJECT'], ['Idempotency-Key' => 'other'])->assertStatus(409);
+    $this->actingAs($this->manager())->postJson("/v1/cases/{$case->id}/decisions", ['decision' => 'APPROVE'], ['Idempotency-Key' => $key])->assertOk();
+    $this->actingAs($this->manager())->postJson("/v1/cases/{$case->id}/decisions", ['decision' => 'APPROVE'], ['Idempotency-Key' => $key])->assertOk();
+    $this->actingAs($this->manager())->postJson("/v1/cases/{$case->id}/decisions", ['decision' => 'REJECT'], ['Idempotency-Key' => 'other'])->assertStatus(409);
 }
 ```
 
@@ -247,7 +247,8 @@ test('manager approves a leave case and it leaves pending list', async ({ page }
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=WorkflowCenterTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/workflow-center.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/workflow-center.spec.ts
 ```
 
 Expected: 批准/驳回/撤回/委派/重复决策通过；越权 403。
@@ -311,7 +312,8 @@ test('employee sees only self service entries', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=SelfServiceWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/self-service.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/self-service.spec.ts
 ```
 
 Expected: 仅本人数据；无后台菜单；敏感字段不返回。
@@ -345,12 +347,24 @@ git commit -m "feat(platform): rebuild self-service portal"
 ```php
 public function test_calendar_publish_uses_single_company_profile_without_legal_entity(): void
 {
-    $this->actingAs($this->settingsAdmin())
-        ->postJson('/v1/system/calendars/publish', ['year' => 2027])
-        ->assertOk()
-        ->assertJsonPath('data.company_id', 1);
+    // SettingsWorkspaceTest extends TimeHttpTestCase and uses its real actor seam.
+    // Add settingsAdmin(): TimeActor (SYSTEM_ADMIN with time.calendar.manage)
+    // plus `use Illuminate\Support\Facades\Schema;` to that test class.
+    $this->actAsHttp($this->settingsAdmin());
 
-    $this->assertDatabaseMissing('legal_entities', ['id' => 1]);
+    // V2 Task 4 removes the path parameter; the body keeps the real
+    // CalendarPublishRequest shape (timezone/workweek are required).
+    $this->postJson('/v1/system/calendars/publish', [
+        'timezone' => 'Asia/Shanghai',
+        'workweek' => [1, 2, 3, 4, 5],
+        'standard_day_minutes' => 480,
+        'holidays' => [],
+    ], ['Idempotency-Key' => 'calendar-publish-single-company'])
+        ->assertOk()
+        ->assertJsonPath('data.timezone', 'Asia/Shanghai')
+        ->assertJsonMissingPath('data.legal_entity_id');
+
+    $this->assertFalse(Schema::hasTable('legal_entities'));
 }
 ```
 
@@ -367,7 +381,8 @@ public function test_calendar_publish_uses_single_company_profile_without_legal_
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=SettingsWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/settings-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/settings-workspace.spec.ts
 ```
 
 Expected: 单公司日历、字典/参数/福利闭环；无旧概念。
@@ -431,7 +446,8 @@ test('audit admin filters permission change events', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=NotificationAuditTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/notification-audit.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/notification-audit.spec.ts
 ```
 
 Expected: 审计权限隔离；通知与审计可检索；无内部代码外露。
@@ -562,6 +578,7 @@ pnpm test:unit
 node scripts/audit_page_components.mjs
 node scripts/audit_frontend_modules.mjs
 node scripts/audit_action_manifest.mjs
+node scripts/audit_single_company.mjs
 node scripts/audit_page_model.mjs
 node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs
@@ -577,6 +594,8 @@ Expected: 全部通过；若某个旧页面仍失败，修复或记录阻断，�
 把新增门禁追加到第 9 条：
 
 ```bash
+node scripts/audit_single_company.mjs
+node scripts/audit_action_manifest.mjs
 node scripts/audit_page_model.mjs
 node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs
@@ -620,12 +639,14 @@ git commit -m "test(gates): record full V2.1 gate run"
 set -euo pipefail
 
 : "${HRMS_FRONTEND_URL:?set HRMS_FRONTEND_URL}"
-: "${HRMS_DEMO_PASSWORD:?set HRMS_DEMO_PASSWORD}"
+: "${DEMO_SEED_PASSWORD:?set DEMO_SEED_PASSWORD (docker_up.sh contract, >=12 chars)}"
 
+export DEMO_SEED_PASSWORD="${DEMO_SEED_PASSWORD}"
+export HRMS_DEMO_PASSWORD="${DEMO_SEED_PASSWORD}"
 bash deploy/scripts/docker_up.sh --demo
 bash deploy/scripts/verify_real_stack.sh --base-url "${HRMS_FRONTEND_URL}"
 cd frontend
-pnpm exec playwright test tests/e2e/real/v2-uat.spec.ts
+pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/v2-uat.spec.ts
 ```
 
 脚本必须失败即停；不得用 `|| true` 吞掉失败。
@@ -656,7 +677,7 @@ UAT 种子至少包含：
 
 ```bash
 HRMS_FRONTEND_URL=http://127.0.0.1:5174 \
-HRMS_DEMO_PASSWORD='<合成测试密码>' \
+DEMO_SEED_PASSWORD='<合成测试密码>' \
 bash deploy/scripts/v2_real_stack_uat.sh
 ```
 
@@ -697,18 +718,37 @@ git commit -m "test(deploy): add real-stack five-role UAT"
 ```js
 #!/usr/bin/env node
 const base = process.env.HRMS_API_URL ?? 'http://127.0.0.1:8080'
-const token = process.env.HRMS_TOKEN
-if (!token) throw new Error('set HRMS_TOKEN')
+// OpenAPI declares sessionCookie + csrfHeader, not bearer tokens.
+const cookie = process.env.HRMS_SESSION_COOKIE
+const csrf = process.env.HRMS_CSRF_TOKEN
+if (!cookie || !csrf) throw new Error('set HRMS_SESSION_COOKIE and HRMS_CSRF_TOKEN')
 
 const scenarios = [
-  { name: 'employee-list-page-1', url: '/v1/employees?page=1&page_size=20' },
-  { name: 'report-export', url: '/v1/reporting/headcount/export' },
+  { name: 'employee-list-page-1', url: '/v1/employees?page=1&page_size=20', method: 'GET' },
+  { name: 'report-export', url: '/v1/reporting/exports', method: 'POST',
+    body: JSON.stringify({
+      reportCode: 'WORKFORCE_HEADCOUNT',
+      purpose: 'BUSINESS_OPERATION',
+      fields: ['employee_no', 'org_path'],
+    }) },
 ]
 
 for (const scenario of scenarios) {
   const started = performance.now()
-  const response = await fetch(`${base}${scenario.url}`, { headers: { Authorization: `Bearer ${token}` } })
+  const response = await fetch(`${base}${scenario.url}`, {
+    method: scenario.method,
+    headers: {
+      Accept: 'application/json',
+      Cookie: cookie,
+      'X-CSRF-Token': csrf,
+      ...(scenario.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(scenario.body === undefined ? {} : { body: scenario.body }),
+  })
   const elapsed = Math.round(performance.now() - started)
+  if (scenario.name === 'report-export' && response.status !== 202) {
+    throw new Error(`report-export expected 202, got ${response.status}`)
+  }
   console.log(JSON.stringify({ scenario: scenario.name, status: response.status, ms: elapsed }))
 }
 ```
@@ -716,7 +756,10 @@ for (const scenario of scenarios) {
 - [ ] **Step 2: 运行性能基线**
 
 ```bash
-HRMS_API_URL=http://127.0.0.1:8080 HRMS_TOKEN='<合成令牌>' node deploy/scripts/v2_load_probe.mjs
+HRMS_API_URL=http://127.0.0.1:8080 \
+HRMS_SESSION_COOKIE='hrms_session=<真实会话>' \
+HRMS_CSRF_TOKEN='<真实 CSRF>' \
+node deploy/scripts/v2_load_probe.mjs
 ```
 
 记录：
@@ -867,9 +910,9 @@ git commit -m "test(ops): prove backup, restore and rollback for V2.1"
 
 结论必须由 Task 8–11 输出支撑；不得以计划完成代替验收。
 
-- [ ] **Step 3: 更新 ADR 状态**
+- [ ] **Step 3: 核对 ADR 状态**
 
-将 ADR-0035–0038 的 `Status: Proposed` 改为 `Accepted`，并写明确认日期与用户签认记录。ADR-0025 修订记录保留。
+ADR-0035–0038 已在第 1 册 Task 1 由用户批准并标记 `Accepted`。此处只核对状态与签认记录仍存在，不得把 Accepted 降回 Proposed，也不得等到发布才接受不可逆决策。ADR-0025 修订记录保留。
 
 - [ ] **Step 4: 更新总控与文档索引**
 
@@ -879,7 +922,7 @@ git commit -m "test(ops): prove backup, restore and rollback for V2.1"
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact && ../.tools/php/php.exe artisan capability:audit && ../.tools/php/php.exe artisan arch:test
-cd .. && pnpm typecheck && pnpm lint && pnpm test:unit && node scripts/audit_page_model.mjs && node scripts/audit_ui_primitives.mjs && node scripts/audit_user_copy.mjs && node scripts/audit_action_manifest.mjs
+cd .. && pnpm typecheck && pnpm lint && pnpm test:unit && node scripts/audit_single_company.mjs && node scripts/audit_page_model.mjs && node scripts/audit_ui_primitives.mjs && node scripts/audit_user_copy.mjs && node scripts/audit_action_manifest.mjs
 ```
 
 Expected: 全部通过；任何失败都把最终结论改为 NO-GO 并列出阻断项。
@@ -887,7 +930,7 @@ Expected: 全部通过；任何失败都把最终结论改为 NO-GO 并列出阻
 - [ ] **Step 6: Commit**
 
 ```bash
-git add docs/runbooks/2026-11-26-v2-release-checklist.md docs/audit/2026-11-26-v2-final-acceptance.md docs/superpowers/plans/2026-11-26-v2-1-remediation-master-plan.md docs/README.md docs/adr/0035-page-view-action-boundaries.md docs/adr/0036-action-manifest-single-source.md docs/adr/0037-single-company-cutover.md docs/adr/0038-password-login-final-posture.md
+git add docs/runbooks/2026-11-26-v2-release-checklist.md docs/audit/2026-11-26-v2-final-acceptance.md docs/superpowers/plans/2026-11-26-v2-1-remediation-master-plan.md docs/README.md
 git commit -m "docs(release): publish V2.1 final acceptance"
 ```
 

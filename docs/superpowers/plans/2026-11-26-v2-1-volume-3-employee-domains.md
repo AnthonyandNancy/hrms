@@ -94,13 +94,19 @@ declare(strict_types=1);
 
 namespace Tests\Feature\People;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Tests\TestCase;
 
-final class CreateEmployeeCommandTest extends TestCase
+final class CreateEmployeeCommandTest extends \Tests\Support\PeopleTestCase
 {
-    use RefreshDatabase;
+    use \Tests\Support\EmployeeDomainScenario;
+
+    /**
+     * EmployeeDomainScenario provides real fixtures; this test class uses them.
+     * Required: hrAdmin(), hrReadOnly(), employee(), employeeIn(int),
+     * deptA(), deptB(), validOnboardPayload(), closePeriod(string),
+     * approvedOvertime(int), annualLeave(), activeCycle(), trainingSession(),
+     * enroll(Employment, object), publishedNoticeFor(int).
+     */
 
     public function test_partial_failure_leaves_no_person_or_employment(): void
     {
@@ -111,10 +117,12 @@ final class CreateEmployeeCommandTest extends TestCase
             'employment_terms' => DB::table('employment_terms')->count(),
         ];
 
-        $this->mock(\App\Modules\People\Contracts\EmploymentTermsWriter::class)
-            ->shouldReceive('create')
-            ->once()
-            ->andThrow(new \RuntimeException('forced terms failure'));
+        // Force the real injected writer's terms step to fail.
+        $this->mock(\App\Modules\People\Contracts\PeopleEmploymentWriter::class)
+            ->shouldReceive('createPerson')->once()->andReturn(9001)
+            ->shouldReceive('createEmployment')->once()->andReturn(9002)
+            ->shouldReceive('createAssignment')->once()->andReturn(9003)
+            ->shouldReceive('appendTerms')->once()->andThrow(new \RuntimeException('forced terms failure'));
 
         $this->actingAs($this->hrAdmin())
             ->postJson('/v1/employees/onboard', $this->validOnboardPayload())
@@ -150,25 +158,34 @@ namespace App\Modules\People\Services;
 
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Modules\People\Commands\CreateEmployee;
+use App\Shared\Authorization\PrincipalResolver;
 use Illuminate\Support\Facades\DB;
 
 final class CreateEmployeeService
 {
-    public function __construct(private readonly PeopleEmploymentWriter $writer) {}
+    public function __construct(
+        private readonly PeopleEmploymentWriter $writer,
+        private readonly PrincipalResolver $principals,
+    ) {}
 
     public function handle(CreateEmployee $command): array
     {
         return DB::transaction(function () use ($command): array {
-            $person = $this->writer->createPerson($command->person);
-            $employment = $this->writer->createEmployment($person->id, $command->employment);
-            $assignment = $this->writer->createAssignment($employment->id, $command->assignment);
-            $terms = $this->writer->createTerms($employment->id, $command->terms);
+            $principal = $this->principals->resolve();
+            $tenantId = $principal->tenantId();
+
+            // The single-company cutover removes tenantId in Volume 2; until then
+            // the writer keeps its tenant-scoped signature.
+            $personId = $this->writer->createPerson($tenantId, $command->person, $principal->userId());
+            $employmentId = $this->writer->createEmployment($tenantId, $command->employment + ['person_id' => $personId], $principal->userId());
+            $assignmentId = $this->writer->createAssignment($tenantId, $employmentId, $command->assignment, $principal->userId());
+            $termsId = $this->writer->appendTerms($tenantId, $employmentId, $command->terms, $principal->userId());
 
             return [
-                'person_id' => $person->id,
-                'employment_id' => $employment->id,
-                'assignment_id' => $assignment->id,
-                'terms_id' => $terms->id,
+                'person_id' => $personId,
+                'employment_id' => $employmentId,
+                'assignment_id' => $assignmentId,
+                'terms_id' => $termsId,
             ];
         });
     }
@@ -255,7 +272,7 @@ git commit -m "feat(people): add atomic employee onboarding command"
 - Test: `frontend/tests/e2e/real/employee-list.spec.ts`
 
 **Interfaces:**
-- Consumes: `GET /v1/employees`、`POST /v1/employees/onboard`、`POST /v1/employees/{id}/archive`、`POST /v1/employees/{id}/restore`、动作清单 `employees.*`。
+- Consumes: `GET /v1/employees`、`POST /v1/employees/onboard`、`DELETE /v1/employees/{employment_id}`（归档）、`POST /v1/employees/{employment_id}/restore`、动作清单 `employees.*`。
 - Produces: 列表筛选、分页、创建抽屉、行操作、归档/恢复确认、详情入口。
 
 - [ ] **Step 1: 写前端失败测试**
@@ -342,7 +359,8 @@ test('HR creates an employee and sees detail', async ({ page }) => {
 ```bash
 cd frontend
 pnpm exec vitest run tests/unit/EmployeeListPage.spec.ts
-pnpm exec playwright test tests/e2e/real/employee-list.spec.ts
+HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/employee-list.spec.ts
 ```
 
 Expected: 单测与 E2E 通过；列表无跨模块 Tab；创建后详情可达。
@@ -368,7 +386,7 @@ git commit -m "feat(people): rebuild employee list workspace"
 - Test: `frontend/tests/e2e/real/employee-detail.spec.ts`
 
 **Interfaces:**
-- Consumes: `GET /v1/employees/{id}`、`GET /v1/employees/{id}/...`、动作清单、字段遮罩。
+- Consumes: `GET /v1/employees/{employment_id}`、`GET /v1/employees/{employmentId}/education|experiences|contacts|certificates|change_requests|imports`、动作清单、字段遮罩。
 - Produces: `/hr/employees/:id` 详情页；`?tab=overview|employment|experience|contacts|credentials|files|changes` 深链；返回列表。
 
 - [ ] **Step 1: 写详情页失败测试**
@@ -442,7 +460,8 @@ test('detail deep link and tab return context', async ({ page }) => {
 ```bash
 cd frontend
 pnpm exec vitest run tests/unit/EmployeeDetailPage.spec.ts
-pnpm exec playwright test tests/e2e/real/employee-detail.spec.ts
+HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/employee-detail.spec.ts
 ```
 
 Expected: 详情与深链通过；详情不出现在侧栏。
@@ -477,11 +496,11 @@ public function test_hr_can_update_education_and_contact_but_read_only_cannot():
 {
     $employee = $this->employee();
     $this->actingAs($this->hrAdmin())
-        ->postJson("/v1/employees/{$employee->id}/education", ['school' => '合成大学', 'degree' => 'BACHELOR'])
+        ->postJson("/v1/employees/{$employee->employment_id}/education", ['school' => '合成大学', 'degree' => 'BACHELOR'])
         ->assertCreated();
 
     $this->actingAs($this->hrReadOnly())
-        ->postJson("/v1/employees/{$employee->id}/education", ['school' => '合成大学', 'degree' => 'BACHELOR'])
+        ->postJson("/v1/employees/{$employee->employment_id}/education", ['school' => '合成大学', 'degree' => 'BACHELOR'])
         ->assertStatus(403);
 }
 ```
@@ -531,7 +550,8 @@ test('HR adds education and downloads an authorized file', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter='EmployeeProfileApiTest|DocumentTest|EmployeeDocument'
-cd ../frontend && pnpm exec playwright test tests/e2e/real/employee-profile.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/employee-profile.spec.ts
 ```
 
 Expected: 子档案写权限正确；附件下载仅授权可见；导出不泄露字段。
@@ -603,7 +623,8 @@ test('org admin creates and edits a department in one workspace', async ({ page 
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=DepartmentWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/department-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/department-workspace.spec.ts
 ```
 
 Expected: 建/改/停用闭环；防环 422；越权 403。
@@ -670,7 +691,8 @@ test('org admin creates a position and views its occupants', async ({ page }) =>
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=PositionWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/position-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/position-workspace.spec.ts
 ```
 
 Expected: 岗位 CRUD、编制、在岗人员通过；占用岗位不可物理删除。
@@ -739,7 +761,8 @@ test('HR creates a transfer and sees approval timeline', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=MovementWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/movement-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/movement-workspace.spec.ts
 ```
 
 Expected: 未审批不生效；审批后生成正确 Effect；时间线可读。
@@ -807,7 +830,8 @@ test('HR creates a contract draft and renews it', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=ContractWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/contract-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/contract-workspace.spec.ts
 ```
 
 Expected: 版本保留、终止日期、到期筛选、权限控制通过。
@@ -843,7 +867,7 @@ public function test_correction_is_rejected_after_period_close(): void
 {
     $this->closePeriod('2026-11');
     $this->actingAs($this->hrAdmin())
-        ->postJson('/v1/attendance/corrections', ['employee_id' => $this->employee()->id, 'date' => '2026-11-15'])
+        ->postJson('/v1/time/attendance/corrections', ['employee_id' => $this->employee()->id, 'date' => '2026-11-15'])
         ->assertStatus(409);
 }
 ```
@@ -872,7 +896,8 @@ test('HR corrects an attendance exception and sees Chinese status', async ({ pag
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=AttendanceWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/attendance-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/attendance-workspace.spec.ts
 ```
 
 Expected: 关账后更正 409；时区正确；异常中文显示。
@@ -940,7 +965,8 @@ test('employee submits leave and sees pending status', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=LeaveWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/leave-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/leave-workspace.spec.ts
 ```
 
 Expected: 余额校验、日期冲突、审批流程、自助范围通过。
@@ -977,7 +1003,7 @@ public function test_overtime_settlement_creates_time_off_ledger_entry(): void
 {
     $overtime = $this->approvedOvertime(hours: 2);
     $this->actingAs($this->hrAdmin())
-        ->postJson("/v1/overtime/{$overtime->id}/settle", ['mode' => 'TIME_OFF'])
+        ->postJson("/v1/overtime/records/{$overtime->id}/settlements", ['mode' => 'TIME_OFF'])
         ->assertOk();
 
     $this->assertDatabaseHas('leave_ledger_entries', ['source' => 'OVERTIME', 'minutes' => 120]);
@@ -1006,7 +1032,8 @@ test('employee submits overtime and sees confirmation status', async ({ page }) 
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=OvertimeTravelWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/overtime-travel.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/overtime-travel.spec.ts
 ```
 
 Expected: 加班调休账本、出差政策、审批权限通过；无租户/法人字段。
@@ -1085,7 +1112,8 @@ test('payroll specialist prepares and reviews a run', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter='PayrollWorkspaceTest|PayrollRunTest|Payslip'
-cd ../frontend && pnpm exec playwright test tests/e2e/real/payroll-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/payroll-workspace.spec.ts
 ```
 
 Expected: 查看/试算/复核/发布/导出权限分离；金额为整数；字段遮罩正确。
@@ -1122,7 +1150,7 @@ public function test_employee_cannot_score_other_employee(): void
     $cycle = $this->activeCycle();
     $other = $this->employeeIn($this->deptB());
     $this->actingAs($this->employee())
-        ->postJson("/v1/performance/cycles/{$cycle->id}/scores", ['employee_id' => $other->id, 'score' => 90])
+        ->postJson('/v1/performance/reviews', ['cycle_id' => $cycle->id, 'employment_id' => $other->employment_id, 'self_rating' => '90'])
         ->assertStatus(403);
 }
 ```
@@ -1151,7 +1179,8 @@ test('manager scores a direct report', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=PerformanceWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/performance-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/performance-workspace.spec.ts
 ```
 
 Expected: 越权评分 403；主管范围正确；结果发布后只读。
@@ -1189,8 +1218,9 @@ public function test_candidate_conversion_is_idempotent_and_atomic(): void
     $candidate = $this->offerAcceptedCandidate();
     $key = 'convert-'.Str::uuid();
 
-    $first = $this->actingAs($this->hrAdmin())->postJson("/v1/candidates/{$candidate->id}/convert", [], ['Idempotency-Key' => $key])->assertCreated();
-    $second = $this->actingAs($this->hrAdmin())->postJson("/v1/candidates/{$candidate->id}/convert", [], ['Idempotency-Key' => $key])->assertCreated();
+    $payload = ['legal_entity_id' => 1, 'org_unit_id' => $this->deptA(), 'employee_no' => 'CONV-SYNTH-0001'];
+    $first = $this->actingAs($this->hrAdmin())->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", $payload, ['Idempotency-Key' => $key])->assertCreated();
+    $second = $this->actingAs($this->hrAdmin())->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", $payload, ['Idempotency-Key' => $key])->assertOk();
 
     $this->assertSame($first->json('data.employment_id'), $second->json('data.employment_id'));
     $this->assertDatabaseCount('persons', 1);
@@ -1221,7 +1251,8 @@ test('HR creates a requisition and moves a candidate to offer', async ({ page })
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=RecruitmentWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/recruitment-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/recruitment-workspace.spec.ts
 ```
 
 Expected: 需求审批、候选人管道、录用幂等、字段权限通过。
@@ -1253,19 +1284,33 @@ git commit -m "feat(talent): rebuild recruiting workspaces"
 - [ ] **Step 1: 写签到与完成测试**
 
 ```php
-public function test_completion_requires_enrollment_and_writes_training_record(): void
+public function test_completion_requires_an_enrollment(): void
 {
     $session = $this->trainingSession();
-    $this->actingAs($this->employee())
-        ->postJson("/v1/training/sessions/{$session->id}/complete")
-        ->assertStatus(403);
+    $employment = $this->employee();
 
-    $this->enroll($this->employee(), $session);
-    $this->actingAs($this->employee())
-        ->postJson("/v1/training/sessions/{$session->id}/complete")
+    // No enrollment -> 404/403, never a silent completion.
+    $this->actingAs($this->hrAdmin())
+        ->postJson("/v1/training/enrollments/999999/complete", [
+            'attended' => true,
+            'completion_result' => 'PASS',
+        ], ['Idempotency-Key' => 'complete-unenrolled'])
+        ->assertStatus(404);
+
+    $enrollment = $this->enroll($employment, $session);
+    $this->actingAs($this->hrAdmin())
+        ->postJson("/v1/training/enrollments/{$enrollment->id}/complete", [
+            'attended' => true,
+            'completion_result' => 'PASS',
+            'score' => 88,
+        ], ['Idempotency-Key' => 'complete-enrolled'])
         ->assertOk();
 
-    $this->assertDatabaseHas('training_records', ['employee_id' => $this->employee()->id]);
+    $this->assertDatabaseHas('training_enrollments', [
+        'id' => $enrollment->id,
+        'status' => 'COMPLETED',
+        'completion_result' => 'PASS',
+    ]);
 }
 ```
 
@@ -1290,7 +1335,8 @@ test('employee enrols in a session and signs in', async ({ page }) => {
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=TrainingWorkspaceTest
-cd ../frontend && pnpm exec playwright test tests/e2e/real/training-workspace.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/training-workspace.spec.ts
 ```
 
 Expected: 报名/签到/完成/档案通过；未报名完成被拒。
@@ -1329,7 +1375,12 @@ git commit -m "feat(talent): rebuild training workspace"
 public function test_report_export_respects_scope_and_field_policy(): void
 {
     $this->actingAs($this->deptManager())
-        ->getJson('/v1/reporting/headcount/export?department_id='.$this->otherDept()->id)
+        ->postJson('/v1/reporting/exports', [
+            'reportCode' => 'WORKFORCE_HEADCOUNT',
+            'purpose' => 'BUSINESS_OPERATION',
+            'fields' => ['employee_no', 'org_path'],
+            'filters' => ['org_unit_id' => $this->deptB()],
+        ], ['Idempotency-Key' => 'export-scope-negative'])
         ->assertStatus(403);
 }
 ```
@@ -1370,7 +1421,8 @@ test('HR views dashboard and exports an authorized report', async ({ page }) => 
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter='ReportingWorkspaceTest|NoticeWorkspaceTest'
-cd ../frontend && pnpm exec playwright test tests/e2e/real/reporting-notice.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/reporting-notice.spec.ts
 ```
 
 Expected: 报表范围/字段/导出正确；公告范围正确；无技术文案。
@@ -1499,7 +1551,7 @@ public function test_workflow_decision_requires_object_scope(): void
 {
     $case = $this->caseInOtherDepartment();
     $this->actingAs($this->manager())
-        ->postJson("/v1/workflow/cases/{$case->id}/decision", ['decision' => 'APPROVE'])
+        ->postJson("/v1/cases/{$case->id}/decisions", ['decision' => 'APPROVE'])
         ->assertStatus(403);
 }
 ```
@@ -1530,7 +1582,8 @@ test('admin can open every platform workspace', async ({ page }) => {
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=PlatformWorkspaceApiTest
 cd ../frontend
 pnpm exec vitest run tests/unit/platformWorkspaces.spec.ts
-pnpm exec playwright test tests/e2e/real/platform-workspaces.spec.ts
+HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/platform-workspaces.spec.ts
 ```
 
 Expected: 12 页面加载、真实保存、越权拒绝、文案门禁通过。若某 API 尚缺，补后端契约，不得用静态数据占位。
@@ -1571,7 +1624,8 @@ test('candidate to employee to payroll cross-domain journey', async ({ page }) =
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact
-cd ../frontend && pnpm typecheck && pnpm lint && pnpm test:unit && pnpm exec playwright test tests/e2e/real/cross-domain.spec.ts
+cd ../frontend && pnpm typecheck && pnpm lint && pnpm test:unit && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/cross-domain.spec.ts
 ```
 
 Expected: 后端全量通过；前端全量通过；跨域 E2E 通过；未通过项阻断第 4 册。

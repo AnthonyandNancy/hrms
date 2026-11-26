@@ -40,16 +40,14 @@
 ### 3.1 页面模型
 
 ```ts
+import type { PageSpec as RegistryPageSpec } from '@/router/registry'
+
 export type PageKind = 'workspace' | 'detail' | 'governance' | 'base'
 export type PageMenu = { group: string; label: string; order: number; icon: string } | null
 
-export type PageSpec = {
-  path: string
-  name: string
-  componentKey: string
-  capability: string
+/** Extends the real registry contract; it must never drop layer/wave/requiredApis/actions/states/e2e/negativeTests/cluster. */
+export type PageSpec = RegistryPageSpec & {
   kind: PageKind
-  menu: PageMenu
   primaryObject?: string
   detailOf?: string
 }
@@ -59,28 +57,31 @@ export function validatePageModel(pages: PageSpec[]): { ok: boolean; errors: str
 
 ### 3.2 动作清单
 
-生成文件：`docs/generated/page-actions.json`
+生成文件：`docs/generated/page-actions.json`（机器契约）与
+`frontend/src/generated/pageActions.ts`（前端构建时消费的冻结 TypeScript 模块；二者由同一命令生成）。
 
 ```json
 {
   "version": 1,
   "pages": {
-    "employees": [
+    "system-users": [
       {
-        "key": "employees.create",
-        "pageCode": "employees",
-        "label": "新增员工",
-        "capability": "people.employee.manage",
-        "api": "POST /v1/employees/onboard",
+        "key": "system-users.create",
+        "pageCode": "system-users",
+        "label": "新增用户",
+        "capability": "iam.user.manage",
+        "api": "POST /v1/users",
         "ui": "primary",
         "confirm": "none",
-        "anchorTypes": ["COMPANY", "ORG_UNIT", "ORG_SUBTREE"],
-        "fieldProfileMax": "P2_SENSITIVE"
+        "anchorTypes": ["ORG_UNIT", "ORG_SUBTREE", "COMPANY"],
+        "fieldProfileMax": "P1_INTERNAL"
       }
     ]
   }
 }
 ```
+
+> 员工建档 `POST /v1/employees/onboard` 是第 3 册新增契约；第 1 册只冻结生成器、输入格式与门禁，不得引用尚未存在的 operation。
 
 命令：`node scripts/generate_action_manifest.mjs`；校验：`node scripts/audit_action_manifest.mjs`。
 
@@ -148,6 +149,7 @@ role_pages（页面进入权）
 - [ ] 该册退出条件有证据文件与命令输出。
 - [ ] 新增/修改的 ADR 已评审并接受。
 - [ ] 相关门禁全绿；未执行项标 `NOT RUN` 且有阻断说明。
+- [ ] **唯一例外（命名且归属到关闭册）：** 第 1 册退出时，`NoTenantNoLegalEntityTest` 与三个存量页面门禁（`page-model:check`、`ui-primitives:check`、`copy:check`）可以对旧代码失败，但必须有逐条归属并在第 2/3 册退出时清零。除此之外不得带失败退出。
 - [ ] 代码评审无未关闭 Critical/Important 项。
 - [ ] 文档、OpenAPI、页面清单、权限矩阵与实现一致。
 - [ ] 进度记录写入 `.superpowers/sdd/progress.md` 或等价持久账本。
@@ -174,6 +176,7 @@ pnpm test:unit
 node scripts/audit_page_components.mjs
 node scripts/audit_frontend_modules.mjs
 node scripts/audit_action_manifest.mjs
+node scripts/audit_single_company.mjs
 node scripts/audit_page_model.mjs
 node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs
