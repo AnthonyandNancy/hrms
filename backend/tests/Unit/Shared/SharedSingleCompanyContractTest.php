@@ -26,7 +26,6 @@ use App\Shared\Projections\ProjectionRequest;
 use App\Shared\RequestContext;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\CompanyBusinessDate;
-use App\Shared\Time\TenantBusinessDate;
 use FilesystemIterator;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -139,7 +138,7 @@ final class SharedSingleCompanyContractTest extends TestCase
     public function test_company_business_date_replaces_the_tenant_business_date(): void
     {
         $this->assertTrue(class_exists(CompanyBusinessDate::class));
-        $this->assertFalse(class_exists(TenantBusinessDate::class));
+        $this->assertFileDoesNotExist(dirname(__DIR__, 3).'/app/Shared/Time/TenantBusinessDate.php');
 
         $this->assertMethod(CompanyBusinessDate::class, 'today', [], BusinessDate::class);
         $this->assertMethod(CompanyBusinessDate::class, 'resolve', ['value', 'field'], BusinessDate::class);
