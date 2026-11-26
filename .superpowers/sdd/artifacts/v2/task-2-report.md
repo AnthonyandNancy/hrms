@@ -6,7 +6,7 @@
 
 - Worktree: `D:/code/ai/factoryHR/.worktrees/v2.1-remediation`
 - Branch: `feat/v2.1-remediation`
-- Commit: to be filled after explicit-path commit
+- Commit: `7ae663e5581c21b5611c8acc2be2bcc785ef5542`
 - Subject: `feat(db): cut the schema over to a single-company model`
 
 ## Delivered
