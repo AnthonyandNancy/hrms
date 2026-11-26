@@ -721,8 +721,27 @@ export type ExportJob = {
   fileName: string
 }
 
+export type PermissionPage = {
+  page_code: string
+  path: string
+  menu_group?: string
+  menu_label?: string
+  required_capability?: string
+}
+
+export type PermissionsProjection = {
+  pages: PermissionPage[]
+  menus: unknown[]
+  actions: string[]
+  field_capabilities: string[]
+  scope_labels: Array<{ anchor_type: string; label: string }>
+  auth_version: number
+  wildcard: boolean
+}
+
 export type AuthApi = {
   bootstrap(): Promise<SessionBootstrap>
+  permissions(): Promise<PermissionsProjection>
   login(payload: LoginRequest): Promise<LoginResult>
   verifyTotp(payload: TotpRequest): Promise<SessionBootstrap>
   logout(): Promise<void>

@@ -50,15 +50,32 @@ final class UserAdminController
 
         $query = User::query()->where('tenant_id', $principal->tenantId())->orderBy('id');
         $total = (int) (clone $query)->count();
-        $items = $query->forPage($page, $pageSize)->get()->map(fn (User $user): array => [
-            'id' => (int) $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'status' => $user->status,
-            'is_privileged' => (bool) $user->is_privileged,
-            'mfa_enrolled' => $user->hasConfirmedMfa(),
-            'auth_version' => (int) $user->auth_version,
-        ])->all();
+        $now = $this->clock->now();
+        $items = $query->forPage($page, $pageSize)->get()->map(function (User $user) use ($now): array {
+            $roles = UserRole::query()
+                ->where('user_id', (int) $user->id)
+                ->where('auth_version', (int) $user->auth_version)
+                ->where('valid_from', '<=', $now)
+                ->where('valid_to', '>', $now)
+                ->orderBy('role_code')
+                ->get()
+                ->map(static fn (UserRole $role): array => [
+                    'role_code' => (string) $role->role_code,
+                    'valid_from' => $role->valid_from?->toIso8601ZuluString(),
+                    'valid_to' => $role->valid_to?->toIso8601ZuluString(),
+                ])->all();
+
+            return [
+                'id' => (int) $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'status' => $user->status,
+                'is_privileged' => (bool) $user->is_privileged,
+                'mfa_enrolled' => $user->hasConfirmedMfa(),
+                'auth_version' => (int) $user->auth_version,
+                'roles' => $roles,
+            ];
+        })->all();
 
         return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
     }
@@ -265,6 +282,59 @@ final class UserAdminController
         return ApiResponse::created($payload);
     }
 
+    public function revokeRole(Request $request, int $id, string $roleCode): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
+        ]);
+
+        /** @var User|null $target */
+        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+
+        if ($target === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        $roleCode = strtoupper(trim($roleCode));
+
+        DB::transaction(function () use ($target, $roleCode, $principal, $validated, $request): void {
+            $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
+            $currentVersion = (int) $user->auth_version;
+
+            $deleted = UserRole::query()
+                ->where('user_id', (int) $user->id)
+                ->where('role_code', $roleCode)
+                ->where('auth_version', $currentVersion)
+                ->delete();
+
+            if ($deleted === 0) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            // Remove the capability bundle this role granted in this snapshot.
+            AuthorityBinding::query()
+                ->where('principal_id', (int) $user->id)
+                ->where('auth_version', $currentVersion)
+                ->where('purpose_code', 'ROLE_'.$roleCode)
+                ->delete();
+
+            $this->snapshot->replay($user, 'role.revoked');
+            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
+            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.revoked', 'SUCCESS', [
+                'target_user_id' => (int) $user->id,
+                'role_code' => $roleCode,
+                'reason' => (string) $validated['reason'],
+            ], $request);
+        });
+
+        return ApiResponse::ok([
+            'user_id' => (int) $target->id,
+            'role_code' => $roleCode,
+            'revoked' => true,
+        ]);
+    }
+
     /**
      * Role templates can span anchors. Every anchor that requires an id must
      * be supplied explicitly, except COMPANY which may come from the
@@ -277,7 +347,6 @@ final class UserAdminController
     {
         $provided = $request->input('binding_anchors');
         $provided = is_array($provided) ? $provided : [];
-        $legalEntity = $request->header('X-Legal-Entity-Id') ?? $request->input('legal_entity_id');
         $resolved = [];
 
         foreach ($grants as $grant) {
@@ -287,15 +356,13 @@ final class UserAdminController
                 throw new ValidationException(['binding_anchors' => ['A role contains an unknown anchor type.']]);
             }
 
-            if (! $anchor->requiresAnchorId()) {
+            // COMPANY is the whole single-company instance: anchor_id is null,
+            // anchor_key is 0, and no client header can widen or narrow it.
+            if (! $anchor->requiresAnchorId() || $anchor === AnchorType::COMPANY) {
                 continue;
             }
 
             $value = $provided[$anchor->value] ?? null;
-
-            if ($value === null && $anchor === AnchorType::COMPANY && is_numeric($legalEntity)) {
-                $value = (int) $legalEntity;
-            }
 
             if (! is_numeric($value) || (int) $value <= 0) {
                 throw new ValidationException([

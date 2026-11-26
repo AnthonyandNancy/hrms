@@ -8,6 +8,7 @@ import type {
   EmployeeDetail,
   ExportJob,
   LoginRequest,
+  PermissionsProjection,
   SessionBootstrap,
   AdminSnapshot,
 } from '@/api/contracts'
@@ -371,6 +372,11 @@ export function createHttpAdapter(): ApiAdapter {
 
   const auth: AuthApi = {
     bootstrap: loadIdentity,
+    async permissions() {
+      return unwrap<PermissionsProjection>(
+        client.get<ApiEnvelope<PermissionsProjection>>('/me/permissions'),
+      )
+    },
 
     async login(payload: LoginRequest) {
       const response = await client.post<ApiEnvelope<BackendLogin | BackendMfaChallenge>>('/auth/login', {

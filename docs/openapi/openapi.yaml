@@ -3224,6 +3224,59 @@ components:
           type: string
         auth_version:
           type: integer
+    PermissionPreviewEnvelope:
+      type: object
+      required: [code, message, data, request_id]
+      properties:
+        code: { type: string, const: OK }
+        message: { type: string }
+        data:
+          type: object
+          required: [user, roles, pages, actions, denied, wildcard]
+          properties:
+            user:
+              type: object
+              required: [id, username]
+              properties:
+                id: { type: integer }
+                username: { type: string }
+            roles:
+              type: array
+              items: { type: string }
+            pages:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            actions:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            action_codes:
+              type: array
+              items: { type: string }
+            field_capabilities:
+              type: array
+              items: { type: string }
+            scope_labels:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            denied:
+              type: array
+              items:
+                type: object
+                required: [page_code, path, reason]
+                properties:
+                  page_code: { type: string }
+                  path: { type: string }
+                  reason:
+                    type: string
+                    enum: [PAGE_NOT_GRANTED, CAPABILITY_NOT_GRANTED, MENU_HIDDEN]
+            wildcard: { type: boolean }
+        request_id: { type: string }
     RoleCapabilityGrant:
       type: object
       required:
@@ -20614,6 +20667,95 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "419":
           $ref: "#/components/responses/CsrfFailed"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+  /v1/users/{id}/permissions-preview:
+    get:
+      operationId: previewUserPermissions
+      tags:
+        - IAM Administration
+      summary: Preview a user's effective pages, actions and denial reasons
+      description: Uses the same PermissionProjection as /v1/me/permissions.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          description: Effective authorization preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PermissionPreviewEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.user.read
+  /v1/users/{id}/roles/{roleCode}:
+    delete:
+      operationId: revokeRole
+      tags:
+        - IAM Administration
+      summary: Revoke a role from a user and replay the authorization snapshot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: roleCode
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: ^[A-Z][A-Z0-9_]{2,63}$
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 255 }
+      responses:
+        "200":
+          description: Role revoked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [user_id, role_code, revoked]
+                        properties:
+                          user_id: { type: integer }
+                          role_code: { type: string }
+                          revoked: { type: boolean, const: true }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
         "500":

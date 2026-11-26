@@ -101,6 +101,22 @@ return [
             'denials' => ['unauthenticated', 'no_capability', 'mfa_required', 'cross_legal_entity', 'idor', 'csrf_missing', 'stale_auth_version'],
         ],
         [
+            'method' => 'GET',
+            'path' => '/v1/users/{id}/permissions-preview',
+            'capability' => 'iam.user.read',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'mfa_required'],
+        ],
+        [
+            'method' => 'DELETE',
+            'path' => '/v1/users/{id}/roles/{roleCode}',
+            'capability' => 'iam.role.manage',
+            'anchor' => 'COMPANY',
+            'risk' => 'high',
+            'denials' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'mfa_required', 'csrf_missing'],
+        ],
+        [
             'method' => 'POST',
             'path' => '/v1/users/{id}/roles',
             'capability' => 'iam.role.manage',

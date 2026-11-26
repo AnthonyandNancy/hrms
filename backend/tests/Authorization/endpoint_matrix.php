@@ -1195,6 +1195,18 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_legal_entity', 'csrf_missing', 'mfa_required'],
     ],
+    'GET /v1/users/{id}/permissions-preview' => [
+        'capability' => 'iam.user.read',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required'],
+    ],
+    'DELETE /v1/users/{id}/roles/{roleCode}' => [
+        'capability' => 'iam.role.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'out_of_scope_404', 'mfa_required', 'csrf_missing'],
+    ],
     'POST /v1/users/{id}/roles' => [
         'capability' => 'iam.role.manage',
         'anchor' => 'COMPANY',

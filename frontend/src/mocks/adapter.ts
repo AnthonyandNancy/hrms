@@ -35,6 +35,7 @@ import type {
 } from '@/api/contracts'
 import { ApiError } from '@/api/errors'
 import { weekdayLabel } from '@/utils/format'
+import { PAGE_REGISTRY } from '@/router/registry'
 
 /** Fixed seed clock keeps screenshots and tests deterministic. */
 export const MOCK_NOW = '2026-11-23T09:12:00Z'
@@ -2599,6 +2600,27 @@ export function createMockAdapter(options: { delay?: number } = {}): ApiAdapter 
 
   return {
     auth: {
+      permissions: async () => {
+        const capabilities = new Set(currentSession.capabilities)
+        const pages = PAGE_REGISTRY
+          .filter((page) => page.capability === 'public' || capabilities.has(page.capability))
+          .map((page) => ({
+            page_code: page.name,
+            path: page.path,
+            menu_group: page.menu?.group,
+            menu_label: page.menu?.label,
+            required_capability: page.capability,
+          }))
+        return current({
+          pages,
+          menus: [],
+          actions: [...capabilities],
+          field_capabilities: [],
+          scope_labels: [],
+          auth_version: currentSession.principal?.authVersion ?? 1,
+          wildcard: capabilities.has('*'),
+        })
+      },
       bootstrap: () => {
         const restored = readMockRole()
         if (restored) {

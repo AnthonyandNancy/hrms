@@ -260,19 +260,23 @@ describe('registry and module manifest discovery', () => {
 })
 
 describe('real repository page component gate', () => {
-  it('reports the intentional failure with total=160 and mapped=0', () => {
+  it('passes with 160 registry keys mapped to 154 module pages plus 6 base pages', () => {
     const result = spawnSync(process.execPath, [script], {
       cwd: frontendDir,
       encoding: 'utf8',
       env: { ...process.env, NO_COLOR: '1' },
     })
 
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(1)
+    expect(result.status, `${result.stdout}
+${result.stderr}`).toBe(0)
 
     const report = JSON.parse(result.stdout) as {
       ok: boolean
       total: number
       mapped: number
+      moduleMapped: number
+      baseMapped: number
+      mappedIncludingBase: number
       expected: number
       failures: string[]
       missingMappings: string[]
@@ -280,13 +284,15 @@ describe('real repository page component gate', () => {
       staleManifestKeys: string[]
     }
 
-    expect(report.ok).toBe(false)
+    expect(report.ok).toBe(true)
     expect(report.total).toBe(160)
-    expect(report.mapped).toBe(0)
     expect(report.expected).toBe(160)
-    expect(report.failures.length).toBeGreaterThan(0)
-    expect(report.failures.join('\n')).toContain('no page component mapping')
-    expect(report.missingMappings.length).toBeGreaterThan(0)
+    expect(report.mapped).toBe(154)
+    expect(report.moduleMapped).toBe(154)
+    expect(report.baseMapped).toBe(6)
+    expect(report.mappedIncludingBase).toBe(160)
+    expect(report.failures).toEqual([])
+    expect(report.missingMappings).toEqual([])
     expect(report.missingFiles).toEqual([])
     expect(report.staleManifestKeys).toEqual([])
   })

@@ -105,8 +105,12 @@ router.beforeEach(async (to) => {
     return { path: '/workspace' }
   }
   const required = typeof to.meta.capability === 'string' ? to.meta.capability : undefined
+  const pageCode = typeof to.meta.pageCode === 'string' ? to.meta.pageCode : undefined
+  if (pageCode && !session.canPage(pageCode)) {
+    return { name: 'forbidden', query: { from: to.fullPath, reason: 'PAGE_NOT_GRANTED' } }
+  }
   if (required && !session.can(required)) {
-    return { name: 'forbidden', query: { from: to.fullPath } }
+    return { name: 'forbidden', query: { from: to.fullPath, reason: 'ACTION_NOT_GRANTED' } }
   }
   return true
 })

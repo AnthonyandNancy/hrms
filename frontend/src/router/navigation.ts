@@ -118,12 +118,19 @@ function menuGroupKey(menu: MenuSpec): NavigationGroup {
  * capability and is filtered independently. The workspace base entry is the
  * only non-menu item exposed at the top.
  */
-export const NAVIGATION: NavigationItem[] = (() => {
+export function buildNavigation(grantedPageCodes?: readonly { pageCode: string; path: string }[]): NavigationItem[] {
   const groups = new Map<NavigationGroup, NavigationChild[]>()
   const groupOrder = new Map<NavigationGroup, number>()
 
+  const pageSet = grantedPageCodes === undefined
+    ? null
+    : new Set(grantedPageCodes.flatMap((entry) => [entry.pageCode, entry.path]))
+
   for (const page of PAGE_REGISTRY) {
     if (page.menu === null) {
+      continue
+    }
+    if (pageSet !== null && page.capability !== 'public' && !pageSet.has(page.name) && !pageSet.has(page.path)) {
       continue
     }
     const group = menuGroupKey(page.menu)
@@ -166,17 +173,25 @@ export const NAVIGATION: NavigationItem[] = (() => {
         }
       }),
   ]
-})()
+}
+
+export const NAVIGATION: NavigationItem[] = buildNavigation()
 
 export { GROUP_LABEL }
 
-export function visibleNavigation(capabilities: readonly string[]): NavigationItem[] {
+export function visibleNavigation(
+  capabilities: readonly string[],
+  pages?: readonly { pageCode: string; path: string }[],
+): NavigationItem[] {
   const granted = new Set(capabilities)
+  const source = buildNavigation(pages)
 
-  return NAVIGATION.map((item) => ({
-    ...item,
-    children: item.children.filter((child) => granted.has(child.capability)),
-  })).filter((item) => item.children.length > 0 || item.key === 'workspace')
+  return source
+    .map((item) => ({
+      ...item,
+      children: item.children.filter((child) => granted.has(child.capability)),
+    }))
+    .filter((item) => item.children.length > 0 || item.key === 'workspace')
 }
 
 export function can(capabilities: readonly string[], capability: string | undefined): boolean {

@@ -12,6 +12,7 @@ use App\Modules\IAM\Http\Controllers\BreakGlassController;
 use App\Modules\IAM\Http\Controllers\DataScopeAdminController;
 use App\Modules\IAM\Http\Controllers\FieldPolicyAdminController;
 use App\Modules\IAM\Http\Controllers\MeController;
+use App\Modules\IAM\Http\Controllers\PermissionPreviewController;
 use App\Modules\IAM\Http\Controllers\MenuAdminController;
 use App\Modules\IAM\Http\Controllers\MfaController;
 use App\Modules\IAM\Http\Controllers\RoleAdminController;
@@ -118,6 +119,8 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/users', [UserAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,COMPANY'])->name('users.store');
     Route::patch('/users/{id}', [UserAdminController::class, 'update'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,COMPANY'])->name('users.update');
     Route::post('/users/{id}/roles', [UserAdminController::class, 'assignRole'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('users.roles.store');
+    Route::delete('/users/{id}/roles/{roleCode}', [UserAdminController::class, 'revokeRole'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('users.roles.destroy');
+    Route::get('/users/{id}/permissions-preview', PermissionPreviewController::class)->whereNumber('id')->middleware(['mfa.enrolled', 'capability:iam.user.read,COMPANY'])->name('users.permissions-preview');
 
     Route::get('/roles', [AuthorizationAdminController::class, 'roles'])->middleware(['mfa.enrolled', 'capability:iam.role.manage,COMPANY'])->name('roles.index');
     Route::post('/roles', [RoleAdminController::class, 'store'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.role.manage,COMPANY'])->name('roles.store');

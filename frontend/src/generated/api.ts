@@ -4576,6 +4576,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/users/{id}/permissions-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview a user's effective pages, actions and denial reasons
+         * @description Uses the same PermissionProjection as /v1/me/permissions.
+         */
+        get: operations["previewUserPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{id}/roles/{roleCode}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a role from a user and replay the authorization snapshot */
+        delete: operations["revokeRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workflow/templates": {
         parameters: {
             query?: never;
@@ -6010,6 +6047,37 @@ export interface components {
             id: number;
             status: string;
             auth_version: number;
+        };
+        PermissionPreviewEnvelope: {
+            /** @constant */
+            code: "OK";
+            message: string;
+            data: {
+                user: {
+                    id: number;
+                    username: string;
+                };
+                roles: string[];
+                pages: {
+                    [key: string]: unknown;
+                }[];
+                actions: {
+                    [key: string]: unknown;
+                }[];
+                action_codes?: string[];
+                field_capabilities?: string[];
+                scope_labels?: {
+                    [key: string]: unknown;
+                }[];
+                denied: {
+                    page_code: string;
+                    path: string;
+                    /** @enum {string} */
+                    reason: "PAGE_NOT_GRANTED" | "CAPABILITY_NOT_GRANTED" | "MENU_HIDDEN";
+                }[];
+                wildcard: boolean;
+            };
+            request_id: string;
         };
         RoleCapabilityGrant: {
             capability: string;
@@ -18242,6 +18310,78 @@ export interface operations {
                 };
             };
             419: components["responses"]["CsrfFailed"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    previewUserPermissions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Effective authorization preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionPreviewEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokeRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+                roleCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Role revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            user_id: number;
+                            role_code: string;
+                            /** @constant */
+                            revoked: true;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
