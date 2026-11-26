@@ -136,3 +136,4 @@ Task 7: complete (commit 1b6d7d8, reviewer approved). Backlog:
 - Task 2: confirm the follow-up summarizeFailedGates commit is present and the tree is clean.
 - Task 1: confirm refix verdict covers all four ADRs, page-model invariant, MFA narrowing, IAM numbering.
 Task 2: complete (commits 9d14679 + 98c4348). Baseline evidence records: backend 1123 tests / 51283 assertions / 1 expected failure (NoTenantNoLegalEntityTest); frontend unit gate red (pageComponentUniqueness.spec.ts syntax error + stale generated api types) — pre-existing, must be fixed before Volume 1 exit; Docker/real stack NOT RUN.
+Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 with documented baseline: page-model 12 failures, ui-primitives and copy counts recorded in docs/audit/2026-11-26-v2-gate-baseline.md). Not claimed as passing.
