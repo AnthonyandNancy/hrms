@@ -101,11 +101,14 @@ Module boundaries OK.
 The four warnings are the pre-existing Platform dynamic-table warnings
 (`DatabaseMigrationTarget`, `RetentionService` x3), unrelated to this task.
 
-### `vendor/bin/pint --test` — FULL TREE FAIL (94 files), OWNED FILES PASS
+### `vendor/bin/pint --test` — FULL TREE PASS
 
-Full-tree output currently reports 94 style failures, dominated by line-ending
-churn and stale imports in other agents' in-flight files (People/Org/Workflow
-tests, etc.). Scoped to this task's files it is clean:
+```text
+$ ../.tools/php/php.exe -d memory_limit=1G vendor/bin/pint --test
+PASS ... 1171 files
+```
+
+Scoped to this task's files it is also clean:
 
 ```text
 $ ../.tools/php/php.exe -d memory_limit=1G vendor/bin/pint --test app/Shared \
@@ -121,7 +124,8 @@ PASS ... 83 files
 
 ### `vendor/bin/phpstan analyse --no-progress` — FULL TREE FAIL (2 errors), SHARED CLEAN
 
-Full-tree PHPStan completes and reports **2 errors in one file**; **none
+Full-tree PHPStan completes (one pre-existing strict-typing error in
+CapabilityGuardTest) and reports **2 errors in one file**; **none
 reference `app/Shared` or any Shared contract signature**:
 
 ```text
