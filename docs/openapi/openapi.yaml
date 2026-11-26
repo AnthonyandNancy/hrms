@@ -754,7 +754,6 @@ components:
       required:
         - employment_id
         - person_id
-        - legal_entity_id
         - employee_no
         - status
         - current_assignment
@@ -770,8 +769,6 @@ components:
             - "null"
         employee_no:
           type: string
-        legal_entity_id:
-          type: integer
         status:
           type: string
           enum:
@@ -916,14 +913,11 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - type
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parent_id:
           type:
@@ -1006,15 +1000,12 @@ components:
       type: object
       required:
         - person_id
-        - legal_entity_id
         - employee_no
         - employment_type
         - valid_from
         - hire_date
       properties:
         person_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employee_no:
           type: string
@@ -1159,13 +1150,10 @@ components:
     OrgUnitCreate:
       type: object
       required:
-        - legal_entity_id
         - code
         - name
         - type
       properties:
-        legal_entity_id:
-          type: integer
         parent_id:
           type:
             - integer
@@ -1551,7 +1539,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - org_unit_id
         - code
         - title
@@ -1564,8 +1551,6 @@ components:
         - valid_to
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         org_unit_id:
           type:
@@ -1891,7 +1876,6 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - contract_no
         - contract_type
         - start_date
@@ -1910,10 +1894,6 @@ components:
           type: integer
         employment_id:
           type: integer
-        legal_entity_id:
-          type:
-            - integer
-            - "null"
         contract_no:
           type: string
         contract_type:
@@ -2127,15 +2107,12 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - level
         - active
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -2160,7 +2137,6 @@ components:
       required:
         - assignment_id
         - employment_id
-        - legal_entity_id
         - position_id
         - assignment_type
         - is_primary
@@ -2170,8 +2146,6 @@ components:
         assignment_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employee_no:
           type: string
@@ -2398,7 +2372,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - parent_id
         - code
         - name
@@ -2411,8 +2384,6 @@ components:
         - valid_to
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parent_id:
           type:
@@ -2686,13 +2657,12 @@ components:
           type: [string, "null"]
     RecruitmentBoardRow:
       type: object
-      required: [requisition_id, requisition_no, title, status, legal_entity_id, org_unit_id, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, vacancy_count, fill_rate_bps]
+      required: [requisition_id, requisition_no, title, status, org_unit_id, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, vacancy_count, fill_rate_bps]
       properties:
         requisition_id: {type: integer}
         requisition_no: {type: string}
         title: {type: string}
         status: {type: string}
-        legal_entity_id: {type: integer}
         org_unit_id: {type: integer}
         headcount: {type: integer, minimum: 0}
         openings_count: {type: integer, minimum: 0}
@@ -2705,13 +2675,12 @@ components:
         fill_rate_bps: {type: integer, minimum: 0, maximum: 10000}
     RecruitmentBudgetRow:
       type: object
-      required: [requisition_id, requisition_no, title, status, legal_entity_id, headcount, budget_minor, budget_currency, committed_offer_minor, budget_variance_minor, filled_headcount, vacancy_count]
+      required: [requisition_id, requisition_no, title, status, headcount, budget_minor, budget_currency, committed_offer_minor, budget_variance_minor, filled_headcount, vacancy_count]
       properties:
         requisition_id: {type: integer}
         requisition_no: {type: string}
         title: {type: string}
         status: {type: string}
-        legal_entity_id: {type: integer}
         headcount: {type: integer, minimum: 0}
         budget_minor:
           type: [integer, "null"]
@@ -2879,9 +2848,8 @@ components:
           format: date-time
     RecruitmentCandidateConversionRequest:
       type: object
-      required: [legal_entity_id, org_unit_id, employee_no]
+      required: [org_unit_id, employee_no]
       properties:
-        legal_entity_id: {type: integer, minimum: 1}
         org_unit_id: {type: integer, minimum: 1}
         employee_no: {type: string, maxLength: 64}
         hire_date:
@@ -2889,14 +2857,13 @@ components:
           format: date
     RecruitmentCandidateConversion:
       type: object
-      required: [conversion_id, candidate_id, employment_id, person_id, offer_id, legal_entity_id, org_unit_id, employee_no, status, converted_at, business_replayed]
+      required: [conversion_id, candidate_id, employment_id, person_id, offer_id, org_unit_id, employee_no, status, converted_at, business_replayed]
       properties:
         conversion_id: {type: integer}
         candidate_id: {type: integer}
         employment_id: {type: integer}
         person_id: {type: integer}
         offer_id: {type: integer}
-        legal_entity_id: {type: integer}
         org_unit_id: {type: integer}
         employee_no: {type: string}
         status: {type: string}
@@ -2969,7 +2936,7 @@ components:
       type: object
       required:
         - id
-        - tenant_id
+        - company_name
         - username
         - email
         - employment_id
@@ -2977,14 +2944,12 @@ components:
         - has_mfa
         - mfa_verified
         - auth_version
-        - tenant_name
-        - legal_entity_name
         - roles
       properties:
         id:
           type: integer
-        tenant_id:
-          type: integer
+        company_name:
+          type: string
         username:
           type: string
         email:
@@ -3004,10 +2969,6 @@ components:
           type: boolean
         auth_version:
           type: integer
-        tenant_name:
-          type: string
-        legal_entity_name:
-          type: string
         roles:
           type: array
           items:
@@ -4034,7 +3995,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - type
@@ -4045,8 +4005,6 @@ components:
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -4091,7 +4049,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - currency
@@ -4104,8 +4061,6 @@ components:
         - items
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -4174,7 +4129,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - period
         - run_type
         - status
@@ -4183,8 +4137,6 @@ components:
         - created_at
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         period:
           type: string
@@ -4537,7 +4489,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - parameter_set
         - code
         - value_decimal
@@ -4550,8 +4501,6 @@ components:
         - is_demo
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parameter_set:
           type: string
@@ -5148,15 +5097,12 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - effective_from
         - currency
       properties:
         id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         effective_from:
           type: string
@@ -5184,7 +5130,6 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - effective_from
         - currency
         - case_id
@@ -5194,8 +5139,6 @@ components:
         id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         effective_from:
           type: string
@@ -5459,14 +5402,11 @@ components:
       type: object
       required:
         - closure_id
-        - legal_entity_id
         - month
         - status
         - replayed
       properties:
         closure_id:
-          type: integer
-        legal_entity_id:
           type: integer
         month:
           type: string
@@ -5485,7 +5425,7 @@ components:
           type: string
           enum:
             - SHIFT
-            - LEGAL_ENTITY
+            - COMPANY
             - NONE
         count_break:
           type: boolean
@@ -5531,15 +5471,12 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - employment_id
         - business_date
         - shift_template_id
         - created_by
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         employment_id:
           type: integer
@@ -5579,15 +5516,12 @@ components:
       type: object
       required:
         - schedule_id
-        - legal_entity_id
         - employment_id
         - business_date
         - shift_template_id
         - replayed
       properties:
         schedule_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employment_id:
           type: integer
@@ -5602,13 +5536,10 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - month
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         month:
           type: string
@@ -5643,7 +5574,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - adapter
@@ -5651,8 +5581,6 @@ components:
         - active
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -6149,7 +6077,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - city_tier
         - hotel_cap_cents
         - transport_cap_cents
@@ -6158,8 +6085,6 @@ components:
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         city_tier:
           type: string
@@ -6185,7 +6110,6 @@ components:
         - id
         - travel_id
         - employment_id
-        - legal_entity_id
         - category
         - amount_cents
         - currency
@@ -6197,8 +6121,6 @@ components:
         travel_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         category:
           type: string
@@ -6246,8 +6168,8 @@ components:
       type: object
       required: [template, anchor_type, label, active, sort_order, description]
       properties:
-        template: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
-        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
+        template: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN] }
+        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN] }
         label: { type: string }
         active: { type: boolean }
         sort_order: { type: integer, minimum: 0 }
@@ -6306,9 +6228,8 @@ components:
         sent_at: { type: [string, 'null'], format: date-time }
     CalendarVersion:
       type: object
-      required: [legal_entity_id, version, timezone, workweek, standard_day_minutes, holidays]
+      required: [version, timezone, workweek, standard_day_minutes, holidays]
       properties:
-        legal_entity_id: { type: integer }
         version: { type: integer, minimum: 1 }
         timezone: { type: string }
         workweek:
@@ -6522,7 +6443,6 @@ components:
         - id
         - code
         - name
-        - legal_entity_id
         - employer_rate
         - employee_rate
         - effective_from
@@ -6535,10 +6455,6 @@ components:
           type: string
         name:
           type: string
-        legal_entity_id:
-          type:
-            - integer
-            - "null"
         employer_rate:
           type: string
           pattern: '^(0|1)\.[0-9]{6,18}$'
@@ -6562,7 +6478,6 @@ components:
         - id
         - plan_id
         - employment_id
-        - legal_entity_id
         - base_amount_cents
         - employee_rate
         - employer_rate
@@ -6577,8 +6492,6 @@ components:
         plan_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         base_amount_cents:
           type: integer
@@ -6610,7 +6523,6 @@ components:
         - id
         - enrollment_id
         - employment_id
-        - legal_entity_id
         - period
         - base_amount_cents
         - employee_amount_cents
@@ -6624,8 +6536,6 @@ components:
         enrollment_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         period:
           type: string
@@ -7570,11 +7480,6 @@ paths:
           in: query
           schema:
             type: string
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
         - name: page
           in: query
           schema:
@@ -7641,10 +7546,6 @@ paths:
                     - string
                     - "null"
                   format: date
-                legal_entity_id:
-                  type:
-                    - integer
-                    - "null"
       responses:
         "201":
           description: Plan version created
@@ -8408,12 +8309,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -8457,12 +8352,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -8655,12 +8544,6 @@ paths:
       parameters:
         - name: document_id
           in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - name: tenant_id
-          in: query
           required: true
           schema:
             type: integer
@@ -10373,7 +10256,7 @@ paths:
       tags:
         - People
       operationId: createEmployment
-      summary: Create an employment (employee number unique per tenant+legal entity)
+      summary: Create an employment (employee number unique per company)
       description: Requires capability `people.employee.manage`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -10412,11 +10295,6 @@ paths:
       description: Requires capability `people.contract.read`. Row scope is applied before pagination and returned in the standard projection envelope.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
         - name: status
           in: query
           schema:
@@ -10502,11 +10380,6 @@ paths:
           schema:
             type: string
             format: date
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
   /v1/employments/{employmentId}/contracts:
     get:
       operationId: listEmploymentContracts
@@ -10969,7 +10842,7 @@ paths:
   /v1/employments/{employment_id}/transfer:
     post:
       operationId: transferEmploymentLegalEntity
-      summary: Transfer an employment to another legal entity
+      summary: Transfer an employment between organization units
       description: Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
       tags:
         - People
@@ -10987,12 +10860,9 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - employee_no
                 - valid_from
               properties:
-                legal_entity_id:
-                  type: integer
                 employee_no:
                   type: string
                   maxLength: 64
@@ -12314,12 +12184,6 @@ paths:
       summary: List secondment assignments as a live projection
       description: Requires capability `lifecycle.secondment.manage`. Only assignments with assignment_type SECONDMENT are returned.
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: employment_id
           in: query
           required: false
@@ -12850,15 +12714,10 @@ paths:
       tags:
         - Organization
       operationId: getOrgTree
-      summary: As-of organization tree for one legal entity
+      summary: As-of organization tree for the company
       description: Requires capabilities `org.tree.read` and `org.unit.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Org tree page
@@ -13044,12 +12903,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: page
           in: query
           required: false
@@ -13123,12 +12976,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: employment_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-        - name: legal_entity_id
           in: query
           required: false
           schema:
@@ -14827,12 +14674,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -14881,13 +14722,9 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - code
                 - title
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 org_unit_id:
                   type:
                     - integer
@@ -14924,15 +14761,9 @@ paths:
       operationId: listPositionGrades
       tags:
         - Organization
-      summary: List the job-grade catalogue for a legal entity
+      summary: List the job-grade catalogue for the company
       description: Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - $ref: "#/components/parameters/AsOf"
         - name: active
           in: query
@@ -14980,7 +14811,7 @@ paths:
       tags:
         - Organization
       summary: Create or update a job-grade row
-      description: Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+      description: Upsert is keyed by (code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
@@ -14990,14 +14821,10 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - code
                 - name
                 - level
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 code:
                   type: string
                   maxLength: 32
@@ -15942,9 +15769,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [legal_entity_id, org_unit_id, requisition_no, title, headcount]
+              required: [org_unit_id, requisition_no, title, headcount]
               properties:
-                legal_entity_id: {type: integer, minimum: 1}
                 org_unit_id: {type: integer, minimum: 1}
                 requisition_no: {type: string, maxLength: 64}
                 title: {type: string, maxLength: 160}
@@ -17477,19 +17303,11 @@ paths:
       operationId: timeAttendanceClosingsIndex
       tags:
         - Time
-      summary: List attendance period closures for the actor's legal entities
+      summary: List attendance period closures for the company
       description: |
         Read-only list of closed and reopened months with the reopen evidence.
-        Scoped to the actor's legal entities; a `legal_entity_id` outside that
-        scope returns 404. Requires capability `time.attendance.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: page
           in: query
           required: false
@@ -17554,7 +17372,7 @@ paths:
       operationId: closeAttendancePeriod
       tags:
         - Time
-      summary: Close an attendance month for one legal entity
+      summary: Close an attendance month for the company
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -17565,14 +17383,10 @@ paths:
               type: object
               required:
                 - month
-                - legal_entity_id
               properties:
                 month:
                   type: string
                   pattern: ^d{4}-d{2}$
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
       responses:
         "201":
           description: Attendance period closed or already closed
@@ -17742,12 +17556,6 @@ paths:
         legal entities. Requires capability `time.attendance.device.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: active
           in: query
           required: false
@@ -17827,14 +17635,10 @@ paths:
               type: object
               required:
                 - month
-                - legal_entity_id
               properties:
                 month:
                   type: string
                   pattern: ^d{4}-d{2}$
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 employment_id:
                   type:
                     - integer
@@ -17877,13 +17681,6 @@ paths:
         `time.attendance.rule.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          description: Optional legal entity the caller must already be scoped to.
-          schema:
-            type: integer
-            minimum: 1
       responses:
         "200":
           description: Attendance rule versions
@@ -19117,12 +18914,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: "from"
           in: query
           required: false
@@ -19279,8 +19070,6 @@ paths:
                               type: object
                               properties:
                                 id:
-                                  type: integer
-                                legal_entity_id:
                                   type: integer
                                 code:
                                   type: string
@@ -20201,14 +19990,8 @@ paths:
       operationId: listTravelPolicies
       tags:
         - Time
-      summary: List effective-dated travel policy versions for a legal entity
+      summary: List effective-dated travel policy versions for the company
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: city_tier
           in: query
           required: false
@@ -20282,14 +20065,10 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - city_tier
                 - hotel_cap_cents
                 - effective_from
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 city_tier:
                   type: string
                   maxLength: 8
@@ -20758,7 +20537,7 @@ paths:
                     - ORG_SUBTREE
                     - CASE
                     - PAYROLL_RUN
-                    - LEGAL_ENTITY
+                    - COMPANY
                 anchor_id:
                   type:
                     - integer

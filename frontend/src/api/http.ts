@@ -21,22 +21,6 @@ import {
 } from '@/api/normalise'
 
 /**
- * The employer (legal entity) the interface is currently acting for.
- *
- * The reference implementation is single-employer, so this stays 1; it exists
- * as one function so a multi-entity switcher only has to change it in one
- * place instead of editing every scattered `legal_entity_id: 1` literal.
- */
-export function legalEntityId(): number {
-  return 1
-}
-
-/** Headers that scope a request to the current employer. */
-function legalEntityHeaders(): Record<string, string> {
-  return { 'X-Legal-Entity-Id': String(legalEntityId()) }
-}
-
-/**
  * Session-cookie HTTP adapter for the real Laravel backend.
  *
  * The backend is the authorization authority. This adapter attaches the
@@ -73,7 +57,7 @@ type BackendLogin = {
 
 type BackendMe = {
   id: number
-  tenant_id: number
+  company_name: string
   username: string
   email: string | null
   employment_id: number | null
@@ -82,8 +66,6 @@ type BackendMe = {
   mfa_verified: boolean
   auth_version: number
   roles: string[]
-  tenant_name?: string
-  legal_entity_name?: string
 }
 
 type BackendCapabilities = {
@@ -163,7 +145,6 @@ function normaliseEmployeeDetail(row: Record<string, unknown>): EmployeeDetail {
   const terms = (row.terms ?? {}) as Record<string, unknown>
   return {
     ...base,
-    legalEntity: String(row.legal_entity_id ?? ''),
     managerName: '',
     workLocation: String(terms.work_location ?? ''),
     personalEmail: masked('P1_INTERNAL'),
@@ -348,7 +329,6 @@ export function createHttpAdapter(): ApiAdapter {
       authenticated: true,
       principal: {
         userId: me.id,
-        tenantId: me.tenant_id,
         employmentId: me.employment_id,
         displayName: me.username,
         email: me.email ?? '',
@@ -360,8 +340,7 @@ export function createHttpAdapter(): ApiAdapter {
         hasMfa: me.mfa_verified,
         authVersion: me.auth_version,
         tenantTimezone: 'Asia/Shanghai',
-        tenantName: me.tenant_name,
-        legalEntityName: me.legal_entity_name,
+        companyName: me.company_name,
       },
       capabilities,
       csrfToken,
@@ -464,7 +443,6 @@ export function createHttpAdapter(): ApiAdapter {
               org_unit_id: orgId ?? undefined,
               status: status || undefined,
             },
-            headers: legalEntityHeaders(),
           }),
         ).then((data) => {
           const result = data as unknown as {
@@ -484,7 +462,6 @@ export function createHttpAdapter(): ApiAdapter {
         unwrap(
           client.get(`/employees/${id}`, {
             params: { as_of: asOf },
-            headers: legalEntityHeaders(),
           }),
         ).then((data) => normaliseEmployeeDetail(data as unknown as Record<string, unknown>)) as never,
       revealField: () => {
@@ -496,8 +473,7 @@ export function createHttpAdapter(): ApiAdapter {
       getOrgTree: async (asOf) => {
         const data = (await unwrap(
           client.get('/org-units/tree', {
-            params: { as_of: asOf, legal_entity_id: legalEntityId() },
-            headers: legalEntityHeaders(),
+            params: { as_of: asOf },
           }),
         )) as unknown as { items: Array<Record<string, unknown>> }
 
@@ -511,7 +487,6 @@ export function createHttpAdapter(): ApiAdapter {
             code: String(row.code ?? ''),
             name: String(row.name ?? ''),
             type: String(row.type ?? 'DEPARTMENT'),
-            legalEntityId: Number(row.legal_entity_id ?? 0),
             managerName: null,
             headcount: null,
             directHeadcount: null,
@@ -624,11 +599,8 @@ export function createHttpAdapter(): ApiAdapter {
 
     payroll: {
       listRuns: async () => {
-        // The route gate is `capability:payroll.run.read,LEGAL_ENTITY,legal_entity_id`,
-        // so the anchor must travel with every run request.
         const raw = (await unwrap(client.get('/payroll/runs', {
-          params: { page: 1, page_size: 50, legal_entity_id: legalEntityId() },
-          headers: legalEntityHeaders(),
+          params: { page: 1, page_size: 50 },
         }))) as Record<string, unknown>
         const items = Array.isArray(raw.items) ? raw.items : []
 
@@ -637,10 +609,9 @@ export function createHttpAdapter(): ApiAdapter {
       getRun: async (id) => {
         // Employees and reconciliation are separate endpoints; they are
         // fetched together so the detail view never shows a half-loaded run.
-        const headers = legalEntityHeaders()
         const [detail, reconciliation] = await Promise.all([
-          unwrap(client.get(`/payroll/runs/${id}`, { headers })) as Promise<Record<string, unknown>>,
-          (unwrap(client.get(`/payroll/runs/${id}/reconciliation`, { headers })) as Promise<unknown>).catch(() => null),
+          unwrap(client.get(`/payroll/runs/${id}`)) as Promise<Record<string, unknown>>,
+          (unwrap(client.get(`/payroll/runs/${id}/reconciliation`)) as Promise<unknown>).catch(() => null),
         ])
 
         return {
@@ -676,18 +647,15 @@ export function createHttpAdapter(): ApiAdapter {
       // `/me/capabilities` describes the *caller*, so it must never be presented
       // as the tenant capability catalogue.
       getAdminSnapshot: async (tab?: string) => {
-        const params = { legal_entity_id: legalEntityId() }
-        const headers = { 'X-Legal-Entity-Id': String(legalEntityId()) }
-
         const [users, roles, capabilities, accessReview] = await Promise.all([
-          unwrap(client.get('/users', { params: { ...params, page: 1, page_size: 20 }, headers })).catch(() => null),
-          unwrap(client.get('/roles', { params, headers })).catch(() => null),
-          unwrap(client.get('/capabilities', { params, headers })).catch(() => null),
-          unwrap(client.get('/access-review', { params, headers })).catch(() => null),
+          unwrap(client.get('/users', { params: { page: 1, page_size: 20 } })).catch(() => null),
+          unwrap(client.get('/roles')).catch(() => null),
+          unwrap(client.get('/capabilities')).catch(() => null),
+          unwrap(client.get('/access-review')).catch(() => null),
         ])
 
         const audit = tab === 'audit'
-          ? await unwrap(client.get('/auth/events', { params: { ...params, page: 1, page_size: 50 }, headers })).catch(() => null)
+          ? await unwrap(client.get('/auth/events', { params: { page: 1, page_size: 50 } })).catch(() => null)
           : null
 
         const asItems = <T,>(value: unknown): T[] =>
@@ -721,10 +689,7 @@ export function createHttpAdapter(): ApiAdapter {
         } as never
       },
       loadUserBindings: async (userId: number) =>
-        unwrap(client.get(`/users/${userId}/bindings`, {
-          params: { legal_entity_id: legalEntityId() },
-          headers: { 'X-Legal-Entity-Id': String(legalEntityId()) },
-        })).catch(() => null) as never,
+        unwrap(client.get(`/users/${userId}/bindings`)).catch(() => null) as never,
       createBinding: (payload) =>
         unwrap(
           client.post(`/users/${(payload as { userId?: number }).userId ?? 0}/bindings`, payload, {
@@ -738,7 +703,6 @@ export function createHttpAdapter(): ApiAdapter {
         unwrap(
           client.get('/engagement/notices', {
             params: { filter },
-            headers: legalEntityHeaders(),
           }),
         ) as never,
       getNotice: (id) => unwrap(client.get(`/engagement/notices/${id}`)) as never,
@@ -765,7 +729,7 @@ export function createHttpAdapter(): ApiAdapter {
     dashboard: {
       getDashboard: async () => {
         const data = await unwrap<BackendDashboardData>(
-          client.get('/reporting/dashboard', { headers: legalEntityHeaders() }),
+          client.get('/reporting/dashboard'),
         )
 
         return normaliseDashboard(data)
@@ -777,7 +741,7 @@ export function createHttpAdapter(): ApiAdapter {
     reporting: {
       getReportDefinitions: () =>
         unwrap(
-          client.get('/reporting/definitions', { headers: legalEntityHeaders() }),
+          client.get('/reporting/definitions'),
         ) as never,
       runReport: (code, filters) =>
         unwrap(client.post('/reporting/run', { definition_code: code, filters })) as never,

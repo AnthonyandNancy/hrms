@@ -162,7 +162,7 @@ describe('TimePay module page split', () => {
 
     expect(resourceGet).toHaveBeenCalledWith(
       '/travel/policies',
-      expect.objectContaining({ legal_entity_id: 1 }),
+      expect.objectContaining({ page: 1, page_size: 20 }),
     )
     expect(wrapper.get('[data-page="travel-policies"]').text()).toContain('差旅政策')
   })
@@ -175,7 +175,7 @@ describe('TimePay module page split', () => {
 
     expect(resourceGet).toHaveBeenCalledWith(
       '/payroll/runs',
-      expect.objectContaining({ legal_entity_id: 1, page: 1, page_size: 20 }),
+      expect.objectContaining({ page: 1, page_size: 20 }),
     )
     expect(wrapper.get('[data-page="payroll-runs"]').text()).toContain('工资核算批次')
   })

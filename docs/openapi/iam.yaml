@@ -254,10 +254,9 @@ paths:
     get:
       operationId: listUsers
       tags: [IAM Administration]
-      summary: List access subjects in the caller legal entity
+      summary: List access subjects in the company
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
@@ -270,7 +269,6 @@ paths:
       summary: Create an access subject (requires MFA enrollment and fresh step-up)
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
       requestBody:
         required: true
         content:
@@ -296,7 +294,6 @@ paths:
       summary: Change user status; increments auth_version and revokes sessions
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - name: id
           in: path
           required: true
@@ -325,7 +322,6 @@ paths:
       summary: Expand a role template into authority bindings
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - name: id
           in: path
           required: true
@@ -368,10 +364,9 @@ paths:
     get:
       operationId: listRoles
       tags: [IAM Administration]
-      summary: List the ten templates and tenant exception roles
+      summary: List the ten templates and company exception roles
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
       responses:
         '200': { $ref: '#/components/responses/Envelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
@@ -384,7 +379,6 @@ paths:
       description: There is deliberately no create, update or delete endpoint.
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
       responses:
         '200': { $ref: '#/components/responses/Envelope' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
@@ -397,7 +391,6 @@ paths:
       summary: List authority bindings for one access subject
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - name: id
           in: path
           required: true
@@ -413,7 +406,6 @@ paths:
       summary: Create an authority binding (requires fresh MFA step-up)
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - name: id
           in: path
           required: true
@@ -429,7 +421,7 @@ paths:
                 capability_code: { type: string, maxLength: 120 }
                 anchor_type:
                   type: string
-                  enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY]
+                  enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, COMPANY]
                 anchor_id: { type: [integer, 'null'], minimum: 1 }
                 field_profile:
                   type: string
@@ -464,7 +456,6 @@ paths:
       summary: Revoke an authority binding immediately
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - name: id
           in: path
           required: true
@@ -482,7 +473,6 @@ paths:
       summary: Read append-only authentication and authorization events
       parameters:
         - { $ref: '#/components/parameters/CsrfToken' }
-        - { name: X-Legal-Entity-Id, in: header, required: true, schema: { type: integer } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
@@ -659,7 +649,7 @@ components:
       required: [capability, anchor_type, anchor_id, field_profile, purpose_code, valid_from, valid_to]
       properties:
         capability: { type: string }
-        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY] }
+        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, COMPANY] }
         anchor_id: { type: [integer, 'null'] }
         field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
         purpose_code: { type: string }
@@ -700,7 +690,7 @@ components:
                 id: { type: integer }
                 user_id: { type: integer }
                 capability: { type: string }
-                anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, LEGAL_ENTITY] }
+                anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, CASE, PAYROLL_RUN, COMPANY] }
                 anchor_id: { type: [integer, 'null'] }
                 field_profile: { type: string, enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED] }
                 warnings:

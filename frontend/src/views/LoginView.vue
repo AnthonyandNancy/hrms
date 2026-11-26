@@ -25,7 +25,7 @@ const totpSubmitting = ref(false)
 const expiredVisible = ref(route.query.expired === '1')
 
 const mfaRequired = computed(() => session.status === 'mfa_required')
-const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
+const companyLabel = computed(() => session.principal?.companyName ?? 'HRMS')
 
 function clearErrors(): void {
   for (const key of Object.keys(errors)) delete errors[key]
@@ -98,7 +98,7 @@ onMounted(() => {
         <span class="login-brand__mark" aria-hidden="true">澄</span>
         <div>
           <p class="login-brand__name">澄明 HR</p>
-          <p class="login-brand__tenant">{{ tenantLabel }}</p>
+          <p class="login-brand__tenant">{{ companyLabel }}</p>
         </div>
       </div>
 

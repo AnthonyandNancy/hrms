@@ -302,7 +302,6 @@ describe('Wave 4 talent domain components', () => {
       employment_id: 501,
       person_id: 61,
       offer_id: 44,
-      legal_entity_id: 1,
       org_unit_id: 8,
       employee_no: 'CONV-UI-1',
       status: 'COMPLETED',
@@ -318,7 +317,6 @@ describe('Wave 4 talent domain components', () => {
     expect(wrapper.find('[data-testid="offer-accept-submit"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="convert-candidate-id"]').setValue('31')
-    await wrapper.get('[data-testid="convert-legal-entity-id"]').setValue('1')
     await wrapper.get('[data-testid="convert-org-unit-id"]').setValue('8')
     await wrapper.get('[data-testid="convert-employee-no"]').setValue('CONV-UI-1')
     await wrapper.get('form').trigger('submit')
@@ -327,7 +325,6 @@ describe('Wave 4 talent domain components', () => {
     expect(resource.post).toHaveBeenCalledWith(
       '/v1/recruitment/candidates/31/convert',
       {
-        legal_entity_id: 1,
         org_unit_id: 8,
         employee_no: 'CONV-UI-1',
         hire_date: null,
@@ -557,7 +554,6 @@ describe('Wave 4 talent domain components', () => {
       requisition_no: 'REQ-BOARD-1',
       title: 'Synthetic funnel role',
       status: 'APPROVED',
-      legal_entity_id: 1,
       org_unit_id: 3,
       headcount: 2,
       openings_count: 1,
@@ -584,7 +580,6 @@ describe('Wave 4 talent domain components', () => {
         requisition_no: 'REQ-BOARD-1',
         title: 'Synthetic funnel role',
         status: 'APPROVED',
-        legal_entity_id: 1,
         headcount: 2,
         budget_minor: 5000000,
         budget_currency: 'CNY',

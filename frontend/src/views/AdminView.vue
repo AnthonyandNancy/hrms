@@ -448,7 +448,7 @@ onMounted(load)
             <span>锚点类型</span>
             <el-select v-model="bindingForm.anchorType">
               <el-option label="组织单元" value="ORG_UNIT" />
-              <el-option label="法人" value="LEGAL_ENTITY" />
+              <el-option label="公司" value="COMPANY" />
               <el-option label="本人" value="SELF" />
             </el-select>
           </label>

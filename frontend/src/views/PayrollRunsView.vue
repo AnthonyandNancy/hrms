@@ -101,7 +101,6 @@ onMounted(load)
                     <span class="mono">{{ run.runNo }}</span>
                     <span v-if="run.isCorrection" class="plain-chip">更正批次</span>
                   </button>
-                  <span class="run-entity">{{ run.legalEntity }}</span>
                 </td>
                 <td class="tabular">{{ formatMonthLabel(run.period) }}</td>
                 <td>

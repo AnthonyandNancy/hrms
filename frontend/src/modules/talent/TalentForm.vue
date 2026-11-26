@@ -66,7 +66,6 @@ const form = reactive({
   approvalCaseId: '',
   approvalComment: '',
   requisitionTitle: '',
-  legalEntityId: '1',
   orgUnitId: '',
   headcount: '1',
   targetStartDate: '',
@@ -96,7 +95,6 @@ const form = reactive({
   talentPoolReason: '',
   talentPoolRetentionUntil: '',
   convertCandidateId: '',
-  convertLegalEntityId: '1',
   convertOrgUnitId: '1',
   convertEmployeeNo: '',
   convertHireDate: '',
@@ -112,7 +110,6 @@ const form = reactive({
   offerCurrency: 'CNY',
   offerStartDate: '',
   offerId: '',
-  acceptLegalEntityId: '1',
   acceptOrgUnitId: '',
   acceptEmployeeNo: '',
   acceptHireDate: '',
@@ -455,7 +452,6 @@ async function submitRequisition(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       '/v1/recruitment/requisitions',
       {
-        legal_entity_id: numeric(form.legalEntityId),
         org_unit_id: numeric(form.orgUnitId),
         requisition_no: form.requisitionNo.trim(),
         title: form.requisitionTitle.trim(),
@@ -669,7 +665,6 @@ async function submitConvertCandidate(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       `/v1/recruitment/candidates/${candidateId}/convert`,
       {
-        legal_entity_id: numeric(form.convertLegalEntityId),
         org_unit_id: numeric(form.convertOrgUnitId),
         employee_no: form.convertEmployeeNo.trim(),
         hire_date: form.convertHireDate || null,
@@ -741,7 +736,6 @@ async function submitAcceptOffer(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       `/v1/recruitment/offers/${offerId}/accept`,
       {
-        legal_entity_id: numeric(form.acceptLegalEntityId),
         org_unit_id: numeric(form.acceptOrgUnitId),
         employee_no: form.acceptEmployeeNo.trim(),
         hire_date: form.acceptHireDate || null,
@@ -1116,7 +1110,6 @@ async function submitCompletion(): Promise<void> {
     </div>
 
     <form v-else-if="kind === 'requisition-create'" class="talent-form" @submit.prevent="submitRequisition">
-      <label class="talent-field">法人 ID<input v-model="form.legalEntityId" inputmode="numeric" required /></label>
       <label class="talent-field">组织单元 ID<input v-model="form.orgUnitId" inputmode="numeric" required /></label>
       <label class="talent-field">需求编号<input v-model="form.requisitionNo" required maxlength="64" /></label>
       <label class="talent-field">岗位名称<input v-model="form.requisitionTitle" required maxlength="160" /></label>
@@ -1230,7 +1223,6 @@ async function submitCompletion(): Promise<void> {
 
     <form v-else-if="kind === 'candidate-convert'" class="talent-form" @submit.prevent="submitConvertCandidate">
       <label class="talent-field">候选人 ID<input v-model="form.convertCandidateId" data-testid="convert-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
-      <label class="talent-field">法人 ID<input v-model="form.convertLegalEntityId" data-testid="convert-legal-entity-id" inputmode="numeric" required /></label>
       <label class="talent-field">组织单元 ID<input v-model="form.convertOrgUnitId" data-testid="convert-org-unit-id" inputmode="numeric" required /></label>
       <label class="talent-field">员工编号<input v-model="form.convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" required /></label>
       <label class="talent-field">入职日期<input v-model="form.convertHireDate" type="date" /></label>
@@ -1265,7 +1257,6 @@ async function submitCompletion(): Promise<void> {
 
     <form v-else-if="kind === 'offer-accept'" class="talent-form" @submit.prevent="submitAcceptOffer">
       <label class="talent-field">Offer ID<input v-model="form.offerId" :disabled="Boolean(routeId)" :value="routeId ?? form.offerId" inputmode="numeric" required /></label>
-      <label class="talent-field">法人 ID<input v-model="form.acceptLegalEntityId" inputmode="numeric" required /></label>
       <label class="talent-field">组织单元 ID<input v-model="form.acceptOrgUnitId" inputmode="numeric" required /></label>
       <label class="talent-field">员工编号<input v-model="form.acceptEmployeeNo" required maxlength="64" /></label>
       <label class="talent-field">入职日期<input v-model="form.acceptHireDate" type="date" /></label>

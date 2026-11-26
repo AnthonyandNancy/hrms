@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/errors'
 import { resourceDelete, resourceGet, resourcePatch, resourcePost, resourcePut } from '@/api/resourceClient'
-import { legalEntityId } from '@/api/http'
 import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { FIELD_PROFILE_LABEL } from '@/utils/status'
@@ -35,7 +34,6 @@ const props = defineProps<{
 }>()
 const pageError = usePageError()
 const session = useSessionStore()
-const entityId = legalEntityId()
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -158,14 +156,14 @@ const roleForm = reactive({
   reason: '',
   validFrom: '',
   validTo: '',
-  anchorType: 'LEGAL_ENTITY',
+  anchorType: 'COMPANY',
   anchorId: '',
   acknowledgeSodRisk: false,
 })
 
 const bindingForm = reactive({
   capabilityCode: '',
-  anchorType: 'LEGAL_ENTITY',
+  anchorType: 'COMPANY',
   anchorId: '',
   fieldProfile: 'P1_INTERNAL',
   purposeCode: '',
@@ -184,7 +182,7 @@ const roleCreateForm = reactive({
   name: '',
   purpose: '',
   capability: '',
-  anchorType: 'LEGAL_ENTITY',
+  anchorType: 'COMPANY',
   fieldProfile: 'P1_INTERNAL',
   expiresAt: '',
 })
@@ -192,7 +190,7 @@ const roleCreateForm = reactive({
 const roleCapabilityForm = reactive({
   roleCode: '',
   capability: '',
-  anchorType: 'LEGAL_ENTITY',
+  anchorType: 'COMPANY',
   fieldProfile: 'P1_INTERNAL',
 })
 
@@ -225,7 +223,7 @@ const dictionaryForm = reactive({
 
 const parameterForm = reactive({
   key: '',
-  scope: 'TENANT',
+  scope: 'COMPANY',
   value: '',
   sensitive: false,
 })
@@ -880,13 +878,13 @@ async function loadAccount(): Promise<void> {
 }
 
 async function loadUsers(): Promise<void> {
-  const payload = await resourceGet<unknown>('/v1/users', { page: 1, page_size: 50, legal_entity_id: entityId })
+  const payload = await resourceGet<unknown>('/v1/users', { page: 1, page_size: 50 })
   users.value = rowsFrom(payload)
   partial.value = partialFlag(payload)
 }
 
 async function loadRoles(): Promise<void> {
-  const payload = await resourceGet<unknown>('/v1/roles', { legal_entity_id: entityId })
+  const payload = await resourceGet<unknown>('/v1/roles')
   roles.value = rowsFrom(payload, 'roles')
   partial.value = partialFlag(payload)
 }
@@ -938,7 +936,7 @@ async function loadNotificationAdmin(): Promise<void> {
 async function loadPermissions(withCapabilities: boolean): Promise<void> {
   const [permissionPayload, capabilityPayload] = await settleReads([
     resourceGet<unknown>('/v1/me/permissions'),
-    withCapabilities ? resourceGet<unknown>('/v1/capabilities', { legal_entity_id: entityId }) : Promise.resolve(null),
+    withCapabilities ? resourceGet<unknown>('/v1/capabilities') : Promise.resolve(null),
   ])
   permissionsData.value = recordFrom(permissionPayload)
   capabilities.value = rowsFrom(capabilityPayload, 'capabilities')
@@ -963,7 +961,7 @@ async function loadSelfService(): Promise<void> {
 
 async function loadCalendars(): Promise<void> {
   const [calendarPayload, leaveTypePayload] = await settleReads([
-    resourceGet<unknown>(`/v1/time/calendars/${entityId}`, { year: calendarYear.value }),
+    resourceGet<unknown>('/v1/time/calendars', { year: calendarYear.value }),
     resourceGet<unknown>('/v1/time/leave/types'),
   ])
   calendarData.value = recordFrom(calendarPayload)
@@ -983,8 +981,8 @@ async function loadNotifications(): Promise<void> {
 
 async function loadAudit(): Promise<void> {
   const [eventPayload, reviewPayload] = await settleReads([
-    resourceGet<unknown>('/v1/auth/events', { page: 1, page_size: 50, legal_entity_id: entityId }),
-    resourceGet<unknown>('/v1/access-review', { legal_entity_id: entityId }),
+    resourceGet<unknown>('/v1/auth/events', { page: 1, page_size: 50 }),
+    resourceGet<unknown>('/v1/access-review'),
   ])
   auditEvents.value = rowsFrom(eventPayload)
   accessReview.value = recordFrom(reviewPayload)
@@ -1270,7 +1268,7 @@ async function createUser(): Promise<void> {
     const created = recordFrom(
       await resourcePost<unknown>('/v1/users', payload, {
         idempotencyKey: nextIdempotencyKey('user-create'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       }),
     )
     if (created !== null) users.value = [created, ...users.value]
@@ -1298,7 +1296,7 @@ async function loadBindings(): Promise<void> {
   const userId = selectedUser.value ? idText(selectedUser.value.id) : ''
   if (userId === '') return
   try {
-    const payload = await resourceGet<unknown>(`/v1/users/${userId}/bindings`, { legal_entity_id: entityId })
+    const payload = await resourceGet<unknown>(`/v1/users/${userId}/bindings`)
     bindings.value = rowsFrom(payload, 'bindings')
   } catch (reason) {
     failAction(reason)
@@ -1321,7 +1319,7 @@ async function updateUserStatus(): Promise<void> {
         { status: userStatusForm.status, reason: userStatusForm.reason.trim() },
         {
           idempotencyKey: nextIdempotencyKey('user-status'),
-          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+          headers: writeHeaders(),
         },
       ),
     )
@@ -1366,7 +1364,7 @@ async function assignRole(): Promise<void> {
   try {
     await resourcePost<unknown>(`/v1/users/${userId}/roles`, payload, {
       idempotencyKey: nextIdempotencyKey('role-assign'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     successMessage.value = '角色已分配并展开为授权绑定。'
     roleForm.roleCode = ''
@@ -1377,7 +1375,7 @@ async function assignRole(): Promise<void> {
 }
 
 function anchorRequiresId(type: string): boolean {
-  return ['LEGAL_ENTITY', 'ORG_UNIT', 'ORG_SUBTREE', 'CASE', 'PAYROLL_RUN'].includes(type)
+  return ['COMPANY', 'ORG_UNIT', 'ORG_SUBTREE', 'CASE', 'PAYROLL_RUN'].includes(type)
 }
 
 async function createBinding(): Promise<void> {
@@ -1410,7 +1408,7 @@ async function createBinding(): Promise<void> {
   try {
     await resourcePost<unknown>(`/v1/users/${userId}/bindings`, payload, {
       idempotencyKey: nextIdempotencyKey('binding-create'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     successMessage.value = '授权绑定已创建，下一次请求即按新绑定校验。'
     bindingForm.capabilityCode = ''
@@ -1431,7 +1429,7 @@ async function revokeBinding(row: PlatformRow): Promise<void> {
       {},
       {
         idempotencyKey: nextIdempotencyKey('binding-revoke'),
-        headers: writeHeaders({ 'X-HTTP-Method-Override': 'DELETE', 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders({ 'X-HTTP-Method-Override': 'DELETE' }),
       },
     )
     bindings.value = bindings.value.filter((binding) => idText(binding.id) !== bindingId)
@@ -1485,7 +1483,7 @@ async function createDefinition(): Promise<void> {
         },
         {
           idempotencyKey: nextIdempotencyKey('report-definition'),
-          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+          headers: writeHeaders(),
         },
       ),
     )
@@ -1524,7 +1522,7 @@ async function createSubscription(): Promise<void> {
         },
         {
           idempotencyKey: nextIdempotencyKey('report-subscription'),
-          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+          headers: writeHeaders(),
         },
       ),
     )
@@ -1547,7 +1545,7 @@ async function toggleSubscription(row: PlatformRow): Promise<void> {
         { active: row.active !== true },
         {
           idempotencyKey: nextIdempotencyKey('report-subscription-toggle'),
-          headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+          headers: writeHeaders(),
         },
       ),
     )
@@ -1569,7 +1567,7 @@ async function removeSubscription(row: PlatformRow): Promise<void> {
   try {
     await resourceDelete<unknown>(`/v1/reporting/subscriptions/${id}`, {
       idempotencyKey: nextIdempotencyKey('report-subscription-delete'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     subscriptions.value = subscriptions.value.filter((subscription) => idText(subscription.id) !== id)
     successMessage.value = '报表订阅已删除。'
@@ -1656,7 +1654,7 @@ async function createRole(): Promise<void> {
   try {
     await resourcePost<unknown>('/v1/roles', payload, {
       idempotencyKey: nextIdempotencyKey('role-create'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     successMessage.value = '例外角色已创建；能力码仍由代码目录拥有。'
     roleCreateForm.code = ''
@@ -1689,7 +1687,7 @@ async function replaceRoleCapabilities(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('role-capabilities'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '角色能力包已替换并重放给已分配用户。'
@@ -1716,7 +1714,7 @@ async function saveMenuOverride(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('menu-override-create'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '菜单覆盖已保存；只影响展示，不改变能力判定。'
@@ -1733,7 +1731,7 @@ async function removeMenuOverride(row: PlatformRow): Promise<void> {
   try {
     await resourceDelete<unknown>(`/v1/system/menus/${encodeURIComponent(pageCode)}`, {
       idempotencyKey: nextIdempotencyKey('menu-override-delete'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     menuOverrides.value = menuOverrides.value.filter((item) => rowText(item, 'page_code') !== pageCode)
     successMessage.value = '菜单覆盖已删除，页面恢复代码拥有的默认呈现。'
@@ -1758,7 +1756,7 @@ async function saveDataScope(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('data-scope-update'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '数据范围模板已保存；服务端只接受代码白名单模板。'
@@ -1780,7 +1778,7 @@ async function saveFieldPolicy(): Promise<void> {
       { field_profile: fieldPolicyForm.fieldProfile },
       {
         idempotencyKey: nextIdempotencyKey('field-policy-update'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '字段策略已保存；放宽敏感字段档位的请求会被服务端拒绝。'
@@ -1808,7 +1806,7 @@ async function saveDictionary(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('dictionary-create'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '字典项已创建并通过 Platform 服务投影。'
@@ -1843,7 +1841,7 @@ async function saveParameter(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('parameter-upsert'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '参数已保存；敏感值加密存储且只返回遮罩。'
@@ -1870,7 +1868,7 @@ async function createNotificationTemplate(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('notification-template'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '通知模板已创建。'
@@ -1901,7 +1899,7 @@ async function dispatchNotification(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('notification-dispatch'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '通知事件已派发；同一事件键只会产生一条投递记录。'
@@ -1918,7 +1916,7 @@ async function retryDelivery(row: PlatformRow): Promise<void> {
   try {
     await resourcePost<unknown>(`/v1/notifications/deliveries/${deliveryId}/retry`, {}, {
       idempotencyKey: nextIdempotencyKey('notification-retry'),
-      headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+      headers: writeHeaders(),
     })
     successMessage.value = '失败投递已重试并记录新的尝试次数。'
     await loadNotificationAdmin()
@@ -1936,7 +1934,7 @@ async function publishCalendar(): Promise<void> {
   }
   try {
     await resourcePost<unknown>(
-      `/v1/system/calendars/${entityId}/publish`,
+      '/v1/system/calendars/publish',
       {
         timezone: calendarPublishForm.timezone.trim(),
         workweek,
@@ -1951,7 +1949,7 @@ async function publishCalendar(): Promise<void> {
       },
       {
         idempotencyKey: nextIdempotencyKey('calendar-publish'),
-        headers: writeHeaders({ 'X-Legal-Entity-Id': String(entityId) }),
+        headers: writeHeaders(),
       },
     )
     successMessage.value = '工作日历已发布新版本并写入审计。'
@@ -2960,14 +2958,14 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">当前账号</h2>
-              <p class="panel__subtitle">身份、租户与 MFA 状态来自 GET /v1/me。</p>
+              <p class="panel__subtitle">身份、公司与 MFA 状态来自 GET /v1/me。</p>
             </div>
             <span class="plain-chip">{{ meData.has_mfa ? 'MFA 已启用' : 'MFA 未启用' }}</span>
           </div>
           <dl class="panel__body platform-definition-grid">
             <div><dt>用户名</dt><dd>{{ rowText(meData, 'username') }}</dd></div>
             <div><dt>邮箱</dt><dd>{{ rowText(meData, 'email') }}</dd></div>
-            <div><dt>租户</dt><dd>{{ rowText(meData, 'tenant_name') }}</dd></div>
+            <div><dt>公司</dt><dd>{{ rowText(meData, 'company_name') }}</dd></div>
             <div><dt>员工任职</dt><dd>{{ rowText(meData, 'employment_id') }}</dd></div>
             <div><dt>特权账号</dt><dd>{{ meData.is_privileged === true ? '是' : '否' }}</dd></div>
             <div><dt>授权版本</dt><dd>{{ rowText(meData, 'auth_version') }}</dd></div>
@@ -3153,7 +3151,7 @@ watch(selectedExportDefinition, () => {
                 <label class="platform-field">
                   <span>锚点类型</span>
                   <select v-model="roleForm.anchorType">
-                    <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                    <option value="COMPANY">COMPANY</option>
                     <option value="ORG_UNIT">ORG_UNIT</option>
                     <option value="PAYROLL_RUN">PAYROLL_RUN</option>
                     <option value="CASE">CASE</option>
@@ -3211,7 +3209,7 @@ watch(selectedExportDefinition, () => {
                 <label class="platform-field">
                   <span>锚点类型</span>
                   <select v-model="bindingForm.anchorType">
-                    <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                    <option value="COMPANY">COMPANY</option>
                     <option value="ORG_UNIT">ORG_UNIT</option>
                     <option value="ORG_SUBTREE">ORG_SUBTREE</option>
                     <option value="PAYROLL_RUN">PAYROLL_RUN</option>
@@ -3305,7 +3303,7 @@ watch(selectedExportDefinition, () => {
             <label class="platform-field">
               <span>锚点类型</span>
               <select v-model="roleCreateForm.anchorType" data-testid="role-create-anchor">
-                <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                <option value="COMPANY">COMPANY</option>
                 <option value="ORG_UNIT">ORG_UNIT</option>
                 <option value="ORG_SUBTREE">ORG_SUBTREE</option>
                 <option value="SELF">SELF</option>
@@ -3349,7 +3347,7 @@ watch(selectedExportDefinition, () => {
             <label class="platform-field">
               <span>锚点类型</span>
               <select v-model="roleCapabilityForm.anchorType" data-testid="role-capability-anchor">
-                <option value="LEGAL_ENTITY">LEGAL_ENTITY</option>
+                <option value="COMPANY">COMPANY</option>
                 <option value="ORG_UNIT">ORG_UNIT</option>
                 <option value="ORG_SUBTREE">ORG_SUBTREE</option>
                 <option value="SELF">SELF</option>
@@ -3719,7 +3717,7 @@ watch(selectedExportDefinition, () => {
               </label>
               <label class="platform-field">
                 <span>作用域</span>
-                <input v-model="parameterForm.scope" data-testid="parameter-scope" placeholder="TENANT" />
+                <input v-model="parameterForm.scope" data-testid="parameter-scope" placeholder="COMPANY" />
               </label>
               <label class="platform-field platform-field--wide">
                 <span>值（JSON 或纯文本）</span>
@@ -3972,7 +3970,7 @@ watch(selectedExportDefinition, () => {
           <div class="panel__header">
             <div>
               <h2 class="panel__title">工作日历</h2>
-              <p class="panel__subtitle">法人与发布版本来自 Time 模块；默认查询法人 1 的 2026 年版本。</p>
+              <p class="panel__subtitle">公司日历与发布版本来自 Time 模块；默认查询 2026 年版本。</p>
             </div>
             <div class="platform-inline-actions">
               <label class="platform-field platform-field--inline">
@@ -3984,7 +3982,6 @@ watch(selectedExportDefinition, () => {
             </div>
           </div>
           <dl v-if="calendarData" class="panel__body platform-definition-grid">
-            <div><dt>法人</dt><dd>{{ rowText(calendarData, 'legal_entity_id') }}</dd></div>
             <div><dt>年份</dt><dd>{{ rowText(calendarData, 'year') }}</dd></div>
             <div><dt>时区</dt><dd>{{ rowText(calendarData, 'timezone') }}</dd></div>
             <div><dt>标准日分钟</dt><dd>{{ rowText(calendarData, 'standard_day_minutes') }}</dd></div>

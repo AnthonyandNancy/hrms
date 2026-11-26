@@ -80,7 +80,6 @@ export function normalisePayrollRun(raw: Raw): PayrollRunSummary {
     id,
     runNo: str(raw.run_no, `RUN-${period}-${id}`),
     period,
-    legalEntity: str(raw.legal_entity_name, `法人 ${num(raw.legal_entity_id)}`),
     state: str(raw.status, 'DRAFT') as PayrollRunState,
     employeeCount: num(raw.employee_count),
     grossCents: num(raw.gross_cents),

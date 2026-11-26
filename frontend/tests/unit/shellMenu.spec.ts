@@ -30,7 +30,6 @@ const ALL_MENU_PAGES = PAGE_REGISTRY
 
 const PRINCIPAL: Principal = {
   userId: 101,
-  tenantId: 1,
   employmentId: 5001,
   displayName: '林若桐',
   email: 'ruotong.lin@demo.example',

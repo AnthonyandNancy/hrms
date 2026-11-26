@@ -67,7 +67,7 @@ const lastClosureId = ref<number | null>(null)
 const ruleForm = reactive({
   version: '',
   effective_from: todayIsoDate(),
-  late_grace_source: 'SHIFT' as 'SHIFT' | 'LEGAL_ENTITY' | 'NONE',
+  late_grace_source: 'SHIFT' as 'SHIFT' | 'COMPANY' | 'NONE',
   count_break: true,
   overtime_after_scheduled: true,
   incomplete_threshold_minutes: '1',
@@ -143,7 +143,7 @@ async function submitCorrection(): Promise<void> {
 }
 
 function monthPayload(): Record<string, unknown> {
-  return { month: closeForm.month, legal_entity_id: 1 }
+  return { month: closeForm.month }
 }
 
 async function closeMonth(): Promise<void> {
@@ -380,7 +380,7 @@ function dayStatusLabel(status: unknown): string {
           <label>迟到宽限来源
             <select v-model="ruleForm.late_grace_source" data-testid="attendance-rule-late-grace-source">
               <option value="SHIFT">班次</option>
-              <option value="LEGAL_ENTITY">法人</option>
+              <option value="COMPANY">公司</option>
               <option value="NONE">不宽限</option>
             </select>
           </label>

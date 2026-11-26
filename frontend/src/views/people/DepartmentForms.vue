@@ -16,7 +16,6 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [] }>()
 
 type Draft = {
-  legal_entity_id: string
   parent_id: string
   code: string
   name: string
@@ -33,7 +32,6 @@ type Draft = {
 
 const defaults: Record<string, Partial<Draft>> = {
   'department-create': {
-    legal_entity_id: '1',
     parent_id: '',
     code: '',
     name: '',
@@ -80,9 +78,8 @@ function validation(message: string): void {
 async function submit(): Promise<void> {
   formError.value = null
   if (props.form === 'department-create') {
-    const legalEntityId = numeric(draft.legal_entity_id)
-    if (legalEntityId === null || draft.code.trim() === '' || draft.name.trim() === '') {
-      validation('请填写法人编号、部门编码与部门名称。')
+    if (draft.code.trim() === '' || draft.name.trim() === '') {
+      validation('请填写部门编码与部门名称。')
       return
     }
     submitting.value = true
@@ -90,7 +87,6 @@ async function submit(): Promise<void> {
       await postRow(
         '/v1/org-units',
         {
-          legal_entity_id: legalEntityId,
           parent_id: numeric(draft.parent_id),
           code: draft.code.trim(),
           name: draft.name.trim(),
@@ -204,7 +200,6 @@ async function preview(): Promise<void> {
       <form class="people-form" @submit.prevent="submit">
         <div class="people-form__grid">
           <template v-if="form === 'department-create'">
-            <label class="people-field"><span>法人编号 *</span><input v-model="draft.legal_entity_id" data-testid="department-legal-entity" inputmode="numeric" /></label>
             <label class="people-field"><span>上级部门</span><select v-model="draft.parent_id" data-testid="department-parent"><option value="">无（根节点）</option><option v-for="option in departmentOptions" :key="option.id" :value="String(option.id)">{{ option.label }}</option></select></label>
             <label class="people-field"><span>部门编码 *</span><input v-model="draft.code" data-testid="department-code" /></label>
             <label class="people-field"><span>部门名称 *</span><input v-model="draft.name" data-testid="department-name" /></label>

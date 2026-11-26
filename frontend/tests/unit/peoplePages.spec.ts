@@ -34,7 +34,6 @@ const employee = {
   person_id: 9,
   person_name: 'Synthetic Employee',
   employee_no: 'E1001',
-  legal_entity_id: 1,
   status: 'ACTIVE',
   employment_type: 'FULL_TIME',
   valid_from: '2026-01-01',
@@ -53,7 +52,6 @@ const employee = {
 
 const department = {
   id: 10,
-  legal_entity_id: 1,
   parent_id: null,
   code: 'DEP-010',
   name: 'Synthetic Department',
@@ -65,7 +63,6 @@ const department = {
 
 const position = {
   id: 4,
-  legal_entity_id: 1,
   org_unit_id: 10,
   code: 'POS-004',
   title: 'Synthetic Engineer',
@@ -129,7 +126,6 @@ const positionRequirement = {
 
 const positionGrade = {
   id: 71,
-  legal_entity_id: 1,
   code: 'P5',
   name: 'Professional 5',
   level: 5,
@@ -152,7 +148,6 @@ const secondment = {
 const positionStaffRow = {
   assignment_id: 11,
   employment_id: 1,
-  legal_entity_id: 1,
   employee_no: 'E1001',
   person_name: 'Synthetic Employee',
   org_unit_id: 10,
@@ -280,7 +275,7 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/departments/members', '/hr/departments/members')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/org-units/tree', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/org-units/tree', expect.objectContaining({ as_of: expect.any(String) }))
     expect(resource.get).toHaveBeenCalledWith('/v1/departments/10/members', expect.any(Object))
     expect(wrapper.text()).toContain('1')
     expect(wrapper.text()).toContain('PRIMARY')
@@ -292,7 +287,7 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/positions/headcount', '/hr/positions/headcount')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/positions', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions', expect.objectContaining({ as_of: expect.any(String) }))
     expect(wrapper.text()).toContain('POS-004')
     expect(wrapper.text()).toContain('Synthetic Engineer')
     expect(wrapper.text()).toContain('2')
@@ -319,7 +314,7 @@ describe('Wave 2 people domain components', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/employments/contracts', expect.objectContaining({
-      legal_entity_id: 1,
+      as_of: expect.any(String),
       page: 1,
       page_size: 20,
     }))
@@ -499,14 +494,14 @@ describe('Wave 2 people domain components', () => {
     )
   })
 
-  it('reads and upserts the legal-entity grade catalogue without a gap banner', async () => {
+  it('reads and upserts the company grade catalogue without a gap banner', async () => {
     resource.get.mockResolvedValue(projectionResponse([positionGrade]))
     resource.post.mockResolvedValue({ ...positionGrade, level: 6 })
 
     const wrapper = await mountAt('hr/positions/grades', '/hr/positions/grades')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/positions/grades', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions/grades', expect.objectContaining({ as_of: expect.any(String) }))
     expect(wrapper.text()).toContain('P5')
     expect(wrapper.text()).toContain('Professional 5')
     expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
@@ -519,7 +514,7 @@ describe('Wave 2 people domain components', () => {
 
     expect(resource.post).toHaveBeenCalledWith(
       '/v1/positions/grades',
-      expect.objectContaining({ legal_entity_id: 1, code: 'P6', name: 'Professional 6', level: 6, active: true }),
+      expect.objectContaining({ code: 'P6', name: 'Professional 6', level: 6, active: true }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })
@@ -551,7 +546,7 @@ describe('Wave 2 people domain components', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/lifecycle/secondments', expect.objectContaining({
-      legal_entity_id: 1,
+      as_of: expect.any(String),
       page: 1,
       page_size: 20,
     }))

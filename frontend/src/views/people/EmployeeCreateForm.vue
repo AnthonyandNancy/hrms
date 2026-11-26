@@ -10,7 +10,6 @@ const draft = reactive({
   legal_name: '',
   email: '',
   employee_no: '',
-  legal_entity_id: '1',
   org_unit_id: '',
   position_id: '',
   employment_type: 'FULL_TIME',
@@ -37,10 +36,8 @@ function validation(message: string): void {
 async function submit(): Promise<void> {
   formError.value = null
   createdEmploymentId.value = null
-  const legalEntityId = numeric(draft.legal_entity_id)
   const orgUnitId = numeric(draft.org_unit_id)
   if (
-    legalEntityId === null ||
     orgUnitId === null ||
     draft.legal_name.trim() === '' ||
     draft.employee_no.trim() === '' ||
@@ -69,7 +66,6 @@ async function submit(): Promise<void> {
       '/v1/employments',
       {
         person_id: person.id,
-        legal_entity_id: legalEntityId,
         employee_no: draft.employee_no.trim(),
         employment_type: draft.employment_type,
         status: draft.status,
@@ -132,7 +128,6 @@ async function submit(): Promise<void> {
           <label class="people-field"><span>姓名 *</span><input v-model="draft.legal_name" data-testid="employee-legal-name" /></label>
           <label class="people-field"><span>邮箱</span><input v-model="draft.email" data-testid="employee-email" type="email" /></label>
           <label class="people-field"><span>工号 *</span><input v-model="draft.employee_no" data-testid="employee-no" /></label>
-          <label class="people-field"><span>法人编号 *</span><input v-model="draft.legal_entity_id" data-testid="employee-legal-entity" inputmode="numeric" /></label>
           <label class="people-field"><span>组织编号 *</span><input v-model="draft.org_unit_id" data-testid="employee-org-unit" inputmode="numeric" /></label>
           <label class="people-field"><span>岗位编号</span><input v-model="draft.position_id" inputmode="numeric" /></label>
           <label class="people-field"><span>用工类型 *</span><select v-model="draft.employment_type" data-testid="employee-type"><option value="FULL_TIME">全职</option><option value="PART_TIME">兼职</option><option value="FIXED_TERM">固定期限</option><option value="INTERN">实习</option><option value="CONTRACTOR">外包/顾问</option></select></label>

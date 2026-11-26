@@ -327,10 +327,6 @@ onMounted(async () => {
             <h3 class="section-title">任职与合同</h3>
             <div class="detail-grid">
               <div class="detail-grid__item">
-                <span class="detail-grid__label">法人</span>
-                <span class="detail-grid__value">{{ detail.legalEntity }}</span>
-              </div>
-              <div class="detail-grid__item">
                 <span class="detail-grid__label">直属经理</span>
                 <span class="detail-grid__value">{{ detail.managerName }}</span>
               </div>

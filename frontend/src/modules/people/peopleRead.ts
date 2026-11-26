@@ -1,5 +1,4 @@
 import { resourceGet } from '@/api/resourceClient'
-import { legalEntityId } from '@/api/http'
 import type { PeopleListResult, PeopleRow } from './types'
 
 export function isRecord(value: unknown): value is PeopleRow {
@@ -70,12 +69,6 @@ export async function readPeopleList(
   }
 
   return { rows: [], total: 0, partial: false }
-}
-
-export const ENTITY_SCOPE = { legal_entity_id: legalEntityId() }
-
-export function employeeParams(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { ...ENTITY_SCOPE, ...extra }
 }
 
 export function numericParam(value: unknown): number | null {

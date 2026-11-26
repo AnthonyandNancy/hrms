@@ -282,7 +282,7 @@ describe('Wave 5 platform and business pages', () => {
           actions: ['iam.permission.read', 'iam.role.manage'],
           field_capabilities: ['P1_INTERNAL', 'P3_RESTRICTED'],
           scope_labels: [
-            { anchor_type: 'LEGAL_ENTITY', label: '本公司/法人' },
+            { anchor_type: 'COMPANY', label: '本公司' },
             { anchor_type: 'SELF', label: '仅本人' },
           ],
           auth_version: 3,
@@ -297,7 +297,7 @@ describe('Wave 5 platform and business pages', () => {
               code: 'iam.permission.read',
               resource: 'iam_permission',
               actions: ['read'],
-              anchor_types: ['LEGAL_ENTITY'],
+              anchor_types: ['COMPANY'],
               field_profile_max: 'P1_INTERNAL',
               risk: 'medium',
               sod_group: null,
@@ -314,11 +314,11 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/me/permissions')
-    expect(resource.get).toHaveBeenCalledWith('/v1/capabilities', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/capabilities')
     expect(wrapper.text()).toContain('系统管理')
     expect(wrapper.text()).toContain('iam.permission.read')
     expect(wrapper.text()).toContain('P3 受限')
-    expect(wrapper.text()).toContain('本公司/法人')
+    expect(wrapper.text()).toContain('本公司')
     expect(wrapper.text()).not.toContain('{"')
   })
 
@@ -367,7 +367,7 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/auth/events', expect.objectContaining({ page: 1 }))
-    expect(resource.get).toHaveBeenCalledWith('/v1/access-review', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/access-review')
     expect(wrapper.text()).toContain('login.success')
     expect(wrapper.text()).toContain('req-event-7')
     expect(wrapper.text()).toContain('iam.audit.read')
@@ -557,10 +557,7 @@ describe('Wave 5 platform and business pages', () => {
     await manage!.trigger('click')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith(
-      '/v1/users/5/bindings',
-      expect.objectContaining({ legal_entity_id: 1 }),
-    )
+    expect(resource.get).toHaveBeenCalledWith('/v1/users/5/bindings')
 
     await wrapper.get('[data-testid="user-status"]').setValue('LOCKED')
     await wrapper.get('[data-testid="user-status-reason"]').setValue('Synthetic security review')
@@ -571,7 +568,6 @@ describe('Wave 5 platform and business pages', () => {
       '/v1/users/5',
       { status: 'LOCKED', reason: 'Synthetic security review' },
       expect.objectContaining({
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
         idempotencyKey: expect.any(String),
       }),
     )
@@ -602,7 +598,7 @@ describe('Wave 5 platform and business pages', () => {
           purpose: 'Synthetic role purpose',
           expires_at: null,
           capabilities: [
-            { capability: 'people.employee.read', anchor_type: 'LEGAL_ENTITY', field_profile: 'P1_INTERNAL' },
+            { capability: 'people.employee.read', anchor_type: 'COMPANY', field_profile: 'P1_INTERNAL' },
           ],
         },
       ],
@@ -619,7 +615,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('system/system-roles', '/system/system-roles')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/roles', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/roles')
     expect(wrapper.text()).toContain('HR Specialist')
 
     await wrapper.get('[data-testid="role-create-code"]').setValue('TEMP_REPORT_VIEWER')
@@ -635,22 +631,20 @@ describe('Wave 5 platform and business pages', () => {
         code: 'TEMP_REPORT_VIEWER',
         purpose: 'Synthetic quarterly reporting access.',
         capabilities: [
-          { capability: 'reporting.export', anchor_type: 'LEGAL_ENTITY', field_profile: 'P1_INTERNAL' },
+          { capability: 'reporting.export', anchor_type: 'COMPANY', field_profile: 'P1_INTERNAL' },
         ],
       }),
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('例外角色已创建')
   })
 
-  it('loads the legal-entity calendar for 2026 and the real leave-type catalog', async () => {
+  it('loads the company calendar for 2026 and the real leave-type catalog', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/calendars/1') {
+      if (path === '/v1/time/calendars') {
         return Promise.resolve({
-          legal_entity_id: 1,
           year: 2026,
           timezone: 'Asia/Shanghai',
           workweek: [1, 2, 3, 4, 5],
@@ -685,7 +679,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('system/system-calendars', '/system/system-calendars')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/time/calendars/1', { year: 2026 })
+    expect(resource.get).toHaveBeenCalledWith('/v1/time/calendars', { year: 2026 })
     expect(resource.get).toHaveBeenCalledWith('/v1/time/leave/types')
     expect(wrapper.text()).toContain('Asia/Shanghai')
     expect(wrapper.text()).toContain('Synthetic National Day')
@@ -930,7 +924,7 @@ describe('Wave 5 platform and business pages', () => {
   it('loads account security state from GET /v1/me and drives MFA plus logout-all writes', async () => {
     resource.get.mockResolvedValue({
       id: 1,
-      tenant_id: 1,
+      company_name: 'Synthetic Manufacturing',
       username: 'synthetic.operator',
       email: 'operator@example.invalid',
       employment_id: 1,
@@ -938,8 +932,6 @@ describe('Wave 5 platform and business pages', () => {
       has_mfa: false,
       mfa_verified: true,
       auth_version: 4,
-      tenant_name: 'Synthetic Manufacturing',
-      legal_entity_name: 'Synthetic Manufacturing',
       roles: ['HR_ADMIN'],
     })
     resource.post.mockImplementation((path: string) => {
@@ -1360,7 +1352,6 @@ describe('Wave 5 platform and business pages', () => {
       '/v1/system/menus/system-roles',
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('菜单覆盖已删除')
@@ -1447,14 +1438,14 @@ describe('Wave 5 platform and business pages', () => {
       if (path === '/v1/system/parameters') {
         return Promise.resolve(
           listResponse([
-            { id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true },
+            { id: 4, key: 'mail.password', scope: 'COMPANY', value: null, sensitive: true, masked: true },
           ]),
         )
       }
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
     resource.post.mockResolvedValue({ id: 3, type: 'EMPLOYEE_STATUS', code: 'ACTIVE', label: '在职' })
-    resource.put.mockResolvedValue({ id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true })
+    resource.put.mockResolvedValue({ id: 4, key: 'mail.password', scope: 'COMPANY', value: null, sensitive: true, masked: true })
 
     const { wrapper } = await mountAt('system/system-settings', '/system/system-settings')
     await flushPromises()
@@ -1484,16 +1475,15 @@ describe('Wave 5 platform and business pages', () => {
 
     expect(resource.put).toHaveBeenCalledWith(
       '/v1/system/parameters',
-      expect.objectContaining({ key: 'mail.password', scope: 'TENANT', value: 'synthetic-smtp-secret', sensitive: true }),
+      expect.objectContaining({ key: 'mail.password', scope: 'COMPANY', value: 'synthetic-smtp-secret', sensitive: true }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })
 
-  it('publishes a calendar version through POST /v1/system/calendars/{id}/publish', async () => {
+  it('publishes a calendar version through POST /v1/system/calendars/publish', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/calendars/1') {
+      if (path === '/v1/time/calendars') {
         return Promise.resolve({
-          legal_entity_id: 1,
           year: 2026,
           timezone: 'Asia/Shanghai',
           workweek: [1, 2, 3, 4, 5],
@@ -1506,7 +1496,6 @@ describe('Wave 5 platform and business pages', () => {
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
     resource.post.mockResolvedValue({
-      legal_entity_id: 1,
       version: 3,
       timezone: 'Asia/Shanghai',
       workweek: [1, 2, 3, 4, 5],
@@ -1523,7 +1512,7 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
-      '/v1/system/calendars/1/publish',
+      '/v1/system/calendars/publish',
       expect.objectContaining({
         timezone: 'Asia/Shanghai',
         workweek: [1, 2, 3, 4, 5],
@@ -1532,7 +1521,6 @@ describe('Wave 5 platform and business pages', () => {
       }),
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('工作日历已发布新版本')

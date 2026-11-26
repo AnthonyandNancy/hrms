@@ -18,7 +18,6 @@ const authenticated = {
   authenticated: true,
   principal: {
     userId: 7,
-    tenantId: 1,
     employmentId: 1,
     displayName: 'Synthetic User',
     email: 'synthetic@example.test',

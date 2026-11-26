@@ -1,6 +1,6 @@
 import { ApiError } from '@/api/errors'
 import { resourceGet } from '@/api/resourceClient'
-import { ENTITY_SCOPE, isRecord, readPeopleList, rowId } from './peopleRead'
+import { isRecord, readPeopleList, rowId } from './peopleRead'
 import type { PeopleListResult, PeoplePageConfig, PeopleRow } from './types'
 
 export type PeopleReadState = {
@@ -39,7 +39,6 @@ function serviceError(error: unknown, context: string): never {
 
 async function employeePage(pageSize = 20): Promise<PeopleReadState> {
   return toReadState(await readPeopleList('/v1/employees', {
-    ...ENTITY_SCOPE,
     as_of: new Date().toISOString().slice(0, 10),
     page: 1,
     page_size: pageSize,
@@ -81,7 +80,7 @@ async function importsForEmployees(): Promise<PeopleReadState> {
  * dedicated endpoint. No row is synthesised from employee data.
  */
 async function positionsFor(asOf: string): Promise<PeopleListResult> {
-  return readPeopleList('/v1/positions', { ...ENTITY_SCOPE, as_of: asOf })
+  return readPeopleList('/v1/positions', { as_of: asOf })
 }
 
 async function positionRequirements(asOf: string): Promise<PeopleReadState> {
@@ -138,13 +137,13 @@ async function positionStaff(asOf: string): Promise<PeopleReadState> {
 }
 
 async function positionGrades(asOf: string): Promise<PeopleReadState> {
-  const grades = await readPeopleList('/v1/positions/grades', { ...ENTITY_SCOPE, as_of: asOf, page: 1, page_size: 100 })
+  const grades = await readPeopleList('/v1/positions/grades', { as_of: asOf, page: 1, page_size: 100 })
   const rows = grades.rows.map((row) => ({ ...row, active: row.active === true ? '是' : '否' }))
   return { rows, total: grades.total, partial: grades.partial, primaryId: null, partialNote: '' }
 }
 
 async function secondments(asOf: string): Promise<PeopleReadState> {
-  const result = await readPeopleList('/v1/lifecycle/secondments', { ...ENTITY_SCOPE, as_of: asOf, page: 1, page_size: 20 })
+  const result = await readPeopleList('/v1/lifecycle/secondments', { as_of: asOf, page: 1, page_size: 20 })
   return { rows: result.rows, total: result.total, partial: result.partial, primaryId: null, partialNote: '' }
 }
 
@@ -177,11 +176,11 @@ export async function loadPeoplePage(
       case 'employee-imports':
         return await importsForEmployees()
       case 'org-tree':
-        return toReadState(await readPeopleList('/v1/org-units/tree', { ...ENTITY_SCOPE, as_of: asOf }))
+        return toReadState(await readPeopleList('/v1/org-units/tree', { as_of: asOf }))
       case 'department-list':
-        return toReadState(await readPeopleList('/v1/departments', { ...ENTITY_SCOPE, as_of: asOf }))
+        return toReadState(await readPeopleList('/v1/departments', { as_of: asOf }))
       case 'department-members': {
-        const tree = await readPeopleList('/v1/org-units/tree', { ...ENTITY_SCOPE, as_of: asOf })
+        const tree = await readPeopleList('/v1/org-units/tree', { as_of: asOf })
         const department = tree.rows[0]
         if (!department) return { ...tree, primaryId: null, partialNote: '' }
         const departmentId = Number(department.id ?? 0)
@@ -190,9 +189,9 @@ export async function loadPeoplePage(
         return { ...members, primaryId: departmentId, partialNote: '' }
       }
       case 'department-staffing':
-        return toReadState(await readPeopleList('/v1/departments/staffing', { ...ENTITY_SCOPE, as_of: asOf }))
+        return toReadState(await readPeopleList('/v1/departments/staffing', { as_of: asOf }))
       case 'positions':
-        return toReadState(await readPeopleList('/v1/positions', { ...ENTITY_SCOPE, as_of: asOf }))
+        return toReadState(await readPeopleList('/v1/positions', { as_of: asOf }))
       case 'position-requirements':
         return await positionRequirements(asOf)
       case 'position-grades':
@@ -212,21 +211,18 @@ export async function loadPeoplePage(
         return single(await resourceGet<unknown>(`/v1/lifecycle/cases/${id}`))
       case 'contracts-ledger':
         return toReadState(await readPeopleList('/v1/employments/contracts', {
-          ...ENTITY_SCOPE,
           as_of: asOf,
           page: 1,
           page_size: 20,
         }))
       case 'contract-expiring':
         return toReadState(await readPeopleList('/v1/employments/contracts/expiring', {
-          ...ENTITY_SCOPE,
           as_of: asOf,
           within_days: config.read.withinDays ?? 60,
         }))
       case 'contract-detail': {
         if (id === null) return emptyState()
         const ledger = await readPeopleList('/v1/employments/contracts', {
-          ...ENTITY_SCOPE,
           as_of: asOf,
           page: 1,
           page_size: 100,

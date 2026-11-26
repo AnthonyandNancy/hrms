@@ -27,7 +27,6 @@ const form = reactive({
 })
 
 const policyForm = reactive({
-  legal_entity_id: '1',
   city_tier: 'A',
   hotel_cap_cents: '',
   transport_cap_cents: '',
@@ -77,17 +76,12 @@ async function publishPolicy(): Promise<void> {
   actionError.clear()
   actionMessage.value = ''
 
-  const legalEntityId = positiveInteger(policyForm.legal_entity_id)
   const hotelCents = minorUnits(policyForm.hotel_cap_cents)
   const transportCents =
     policyForm.transport_cap_cents.trim() === '' ? 0 : minorUnits(policyForm.transport_cap_cents)
   const effectiveFrom = policyForm.effective_from.trim()
   const cityTier = policyForm.city_tier.trim().toUpperCase()
 
-  if (legalEntityId === null) {
-    actionError.reject(new Error('法人 ID 必须是正整数。'))
-    return
-  }
   if (cityTier === '' || cityTier.length > 8) {
     actionError.reject(new Error('城市级别不能为空且不超过 8 个字符。'))
     return
@@ -106,7 +100,6 @@ async function publishPolicy(): Promise<void> {
     const result = await resourcePost<Record<string, unknown>>(
       '/travel/policies',
       {
-        legal_entity_id: legalEntityId,
         city_tier: cityTier,
         hotel_cap_cents: hotelCents,
         transport_cap_cents: transportCents,
@@ -289,9 +282,6 @@ function expenseCents(row: Record<string, unknown>): number | null {
       <form class="timepay-form" data-testid="travel-policy-form" @submit.prevent="publishPolicy">
         <h3>发布新版本</h3>
         <div class="timepay-form__grid">
-          <label>法人 ID
-            <input v-model="policyForm.legal_entity_id" data-testid="travel-policy-legal-entity" inputmode="numeric" />
-          </label>
           <label>城市级别
             <input v-model="policyForm.city_tier" data-testid="travel-policy-city-tier" maxlength="8" />
           </label>

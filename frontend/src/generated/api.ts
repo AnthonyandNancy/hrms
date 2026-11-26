@@ -1047,7 +1047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create an employment (employee number unique per tenant+legal entity)
+         * Create an employment (employee number unique per company)
          * @description Requires capability `people.employee.manage`.
          */
         post: operations["createEmployment"];
@@ -1243,7 +1243,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Transfer an employment to another legal entity
+         * Transfer an employment between organization units
          * @description Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
          */
         post: operations["transferEmploymentLegalEntity"];
@@ -2057,7 +2057,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * As-of organization tree for one legal entity
+         * As-of organization tree for the company
          * @description Requires capabilities `org.tree.read` and `org.unit.read`.
          */
         get: operations["getOrgTree"];
@@ -2853,14 +2853,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List the job-grade catalogue for a legal entity
+         * List the job-grade catalogue for the company
          * @description Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
          */
         get: operations["listPositionGrades"];
         put?: never;
         /**
          * Create or update a job-grade row
-         * @description Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+         * @description Upsert is keyed by (code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
          */
         post: operations["upsertPositionGrade"];
         delete?: never;
@@ -3444,7 +3444,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/system/calendars/{legal_entity_id}/publish": {
+    "/v1/system/calendars/publish": {
         parameters: {
             query?: never;
             header?: never;
@@ -3453,7 +3453,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish a legal-entity calendar version */
+        /**
+         * Publish the company calendar version
+         * @description Single-company deployment; the calendar belongs to the company profile.
+         */
         post: operations["publishCalendarVersion"];
         delete?: never;
         options?: never;
@@ -3675,14 +3678,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List attendance period closures for the actor's legal entities
+         * List attendance period closures for the company
          * @description Read-only list of closed and reopened months with the reopen evidence.
-         *     Scoped to the actor's legal entities; a `legal_entity_id` outside that
-         *     scope returns 404. Requires capability `time.attendance.read`.
          */
         get: operations["timeAttendanceClosingsIndex"];
         put?: never;
-        /** Close an attendance month for one legal entity */
+        /** Close an attendance month for the company */
         post: operations["closeAttendancePeriod"];
         delete?: never;
         options?: never;
@@ -3817,7 +3818,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/time/calendars/{legal_entity_id}": {
+    "/v1/time/calendars": {
         parameters: {
             query?: never;
             header?: never;
@@ -3825,8 +3826,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Legal entity calendar, workweek and holidays for one year
-         * @description Requires capability `time.calendar.read`.
+         * Company calendar, workweek and holidays for one year
+         * @description Single-company deployment; requires capability `time.calendar.read`.
          */
         get: operations["timeCalendarShow"];
         put?: never;
@@ -4463,7 +4464,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List effective-dated travel policy versions for a legal entity */
+        /** List effective-dated travel policy versions for the company */
         get: operations["listTravelPolicies"];
         put?: never;
         /** Append a new effective-dated travel policy version */
@@ -5014,7 +5015,6 @@ export interface components {
             person_id: number;
             person_name?: string | null;
             employee_no: string;
-            legal_entity_id: number;
             /** @enum {string} */
             status: "PROBATION" | "ACTIVE" | "LEAVE" | "SUSPENDED" | "TERMINATED";
             /** @enum {string} */
@@ -5071,7 +5071,6 @@ export interface components {
         };
         OrgUnit: {
             id: number;
-            legal_entity_id: number;
             parent_id?: number | null;
             code: string;
             name: string;
@@ -5099,7 +5098,6 @@ export interface components {
         };
         EmploymentCreate: {
             person_id: number;
-            legal_entity_id: number;
             employee_no: string;
             /** @enum {string} */
             employment_type: "FULL_TIME" | "PART_TIME" | "FIXED_TERM" | "INTERN" | "CONTRACTOR";
@@ -5156,7 +5154,6 @@ export interface components {
             legal_hold?: boolean;
         };
         OrgUnitCreate: {
-            legal_entity_id: number;
             parent_id?: number | null;
             code: string;
             name: string;
@@ -5326,7 +5323,6 @@ export interface components {
         };
         Position: {
             id: number;
-            legal_entity_id: number;
             org_unit_id: number | null;
             code: string;
             title: string;
@@ -5438,7 +5434,6 @@ export interface components {
         EmploymentContractLifecycle: {
             id: number;
             employment_id: number;
-            legal_entity_id: number | null;
             contract_no: string;
             /** @enum {string} */
             contract_type: "FIXED_TERM" | "OPEN_ENDED" | "INTERNSHIP" | "CONSULTANT";
@@ -5519,7 +5514,6 @@ export interface components {
         };
         PositionGrade: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             level: number;
@@ -5531,7 +5525,6 @@ export interface components {
         PositionStaffRow: {
             assignment_id: number;
             employment_id: number;
-            legal_entity_id: number;
             employee_no?: string;
             person_name?: string;
             org_unit_id?: number;
@@ -5621,7 +5614,6 @@ export interface components {
         };
         Department: {
             id: number;
-            legal_entity_id: number;
             parent_id: number | null;
             code: string;
             name: string;
@@ -5790,7 +5782,6 @@ export interface components {
             requisition_no: string;
             title: string;
             status: string;
-            legal_entity_id: number;
             org_unit_id: number;
             headcount: number;
             openings_count: number;
@@ -5807,7 +5798,6 @@ export interface components {
             requisition_no: string;
             title: string;
             status: string;
-            legal_entity_id: number;
             headcount: number;
             /** @description Integer minor units; null when no budget was configured. */
             budget_minor: number | null;
@@ -5929,7 +5919,6 @@ export interface components {
             recorded_at: string | null;
         };
         RecruitmentCandidateConversionRequest: {
-            legal_entity_id: number;
             org_unit_id: number;
             employee_no: string;
             /** Format: date */
@@ -5941,7 +5930,6 @@ export interface components {
             employment_id: number;
             person_id: number;
             offer_id: number;
-            legal_entity_id: number;
             org_unit_id: number;
             employee_no: string;
             status: string;
@@ -5974,7 +5962,7 @@ export interface components {
         };
         MeData: {
             id: number;
-            tenant_id: number;
+            company_name: string;
             username: string;
             /** Format: email */
             email: string | null;
@@ -5983,8 +5971,6 @@ export interface components {
             has_mfa: boolean;
             mfa_verified: boolean;
             auth_version: number;
-            tenant_name: string;
-            legal_entity_name: string;
             roles: string[];
         };
         MyCapabilitiesData: {
@@ -6387,7 +6373,6 @@ export interface components {
         };
         PayrollItem: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             /** @enum {string} */
@@ -6406,7 +6391,6 @@ export interface components {
         };
         PayrollScheme: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             currency: string;
@@ -6436,7 +6420,6 @@ export interface components {
         };
         PayrollRunSummary: {
             id: number;
-            legal_entity_id: number;
             period: string;
             /** @enum {string} */
             run_type: "REGULAR" | "CORRECTION" | "OFF_CYCLE" | "BONUS";
@@ -6563,7 +6546,6 @@ export interface components {
         };
         StatutoryParameter: {
             id: number;
-            legal_entity_id: number;
             parameter_set: string;
             code: string;
             value_decimal: string | null;
@@ -6795,7 +6777,6 @@ export interface components {
         EmployeeCompensation: {
             id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** Format: date */
             effective_from: string;
             currency: string;
@@ -6810,7 +6791,6 @@ export interface components {
         SalaryAdjustment: {
             id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** Format: date */
             effective_from: string;
             currency: string;
@@ -6919,7 +6899,6 @@ export interface components {
         };
         AttendanceClosure: {
             closure_id: number;
-            legal_entity_id: number;
             month: string;
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
@@ -6927,7 +6906,7 @@ export interface components {
         };
         AttendanceRuleConfig: {
             /** @enum {string} */
-            late_grace_source?: "SHIFT" | "LEGAL_ENTITY" | "NONE";
+            late_grace_source?: "SHIFT" | "COMPANY" | "NONE";
             count_break?: boolean;
             overtime_after_scheduled?: boolean;
             incomplete_threshold_minutes?: number;
@@ -6946,7 +6925,6 @@ export interface components {
         };
         ShiftSchedule: {
             id: number;
-            legal_entity_id: number;
             employment_id: number;
             /** Format: date */
             business_date: string;
@@ -6962,7 +6940,6 @@ export interface components {
         };
         ShiftScheduleWrite: {
             schedule_id: number;
-            legal_entity_id: number;
             employment_id: number;
             /** Format: date */
             business_date: string;
@@ -6971,7 +6948,6 @@ export interface components {
         };
         AttendanceClosureRow: {
             id: number;
-            legal_entity_id: number;
             month: string;
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
@@ -6985,7 +6961,6 @@ export interface components {
         };
         AttendanceDevice: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             adapter: string;
@@ -7283,7 +7258,6 @@ export interface components {
         };
         TravelPolicy: {
             id: number;
-            legal_entity_id: number;
             city_tier: string;
             /** @description Hotel cap in integer minor units (cents). */
             hotel_cap_cents: number;
@@ -7299,7 +7273,6 @@ export interface components {
             id: number;
             travel_id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** @enum {string} */
             category: "TRANSPORT" | "LODGING" | "MEALS" | "OTHER";
             /** @description Claim amount in integer minor units (cents); never a float. */
@@ -7322,9 +7295,9 @@ export interface components {
         };
         DataScopePolicy: {
             /** @enum {string} */
-            template: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            template: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
             /** @enum {string} */
-            anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
             label: string;
             active: boolean;
             sort_order: number;
@@ -7379,7 +7352,6 @@ export interface components {
             sent_at: string | null;
         };
         CalendarVersion: {
-            legal_entity_id: number;
             version: number;
             timezone: string;
             workweek: number[];
@@ -7505,7 +7477,6 @@ export interface components {
             id: number;
             code: string;
             name: string;
-            legal_entity_id: number | null;
             employer_rate: string;
             employee_rate: string;
             /** Format: date */
@@ -7518,7 +7489,6 @@ export interface components {
             id: number;
             plan_id: number;
             employment_id: number;
-            legal_entity_id: number;
             base_amount_cents: number;
             employee_rate: string;
             employer_rate: string;
@@ -7534,7 +7504,6 @@ export interface components {
             id: number;
             enrollment_id: number;
             employment_id: number;
-            legal_entity_id: number;
             period: string;
             base_amount_cents: number;
             employee_amount_cents: number;
@@ -8239,7 +8208,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 code?: string;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -8285,7 +8253,6 @@ export interface operations {
                     effective_from: string;
                     /** Format: date */
                     effective_to?: string | null;
-                    legal_entity_id?: number | null;
                 };
             };
         };
@@ -8841,8 +8808,7 @@ export interface operations {
     };
     listDepartments: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
                 q?: string;
             };
@@ -8872,8 +8838,7 @@ export interface operations {
     };
     listDepartmentStaffing: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
             };
             header?: never;
@@ -9015,7 +8980,6 @@ export interface operations {
     downloadDocumentContent: {
         parameters: {
             query: {
-                tenant_id: number;
                 expires: number;
                 signature: string;
             };
@@ -10244,7 +10208,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 status?: "DRAFT" | "ACTIVE" | "EXPIRING" | "RENEWED" | "TERMINATED" | "ARCHIVED";
                 page?: number;
                 page_size?: number;
@@ -10275,7 +10238,6 @@ export interface operations {
             query?: {
                 within_days?: number;
                 as_of?: string;
-                legal_entity_id?: number;
             };
             header?: never;
             path?: never;
@@ -10638,7 +10600,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     employee_no: string;
                     /** Format: date */
                     valid_from: string;
@@ -11660,8 +11621,7 @@ export interface operations {
     };
     lifecycleSecondmentsIndex: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 employment_id?: number;
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
@@ -12102,10 +12062,9 @@ export interface operations {
     };
     getOrgTree: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id: number;
             };
             header?: never;
             path?: never;
@@ -12244,7 +12203,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -12308,7 +12266,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -13739,8 +13696,7 @@ export interface operations {
     };
     listPositions: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
                 q?: string;
             };
@@ -13780,7 +13736,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     org_unit_id?: number | null;
                     code: string;
                     title: string;
@@ -13814,8 +13769,7 @@ export interface operations {
     };
     listPositionGrades: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 active?: boolean;
@@ -13857,7 +13811,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     code: string;
                     name: string;
                     level: number;
@@ -14599,7 +14552,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     org_unit_id: number;
                     requisition_no: string;
                     title: string;
@@ -15303,9 +15255,7 @@ export interface operations {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
-            path: {
-                legal_entity_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -15875,7 +15825,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -15923,7 +15872,6 @@ export interface operations {
             content: {
                 "application/json": {
                     month: string;
-                    legal_entity_id: number;
                 };
             };
         };
@@ -16039,7 +15987,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 active?: boolean;
                 page?: number;
                 page_size?: number;
@@ -16086,7 +16033,6 @@ export interface operations {
             content: {
                 "application/json": {
                     month: string;
-                    legal_entity_id: number;
                     employment_id?: number | null;
                 };
             };
@@ -16115,8 +16061,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                /** @description Optional legal entity the caller must already be scoped to. */
-                legal_entity_id?: number;
             };
             header?: never;
             path?: never;
@@ -16245,9 +16189,7 @@ export interface operations {
                 year: number;
             };
             header?: never;
-            path: {
-                legal_entity_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -16260,7 +16202,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: {
-                            legal_entity_id?: number;
                             year?: number;
                             /** @example Asia/Shanghai */
                             timezone?: string;
@@ -16952,7 +16893,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 from?: string;
                 to?: string;
                 page?: number;
@@ -17046,7 +16986,6 @@ export interface operations {
                         data?: {
                             items?: {
                                 id?: number;
-                                legal_entity_id?: number;
                                 code?: string;
                                 name?: string;
                                 start_local_time?: string;
@@ -17909,8 +17848,7 @@ export interface operations {
     };
     listTravelPolicies: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 city_tier?: string;
                 as_of?: string;
                 page?: number;
@@ -17953,7 +17891,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     city_tier: string;
                     /** @description Hotel cap in integer minor units (cents), never a float. */
                     hotel_cap_cents: number;
@@ -18281,7 +18218,7 @@ export interface operations {
                 "application/json": {
                     capability_code: string;
                     /** @enum {string} */
-                    anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "CASE" | "PAYROLL_RUN" | "LEGAL_ENTITY";
+                    anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "CASE" | "PAYROLL_RUN" | "COMPANY";
                     anchor_id?: number | null;
                     /** @enum {string} */
                     field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";

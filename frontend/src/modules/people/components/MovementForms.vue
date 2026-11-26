@@ -12,7 +12,6 @@ const props = defineProps<{
 const emit = defineEmits<{ created: [] }>()
 
 type Draft = {
-  legal_entity_id: string
   employee_no: string
   person_legal_name: string
   person_email: string
@@ -39,7 +38,6 @@ type Draft = {
 
 const defaults: Record<string, Partial<Draft>> = {
   'movement-onboarding': {
-    legal_entity_id: '1',
     employee_no: '',
     person_legal_name: '',
     person_email: '',
@@ -58,7 +56,6 @@ const defaults: Record<string, Partial<Draft>> = {
     position_id: '',
     effective_date: '',
     reason: '',
-    legal_entity_id: '1',
   },
   'movement-secondment': {
     employment_id: '',
@@ -128,7 +125,6 @@ function bodyFor(form: PeopleForm): Record<string, unknown> | null {
     if (orgUnitId === null || draft.work_location.trim() === '' || draft.work_schedule.trim() === '') return null
     return {
       person: { legal_name: draft.person_legal_name.trim(), email: draft.person_email.trim() === '' ? null : draft.person_email.trim() },
-      legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
       employee_no: draft.employee_no.trim(),
       org_unit_id: orgUnitId,
       position_id: numeric(draft.position_id),
@@ -157,7 +153,6 @@ function bodyFor(form: PeopleForm): Record<string, unknown> | null {
       position_id: numeric(draft.position_id),
       effective_date: draft.effective_date,
       reason: draft.reason.trim(),
-      legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
       submit: true,
     }
   }
