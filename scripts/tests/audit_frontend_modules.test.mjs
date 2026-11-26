@@ -60,6 +60,30 @@ test('rejects a cross-module page import with file and import source', () => {
   assert.match(failures[0], /cross-module page import/)
 })
 
+test('rejects global fetch but not a same-named client method', () => {
+  const failures = auditImports(
+    [
+      {
+        file: PAGE_FILE,
+        source: [
+          'export async function load() {',
+          "  await client.fetch('/v1/employees')",
+          "  await window.fetch('/v1/employees')",
+          "  await globalThis.fetch('/v1/employees')",
+          '}',
+        ].join('\n'),
+      },
+    ],
+    [],
+  )
+
+  assert.equal(failures.length, 2)
+  assert.equal(failures.filter((failure) => /forbidden fetch call/.test(failure)).length, 2)
+  assert.doesNotMatch(failures.join('\n'), /client\.fetch/)
+  assert.match(failures.join('\n'), /line 3/)
+  assert.match(failures.join('\n'), /line 4/)
+})
+
 test('rejects relative cross-module page imports', () => {
   const failures = auditImports(
     [

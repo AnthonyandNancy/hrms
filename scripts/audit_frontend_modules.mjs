@@ -456,10 +456,13 @@ function findFetchCalls(file) {
   if (source === '') return []
   const { code } = maskCommentsAndStrings(source)
   const lines = []
-  for (const match of code.matchAll(/\bfetch\s*(?:\?\.\s*)?(?:<[^>\n]*>\s*)?\(/g)) {
+  for (const match of code.matchAll(
+    /(^|[^\w$.])(?:(?:window|globalThis|self)\s*\.\s*)?\bfetch\s*(?:\?\.\s*)?(?:<[^>\n]*>\s*)?\(/gm,
+  )) {
     const before = code.slice(0, match.index)
-    if (/function\s+$/.test(before)) continue
-    lines.push(before.split('\n').length)
+    if (/\bfunction\s+$/.test(before) || /\b(?:const|let|var)\s+$/.test(before)) continue
+    const prefixLength = match[1]?.length ?? 0
+    lines.push(code.slice(0, (match.index ?? 0) + prefixLength).split('\n').length)
   }
   return lines
 }
