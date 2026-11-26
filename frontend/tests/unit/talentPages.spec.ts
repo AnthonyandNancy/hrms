@@ -17,12 +17,20 @@ vi.mock('@/api/resourceClient', () => ({
   resourcePost: resource.post,
 }))
 
+import { PAGE_COMPONENTS } from '@/modules/talent/pages'
 import { TALENT_COMPONENT_KEYS, TALENT_PAGE_CONFIGS, talentComponentFor } from '@/views/talent'
 
 const wave4Keys = PAGE_REGISTRY.filter((page) => page.wave === 'Wave 4').map((page) => page.componentKey)
 
 function listResponse(items: unknown[] = [], partial = false) {
   return { items, page: 1, page_size: 20, total: items.length, ...(partial ? { partial: true } : {}) }
+}
+
+async function talentPageComponent(key: string): Promise<Component> {
+  const loader = PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS]
+  if (loader === undefined) throw new Error(`No talent page component registered for ${key}`)
+  const module = await loader()
+  return module.default as Component
 }
 
 async function mountWithRouter(key: string, path: string) {
@@ -40,9 +48,8 @@ async function mountWithRouter(key: string, path: string) {
   await router.push(path)
   await router.isReady()
 
-  const component = talentComponentFor(key)
-  if (component === null) throw new Error(`No talent component registered for ${key}`)
-  return mount(component as Component, {
+  const component = await talentPageComponent(key)
+  return mount(component, {
     global: { plugins: [pinia, router, ElementPlus] },
   })
 }
@@ -407,9 +414,8 @@ describe('Wave 4 talent domain components', () => {
     await router.push('/performance')
     await router.isReady()
 
-    const component = talentComponentFor('performance/index')
-    if (component === null) throw new Error('Missing performance/index component')
-    mount(component as Component, { global: { plugins: [pinia, router, ElementPlus] } })
+    const component = await talentPageComponent('performance/index')
+    mount(component, { global: { plugins: [pinia, router, ElementPlus] } })
     await flushPromises()
     await flushPromises()
 
