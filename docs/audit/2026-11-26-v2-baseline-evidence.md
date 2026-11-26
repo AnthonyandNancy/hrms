@@ -1,6 +1,6 @@
 # FactoryHR V2.1 Baseline Evidence
 
-- Generated: 2026-11-26T08:52:00.073Z
+- Generated: 2026-11-26T08:58:32.643Z
 
 ## git-commit
 
@@ -8,7 +8,7 @@
 - exit code: 0
 
 ```text
-2f8c464a51cd7d32da2d2c5da43326b51a5f4aca
+9d14679ef60119f064a38bc9f4b2740054091bca
 ```
 
 ## git-status
@@ -19,15 +19,12 @@
 ```text
 ## feat/v2.1-remediation
  M .superpowers/sdd/progress.md
- M package.json
+ M scripts/collect_v2_baseline.mjs
+ M scripts/tests/collect_v2_baseline.test.mjs
 ?? .superpowers/sdd/artifacts/plan-conflict-review.md
 ?? .superpowers/sdd/artifacts/plan-fix-verification.md
 ?? .superpowers/sdd/artifacts/policy_rewrite.py
 ?? .superpowers/sdd/artifacts/v1/
-?? docs/audit/2026-11-26-v2-baseline-evidence.md
-?? docs/audit/2026-11-26-v2-capability-inventory.md
-?? scripts/collect_v2_baseline.mjs
-?? scripts/tests/collect_v2_baseline.test.mjs
 ```
 
 ## node-version
@@ -343,45 +340,39 @@ Module boundaries OK.
 - exit code: 1
 
 ```text
-tive custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
+match found for location with path "/payroll/plans"
+[Vue Router warn]: No match found for location with path "/payroll/employee-plans"
+[Vue Router warn]: No match found for location with path "/payroll/statutory"
+[Vue Router warn]: No match found for location with path "/payroll/inputs"
+[Vue Router warn]: No match found for location with path "/payroll/batches"
+[Vue Router warn]: No match found for location with path "/payroll/reviews"
+[Vue Router warn]: No match found for location with path "/payroll/disbursement"
+[Vue Router warn]: No match found for location with path "/payroll/payslips"
+[Vue Router warn]: No match found for location with path "/payroll/adjustments"
+[Vue Router warn]: No match found for location with path "/payroll/reports"
 
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
+stderr | tests/unit/shellMenu.spec.ts > V1.1 expandable shell menu > never writes capability decisions to storage when a group is toggled
+[Vue Router warn]: No match found for location with path "/notices"
 
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
+stderr | tests/unit/shellMenu.spec.ts > V1.1 expandable shell menu > ignores malformed or non-string persisted expansion values
+[Vue Router warn]: No match found for location with path "/notices"
 
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
+stderr | tests/unit/shellMenu.spec.ts > V1.1 expandable shell menu > ignores malformed or non-string persisted expansion values
+[Vue Router warn]: No match found for location with path "/payroll/components"
+[Vue Router warn]: No match found for location with path "/payroll/plans"
+[Vue Router warn]: No match found for location with path "/payroll/employee-plans"
+[Vue Router warn]: No match found for location with path "/payroll/statutory"
+[Vue Router warn]: No match found for location with path "/payroll/inputs"
+[Vue Router warn]: No match found for location with path "/payroll/batches"
+[Vue Router warn]: No match found for location with path "/payroll/reviews"
+[Vue Router warn]: No match found for location with path "/payroll/disbursement"
+[Vue Router warn]: No match found for location with path "/payroll/payslips"
+[Vue Router warn]: No match found for location with path "/payroll/adjustments"
+[Vue Router warn]: No match found for location with path "/payroll/reports"
+[Vue Router warn]: No match found for location with path "/notices"
 
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
-
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
-
-stderr | tests/unit/systemUsersPage.spec.ts > system users permissions management > revokes a role and shows immediate denial reasons in the preview
-[Vue warn]: Failed to resolve component: el-button
-If this is a native custom element, make sure to exclude it from component resolution via compilerOptions.isCustomElement. 
-  at <SystemUsersPage ref="VTU_COMPONENT" > 
-  at <VTUROOT>
+stderr | tests/unit/talentPages.spec.ts > Wave 4 talent domain components > loads candidate evaluations for a scoped candidate without candidate PII leakage
+[Vue Router warn]: No match found for location with path "/recruitment/candidates/evaluations?candidate_id=31"
 
 stderr | tests/unit/dictionary.spec.ts > dictionary > returns a safe placeholder and records unknown codes
 [dictionary] unknown code people.employeeStatus=UNKNOWN_CODE
@@ -408,7 +399,7 @@ SyntaxError: Invalid or unexpected token
 AssertionError: 
 [openapi:generate] generated types are stale. Run pnpm openapi:generate.
 [openapi:generate] committed: <worktree:v2.1-remediation>\frontend\src\generated\api.ts
-[openapi:generate] freshly generated: <temp>\factoryhr-openapi-check-UiyH1p\api.ts
+[openapi:generate] freshly generated: <temp>\factoryhr-openapi-check-PbLPmw\api.ts
 : expected 1 to be +0 // Object.is equality
 
 - Expected
@@ -540,7 +531,7 @@ Reference: https://redocly.com/docs/cli/rules/oas/operation-4xx-response
 
 ## 人工核验
 
-- Git commit: `2f8c464a51cd7d32da2d2c5da43326b51a5f4aca`
+- Git commit (HEAD when collected; parent of the evidence commit): `9d14679ef60119f064a38bc9f4b2740054091bca`
 - PHP: `.tools/php/php.exe` — PHP 8.4.28 (cli) (built: Nov 18 2026 00:57:45) (NTS Visual C++ 2022 x64)
 Copyright (c) The PHP Group
 Built by The PHP Group
@@ -548,7 +539,6 @@ Zend Engine v4.4.28, Copyright (c) Zend Technologies
 - Node/pnpm: Node v24.19.0, pnpm 10.34.5
 - MySQL/Docker: NOT RUN. `docker info` exited 1; daemon unavailable: failed to connect to the docker API at <docker-pipe> check if the path is correct and if the daemon is running: open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.
 - 当前失败门禁清单:
-- `docker-info`: exit code 1; command `docker info`.
 - `backend-test`: exit code 1; command `cd backend && ../.tools/php/php.exe -d memory_limit=1G vendor/bin/phpunit --colors=never`.
 - `frontend-unit`: exit code 1; command `pnpm test:unit`.
 - 现有未提交文件（采集时）:
@@ -556,13 +546,10 @@ Zend Engine v4.4.28, Copyright (c) Zend Technologies
 ```text
 ## feat/v2.1-remediation
  M .superpowers/sdd/progress.md
- M package.json
+ M scripts/collect_v2_baseline.mjs
+ M scripts/tests/collect_v2_baseline.test.mjs
 ?? .superpowers/sdd/artifacts/plan-conflict-review.md
 ?? .superpowers/sdd/artifacts/plan-fix-verification.md
 ?? .superpowers/sdd/artifacts/policy_rewrite.py
 ?? .superpowers/sdd/artifacts/v1/
-?? docs/audit/2026-11-26-v2-baseline-evidence.md
-?? docs/audit/2026-11-26-v2-capability-inventory.md
-?? scripts/collect_v2_baseline.mjs
-?? scripts/tests/collect_v2_baseline.test.mjs
 ```

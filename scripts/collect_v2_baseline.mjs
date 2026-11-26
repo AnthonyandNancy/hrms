@@ -103,8 +103,12 @@ export function runCommand(name, command, args, { cwd = repoRoot, displayCommand
   }
 }
 
-function failedGateSummary(entries) {
-  const failed = entries.filter((entry) => entry.exitCode !== 0)
+const ENVIRONMENT_PROBES = new Set(['docker-info'])
+
+export function summarizeFailedGates(entries) {
+  const failed = entries.filter(
+    (entry) => entry.exitCode !== 0 && !ENVIRONMENT_PROBES.has(entry.name),
+  )
   if (failed.length === 0) return '- None: every executed gate exited 0.'
 
   return failed
@@ -116,12 +120,12 @@ function appendManualVerification(report, { commit, phpVersion, nodeVersion, pnp
   return `${report}
 ## 人工核验
 
-- Git commit: \`${commit.stdout.trim()}\`
+- Git commit (HEAD when collected; parent of the evidence commit): \`${commit.stdout.trim()}\`
 - PHP: \`.tools/php/php.exe\` — ${phpVersion.stdout.trim()}
 - Node/pnpm: Node ${nodeVersion.stdout.trim()}, pnpm ${pnpmVersion.stdout.trim()}
 - MySQL/Docker: NOT RUN. \`docker info\` exited ${dockerProbe.exitCode}; daemon unavailable: ${sanitizeOutput(dockerProbe.stderr.trim().split('\n').at(-1) ?? '')}
 - 当前失败门禁清单:
-${failedGateSummary(entries)}
+${summarizeFailedGates(entries)}
 - 现有未提交文件（采集时）:
 
 \`\`\`text

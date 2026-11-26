@@ -2,7 +2,12 @@ import assert from 'node:assert/strict'
 import { dirname, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { buildBaselineReport, buildCapabilityInventory, sanitizeOutput } from '../collect_v2_baseline.mjs'
+import {
+  buildBaselineReport,
+  buildCapabilityInventory,
+  sanitizeOutput,
+  summarizeFailedGates,
+} from '../collect_v2_baseline.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -81,4 +86,16 @@ test('output tails are sanitised of host paths while keeping the command result'
   assert.doesNotMatch(output, /D:\\code|C:\\Users|\/home\/runner/)
   assert.match(output, /<worktree:v2\.1-remediation>\\backend\\tests\\Contract\\NoTenantNoLegalEntityTest\.php:37/)
   assert.match(output, /Tests: 1123, Assertions: 51283, Failures: 1\./)
+})
+
+test('failed gate summary separates environment probes from failing gates', () => {
+  const summary = summarizeFailedGates([
+    { name: 'docker-info', command: 'docker info', exitCode: 1 },
+    { name: 'backend-test', command: 'phpunit', exitCode: 1 },
+    { name: 'frontend-lint', command: 'pnpm lint', exitCode: 0 },
+  ])
+
+  assert.doesNotMatch(summary, /docker-info/)
+  assert.match(summary, /backend-test/)
+  assert.doesNotMatch(summary, /frontend-lint/)
 })
