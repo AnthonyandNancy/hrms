@@ -163,26 +163,18 @@ spec uses the existing real config and honours both
 - `cd backend && ../.tools/php/php.exe -d memory_limit=1G vendor/bin/phpunit --colors=never --filter='EmployeeProfileApiTest'`
   → **OK (12 tests, 61 assertions)**.
 - `cd backend && ../.tools/php/php.exe -d memory_limit=1G vendor/bin/phpunit --colors=never`
-  → **1217 tests / 57986 assertions; 2 failures, both in `EmploymentContractController.php`
-  (`DB::` usage) from a concurrent Task 8 edit, not this task**. See
-  “Gates and concurrent work”.
+  → **1222 tests / 58046 assertions; 2 failures, both in
+  `ArchitectureBoundaryTest` / `ModuleOwnershipTest` because the concurrent
+  Task 8 edit left `DB::` in `EmploymentContractController.php`; not this task**.
 - `cd backend && ../.tools/php/php.exe -d memory_limit=1G vendor/bin/pint --test`
-  → **FAIL for 5 files modified by concurrent tasks** (`PayrollRunController.php`,
-  `PayrollRunService.php`, `EmploymentContractService.php`, `routes/api.php`,
-  `RoleMatrixTest.php`). Our two PHP files are **PASS**.
+  → **FAIL only on concurrent `PayrollRunController.php`** at final run. Our two
+  PHP files pass an explicit `pint --test` run.
 - `cd backend && ../.tools/php/php.exe -d memory_limit=1G vendor/bin/phpstan analyse --no-progress`
-  → **3 errors, all in `EmploymentContractController.php` and
-  `PayrollWorkspaceTest.php` from concurrent tasks; no error in our files**.
-- `cd frontend && pnpm typecheck` → our files pass; the command is red only on
-  the concurrent untracked `tests/unit/ContractWorkspace.spec.ts` importing
-  `@/modules/people/contracts/pages/*` before that task was written.
-- `cd frontend && pnpm lint` → our files pass (`eslint` on the six task paths
-  exits 0); full lint is red only on the concurrent
-  `src/modules/people/contracts/components/ContractFormDrawer.vue` unused var.
-- `cd frontend && pnpm test:unit` → **60 test files passed, 1 failed / 61;
-  455 tests passed / 455**. The only failure is a suite-level import of the
-  concurrent, not-yet-created
-  `@/modules/people/lifecycle/pages/MovementWorkspacePage.vue`.
+  → **2 errors in concurrent `PayrollWorkspaceTest.php`; no error in our files**.
+- `cd frontend && pnpm typecheck` → **PASS** (`vue-tsc -b`, exit 0).
+- `cd frontend && pnpm lint` → **PASS** (`eslint . --max-warnings=0`, exit 0).
+- `cd frontend && pnpm test:unit` → **61 test files passed / 61;
+  467 tests passed / 467**.
 - `cd frontend && pnpm exec playwright test --config=playwright.real.config.ts --list tests/e2e/real/employee-profile.spec.ts`
   → **Total: 3 tests in 1 file**.
 
