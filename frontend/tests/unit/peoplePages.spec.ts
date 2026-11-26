@@ -233,7 +233,29 @@ describe('Wave 2 people domain components', () => {
     }))
     expect(wrapper.text()).toContain('Synthetic Employee')
     expect(wrapper.text()).toContain('E1001')
-    expect(wrapper.text()).toContain('ACTIVE')
+    // The rebuilt workspace presents the Chinese status label, never the raw
+    // server enum. The row still proves the status column rendered.
+    expect(wrapper.text()).toContain('在职')
+    expect(wrapper.text()).not.toContain('ACTIVE')
+  })
+
+  it('marks archived employee rows instead of hiding them silently', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        ...employee,
+        employment_id: 2,
+        employee_no: 'E1002',
+        person_name: 'Archived Synthetic',
+        archived_at: '2026-02-01T00:00:00Z',
+      },
+    ]))
+
+    const wrapper = await mountAt('hr/employees/index', '/hr/employees')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Archived Synthetic')
+    expect(wrapper.text()).toContain('已归档')
+    expect(wrapper.find('[data-testid="employee-row-2"]').exists()).toBe(true)
   })
 
   it('loads education for the employment id in the route and submits a real profile row', async () => {
@@ -354,7 +376,11 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/employees/by-id', '/hr/employees/1')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    // Volume 3's dedicated detail workspace classifies this 409 through the
+    // shared error state rather than the old PeopleWorkspace-only panel. The
+    // coverage is unchanged: the Chinese no-active-employment copy and the
+    // request id must both survive.
+    expect(wrapper.find('.error-state').exists()).toBe(true)
     expect(wrapper.text()).toContain('当前账号未绑定员工')
     expect(wrapper.text()).toContain('req-people-409')
   })

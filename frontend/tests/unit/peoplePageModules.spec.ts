@@ -32,8 +32,31 @@ const peoplePages = PAGE_REGISTRY.filter((page) => page.componentKey.startsWith(
 const peopleKeys = peoplePages.map((page) => page.componentKey)
 const unitDir = dirname(fileURLToPath(import.meta.url))
 const pagesDir = resolve(unitDir, '../../src/modules/people/pages')
+const employeesDir = resolve(unitDir, '../../src/modules/people/employees/pages')
 const workspacePath = resolve(unitDir, '../../src/modules/people/components/PeopleWorkspace.vue')
 const routerSourcePath = resolve(unitDir, '../../src/router/pageComponents.ts')
+
+// Volume 3 replaced these config-driven wrappers with purpose-built employee
+// workspaces. The legacy files stay as one-line re-exports so the registry and
+// route integration do not change; they must not regress into PeopleWorkspace.
+const DEDICATED_EMPLOYEE_PAGES: ReadonlyMap<string, { target: string; shape: RegExp }> = new Map([
+  [
+    'EmployeeListPage.vue',
+    {
+      target: 'EmployeeListPage.vue',
+      shape: /import\s+EmployeeListPage\s+from\s+['"]\.\.\/employees\/pages\/EmployeeListPage\.vue['"][\s\S]*<EmployeeListPage\s*\/>/,
+    },
+  ],
+  [
+    'EmployeeDetailPage.vue',
+    {
+      target: 'EmployeeDetailPage.vue',
+      // Either a pure `export { default } from` redirect or a one-component
+      // wrapper is acceptable; both have exactly one implementation source.
+      shape: /(?:export\s*\{\s*default\s*\}\s*from\s*['"][^'"]*employees\/pages\/EmployeeDetailPage\.vue['"]|import\s+EmployeeDetailPage\s+from\s+['"]\.\.\/employees\/pages\/EmployeeDetailPage\.vue['"][\s\S]*<EmployeeDetailPage\s*\/>)/,
+    },
+  ],
+])
 
 function listResponse(items: unknown[] = []) {
   return { items, page: 1, page_size: 20, total: items.length }
@@ -179,6 +202,15 @@ describe('People page module manifest', () => {
       expect(resource.get, testCase.key).toHaveBeenCalledWith(testCase.api, expect.any(Object))
       expect(wrapper.text(), testCase.key).toContain(testCase.text)
 
+      if (testCase.key === 'hr/employees/index') {
+        // The employee list is a dedicated workspace now; its config-driven
+        // shell must never come back.
+        expect(wrapper.findComponent(PeopleWorkspace).exists(), testCase.key).toBe(false)
+        expect(wrapper.find('[data-testid="employee-table"]').exists(), testCase.key).toBe(true)
+        observedConfigs.push(testCase.key)
+        continue
+      }
+
       const shell = wrapper.findComponent(PeopleWorkspace)
       expect(shell.exists(), testCase.key).toBe(true)
       expect(shell.props('config'), testCase.key).toMatchObject({ key: testCase.key })
@@ -188,7 +220,15 @@ describe('People page module manifest', () => {
       observedConfigs.push(shell.props('config').key as string)
     }
 
-    expect(new Set(observedApis)).toEqual(new Set(cases.map((testCase) => testCase.api)))
+    // The dedicated employee workspace also loads its department and position
+    // lookups for the create drawer. Those are explicitly expected; any other
+    // unexpected API remains a failure.
+    const expectedApis: string[] = [
+      ...cases.map((testCase) => testCase.api as string),
+      '/v1/departments',
+      '/v1/positions',
+    ]
+    expect(new Set(observedApis)).toEqual(new Set(expectedApis))
     expect(new Set(observedConfigs)).toEqual(new Set(cases.map((testCase) => testCase.key)))
   })
 
@@ -201,6 +241,16 @@ describe('People page module manifest', () => {
       const source = readFileSync(join(pagesDir, file), 'utf8')
       expect(source, file).not.toMatch(/\bcomponentKey\b|\bpageCode\b/)
       expect(source, file).not.toMatch(/\bcomponent-key\b|\bpage-code\b/i)
+      const dedicated = DEDICATED_EMPLOYEE_PAGES.get(file)
+      if (dedicated !== undefined) {
+        // Thin re-export/redirect: the dedicated page is the only implementation;
+        // the legacy file must not keep a second config-driven shell.
+        expect(source, file).not.toContain('PeopleWorkspace')
+        expect(source, file).not.toContain('peoplePageConfig')
+        expect(source, file).toMatch(dedicated.shape)
+        expect(readFileSync(join(employeesDir, dedicated.target), 'utf8'), file).not.toBe('')
+        continue
+      }
       expect(source, file).toMatch(/<PeopleWorkspace\s+:config="config"\s*\/>/)
     }
 
