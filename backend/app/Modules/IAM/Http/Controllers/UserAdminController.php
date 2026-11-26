@@ -11,6 +11,7 @@ use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
+use App\Modules\IAM\Services\AdminProtectionGuard;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
@@ -45,6 +46,7 @@ final class UserAdminController
         private readonly PeopleWorkspaceDirectory $workspaceProfiles,
         private readonly PeopleEmploymentWriter $employments,
         private readonly CompanyBusinessDate $businessDates,
+        private readonly AdminProtectionGuard $adminProtection,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -449,11 +451,10 @@ final class UserAdminController
     }
 
     /**
-     * The single company must retain at least one usable system administrator.
      * Administrator identity is live authority, not the display-only
-     * `is_privileged` flag: only an ENABLED user holding a COMPANY-scoped
-     * admin capability counts, and disabling the last one is a business
-     * conflict rather than a silent lockout.
+     * `is_privileged` flag. The single company must keep at least one enabled
+     * administrator, and the rule lives in one place so every mutation path
+     * enforces the same predicate.
      */
     private function assertNotLastActiveAdmin(User $user, string $nextStatus): void
     {
@@ -461,104 +462,21 @@ final class UserAdminController
             return;
         }
 
-        $now = $this->clock->now();
-        $adminCapabilities = ['iam.role.manage', 'iam.binding.manage', '*'];
-
-        $heldCapabilities = AuthorityBinding::query()
-            ->where('principal_id', (int) $user->id)
-            ->where('auth_version', (int) $user->auth_version)
-            ->where('anchor_type', AnchorType::COMPANY->value)
-            ->whereNull('anchor_id')
-            ->where('valid_from', '<=', $now)
-            ->where('valid_to', '>', $now)
-            ->whereIn('capability_code', $adminCapabilities)
-            ->exists();
-
-        if (! $heldCapabilities) {
-            return;
-        }
-
-        $otherActiveAdmins = User::query()
-            ->where('status', User::STATUS_ACTIVE)
-            ->whereKeyNot((int) $user->id)
-            ->whereExists(function ($sub) use ($now, $adminCapabilities): void {
-                $sub->selectRaw('1')
-                    ->from('authority_bindings')
-                    ->whereColumn('authority_bindings.principal_id', 'users.id')
-                    ->whereColumn('authority_bindings.auth_version', 'users.auth_version')
-                    ->where('authority_bindings.anchor_type', AnchorType::COMPANY->value)
-                    ->whereNull('authority_bindings.anchor_id')
-                    ->where('authority_bindings.valid_from', '<=', $now)
-                    ->where('authority_bindings.valid_to', '>', $now)
-                    ->whereIn('authority_bindings.capability_code', $adminCapabilities);
-            })
-            ->count();
-
-        if ($otherActiveAdmins === 0) {
-            throw new ConflictException(
-                'The last active administrator cannot be disabled.',
-                ['reason' => 'LAST_ACTIVE_ADMIN'],
-            );
-        }
+        $this->adminProtection->assertNotLastAdminDisable((int) $user->id);
     }
 
     /**
-     * Revoking the only live administrator role from the only enabled
-     * administrator would leave the company with no manageable authority.
-     * The role catalog decides which grants carry admin authority.
+     * Revoking the last administrator role from the last enabled administrator
+     * would leave the company with no manageable authority.
      */
     private function assertNotLastAdminRoleRemoval(User $user, string $roleCode): void
     {
-        $grants = RoleCapability::query()
-            ->where('role_code', $roleCode)
-            ->whereIn('capability_code', ['iam.role.manage', 'iam.binding.manage', '*'])
-            ->exists();
-
-        if (! $grants) {
-            return;
-        }
-
-        $now = $this->clock->now();
-        $adminRoleCodes = RoleCapability::query()
-            ->whereIn('capability_code', ['iam.role.manage', 'iam.binding.manage', '*'])
-            ->distinct()
-            ->pluck('role_code')
-            ->map(static fn (mixed $code): string => (string) $code)
-            ->all();
-
-        $remainingAdminRoles = UserRole::query()
-            ->where('user_id', (int) $user->id)
-            ->where('auth_version', (int) $user->auth_version)
-            ->whereIn('role_code', $adminRoleCodes)
-            ->where('valid_from', '<=', $now)
-            ->where('valid_to', '>', $now)
-            ->where('role_code', '!=', $roleCode)
-            ->count();
-
-        if ($remainingAdminRoles > 0) {
-            return;
-        }
-
-        $otherActiveAdmins = User::query()
-            ->where('status', User::STATUS_ACTIVE)
-            ->whereKeyNot((int) $user->id)
-            ->whereExists(function ($sub) use ($now, $adminRoleCodes): void {
-                $sub->selectRaw('1')
-                    ->from('user_roles')
-                    ->whereColumn('user_roles.user_id', 'users.id')
-                    ->whereColumn('user_roles.auth_version', 'users.auth_version')
-                    ->whereIn('user_roles.role_code', $adminRoleCodes)
-                    ->where('user_roles.valid_from', '<=', $now)
-                    ->where('user_roles.valid_to', '>', $now);
-            })
-            ->count();
-
-        if ($otherActiveAdmins === 0) {
-            throw new ConflictException(
-                'The last active administrator role cannot be revoked.',
-                ['reason' => 'LAST_ACTIVE_ADMIN'],
-            );
-        }
+        // Roles are keyed by their code, and the guard works with the live
+        // role assignments rather than a synthetic numeric id.
+        $this->adminProtection->assertNotLastAdminRoleRemoval(
+            (int) $user->id,
+            [Role::query()->whereKey($roleCode)->firstOrFail()->getKey()],
+        );
     }
 
     /**
