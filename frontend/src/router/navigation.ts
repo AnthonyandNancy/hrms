@@ -1,5 +1,6 @@
 import type { CaseAction } from '@/api/contracts'
 import { PAGE_REGISTRY, type MenuSpec } from '@/router/registry'
+import type { PageMenu, PageSpec } from '@/shared/navigation/pageModel'
 
 export type NavigationGroup =
   | 'dashboard'
@@ -109,6 +110,45 @@ const BADGE_BY_GROUP: Partial<Record<NavigationGroup, 'approvals' | 'notices'>> 
 
 function menuGroupKey(menu: MenuSpec): NavigationGroup {
   return GROUP_BY_MENU[menu.group] ?? 'system'
+}
+
+export type MenuGroup = { group: string; label: string; order: number; icon: string; pages: PageSpec[] }
+
+/**
+ * Build the plain registry menu: a pure projection of the menu-bearing pages.
+ *
+ * Unlike `buildNavigation`, this has no shell-specific concepts such as the
+ * synthetic workspace item, capability filtering, badges or route grouping.
+ * Pages are sorted by menu order then page key; groups carry the smallest
+ * member order so callers can render a deterministic sidebar.
+ */
+export function buildMenu(pages: PageSpec[]): MenuGroup[] {
+  const groups = new Map<string, MenuGroup>()
+
+  for (const page of pages) {
+    const menu: PageMenu = page.menu
+    if (menu === null) continue
+
+    const group = groups.get(menu.group) ?? {
+      group: menu.group,
+      label: menu.group,
+      order: menu.order,
+      icon: menu.icon,
+      pages: [],
+    }
+    group.order = Math.min(group.order, menu.order)
+    group.pages.push(page)
+    groups.set(menu.group, group)
+  }
+
+  return [...groups.values()]
+    .sort((left, right) => left.order - right.order || left.group.localeCompare(right.group))
+    .map((group) => ({
+      ...group,
+      pages: [...group.pages].sort(
+        (left, right) => (left.menu?.order ?? 0) - (right.menu?.order ?? 0) || left.name.localeCompare(right.name),
+      ),
+    }))
 }
 
 /**

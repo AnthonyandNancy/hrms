@@ -1,7 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import router from '@/router'
 import { PAGE_REGISTRY } from '@/router/registry'
-import { NAVIGATION, can, firstAllowedPath, visibleCaseActions, visibleNavigation } from '@/router/navigation'
+import {
+  NAVIGATION,
+  buildMenu,
+  can,
+  firstAllowedPath,
+  visibleCaseActions,
+  visibleNavigation,
+} from '@/router/navigation'
+import type { PageSpec } from '@/shared/navigation/pageModel'
+
+function menuPage(overrides: Pick<PageSpec, 'name' | 'path' | 'menu'> & Partial<PageSpec>): PageSpec {
+  return {
+    componentKey: overrides.name,
+    capability: 'test.page.read',
+    kind: 'workspace',
+    layer: 'business',
+    wave: 'Wave 2',
+    requiredApis: [],
+    actions: [],
+    states: ['loading', 'empty', 'error', 'forbidden', 'partial'],
+    e2e: [overrides.name],
+    negativeTests: ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
+    ...overrides,
+  }
+}
 
 describe('capability-driven navigation', () => {
   it('hides child pages for which the server did not grant the capability', () => {
@@ -102,5 +126,62 @@ describe('expandable navigation affordance', () => {
       const resolved = router.resolve(page.path.replace(/:id/g, '1'))
       expect(resolved.meta.navKey, page.path).toBe(page.name)
     }
+  })
+})
+
+describe('menu-only navigation model', () => {
+  it('exposes only menu-bearing pages, ordered by menu order then page name', () => {
+    const pages = [
+      menuPage({
+        path: '/system/roles',
+        name: 'system-roles',
+        kind: 'governance',
+        layer: 'platform',
+        menu: { group: '系统管理', label: '角色管理', order: 103, icon: 'Lock' },
+      }),
+      menuPage({
+        path: '/hr/employees',
+        name: 'hr-employees',
+        menu: { group: '员工档案', label: '员工列表', order: 16, icon: 'User' },
+      }),
+      menuPage({
+        path: '/hr/employees/:id',
+        name: 'employee-detail',
+        kind: 'detail',
+        menu: null,
+        detailOf: 'hr-employees',
+      }),
+      menuPage({
+        path: '/hr/departments',
+        name: 'hr-departments',
+        menu: { group: '员工档案', label: '组织架构树', order: 16, icon: 'User' },
+      }),
+      menuPage({
+        path: '/login',
+        name: 'login',
+        kind: 'base',
+        layer: 'base',
+        menu: null,
+      }),
+    ]
+
+    const menu = buildMenu(pages)
+
+    expect(menu.map((group) => group.group)).toEqual(['员工档案', '系统管理'])
+    expect(menu[0]?.pages.map((page) => page.name)).toEqual(['hr-departments', 'hr-employees'])
+    expect(menu[1]?.pages.map((page) => page.name)).toEqual(['system-roles'])
+    expect(menu.flatMap((group) => group.pages.map((page) => page.name))).not.toContain('employee-detail')
+    expect(menu.flatMap((group) => group.pages.map((page) => page.name))).not.toContain('login')
+  })
+
+  it('derives the effective menu from the 160-entry registry without dropping menu groups', () => {
+    const menu = buildMenu(PAGE_REGISTRY)
+    const children = menu.flatMap((group) => group.pages)
+
+    expect(PAGE_REGISTRY).toHaveLength(160)
+    expect(children).toHaveLength(143)
+    expect(menu).toHaveLength(18)
+    expect(new Set(children.map((page) => page.name)).size).toBe(children.length)
+    expect(children.every((page) => page.menu !== null)).toBe(true)
   })
 })
