@@ -4424,13 +4424,10 @@ components:
           type: boolean
     PayrollCalculationResult:
       type: object
+      description: "Calculation counters plus the refreshed run. The four amount fields are omitted entirely when the caller lacks a per-run payroll.payslip.read grant at a money-revealing profile (P3); they are never returned as null or zero for such callers."
       required:
         - calculated
         - failed
-        - gross_cents
-        - deductions_cents
-        - net_cents
-        - employer_cost_cents
         - run
       properties:
         calculated:
@@ -4439,12 +4436,16 @@ components:
           type: integer
         gross_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         deductions_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         net_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         employer_cost_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         run:
           $ref: "#/components/schemas/PayrollRunDetail"
     PayrollCsvExport:
