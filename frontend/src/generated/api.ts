@@ -340,7 +340,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List cases visible to the caller */
+        /**
+         * List cases visible to the caller
+         * @description Returns cases visible through the caller's requester, task-assignee or decision-actor membership. `view=my_approvals` returns cases with a pending task assigned to the caller; `view=my_decided` returns cases where the caller has recorded a decision; `view=my_requests` returns cases the caller created. A single `type` filter is supported. Callers that need several case types issue one bounded query per type because there is deliberately no multi-value `type[]` parameter.
+         */
         get: operations["workflowCasesIndex"];
         put?: never;
         /** Create a case */
@@ -360,7 +363,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Append an immutable decision */
+        /**
+         * Append an immutable decision
+         * @description Appends one immutable decision. The action is one of APPROVE, REJECT or RETURN for an assigned approver; WITHDRAW, DELEGATE and CC remain supported workflow actions. Replaying the same Idempotency-Key and payload returns the stored 200 response with `Idempotency-Replayed: true`; reusing a key with a different payload returns 409. A decision on a case that is no longer pending returns 409, and a caller without a pending task for the case receives 404 so case existence is not leaked.
+         */
         post: operations["workflowDecisionsStore"];
         delete?: never;
         options?: never;
@@ -8658,6 +8664,12 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                view?: "my_approvals" | "my_decided" | "my_requests";
+                status?: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELLED";
+                effect_status?: "NONE" | "PENDING" | "SCHEDULED" | "APPLIED" | "PARTIAL" | "FAILED" | "REVERSED";
+                /** @description One business case type, e.g. LEAVE_REQUEST or ASSIGNMENT_CHANGE. */
+                type?: string;
+                business_date?: string;
             };
             header?: never;
             path?: never;
@@ -8725,8 +8737,8 @@ export interface operations {
     workflowDecisionsStore: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
             path: {
                 caseId: number;
@@ -8736,7 +8748,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    action: string;
+                    /** @enum {string} */
+                    action: "APPROVE" | "REJECT" | "RETURN" | "WITHDRAW" | "DELEGATE" | "CC";
                     comment?: string;
                     target_user_id?: number | null;
                     reason?: string | null;
@@ -8755,7 +8768,6 @@ export interface operations {
                     };
                 };
             };
-            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

@@ -7854,6 +7854,14 @@ paths:
       tags:
         - Workflow
       summary: List cases visible to the caller
+      description: >
+        Returns cases visible through the caller's requester, task-assignee or
+        decision-actor membership. `view=my_approvals` returns cases with a
+        pending task assigned to the caller; `view=my_decided` returns cases
+        where the caller has recorded a decision; `view=my_requests` returns
+        cases the caller created. A single `type` filter is supported. Callers
+        that need several case types issue one bounded query per type because
+        there is deliberately no multi-value `type[]` parameter.
       parameters:
         - name: page
           in: query
@@ -7868,6 +7876,32 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [my_approvals, my_decided, my_requests]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, SUBMITTED, IN_REVIEW, APPROVED, REJECTED, WITHDRAWN, CANCELLED]
+        - name: effect_status
+          in: query
+          schema:
+            type: string
+            enum: [NONE, PENDING, SCHEDULED, APPLIED, PARTIAL, FAILED, REVERSED]
+        - name: type
+          in: query
+          description: One business case type, e.g. LEAVE_REQUEST or ASSIGNMENT_CHANGE.
+          schema:
+            type: string
+            maxLength: 64
+        - name: business_date
+          in: query
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Case page
@@ -7960,12 +7994,15 @@ paths:
           required: true
           schema:
             type: integer
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema:
-            type: string
-            maxLength: 128
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      description: >
+        Appends one immutable decision. The action is one of APPROVE, REJECT or
+        RETURN for an assigned approver; WITHDRAW, DELEGATE and CC remain
+        supported workflow actions. Replaying the same Idempotency-Key and
+        payload returns the stored 200 response with `Idempotency-Replayed:
+        true`; reusing a key with a different payload returns 409. A decision
+        on a case that is no longer pending returns 409, and a caller without a
+        pending task for the case receives 404 so case existence is not leaked.
       requestBody:
         required: true
         content:
@@ -7977,8 +8014,10 @@ paths:
               properties:
                 action:
                   type: string
+                  enum: [APPROVE, REJECT, RETURN, WITHDRAW, DELEGATE, CC]
                 comment:
                   type: string
+                  maxLength: 4000
                 target_user_id:
                   type:
                     - integer
@@ -7987,9 +8026,8 @@ paths:
                   type:
                     - string
                     - "null"
+                  maxLength: 2000
       responses:
-        "201":
-          $ref: "#/components/responses/Envelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":

@@ -56,9 +56,12 @@ const CASE_TYPES: Record<string, string> = {
   OFFBOARDING_REQUEST: '离职办理',
   PAYROLL_APPROVAL: '薪资审批',
   NOTICE_APPROVAL: '公告审批',
+  REQUISITION_APPROVAL: '招聘需求审批',
+  OFFER_APPROVAL: 'Offer 审批',
+  PERFORMANCE_APPEAL: '绩效申诉',
   ONBOARDING: '入职办理',
   PROBATION_CONFIRM: '转正办理',
-  ASSIGNMENT_CHANGE: '任职调整',
+  ASSIGNMENT_CHANGE: '调岗/调部门',
   TERMS_CHANGE: '雇佣条款变更',
   OFFBOARD: '离职办理',
   CONTRACT_RENEW: '合同续签',
@@ -83,6 +86,11 @@ const SUBJECT_TYPES: Record<string, string> = {
   employee: '员工',
   notice: '公告',
   payroll_run: '薪资批次',
+  recruitment_requisition: '招聘需求',
+  offer: 'Offer',
+  performance_review: '绩效评估',
+  person: '员工',
+  intent: '异动意图',
   contract: '劳动合同',
   org_unit: '组织单元',
   case: '审批案例',
@@ -108,6 +116,18 @@ export function slaStateTone(code: string): 'success' | 'warning' | 'danger' | '
   if (code === 'BREACHED') return 'danger'
   if (code === 'ON_TRACK') return 'warning'
   return 'muted'
+}
+
+const WORKFLOW_NODES: Record<string, string> = {
+  start: '发起环节',
+  manager_approval: '直属经理审批',
+  hr_review: '人事复核',
+  approval: '审批处理',
+  approve: '审批处理',
+}
+
+export function workflowNodeLabel(code: string): string {
+  return pick(WORKFLOW_NODES, code, '审批处理中')
 }
 
 const DECISION_ACTIONS: Record<string, string> = {

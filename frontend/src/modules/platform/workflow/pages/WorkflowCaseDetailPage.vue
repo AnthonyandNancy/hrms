@@ -23,6 +23,7 @@ import {
   effectTypeLabel,
   subjectTypeLabel,
   workflowEventLabel,
+  workflowNodeLabel,
   workflowStatusLabel,
   workflowStatusTone,
 } from '../../labels'
@@ -308,7 +309,7 @@ onMounted(() => {
               {{ formatDateTimeInTimezone(detail.closedAt) }}
             </el-descriptions-item>
             <el-descriptions-item label="当前环节">
-              {{ detail.currentNodeKey === null ? '已结束' : '审批处理中' }}
+              {{ detail.currentNodeKey === null ? '已结束' : workflowNodeLabel(detail.currentNodeKey) }}
             </el-descriptions-item>
             <el-descriptions-item label="流程模板">
               第 {{ detail.templateVersion }} 版
@@ -330,7 +331,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <section v-if="awaitingMe" class="panel" data-testid="workflow-decision-actions">
+      <section v-if="awaitingMe && canDecide" class="panel" data-testid="workflow-decision-actions">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">当前待办决定</h2>
@@ -338,49 +339,46 @@ onMounted(() => {
           </div>
         </div>
         <div class="panel__body decision-body">
-          <p v-if="!canDecide" class="muted">当前账号缺少审批决策能力，仅可查看。</p>
-          <template v-else>
-            <label class="decision-comment">
-              <span>审批意见 *</span>
-              <el-input
-                v-model="comment"
-                data-testid="workflow-decision-comment"
-                type="textarea"
-                :rows="3"
-                maxlength="1000"
-                show-word-limit
-                placeholder="请说明同意、驳回或退回补充的依据"
-              />
-            </label>
-            <div class="decision-buttons">
-              <el-button
-                type="primary"
-                :loading="deciding === 'APPROVE'"
-                data-testid="workflow-decision-approve"
-                @click="submitDecision('APPROVE')"
-              >
-                同意
-              </el-button>
-              <el-button
-                type="warning"
-                plain
-                :loading="deciding === 'RETURN'"
-                data-testid="workflow-decision-return"
-                @click="submitDecision('RETURN')"
-              >
-                退回补充
-              </el-button>
-              <el-button
-                type="danger"
-                plain
-                :loading="deciding === 'REJECT'"
-                data-testid="workflow-decision-reject"
-                @click="submitDecision('REJECT')"
-              >
-                驳回
-              </el-button>
-            </div>
-          </template>
+          <label class="decision-comment">
+            <span>审批意见 *</span>
+            <el-input
+              v-model="comment"
+              data-testid="workflow-decision-comment"
+              type="textarea"
+              :rows="3"
+              maxlength="1000"
+              show-word-limit
+              placeholder="请说明同意、驳回或退回补充的依据"
+            />
+          </label>
+          <div class="decision-buttons">
+            <el-button
+              type="primary"
+              :loading="deciding === 'APPROVE'"
+              data-testid="workflow-decision-approve"
+              @click="submitDecision('APPROVE')"
+            >
+              同意
+            </el-button>
+            <el-button
+              type="warning"
+              plain
+              :loading="deciding === 'RETURN'"
+              data-testid="workflow-decision-return"
+              @click="submitDecision('RETURN')"
+            >
+              退回补充
+            </el-button>
+            <el-button
+              type="danger"
+              plain
+              :loading="deciding === 'REJECT'"
+              data-testid="workflow-decision-reject"
+              @click="submitDecision('REJECT')"
+            >
+              驳回
+            </el-button>
+          </div>
         </div>
       </section>
 

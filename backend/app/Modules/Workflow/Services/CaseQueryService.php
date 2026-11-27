@@ -78,6 +78,15 @@ final class CaseQueryService
             $query->where('requester_user_id', $principal->userId);
         }
 
+        // "已办" is the caller's own decision history, including delegated and
+        // admin-override records. It is distinct from "visible" because a case
+        // can be visible through a request or a task the caller never acted on.
+        if (isset($filters['view']) && $filters['view'] === 'my_decided') {
+            $query->whereHas('decisions', function (Builder $decisionQuery) use ($principal): void {
+                $decisionQuery->where('actor_user_id', $principal->userId);
+            });
+        }
+
         $total = (clone $query)->count();
         $cases = $query->orderByDesc('id')->forPage($page, $pageSize)->get();
 
@@ -247,7 +256,11 @@ final class CaseQueryService
                 }
 
                 $query->where('requester_user_id', $principal->userId)
-                    ->orWhereHas('tasks', fn (Builder $tasks): Builder => $tasks->where('assignee_user_id', $principal->userId));
+                    ->orWhereHas('tasks', fn (Builder $tasks): Builder => $tasks->where('assignee_user_id', $principal->userId))
+                    // A delegated or historical decision actor keeps read
+                    // access to the case they decided, even when the pending
+                    // task was assigned to the delegating principal.
+                    ->orWhereHas('decisions', fn (Builder $decisions): Builder => $decisions->where('actor_user_id', $principal->userId));
             });
     }
 

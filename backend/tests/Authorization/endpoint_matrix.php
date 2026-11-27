@@ -179,7 +179,7 @@ return [
         'capability' => 'workflow.case.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export', 'out_of_scope_empty'],
     ],
     'GET /v1/cases/{id}' => [
         'capability' => 'workflow.case.read',
@@ -715,7 +715,7 @@ return [
         'capability' => 'workflow.case.decide',
         'anchor' => 'SELF',
         'risk' => 'medium',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing', 'assignee_only', 'decided_case_conflict'],
     ],
     'POST /v1/cases/{id}/submit' => [
         'capability' => 'workflow.case.create',

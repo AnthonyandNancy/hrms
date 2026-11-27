@@ -202,19 +202,49 @@ export function workflowCaseOf(value: unknown): WorkflowCaseSummary {
   }
 }
 
+export type WorkflowCaseView = 'my_approvals' | 'my_decided' | 'my_requests'
+
 export type WorkflowCaseQuery = {
   page: number
   pageSize: number
-  view?: 'my_approvals' | 'my_requests'
+  view?: WorkflowCaseView
   status?: WorkflowCaseStatus | ''
+  effectStatus?: WorkflowEffectStatus | ''
   type?: string
+  businessDate?: string
 }
+
+/**
+ * Closed case-type vocabulary used by the business modules that open cases.
+ * The generic workflow API accepts the codes; the center only offers types
+ * that a real module emits, so a filter can never return a permanently empty
+ * fabricated category.
+ */
+export const WORKFLOW_CASE_TYPE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'LEAVE_REQUEST', label: '请假申请' },
+  { value: 'ATTENDANCE_CORRECTION', label: '考勤更正' },
+  { value: 'TRAVEL_REQUEST', label: '出差申请' },
+  { value: 'ONBOARDING', label: '入职办理' },
+  { value: 'PROBATION_CONFIRM', label: '转正办理' },
+  { value: 'ASSIGNMENT_CHANGE', label: '调岗/调部门' },
+  { value: 'TERMS_CHANGE', label: '雇佣条款变更' },
+  { value: 'CONTRACT_RENEW', label: '合同续签' },
+  { value: 'OFFBOARD', label: '离职办理' },
+  { value: 'REHIRE', label: '返聘办理' },
+  { value: 'NOTICE_APPROVAL', label: '公告审批' },
+  { value: 'PAYROLL_APPROVAL', label: '薪资审批' },
+  { value: 'REQUISITION_APPROVAL', label: '招聘需求审批' },
+  { value: 'OFFER_APPROVAL', label: 'Offer 审批' },
+  { value: 'PERFORMANCE_APPEAL', label: '绩效申诉' },
+]
 
 export async function listWorkflowCases(query: WorkflowCaseQuery): Promise<PageResult<WorkflowCaseSummary>> {
   const params: Record<string, unknown> = { page: query.page, page_size: query.pageSize }
   if (query.view !== undefined) params.view = query.view
   if (query.status !== undefined && query.status !== '') params.status = query.status
+  if (query.effectStatus !== undefined && query.effectStatus !== '') params.effect_status = query.effectStatus
   if (query.type !== undefined && query.type !== '') params.type = query.type
+  if (query.businessDate !== undefined && query.businessDate !== '') params.business_date = query.businessDate
 
   const payload = await resourceGet<unknown>('/v1/cases', params)
   const page = pageFrom(payload)

@@ -342,6 +342,8 @@
 |---|---|---|
 | `/v1/auth/*`、`/v1/me/*`、`/v1/bindings` | IAM 会话与身份治理 | D1 完成后改 ProjectionResponder；会话路由保持专用中间件 |
 | `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 既有端点 | E3 统一改 ProjectionResponder/CommandRunner |
+| `/v1/cases` (`view=my_decided`) | V4 Task 3 adds the caller's decision-history view to the existing list route; no new path | Existing E3 list route extended; OpenAPI parameter + endpoint matrix row updated |
+| `/v1/cases/{caseId}/decisions` (assignee-only / decided 409) | V4 Task 3 pins the existing decision route's assignee guard and immutable-state conflict | Existing E3 command route; OpenAPI description + endpoint matrix denial rows updated |
 | `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影 |
 | `/v1/employees*`、`/v1/employments*`、`/v1/persons` | People 主档既有读写 | C1 迁移岗位与组织；员工主档 E3 收敛 |
 | `/v1/platform/features` | Feature flag 管理 | D1 迁移 |

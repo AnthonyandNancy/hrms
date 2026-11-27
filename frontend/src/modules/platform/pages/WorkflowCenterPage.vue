@@ -10,8 +10,10 @@ import {
   listMyWorkflowTasks,
   listWorkflowCases,
   platformErrorCopy,
+  WORKFLOW_CASE_TYPE_OPTIONS,
   type WorkflowCaseStatus,
   type WorkflowCaseSummary,
+  type WorkflowCaseView,
   type WorkflowTask,
 } from '../api'
 import {
@@ -19,12 +21,12 @@ import {
   effectStatusLabel,
   slaStateLabel,
   slaStateTone,
+  workflowNodeLabel,
   workflowStatusLabel,
   workflowStatusTone,
 } from '../labels'
 
-type ViewKey = 'my_approvals' | 'my_requests' | 'all'
-
+type ViewKey = WorkflowCaseView | 'all'
 
 const session = useSessionStore()
 const canRead = computed(() => session.can('workflow.case.read'))
@@ -56,20 +58,21 @@ const STATUS_FILTERS: Array<{ value: WorkflowCaseStatus | ''; label: string }> =
   { value: 'CANCELLED', label: '已取消' },
 ]
 
-const CASE_TYPES = [
-  { value: 'LEAVE_REQUEST', label: '请假申请' },
-  { value: 'ATTENDANCE_CORRECTION', label: '考勤更正' },
-  { value: 'TRAVEL_REQUEST', label: '出差申请' },
-  { value: 'TRANSFER_REQUEST', label: '调动申请' },
-  { value: 'CONTRACT_RENEWAL', label: '合同续签' },
-  { value: 'NOTICE_APPROVAL', label: '公告审批' },
-  { value: 'PAYROLL_APPROVAL', label: '薪资审批' },
-  { value: 'ONBOARDING', label: '入职办理' },
-  { value: 'OFFBOARD', label: '离职办理' },
-  { value: 'PROBATION_CONFIRM', label: '转正办理' },
-  { value: 'TERMS_CHANGE', label: '雇佣条款变更' },
-  { value: 'REHIRE', label: '返聘办理' },
+const CASE_TYPES = WORKFLOW_CASE_TYPE_OPTIONS
+
+const VIEWS: ReadonlyArray<{ key: ViewKey; label: string }> = [
+  { key: 'my_approvals', label: '待我审批' },
+  { key: 'my_decided', label: '我审批的' },
+  { key: 'my_requests', label: '我发起的' },
+  { key: 'all', label: '全部可见' },
 ]
+
+const emptyCopy = computed(() => {
+  if (filters.view === 'my_approvals') return '当前没有指派给你的待办审批。'
+  if (filters.view === 'my_decided') return '你还没有提交过审批决定。'
+  if (filters.view === 'my_requests') return '你还没有发起过审批事项。'
+  return '当前条件下没有审批案例。'
+})
 
 const columns = computed<DataTableColumn[]>(() => [
   { key: 'caseNo', label: '案例编号', minWidth: '170px' },
@@ -135,11 +138,7 @@ function dueFor(row: Record<string, unknown>): string {
 
 function currentNode(row: Record<string, unknown>): string {
   const key = typeof row.currentNodeKey === 'string' ? row.currentNodeKey : ''
-  if (key === '') return '已结束'
-  if (key === 'manager_approval') return '直属经理审批'
-  if (key === 'hr_review') return '人事复核'
-  if (key === 'start') return '发起环节'
-  return '审批处理中'
+  return key === '' ? '已结束' : workflowNodeLabel(key)
 }
 
 async function loadCases(): Promise<void> {
@@ -174,6 +173,14 @@ async function loadCases(): Promise<void> {
 }
 
 async function loadTasks(): Promise<void> {
+  // Only the pending approval view is joined against the personal task
+  // projection. For the decided/requested views a task read would add SLA
+  // values for cases that are not the caller's current tasks.
+  if (filters.view !== 'my_approvals' && filters.view !== 'all') {
+    tasks.value = []
+    return
+  }
+
   try {
     tasks.value = await listMyWorkflowTasks()
   } catch (error) {
@@ -257,11 +264,7 @@ onMounted(() => {
         <div class="workspace-filters">
           <div class="workspace-filter-tabs" role="group" aria-label="案例范围">
             <button
-              v-for="view in ([
-                { key: 'my_approvals', label: '待我审批' },
-                { key: 'my_requests', label: '我发起的' },
-                { key: 'all', label: '全部可见' },
-              ] as const)"
+              v-for="view in VIEWS"
               :key="view.key"
               type="button"
               class="workspace-filter-tab"
@@ -348,8 +351,8 @@ onMounted(() => {
 
       <section v-else-if="isEmpty" class="panel" data-testid="workflow-empty">
         <div class="panel__body">
-          <h2 class="panel__title">当前条件下没有审批案例</h2>
-          <p class="muted">可以切换到“待我审批”或调整状态与事项类型后重试。</p>
+          <h2 class="panel__title">{{ emptyCopy }}</h2>
+          <p class="muted">可以切换视图或调整状态与事项类型后重试。</p>
         </div>
       </section>
 
