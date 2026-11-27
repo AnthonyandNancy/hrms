@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $case_id
  * @property int|null $employment_id
  * @property string $task_code
@@ -33,7 +32,6 @@ final class LifecycleTask extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'employment_id',
         'task_code',
@@ -56,7 +54,6 @@ final class LifecycleTask extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'case_id' => 'integer',
             'employment_id' => 'integer',
             'required' => 'boolean',

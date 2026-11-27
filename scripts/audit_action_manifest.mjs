@@ -2,289 +2,75 @@
 /**
  * Page-action manifest gate.
  *
- * A page that consumes a write API must declare at least one PageActionSpec
- * whose endpoint exists in OpenAPI and whose capability is both code-owned by
- * CapabilityCatalog and exactly equal to the operation's x-capability.
+ * Thin CLI over the shared builder/validator in generate_action_manifest.mjs.
+ * The production CLI reads the generated manifest and validates it back against
+ * the registry, OpenAPI, capability catalog and explicit gap list.
  *
- * The single public write exception is the login page. /v1/auth/login is in
- * the backend public allowlist and intentionally has no x-capability; inventing
- * a capability for it would make the button/API contract untrue.
+ * The only public write exception is POST /v1/auth/login. It is in the
+ * documented backend allowlist and intentionally carries no x-capability.
  */
 
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import YAML from 'yaml'
+import { buildActionManifest, renderPageActionsTs, serializeManifestJson } from './generate_action_manifest.mjs'
+import { fileURLToPath } from 'node:url'
+import {
+  ACTION_CONFIRM,
+  ACTION_UI,
+  CAPABILITY_PATTERN,
+  GAP_OWNER_PATTERN,
+  PUBLIC_WRITE_EXCEPTIONS,
+  WRITE_METHODS,
+  buildServiceIndex,
+  parseCapabilityCatalog,
+  parseCapabilityCodes,
+  parseOpenApi,
+  parseRegistryPages,
+  splitApi,
+  validateActionManifest,
+  validateCapabilityGaps,
+  validateWorkbenchCoverage,
+} from './generate_action_manifest.mjs'
 
-const WRITE_VERBS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
-const METHOD_ORDER = ['get', 'post', 'put', 'patch', 'delete']
-const CAPABILITY_PATTERN = /^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/
-const ACTION_UI = new Set(['primary', 'secondary', 'danger', 'hidden'])
-
-/**
- * Public allowlist exceptions are deliberately exact. A broad "public pages
- * skip auditing" rule would let a future write page evade this gate.
- */
-export const PUBLIC_WRITE_EXCEPTIONS = Object.freeze([
-  Object.freeze({
-    pageCode: 'login',
-    api: 'POST /v1/auth/login',
-    operationId: 'login',
-    reason: '/v1/auth/login is in the documented backend public allowlist and has no x-capability.',
-  }),
-])
+export { PUBLIC_WRITE_EXCEPTIONS }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const failure = (message) => `parse error: ${message}`
 
-function auditError(message) {
-  return `parse error: ${message}`
+const canonicalApi = (api) => {
+  const { method, path } = splitApi(api)
+  return `${method} ${path}`
 }
 
-function skipSpaceAndComments(source, start) {
-  let index = start
-  while (index < source.length) {
-    if (/\s/.test(source[index])) {
-      index += 1
-      continue
-    }
-    if (source.startsWith('//', index)) {
-      const newline = source.indexOf('\n', index + 2)
-      index = newline === -1 ? source.length : newline + 1
-      continue
-    }
-    if (source.startsWith('/*', index)) {
-      const end = source.indexOf('*/', index + 2)
-      if (end === -1) throw new Error('unterminated block comment')
-      index = end + 2
-      continue
-    }
-    break
-  }
-  return index
+function read(relativePath) {
+  return readFileSync(resolve(repoRoot, relativePath), 'utf8')
 }
 
-function readQuoted(source, start) {
-  const quote = source[start]
-  if (quote !== "'" && quote !== '"') {
-    throw new Error(`expected quoted string at offset ${start}`)
-  }
-  let value = ''
-  let index = start + 1
-  while (index < source.length) {
-    const char = source[index]
-    if (char === '\\') {
-      const next = source[index + 1]
-      if (next === undefined) throw new Error('unterminated string escape')
-      value += next === 'n' ? '\n' : next === 't' ? '\t' : next
-      index += 2
-      continue
-    }
-    if (char === quote) return { value, end: index + 1 }
-    value += char
-    index += 1
-  }
-  throw new Error('unterminated quoted string')
-}
-
-function findMatching(source, start) {
-  const open = source[start]
-  const close = open === '{' ? '}' : open === '[' ? ']' : open === '(' ? ')' : null
-  if (close === null) throw new Error(`unsupported delimiter ${open}`)
-  let depth = 0
-  let index = start
-  while (index < source.length) {
-    const char = source[index]
-    if (char === "'" || char === '"' || char === '`') {
-      if (char === '`') {
-        const end = source.indexOf('`', index + 1)
-        if (end === -1) throw new Error('unterminated template string')
-        index = end + 1
-        continue
-      }
-      index = readQuoted(source, index).end
-      continue
-    }
-    if (source.startsWith('//', index)) {
-      const newline = source.indexOf('\n', index + 2)
-      index = newline === -1 ? source.length : newline + 1
-      continue
-    }
-    if (source.startsWith('/*', index)) {
-      const end = source.indexOf('*/', index + 2)
-      if (end === -1) throw new Error('unterminated block comment')
-      index = end + 2
-      continue
-    }
-    if (char === open) depth += 1
-    if (char === close) {
-      depth -= 1
-      if (depth === 0) return index
-    }
-    index += 1
-  }
-  throw new Error(`unterminated ${open}${close} block`)
-}
-
-function fieldValueStart(source, field, from = 0) {
-  const match = new RegExp(`(?:^|[\\s,{])${field}\\s*:`, 'm').exec(source.slice(from))
-  if (match === null) return null
-  return skipSpaceAndComments(source, from + match.index + match[0].length)
-}
-
-function readStringField(source, field, label) {
-  const start = fieldValueStart(source, field)
-  if (start === null) throw new Error(`${label}: missing ${field}`)
+function readJson(relativePath) {
   try {
-    return readQuoted(source, start).value
+    return JSON.parse(read(relativePath))
   } catch (error) {
-    throw new Error(`${label}: cannot read ${field}: ${error.message}`)
+    throw new Error(`${relativePath}: ${error.message}`)
   }
 }
 
-function readArraySource(source, field, label) {
-  const start = fieldValueStart(source, field)
-  if (start === null || source[start] !== '[') {
-    throw new Error(`${label}: missing ${field} array`)
-  }
+function emptyResult(failures, pageCount = 0) {
   return {
-    body: source.slice(start + 1, findMatching(source, start)),
-    start,
+    ok: false,
+    failures,
+    errors: failures,
+    pageCount,
+    writePageCount: 0,
+    pagesWithActions: 0,
+    actionCount: 0,
+    gapsUsed: 0,
+    capabilityGapsRetained: 0,
+    workbenchSkipped: [],
+    publicWriteExceptionsUsed: [],
   }
 }
 
-function parseStringArray(body, field, label) {
-  const values = []
-  let index = 0
-  while (index < body.length) {
-    index = skipSpaceAndComments(body, index)
-    if (index >= body.length) break
-    if (body[index] === ',') {
-      index += 1
-      continue
-    }
-    if (body[index] === "'" || body[index] === '"') {
-      const quoted = readQuoted(body, index)
-      values.push(quoted.value)
-      index = quoted.end
-      continue
-    }
-    throw new Error(`${label}: ${field} contains a non-string value`)
-  }
-  return values
-}
-
-function parseActionObjects(body, label) {
-  const actions = []
-  let index = 0
-  while (index < body.length) {
-    index = skipSpaceAndComments(body, index)
-    if (index >= body.length) break
-    if (body[index] === ',') {
-      index += 1
-      continue
-    }
-    if (body[index] !== '{') {
-      throw new Error(`${label}: actions contains a non-object value`)
-    }
-    const end = findMatching(body, index)
-    const source = body.slice(index, end + 1)
-    const actionLabel = `${label} action ${actions.length + 1}`
-    actions.push({
-      key: readStringField(source, 'key', actionLabel),
-      label: readStringField(source, 'label', actionLabel),
-      capability: readStringField(source, 'capability', actionLabel),
-      api: readStringField(source, 'api', actionLabel),
-      ui: readStringField(source, 'ui', actionLabel),
-      confirm: fieldValueStart(source, 'confirm') === null
-        ? undefined
-        : readStringField(source, 'confirm', actionLabel),
-    })
-    index = end + 1
-  }
-  return actions
-}
-
-function parseRegistryPages(source) {
-  const registryMatch = /export\s+const\s+PAGE_REGISTRY\s*:\s*PageSpec\[\]\s*=\s*\[/.exec(source)
-  if (registryMatch === null) throw new Error('PAGE_REGISTRY array not found')
-  const arrayStart = registryMatch.index + registryMatch[0].lastIndexOf('[')
-  const arrayEnd = findMatching(source, arrayStart)
-  const body = source.slice(arrayStart + 1, arrayEnd)
-  const pages = []
-  let index = 0
-
-  while (index < body.length) {
-    index = skipSpaceAndComments(body, index)
-    if (index >= body.length) break
-    if (body[index] === ',') {
-      index += 1
-      continue
-    }
-    if (body[index] !== '{') {
-      throw new Error(`PAGE_REGISTRY contains a non-object value at offset ${arrayStart + index + 1}`)
-    }
-    const end = findMatching(body, index)
-    const entry = body.slice(index, end + 1)
-    const name = readStringField(entry, 'name', 'registry page')
-    const label = `page ${name}`
-    const requiredApisSource = readArraySource(entry, 'requiredApis', label)
-    const requiredApis = parseStringArray(
-      requiredApisSource.body,
-      'requiredApis',
-      label,
-    )
-    let actions = []
-    let hasActionsArray = false
-    try {
-      const actionSource = readArraySource(entry, 'actions', label)
-      hasActionsArray = true
-      actions = parseActionObjects(actionSource.body, label)
-    } catch (error) {
-      if (!/missing actions array/.test(error.message)) throw error
-    }
-    pages.push({
-      path: readStringField(entry, 'path', label),
-      name,
-      capability: readStringField(entry, 'capability', label),
-      requiredApis,
-      actions,
-      hasActionsArray,
-    })
-    index = end + 1
-  }
-
-  if (pages.length === 0) throw new Error('no registry pages found')
-  return pages
-}
-
-function parseCapabilityCodes(source) {
-  const codes = new Set()
-  const pattern = /new\s+CapabilityDefinition\s*\(\s*(['"])([^'"]+)\1/g
-  for (const match of source.matchAll(pattern)) codes.add(match[2])
-  if (codes.size === 0) throw new Error('no CapabilityDefinition codes found')
-  return codes
-}
-
-function parseOpenApi(source) {
-  let document
-  try {
-    document = YAML.parse(source)
-  } catch (error) {
-    throw new Error(`OpenAPI YAML is invalid: ${error.message}`)
-  }
-  if (document === null || typeof document !== 'object' || document.paths === null || typeof document.paths !== 'object') {
-    throw new Error('OpenAPI document has no paths object')
-  }
-  return document
-}
-
-function operationFor(document, method, path) {
-  const item = document.paths[path]
-  if (item === null || typeof item !== 'object') return null
-  return item[method] ?? null
-}
-
-function validatePublicException(exception, page, writeApis, openapi, failures) {
+function validatePublicException(exception, page, writeApis, openapiDocument, failures) {
   const label = `page ${page.name}`
   if (page.capability !== 'public') {
     failures.push(`${label}: public write exception requires capability 'public', found '${page.capability}'`)
@@ -295,8 +81,8 @@ function validatePublicException(exception, page, writeApis, openapi, failures) 
     return false
   }
   const [method, path] = exception.api.split(' ', 2)
-  const operation = operationFor(openapi, method.toLowerCase(), path)
-  if (operation === null) {
+  const operation = openapiDocument.paths?.[path]?.[method.toLowerCase()]
+  if (operation === null || operation === undefined) {
     failures.push(`${label}: public write exception ${exception.api} is not documented in OpenAPI`)
     return false
   }
@@ -311,15 +97,153 @@ function validatePublicException(exception, page, writeApis, openapi, failures) 
   return true
 }
 
-function splitApi(api) {
-  const [method, ...pathParts] = api.trim().split(/\s+/)
-  return { method: (method ?? '').toUpperCase(), path: pathParts.join(' ') }
+/**
+ * Pure audit entry point.
+ *
+ * New signature:
+ *   auditActionManifest({ manifest, registry, openapi, gaps = [], catalog })
+ *
+ * Legacy fixture signature (still used by scripts/tests): pass registrySource,
+ * catalogSource and openapiSource instead. Only this fixture bridge reads the
+ * registry's hand-written `actions:`; the production gate never does.
+ */
+export function auditActionManifest(options) {
+  if (options?.registrySource !== undefined) return auditLegacyFixture(options)
+  return auditGeneratedManifest(options)
+}
+
+function auditGeneratedManifest({
+  manifest,
+  registry,
+  openapi,
+  gaps = [],
+  capabilityGaps = [],
+  catalog,
+  serviceIndex,
+  publicWriteExceptions = PUBLIC_WRITE_EXCEPTIONS,
+}) {
+  const failures = []
+  const pages = registry
+  const openapiDocument = openapi
+  let capabilities = catalog
+
+  if (!Array.isArray(pages)) failures.push(failure('registry pages must be an array'))
+  if (openapiDocument === null || typeof openapiDocument !== 'object') {
+    failures.push(failure('OpenAPI document is required'))
+  }
+  if (capabilities === undefined) failures.push(failure('capability catalog is required'))
+  if (failures.length > 0) return emptyResult(failures, pages?.length ?? 0)
+
+  if (!(capabilities instanceof Set)) capabilities = new Set(capabilities)
+  const manifestPages = manifest?.pages ?? {}
+  const actions = Object.values(manifestPages).flat()
+
+  for (const page of pages) {
+    if (new Set(page.requiredApis).size !== page.requiredApis.length) {
+      failures.push(`page ${page.name}: requiredApis contains duplicates`)
+    }
+  }
+
+  const actionKeys = new Set()
+  for (const [pageCode, pageActions] of Object.entries(manifestPages)) {
+    if (!Array.isArray(pageActions)) {
+      failures.push(`${pageCode}: manifest actions must be an array`)
+      continue
+    }
+    for (const action of pageActions) {
+      const label = `page ${pageCode} action ${action.key || '(missing key)'}`
+      if (action.pageCode !== pageCode) {
+        failures.push(`${label}: pageCode ${String(action.pageCode)} != ${pageCode}`)
+      }
+      if (actionKeys.has(action.key)) failures.push(`${label}: duplicate action key`)
+      actionKeys.add(action.key)
+      if (typeof action.capability !== 'string' || !CAPABILITY_PATTERN.test(action.capability)) {
+        failures.push(`${label}: invalid capability '${String(action.capability)}'`)
+      }
+      if (typeof action.capability === 'string' && !capabilities.has(action.capability)) {
+        failures.push(`${label}: unknown capability ${action.capability}`)
+      }
+      if (!ACTION_UI.includes(action.ui)) failures.push(`${label}: invalid ui '${String(action.ui)}'`)
+      if (action.confirm !== undefined && !ACTION_CONFIRM.includes(action.confirm)) {
+        failures.push(`${label}: invalid confirm '${String(action.confirm)}'`)
+      }
+      const actionMethod = splitApi(action.api).method
+      if (!WRITE_METHODS.includes(actionMethod)) {
+        failures.push(`${label}: write page action API must use POST/PUT/PATCH/DELETE, found '${actionMethod}'`)
+      }
+      if (typeof action.label !== 'string' || action.label.trim() === '') {
+        failures.push(`${label}: label is required`)
+      }
+      if (!Array.isArray(action.anchorTypes) || action.anchorTypes.length === 0) {
+        failures.push(`${label}: anchorTypes must be a non-empty array`)
+      }
+      if (typeof action.fieldProfileMax !== 'string' || !/^P[0-3]_[A-Z_]+$/.test(action.fieldProfileMax)) {
+        failures.push(`${label}: invalid fieldProfileMax '${String(action.fieldProfileMax)}'`)
+      }
+    }
+  }
+
+  const validation = validateActionManifest({
+    pages,
+    manifest,
+    openapi: openapiDocument,
+    gaps,
+    requireGapReason: true,
+    requireLabels: true,
+    publicWriteExceptions,
+    serviceIndex,
+  })
+  failures.push(...validation.errors)
+
+  const capabilityValidation = validateCapabilityGaps({
+    capabilityGaps,
+    pages,
+    catalog: [...capabilities],
+    openapi: openapiDocument,
+    requireReason: true,
+  })
+  failures.push(...capabilityValidation.errors)
+
+  const workbenchValidation = validateWorkbenchCoverage({
+    pages,
+    manifest,
+    serviceIndex,
+  })
+  failures.push(...workbenchValidation.errors)
+
+  let writePageCount = 0
+  let pagesWithActions = 0
+  for (const page of pages) {
+    if (page.requiredApis.some((api) => WRITE_METHODS.includes(splitApi(api).method))) writePageCount += 1
+    if ((manifestPages[page.name] ?? []).length > 0) pagesWithActions += 1
+  }
+
+  const covered = new Set(actions.map((action) => canonicalApi(action.api)))
+  const gapsUsed = gaps.filter((gap) => (
+    !covered.has(canonicalApi(gap.api)) && GAP_OWNER_PATTERN.test(String(gap.owner))
+  )).length
+
+  return {
+    ok: failures.length === 0,
+    failures,
+    errors: failures,
+    pageCount: pages.length,
+    writePageCount,
+    pagesWithActions,
+    actionCount: actions.length,
+    gapsUsed,
+    capabilityGapsRetained: capabilityValidation.retained.length,
+    workbenchSkipped: workbenchValidation.skipped,
+    publicWriteExceptionsUsed: validation.publicWriteExceptionsUsed ?? [],
+  }
 }
 
 /**
- * Pure audit entry point used by both the CLI and node:test fixtures.
+ * Transitional fixture bridge for the pre-manifest unit tests. It reads the
+ * fixture registry's hand-written actions solely to reproduce the historical
+ * assertion messages; the production CLI never takes this path.
  */
-export function auditActionManifest({
+function auditLegacyFixture({
   registrySource,
   catalogSource,
   openapiSource,
@@ -328,34 +252,26 @@ export function auditActionManifest({
   const failures = []
   let pages
   let capabilities
-  let openapi
+  let openapiDocument
 
   try {
-    pages = parseRegistryPages(registrySource)
+    pages = parseRegistryPages(registrySource, { includeActions: true })
   } catch (error) {
-    failures.push(auditError(error.message))
+    failures.push(failure(error.message))
   }
   try {
     capabilities = parseCapabilityCodes(catalogSource)
   } catch (error) {
-    failures.push(auditError(error.message))
+    failures.push(failure(error.message))
   }
   try {
-    openapi = parseOpenApi(openapiSource)
+    openapiDocument = parseOpenApi(openapiSource)
   } catch (error) {
-    failures.push(auditError(error.message))
+    failures.push(failure(error.message))
   }
 
-  if (pages === undefined || capabilities === undefined || openapi === undefined) {
-    return {
-      ok: false,
-      failures,
-      pageCount: pages?.length ?? 0,
-      writePageCount: 0,
-      pagesWithActions: 0,
-      actionCount: 0,
-      publicWriteExceptionsUsed: [],
-    }
+  if (pages === undefined || capabilities === undefined || openapiDocument === undefined) {
+    return emptyResult(failures, pages?.length ?? 0)
   }
 
   const exceptionByPage = new Map(publicWriteExceptions.map((exception) => [exception.pageCode, exception]))
@@ -370,7 +286,7 @@ export function auditActionManifest({
       failures.push(`${label}: requiredApis contains duplicates`)
     }
 
-    const writeApis = page.requiredApis.filter((api) => WRITE_VERBS.has(splitApi(api).method))
+    const writeApis = page.requiredApis.filter((api) => WRITE_METHODS.includes(splitApi(api).method))
     if (writeApis.length === 0) continue
     writePageCount += 1
     if (page.actions.length > 0) pagesWithActions += 1
@@ -378,7 +294,7 @@ export function auditActionManifest({
 
     if (page.actions.length === 0) {
       const exception = exceptionByPage.get(page.name)
-      if (exception !== undefined && validatePublicException(exception, page, writeApis, openapi, failures)) {
+      if (exception !== undefined && validatePublicException(exception, page, writeApis, openapiDocument, failures)) {
         publicWriteExceptionsUsed.push(`${page.name}: ${exception.api}`)
       } else if (exception === undefined) {
         failures.push(`${label}: write page declares no action`)
@@ -399,15 +315,15 @@ export function auditActionManifest({
       if (!capabilities.has(action.capability)) {
         failures.push(`${actionLabel}: unknown capability ${action.capability}`)
       }
-      if (!ACTION_UI.has(action.ui)) {
+      if (!ACTION_UI.includes(action.ui)) {
         failures.push(`${actionLabel}: invalid ui '${action.ui}'`)
       }
-      if (action.confirm !== undefined && !['none', 'danger', 'sod'].includes(action.confirm)) {
+      if (action.confirm !== undefined && !ACTION_CONFIRM.includes(action.confirm)) {
         failures.push(`${actionLabel}: invalid confirm '${action.confirm}'`)
       }
 
       const { method, path } = splitApi(action.api)
-      if (!WRITE_VERBS.has(method)) {
+      if (!WRITE_METHODS.includes(method)) {
         failures.push(`${actionLabel}: write page action API must use POST/PUT/PATCH/DELETE, found '${method}'`)
       }
       if (!page.requiredApis.includes(action.api)) {
@@ -415,8 +331,8 @@ export function auditActionManifest({
       }
       coveredApis.add(action.api)
 
-      const operation = operationFor(openapi, method.toLowerCase(), path)
-      if (operation === null) {
+      const operation = openapiDocument.paths?.[path]?.[method.toLowerCase()]
+      if (operation === undefined) {
         failures.push(`${actionLabel}: ${action.api} is not documented in OpenAPI`)
         continue
       }
@@ -441,25 +357,42 @@ export function auditActionManifest({
   return {
     ok: failures.length === 0,
     failures,
+    errors: failures,
     pageCount: pages.length,
     writePageCount,
     pagesWithActions,
     actionCount,
+    gapsUsed: 0,
     publicWriteExceptionsUsed,
   }
 }
 
-function read(relativePath) {
-  return readFileSync(resolve(repoRoot, relativePath), 'utf8')
-}
-
 function main() {
   let result
+  let pages
+  let openapiDocument
+  let catalogEntries
+  let manifestDocument
+  let gapDocument
   try {
+    pages = parseRegistryPages(read('frontend/src/router/registry.ts'))
+    openapiDocument = parseOpenApi(read('docs/openapi/openapi.yaml'))
+    catalogEntries = parseCapabilityCatalog(read('backend/app/Modules/IAM/Authorization/CapabilityCatalog.php'))
+    manifestDocument = readJson('docs/generated/page-actions.json')
+    gapDocument = readJson('docs/audit/2026-11-26-v2-action-gaps.json')
+    if (!Array.isArray(gapDocument.gaps)) throw new Error('gap document must contain a gaps array')
+    if (gapDocument.capabilityGaps !== undefined && !Array.isArray(gapDocument.capabilityGaps)) {
+      throw new Error('gap document capabilityGaps must be an array')
+    }
+
     result = auditActionManifest({
-      registrySource: read('frontend/src/router/registry.ts'),
-      catalogSource: read('backend/app/Modules/IAM/Authorization/CapabilityCatalog.php'),
-      openapiSource: read('docs/openapi/openapi.yaml'),
+      manifest: manifestDocument,
+      registry: pages,
+      openapi: openapiDocument,
+      catalog: new Set(catalogEntries.map((entry) => entry.code)),
+      gaps: gapDocument.gaps,
+      capabilityGaps: gapDocument.capabilityGaps ?? [],
+      serviceIndex: buildServiceIndex(),
     })
   } catch (error) {
     console.error(`actions:check FAIL: ${error.message}`)
@@ -469,16 +402,60 @@ function main() {
 
   if (!result.ok) {
     console.error('actions:check FAIL')
-    for (const failure of result.failures) console.error(`  - ${failure}`)
+    for (const error of result.errors) console.error(`  - ${error}`)
     process.exitCode = 1
     return
   }
 
+  for (const skip of result.workbenchSkipped ?? []) {
+    console.log(`workbench skip ${skip.pageCode} (${skip.owner}): ${skip.reason}`)
+  }
   console.log(
     `actions:check OK (${result.pageCount} pages, ${result.writePageCount} write pages, `
     + `${result.pagesWithActions} pages with actions, ${result.actionCount} actions, `
+    + `${result.gapsUsed} explicit write gaps, ${result.capabilityGapsRetained} owned capability gaps, `
     + `${result.publicWriteExceptionsUsed.length} public write exceptions)`,
   )
+
+  const generatedJson = read('docs/generated/page-actions.json')
+  const generatedTs = read('frontend/src/generated/pageActions.ts')
+  if (!generatedJson.endsWith('\n') || !generatedTs.endsWith('\n')) {
+    console.error('actions:check FAIL: generated files must end with a newline')
+    process.exitCode = 1
+    return
+  }
+
+  // Freshness: the committed artifacts must be exactly what the generator
+  // produces now. This is what makes the manifest a single source of truth
+  // rather than a file someone can hand-edit.
+  let expectedJson
+  let expectedTs
+  try {
+    const manifest = buildActionManifest({
+      pages,
+      catalog: catalogEntries,
+      openapi: openapiDocument,
+      actions: readJson('docs/generated/action-input.json').actions,
+      gaps: gapDocument.gaps,
+      serviceIndex: buildServiceIndex(),
+    })
+    expectedJson = serializeManifestJson(manifest)
+    expectedTs = renderPageActionsTs(manifest)
+  } catch (error) {
+    console.error(`actions:check FAIL: regeneration failed: ${error.message}`)
+    process.exitCode = 1
+    return
+  }
+
+  if (expectedJson !== generatedJson) {
+    console.error('actions:check FAIL: docs/generated/page-actions.json is stale; run node scripts/generate_action_manifest.mjs')
+    process.exitCode = 1
+    return
+  }
+  if (expectedTs !== generatedTs) {
+    console.error('actions:check FAIL: frontend/src/generated/pageActions.ts is stale; run node scripts/generate_action_manifest.mjs')
+    process.exitCode = 1
+  }
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

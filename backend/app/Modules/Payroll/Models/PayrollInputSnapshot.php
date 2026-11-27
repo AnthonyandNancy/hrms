@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  */
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $run_id
  * @property int $employment_id
  * @property string $snapshot_type
@@ -23,15 +21,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayrollInputSnapshot extends Model
 {
-    use BelongsToTenant;
-
     public const UPDATED_AT = null;
 
     protected $table = 'payroll_input_snapshots';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'run_id',
         'employment_id',
         'snapshot_type',

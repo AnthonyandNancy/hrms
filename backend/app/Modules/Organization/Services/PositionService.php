@@ -27,16 +27,14 @@ final class PositionService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function open(int $tenantId, array $input, ?int $actorUserId): Position
+    public function open(array $input, ?int $actorUserId): Position
     {
-        return DB::transaction(function () use ($tenantId, $input, $actorUserId): Position {
+        return DB::transaction(function () use ($input, $actorUserId): Position {
             $now = $this->clock->now();
             $validFrom = (string) ($input['valid_from'] ?? $now->toDateString());
 
             /** @var Position $position */
             $position = Position::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $input['legal_entity_id'],
                 'org_unit_id' => isset($input['org_unit_id']) ? (int) $input['org_unit_id'] : null,
                 'code' => (string) $input['code'],
                 'title' => (string) $input['title'],
@@ -49,12 +47,11 @@ final class PositionService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'org.position.created',
                 aggregateType: 'position',
                 aggregateId: $position->id,
-                after: ['code' => (string) $position->code, 'legal_entity_id' => (int) $position->legal_entity_id],
+                after: ['code' => (string) $position->code],
             );
 
             return $position;
@@ -64,12 +61,11 @@ final class PositionService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function revise(int $tenantId, int $positionId, array $input, ?int $actorUserId): Position
+    public function revise(int $positionId, array $input, ?int $actorUserId): Position
     {
-        return DB::transaction(function () use ($tenantId, $positionId, $input, $actorUserId): Position {
+        return DB::transaction(function () use ($positionId, $input, $actorUserId): Position {
             /** @var Position|null $position */
             $position = Position::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($positionId)
                 ->lockForUpdate()
                 ->first();
@@ -81,7 +77,7 @@ final class PositionService
             $status = isset($input['status']) ? (string) $input['status'] : null;
 
             if ($status === 'DISABLED') {
-                $occupancy = $this->occupancy->occupancy($tenantId, [$positionId], $this->clock->now()->toDateString());
+                $occupancy = $this->occupancy->occupancy([$positionId], $this->clock->now()->toDateString());
                 if (($occupancy[$positionId] ?? 0) > 0) {
                     throw new ConflictException(
                         'A position with active incumbents cannot be disabled.',
@@ -99,7 +95,6 @@ final class PositionService
             ], static fn (mixed $value): bool => $value !== null))->save();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'org.position.updated',
                 aggregateType: 'position',
@@ -116,14 +111,13 @@ final class PositionService
      * @param  list<Position>  $positions
      * @return list<array<string, mixed>>
      */
-    public function payloads(int $tenantId, array $positions, string $on): array
+    public function payloads(array $positions, string $on): array
     {
         $ids = array_map(static fn (Position $position): int => (int) $position->id, $positions);
-        $occupancy = $this->occupancy->occupancy($tenantId, $ids, $on);
+        $occupancy = $this->occupancy->occupancy($ids, $on);
 
         return array_map(static fn (Position $position): array => [
             'id' => (int) $position->id,
-            'legal_entity_id' => (int) $position->legal_entity_id,
             'org_unit_id' => $position->org_unit_id !== null ? (int) $position->org_unit_id : null,
             'code' => (string) $position->code,
             'title' => (string) $position->title,

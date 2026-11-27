@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\People\Services;
 
 use App\Modules\Organization\Contracts\OrganizationFacts;
-use App\Modules\People\Exceptions\CrossLegalEntityAssignmentException;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Employment;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -30,12 +29,11 @@ final class AssignmentService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function open(int $tenantId, int $employmentId, array $input, ?int $actorUserId): Assignment
+    public function open(int $employmentId, array $input, ?int $actorUserId): Assignment
     {
-        return DB::transaction(function () use ($tenantId, $employmentId, $input, $actorUserId): Assignment {
+        return DB::transaction(function () use ($employmentId, $input, $actorUserId): Assignment {
             /** @var Employment|null $employment */
             $employment = Employment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($employmentId)
                 ->lockForUpdate()
                 ->first();
@@ -51,10 +49,10 @@ final class AssignmentService
                 throw new ValidationException(['valid_from' => ['Assignment must be within the employment validity window.']]);
             }
 
-            $orgUnit = $this->organization->orgUnit($tenantId, (int) $input['org_unit_id']);
+            $orgUnit = $this->organization->orgUnit((int) $input['org_unit_id']);
 
             if ($orgUnit === null) {
-                throw new ValidationException(['org_unit_id' => ['The organization unit does not exist in this tenant.']]);
+                throw new ValidationException(['org_unit_id' => ['The organization unit does not exist.']]);
             }
 
             if (! (new DateRange($orgUnit->validFrom, $orgUnit->validTo))->contains($range->validFrom())) {
@@ -65,15 +63,10 @@ final class AssignmentService
                 throw new ValidationException(['org_unit_id' => ['The organization unit must remain active for the assignment validity window.']]);
             }
 
-            if ($orgUnit->legalEntityId !== (int) $employment->legal_entity_id) {
-                throw new CrossLegalEntityAssignmentException;
-            }
-
             $managerAssignmentId = $input['manager_assignment_id'] ?? null;
 
             if ($managerAssignmentId !== null) {
                 $managerExists = Assignment::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey((int) $managerAssignmentId)
                     ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $range->validFrom()->value()))
                     ->exists();
@@ -87,7 +80,6 @@ final class AssignmentService
             $isPrimary = $assignmentType === 'PRIMARY' || (bool) ($input['is_primary'] ?? false);
 
             $existing = Assignment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->lockForUpdate()
                 ->get()
@@ -113,7 +105,6 @@ final class AssignmentService
 
             $now = $this->clock->now();
             $assignment = Assignment::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'org_unit_id' => (int) $orgUnit->id,
                 'position_id' => $input['position_id'] ?? null,
@@ -127,7 +118,6 @@ final class AssignmentService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.assignment.created',
                 aggregateType: 'assignment',
@@ -143,7 +133,6 @@ final class AssignmentService
             );
 
             $this->outbox->record(
-                tenantId: $tenantId,
                 eventType: 'employment.assignment.changed.v1',
                 aggregateType: 'employment',
                 aggregateId: (string) $employmentId,

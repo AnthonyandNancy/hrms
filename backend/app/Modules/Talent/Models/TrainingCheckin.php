@@ -12,7 +12,6 @@ final class TrainingCheckin extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'session_id',
         'employment_id',
         'checked_in_at',
@@ -27,7 +26,6 @@ final class TrainingCheckin extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'session_id' => 'integer',
             'employment_id' => 'integer',
             'checked_in_at' => 'immutable_datetime',

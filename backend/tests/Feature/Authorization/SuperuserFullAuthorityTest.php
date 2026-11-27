@@ -18,7 +18,6 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
     public function test_a_superuser_wildcard_permits_every_catalogued_capability_including_payroll(): void
     {
         $user = User::factory()->create(['auth_version' => 1, 'is_privileged' => true]);
-        $this->organization->knownLegalEntities = [1];
         $this->grantWildcard($user);
 
         $authorizer = app(CapabilityAuthorizer::class);
@@ -40,7 +39,6 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
     public function test_p3_payroll_read_is_granted_and_writes_sensitive_access_audit_evidence(): void
     {
         $user = User::factory()->create(['auth_version' => 1, 'is_privileged' => true]);
-        $this->organization->knownLegalEntities = [1];
         $this->people->employmentByUser[(int) $user->id] = [501];
         $this->grantWildcard($user);
 
@@ -51,9 +49,7 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
                 resourceType: 'payslip',
                 id: 9001,
                 row: ['gross' => '100000', 'net' => '80000'],
-                tenantId: 1,
                 employmentId: 501,
-                legalEntityId: 1,
                 payrollRunId: 77,
             ),
         );
@@ -73,7 +69,6 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
     public function test_p3_payroll_export_capability_is_granted_and_export_scope_is_audited(): void
     {
         $user = User::factory()->create(['auth_version' => 1, 'is_privileged' => true]);
-        $this->organization->knownLegalEntities = [1];
         $this->people->employmentByUser[(int) $user->id] = [501];
         $this->grantWildcard($user);
 
@@ -87,9 +82,7 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
             resourceType: 'payslip',
             id: 9001,
             row: ['gross' => '100000'],
-            tenantId: 1,
             employmentId: 501,
-            legalEntityId: 1,
             payrollRunId: 77,
         ));
 
@@ -118,7 +111,7 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
     private function grantWildcard(User $user): AuthorityBinding
     {
         return AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create(['capability_code' => CapabilityWildcard::WILDCARD]);
     }

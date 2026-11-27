@@ -11,9 +11,8 @@ final class TimelineTest extends PeopleTestCase
     public function test_timeline_orders_employment_assignment_terms_and_document_facts(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'TL-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'TL-1');
+        $org = $scenario->orgUnit('TL-ORG');
+        $employment = $scenario->employment($scenario->person(), 'TL-1');
         $scenario->assignment($employment, $org, ['valid_from' => '2026-02-01']);
         $scenario->terms($employment, 1, ['effective_from' => '2026-03-01']);
         $scenario->document($employment, $scenario->fileObject(), ['signed_at' => '2026-04-01 00:00:00']);
@@ -31,8 +30,7 @@ final class TimelineTest extends PeopleTestCase
     public function test_timeline_filters_by_from_and_to_half_open(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'TL-2');
+        $employment = $scenario->employment($scenario->person(), 'TL-2');
 
         $response = $this->getJson("/v1/employments/{$employment->id}/timeline?from=2026-01-01&to=2026-02-01")
             ->assertOk();
@@ -45,15 +43,23 @@ final class TimelineTest extends PeopleTestCase
         $this->assertSame(0, $empty->json('data.total'));
     }
 
-    public function test_timeline_rejects_invalid_dates_and_hides_other_tenants(): void
+    public function test_timeline_rejects_invalid_dates_and_hides_out_of_scope_employments(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'TL-3');
+        $employment = $scenario->employment($scenario->person(), 'TL-3');
+
+        $this->app->instance(
+            \App\Shared\Authorization\Authorizer::class,
+            new \Tests\Support\DirectoryScopeAuthorizer(
+                app(\App\Modules\People\Contracts\PeopleDirectory::class),
+                app(\App\Modules\Organization\Contracts\OrganizationDirectory::class),
+                'SELF',
+            ),
+        );
 
         $this->getJson("/v1/employments/{$employment->id}/timeline?from=2026-02-30")->assertUnprocessable();
 
-        $this->actAs(tenantId: 2, userId: 6);
+        $this->actAs(userId: 6);
         $this->getJson("/v1/employments/{$employment->id}/timeline")->assertNotFound();
     }
 }

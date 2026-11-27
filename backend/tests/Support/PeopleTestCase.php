@@ -38,9 +38,9 @@ abstract class PeopleTestCase extends TestCase
         $this->actAs();
     }
 
-    protected function actAs(int $tenantId = 1, int $userId = 10, ?int $employmentId = null): TestPrincipal
+    protected function actAs(int $userId = 10, ?int $employmentId = null): TestPrincipal
     {
-        $principal = new TestPrincipal($tenantId, $userId, $employmentId);
+        $principal = new TestPrincipal(userId: $userId, employmentId: $employmentId);
         $this->app->instance(Principal::class, $principal);
         $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
 
@@ -57,9 +57,9 @@ abstract class PeopleTestCase extends TestCase
         $this->app->forgetInstance(\App\Shared\Auth\AuthenticatedPrincipal::class);
     }
 
-    protected function scenario(int $tenantId = 1): PeopleScenario
+    protected function scenario(): PeopleScenario
     {
-        return new PeopleScenario($tenantId, $this->clock);
+        return new PeopleScenario($this->clock);
     }
 
     /**

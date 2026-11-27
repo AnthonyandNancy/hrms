@@ -66,7 +66,6 @@ final class CaseController
         // one unit. A crash cannot leave a completed case with an in-progress
         // idempotency key that would break a later safe replay.
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId,
             principalId: $principal->userId,
             scope: 'POST:/v1/cases',
             key: $key,

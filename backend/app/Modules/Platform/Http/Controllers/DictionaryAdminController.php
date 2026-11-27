@@ -9,7 +9,6 @@ use App\Modules\Platform\Models\SystemParameter;
 use App\Modules\Platform\Services\AuditService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
-use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ConflictException;
@@ -18,7 +17,8 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\RequestContext;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\BusinessDate;
+use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -31,23 +31,20 @@ use Illuminate\Support\Facades\Crypt;
 final class DictionaryAdminController
 {
     public function __construct(
-        private readonly PrincipalResolver $principals,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly TenantBusinessDate $businessDates,
         private readonly AuditService $audit,
     ) {}
 
     public function dictionaries(Request $request): JsonResponse
     {
-        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'type' => ['sometimes', 'nullable', 'string', 'max:80'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = DictionaryEntry::query()->where('tenant_id', $tenantId);
+        $query = DictionaryEntry::query();
 
         if (isset($data['type'])) {
             $query->where('type', (string) $data['type']);
@@ -70,7 +67,7 @@ final class DictionaryAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($tenantId)->value(),
+            asOf: BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(Clock::class))->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -93,9 +90,7 @@ final class DictionaryAdminController
             definition: $this->dictionaryDefinition('system.dictionary.create', 'system.dictionary.created'),
             payload: $data,
             operation: function () use ($data): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 $exists = DictionaryEntry::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('type', (string) $data['type'])
                     ->where('code', (string) $data['code'])
                     ->exists();
@@ -106,7 +101,6 @@ final class DictionaryAdminController
 
                 /** @var DictionaryEntry $entry */
                 $entry = DictionaryEntry::query()->create([
-                    'tenant_id' => $tenantId,
                     'type' => (string) $data['type'],
                     'code' => (string) $data['code'],
                     'label' => (string) $data['label'],
@@ -115,7 +109,7 @@ final class DictionaryAdminController
                 ]);
 
                 $row = $this->dictionaryRow($entry);
-                $this->audit->record($tenantId, RequestContext::userId(), 'system.dictionary.created', 'dictionary_entry', $entry->id, [], $row);
+                $this->audit->record(RequestContext::userId(), 'system.dictionary.created', 'dictionary_entry', $entry->id, [], $row);
 
                 return [
                     'http_status' => 201,
@@ -142,10 +136,8 @@ final class DictionaryAdminController
             definition: $this->dictionaryDefinition('system.dictionary.update', 'system.dictionary.updated'),
             payload: ['id' => $id, ...$data],
             operation: function () use ($data, $id): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 /** @var DictionaryEntry|null $entry */
                 $entry = DictionaryEntry::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey($id)
                     ->first();
 
@@ -161,7 +153,7 @@ final class DictionaryAdminController
                 ])->save();
 
                 $row = $this->dictionaryRow($entry->refresh());
-                $this->audit->record($tenantId, RequestContext::userId(), 'system.dictionary.updated', 'dictionary_entry', $id, $before, $row);
+                $this->audit->record(RequestContext::userId(), 'system.dictionary.updated', 'dictionary_entry', $id, $before, $row);
 
                 return [
                     'http_status' => 200,
@@ -184,7 +176,6 @@ final class DictionaryAdminController
 
     public function parameters(Request $request): JsonResponse
     {
-        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'key' => ['sometimes', 'nullable', 'string', 'max:120'],
             'scope' => ['sometimes', 'nullable', 'string', 'max:80'],
@@ -192,7 +183,7 @@ final class DictionaryAdminController
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $query = SystemParameter::query()->where('tenant_id', $tenantId);
+        $query = SystemParameter::query();
 
         if (isset($data['key'])) {
             $query->where('key', (string) $data['key']);
@@ -218,7 +209,7 @@ final class DictionaryAdminController
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($tenantId)->value(),
+            asOf: BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(Clock::class))->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -254,7 +245,7 @@ final class DictionaryAdminController
             'sensitive' => ['sometimes', 'boolean'],
         ]);
 
-        $scope = (string) ($data['scope'] ?? 'TENANT');
+        $scope = (string) ($data['scope'] ?? 'COMPANY');
         $this->assertScope($scope);
 
         $payload = [
@@ -268,7 +259,6 @@ final class DictionaryAdminController
             definition: $this->parameterDefinition(),
             payload: $payload,
             operation: function () use ($payload): array {
-                $tenantId = $this->principals->resolve()->tenantId();
                 $shape = ['value' => $payload['value']];
                 $stored = $payload['sensitive']
                     ? Crypt::encryptString(json_encode($shape, JSON_THROW_ON_ERROR))
@@ -276,7 +266,6 @@ final class DictionaryAdminController
 
                 /** @var SystemParameter|null $existing */
                 $existing = SystemParameter::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('key', $payload['key'])
                     ->where('scope', $payload['scope'])
                     ->first();
@@ -285,14 +274,13 @@ final class DictionaryAdminController
 
                 /** @var SystemParameter $parameter */
                 $parameter = SystemParameter::query()->updateOrCreate(
-                    ['tenant_id' => $tenantId, 'key' => $payload['key'], 'scope' => $payload['scope']],
+                    ['key' => $payload['key'], 'scope' => $payload['scope']],
                     ['value_json' => $stored, 'sensitive' => $payload['sensitive']],
                 );
 
                 // A sensitive parameter's value is never returned or audited.
                 $row = $this->parameterRow($parameter->refresh());
                 $this->audit->record(
-                    $tenantId,
                     RequestContext::userId(),
                     'system.parameter.updated',
                     'system_parameter',
@@ -323,16 +311,12 @@ final class DictionaryAdminController
 
     private function assertScope(string $scope): void
     {
-        if ($scope === 'TENANT') {
-            return;
-        }
-
-        if (preg_match('/^COMPANY:([1-9][0-9]{0,18})$/', $scope) === 1) {
+        if ($scope === 'COMPANY') {
             return;
         }
 
         throw new ValidationException(
-            ['scope' => ['Parameter scope must be TENANT or COMPANY:{id}.']],
+            ['scope' => ['Parameter scope must be COMPANY.']],
             'The given data was invalid.',
             ['reason' => 'INVALID_PARAMETER_SCOPE'],
         );

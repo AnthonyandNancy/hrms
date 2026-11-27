@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property \Carbon\CarbonImmutable $date
  * @property string $type
  */
@@ -24,8 +22,6 @@ final class Holiday extends Model
     public const TYPE_MAKEUP = 'MAKEUP';
 
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'date',
         'name',
         'type',

@@ -14,7 +14,6 @@ interface CaseDecisionPort
      * @return array{case_id: int, case_status: string, effect_status: string}
      */
     public function decide(
-        int $tenantId,
         int $userId,
         int $caseId,
         string $action,

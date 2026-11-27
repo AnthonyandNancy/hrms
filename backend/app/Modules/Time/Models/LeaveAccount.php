@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property int $leave_type_id
  * @property string $opened_on
@@ -17,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
 final class LeaveAccount extends Model
 {
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'leave_type_id',
         'opened_on',

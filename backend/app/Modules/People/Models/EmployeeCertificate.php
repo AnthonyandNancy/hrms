@@ -15,7 +15,6 @@ final class EmployeeCertificate extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'certificate_type',
         'certificate_no',

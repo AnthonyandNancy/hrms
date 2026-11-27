@@ -34,7 +34,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
 
     public function test_a_wildcard_holder_sees_every_catalogued_capability_with_the_wildcard_profile(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $wildcardBinding = $this->grantCapability(
             $user,
             CapabilityWildcard::WILDCARD,
@@ -94,7 +94,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
 
     public function test_a_wildcard_holder_with_concrete_bindings_still_gets_each_code_once(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
 
         $this->grantCapability($user, CapabilityWildcard::WILDCARD, 'COMPANY', 1, 'P3_RESTRICTED', purposeCode: 'SYSTEM_ADMIN');
         $this->grantCapability($user, 'iam.user.read', 'COMPANY', 2, 'P1_INTERNAL', purposeCode: 'READ');
@@ -145,7 +145,7 @@ final class MeCapabilitiesWildcardTest extends TestCase
 
     public function test_a_non_wildcard_holder_reports_wildcard_false_and_keeps_the_existing_row_shape(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $binding = $this->grantCapability($user, 'iam.user.read', 'COMPANY', 5, 'P1_INTERNAL', purposeCode: 'READ');
 
         $before = $this->bindingSnapshot();
@@ -184,9 +184,9 @@ final class MeCapabilitiesWildcardTest extends TestCase
         $this->assertDatabaseCount('authority_bindings', 1);
     }
 
-    public function test_another_tenants_wildcard_does_not_expand_the_callers_capabilities(): void
+    public function test_a_company_wildcard_expands_the_callers_capabilities_once(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
 
         $this->grantCapability(
             $user,
@@ -194,17 +194,18 @@ final class MeCapabilitiesWildcardTest extends TestCase
             'COMPANY',
             99,
             'P0_PUBLIC',
-            tenantId: 2,
             purposeCode: 'SYSTEM_ADMIN',
         );
-        $this->grantCapability($user, 'people.employee.read', 'COMPANY', 99, 'P0_PUBLIC', tenantId: 2);
+        $this->grantCapability($user, 'iam.user.read', 'COMPANY', 99, 'P1_INTERNAL');
 
-        $this->actAs($user, tenantId: 1)
+        $this->actAs($user)
             ->getJson('/v1/me/capabilities')
             ->assertOk()
-            ->assertJsonPath('data.wildcard', false)
-            ->assertJsonCount(0, 'data.capabilities');
+            ->assertJsonPath('data.wildcard', true)
+            ->assertJsonFragment(['capability' => 'iam.user.read']);
 
+        // A COMPANY anchor must not carry an id; the wildcard remains a
+        // company-wide grant even when the client supplied a stale id.
         $this->assertDatabaseCount('authority_bindings', 2);
     }
 
@@ -229,11 +230,10 @@ final class MeCapabilitiesWildcardTest extends TestCase
         return AuthorityBinding::query()->orderBy('id')->get()->toArray();
     }
 
-    private function actAs(User $user, int $tenantId = 1): self
+    private function actAs(User $user): self
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
-            tenantId: $tenantId,
             employmentId: null,
             authVersion: (int) $user->auth_version,
             privileged: false,
@@ -254,11 +254,10 @@ final class MeCapabilitiesWildcardTest extends TestCase
         string $anchorType,
         ?int $anchorId,
         string $fieldProfile,
-        int $tenantId = 1,
         string $purposeCode = 'TEST',
     ): AuthorityBinding {
         return AuthorityBinding::factory()
-            ->forPrincipal($tenantId, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::from($anchorType), $anchorId, FieldProfile::from($fieldProfile))
             ->create([
                 'capability_code' => $capability,

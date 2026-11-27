@@ -11,11 +11,10 @@ use Throwable;
 class DemoSeedCommand extends Command
 {
     protected $signature = 'demo:seed
-        {--tenant=1 : Tenant id}
         {--live : Write live business tables when every target adapter is available}
         {--json : Print JSON}';
 
-    protected $description = 'Seed the synthetic demo tenant (LIVE business tables, or SHADOW rehearsal target)';
+    protected $description = 'Seed the synthetic demo company (LIVE business tables, or SHADOW rehearsal target)';
 
     public function handle(DemoSeeder $seeder): int
     {
@@ -26,7 +25,7 @@ class DemoSeedCommand extends Command
         }
 
         try {
-            $result = $seeder->seed((bool) $this->option('live'), (int) $this->option('tenant'));
+            $result = $seeder->seed((bool) $this->option('live'));
         } catch (Throwable $exception) {
             $this->error('PASS/FAIL: FAIL - '.$exception->getMessage());
 

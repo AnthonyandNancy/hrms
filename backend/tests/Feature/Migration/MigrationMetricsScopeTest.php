@@ -7,21 +7,15 @@ namespace Tests\Feature\Migration;
 use App\Modules\Platform\Migration\Adapters\DatabaseMigrationTarget;
 use App\Modules\Platform\Migration\Dto\MigrationRow;
 use App\Modules\Platform\Migration\Enums\MigrationDomain;
-use App\Modules\Time\Models\LeaveType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Tests\Support\PeopleScenario;
 use Tests\TestCase;
 
 /**
  * Reconciliation must compare the rows the migration is responsible for, not
- * every row the tenant owns. On a reused or demo-seeded tenant the previous
- * tenant-wide count could never match and `demo:seed --live` reported failures
- * for data that had in fact been imported correctly.
- *
- * The payroll sums also used fixture vocabulary (`taxable_cents`, `si_cents`,
- * `hf_cents`) directly as SQL columns, but payroll_ytd stores
- * `taxable_income_cents`, `social_insurance_cents` and `housing_fund_cents`.
+ * every row already present. The payroll sums also used fixture vocabulary
+ * (`taxable_cents`, `si_cents`, `hf_cents`) directly as SQL columns, but
+ * payroll_ytd stores the longer domain names.
  */
 final class MigrationMetricsScopeTest extends TestCase
 {
@@ -29,31 +23,20 @@ final class MigrationMetricsScopeTest extends TestCase
 
     public function test_metrics_ignore_rows_not_written_by_the_migration(): void
     {
-        $scenario = new PeopleScenario(1, app(\App\Shared\Time\Clock::class));
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'SCOPE-UNIT');
+        $this->orgUnit('SCOPE-UNIT', 'MIGRATION');
+        $this->orgUnit('MANUAL-UNIT', 'MANUAL');
 
-        // A pre-existing, manually created org unit must not be counted.
-        $scenario->orgUnit($entity, 'MANUAL-UNIT');
-
-        $migrated = $scenario->orgUnit($entity, 'MIGRATED-UNIT');
-        DB::table('org_units')->where('id', $migrated->id)->update(['source_type' => 'MIGRATION']);
-        DB::table('org_units')->where('code', 'MANUAL-UNIT')->update(['source_type' => 'MANUAL']);
-
-        $metrics = (new DatabaseMigrationTarget(MigrationDomain::ORGANIZATIONS))->metrics(1);
+        $metrics = (new DatabaseMigrationTarget(MigrationDomain::ORGANIZATIONS))->metrics();
 
         $this->assertSame(1, $metrics->count, 'only the MIGRATION-sourced org unit may be counted');
     }
 
     public function test_payroll_ytd_sums_use_the_real_column_names(): void
     {
-        $scenario = new PeopleScenario(1, app(\App\Shared\Time\Clock::class));
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'YTD-0001');
+        $employmentId = $this->employment('YTD-0001');
 
         DB::table('payroll_ytd')->insert([
-            'tenant_id' => 1,
-            'employment_id' => $employment->id,
+            'employment_id' => $employmentId,
             'tax_year' => 2026,
             'taxable_income_cents' => 10_100_000,
             'tax_withheld_cents' => 500_000,
@@ -66,7 +49,7 @@ final class MigrationMetricsScopeTest extends TestCase
             'created_at' => now('UTC'),
         ]);
 
-        $metrics = (new DatabaseMigrationTarget(MigrationDomain::PAYROLL_YTD))->metrics(1);
+        $metrics = (new DatabaseMigrationTarget(MigrationDomain::PAYROLL_YTD))->metrics();
 
         $this->assertSame(1, $metrics->count);
         $this->assertSame(10_100_000, $metrics->sums['taxable_cents']);
@@ -79,14 +62,9 @@ final class MigrationMetricsScopeTest extends TestCase
 
     public function test_leave_opening_metrics_count_only_migration_openings(): void
     {
-        $scenario = new PeopleScenario(1, app(\App\Shared\Time\Clock::class));
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'LO-UNIT');
-        $employment = $scenario->employment($scenario->person(), $entity, 'LO-0001');
-        $scenario->assignment($employment, $unit);
+        $employmentId = $this->employment('LO-0001');
 
-        $type = LeaveType::query()->create([
-            'tenant_id' => 1,
+        $typeId = (int) DB::table('leave_types')->insertGetId([
             'code' => 'ANNUAL',
             'name' => 'Annual leave',
             'is_statutory' => true,
@@ -108,13 +86,12 @@ final class MigrationMetricsScopeTest extends TestCase
             'quantity_minutes' => 4800,
             'business_date' => '2026-01-01',
             'effective_on' => '2026-12-31',
-        ]), 1, 1);
+        ]), 1);
 
         // A normal ledger grant from the application must not be counted.
         DB::table('leave_ledger_entries')->insert([
-            'tenant_id' => 1,
-            'employment_id' => $employment->id,
-            'leave_type_id' => $type->id,
+            'employment_id' => $employmentId,
+            'leave_type_id' => $typeId,
             'account' => 'GRANT',
             'quantity_minutes' => 999,
             'business_date' => '2026-01-01',
@@ -126,9 +103,47 @@ final class MigrationMetricsScopeTest extends TestCase
             'recorded_at' => now('UTC'),
         ]);
 
-        $metrics = $target->metrics(1);
+        $metrics = $target->metrics();
 
         $this->assertSame(1, $metrics->count);
         $this->assertSame(4800, $metrics->sums['quantity_minutes']);
+    }
+
+    private function orgUnit(string $code, string $sourceType): void
+    {
+        DB::table('org_units')->insert([
+            'parent_id' => null,
+            'code' => $code,
+            'name' => $code,
+            'type' => 'DEPARTMENT',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'recorded_at' => now('UTC'),
+            'source_type' => $sourceType,
+        ]);
+    }
+
+    private function employment(string $employeeNo): int
+    {
+        $personId = (int) DB::table('persons')->insertGetId([
+            'legal_name' => 'Synthetic Person',
+            'birth_date' => '1990-01-01',
+            'created_at' => now('UTC'),
+            'updated_at' => now('UTC'),
+        ]);
+
+        return (int) DB::table('employments')->insertGetId([
+            'person_id' => $personId,
+            'employee_no' => $employeeNo,
+            'employment_type' => 'FULL_TIME',
+            'status' => 'ACTIVE',
+            'valid_from' => '2026-01-01',
+            'valid_to' => '9999-12-31',
+            'hire_date' => '2026-01-01',
+            'seniority_start_date' => '2026-01-01',
+            'recorded_at' => now('UTC'),
+            'source_type' => 'TEST',
+        ]);
     }
 }

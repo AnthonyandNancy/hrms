@@ -23,7 +23,6 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
     ) {}
 
     public function append(
-        int $tenantId,
         int $contractId,
         int $employmentId,
         string $changeType,
@@ -33,20 +32,16 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
         array $snapshot,
         ?int $actorUserId,
     ): array {
-        return DB::transaction(function () use ($tenantId, $contractId, $employmentId, $changeType, $effectiveFrom, $effectiveTo, $reason, $snapshot, $actorUserId): array {
-            $baseQuery = EmploymentContractVersion::query()
-                ->where('tenant_id', $tenantId)
-                ->where('employment_id', $employmentId);
-
-            $termsVersion = (int) ($baseQuery->clone()->max('terms_version') ?? 0) + 1;
+        return DB::transaction(function () use ($contractId, $employmentId, $changeType, $effectiveFrom, $effectiveTo, $reason, $snapshot, $actorUserId): array {
+            $termsVersion = (int) (EmploymentContractVersion::query()
+                ->where('employment_id', $employmentId)
+                ->max('terms_version') ?? 0) + 1;
             $documentVersion = (int) (EmploymentContractVersion::query()
-                ->where('tenant_id', $tenantId)
                 ->where('contract_id', $contractId)
                 ->max('document_version') ?? 0) + 1;
 
             /** @var EmploymentContractVersion $row */
             $row = EmploymentContractVersion::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'contract_id' => $contractId,
                 'change_type' => $changeType,
@@ -64,7 +59,6 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.contract.version.appended',
                 aggregateType: 'employment_contract',
@@ -81,10 +75,9 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
         });
     }
 
-    public function history(int $tenantId, int $contractId): array
+    public function history(int $contractId): array
     {
         return EmploymentContractVersion::query()
-            ->where('tenant_id', $tenantId)
             ->where('contract_id', $contractId)
             ->orderBy('effective_from')
             ->orderBy('document_version')

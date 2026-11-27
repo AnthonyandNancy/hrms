@@ -10,6 +10,7 @@ import type { Component } from 'vue'
 import { PAGE_REGISTRY } from '@/router/registry'
 import { matureView } from '@/router/pageComponents'
 import { PAGE_COMPONENTS } from '@/modules/people/pages'
+import { useSessionStore } from '@/stores/session'
 import PeopleWorkspace from '@/modules/people/components/PeopleWorkspace.vue'
 
 const resource = vi.hoisted(() => ({
@@ -32,8 +33,68 @@ const peoplePages = PAGE_REGISTRY.filter((page) => page.componentKey.startsWith(
 const peopleKeys = peoplePages.map((page) => page.componentKey)
 const unitDir = dirname(fileURLToPath(import.meta.url))
 const pagesDir = resolve(unitDir, '../../src/modules/people/pages')
+const employeesDir = resolve(unitDir, '../../src/modules/people/employees/pages')
 const workspacePath = resolve(unitDir, '../../src/modules/people/components/PeopleWorkspace.vue')
 const routerSourcePath = resolve(unitDir, '../../src/router/pageComponents.ts')
+
+// Volume 3 replaced these config-driven wrappers with purpose-built employee
+// workspaces. The legacy files stay as one-line re-exports so the registry and
+// route integration do not change; they must not regress into PeopleWorkspace.
+const DEDICATED_EMPLOYEE_PAGES: ReadonlyMap<string, { target: string; shape: RegExp }> = new Map([
+  // Volume 3 Task 7: the movement workspace and its detail page are dedicated
+  // implementations; the legacy files are thin re-exports of them.
+  [
+    'MovementListPage.vue',
+    {
+      target: '../../lifecycle/pages/MovementWorkspacePage.vue',
+      shape: /import\s+MovementWorkspacePage\s+from\s+['"]\.\.\/lifecycle\/pages\/MovementWorkspacePage\.vue['"][\s\S]*<MovementWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'MovementDetailPage.vue',
+    {
+      target: '../../lifecycle/pages/MovementDetailPage.vue',
+      shape: /import\s+MovementDetailPage\s+from\s+['"]\.\.\/lifecycle\/pages\/MovementDetailPage\.vue['"][\s\S]*<MovementDetailPage\s*\/>/,
+    },
+  ],
+  [
+    'EmployeeListPage.vue',
+    {
+      target: 'EmployeeListPage.vue',
+      shape: /import\s+EmployeeListPage\s+from\s+['"]\.\.\/employees\/pages\/EmployeeListPage\.vue['"][\s\S]*<EmployeeListPage\s*\/>/,
+    },
+  ],
+  [
+    'DepartmentTreePage.vue',
+    {
+      target: '../../departments/pages/DepartmentWorkspacePage.vue',
+      shape: /import\s+DepartmentWorkspacePage\s+from\s+['"]\.\.\/departments\/pages\/DepartmentWorkspacePage\.vue['"][\s\S]*<DepartmentWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'PositionCatalogPage.vue',
+    {
+      target: '../../positions/pages/PositionWorkspacePage.vue',
+      shape: /import\s+PositionWorkspacePage\s+from\s+['"]\.\.\/positions\/pages\/PositionWorkspacePage\.vue['"][\s\S]*<PositionWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'ContractLedgerPage.vue',
+    {
+      target: '../../contracts/pages/ContractWorkspacePage.vue',
+      shape: /import\s+ContractWorkspacePage\s+from\s+['"]\.\.\/contracts\/pages\/ContractWorkspacePage\.vue['"][\s\S]*<ContractWorkspacePage\s*\/>/,
+    },
+  ],
+  [
+    'EmployeeDetailPage.vue',
+    {
+      target: 'EmployeeDetailPage.vue',
+      // Either a pure `export { default } from` redirect or a one-component
+      // wrapper is acceptable; both have exactly one implementation source.
+      shape: /(?:export\s*\{\s*default\s*\}\s*from\s*['"][^'"]*employees\/pages\/EmployeeDetailPage\.vue['"]|import\s+EmployeeDetailPage\s+from\s+['"]\.\.\/employees\/pages\/EmployeeDetailPage\.vue['"][\s\S]*<EmployeeDetailPage\s*\/>)/,
+    },
+  ],
+])
 
 function listResponse(items: unknown[] = []) {
   return { items, page: 1, page_size: 20, total: items.length }
@@ -67,6 +128,9 @@ async function mountPage(key: string, path: string) {
 
   const pinia = createPinia()
   setActivePinia(pinia)
+  const session = useSessionStore()
+  session.capabilities = ['people.employee.read', 'people.contract.read', 'org.unit.read', 'org.position.read']
+  session.status = 'authenticated'
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -97,21 +161,22 @@ beforeEach(() => {
 })
 
 describe('People page module manifest', () => {
-  it('has 39 distinct page files and a loader for every People registry key', async () => {
-    expect(peopleKeys).toHaveLength(39)
-    expect(new Set(peopleKeys).size).toBe(39)
+  it('has 35 distinct page files and a loader for every People registry key', async () => {
+    // ADR-0035: the four People form routes are now workspace actions.
+    expect(peopleKeys).toHaveLength(35)
+    expect(new Set(peopleKeys).size).toBe(35)
 
     const pageFiles = readdirSync(pagesDir)
       .filter((name) => name.endsWith('.vue'))
       .sort()
-    expect(pageFiles).toHaveLength(39)
-    expect(new Set(pageFiles).size).toBe(39)
+    expect(pageFiles).toHaveLength(35)
+    expect(new Set(pageFiles).size).toBe(35)
 
     const manifestSource = readFileSync(join(pagesDir, 'index.ts'), 'utf8')
     const mappedFiles = [...manifestSource.matchAll(/import\(['"]\.\/([^'"]+\.vue)['"]\)/g)]
       .map((match) => match[1])
-    expect(mappedFiles).toHaveLength(39)
-    expect(new Set(mappedFiles).size).toBe(39)
+    expect(mappedFiles).toHaveLength(35)
+    expect(new Set(mappedFiles).size).toBe(35)
     expect(mappedFiles.sort()).toEqual(pageFiles)
 
     expect(Object.keys(loaders).sort()).toEqual([...peopleKeys].sort())
@@ -129,6 +194,7 @@ describe('People page module manifest', () => {
     const cases = [
       {
         key: 'hr/employees/index',
+        file: 'EmployeeListPage.vue',
         path: '/hr/employees',
         api: '/v1/employees',
         response: () => listResponse([
@@ -138,6 +204,7 @@ describe('People page module manifest', () => {
       },
       {
         key: 'hr/departments/index',
+        file: 'DepartmentTreePage.vue',
         path: '/hr/departments',
         api: '/v1/org-units/tree',
         response: () => listResponse([
@@ -147,6 +214,7 @@ describe('People page module manifest', () => {
       },
       {
         key: 'hr/contracts/index',
+        file: 'ContractLedgerPage.vue',
         path: '/hr/contracts',
         api: '/v1/employments/contracts',
         response: () => projectionResponse([
@@ -179,6 +247,14 @@ describe('People page module manifest', () => {
       expect(resource.get, testCase.key).toHaveBeenCalledWith(testCase.api, expect.any(Object))
       expect(wrapper.text(), testCase.key).toContain(testCase.text)
 
+      if (DEDICATED_EMPLOYEE_PAGES.has(testCase.file)) {
+        // Dedicated workspaces own their own tables/drawers; the config-driven
+        // shell must never come back for them.
+        expect(wrapper.findComponent(PeopleWorkspace).exists(), testCase.key).toBe(false)
+        observedConfigs.push(testCase.key)
+        continue
+      }
+
       const shell = wrapper.findComponent(PeopleWorkspace)
       expect(shell.exists(), testCase.key).toBe(true)
       expect(shell.props('config'), testCase.key).toMatchObject({ key: testCase.key })
@@ -188,7 +264,18 @@ describe('People page module manifest', () => {
       observedConfigs.push(shell.props('config').key as string)
     }
 
-    expect(new Set(observedApis)).toEqual(new Set(cases.map((testCase) => testCase.api)))
+    // The dedicated employee workspace also loads its department and position
+    // lookups for the create drawer. Those are explicitly expected; any other
+    // unexpected API remains a failure.
+    const expectedApis: string[] = [
+      ...cases.map((testCase) => testCase.api as string),
+      '/v1/departments',
+      '/v1/departments/10/members',
+      '/v1/org-units/tree',
+      '/v1/positions',
+      '/v1/employees',
+    ]
+    expect(new Set(observedApis)).toEqual(new Set(expectedApis))
     expect(new Set(observedConfigs)).toEqual(new Set(cases.map((testCase) => testCase.key)))
   })
 
@@ -201,6 +288,16 @@ describe('People page module manifest', () => {
       const source = readFileSync(join(pagesDir, file), 'utf8')
       expect(source, file).not.toMatch(/\bcomponentKey\b|\bpageCode\b/)
       expect(source, file).not.toMatch(/\bcomponent-key\b|\bpage-code\b/i)
+      const dedicated = DEDICATED_EMPLOYEE_PAGES.get(file)
+      if (dedicated !== undefined) {
+        // Thin re-export/redirect: the dedicated page is the only implementation;
+        // the legacy file must not keep a second config-driven shell.
+        expect(source, file).not.toContain('PeopleWorkspace')
+        expect(source, file).not.toContain('peoplePageConfig')
+        expect(source, file).toMatch(dedicated.shape)
+        expect(readFileSync(join(employeesDir, dedicated.target), 'utf8'), file).not.toBe('')
+        continue
+      }
       expect(source, file).toMatch(/<PeopleWorkspace\s+:config="config"\s*\/>/)
     }
 

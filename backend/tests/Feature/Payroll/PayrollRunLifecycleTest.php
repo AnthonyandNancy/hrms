@@ -16,7 +16,6 @@ use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
-use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Exceptions\ConflictException;
 use Tests\Support\PayrollTestCase;
@@ -28,14 +27,14 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
 
-        $run = $runs->createRun($this->tenantId, 10, [
+        $run = $runs->createRun(10, [
             'scheme_id' => (int) $base['scheme']->id,
             'period' => '2026-01',
         ]);
 
         $this->assertSame(PayrollRunStatus::DRAFT, $run->status);
 
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->lockInputs((int) $run->id, 10);
         $this->assertSame(PayrollRunStatus::INPUT_LOCKED, $run->status);
         $hash = (string) $run->input_hash;
         $this->assertSame(64, strlen($hash));
@@ -47,19 +46,19 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $this->assertSame($run->gross_cents - $run->deductions_cents, $run->net_cents);
 
         $approval = app(ApprovalService::class);
-        $run = $approval->review($this->tenantId, (int) $run->id, 11);
+        $run = $approval->review((int) $run->id, 11);
         $this->assertSame(PayrollRunStatus::REVIEWED, $run->status);
 
-        $run = $approval->approve($this->tenantId, (int) $run->id, 12);
+        $run = $approval->approve((int) $run->id, 12);
         $this->assertSame(PayrollRunStatus::APPROVED, $run->status);
 
-        $run = $approval->publish($this->tenantId, (int) $run->id, 13);
+        $run = $approval->publish((int) $run->id, 13);
         $this->assertSame(PayrollRunStatus::PUBLISHED, $run->status);
 
-        $run = $approval->markPaid($this->tenantId, (int) $run->id, 13, 'DEMO-BANK-REF');
+        $run = $approval->markPaid((int) $run->id, 13, 'DEMO-BANK-REF');
         $this->assertSame(PayrollRunStatus::PAID, $run->status);
 
-        $run = $approval->close($this->tenantId, (int) $run->id, 13);
+        $run = $approval->close((int) $run->id, 13);
         $this->assertSame(PayrollRunStatus::CLOSED, $run->status);
 
         $this->assertDatabaseCount('payroll_ytd', 1);
@@ -70,13 +69,13 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     public function test_illegal_transitions_are_409_conflicts(): void
     {
         $base = $this->seedPayrollBase();
-        $run = app(PayrollRunService::class)->createRun($this->tenantId, 10, [
+        $run = app(PayrollRunService::class)->createRun(10, [
             'scheme_id' => (int) $base['scheme']->id,
             'period' => '2026-02',
         ]);
 
         $this->expectException(ConflictException::class);
-        app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, 12);
+        app(ApprovalService::class)->approve((int) $run->id, 12);
     }
 
     public function test_published_payslip_and_lines_are_immutable(): void
@@ -111,11 +110,11 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     public function test_snapshots_are_append_only_at_database_level(): void
     {
         $base = $this->seedPayrollBase();
-        $run = app(PayrollRunService::class)->createRun($this->tenantId, 10, [
+        $run = app(PayrollRunService::class)->createRun(10, [
             'scheme_id' => (int) $base['scheme']->id,
             'period' => '2026-05',
         ]);
-        $run = app(PayrollRunService::class)->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = app(PayrollRunService::class)->lockInputs((int) $run->id, 10);
         $snapshot = \App\Modules\Payroll\Models\PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
 
         try {
@@ -135,7 +134,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $run = $this->reviewedRun('2026-06');
 
         $this->expectException(ConflictException::class);
-        app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, 10);
+        app(ApprovalService::class)->approve((int) $run->id, 10);
     }
 
     public function test_a_holder_of_prepare_and_approve_cannot_approve_their_own_run(): void
@@ -145,7 +144,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $run = $fixture['run'];
 
         try {
-            app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, $actorId);
+            app(ApprovalService::class)->approve((int) $run->id, $actorId);
             $this->fail('A preparer holding both prepare and approve must not approve their own run.');
         } catch (ConflictException $exception) {
             $this->assertSame('SOD_CONFLICT', $exception->details()['reason']);
@@ -166,7 +165,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         // proven above with the production authorizer, so the 409 below comes
         // from ApprovalService::assertSod, not from a middleware denial.
         $this->actAs($actorId);
-        $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/approve', [], ['X-Legal-Entity-Id' => (string) $this->legalEntityId])
+        $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/approve', [], [])
             ->assertStatus(409)
             ->assertJsonPath('data.reason', 'SOD_CONFLICT')
             ->assertJsonPath('data.step', 'approve')
@@ -180,7 +179,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         $run = $this->reviewedRun('2026-07', reviewerId: 11);
 
         $this->expectException(ConflictException::class);
-        app(ApprovalService::class)->approve($this->tenantId, (int) $run->id, 11);
+        app(ApprovalService::class)->approve((int) $run->id, 11);
     }
 
     /**
@@ -189,7 +188,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     private function reviewedRunPreparedByDualCapabilityHolder(string $period): array
     {
         $base = $this->seedPayrollBase();
-        $actor = User::factory()->create(['tenant_id' => $this->tenantId, 'auth_version' => 1]);
+        $actor = User::factory()->create(['auth_version' => 1]);
         $actorId = (int) $actor->id;
         $this->actAs($actorId);
         $this->grant($actorId, 'payroll.run.prepare');
@@ -199,10 +198,6 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
         // authorizer. This premise used to be rejected at the capability layer;
         // only the object-level control may now reject the approval.
         $principal = $this->actAs($actorId);
-        /** @var \Tests\Fakes\FakeOrganizationScopeDirectory $organization */
-        $organization = app(OrganizationScopeDirectory::class);
-        $organization->knownLegalEntities = [$this->legalEntityId];
-
         $anchor = AnchorRef::company();
         $authorizer = app(CapabilityAuthorizer::class);
         $this->assertTrue($authorizer->allows($principal, 'payroll.run.prepare', $anchor, '2026-11-23'));
@@ -221,7 +216,7 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     private function grant(int $userId, string $capability): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal($this->tenantId, $userId, 1)
+            ->forPrincipal($userId, 1)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE)
             ->create([
                 'capability_code' => $capability,
@@ -234,22 +229,22 @@ final class PayrollRunLifecycleTest extends PayrollTestCase
     {
         $run = $this->reviewedRun($period, preparedBy: $preparedBy);
         $approval = app(ApprovalService::class);
-        $run = $approval->approve($this->tenantId, (int) $run->id, 12);
+        $run = $approval->approve((int) $run->id, 12);
 
-        return $approval->publish($this->tenantId, (int) $run->id, 13);
+        return $approval->publish((int) $run->id, 13);
     }
 
     private function reviewedRun(string $period, int $preparedBy = 10, int $reviewerId = 11): PayrollRun
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, $preparedBy, [
+        $run = $runs->createRun($preparedBy, [
             'scheme_id' => (int) $base['scheme']->id,
             'period' => $period,
         ]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, $preparedBy);
+        $run = $runs->lockInputs((int) $run->id, $preparedBy);
         app(CalculationService::class)->calculate($run, $preparedBy);
 
-        return app(ApprovalService::class)->review($this->tenantId, (int) $run->id, $reviewerId);
+        return app(ApprovalService::class)->review((int) $run->id, $reviewerId);
     }
 }

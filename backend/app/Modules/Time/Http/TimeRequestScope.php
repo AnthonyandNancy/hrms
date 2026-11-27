@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http;
 
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\EmploymentSnapshot;
 use App\Modules\Time\Contracts\TimeActor;
@@ -12,19 +13,23 @@ use App\Shared\Exceptions\NoActiveEmploymentException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
+use App\Shared\Time\Clock;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 
 /**
  * Resolves the caller once per request and applies Time's resource scope. The
  * route capability middleware answers "may this actor use this feature"; this
- * helper answers "may this actor touch this employment/legal entity".
+ * helper answers "may this actor touch this employment". Single company means
+ * there is no tenant or legal-entity predicate left.
  */
 final class TimeRequestScope
 {
     public function __construct(
         private readonly TimeActorResolver $actors,
         private readonly EmploymentDirectory $employments,
+        private readonly CompanyProfileReader $company,
+        private readonly Clock $clock,
     ) {}
 
     public function actor(Request $request): TimeActor
@@ -46,9 +51,9 @@ final class TimeRequestScope
             throw new NoActiveEmploymentException('time.self');
         }
 
-        $snapshot = $this->employments->snapshot($actor->tenantId, $employmentId, $businessDate);
+        $snapshot = $this->employments->snapshot($employmentId, $businessDate);
 
-        if ($snapshot === null || ! $actor->canReadEmployment($employmentId, $snapshot->legalEntityId)) {
+        if ($snapshot === null || ! $actor->canReadEmployment($employmentId)) {
             throw new NotFoundOrForbiddenException;
         }
 
@@ -71,44 +76,28 @@ final class TimeRequestScope
         return $this->employment($actor, $employmentId, $businessDate);
     }
 
-    public function assertLegalEntity(TimeActor $actor, int $legalEntityId, string $businessDate): void
+    /**
+     * The company scope used to be proven by a legal-entity id set. There is
+     * exactly one company now, so a COMPANY/HR/ADMIN actor is in scope and a
+     * SELF/MANAGED actor is not.
+     */
+    public function assertCompanyScope(TimeActor $actor): void
     {
-        if (! in_array($legalEntityId, $this->legalEntityIds($actor, $businessDate), true)) {
+        if (! in_array($actor->scope, ['COMPANY', 'HR', 'ADMIN'], true)) {
             throw new NotFoundOrForbiddenException;
         }
     }
 
-    /**
-     * @return list<int>
-     */
-    public function legalEntityIds(TimeActor $actor, string $businessDate): array
+    public function canReadCompanyScope(TimeActor $actor): bool
     {
-        $ids = $actor->legalEntityIds;
-
-        if ($actor->employmentId !== null) {
-            $own = $this->employments->snapshot($actor->tenantId, $actor->employmentId, $businessDate);
-
-            if ($own !== null) {
-                $ids[] = $own->legalEntityId;
-            }
-        }
-
-        foreach ($actor->managedEmploymentIds as $managedEmploymentId) {
-            $managed = $this->employments->snapshot($actor->tenantId, $managedEmploymentId, $businessDate);
-
-            if ($managed !== null) {
-                $ids[] = $managed->legalEntityId;
-            }
-        }
-
-        return array_values(array_unique(array_map('intval', $ids)));
+        return in_array($actor->scope, ['COMPANY', 'HR', 'ADMIN'], true);
     }
 
     public function validateDate(?string $value, string $field, bool $required = true): string
     {
         if ($value === null || $value === '') {
             if (! $required) {
-                return BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(\App\Shared\Time\Clock::class))->value();
+                return $this->today()->value();
             }
 
             throw new ValidationException([$field => ["The {$field} field is required."]]);
@@ -121,5 +110,19 @@ final class TimeRequestScope
         }
 
         return $date->value();
+    }
+
+    /**
+     * Business dates are company dates: use the company profile timezone and
+     * the shared clock, never a server-local or per-tenant timezone.
+     */
+    public function today(): BusinessDate
+    {
+        return BusinessDate::today($this->company->current()->timezone, $this->clock);
+    }
+
+    public function resolveDate(?string $value, string $field = 'as_of'): string
+    {
+        return $this->validateDate($value, $field, false);
     }
 }

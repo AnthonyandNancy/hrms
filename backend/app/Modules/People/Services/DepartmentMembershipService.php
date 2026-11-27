@@ -19,11 +19,48 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
         private readonly AuditRecorder $audit,
     ) {}
 
-    public function moveMember(int $tenantId, int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array
+    public function removeMember(int $orgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $targetOrgUnitId, $employmentId, $effectiveFrom, $actorUserId): array {
+        return DB::transaction(function () use ($orgUnitId, $employmentId, $effectiveFrom, $actorUserId): array {
             $current = Assignment::query()
-                ->where('tenant_id', $tenantId)
+                ->where('employment_id', $employmentId)
+                ->where('org_unit_id', $orgUnitId)
+                ->where('is_primary', true)
+                ->where('valid_from', '<=', $effectiveFrom)
+                ->where('valid_to', '>', $effectiveFrom)
+                ->lockForUpdate()
+                ->first();
+
+            if ($current === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            // Effective-dated removal: the historical row keeps its validity and
+            // the member simply stops having a live assignment here. Deleting the
+            // row would rewrite history and break as-of reporting.
+            $current->forceFill(['valid_to' => $effectiveFrom])->save();
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'people.department.member_removed',
+                aggregateType: 'org_unit',
+                aggregateId: $orgUnitId,
+                before: ['assignment_valid_to' => (string) $current->getOriginal('valid_to')],
+                after: ['employment_id' => $employmentId, 'valid_to' => $effectiveFrom],
+            );
+
+            return [
+                'employment_id' => $employmentId,
+                'assignment_id' => (int) $current->id,
+                'effective_from' => $effectiveFrom,
+            ];
+        });
+    }
+
+    public function moveMember(int $targetOrgUnitId, int $employmentId, string $effectiveFrom, ?int $actorUserId): array
+    {
+        return DB::transaction(function () use ($targetOrgUnitId, $employmentId, $effectiveFrom, $actorUserId): array {
+            $current = Assignment::query()
                 ->where('employment_id', $employmentId)
                 ->where('is_primary', true)
                 ->where('valid_from', '<=', $effectiveFrom)
@@ -44,7 +81,6 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
 
             /** @var Assignment $next */
             $next = Assignment::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'org_unit_id' => $targetOrgUnitId,
                 'position_id' => $current->position_id,
@@ -58,7 +94,6 @@ final class DepartmentMembershipService implements DepartmentMembershipPort
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.department.member_moved',
                 aggregateType: 'assignment',

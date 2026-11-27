@@ -30,19 +30,17 @@ final class LifecycleService
      * @return array{case:WorkflowCaseRecord,intent:LifecycleIntent,template_id:int}
      */
     public function createCase(
-        int $tenantId,
         int $requesterUserId,
         LifecycleCaseType $type,
         array $payload,
         string $businessDate,
         bool $submit,
     ): array {
-        $this->validate($tenantId, $type, $payload);
+        $this->validate($type, $payload);
         $template = $this->templateMetadata($type);
 
-        return DB::transaction(function () use ($tenantId, $requesterUserId, $type, $payload, $businessDate, $submit, $template): array {
+        return DB::transaction(function () use ($requesterUserId, $type, $payload, $businessDate, $submit, $template): array {
             $templateId = $this->workflow->ensureTemplate(
-                tenantId: $tenantId,
                 code: (string) $template['code'],
                 name: (string) $template['name'],
                 definition: (array) $template['definition'],
@@ -59,7 +57,6 @@ final class LifecycleService
             // Template-by-code is represented by ensuring the code-owned
             // template and then creating against its published version.
             $case = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $requesterUserId,
                 type: $type->value,
                 subjectType: $subjectType,
@@ -72,7 +69,6 @@ final class LifecycleService
             );
 
             $intent = LifecycleIntent::query()->create([
-                'tenant_id' => $tenantId,
                 'case_id' => $case->id,
                 'case_type' => $type->value,
                 'status' => LifecycleIntent::STATUS_DRAFT,
@@ -94,11 +90,11 @@ final class LifecycleService
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function validate(int $tenantId, LifecycleCaseType $type, array $payload): void
+    private function validate(LifecycleCaseType $type, array $payload): void
     {
         match ($type) {
-            LifecycleCaseType::ONBOARDING, LifecycleCaseType::REHIRE => $this->validator->assertOnboarding($tenantId, $payload),
-            default => $this->validator->assertEmploymentInTenant($tenantId, $payload),
+            LifecycleCaseType::ONBOARDING, LifecycleCaseType::REHIRE => $this->validator->assertOnboarding($payload),
+            default => $this->validator->assertEmployment($payload),
         };
     }
 

@@ -57,7 +57,6 @@ final class IdempotentCommand
         }
 
         $result = $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: $request->method().':'.$request->path(),
             key: $key,

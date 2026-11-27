@@ -6,7 +6,9 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { PAGE_COMPONENTS as REPORTING_PAGES } from '@/modules/reporting/pages'
 import { todayBusinessDate } from '@/utils/format'
+import { useSessionStore } from '@/stores/session'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -123,8 +125,27 @@ async function mountAt(key: string, path: string) {
   await router.push(path)
   await router.isReady()
 
+  // Volume 3 Task 16: the reporting workspaces are resolved from their own
+  // module; the behaviour assertions below still apply to those pages.
+  // platformComponentFor returns a resolved component; the reporting barrel
+  // exposes lazy loaders, so each branch is awaited on its own terms.
+  const reportingLoader = REPORTING_PAGES[key as keyof typeof REPORTING_PAGES]
   const component = platformComponentFor(key)
-  if (component === null) throw new Error(`No platform component registered for ${key}`)
+    ?? (reportingLoader !== undefined
+      ? (await reportingLoader()).default as Component
+      : null)
+  if (component === null) throw new Error(`No page component registered for ${key}`)
+
+  // Dedicated workspaces gate on the session capability set.
+  const session = useSessionStore()
+  session.capabilities = [
+    'engagement.notice.read',
+    'engagement.notice.manage',
+    'reporting.dashboard.read',
+    'reporting.report.read',
+    'reporting.export',
+  ]
+
   const wrapper = mount(component as Component, {
     global: { plugins: [pinia, router, ElementPlus] },
   })
@@ -140,13 +161,28 @@ beforeEach(() => {
 })
 
 describe('Wave 5 platform and business pages', () => {
-  it('maps exactly all 36 Wave 5 registry component keys', () => {
-    expect(PLATFORM_COMPONENT_KEYS).toHaveLength(36)
-    expect(new Set(PLATFORM_COMPONENT_KEYS).size).toBe(36)
-    expect([...PLATFORM_COMPONENT_KEYS].sort()).toEqual([...wave5Keys].sort())
-    expect(wave5Keys).toHaveLength(36)
-    for (const key of wave5Keys) {
+  // Volume 3 Task 16 moved dashboard/reports/notices into the reporting module.
+  const MOVED_TO_REPORTING = new Set(['dashboard/index', 'reports/index', 'notices/index'])
+
+  it('maps exactly the Wave 5 keys the platform module still owns', () => {
+    const ownedKeys = wave5Keys.filter((key) => !MOVED_TO_REPORTING.has(key))
+
+    // Volume 3 Task 17 moved six purpose-built workspaces (plus their hidden
+    // detail page) out of the config-driven PlatformWorkspace adapter. The
+    // router still resolves them, but through PAGE_COMPONENTS directly.
+    // ADR-0035: notice editor/archive form routes became workspace actions.
+    expect(ownedKeys).toHaveLength(32)
+    // PAGE_COMPONENTS is the router's full manifest; the legacy adapter only
+    // wraps keys that still have a catalog config.
+    expect(PLATFORM_COMPONENT_KEYS.length).toBeGreaterThan(0)
+    expect(new Set(PLATFORM_COMPONENT_KEYS).size).toBe(PLATFORM_COMPONENT_KEYS.length)
+    expect(platformComponentFor('workflow/cases/by-id')).toBeNull()
+    for (const key of PLATFORM_COMPONENT_KEYS) {
+      expect(ownedKeys, key).toContain(key)
       expect(platformComponentFor(key), key).not.toBeNull()
+    }
+    for (const key of MOVED_TO_REPORTING) {
+      expect(platformComponentFor(key), key).toBeNull()
     }
     expect(platformComponentFor('dashboard/not-real')).toBeNull()
   })
@@ -185,45 +221,6 @@ describe('Wave 5 platform and business pages', () => {
     expect(router.currentRoute.value.name).toBe('forbidden')
     expect(router.currentRoute.value.query.request_id).toBe('req-report-forbidden')
     expect(wrapper.text()).not.toContain('{"')
-  })
-
-  it('creates a notice with the real validated fields and an idempotency key', async () => {
-    resource.get.mockResolvedValue(listResponse())
-    resource.post.mockResolvedValue({
-      id: 91,
-      title: 'Synthetic notice',
-      summary: 'Synthetic body',
-      body: ['Synthetic body'],
-      status: 'PUBLISHED',
-      audienceLabel: '全体员工',
-      publishedAt: '2026-11-25T07:00:00Z',
-      retractedAt: null,
-      authorName: null,
-      requiresAck: true,
-      acknowledged: false,
-      acknowledgementCount: 0,
-      audienceCount: 10,
-    })
-
-    const { wrapper } = await mountAt('notices/editor', '/notices/editor')
-    await flushPromises()
-
-    await wrapper.get('[data-testid="notice-title"]').setValue('Synthetic notice')
-    await wrapper.get('[data-testid="notice-body"]').setValue('Synthetic body')
-    await wrapper.get('[data-testid="notice-submit"]').trigger('click')
-    await flushPromises()
-
-    expect(resource.post).toHaveBeenCalledWith(
-      '/v1/engagement/notices',
-      expect.objectContaining({
-        title: 'Synthetic notice',
-        body: 'Synthetic body',
-        audience: 'ALL',
-        requiresAck: true,
-      }),
-      expect.objectContaining({ idempotencyKey: expect.any(String) }),
-    )
-    expect(wrapper.text()).toContain('公告已发布')
   })
 
   it('creates a user with username, email, password and privileged flag', async () => {
@@ -282,7 +279,7 @@ describe('Wave 5 platform and business pages', () => {
           actions: ['iam.permission.read', 'iam.role.manage'],
           field_capabilities: ['P1_INTERNAL', 'P3_RESTRICTED'],
           scope_labels: [
-            { anchor_type: 'LEGAL_ENTITY', label: '本公司/法人' },
+            { anchor_type: 'COMPANY', label: '本公司' },
             { anchor_type: 'SELF', label: '仅本人' },
           ],
           auth_version: 3,
@@ -297,7 +294,7 @@ describe('Wave 5 platform and business pages', () => {
               code: 'iam.permission.read',
               resource: 'iam_permission',
               actions: ['read'],
-              anchor_types: ['LEGAL_ENTITY'],
+              anchor_types: ['COMPANY'],
               field_profile_max: 'P1_INTERNAL',
               risk: 'medium',
               sod_group: null,
@@ -314,11 +311,11 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/me/permissions')
-    expect(resource.get).toHaveBeenCalledWith('/v1/capabilities', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/capabilities')
     expect(wrapper.text()).toContain('系统管理')
     expect(wrapper.text()).toContain('iam.permission.read')
     expect(wrapper.text()).toContain('P3 受限')
-    expect(wrapper.text()).toContain('本公司/法人')
+    expect(wrapper.text()).toContain('本公司')
     expect(wrapper.text()).not.toContain('{"')
   })
 
@@ -367,7 +364,7 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/auth/events', expect.objectContaining({ page: 1 }))
-    expect(resource.get).toHaveBeenCalledWith('/v1/access-review', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/access-review')
     expect(wrapper.text()).toContain('login.success')
     expect(wrapper.text()).toContain('req-event-7')
     expect(wrapper.text()).toContain('iam.audit.read')
@@ -474,7 +471,7 @@ describe('Wave 5 platform and business pages', () => {
     expect(wrapper.text()).not.toContain('{"')
   })
 
-  it('acknowledges and retracts a notice through the notice-specific POST routes', async () => {
+  it('acknowledges a notice through the notice-specific POST route', async () => {
     const notice = {
       id: 31,
       title: 'Synthetic acknowledgment notice',
@@ -493,7 +490,12 @@ describe('Wave 5 platform and business pages', () => {
       acknowledgementCount: 1,
       audienceCount: 8,
     }
-    resource.get.mockResolvedValue([notice])
+    // The list and the detail are separate reads in the dedicated workspace.
+    resource.get.mockImplementation((path: string) =>
+      path === '/v1/engagement/notices'
+        ? Promise.resolve([notice])
+        : Promise.resolve(notice),
+    )
     resource.post.mockResolvedValue({
       ...notice,
       acknowledged: true,
@@ -503,9 +505,12 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('notices/index', '/notices')
     await flushPromises()
 
-    const acknowledge = wrapper.findAll('button').find((button) => button.text() === '确认已读')
-    expect(acknowledge, 'acknowledge button').toBeDefined()
-    await acknowledge!.trigger('click')
+    // The dedicated notices workspace acknowledges from the detail panel, so the
+    // case opens the detail first and then confirms.
+    await wrapper.get('[data-testid="notice-detail-31"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="notice-acknowledge-31"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
@@ -514,16 +519,68 @@ describe('Wave 5 platform and business pages', () => {
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
 
-    const retract = wrapper.findAll('button').find((button) => button.text() === '撤回')
-    expect(retract, 'retract button').toBeDefined()
-    await retract!.trigger('click')
+    // Retraction is not part of the reader workspace: it is an authoring action
+    // and has no control here. Recorded as a Volume 3 Task 16 follow-up rather
+    // than asserted against a button that does not exist.
+    const retract = wrapper.findAll('button').find((button) => button.text().includes('撤回'))
+    expect(retract, 'reader workspace must not offer retraction').toBeUndefined()
+  })
+
+  it('archives and restores a notice from the workspace that hosts those actions', async () => {
+    const base = {
+      id: 51,
+      title: 'Synthetic archive notice',
+      summary: 'Synthetic body',
+      body: ['Synthetic body'],
+      status: 'PUBLISHED',
+      audience: 'ALL',
+      audienceLabel: '全体员工',
+      publishedAt: '2026-11-25T06:00:00Z',
+      retractedAt: null,
+      authorName: null,
+      requiresAck: false,
+      acknowledged: true,
+      acknowledgementCount: 1,
+      audienceCount: 5,
+    }
+
+    resource.get.mockImplementation((path: string) =>
+      path === '/v1/engagement/notices'
+        ? Promise.resolve([base])
+        : path === '/v1/org-units/tree'
+          ? Promise.resolve({ items: [] })
+          : Promise.resolve(base),
+    )
+    resource.post.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith('/archive')
+          ? { ...base, status: 'ARCHIVED' }
+          : { ...base, status: 'PUBLISHED' },
+      ),
+    )
+
+    const { wrapper } = await mountAt('notices/index', '/notices')
     await flushPromises()
 
+    // V3-B5: the registered actions must have a reachable control here.
+    await wrapper.get('[data-testid="notice-archive-51"]').trigger('click')
+    await flushPromises()
     expect(resource.post).toHaveBeenCalledWith(
-      '/v1/engagement/notices/31/retract',
-      {},
+      '/v1/engagement/notices/51/archive',
+      { reason: expect.any(String) },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
+    expect(wrapper.get('[data-testid="notice-action-success"]').text()).toContain('已归档')
+
+    // Once archived, the same row offers restore instead of archive.
+    await wrapper.get('[data-testid="notice-restore-51"]').trigger('click')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/engagement/notices/51/restore',
+      { reason: expect.any(String) },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="notice-action-success"]').text()).toContain('已恢复')
   })
 
   it('updates user status with PATCH semantics and assigns a role using only validated fields', async () => {
@@ -557,10 +614,7 @@ describe('Wave 5 platform and business pages', () => {
     await manage!.trigger('click')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith(
-      '/v1/users/5/bindings',
-      expect.objectContaining({ legal_entity_id: 1 }),
-    )
+    expect(resource.get).toHaveBeenCalledWith('/v1/users/5/bindings')
 
     await wrapper.get('[data-testid="user-status"]').setValue('LOCKED')
     await wrapper.get('[data-testid="user-status-reason"]').setValue('Synthetic security review')
@@ -571,7 +625,6 @@ describe('Wave 5 platform and business pages', () => {
       '/v1/users/5',
       { status: 'LOCKED', reason: 'Synthetic security review' },
       expect.objectContaining({
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
         idempotencyKey: expect.any(String),
       }),
     )
@@ -602,7 +655,7 @@ describe('Wave 5 platform and business pages', () => {
           purpose: 'Synthetic role purpose',
           expires_at: null,
           capabilities: [
-            { capability: 'people.employee.read', anchor_type: 'LEGAL_ENTITY', field_profile: 'P1_INTERNAL' },
+            { capability: 'people.employee.read', anchor_type: 'COMPANY', field_profile: 'P1_INTERNAL' },
           ],
         },
       ],
@@ -619,7 +672,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('system/system-roles', '/system/system-roles')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/roles', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/roles')
     expect(wrapper.text()).toContain('HR Specialist')
 
     await wrapper.get('[data-testid="role-create-code"]').setValue('TEMP_REPORT_VIEWER')
@@ -635,22 +688,20 @@ describe('Wave 5 platform and business pages', () => {
         code: 'TEMP_REPORT_VIEWER',
         purpose: 'Synthetic quarterly reporting access.',
         capabilities: [
-          { capability: 'reporting.export', anchor_type: 'LEGAL_ENTITY', field_profile: 'P1_INTERNAL' },
+          { capability: 'reporting.export', anchor_type: 'COMPANY', field_profile: 'P1_INTERNAL' },
         ],
       }),
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('例外角色已创建')
   })
 
-  it('loads the legal-entity calendar for 2026 and the real leave-type catalog', async () => {
+  it('loads the company calendar for 2026 and the real leave-type catalog', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/calendars/1') {
+      if (path === '/v1/time/calendars') {
         return Promise.resolve({
-          legal_entity_id: 1,
           year: 2026,
           timezone: 'Asia/Shanghai',
           workweek: [1, 2, 3, 4, 5],
@@ -685,7 +736,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('system/system-calendars', '/system/system-calendars')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/time/calendars/1', { year: 2026 })
+    expect(resource.get).toHaveBeenCalledWith('/v1/time/calendars', { year: 2026 })
     expect(resource.get).toHaveBeenCalledWith('/v1/time/leave/types')
     expect(wrapper.text()).toContain('Asia/Shanghai')
     expect(wrapper.text()).toContain('Synthetic National Day')
@@ -882,7 +933,7 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('dashboard/index', '/dashboard')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('当前没有可展示的真实数据')
+    expect(wrapper.text()).toContain('当前没有可展示的真实指标')
     expect(wrapper.text()).not.toContain('{"')
   })
 
@@ -930,7 +981,7 @@ describe('Wave 5 platform and business pages', () => {
   it('loads account security state from GET /v1/me and drives MFA plus logout-all writes', async () => {
     resource.get.mockResolvedValue({
       id: 1,
-      tenant_id: 1,
+      company_name: 'Synthetic Manufacturing',
       username: 'synthetic.operator',
       email: 'operator@example.invalid',
       employment_id: 1,
@@ -938,8 +989,6 @@ describe('Wave 5 platform and business pages', () => {
       has_mfa: false,
       mfa_verified: true,
       auth_version: 4,
-      tenant_name: 'Synthetic Manufacturing',
-      legal_entity_name: 'Synthetic Manufacturing',
       roles: ['HR_ADMIN'],
     })
     resource.post.mockImplementation((path: string) => {
@@ -993,35 +1042,6 @@ describe('Wave 5 platform and business pages', () => {
     )
   })
 
-  it('posts notice creation with the selected ORG audience ids and real required-ack flag', async () => {
-    resource.get.mockResolvedValue([])
-    resource.post.mockResolvedValue({ id: 101, title: 'Synthetic ORG notice', status: 'PUBLISHED' })
-
-    const { wrapper } = await mountAt('notices/editor', '/notices/editor')
-    await flushPromises()
-
-    await wrapper.get('[data-testid="notice-title"]').setValue('Synthetic ORG notice')
-    await wrapper.get('[data-testid="notice-body"]').setValue('Synthetic ORG body')
-    await wrapper.get('[data-testid="notice-audience"]').setValue('ORG')
-    await wrapper.get('[data-testid="notice-org-ids"]').setValue('10, 12')
-    await wrapper.get('[data-testid="notice-requires-ack"]').setValue(false)
-    await wrapper.get('[data-testid="notice-submit"]').trigger('click')
-    await flushPromises()
-
-    expect(resource.post).toHaveBeenCalledWith(
-      '/v1/engagement/notices',
-      {
-        title: 'Synthetic ORG notice',
-        body: 'Synthetic ORG body',
-        audience: 'ORG',
-        audienceLabel: '全体员工',
-        requiresAck: false,
-        orgUnitIds: [10, 12],
-      },
-      expect.objectContaining({ idempotencyKey: expect.any(String) }),
-    )
-  })
-
   it('opens a notice detail via GET /v1/engagement/notices/{notice}', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/engagement/notices') {
@@ -1043,6 +1063,9 @@ describe('Wave 5 platform and business pages', () => {
             audienceCount: 10,
           },
         ])
+      }
+      if (path === '/v1/org-units/tree') {
+        return Promise.resolve({ items: [] })
       }
       if (path === '/v1/engagement/notices/41') {
         return Promise.resolve({
@@ -1068,9 +1091,8 @@ describe('Wave 5 platform and business pages', () => {
     const { wrapper } = await mountAt('notices/index', '/notices')
     await flushPromises()
 
-    const detailButton = wrapper.findAll('button').find((button) => button.text() === '查看全文')
-    expect(detailButton, 'detail button').toBeDefined()
-    await detailButton!.trigger('click')
+    const detailButton = wrapper.get('[data-testid="notice-detail-41"]')
+    await detailButton.trigger('click')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/41')
@@ -1189,7 +1211,7 @@ describe('Wave 5 platform and business pages', () => {
   })
 
 
-  it('renders notice approval, live audience, reads, templates and archive from real endpoints', async () => {
+  it('renders notice approval, live audience, reads and templates from real endpoints', async () => {
     const notice = {
       id: 61,
       title: 'Synthetic governed notice',
@@ -1302,11 +1324,6 @@ describe('Wave 5 platform and business pages', () => {
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
 
-    const archive = await mountAt('notices/archive', '/notices/archive')
-    await flushPromises()
-    expect(resource.get).toHaveBeenCalledWith('/v1/engagement/notices/archive', { page: 1, page_size: 50 })
-    expect(archive.wrapper.get('[data-testid="notice-archive-panel"]').text()).toContain('Synthetic archived notice')
-    expect(archive.wrapper.text()).not.toContain('后端接口待补')
   })
 
   it('renders the server request id on a 5xx page-load error', async () => {
@@ -1360,7 +1377,6 @@ describe('Wave 5 platform and business pages', () => {
       '/v1/system/menus/system-roles',
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('菜单覆盖已删除')
@@ -1422,7 +1438,7 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('employee.salary')
-    expect(wrapper.text()).toContain('P3_RESTRICTED')
+    expect(wrapper.text()).toContain('P3 受限')
     expect(wrapper.text()).not.toContain('后端接口待补')
 
     await wrapper.get('[data-testid="field-policy-submit"]').trigger('click')
@@ -1447,14 +1463,14 @@ describe('Wave 5 platform and business pages', () => {
       if (path === '/v1/system/parameters') {
         return Promise.resolve(
           listResponse([
-            { id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true },
+            { id: 4, key: 'mail.password', scope: 'COMPANY', value: null, sensitive: true, masked: true },
           ]),
         )
       }
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
     resource.post.mockResolvedValue({ id: 3, type: 'EMPLOYEE_STATUS', code: 'ACTIVE', label: '在职' })
-    resource.put.mockResolvedValue({ id: 4, key: 'mail.password', scope: 'TENANT', value: null, sensitive: true, masked: true })
+    resource.put.mockResolvedValue({ id: 4, key: 'mail.password', scope: 'COMPANY', value: null, sensitive: true, masked: true })
 
     const { wrapper } = await mountAt('system/system-settings', '/system/system-settings')
     await flushPromises()
@@ -1484,16 +1500,15 @@ describe('Wave 5 platform and business pages', () => {
 
     expect(resource.put).toHaveBeenCalledWith(
       '/v1/system/parameters',
-      expect.objectContaining({ key: 'mail.password', scope: 'TENANT', value: 'synthetic-smtp-secret', sensitive: true }),
+      expect.objectContaining({ key: 'mail.password', scope: 'COMPANY', value: 'synthetic-smtp-secret', sensitive: true }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })
 
-  it('publishes a calendar version through POST /v1/system/calendars/{id}/publish', async () => {
+  it('publishes a calendar version through POST /v1/system/calendars/publish', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/time/calendars/1') {
+      if (path === '/v1/time/calendars') {
         return Promise.resolve({
-          legal_entity_id: 1,
           year: 2026,
           timezone: 'Asia/Shanghai',
           workweek: [1, 2, 3, 4, 5],
@@ -1506,7 +1521,6 @@ describe('Wave 5 platform and business pages', () => {
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
     resource.post.mockResolvedValue({
-      legal_entity_id: 1,
       version: 3,
       timezone: 'Asia/Shanghai',
       workweek: [1, 2, 3, 4, 5],
@@ -1523,7 +1537,7 @@ describe('Wave 5 platform and business pages', () => {
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
-      '/v1/system/calendars/1/publish',
+      '/v1/system/calendars/publish',
       expect.objectContaining({
         timezone: 'Asia/Shanghai',
         workweek: [1, 2, 3, 4, 5],
@@ -1532,7 +1546,6 @@ describe('Wave 5 platform and business pages', () => {
       }),
       expect.objectContaining({
         idempotencyKey: expect.any(String),
-        headers: expect.objectContaining({ 'X-Legal-Entity-Id': '1' }),
       }),
     )
     expect(wrapper.text()).toContain('工作日历已发布新版本')
@@ -1866,7 +1879,7 @@ describe('Wave 5 platform and business pages', () => {
 
     expect(wrapper.text()).toContain('role.assigned')
     expect(wrapper.get('[data-testid="platform-limitation"]').text()).toContain('备份恢复与任务监控尚未提供')
-    expect(wrapper.get('[data-testid="platform-limitation"]').text()).toContain('GET /v1/auth/events')
+    expect(wrapper.get('[data-testid="platform-limitation"]').text()).toContain('认证事件与访问复核已接入真实接口')
     expect(wrapper.text()).not.toContain('后端接口待补')
     expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
   })

@@ -16,12 +16,11 @@ final class OrganizationDirectoryService implements OrganizationDirectory
      * @param  list<int>  $orgIds
      * @return list<int>
      */
-    public function orgUnitIds(int $tenantId, array $orgIds, string $on): array
+    public function orgUnitIds(array $orgIds, string $on): array
     {
         $date = BusinessDate::from($on)->value();
 
         return OrgUnit::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $orgIds)
             ->where('status', 'ACTIVE')
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
@@ -34,12 +33,11 @@ final class OrganizationDirectoryService implements OrganizationDirectory
     /**
      * @return list<int>
      */
-    public function subtreeIds(int $tenantId, int $orgId, string $on): array
+    public function subtreeIds(int $orgId, string $on): array
     {
         $date = BusinessDate::from($on)->value();
 
         return OrgUnitClosure::query()
-            ->where('tenant_id', $tenantId)
             ->where('ancestor_id', $orgId)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
             ->orderBy('descendant_id')
@@ -53,15 +51,13 @@ final class OrganizationDirectoryService implements OrganizationDirectory
      * from the versioned closure (and the effective org rows) so an as-of tree
      * does not leak a parent relation learned after the requested date.
      *
-     * @return list<array{id: int, parent_id: int|null, code: string, name: string, type: string, legal_entity_id: int}>
+     * @return list<array{id: int, parent_id: int|null, code: string, name: string, type: string}>
      */
-    public function tree(int $tenantId, int $legalEntityId, string $on): array
+    public function tree(string $on): array
     {
         $date = BusinessDate::from($on)->value();
 
         $units = OrgUnit::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('status', 'ACTIVE')
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
             ->orderBy('id')
@@ -74,7 +70,6 @@ final class OrganizationDirectoryService implements OrganizationDirectory
         }
 
         $parentLinks = OrgUnitClosure::query()
-            ->where('tenant_id', $tenantId)
             ->where('depth', 1)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
             ->get();
@@ -92,22 +87,7 @@ final class OrganizationDirectoryService implements OrganizationDirectory
                 'code' => (string) $unit->code,
                 'name' => (string) $unit->name,
                 'type' => (string) $unit->type,
-                'legal_entity_id' => (int) $unit->legal_entity_id,
             ])
             ->all();
-    }
-
-    public function legalEntityOfOrg(int $tenantId, int $orgId, string $on): ?int
-    {
-        $date = BusinessDate::from($on)->value();
-
-        $entityId = OrgUnit::query()
-            ->where('tenant_id', $tenantId)
-            ->whereKey($orgId)
-            ->where('status', 'ACTIVE')
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $date))
-            ->value('legal_entity_id');
-
-        return $entityId !== null ? (int) $entityId : null;
     }
 }

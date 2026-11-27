@@ -21,15 +21,15 @@ final class PayrollSnapshotTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
 
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->lockInputs((int) $run->id, 10);
         $firstHash = (string) $run->input_hash;
         $snapshot = PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
 
         // Re-locking an input-locked run is idempotent and never overwrites
         // the frozen snapshot bytes.
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->lockInputs((int) $run->id, 10);
         $snapshotAfter = PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
 
         $this->assertSame($firstHash, (string) $run->input_hash);
@@ -42,13 +42,12 @@ final class PayrollSnapshotTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-03']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-03']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         $beforeHash = (string) $run->input_hash;
 
         // Change the Time-owned attendance after the lock.
         \App\Modules\Time\Models\AttendanceDay::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => $base['employment_id'],
             'business_date' => '2026-03-02',
             'shift_template_id' => null,
@@ -72,8 +71,8 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame(1_000_000, (int) $run->gross_cents);
 
         // A new run picks the changed attendance up and produces a lower gross.
-        $newRun = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-04']);
-        $newRun = $runs->lockInputs($this->tenantId, (int) $newRun->id, 10);
+        $newRun = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-04']);
+        $newRun = $runs->lockInputs((int) $newRun->id, 10);
         $this->assertNotSame($beforeHash, (string) $newRun->input_hash);
     }
 
@@ -82,7 +81,7 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $run = $this->calculatedRun('2026-05');
 
         $this->expectException(ValidationException::class);
-        app(ReopenService::class)->reopen($this->tenantId, (int) $run->id, 10, [11], 'Insufficient approvals for reopen.');
+        app(ReopenService::class)->reopen((int) $run->id, 10, [11], 'Insufficient approvals for reopen.');
     }
 
     public function test_reopen_rejects_published_runs(): void
@@ -90,15 +89,15 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $run = $this->publishedRun('2026-06');
 
         $this->expectException(ConflictException::class);
-        app(ReopenService::class)->reopen($this->tenantId, (int) $run->id, 10, [11, 12], 'Published run must use correction.');
+        app(ReopenService::class)->reopen((int) $run->id, 10, [11, 12], 'Published run must use correction.');
     }
 
     private function calculatedRun(string $period): PayrollRun
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return $run->refresh();
@@ -108,9 +107,9 @@ final class PayrollSnapshotTest extends PayrollTestCase
     {
         $run = $this->calculatedRun($period);
         $approval = app(ApprovalService::class);
-        $run = $approval->review($this->tenantId, (int) $run->id, 11);
-        $run = $approval->approve($this->tenantId, (int) $run->id, 12);
+        $run = $approval->review((int) $run->id, 11);
+        $run = $approval->approve((int) $run->id, 12);
 
-        return $approval->publish($this->tenantId, (int) $run->id, 13);
+        return $approval->publish((int) $run->id, 13);
     }
 }

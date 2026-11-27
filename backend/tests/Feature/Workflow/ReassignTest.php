@@ -22,8 +22,8 @@ class ReassignTest extends TestCase
         $this->bootWorkflow();
         /** @var FakeAssigneeDirectory $directory */
         $directory = app(\App\Modules\Workflow\Contracts\AssigneeDirectory::class);
-        $directory->managers['1:employment:100'] = 10;
-        $directory->reassignmentCandidates['1:1:10'] = [10, 11, 12];
+        $directory->managers['employment:100'] = 10;
+        $directory->reassignmentCandidates['1:10'] = [10, 11, 12];
 
         /** @var FakeAssigneeEligibility $eligibility */
         $eligibility = new FakeAssigneeEligibility;
@@ -62,8 +62,8 @@ class ReassignTest extends TestCase
         $this->bootWorkflow();
         /** @var FakeAssigneeDirectory $directory */
         $directory = app(\App\Modules\Workflow\Contracts\AssigneeDirectory::class);
-        $directory->managers['1:employment:100'] = 10;
-        $directory->reassignmentCandidates['1:1:10'] = [10, 11, 12];
+        $directory->managers['employment:100'] = 10;
+        $directory->reassignmentCandidates['1:10'] = [10, 11, 12];
 
         $eligibility = new FakeAssigneeEligibility;
         $eligibility->eligible = [10 => true, 11 => true, 12 => true];
@@ -85,8 +85,8 @@ class ReassignTest extends TestCase
         $this->bootWorkflow();
         /** @var FakeAssigneeDirectory $directory */
         $directory = app(\App\Modules\Workflow\Contracts\AssigneeDirectory::class);
-        $directory->managers['1:employment:100'] = 10;
-        $directory->reassignmentCandidates['1:1:10'] = [];
+        $directory->managers['employment:100'] = 10;
+        $directory->reassignmentCandidates['1:10'] = [];
 
         $eligibility = new FakeAssigneeEligibility;
         $eligibility->eligible = [10 => false];

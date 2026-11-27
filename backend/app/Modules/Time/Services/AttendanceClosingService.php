@@ -14,7 +14,8 @@ use App\Shared\Time\Clock;
 /**
  * Month close is the boundary between operational attendance and payroll
  * inputs. While a period is CLOSED, ordinary recalculation is refused; only
- * time.attendance.reopen can reopen it, with an audited reason.
+ * time.attendance.reopen can reopen it, with an audited reason. The audit
+ * recorder still keys evidence by the platform-wide tenant column.
  */
 final class AttendanceClosingService
 {
@@ -26,12 +27,12 @@ final class AttendanceClosingService
     /**
      * @return array<string, mixed>
      */
-    public function close(int $tenantId, int $legalEntityId, string $month, int $actorUserId): array
+    public function close(string $month, int $actorUserId): array
     {
         $this->assertMonth($month);
 
         $closure = AttendancePeriodClosure::query()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'legal_entity_id' => $legalEntityId, 'month' => $month],
+            ['month' => $month],
             ['status' => AttendancePeriodClosure::STATUS_CLOSED, 'closed_by' => $actorUserId, 'closed_at' => $this->clock->now()],
         );
 
@@ -47,8 +48,7 @@ final class AttendanceClosingService
             ])->save();
         }
 
-        $this->audit->record($tenantId, $actorUserId, 'time.attendance.closed', 'attendance_period', $closure->id, after: [
-            'legal_entity_id' => $legalEntityId,
+        $this->audit->record($actorUserId, 'time.attendance.closed', 'attendance_period', $closure->id, after: [
             'month' => $month,
         ]);
 
@@ -58,10 +58,9 @@ final class AttendanceClosingService
     /**
      * @return array<string, mixed>
      */
-    public function reopen(int $tenantId, int $closureId, string $reason, int $actorUserId): array
+    public function reopen(int $closureId, string $reason, int $actorUserId): array
     {
         $closure = AttendancePeriodClosure::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($closureId)
             ->first();
 
@@ -80,8 +79,7 @@ final class AttendanceClosingService
             'reopen_reason' => $reason,
         ])->save();
 
-        $this->audit->record($tenantId, $actorUserId, 'time.attendance.reopened', 'attendance_period', $closure->id, after: [
-            'legal_entity_id' => (int) $closure->legal_entity_id,
+        $this->audit->record($actorUserId, 'time.attendance.reopened', 'attendance_period', $closure->id, after: [
             'month' => (string) $closure->month,
             'reason' => $reason,
         ]);
@@ -89,11 +87,9 @@ final class AttendanceClosingService
         return $this->payload($closure, false);
     }
 
-    public function assertOpen(int $tenantId, int $legalEntityId, string $month): void
+    public function assertOpen(string $month): void
     {
         $closed = AttendancePeriodClosure::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('month', $month)
             ->where('status', AttendancePeriodClosure::STATUS_CLOSED)
             ->exists();
@@ -110,7 +106,6 @@ final class AttendanceClosingService
     {
         return [
             'closure_id' => (int) $closure->id,
-            'legal_entity_id' => (int) $closure->legal_entity_id,
             'month' => (string) $closure->month,
             'status' => (string) $closure->status,
             'replayed' => $replayed,

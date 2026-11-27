@@ -31,10 +31,10 @@ final class PerformanceService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createCycle(int $tenantId, int $actorUserId, array $input): array
+    public function createCycle(int $actorUserId, array $input): array
     {
         $cycle = PerformanceCycle::query()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'name' => (string) $input['name']],
+            ['name' => (string) $input['name']],
             [
                 'period_from' => (string) $input['period_from'],
                 'period_to' => (string) $input['period_to'],
@@ -43,7 +43,7 @@ final class PerformanceService
             ],
         );
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.performance_cycle.created', 'performance_cycle', (int) $cycle->id, after: [
+        $this->audit->record($actorUserId, 'talent.performance_cycle.created', 'performance_cycle', (int) $cycle->id, after: [
             'period_from' => (string) $cycle->period_from,
             'period_to' => (string) $cycle->period_to,
         ]);
@@ -61,10 +61,9 @@ final class PerformanceService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createReview(int $tenantId, int $actorUserId, array $input): array
+    public function createReview(int $actorUserId, array $input): array
     {
         $cycle = PerformanceCycle::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $input['cycle_id'])
             ->first();
 
@@ -80,7 +79,6 @@ final class PerformanceService
 
         $review = PerformanceReview::query()->firstOrCreate(
             [
-                'tenant_id' => $tenantId,
                 'cycle_id' => (int) $cycle->id,
                 'employment_id' => (int) $input['employment_id'],
             ],
@@ -101,13 +99,12 @@ final class PerformanceService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function submitReview(int $tenantId, int $actorUserId, int $reviewId, array $input): array
+    public function submitReview(int $actorUserId, int $reviewId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $reviewId, $input): array {
-            $this->cycleDetails->assertReviewEditable($tenantId, $reviewId);
+        return DB::transaction(function () use ($actorUserId, $reviewId, $input): array {
+            $this->cycleDetails->assertReviewEditable($reviewId);
 
             $review = PerformanceReview::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($reviewId)
                 ->lockForUpdate()
                 ->first();
@@ -130,7 +127,7 @@ final class PerformanceService
                 'submitted_at' => $this->clock->now(),
             ])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.review.submitted', 'performance_review', (int) $review->id, after: [
+            $this->audit->record($actorUserId, 'talent.review.submitted', 'performance_review', (int) $review->id, after: [
                 'status' => 'SUBMITTED',
             ]);
 
@@ -142,11 +139,10 @@ final class PerformanceService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createAppeal(int $tenantId, int $actorUserId, int $reviewId, array $input, string $businessDate): array
+    public function createAppeal(int $actorUserId, int $reviewId, array $input, string $businessDate): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $reviewId, $input, $businessDate): array {
+        return DB::transaction(function () use ($actorUserId, $reviewId, $input, $businessDate): array {
             $review = PerformanceReview::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($reviewId)
                 ->lockForUpdate()
                 ->first();
@@ -156,7 +152,6 @@ final class PerformanceService
             }
 
             $existing = PerformanceAppeal::query()
-                ->where('tenant_id', $tenantId)
                 ->where('review_id', (int) $review->id)
                 ->first();
 
@@ -169,9 +164,8 @@ final class PerformanceService
 
             $this->machine->assertCanAppeal((string) $review->status);
 
-            $this->ensureAppealTemplate($tenantId);
+            $this->ensureAppealTemplate();
             $case = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $actorUserId,
                 type: 'PERFORMANCE_APPEAL',
                 subjectType: 'performance_review',
@@ -188,7 +182,6 @@ final class PerformanceService
             );
 
             $appeal = PerformanceAppeal::query()->create([
-                'tenant_id' => $tenantId,
                 'review_id' => (int) $review->id,
                 'case_id' => $case->id,
                 'reason' => (string) $input['reason'],
@@ -200,7 +193,7 @@ final class PerformanceService
             // and status are derived without touching ratings/assessments.
             $review->forceFill(['status' => 'APPEALED'])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.performance_appeal.created', 'performance_appeal', (int) $appeal->id, after: [
+            $this->audit->record($actorUserId, 'talent.performance_appeal.created', 'performance_appeal', (int) $appeal->id, after: [
                 'review_id' => (int) $review->id,
                 'case_id' => $case->id,
             ]);
@@ -222,10 +215,9 @@ final class PerformanceService
     /**
      * @return list<array<string, mixed>>
      */
-    public function reviews(int $tenantId, ?int $cycleId = null, ?string $status = null): array
+    public function reviews(?int $cycleId = null, ?string $status = null): array
     {
         return PerformanceReview::query()
-            ->where('tenant_id', $tenantId)
             ->when($cycleId !== null, fn ($builder) => $builder->where('cycle_id', $cycleId))
             ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
             ->orderByDesc('id')
@@ -256,10 +248,9 @@ final class PerformanceService
     /**
      * @return list<array<string, mixed>>
      */
-    public function cycles(int $tenantId): array
+    public function cycles(): array
     {
         return PerformanceCycle::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('id')
             ->get()
             ->map(static fn (PerformanceCycle $cycle): array => [
@@ -291,7 +282,7 @@ final class PerformanceService
         ];
     }
 
-    private function ensureAppealTemplate(int $tenantId): void
+    private function ensureAppealTemplate(): void
     {
         $definition = [
             'nodes' => [
@@ -307,6 +298,6 @@ final class PerformanceService
             ]],
         ];
 
-        $this->workflow->ensureTemplate($tenantId, 'talent.performance_appeal', 'Performance appeal', $definition);
+        $this->workflow->ensureTemplate('talent.performance_appeal', 'Performance appeal', $definition);
     }
 }

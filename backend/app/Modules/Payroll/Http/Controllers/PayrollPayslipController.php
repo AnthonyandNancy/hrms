@@ -35,14 +35,13 @@ final class PayrollPayslipController
     {
         $principal = $this->principals->resolve();
         $employmentId = $principal->employmentId()
-            ?? $this->people->employmentForUser($principal->tenantId(), $principal->userId());
+            ?? $this->people->employmentForUser($principal->userId());
 
         if ($employmentId === null) {
             throw new NoActiveEmploymentException('payroll.payslip.read.self');
         }
 
         $query = Payslip::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('employment_id', $employmentId)
             ->whereNotNull('published_at')
             ->orderByDesc('published_at');
@@ -51,7 +50,6 @@ final class PayrollPayslipController
 
         if (is_string($period) && $period !== '') {
             $runIds = PayrollRun::query()
-                ->where('tenant_id', $principal->tenantId())
                 ->where('period', $period)
                 ->pluck('id')
                 ->all();
@@ -72,7 +70,6 @@ final class PayrollPayslipController
     {
         $principal = $this->principals->resolve();
         $payslip = Payslip::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($id)
             ->first();
 
@@ -82,7 +79,7 @@ final class PayrollPayslipController
 
         $employmentIds = array_values(array_unique(array_filter([
             $principal->employmentId(),
-            $this->people->employmentForUser($principal->tenantId(), $principal->userId()),
+            $this->people->employmentForUser($principal->userId()),
         ])));
 
         if (! in_array((int) $payslip->employment_id, array_map('intval', $employmentIds), true)) {
@@ -91,7 +88,6 @@ final class PayrollPayslipController
         }
 
         $run = PayrollRun::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey((int) $payslip->run_id)
             ->first();
 
@@ -143,7 +139,6 @@ final class PayrollPayslipController
                 resourceType: 'payslip',
                 id: (int) $payslip->id,
                 row: [],
-                tenantId: (int) $payslip->tenant_id,
                 employmentId: (int) $payslip->employment_id,
                 payrollRunId: (int) $payslip->run_id,
             ));

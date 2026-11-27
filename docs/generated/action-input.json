@@ -1,0 +1,343 @@
+{
+  "actions": [
+    {
+      "pageCode": "account-mfa",
+      "key": "account.mfa.confirm",
+      "label": "确认动态口令",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/confirm",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "account-mfa",
+      "key": "account.mfa.disable",
+      "label": "停用双因素认证",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/disable",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "account-mfa",
+      "key": "account.mfa.enroll",
+      "label": "绑定动态口令",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/enroll",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "account-sessions",
+      "key": "account.sessions.revoke",
+      "label": "撤销会话",
+      "capability": "iam.session.manage",
+      "api": "DELETE /v1/auth/sessions/{id}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "account-sessions",
+      "key": "account.sessions.revoke.all",
+      "label": "退出全部会话",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/logout-all",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.archive",
+      "label": "归档员工",
+      "capability": "people.employee.archive",
+      "api": "DELETE /v1/employees/{employment_id}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.assign",
+      "label": "调整任职",
+      "capability": "people.assignment.manage",
+      "api": "POST /v1/employments/{employment_id}/assignments",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.detail.restore",
+      "label": "恢复员工",
+      "capability": "people.employee.restore",
+      "api": "POST /v1/employees/{employment_id}/restore",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-contracts",
+      "key": "people.contracts.create",
+      "label": "签订劳动合同",
+      "capability": "people.contract.manage",
+      "api": "POST /v1/employments/{employmentId}/contracts",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.create",
+      "label": "新建部门",
+      "capability": "org.unit.manage",
+      "api": "POST /v1/departments",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.move",
+      "label": "调整部门层级",
+      "capability": "org.unit.manage",
+      "api": "PATCH /v1/departments/{id}",
+      "ui": "secondary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "hr-departments",
+      "key": "org.departments.remove.member",
+      "label": "移除部门成员",
+      "capability": "org.unit.manage",
+      "api": "DELETE /v1/departments/{id}/members/{employmentId}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "hr-employees",
+      "key": "hr.employees.create.employment",
+      "label": "新建任职",
+      "capability": "people.employee.manage",
+      "api": "POST /v1/employments",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.create",
+      "label": "新增岗位",
+      "capability": "org.position.manage",
+      "api": "POST /v1/positions",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.edit",
+      "label": "编辑岗位",
+      "capability": "org.position.manage",
+      "api": "PATCH /v1/positions/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.archive",
+      "label": "归档公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/archive",
+      "ui": "secondary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.create",
+      "label": "发布公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.restore",
+      "label": "恢复公告",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/restore",
+      "ui": "secondary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.move.stage",
+      "label": "推进候选人阶段",
+      "capability": "recruitment.candidate.manage",
+      "api": "PATCH /v1/recruitment/candidates/{id}/stage",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.close",
+      "label": "关闭招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "POST /v1/recruitment/requisitions/{id}/close",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.create",
+      "label": "发起招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "POST /v1/recruitment/requisitions",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "recruitment-requests",
+      "key": "recruitment.requisitions.update",
+      "label": "修改招聘需求",
+      "capability": "recruitment.requisition.manage",
+      "api": "PATCH /v1/recruitment/requisitions/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-data-scopes",
+      "key": "system.data.scopes.save",
+      "label": "保存数据范围",
+      "capability": "iam.scope.manage",
+      "api": "PUT /v1/system/data-scopes/{id}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "DataScopePolicyService::upsert"
+      ]
+    },
+    {
+      "pageCode": "system-field-policies",
+      "key": "system.field.policies.save",
+      "label": "保存字段策略",
+      "capability": "iam.field.manage",
+      "api": "PUT /v1/system/field-policies/{field_key}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "FieldPolicyService::update"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.create",
+      "label": "新增菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "POST /v1/system/menus",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::create"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.delete",
+      "label": "删除菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "DELETE /v1/system/menus/{page_code}",
+      "ui": "danger",
+      "confirm": "danger",
+      "services": [
+        "MenuOverrideService::delete"
+      ]
+    },
+    {
+      "pageCode": "system-menus",
+      "key": "system.menus.update",
+      "label": "编辑菜单覆盖",
+      "capability": "iam.menu.manage",
+      "api": "PATCH /v1/system/menus/{page_code}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::update"
+      ]
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.create",
+      "label": "新增角色",
+      "capability": "iam.role.manage",
+      "api": "POST /v1/roles",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.delete",
+      "label": "删除角色",
+      "capability": "iam.role.manage",
+      "api": "DELETE /v1/roles/{id}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.rename",
+      "label": "重命名角色",
+      "capability": "iam.role.manage",
+      "api": "PATCH /v1/roles/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save-authorization",
+      "label": "保存角色授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/authorization",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.capabilities",
+      "label": "保存动作授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/capabilities",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.save.pages",
+      "label": "保存页面授权",
+      "capability": "iam.role.manage",
+      "api": "PUT /v1/roles/{id}/pages",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-users",
+      "key": "system.users.assign.role",
+      "label": "分配角色",
+      "capability": "iam.role.manage",
+      "api": "POST /v1/users/{id}/roles",
+      "ui": "primary",
+      "confirm": "sod"
+    },
+    {
+      "pageCode": "system-users",
+      "key": "system.users.create",
+      "label": "新增用户",
+      "capability": "iam.user.manage",
+      "api": "POST /v1/users",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "system-users",
+      "key": "system.users.update",
+      "label": "编辑用户",
+      "capability": "iam.user.manage",
+      "api": "PATCH /v1/users/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    }
+  ]
+}

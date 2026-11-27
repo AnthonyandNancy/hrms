@@ -14,7 +14,7 @@ use App\Modules\Workflow\Models\WorkflowTemplate;
 
 /**
  * Deterministic payroll.approval workflow adapter. A dedicated template is
- * created for the tenant so a real Case/Decision/Effect is always the source
+ * created for the company so a real Case/Decision/Effect is always the source
  * of approval evidence, not a bare status column.
  */
 final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
@@ -28,10 +28,10 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         private readonly TemplateService $templates,
     ) {}
 
-    public function open(int $tenantId, int $requesterUserId, int $runId, int $assigneeUserId, string $businessDate): int
+    public function open(int $requesterUserId, int $runId, int $assigneeUserId, string $businessDate): int
     {
-        $template = $this->template($tenantId);
-        $principal = $this->principal($tenantId, $requesterUserId);
+        $template = $this->template();
+        $principal = $this->principal($requesterUserId);
 
         $case = $this->cases->create(
             principal: $principal,
@@ -46,10 +46,10 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         );
 
         // The approving actor is a case member; this keeps one reusable
-        // template per tenant while still assigning the task to the right user.
+        // template per company while still assigning the task to the right user.
         CaseMember::query()->firstOrCreate(
             ['case_id' => $case->id, 'user_id' => $assigneeUserId, 'role' => 'APPROVER'],
-            ['tenant_id' => $tenantId, 'created_at' => now()],
+            ['created_at' => now()],
         );
 
         $submitted = $this->cases->submit($principal, $case);
@@ -57,9 +57,9 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         return (int) $submitted->id;
     }
 
-    public function approve(int $tenantId, int $caseId, int $actorUserId, string $comment, string $businessDate): array
+    public function approve(int $caseId, int $actorUserId, string $comment, string $businessDate): array
     {
-        $principal = $this->principal($tenantId, $actorUserId);
+        $principal = $this->principal($actorUserId);
 
         $case = $this->decisions->decide(
             principal: $principal,
@@ -79,9 +79,9 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         ];
     }
 
-    public function status(int $tenantId, int $caseId): array
+    public function status(int $caseId): array
     {
-        $case = CaseModel::query()->where('tenant_id', $tenantId)->whereKey($caseId)->first();
+        $case = CaseModel::query()->whereKey($caseId)->first();
 
         if ($case === null) {
             return ['application_status' => null, 'effect_status' => null];
@@ -96,10 +96,9 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         ];
     }
 
-    private function template(int $tenantId): WorkflowTemplate
+    private function template(): WorkflowTemplate
     {
         $template = WorkflowTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', self::TEMPLATE_CODE)
             ->where('status', 'PUBLISHED')
             ->orderByDesc('version')
@@ -113,7 +112,7 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         // first use; each case names its approver as an APPROVER case member.
         // Review and SOD are enforced by the Payroll domain before a case is
         // opened; the case is the durable Decision/Effect evidence.
-        return $this->templates->create($tenantId, 1, [
+        return $this->templates->create(1, [
             'code' => self::TEMPLATE_CODE,
             'name' => 'Payroll run approval',
             'version' => 1,
@@ -140,10 +139,9 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
         ]);
     }
 
-    private function principal(int $tenantId, int $userId): WorkflowPrincipal
+    private function principal(int $userId): WorkflowPrincipal
     {
         return new WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: null,
             authVersion: 1,

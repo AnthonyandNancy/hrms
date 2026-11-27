@@ -96,7 +96,7 @@ final class DashboardService
             return [];
         }
 
-        // ReportingApprovalDirectory is tenant-wide and exposes no assignee
+        // ReportingApprovalDirectory is company-wide and exposes no assignee
         // field, so this preview is not "assigned to me" at the source. Scope
         // is enforced on the Reporting projection by Authorizer::constrain():
         // SELF/MANAGED/COMPANY narrow employment_id and ORG_* narrow
@@ -158,7 +158,7 @@ final class DashboardService
      * The workspace directory is the existing bounded, self-scoped notice read
      * seam. Route capability is checked here because the dashboard route only
      * requires reporting.dashboard.read. The directory is intentionally
-     * conservative today: it exposes tenant-wide notices plus the caller's
+     * conservative today: it exposes company-wide notices plus the caller's
      * acknowledgements. ROLE/ORG audience expansion remains Engagement-owned
      * and must be implemented there without widening Reporting's scope.
      *
@@ -171,7 +171,7 @@ final class DashboardService
         }
 
         return array_slice(
-            $this->notices->forUser($principal->tenantId(), $principal->userId(), self::PANEL_LIMIT),
+            $this->notices->forUser($principal->userId(), self::PANEL_LIMIT),
             0,
             self::PANEL_LIMIT,
         );
@@ -183,7 +183,6 @@ final class DashboardService
     private function snapshot(Principal $principal, array $result): DashboardSnapshot
     {
         $scopeHash = hash('sha256', json_encode([
-            'tenant' => $principal->tenantId(),
             'user' => $principal->userId(),
             'employment' => $principal->employmentId(),
             'metric' => $result['metric'],
@@ -196,9 +195,8 @@ final class DashboardService
             'status' => $result['status'],
         ], JSON_THROW_ON_ERROR));
 
-        return DB::transaction(function () use ($principal, $result, $scopeHash, $sourceHash): DashboardSnapshot {
+        return DB::transaction(function () use ($result, $scopeHash, $sourceHash): DashboardSnapshot {
             $snapshot = DashboardSnapshot::query()->firstOrNew([
-                'tenant_id' => $principal->tenantId(),
                 'metric_code' => $result['metric'],
                 'as_of' => $result['asOf'],
                 'scope_hash' => $scopeHash,

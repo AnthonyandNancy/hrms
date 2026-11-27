@@ -33,7 +33,7 @@ final class LeaveController
 
         $items = array_map(
             fn (array $balance): array => $this->balancePayload($balance),
-            $this->balances->outstanding($actor->tenantId, $employmentId, $asOf),
+            $this->balances->outstanding($employmentId, $asOf),
         );
 
         return ApiResponse::ok($items);
@@ -47,8 +47,8 @@ final class LeaveController
 
         $items = [];
 
-        foreach ($this->requests->forEmployment($actor->tenantId, $employmentId, $asOf) as $projection) {
-            $case = $this->workflow->case($actor->tenantId, (int) $projection['case_id']);
+        foreach ($this->requests->forEmployment($employmentId, $asOf) as $projection) {
+            $case = $this->workflow->case((int) $projection['case_id']);
 
             if ($case === null) {
                 continue;
@@ -99,7 +99,6 @@ final class LeaveController
         )->employmentId;
 
         $preview = $this->requests->preview(
-            tenantId: $actor->tenantId,
             employmentId: $employmentId,
             leaveTypeCode: (string) $data['leaveTypeCode'],
             fromDate: (string) $data['startDate'],
@@ -142,7 +141,6 @@ final class LeaveController
         )->employmentId;
 
         $result = $this->requests->request(
-            tenantId: $actor->tenantId,
             employmentId: $employmentId,
             userId: $actor->userId,
             leaveTypeCode: (string) $data['leaveTypeCode'],
@@ -169,7 +167,7 @@ final class LeaveController
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $case = $this->workflow->case($actor->tenantId, $caseId);
+        $case = $this->workflow->case($caseId);
 
         if ($case === null || $case->subjectId === null) {
             throw new ConflictException('The leave request was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
@@ -178,7 +176,6 @@ final class LeaveController
         $this->scope->employment($actor, $case->subjectId, $case->businessDate);
 
         $result = $this->requests->cancel(
-            tenantId: $actor->tenantId,
             caseId: $caseId,
             actorUserId: $actor->userId,
             reason: (string) ($data['reason'] ?? 'Leave request cancelled'),
@@ -189,7 +186,7 @@ final class LeaveController
             'state' => (string) $result['state'],
             'releasedMinutes' => (int) $result['released_minutes'],
             'replayed' => (bool) $result['replayed'],
-            'applicationStatus' => $this->workflow->case($actor->tenantId, $caseId)?->status,
+            'applicationStatus' => $this->workflow->case($caseId)?->status,
         ]);
     }
 
@@ -208,12 +205,10 @@ final class LeaveController
 
         if ($typeId !== null && $typeId !== '') {
             $type = LeaveType::query()
-                ->where('tenant_id', $actor->tenantId)
                 ->whereKey((int) $typeId)
                 ->first();
         } elseif (is_string($typeCode) && $typeCode !== '') {
             $type = LeaveType::query()
-                ->where('tenant_id', $actor->tenantId)
                 ->where('code', strtoupper($typeCode))
                 ->first();
         } else {
@@ -224,9 +219,8 @@ final class LeaveController
             throw new ValidationException(['leave_type' => ['The leave type does not exist in this tenant.']]);
         }
 
-        $summary = $this->balances->forType($actor->tenantId, $employmentId, (int) $type->id, $asOf);
+        $summary = $this->balances->forType($employmentId, (int) $type->id, $asOf);
         $entries = LeaveLedgerEntry::query()
-            ->where('tenant_id', $actor->tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $type->id)
             ->where('effective_on', '<=', $asOf)

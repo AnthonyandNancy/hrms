@@ -36,7 +36,6 @@ final class WorkflowPrincipalBridge implements WorkflowPrincipalResolver
         $grants = $this->authorities->grants($principal, $businessDate);
 
         return new WorkflowPrincipal(
-            tenantId: $principal->tenantId(),
             userId: $principal->userId(),
             employmentId: $principal->employmentId(),
             authVersion: $principal->authVersion(),

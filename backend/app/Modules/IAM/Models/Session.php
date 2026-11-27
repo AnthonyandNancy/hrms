@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property string $id
  * @property int $user_id
- * @property int $tenant_id
  * @property int $auth_version
  * @property bool $mfa_verified
  * @property \Carbon\CarbonImmutable|null $mfa_verified_until
@@ -45,7 +44,6 @@ final class Session extends Model
     protected $fillable = [
         'id',
         'user_id',
-        'tenant_id',
         'token_hash',
         'csrf_hash',
         'ip',
@@ -72,7 +70,6 @@ final class Session extends Model
     {
         return [
             'user_id' => 'integer',
-            'tenant_id' => 'integer',
             'auth_version' => 'integer',
             'mfa_verified' => 'boolean',
             'mfa_verified_until' => 'immutable_datetime',

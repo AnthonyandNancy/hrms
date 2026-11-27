@@ -85,7 +85,7 @@ final class PayrollHttpLifecycleTest extends PayrollTestCase
      */
     private function headers(): array
     {
-        return ['X-Legal-Entity-Id' => (string) $this->legalEntityId];
+        return [];
     }
 
     /**
@@ -94,8 +94,8 @@ final class PayrollHttpLifecycleTest extends PayrollTestCase
     private function calculatedRun(array $base, string $period): PayrollRun
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return $run->refresh();
@@ -108,9 +108,9 @@ final class PayrollHttpLifecycleTest extends PayrollTestCase
     {
         $run = $this->calculatedRun($base, $period);
         $approval = app(ApprovalService::class);
-        $approval->review($this->tenantId, (int) $run->id, 11);
-        $approval->approve($this->tenantId, (int) $run->id, 12);
+        $approval->review((int) $run->id, 11);
+        $approval->approve((int) $run->id, 12);
 
-        return $approval->publish($this->tenantId, (int) $run->id, 13);
+        return $approval->publish((int) $run->id, 13);
     }
 }

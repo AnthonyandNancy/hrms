@@ -27,6 +27,5 @@ interface CsvDomainImporter
         CsvDocument $document,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): ImportValidationResult;
 }

@@ -13,10 +13,10 @@ interface SessionRevoker
     /**
      * @return array{user_id:int, sessions_revoked:int, auth_version:int}|null
      */
-    public function revokeForEmployment(int $tenantId, int $employmentId, string $reason): ?array;
+    public function revokeForEmployment(int $employmentId, string $reason): ?array;
 
     /**
      * @return array{user_id:int, sessions_revoked:int, auth_version:int}|null
      */
-    public function revokeForUser(int $tenantId, int $userId, string $reason): ?array;
+    public function revokeForUser(int $userId, string $reason): ?array;
 }

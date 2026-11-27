@@ -6,6 +6,7 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { useSessionStore } from '@/stores/session'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -34,7 +35,6 @@ const employee = {
   person_id: 9,
   person_name: 'Synthetic Employee',
   employee_no: 'E1001',
-  legal_entity_id: 1,
   status: 'ACTIVE',
   employment_type: 'FULL_TIME',
   valid_from: '2026-01-01',
@@ -53,7 +53,6 @@ const employee = {
 
 const department = {
   id: 10,
-  legal_entity_id: 1,
   parent_id: null,
   code: 'DEP-010',
   name: 'Synthetic Department',
@@ -65,7 +64,6 @@ const department = {
 
 const position = {
   id: 4,
-  legal_entity_id: 1,
   org_unit_id: 10,
   code: 'POS-004',
   title: 'Synthetic Engineer',
@@ -129,7 +127,6 @@ const positionRequirement = {
 
 const positionGrade = {
   id: 71,
-  legal_entity_id: 1,
   code: 'P5',
   name: 'Professional 5',
   level: 5,
@@ -152,7 +149,6 @@ const secondment = {
 const positionStaffRow = {
   assignment_id: 11,
   employment_id: 1,
-  legal_entity_id: 1,
   employee_no: 'E1001',
   person_name: 'Synthetic Employee',
   org_unit_id: 10,
@@ -180,9 +176,14 @@ function projectionResponse(items: unknown[] = []) {
   }
 }
 
-async function mountAt(key: string, path: string) {
+async function mountAt(key: string, path: string, capabilities: string[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
+
+  // Dedicated workspaces gate on the session capability set (Volume 3).
+  useSessionStore().capabilities = capabilities.length > 0
+    ? capabilities
+    : ['lifecycle.case.read', 'workflow.case.read', 'people.contract.read']
   const dynamic = wave2.map<RouteRecordRaw>((page) => ({
     path: page.path,
     name: page.name,
@@ -215,9 +216,10 @@ beforeEach(() => {
 })
 
 describe('Wave 2 people domain components', () => {
-  it('maps all 39 Wave 2 registry component keys to real components', () => {
-    expect(PEOPLE_COMPONENT_KEYS).toHaveLength(39)
-    expect(new Set(PEOPLE_COMPONENT_KEYS).size).toBe(39)
+  it('maps all 35 Wave 2 registry component keys to real components', () => {
+    // ADR-0035: the four People create/edit form routes are workspace actions.
+    expect(PEOPLE_COMPONENT_KEYS).toHaveLength(35)
+    expect(new Set(PEOPLE_COMPONENT_KEYS).size).toBe(35)
     expect([...PEOPLE_COMPONENT_KEYS].sort()).toEqual([...wave2Keys].sort())
     for (const key of wave2Keys) {
       expect(PAGE_COMPONENTS[key as keyof typeof PAGE_COMPONENTS], key).toBeTypeOf('function')
@@ -238,7 +240,29 @@ describe('Wave 2 people domain components', () => {
     }))
     expect(wrapper.text()).toContain('Synthetic Employee')
     expect(wrapper.text()).toContain('E1001')
-    expect(wrapper.text()).toContain('ACTIVE')
+    // The rebuilt workspace presents the Chinese status label, never the raw
+    // server enum. The row still proves the status column rendered.
+    expect(wrapper.text()).toContain('在职')
+    expect(wrapper.text()).not.toContain('ACTIVE')
+  })
+
+  it('marks archived employee rows instead of hiding them silently', async () => {
+    resource.get.mockResolvedValue(listResponse([
+      {
+        ...employee,
+        employment_id: 2,
+        employee_no: 'E1002',
+        person_name: 'Archived Synthetic',
+        archived_at: '2026-02-01T00:00:00Z',
+      },
+    ]))
+
+    const wrapper = await mountAt('hr/employees/index', '/hr/employees')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Archived Synthetic')
+    expect(wrapper.text()).toContain('已归档')
+    expect(wrapper.find('[data-testid="employee-row-2"]').exists()).toBe(true)
   })
 
   it('loads education for the employment id in the route and submits a real profile row', async () => {
@@ -280,7 +304,7 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/departments/members', '/hr/departments/members')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/org-units/tree', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/org-units/tree', expect.objectContaining({ as_of: expect.any(String) }))
     expect(resource.get).toHaveBeenCalledWith('/v1/departments/10/members', expect.any(Object))
     expect(wrapper.text()).toContain('1')
     expect(wrapper.text()).toContain('PRIMARY')
@@ -292,7 +316,7 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/positions/headcount', '/hr/positions/headcount')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/positions', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions', expect.objectContaining({ as_of: expect.any(String) }))
     expect(wrapper.text()).toContain('POS-004')
     expect(wrapper.text()).toContain('Synthetic Engineer')
     expect(wrapper.text()).toContain('2')
@@ -301,7 +325,7 @@ describe('Wave 2 people domain components', () => {
   it('loads movement cases from the live lifecycle collection endpoint', async () => {
     resource.get.mockResolvedValue(listResponse([lifecycleCase]))
 
-    const wrapper = await mountAt('hr/movements/index', '/hr/movements')
+    const wrapper = await mountAt('hr/movements/index', '/hr/movements', ['lifecycle.case.read'])
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/lifecycle/cases', expect.objectContaining({
@@ -319,7 +343,7 @@ describe('Wave 2 people domain components', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/employments/contracts', expect.objectContaining({
-      legal_entity_id: 1,
+      as_of: expect.any(String),
       page: 1,
       page_size: 20,
     }))
@@ -359,7 +383,11 @@ describe('Wave 2 people domain components', () => {
     const wrapper = await mountAt('hr/employees/by-id', '/hr/employees/1')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    // Volume 3's dedicated detail workspace classifies this 409 through the
+    // shared error state rather than the old PeopleWorkspace-only panel. The
+    // coverage is unchanged: the Chinese no-active-employment copy and the
+    // request id must both survive.
+    expect(wrapper.find('.error-state').exists()).toBe(true)
     expect(wrapper.text()).toContain('当前账号未绑定员工')
     expect(wrapper.text()).toContain('req-people-409')
   })
@@ -499,14 +527,14 @@ describe('Wave 2 people domain components', () => {
     )
   })
 
-  it('reads and upserts the legal-entity grade catalogue without a gap banner', async () => {
+  it('reads and upserts the company grade catalogue without a gap banner', async () => {
     resource.get.mockResolvedValue(projectionResponse([positionGrade]))
     resource.post.mockResolvedValue({ ...positionGrade, level: 6 })
 
     const wrapper = await mountAt('hr/positions/grades', '/hr/positions/grades')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/positions/grades', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resource.get).toHaveBeenCalledWith('/v1/positions/grades', expect.objectContaining({ as_of: expect.any(String) }))
     expect(wrapper.text()).toContain('P5')
     expect(wrapper.text()).toContain('Professional 5')
     expect(wrapper.find('[data-testid="people-api-gap"]').exists()).toBe(false)
@@ -519,7 +547,7 @@ describe('Wave 2 people domain components', () => {
 
     expect(resource.post).toHaveBeenCalledWith(
       '/v1/positions/grades',
-      expect.objectContaining({ legal_entity_id: 1, code: 'P6', name: 'Professional 6', level: 6, active: true }),
+      expect.objectContaining({ code: 'P6', name: 'Professional 6', level: 6, active: true }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })
@@ -551,7 +579,7 @@ describe('Wave 2 people domain components', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/lifecycle/secondments', expect.objectContaining({
-      legal_entity_id: 1,
+      as_of: expect.any(String),
       page: 1,
       page_size: 20,
     }))

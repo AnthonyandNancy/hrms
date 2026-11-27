@@ -13,11 +13,9 @@ final class RecruitmentToHireTest extends TalentTestCase
     public function test_requisition_offer_acceptance_creates_exactly_one_onboarding_draft(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'REC-ORG');
+        $org = $scenario->orgUnit('REC-ORG');
 
         $requisition = $this->postJson('/v1/recruitment/requisitions', [
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'requisition_no' => 'REQ-0001',
             'title' => 'Platform Engineer',
@@ -48,7 +46,6 @@ final class RecruitmentToHireTest extends TalentTestCase
         $this->approveCase((int) $offer->json('data.case_id'), 'offer-approve-1')->assertOk();
 
         $accepted = $this->postJson("/v1/recruitment/offers/{$offerId}/accept", [
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'employee_no' => 'HIRE-0001',
             'hire_date' => '2026-12-01',
@@ -58,7 +55,6 @@ final class RecruitmentToHireTest extends TalentTestCase
         $this->assertGreaterThan(0, $onboardingCaseId);
 
         $replay = $this->postJson("/v1/recruitment/offers/{$offerId}/accept", [
-            'legal_entity_id' => $entity->id,
             'org_unit_id' => $org->id,
             'employee_no' => 'HIRE-0001',
             'hire_date' => '2026-12-01',

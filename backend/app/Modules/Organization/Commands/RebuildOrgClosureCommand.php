@@ -13,28 +13,19 @@ use Illuminate\Support\Facades\DB;
 
 final class RebuildOrgClosureCommand extends Command
 {
-    protected $signature = 'org:rebuild-closure {--legal-entity= : Legal entity id to rebuild}';
+    protected $signature = 'org:rebuild-closure';
 
-    protected $description = 'Append a rebuilt closure version for a legal entity without rewriting history';
+    protected $description = 'Append a rebuilt closure version for the company without rewriting history';
 
     public function handle(Clock $clock): int
     {
-        $legalEntity = $this->option('legal-entity');
-
-        if (! is_string($legalEntity) || $legalEntity === '') {
-            $this->error('--legal-entity is required.');
-
-            return self::FAILURE;
-        }
-
         $units = OrgUnit::query()
-            ->where('legal_entity_id', (int) $legalEntity)
             ->where('status', 'ACTIVE')
             ->orderBy('id')
             ->get();
 
         if ($units->isEmpty()) {
-            $this->error('No organization units found for the legal entity.');
+            $this->error('No organization units found.');
 
             return self::FAILURE;
         }
@@ -61,7 +52,6 @@ final class RebuildOrgClosureCommand extends Command
                 }
 
                 OrgUnitClosure::query()->create([
-                    'tenant_id' => (int) OrgUnit::query()->whereKey($row['ancestor_id'])->value('tenant_id'),
                     'ancestor_id' => $row['ancestor_id'],
                     'descendant_id' => $row['descendant_id'],
                     'depth' => $row['depth'],

@@ -14,7 +14,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -37,7 +37,7 @@ final class ExportService
         private readonly ExportDispatcher $dispatcher,
         private readonly AuditRecorder $audit,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
@@ -56,7 +56,6 @@ final class ExportService
         $code = strtoupper((string) ($input['reportCode'] ?? $input['report_code'] ?? ''));
         $asOf = $this->businessDates->resolve(
             isset($input['asOf']) ? (string) $input['asOf'] : (isset($input['as_of']) ? (string) $input['as_of'] : null),
-            $principal->tenantId(),
         )->value();
         $fields = $input['fields'] ?? [];
         $filters = $input['filters'] ?? [];
@@ -65,9 +64,9 @@ final class ExportService
             throw new ValidationException(['fields' => ['Fields and filters must be objects.']], 'The given data was invalid.', ['reason' => 'INVALID_EXPORT_REQUEST']);
         }
 
-        $definition = $this->reports->definition($principal->tenantId(), $code);
+        $definition = $this->reports->definition($code);
         $this->assertExportAllowed($principal, $definition, $asOf);
-        $this->projections()->ensure($principal->tenantId(), $asOf);
+        $this->projections()->ensure($asOf);
         $preview = $this->reports->exportRows($principal, $code, $asOf, $filters, array_values(array_map('strval', $fields)));
 
         if (count($preview['rows']) > self::ROW_CAP) {
@@ -85,7 +84,6 @@ final class ExportService
 
         $job = DB::transaction(function () use ($principal, $purpose, $code, $asOf, $filters, $token, $now, $watermark, $fieldWhitelist, $preview): ExportJob {
             return ExportJob::query()->create([
-                'tenant_id' => $principal->tenantId(),
                 'report_code' => $code,
                 'purpose' => $purpose,
                 'fields_json' => $fieldWhitelist,
@@ -111,7 +109,7 @@ final class ExportService
             ]);
         });
 
-        $this->dispatcher->dispatch($principal->tenantId(), (int) $job->id);
+        $this->dispatcher->dispatch((int) $job->id);
 
         $job->refresh();
 
@@ -156,11 +154,10 @@ final class ExportService
             throw new ConflictException('The export download limit has been reached.', ['reason' => 'EXPORT_DOWNLOAD_LIMIT_REACHED']);
         }
 
-        $contents = $this->runner->contents($job->tenant_id, (int) $job->file_object_id);
+        $contents = $this->runner->contents((int) $job->file_object_id);
         $job->forceFill(['download_count' => $job->download_count + 1])->save();
 
         $this->audit->record(
-            tenantId: (int) $job->tenant_id,
             actorUserId: $principal->userId(),
             action: 'reporting.export.downloaded',
             aggregateType: 'export_job',
@@ -207,7 +204,6 @@ final class ExportService
     private function find(Principal $principal, int $jobId, bool $includeExpired = false): ExportJob
     {
         $job = ExportJob::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($jobId)
             ->first();
 
@@ -228,7 +224,7 @@ final class ExportService
      */
     private function payload(ExportJob $job): array
     {
-        $catalog = $this->catalog->payloadForTenant((int) $job->tenant_id);
+        $catalog = $this->catalog->allActive();
         $name = (string) $job->report_code;
         $fields = (array) ($job->field_whitelist_json ?? $job->fields_json);
 
@@ -269,7 +265,6 @@ final class ExportService
     public function history(Principal $principal, int $page, int $pageSize): ProjectionResult
     {
         $query = ExportJob::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('requested_by', $principal->userId())
             ->orderByDesc('id');
 
@@ -284,7 +279,7 @@ final class ExportService
             page: $page,
             pageSize: $pageSize,
             total: $total,
-            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,

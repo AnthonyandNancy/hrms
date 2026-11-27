@@ -16,6 +16,11 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
 
+/**
+ * Assignment transfer between organization units inside the single company.
+ * The employment is the stable subject; its assignment history is
+ * effective-dated and the effect is idempotent through the lifecycle intent.
+ */
 final class TransferEffectHandler implements DomainEffectHandler
 {
     public function __construct(
@@ -33,11 +38,11 @@ final class TransferEffectHandler implements DomainEffectHandler
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
         return $this->support->transactional(function () use ($command): DomainEffectResult {
-            $existing = $this->support->alreadyApplied($command->tenantId, $command->caseId);
+            $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
-                return DomainEffectResult::appliedWithOutbox('employment.transferred.v1', [
-                    'employment_id' => (int) $existing->result_employment_id,
+                return DomainEffectResult::appliedWithOutbox('employment.assignment.changed.v1', [
+                    'employment_id' => (int) $existing->employment_id,
                     'case_id' => $command->caseId,
                 ]);
             }
@@ -45,7 +50,7 @@ final class TransferEffectHandler implements DomainEffectHandler
             $payload = $this->support->payload($command);
             $employmentId = (int) ($payload['employment_id'] ?? 0);
             $effectiveDate = (string) ($payload['effective_date'] ?? '');
-            $employment = $this->employments->employment($command->tenantId, $employmentId);
+            $employment = $this->employments->employment($employmentId);
 
             if ($employment === null || BusinessDate::tryFrom($effectiveDate) === null) {
                 throw new ValidationException(['employment_id' => ['A valid employment and effective date are required.']]);
@@ -61,63 +66,19 @@ final class TransferEffectHandler implements DomainEffectHandler
                 throw new ValidationException(['effective_date' => ['The transfer must start after the employment start.']]);
             }
 
-            $isCrossEntity = isset($payload['legal_entity_id'])
-                && (int) $payload['legal_entity_id'] !== $employment->legalEntityId;
-
-            $org = $this->organization->orgUnit($command->tenantId, (int) ($payload['org_unit_id'] ?? 0));
+            $org = $this->organization->orgUnit((int) ($payload['org_unit_id'] ?? 0));
 
             if ($org === null) {
                 throw new ValidationException(['org_unit_id' => ['The target organization unit does not exist.']]);
             }
 
-            if ($isCrossEntity) {
-                $newEntity = $this->organization->legalEntity($command->tenantId, (int) $payload['legal_entity_id']);
-
-                if ($newEntity === null || $org->legalEntityId !== $newEntity->id) {
-                    throw new ValidationException(['org_unit_id' => ['The target org unit must belong to the target legal entity.']]);
-                }
-
-                $newEmploymentId = $this->people->transferLegalEntity($command->tenantId, $employmentId, [
-                    'legal_entity_id' => $newEntity->id,
-                    'effective_from' => $effectiveDate,
-                    'employee_no' => $payload['employee_no'] ?? $employment->employeeNo,
-                    'employment_type' => $employment->employmentType,
-                    'seniority_start_date' => $employment->seniorityStartDate,
-                    'case_id' => $command->caseId,
-                ], null);
-
-                $this->people->createAssignment($command->tenantId, $newEmploymentId, [
-                    'org_unit_id' => $org->id,
-                    'position_id' => $payload['position_id'] ?? null,
-                    'manager_assignment_id' => $payload['manager_assignment_id'] ?? null,
-                    'assignment_type' => 'PRIMARY',
-                    'is_primary' => true,
-                    'valid_from' => $effectiveDate,
-                    'valid_to' => BusinessDate::OPEN_END,
-                    'source_type' => 'TRANSFER',
-                    'source_id' => $command->caseId,
-                ], null);
-
-                $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $newEmploymentId, $effectiveDate);
-
-                return DomainEffectResult::appliedWithOutbox('employment.transferred.v1', [
-                    'old_employment_id' => $employmentId,
-                    'employment_id' => $newEmploymentId,
-                    'case_id' => $command->caseId,
-                ]);
-            }
-
-            if ($org->legalEntityId !== $employment->legalEntityId) {
-                throw new ValidationException(['org_unit_id' => ['Use a legal-entity transfer for a unit in another entity.']]);
-            }
-
-            $current = $this->employments->assignmentAsOf($command->tenantId, $employmentId, $effective->addDays(-1)->value());
+            $current = $this->employments->assignmentAsOf($employmentId, $effective->addDays(-1)->value());
 
             if ($current !== null) {
-                $this->people->endAssignment($command->tenantId, $current->id, (string) $effectiveDate, null, 'TRANSFER', $command->caseId);
+                $this->people->endAssignment($current->id, (string) $effectiveDate, null, 'TRANSFER', $command->caseId);
             }
 
-            $this->people->createAssignment($command->tenantId, $employmentId, [
+            $this->people->createAssignment($employmentId, [
                 'org_unit_id' => $org->id,
                 'position_id' => $payload['position_id'] ?? null,
                 'manager_assignment_id' => $payload['manager_assignment_id'] ?? null,
@@ -130,13 +91,13 @@ final class TransferEffectHandler implements DomainEffectHandler
             ], null);
 
             if (isset($payload['base_salary_minor']) || isset($payload['salary_scheme_code'])) {
-                $asOf = $this->employments->termsAsOf($command->tenantId, $employmentId, $effective->addDays(-1)->value());
+                $asOf = $this->employments->termsAsOf($employmentId, $effective->addDays(-1)->value());
 
                 if ($asOf === null) {
                     throw new ConflictException('Cannot append terms without a current terms version.', ['reason' => 'TERMS_VERSION_MISSING']);
                 }
 
-                $this->people->appendTerms($command->tenantId, $employmentId, [
+                $this->people->appendTerms($employmentId, [
                     'effective_from' => $effectiveDate,
                     'work_location' => $asOf->workLocation,
                     'work_schedule' => $asOf->workSchedule,
@@ -151,7 +112,7 @@ final class TransferEffectHandler implements DomainEffectHandler
                 ], null);
             }
 
-            $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
 
             return DomainEffectResult::appliedWithOutbox('employment.assignment.changed.v1', [
                 'employment_id' => $employmentId,

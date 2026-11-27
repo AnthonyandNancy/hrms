@@ -34,7 +34,7 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
         return $this->support->transactional(function () use ($command): DomainEffectResult {
-            $existing = $this->support->alreadyApplied($command->tenantId, $command->caseId);
+            $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
                 return DomainEffectResult::appliedWithOutbox('employment.terms.changed.v1', [
@@ -46,7 +46,7 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
             $payload = $this->support->payload($command);
             $employmentId = (int) ($payload['employment_id'] ?? 0);
             $effectiveDate = (string) ($payload['effective_date'] ?? $payload['effective_from'] ?? '');
-            $employment = $this->employments->employment($command->tenantId, $employmentId);
+            $employment = $this->employments->employment($employmentId);
 
             if ($employment === null || BusinessDate::tryFrom($effectiveDate) === null) {
                 throw new ValidationException(['employment_id' => ['A valid employment and effective date are required.']]);
@@ -56,18 +56,18 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                 throw new ConflictException('Cannot change terms of a terminated employment.', ['reason' => 'EMPLOYMENT_TERMINATED']);
             }
 
-            $before = $this->employments->termsAsOf($command->tenantId, $employmentId, $effectiveDate);
+            $before = $this->employments->termsAsOf($employmentId, $effectiveDate);
 
             if ($before === null) {
                 $previousDate = BusinessDate::from($effectiveDate)->addDays(-1)->value();
-                $before = $this->employments->termsAsOf($command->tenantId, $employmentId, $previousDate);
+                $before = $this->employments->termsAsOf($employmentId, $previousDate);
             }
 
             if ($before === null) {
                 throw new ConflictException('Cannot append terms without a current terms version.', ['reason' => 'TERMS_VERSION_MISSING']);
             }
 
-            $termsId = $this->people->appendTerms($command->tenantId, $employmentId, [
+            $termsId = $this->people->appendTerms($employmentId, [
                 'effective_from' => $effectiveDate,
                 'effective_to' => $payload['effective_to'] ?? null,
                 'probation_end_date' => $payload['probation_end_date'] ?? $before->probationEndDate,
@@ -85,7 +85,7 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
             ], null);
 
             $terms = null;
-            foreach ($this->employments->termsVersions($command->tenantId, $employmentId) as $candidate) {
+            foreach ($this->employments->termsVersions($employmentId) as $candidate) {
                 if ($candidate->id === $termsId) {
                     $terms = $candidate;
                     break;
@@ -94,12 +94,10 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
 
             if ($command->effectType === LifecycleCaseType::CONTRACT_RENEW->effectType()) {
                 $previousContractVersion = (int) \App\Modules\Lifecycle\Models\EmploymentContractVersion::query()
-                    ->where('tenant_id', $command->tenantId)
                     ->where('employment_id', $employmentId)
                     ->max('document_version');
 
                 \App\Modules\Lifecycle\Models\EmploymentContractVersion::query()->create([
-                    'tenant_id' => $command->tenantId,
                     'employment_id' => $employmentId,
                     'terms_version' => $terms instanceof \App\Modules\People\Contracts\EmploymentTermsSnapshot ? $terms->version : 1,
                     'document_version' => $previousContractVersion + 1,
@@ -113,7 +111,7 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                 ]);
             }
 
-            $this->support->markEffective($command->tenantId, $command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
 
             return DomainEffectResult::appliedWithOutbox(
                 $command->effectType === LifecycleCaseType::CONTRACT_RENEW->effectType() ? 'employment.contract.renewed.v1' : 'employment.terms.changed.v1',

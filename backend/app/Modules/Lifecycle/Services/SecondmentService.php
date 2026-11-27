@@ -34,7 +34,6 @@ final class SecondmentService
     ) {}
 
     public function create(
-        int $tenantId,
         int $employmentId,
         int $hostOrgUnitId,
         string $effectiveFrom,
@@ -43,7 +42,7 @@ final class SecondmentService
         ?int $positionId,
         ?int $actorUserId,
     ): int {
-        $employment = $this->employments->employment($tenantId, $employmentId);
+        $employment = $this->employments->employment($employmentId);
 
         if ($employment === null) {
             throw new NotFoundOrForbiddenException;
@@ -53,18 +52,10 @@ final class SecondmentService
             throw new ConflictException('Cannot second a terminated employment.', ['reason' => 'EMPLOYMENT_TERMINATED']);
         }
 
-        $host = $this->organization->orgUnit($tenantId, $hostOrgUnitId);
+        $host = $this->organization->orgUnit($hostOrgUnitId);
 
         if ($host === null) {
             throw new NotFoundOrForbiddenException;
-        }
-
-        if ($host->legalEntityId !== $employment->legalEntityId) {
-            throw new ValidationException(
-                ['host_org_unit_id' => ['A secondment host must belong to the employment legal entity.']],
-                'The secondment host is outside the employment legal entity.',
-                ['reason' => 'SECONDMENT_CROSS_COMPANY'],
-            );
         }
 
         $from = BusinessDate::from($effectiveFrom);
@@ -86,14 +77,14 @@ final class SecondmentService
             );
         }
 
-        $primary = $this->employments->assignmentAsOf($tenantId, $employmentId, $from->value());
+        $primary = $this->employments->assignmentAsOf($employmentId, $from->value());
 
         if ($primary === null || $primary->assignmentType !== 'PRIMARY' || ! $primary->isPrimary) {
             throw new ConflictException('A secondment requires an active primary assignment.', ['reason' => 'SECONDMENT_PRIMARY_MISSING']);
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $hostOrgUnitId, $from, $to, $reason, $positionId, $actorUserId, $primary): int {
-            $activeSecondment = $this->assignments->secondments($tenantId, $employmentId);
+        return DB::transaction(function () use ($employmentId, $hostOrgUnitId, $from, $to, $reason, $positionId, $actorUserId, $primary): int {
+            $activeSecondment = $this->assignments->secondments($employmentId);
 
             foreach ($activeSecondment as $existing) {
                 if ($existing->validFrom < $to->value() && $existing->validTo > $from->value()) {
@@ -104,7 +95,7 @@ final class SecondmentService
                 }
             }
 
-            $assignmentId = $this->people->createAssignment($tenantId, $employmentId, [
+            $assignmentId = $this->people->createAssignment($employmentId, [
                 'org_unit_id' => $hostOrgUnitId,
                 'position_id' => $positionId,
                 'manager_assignment_id' => null,
@@ -116,7 +107,6 @@ final class SecondmentService
             ], $actorUserId);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'lifecycle.secondment.started',
                 aggregateType: 'assignment',
@@ -137,23 +127,18 @@ final class SecondmentService
         });
     }
 
-    public function find(int $tenantId, int $assignmentId): ?\App\Modules\People\Contracts\AssignmentOccupant
+    public function find(int $assignmentId): ?\App\Modules\People\Contracts\AssignmentOccupant
     {
-        return $this->assignments->occupant($tenantId, $assignmentId);
+        return $this->assignments->occupant($assignmentId);
     }
 
     public function project(
-        int $tenantId,
-        int $legalEntityId,
         ?int $employmentId,
         string $asOf,
         int $page,
         int $pageSize,
     ): ProjectionResult {
-        $all = array_values(array_filter(
-            $this->assignments->secondments($tenantId, $employmentId),
-            static fn (\App\Modules\People\Contracts\AssignmentOccupant $occupant): bool => $occupant->legalEntityId === $legalEntityId,
-        ));
+        $all = $this->assignments->secondments($employmentId);
 
         $rows = array_values(array_map(static fn (\App\Modules\People\Contracts\AssignmentOccupant $occupant): array => [
             'assignment_id' => $occupant->assignmentId,
@@ -183,7 +168,7 @@ final class SecondmentService
             partialReason: null,
             drilldown: [
                 'resource' => 'secondments',
-                'filters' => ['legal_entity_id' => $legalEntityId, 'employment_id' => $employmentId],
+                'filters' => ['employment_id' => $employmentId],
             ],
         );
     }

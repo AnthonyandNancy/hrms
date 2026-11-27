@@ -12,7 +12,7 @@ final class PerformanceIndicator extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'code', 'name', 'category', 'data_source', 'description', 'active', 'recorded_at',
+        'code', 'name', 'category', 'data_source', 'description', 'active', 'recorded_at',
     ];
 
     /**
@@ -21,7 +21,6 @@ final class PerformanceIndicator extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'active' => 'boolean',
             'recorded_at' => 'immutable_datetime',
         ];

@@ -29,10 +29,10 @@ final class ApprovalService
         private readonly PayrollApprovalWorkflow $approvalWorkflow,
     ) {}
 
-    public function review(int $tenantId, int $runId, int $actorUserId, string $comment = ''): PayrollRun
+    public function review(int $runId, int $actorUserId, string $comment = ''): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $comment): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $comment): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $this->assertSod($run, $actorUserId, 'review');
 
             return $this->stateMachine->transition(
@@ -49,10 +49,10 @@ final class ApprovalService
      * the Decision and runs the payroll approval effect, then verifies that
      * the effect actually advanced the run.
      */
-    public function approve(int $tenantId, int $runId, int $actorUserId, string $comment = ''): PayrollRun
+    public function approve(int $runId, int $actorUserId, string $comment = ''): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $comment): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $comment): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $this->assertSod($run, $actorUserId, 'approve');
 
             $status = $run->status instanceof PayrollRunStatus
@@ -67,14 +67,14 @@ final class ApprovalService
             }
 
             $businessDate = $this->clock->now()->toDateString();
-            $caseId = $this->approvalWorkflow->open($tenantId, $actorUserId, $runId, $actorUserId, $businessDate);
+            $caseId = $this->approvalWorkflow->open($actorUserId, $runId, $actorUserId, $businessDate);
 
             $run->forceFill([
                 'approval_case_id' => $caseId,
                 'approval_effect_status' => 'PENDING',
             ])->save();
 
-            $result = $this->approvalWorkflow->approve($tenantId, $caseId, $actorUserId, $comment, $businessDate);
+            $result = $this->approvalWorkflow->approve($caseId, $actorUserId, $comment, $businessDate);
             $run->forceFill(['approval_effect_status' => $result['effect_status']])->save();
             $run->refresh();
 
@@ -95,10 +95,10 @@ final class ApprovalService
      * Publish is the irreversible visibility step: pay slips become readable
      * and financially immutable, and YTD is folded exactly once.
      */
-    public function publish(int $tenantId, int $runId, int $actorUserId, string $reason = ''): PayrollRun
+    public function publish(int $runId, int $actorUserId, string $reason = ''): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $reason): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $reason): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $this->assertSod($run, $actorUserId, 'publish');
 
             // Fold YTD and stamp payslips while the run is still APPROVED so
@@ -116,7 +116,6 @@ final class ApprovalService
             $now = $this->clock->now();
 
             Payslip::query()
-                ->where('tenant_id', $tenantId)
                 ->where('run_id', $runId)
                 ->whereNull('published_at')
                 ->update(['published_at' => $now]);
@@ -131,7 +130,6 @@ final class ApprovalService
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.published',
                 aggregateType: 'payroll_run',
@@ -149,14 +147,14 @@ final class ApprovalService
         });
     }
 
-    public function markPaid(int $tenantId, int $runId, int $actorUserId, string $reference = '', string $manualConfirmationReason = ''): PayrollRun
+    public function markPaid(int $runId, int $actorUserId, string $reference = '', string $manualConfirmationReason = ''): PayrollRun
     {
         if (trim($reference) === '' && mb_strlen(trim($manualConfirmationReason)) < 10) {
             throw new ValidationException(['reference' => ['Mark-paid requires a reconciliation/receipt reference or a manual confirmation reason of at least 10 characters.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $reference, $manualConfirmationReason): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $reference, $manualConfirmationReason): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
 
             $status = $run->status instanceof PayrollRunStatus
                 ? $run->status
@@ -170,7 +168,6 @@ final class ApprovalService
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.paid',
                 aggregateType: 'payroll_run',
@@ -191,10 +188,10 @@ final class ApprovalService
         });
     }
 
-    public function close(int $tenantId, int $runId, int $actorUserId): PayrollRun
+    public function close(int $runId, int $actorUserId): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
 
             $run = $this->stateMachine->transition(
                 $run,
@@ -203,7 +200,6 @@ final class ApprovalService
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.closed',
                 aggregateType: 'payroll_run',
@@ -220,14 +216,14 @@ final class ApprovalService
      * Cancel is allowed only before publication. Published runs are corrected,
      * never cancelled or reopened.
      */
-    public function cancel(int $tenantId, int $runId, int $actorUserId, string $reason): PayrollRun
+    public function cancel(int $runId, int $actorUserId, string $reason): PayrollRun
     {
         if (mb_strlen(trim($reason)) < 10) {
             throw new ValidationException(['reason' => ['A cancellation reason of at least 10 characters is required.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId, $reason): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId, $reason): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $status = $run->status instanceof PayrollRunStatus
                 ? $run->status
                 : PayrollRunStatus::from((string) $run->status);
@@ -248,7 +244,6 @@ final class ApprovalService
             );
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.cancelled',
                 aggregateType: 'payroll_run',

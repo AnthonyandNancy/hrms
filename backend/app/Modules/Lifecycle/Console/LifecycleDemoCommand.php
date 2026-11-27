@@ -9,12 +9,12 @@ use App\Modules\Lifecycle\Services\LifecycleService;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Console\Command;
 
 final class LifecycleDemoCommand extends Command
 {
-    protected $signature = 'lifecycle:demo {--scenario=onboarding : onboarding|transfer|offboarding|rehire} {--tenant=1 : Tenant id} {--user=1 : Requester user id}';
+    protected $signature = 'lifecycle:demo {--scenario=onboarding : onboarding|transfer|offboarding|rehire} {--user=1 : Requester user id}';
 
     protected $description = 'Create a synthetic lifecycle Case for a demo scenario (no approval is auto-recorded).';
 
@@ -22,7 +22,7 @@ final class LifecycleDemoCommand extends Command
         LifecycleService $lifecycle,
         DemoOrganizationSeeder $organization,
         PeopleEmploymentWriter $people,
-        TenantBusinessDate $businessDates,
+        CompanyBusinessDate $businessDates,
         Clock $clock,
     ): int {
         $scenario = (string) $this->option('scenario');
@@ -33,16 +33,14 @@ final class LifecycleDemoCommand extends Command
             return self::FAILURE;
         }
 
-        $tenantId = max(1, (int) $this->option('tenant'));
         $userId = max(1, (int) $this->option('user'));
         $seed = $organization->seedDemo();
         $orgId = (int) ($seed['org_unit_ids']['engineering'] ?? $seed['org_unit_ids']['root']);
-        $businessDate = $businessDates->today($tenantId)->value();
+        $businessDate = $businessDates->today()->value();
 
         $payload = match ($scenario) {
             'onboarding', 'rehire' => [
                 'person' => ['legal_name' => 'Demo Lifecycle Person'],
-                'legal_entity_id' => (int) $seed['legal_entity_id'],
                 'employee_no' => 'DEMO-LIFE-'.strtoupper($scenario).'-'.substr((string) $clock->now()->timestamp, -5),
                 'org_unit_id' => $orgId,
                 'hire_date' => $businessDate,
@@ -51,9 +49,8 @@ final class LifecycleDemoCommand extends Command
                 'submit' => true,
             ],
             default => [
-                'employment_id' => (int) $people->createEmployment($tenantId, [
-                    'person_id' => $people->createPerson($tenantId, ['legal_name' => 'Demo Scenario Person'], $userId),
-                    'legal_entity_id' => (int) $seed['legal_entity_id'],
+                'employment_id' => (int) $people->createEmployment([
+                    'person_id' => $people->createPerson(['legal_name' => 'Demo Scenario Person'], $userId),
                     'employee_no' => 'DEMO-LIFE-'.strtoupper($scenario).'-'.$clock->now()->format('His'),
                     'employment_type' => 'FULL_TIME',
                     'status' => 'ACTIVE',
@@ -81,7 +78,7 @@ final class LifecycleDemoCommand extends Command
             'rehire' => LifecycleCaseType::REHIRE,
         };
 
-        $created = $lifecycle->createCase($tenantId, $userId, $type, $payload, $businessDate, false);
+        $created = $lifecycle->createCase($userId, $type, $payload, $businessDate, false);
 
         $this->info('Created '.$scenario.' case '.$created['case']->caseNo.' (id '.$created['case']->id.'); submit it through /v1/cases/{id}/submit after assigning an HR_ADMIN approver.');
 

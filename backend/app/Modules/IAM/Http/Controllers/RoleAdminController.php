@@ -48,8 +48,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.create', 'iam.role.created'),
             payload: $payload,
-            operation: function () use ($principal, $payload): array {
-                $role = $this->roles->create($principal->tenantId(), $payload);
+            operation: function () use ($payload): array {
+                $role = $this->roles->create($payload);
 
                 return [
                     'http_status' => 201,
@@ -84,8 +84,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.copy', 'iam.role.copied'),
             payload: $payload,
-            operation: function () use ($principal, $payload, $id): array {
-                $role = $this->roles->copy($principal->tenantId(), $id, $payload);
+            operation: function () use ($payload, $id): array {
+                $role = $this->roles->copy($id, $payload);
 
                 return [
                     'http_status' => 201,
@@ -98,6 +98,63 @@ final class RoleAdminController
         );
 
         return $this->respond($result, created: true);
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:3', 'max:120'],
+            'purpose' => ['sometimes', 'nullable', 'string', 'min:8', 'max:255'],
+        ]);
+
+        $payload = array_filter([
+            'role_code' => $id,
+            'name' => (string) $data['name'],
+            'purpose' => $data['purpose'] ?? null,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        $result = $this->commands->run(
+            definition: $this->definition('iam.role.rename', 'iam.role.renamed'),
+            payload: $payload,
+            operation: function () use ($id, $data): array {
+                $role = $this->roles->rename($id, [
+                    'name' => (string) $data['name'],
+                    'purpose' => $data['purpose'] ?? null,
+                ]);
+
+                return [
+                    'http_status' => 200,
+                    'body' => $role,
+                    'resource_type' => 'role',
+                    'resource_id' => (string) ($role['code'] ?? $id),
+                ];
+            },
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result, created: false);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+
+        $result = $this->commands->run(
+            definition: $this->definition('iam.role.delete', 'iam.role.deleted'),
+            payload: ['role_code' => $id],
+            operation: function () use ($id): array {
+                return [
+                    'http_status' => 200,
+                    'body' => $this->roles->delete($id),
+                    'resource_type' => 'role',
+                    'resource_id' => $id,
+                ];
+            },
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result, created: false);
     }
 
     public function capabilities(Request $request, string $id): JsonResponse
@@ -118,8 +175,8 @@ final class RoleAdminController
         $result = $this->commands->run(
             definition: $this->definition('iam.role.capabilities.replace', 'iam.role.capabilities.changed'),
             payload: $payload,
-            operation: function () use ($principal, $payload, $id): array {
-                $role = $this->roles->replaceCapabilities($principal->tenantId(), $id, $payload['capabilities']);
+            operation: function () use ($payload, $id): array {
+                $role = $this->roles->replaceCapabilities($id, $payload['capabilities']);
 
                 return [
                     'http_status' => 200,

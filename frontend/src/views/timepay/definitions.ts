@@ -7,7 +7,7 @@ const attendanceAsOf = {}
 const scheduleQuery = { page: 1, page_size: 20 }
 const leaveAsOf = {}
 const listQuery = { page: 1, page_size: 20 }
-const payrollQuery = { page: 1, page_size: 20, legal_entity_id: 1 }
+const payrollQuery = { page: 1, page_size: 20 }
 
 
 export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
@@ -65,7 +65,7 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     panel: 'attendance-shifts',
     domain: 'attendance',
     title: '班次管理',
-    description: '查看法人下已配置的固定、弹性与跨夜班次版本。',
+    description: '查看公司已配置的固定、弹性与跨夜班次版本。',
     endpoint: '/v1/time/shifts',
     query: {},
     testId: 'attendance-shifts',
@@ -334,9 +334,9 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     panel: 'travel-policies',
     domain: 'travel',
     title: '差旅政策',
-    description: '按法人、城市级别与生效日期查看差旅住宿及交通标准；发布新版本只追加历史。',
+    description: '按城市级别与生效日期查看差旅住宿及交通标准；发布新版本只追加历史。',
     endpoint: '/v1/travel/policies',
-    query: { legal_entity_id: 1, page: 1, page_size: 20 },
+    query: { page: 1, page_size: 20 },
     testId: 'travel-policies',
     emptyTitle: '暂无差旅政策',
   },
@@ -408,7 +408,7 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     title: '薪资项目',
     description: '查看工资项编码、类型、计税与计算方式；写入由具备准备权限的服务端命令执行。',
     endpoint: '/v1/payroll/items',
-    query: { legal_entity_id: 1 },
+    query: {},
     testId: 'payroll-components',
     emptyTitle: '还没有配置薪资项目',
   },
@@ -420,7 +420,7 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     title: '薪酬方案',
     description: '查看方案版本、币种、取整规则与基数；金额一律使用整数分。',
     endpoint: '/v1/payroll/schemes',
-    query: { legal_entity_id: 1 },
+    query: {},
     testId: 'payroll-plans',
     emptyTitle: '还没有薪酬方案',
   },
@@ -445,7 +445,7 @@ export const TIME_PAYROLL_DEFINITIONS: TimePayrollPageDefinition[] = [
     title: '社保公积金参数',
     description: '参数带生效日期、版本与证据引用；税额/基数金额由服务端以整数分返回。',
     endpoint: '/v1/payroll/statutory-parameters',
-    query: { legal_entity_id: 1 },
+    query: {},
     testId: 'payroll-statutory',
     emptyTitle: '还没有社保公积金参数',
   },

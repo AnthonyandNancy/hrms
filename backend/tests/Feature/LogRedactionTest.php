@@ -103,7 +103,6 @@ class LogRedactionTest extends TestCase
         $this->assertNotEmpty($lines, 'Expected a structured http.request log line.');
         $line = $lines[0];
         $this->assertStringContainsString('"request_id":"req-log-12345678"', $line);
-        $this->assertStringContainsString('"tenant_id":0', $line);
         $this->assertStringContainsString('"status":200', $line);
         $this->assertStringContainsString('"duration_ms":', $line);
         $this->assertStringNotContainsString('SuperSecret123', $line);

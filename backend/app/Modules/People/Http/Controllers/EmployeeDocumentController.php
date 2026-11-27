@@ -34,14 +34,12 @@ final class EmployeeDocumentController
 
     public function index(Request $request, int $employmentId): JsonResponse
     {
-        $tenantId = $this->principals->resolve()->tenantId();
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
         $result = $this->documents->listing(
-            tenantId: $tenantId,
             employmentId: $employmentId,
             page: (int) ($data['page'] ?? 1),
             pageSize: (int) ($data['page_size'] ?? 20),
@@ -53,7 +51,6 @@ final class EmployeeDocumentController
     public function store(Request $request, int $employmentId): JsonResponse
     {
         $actor = $this->principals->resolve();
-        $tenantId = $actor->tenantId();
 
         $data = $request->validate([
             'category' => ['required', Rule::in(Document::CATEGORIES)],
@@ -92,9 +89,8 @@ final class EmployeeDocumentController
                 'content_sha256' => hash('sha256', $contents),
                 'size_bytes' => strlen($contents),
             ],
-            operation: function () use ($tenantId, $employmentId, $data, $contents, $upload, $actor): array {
+            operation: function () use ($employmentId, $data, $contents, $upload, $actor): array {
                 $document = $this->documents->openBytes(
-                    tenantId: $tenantId,
                     employmentId: $employmentId,
                     input: $data,
                     contents: $contents,
@@ -125,7 +121,7 @@ final class EmployeeDocumentController
     public function signedDownload(Request $request, int $documentId): JsonResponse
     {
         $actor = $this->principals->resolve();
-        $document = $this->documents->findForDownload($actor->tenantId(), $documentId);
+        $document = $this->documents->findForDownload($documentId);
 
         if ($document === null) {
             throw new NotFoundOrForbiddenException;
@@ -133,7 +129,7 @@ final class EmployeeDocumentController
 
         return ApiResponse::ok([
             'document_id' => (int) $document->id,
-            'url' => $this->documents->signedDownloadUrl((int) $actor->tenantId(), $document, $actor->userId()),
+            'url' => $this->documents->signedDownloadUrl($document, $actor->userId()),
             'expires_in_minutes' => 5,
         ]);
     }
@@ -141,18 +137,17 @@ final class EmployeeDocumentController
     /**
      * Signed endpoint reached only through the minted URL; the signature is the
      * authorization, so this route is not capability-guarded but is registered
-     * as a signed route. It still re-checks tenant ownership.
+     * as a signed route. It still re-checks document ownership.
      */
     public function content(Request $request, int $documentId): Response
     {
-        $tenantId = (int) $request->query('tenant_id', 0);
-        $document = $this->documents->findForDownload($tenantId, $documentId);
+        $document = $this->documents->findForDownload($documentId);
 
         if ($document === null) {
             throw new NotFoundOrForbiddenException;
         }
 
-        return response($this->documents->contents($tenantId, $document), 200, [
+        return response($this->documents->contents($document), 200, [
             'Content-Type' => 'application/octet-stream',
             'Content-Disposition' => 'attachment; filename="document-'.$documentId.'"',
         ]);
@@ -161,8 +156,7 @@ final class EmployeeDocumentController
     public function destroy(Request $request, int $documentId): JsonResponse
     {
         $actor = $this->principals->resolve();
-        $tenantId = $actor->tenantId();
-        $document = $this->documents->findForDownload($tenantId, $documentId);
+        $document = $this->documents->findForDownload($documentId);
 
         if ($document === null) {
             throw new NotFoundOrForbiddenException;
@@ -181,8 +175,8 @@ final class EmployeeDocumentController
         $result = $this->commands->run(
             definition: $definition,
             payload: ['document_id' => $documentId],
-            operation: function () use ($tenantId, $document, $actor): array {
-                $this->documents->delete($tenantId, $document, $actor->userId());
+            operation: function () use ($document, $actor): array {
+                $this->documents->delete($document, $actor->userId());
 
                 return ['http_status' => 200, 'body' => ['deleted' => true], 'resource_type' => 'document', 'resource_id' => (string) $document->id];
             },

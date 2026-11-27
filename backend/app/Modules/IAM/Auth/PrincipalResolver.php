@@ -8,18 +8,20 @@ use App\Modules\IAM\Models\Session;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Services\SessionManager;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\Request;
 
 /**
  * Resolves the session cookie into a Principal and applies every per-request
- * hard-deny check: token hash, revocation, idle/absolute expiry, user status,
- * tenant binding and auth_version.
+ * hard-deny check: token hash, revocation, idle/absolute expiry, user status
+ * and auth_version.
  */
 final class PrincipalResolver
 {
     public function __construct(
         private readonly SessionManager $sessions,
         private readonly PersonEmploymentDirectory $people,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
@@ -40,7 +42,7 @@ final class PrincipalResolver
         }
         $user = User::query()->whereKey($session->user_id)->first();
 
-        if (! $user instanceof User || (int) $user->tenant_id !== (int) $session->tenant_id) {
+        if (! $user instanceof User) {
             $this->sessions->revoke($session);
 
             throw new AuthenticationFailedException('SESSION_INVALID');
@@ -49,7 +51,8 @@ final class PrincipalResolver
         $this->sessions->assertAuthVersion($user, $session);
         $this->sessions->touch($session);
 
-        $employmentIds = $this->people->employmentIdsForUser((int) $user->tenant_id, (int) $user->id);
+        $businessDate = $this->businessDates->today()->value();
+        $employmentIds = $this->people->employmentIdsForUser((int) $user->id, $businessDate);
         $employmentId = $employmentIds === [] ? null : (int) $employmentIds[0];
 
         $grantId = null;

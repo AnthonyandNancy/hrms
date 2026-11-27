@@ -96,7 +96,6 @@ final class AuthorizationAdminController
     {
         $principal = $this->context->requirePrincipal();
         $target = \App\Modules\IAM\Models\User::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($userId)
             ->first();
 
@@ -105,7 +104,6 @@ final class AuthorizationAdminController
         }
 
         $bindings = AuthorityBinding::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('principal_id', $userId)
             ->orderBy('capability_code')
             ->orderBy('anchor_type')
@@ -151,7 +149,6 @@ final class AuthorizationAdminController
         }
 
         $target = \App\Modules\IAM\Models\User::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($userId)
             ->first();
 
@@ -184,7 +181,6 @@ final class AuthorizationAdminController
         }
 
         $existing = AuthorityBinding::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('principal_id', $userId)
             ->where('valid_from', '<=', $this->clock->now())
             ->where('valid_to', '>', $this->clock->now())
@@ -219,7 +215,6 @@ final class AuthorizationAdminController
 
             /** @var AuthorityBinding $created */
             $created = AuthorityBinding::query()->create([
-                'tenant_id' => (int) $user->tenant_id,
                 'principal_id' => (int) $user->id,
                 'capability_code' => (string) $validated['capability_code'],
                 'anchor_type' => $anchor->value,
@@ -237,7 +232,7 @@ final class AuthorizationAdminController
 
             $this->snapshot->replay($user, 'binding.created');
 
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'binding.created', 'SUCCESS', [
+            $this->events->record($principal->userId(), 'binding.created', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'capability' => (string) $validated['capability_code'],
                 'anchor_type' => $anchor->value,
@@ -246,7 +241,7 @@ final class AuthorizationAdminController
             ], $request);
 
             if ($risks !== []) {
-                $this->events->record((int) $user->tenant_id, $principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
+                $this->events->record($principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
                     'target_user_id' => (int) $user->id,
                     'capability' => (string) $validated['capability_code'],
                     'anchor_type' => $anchor->value,
@@ -280,7 +275,6 @@ final class AuthorizationAdminController
         $principal = $this->context->requirePrincipal();
         /** @var AuthorityBinding|null $binding */
         $binding = AuthorityBinding::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($id)
             ->first();
 
@@ -293,7 +287,7 @@ final class AuthorizationAdminController
             $binding->delete();
             $this->snapshot->replay($user, 'binding.revoked');
 
-            $this->events->record((int) $binding->tenant_id, $principal->userId(), 'binding.revoked', 'SUCCESS', [
+            $this->events->record($principal->userId(), 'binding.revoked', 'SUCCESS', [
                 'target_user_id' => (int) $binding->principal_id,
                 'capability' => $binding->capability_code,
                 'anchor_type' => $binding->anchor_type,
@@ -315,7 +309,6 @@ final class AuthorizationAdminController
         $principal = $this->context->requirePrincipal();
 
         $query = \App\Modules\IAM\Models\AuthEvent::query()
-            ->where('tenant_id', $principal->tenantId())
             ->orderByDesc('id');
         $total = (int) (clone $query)->count();
 

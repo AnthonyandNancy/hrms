@@ -4,86 +4,68 @@ declare(strict_types=1);
 
 namespace Tests\Feature\People;
 
-use App\Modules\People\Models\Employment;
 use Tests\Support\PeopleTestCase;
 
+/**
+ * Cross-department behavior replaces the retired multi-legal-entity tests.
+ */
 final class CrossLegalEntityTest extends PeopleTestCase
 {
-    public function test_assignment_to_another_legal_entity_is_rejected_with_reason_code(): void
+    public function test_assignment_to_an_inactive_department_is_rejected_with_reason_code(): void
     {
         $scenario = $this->scenario();
-        $cn = $scenario->legalEntity('DEMO-CN');
-        $sg = $scenario->legalEntity('DEMO-SG', 'Demo Singapore', 'Asia/Singapore', 'SGD');
-        $orgInSingapore = $scenario->orgUnit($sg, 'SG-OPS');
+        $home = $scenario->orgUnit('HOME-DEPT');
+        $closed = $scenario->orgUnit('CLOSED-DEPT', null, 'Closed', 'DEPARTMENT', '2026-01-01', '2026-02-01');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $cn, 'X-1');
+        $employment = $scenario->employment($person, 'X-1', ['valid_from' => '2026-03-01', 'hire_date' => '2026-03-01']);
 
         $response = $this->postJson("/v1/employments/{$employment->id}/assignments", [
-            'org_unit_id' => $orgInSingapore->id,
+            'org_unit_id' => $closed->id,
             'assignment_type' => 'PRIMARY',
-            'valid_from' => '2026-01-01',
+            'valid_from' => '2026-03-01',
         ]);
 
         $response->assertUnprocessable()
             ->assertJsonPath('code', 'VALIDATION_FAILED')
-            // The stable reason is carried in the error envelope; message text is user-facing.
-            ->assertJsonPath('data.reason', 'CROSS_COMPANY_ASSIGNMENT')
-            ->assertJsonPath('data.fields.org_unit_id.0', 'CROSS_COMPANY_ASSIGNMENT: assignment organization must belong to the employment legal entity.');
+            ->assertJsonPath('data.fields.org_unit_id.0', 'The organization unit is not active on the assignment start date.');
     }
 
-    public function test_cross_entity_transfer_ends_old_and_creates_new_employment_for_same_person(): void
+    public function test_employee_number_is_unique_company_wide(): void
     {
         $scenario = $this->scenario();
-        $cn = $scenario->legalEntity('DEMO-CN');
-        $sg = $scenario->legalEntity('DEMO-SG', 'Demo Singapore', 'Asia/Singapore', 'SGD');
         $person = $scenario->person();
-        $old = $scenario->employment($person, $cn, 'TR-1');
-
-        $response = $this->postJson("/v1/employments/{$old->id}/transfer", [
-            'legal_entity_id' => $sg->id,
-            'effective_from' => '2026-12-01',
-            'employee_no' => 'TR-SG-1',
-        ]);
-
-        $response->assertCreated()
-            ->assertJsonPath('data.person_id', $person->id)
-            ->assertJsonPath('data.legal_entity_id', $sg->id);
-
-        $old->refresh();
-        $this->assertSame('2026-12-01', $old->valid_to);
-        $this->assertSame('TERMINATED', $old->status);
-        $this->assertNotNull($old->superseded_at);
-
-        $newId = (int) $response->json('data.employment_id');
-        $this->assertSame($old->person_id, Employment::query()->findOrFail($newId)->person_id);
-    }
-
-    public function test_employee_number_is_unique_per_legal_entity_only(): void
-    {
-        $scenario = $this->scenario();
-        $cn = $scenario->legalEntity('DEMO-CN');
-        $sg = $scenario->legalEntity('DEMO-SG', 'Demo Singapore', 'Asia/Singapore', 'SGD');
-        $person = $scenario->person();
-        $scenario->employment($person, $cn, 'SHARED-1');
-
-        $duplicate = $this->postJson('/v1/employments', [
-            'person_id' => $person->id,
-            'legal_entity_id' => $cn->id,
-            'employee_no' => 'SHARED-1',
-            'employment_type' => 'FULL_TIME',
-            'valid_from' => '2026-02-01',
-            'hire_date' => '2026-02-01',
-        ]);
-
-        $duplicate->assertConflict()->assertJsonPath('data.reason', 'EMPLOYEE_NO_DUPLICATE');
+        $scenario->employment($person, 'SHARED-1');
 
         $this->postJson('/v1/employments', [
             'person_id' => $person->id,
-            'legal_entity_id' => $sg->id,
             'employee_no' => 'SHARED-1',
             'employment_type' => 'FULL_TIME',
             'valid_from' => '2026-02-01',
             'hire_date' => '2026-02-01',
-        ])->assertCreated();
+        ])->assertConflict()->assertJsonPath('data.reason', 'EMPLOYEE_NO_DUPLICATE');
+    }
+
+    public function test_department_move_ends_the_old_assignment_and_opens_the_new_one(): void
+    {
+        $scenario = $this->scenario();
+        $home = $scenario->orgUnit('MOVE-HOME');
+        $target = $scenario->orgUnit('MOVE-TARGET');
+        $employment = $scenario->employment($scenario->person(), 'MOVE-1');
+        $old = $scenario->assignment($employment, $home);
+
+        $response = $this->postJson("/v1/departments/{$target->id}/members", [
+            'employment_id' => $employment->id,
+            'effective_from' => '2026-12-01',
+            'reason' => 'Department transfer',
+        ]);
+
+        $response->assertCreated();
+        $old->refresh();
+        $this->assertSame('2026-12-01', $old->valid_to);
+        $this->assertDatabaseHas('assignments', [
+            'employment_id' => $employment->id,
+            'org_unit_id' => $target->id,
+            'valid_from' => '2026-12-01',
+        ]);
     }
 }

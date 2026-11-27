@@ -24,7 +24,6 @@ class MigrateRehearsalCommand extends Command
     protected $signature = 'migrate:rehearsal
         {--round=1 : Rehearsal round number (>=1)}
         {--dataset=demo : Fixture directory under database/migration-fixtures, or "demo" for known-good}
-        {--tenant=1 : Tenant id}
         {--mapping=database/migration-fixtures/mapping/demo.csv : Crosswalk CSV path}
         {--output= : JSON report path}
         {--json : Print JSON instead of the human summary}';
@@ -41,7 +40,6 @@ class MigrateRehearsalCommand extends Command
             return self::INVALID;
         }
 
-        $tenantId = (int) $this->option('tenant');
         $dataset = (string) $this->option('dataset');
         $fixtureSet = $dataset === 'demo' ? 'known-good' : $dataset;
         $fixtureRoot = base_path('database/migration-fixtures/'.$fixtureSet);
@@ -78,7 +76,7 @@ class MigrateRehearsalCommand extends Command
             $mappingPaths = $mapping === '' ? [] : [$mapping];
 
             try {
-                $validationRun = $runner->validate($domain, $tenantId, $file, $mappingPaths);
+                $validationRun = $runner->validate($domain, $file, $mappingPaths);
                 $run = null;
                 $report = null;
                 $domainPassed = false;
@@ -88,7 +86,6 @@ class MigrateRehearsalCommand extends Command
                 } else {
                     $run = $runner->apply(
                         $domain,
-                        $tenantId,
                         $file,
                         $mappingPaths,
                         MigrationRunMode::APPLY,
@@ -140,7 +137,6 @@ class MigrateRehearsalCommand extends Command
             'target' => 'SHADOW',
             'round' => $round,
             'dataset' => $dataset,
-            'tenant_id' => $tenantId,
             'started_at' => $startedAt->toIso8601ZuluString(),
             'finished_at' => CarbonImmutable::now('UTC')->toIso8601ZuluString(),
             'passed' => $passed,

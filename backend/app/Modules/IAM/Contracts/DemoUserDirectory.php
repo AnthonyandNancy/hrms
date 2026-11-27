@@ -10,5 +10,5 @@ namespace App\Modules\IAM\Contracts;
  */
 interface DemoUserDirectory
 {
-    public function userIdForUsername(int $tenantId, string $username): ?int;
+    public function userIdForUsername(string $username): ?int;
 }

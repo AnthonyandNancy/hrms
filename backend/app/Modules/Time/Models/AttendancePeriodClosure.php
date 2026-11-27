@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $month
  * @property string $status
  * @property \Carbon\CarbonImmutable|null $closed_at
@@ -25,8 +23,6 @@ final class AttendancePeriodClosure extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'month',
         'status',
         'closed_by',
@@ -44,8 +40,6 @@ final class AttendancePeriodClosure extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'closed_by' => 'integer',
             'reopened_by' => 'integer',
             'closed_at' => 'immutable_datetime',

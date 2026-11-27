@@ -42,10 +42,10 @@ final class CapabilityGuardTest extends TestCase
 
     public function test_capability_middleware_denies_unknown_principal_and_allows_bound_gate(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1]);
-        $principal = new TestPrincipal(1, (int) $user->id);
+        $user = User::factory()->create();
+        $principal = new TestPrincipal((int) $user->id);
 
-        app(RequestContext::class)->setActor(1, (int) $user->id);
+        app(RequestContext::class)->setActor((int) $user->id);
         $people = app(\App\Shared\Authorization\Contracts\PersonEmploymentDirectory::class);
         $this->assertInstanceOf(\Tests\Fakes\FakePersonEmploymentDirectory::class, $people);
         $people->employmentByUser[(int) $user->id] = [1];
@@ -59,14 +59,14 @@ final class CapabilityGuardTest extends TestCase
             ->assertJsonPath('data.reason', 'CAPABILITY_DENIED');
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::SELF, null, FieldProfile::P0_PUBLIC)
             ->create(['capability_code' => 'platform.feature.manage']);
 
         // Production authority changes bump auth_version, which invalidates
         // the binding cache; mirror that invariant here.
         $user->forceFill(['auth_version' => 2])->save();
-        $principal = new TestPrincipal(1, (int) $user->id, null, 2);
+        $principal = new TestPrincipal((int) $user->id, null, 2);
         $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
         $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
         $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);

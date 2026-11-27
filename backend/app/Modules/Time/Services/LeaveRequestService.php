@@ -33,7 +33,6 @@ final class LeaveRequestService
      * @return array<string, mixed>
      */
     public function preview(
-        int $tenantId,
         int $employmentId,
         string $leaveTypeCode,
         string $fromDate,
@@ -51,10 +50,10 @@ final class LeaveRequestService
             throw new ValidationException(['half_day' => ['A half-day request must start and end on the same date.']]);
         }
 
-        $type = $this->type($tenantId, $leaveTypeCode);
-        $standardDay = $this->accounts->standardDayMinutes($tenantId, $employmentId, $fromDate);
-        $requested = $this->requestedMinutes($tenantId, $employmentId, $type, $fromDate, $toDate, $halfDay);
-        $available = $this->balances->available($tenantId, $employmentId, (int) $type->id, $fromDate);
+        $type = $this->type($leaveTypeCode);
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $fromDate);
+        $requested = $this->requestedMinutes($employmentId, $type, $fromDate, $toDate, $halfDay);
+        $available = $this->balances->available($employmentId, (int) $type->id, $fromDate);
         $handover = [];
 
         if (! $type->allow_negative && $available < $requested) {
@@ -93,7 +92,6 @@ final class LeaveRequestService
      * @return array{case_id: int, case_no: string, application_status: string, effect_status: string, leave_type_id: int, requested_minutes: int, replayed: bool}
      */
     public function request(
-        int $tenantId,
         int $employmentId,
         int $userId,
         string $leaveTypeCode,
@@ -117,12 +115,11 @@ final class LeaveRequestService
             throw new ValidationException(['reason' => ['A leave request reason is required.']]);
         }
 
-        $type = $this->type($tenantId, $leaveTypeCode);
-        $this->accounts->ensureAccount($tenantId, $employmentId, (int) $type->id, $fromDate);
-        $minutes = $this->requestedMinutes($tenantId, $employmentId, $type, $fromDate, $toDate, $halfDay);
+        $type = $this->type($leaveTypeCode);
+        $this->accounts->ensureAccount($employmentId, (int) $type->id, $fromDate);
+        $minutes = $this->requestedMinutes($employmentId, $type, $fromDate, $toDate, $halfDay);
 
         $existing = LeaveRequestProjection::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $type->id)
             ->where('from_date', $fromDate)
@@ -137,9 +134,8 @@ final class LeaveRequestService
             );
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $userId, $type, $fromDate, $toDate, $minutes, $halfDay, $reason): array {
+        return DB::transaction(function () use ($employmentId, $userId, $type, $fromDate, $toDate, $minutes, $halfDay, $reason): array {
             $caseId = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $userId,
                 type: 'LEAVE_REQUEST',
                 subjectType: 'employment',
@@ -159,7 +155,6 @@ final class LeaveRequestService
             );
 
             $this->ledger->reserve(
-                tenantId: $tenantId,
                 employmentId: $employmentId,
                 leaveTypeId: (int) $type->id,
                 minutes: $minutes,
@@ -171,7 +166,6 @@ final class LeaveRequestService
             );
 
             $projection = LeaveRequestProjection::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'leave_type_id' => (int) $type->id,
                 'case_id' => $caseId,
@@ -183,7 +177,7 @@ final class LeaveRequestService
                 'updated_at' => $this->clock->now(),
             ]);
 
-            $case = $this->workflow->case($tenantId, $caseId);
+            $case = $this->workflow->case($caseId);
 
             return [
                 'case_id' => $caseId,
@@ -202,17 +196,16 @@ final class LeaveRequestService
      *
      * @return array{case_id: int, state: string, released_minutes: int, replayed: bool}
      */
-    public function cancel(int $tenantId, int $caseId, int $actorUserId, string $reason): array
+    public function cancel(int $caseId, int $actorUserId, string $reason): array
     {
-        return DB::transaction(function () use ($tenantId, $caseId, $actorUserId, $reason): array {
-            $case = $this->workflow->case($tenantId, $caseId);
+        return DB::transaction(function () use ($caseId, $actorUserId, $reason): array {
+            $case = $this->workflow->case($caseId);
 
             if ($case === null || $case->requesterUserId !== $actorUserId) {
                 throw new ConflictException('The leave request was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
             }
 
             $projection = LeaveRequestProjection::query()
-                ->where('tenant_id', $tenantId)
                 ->where('case_id', $caseId)
                 ->lockForUpdate()
                 ->first();
@@ -231,7 +224,6 @@ final class LeaveRequestService
             }
 
             $this->ledger->release(
-                tenantId: $tenantId,
                 employmentId: $projection->employment_id,
                 leaveTypeId: $projection->leave_type_id,
                 minutes: (int) $projection->minutes,
@@ -242,7 +234,7 @@ final class LeaveRequestService
                 caseId: $caseId,
             );
 
-            $this->workflow->requestCancel($tenantId, $caseId, $actorUserId, $reason);
+            $this->workflow->requestCancel($caseId, $actorUserId, $reason);
 
             $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
 
@@ -258,12 +250,11 @@ final class LeaveRequestService
     /**
      * @return list<array<string, mixed>>
      */
-    public function forEmployment(int $tenantId, int $employmentId, ?string $asOf = null): array
+    public function forEmployment(int $employmentId, ?string $asOf = null): array
     {
         $asOf ??= $this->clock->now()->toDateString();
 
         return LeaveRequestProjection::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('from_date', '<=', $asOf)
             ->orderByDesc('id')
@@ -280,7 +271,6 @@ final class LeaveRequestService
     }
 
     private function requestedMinutes(
-        int $tenantId,
         int $employmentId,
         LeaveType $type,
         string $fromDate,
@@ -293,7 +283,7 @@ final class LeaveRequestService
             return $halfDay ? 30 : max(1, $minutes);
         }
 
-        $standardDay = $this->accounts->standardDayMinutes($tenantId, $employmentId, $fromDate);
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $fromDate);
         $days = $this->workingDays($fromDate, $toDate);
 
         return ($halfDay ? 1 : max(1, $days)) * $standardDay;
@@ -307,10 +297,9 @@ final class LeaveRequestService
         return max(1, (int) $from->diffInDays($to) + 1);
     }
 
-    private function type(int $tenantId, string $code): LeaveType
+    private function type(string $code): LeaveType
     {
         $type = LeaveType::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', strtoupper(trim($code)))
             ->first();
 

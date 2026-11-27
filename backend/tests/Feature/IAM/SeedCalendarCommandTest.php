@@ -26,10 +26,10 @@ final class SeedCalendarCommandTest extends TestCase
             '--holidays-file' => $file,
         ])->assertExitCode(0);
 
-        $this->assertDatabaseHas('legal_entity_calendars', ['legal_entity_id' => 1]);
-        $this->assertDatabaseHas('holidays', ['legal_entity_id' => 1, 'date' => '2027-01-01']);
+        $this->assertDatabaseCount('legal_entity_calendars', 1);
+        $this->assertDatabaseHas('holidays', ['date' => '2027-01-01']);
         $this->assertSame(2, Holiday::query()->count());
-        $this->assertDatabaseHas('shift_templates', ['legal_entity_id' => 1, 'code' => 'STANDARD']);
+        $this->assertDatabaseHas('shift_templates', ['code' => 'STANDARD']);
 
         @unlink($file);
     }

@@ -24,12 +24,17 @@ final class FakePersonEmploymentDirectory implements PersonEmploymentDirectory
     /** @var array<int, list<int>> */
     public array $employmentByOrgUnit = [];
 
-    public function employmentIdsForUser(int $tenantId, int $userId): array
+    public function findEmployment(int $employmentId): ?EmploymentRef
+    {
+        return $this->contexts[$employmentId] ?? null;
+    }
+
+    public function employmentIdsForUser(int $userId, string $businessDate): array
     {
         return $this->employmentByUser[$userId] ?? [];
     }
 
-    public function employmentIdsForOrgUnits(int $tenantId, array $orgUnitIds, string $businessDate): array
+    public function employmentIdsForOrgUnits(array $orgUnitIds, string $businessDate): array
     {
         $ids = [];
         foreach ($orgUnitIds as $unitId) {
@@ -41,26 +46,8 @@ final class FakePersonEmploymentDirectory implements PersonEmploymentDirectory
         return array_values(array_unique($ids));
     }
 
-    public function userIdForEmployment(int $tenantId, int $employmentId): ?int
+    public function managerEmploymentIds(int $userId, string $businessDate): array
     {
-        foreach ($this->employmentByUser as $userId => $employmentIds) {
-            if (in_array($employmentId, $employmentIds, true)) {
-                return $userId;
-            }
-        }
-
-        return null;
-    }
-
-    public function managedEmploymentIds(int $tenantId, int $managerUserId, string $businessDate): array
-    {
-        return $this->managedByUser[$managerUserId] ?? [];
-    }
-
-    public function employmentContext(int $tenantId, int $employmentId, string $businessDate): ?EmploymentRef
-    {
-        $context = $this->contexts[$employmentId] ?? null;
-
-        return $context !== null && $context->tenantId === $tenantId ? $context : null;
+        return $this->managedByUser[$userId] ?? [];
     }
 }

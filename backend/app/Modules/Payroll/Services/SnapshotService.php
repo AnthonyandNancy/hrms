@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Services;
 
-use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Payroll\Domain\AttendanceSummary;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollAdjustment;
@@ -13,9 +13,9 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollYtd;
 use App\Modules\People\Contracts\EmploymentTermsDirectory;
+use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Time\Contracts\PayrollInputDirectory;
 use App\Shared\Exceptions\ConflictException;
-use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +30,8 @@ final class SnapshotService
         private readonly Clock $clock,
         private readonly PayrollInputDirectory $time,
         private readonly EmploymentTermsDirectory $terms,
-        private readonly OrganizationFacts $organization,
+        private readonly PeopleDirectory $people,
+        private readonly CompanyProfileReader $company,
         private readonly TaxParameterResolver $parameters,
     ) {}
 
@@ -58,14 +59,9 @@ final class SnapshotService
             }
 
             $scheme = PayrollScheme::query()
-                ->where('tenant_id', $locked->tenant_id)
                 ->whereKey($locked->scheme_id)
                 ->firstOrFail();
-            $entity = $this->organization->legalEntity($locked->tenant_id, (int) $locked->legal_entity_id);
-
-            if ($entity === null) {
-                throw new ValidationException(['legal_entity_id' => ['The run legal entity does not exist.']]);
-            }
+            $company = $this->company->current();
 
             $version = max(1, (int) $locked->snapshot_version);
             $hashes = [];
@@ -78,13 +74,12 @@ final class SnapshotService
             }
 
             foreach ($employments as $employmentId) {
-                $payload = $this->buildPayload($locked, $scheme, $employmentId, $entity->currencyCode);
+                $payload = $this->buildPayload($locked, $scheme, $employmentId, $company->currencyCode);
                 $hash = $this->hashPayload($payload);
                 $hashes[$employmentId] = $hash;
 
                 PayrollInputSnapshot::query()->firstOrCreate(
                     [
-                        'tenant_id' => $locked->tenant_id,
                         'run_id' => $locked->id,
                         'employment_id' => $employmentId,
                         'snapshot_type' => 'INPUT',
@@ -100,7 +95,6 @@ final class SnapshotService
                 // Linking pre-lock adjustments is a one-time claim. Reopen
                 // creates a new version and must not re-stamp old evidence.
                 PayrollAdjustment::query()
-                    ->where('tenant_id', $locked->tenant_id)
                     ->whereNull('run_id')
                     ->where('employment_id', $employmentId)
                     ->where('effective_period', (string) $locked->period)
@@ -126,7 +120,7 @@ final class SnapshotService
     }
 
     /**
-     * Every employment active in the earning period for the legal entity.
+     * Every employment active in the earning period for the company.
      *
      * @return list<int>
      */
@@ -134,15 +128,11 @@ final class SnapshotService
     {
         $from = $this->dateOnly($run->earning_period_start);
         $to = $this->dateOnly($run->earning_period_end);
-        $ids = [];
-
-        $people = app(\App\Modules\People\Contracts\PeopleDirectory::class);
-        $entityIds = [$run->legal_entity_id];
-        $ids = $people->employmentIdsForLegalEntities((int) $run->tenant_id, $entityIds, $to);
+        $ids = $this->people->employmentIdsAsOf($to);
 
         // A mid-month join/leave is relevant when any day intersects the
         // period even if the final day is after termination.
-        foreach ($people->employmentIdsForLegalEntities((int) $run->tenant_id, $entityIds, $from) as $id) {
+        foreach ($this->people->employmentIdsAsOf($from) as $id) {
             $ids[] = $id;
         }
 
@@ -167,7 +157,6 @@ final class SnapshotService
     public function lockForCorrection(PayrollRun $run, int $actorUserId): string
     {
         $original = PayrollRun::query()
-            ->where('tenant_id', $run->tenant_id)
             ->whereKey((int) $run->correction_of_run_id)
             ->firstOrFail();
 
@@ -189,26 +178,20 @@ final class SnapshotService
         return DB::transaction(function () use ($run, $employmentIds): string {
             $locked = PayrollRun::query()->whereKey($run->id)->lockForUpdate()->firstOrFail();
             $scheme = PayrollScheme::query()
-                ->where('tenant_id', $locked->tenant_id)
                 ->whereKey($locked->scheme_id)
                 ->firstOrFail();
-            $entity = $this->organization->legalEntity((int) $locked->tenant_id, (int) $locked->legal_entity_id);
-
-            if ($entity === null) {
-                throw new ValidationException(['legal_entity_id' => ['The run legal entity does not exist.']]);
-            }
+            $company = $this->company->current();
 
             $version = max(1, (int) $locked->snapshot_version);
             $hashes = [];
 
             foreach ($employmentIds as $employmentId) {
-                $payload = $this->buildPayload($locked, $scheme, $employmentId, $entity->currencyCode);
+                $payload = $this->buildPayload($locked, $scheme, $employmentId, $company->currencyCode);
                 $hash = $this->hashPayload($payload);
                 $hashes[$employmentId] = $hash;
 
                 PayrollInputSnapshot::query()->firstOrCreate(
                     [
-                        'tenant_id' => $locked->tenant_id,
                         'run_id' => $locked->id,
                         'employment_id' => $employmentId,
                         'snapshot_type' => 'INPUT',
@@ -246,10 +229,9 @@ final class SnapshotService
      */
     public function buildPayload(PayrollRun $run, PayrollScheme $scheme, int $employmentId, string $currency): array
     {
-        $attendance = $this->time->attendanceForPeriod((int) $run->tenant_id, $employmentId, (string) $run->period);
-        $terms = $this->terms->termsAsOf((int) $run->tenant_id, $employmentId, $this->dateOnly($run->earning_period_end));
+        $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
+        $terms = $this->terms->termsAsOf($employmentId, $this->dateOnly($run->earning_period_end));
         $adjustments = PayrollAdjustment::query()
-            ->where('tenant_id', $run->tenant_id)
             ->where(function ($query) use ($run): void {
                 $query->where('run_id', $run->id)->orWhere(function ($inner) use ($run): void {
                     $inner->whereNull('run_id')->where('effective_period', (string) $run->period);
@@ -261,14 +243,13 @@ final class SnapshotService
 
         $year = (int) substr((string) $run->period, 0, 4);
         $ytd = PayrollYtd::query()
-            ->where('tenant_id', $run->tenant_id)
             ->where('employment_id', $employmentId)
             ->where('tax_year', $year)
             ->first();
 
-        $taxVersion = $this->parameters->versionFor((int) $run->tenant_id, (int) $run->legal_entity_id, 'TAX', (string) $run->cutoff_at);
-        $siVersion = $this->parameters->versionFor((int) $run->tenant_id, (int) $run->legal_entity_id, 'SOCIAL_INSURANCE', (string) $run->cutoff_at);
-        $hfVersion = $this->parameters->versionFor((int) $run->tenant_id, (int) $run->legal_entity_id, 'HOUSING_FUND', (string) $run->cutoff_at);
+        $taxVersion = $this->parameters->versionFor('TAX', (string) $run->cutoff_at);
+        $siVersion = $this->parameters->versionFor('SOCIAL_INSURANCE', (string) $run->cutoff_at);
+        $hfVersion = $this->parameters->versionFor('HOUSING_FUND', (string) $run->cutoff_at);
 
         $attendanceSummary = $attendance === null
             ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_hash' => hash('sha256', 'MISSING|'.$employmentId.'|'.$run->period)]

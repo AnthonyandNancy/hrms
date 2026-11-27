@@ -46,7 +46,6 @@ final class RolePagesApiTest extends AuthorizationTestSupport
         $role = $this->customRole('TEMP_PAGES');
         $member = User::factory()->create(['auth_version' => 1]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $member->id,
             'role_code' => $role->code,
             'valid_from' => '2026-01-01 00:00:00',
@@ -97,7 +96,7 @@ final class RolePagesApiTest extends AuthorizationTestSupport
         $response = $this->getJson('/v1/roles', $headers)->assertOk();
         $roles = $this->rolesByCode($response->json('data.roles'));
 
-        $this->assertSame(160, (int) $roles['SYSTEM_ADMIN']['page_count']);
+        $this->assertSame(153, (int) $roles['SYSTEM_ADMIN']['page_count']);
         $this->assertGreaterThanOrEqual(0, (int) $roles['SYSTEM_ADMIN']['member_count']);
     }
 
@@ -108,9 +107,8 @@ final class RolePagesApiTest extends AuthorizationTestSupport
     {
         $actor = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $actor->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $actor->id, 1)
+            ->forPrincipal((int) $actor->id, 1)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'iam.role.manage',
@@ -129,7 +127,6 @@ final class RolePagesApiTest extends AuthorizationTestSupport
     {
         return Role::query()->create([
             'code' => $code,
-            'tenant_id' => 1,
             'name' => 'Synthetic custom role',
             'is_template' => false,
             'owner' => 1,

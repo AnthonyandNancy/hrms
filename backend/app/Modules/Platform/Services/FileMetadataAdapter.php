@@ -10,10 +10,9 @@ use App\Shared\Files\FileMetadataReader;
 
 final class FileMetadataAdapter implements FileMetadataReader
 {
-    public function metadata(int $tenantId, int $fileObjectId): ?FileMetadata
+    public function metadata(int $fileObjectId): ?FileMetadata
     {
         $file = FileObject::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($fileObjectId)
             ->first();
 
@@ -23,7 +22,6 @@ final class FileMetadataAdapter implements FileMetadataReader
 
         return new FileMetadata(
             id: (int) $file->id,
-            tenantId: (int) $file->tenant_id,
             sha256: (string) $file->sha256,
             mime: (string) $file->mime,
             sizeBytes: (int) $file->size_bytes,

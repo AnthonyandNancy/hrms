@@ -37,7 +37,6 @@ final class ReportDefinitionCatalog
                     self::field('employee', 'Employee', FieldProfile::P1_INTERNAL),
                     self::field('employee_no', 'Employee no.', FieldProfile::P0_PUBLIC),
                     self::field('org_path', 'Organization', FieldProfile::P0_PUBLIC),
-                    self::field('legal_entity', 'Legal entity', FieldProfile::P0_PUBLIC),
                     self::field('status', 'Status', FieldProfile::P0_PUBLIC),
                 ],
             ],
@@ -95,16 +94,13 @@ final class ReportDefinitionCatalog
             ],
             [
                 'code' => 'PAYROLL_COST',
-                'name' => 'Payroll cost by legal entity',
-                'description' => 'Payroll gross, net and employer cost by legal entity. Unavailable until payroll-run projections land.',
+                'name' => 'Payroll cost',
+                'description' => 'Payroll gross, net and employer cost. Unavailable until payroll-run projections land.',
                 'source_projection' => 'payroll_cost',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/payroll_cost_by_entity',
-                'filters_json' => [
-                    ['key' => 'legal_entity_id', 'label' => 'Legal entity', 'type' => 'SELECT'],
-                ],
+                'filters_json' => [],
                 'fields_json' => [
-                    self::field('legal_entity', 'Legal entity', FieldProfile::P0_PUBLIC),
                     self::field('gross_cents', 'Gross (minor units)', FieldProfile::P2_SENSITIVE),
                     self::field('net_cents', 'Net (minor units)', FieldProfile::P2_SENSITIVE),
                     self::field('employer_cost_cents', 'Employer cost (minor units)', FieldProfile::P2_SENSITIVE),
@@ -297,14 +293,14 @@ final class ReportDefinitionCatalog
     }
 
     /**
-     * Store a tenant-owned custom definition. Only the validated whitelist
+     * Store a company-wide custom definition. Only the validated whitelist
      * selection is persisted; no SQL, expression or free-form predicate can
      * enter the row.
      *
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createCustom(int $tenantId, int $actorUserId, array $input): array
+    public function createCustom(int $actorUserId, array $input): array
     {
         $definition = $this->validateCustomDefinition($input);
 
@@ -312,17 +308,15 @@ final class ReportDefinitionCatalog
             throw new ValidationException(['code' => ['Code and name are required.']], 'The given data was invalid.', ['reason' => 'INVALID_REPORT_DEFINITION']);
         }
 
-        $this->syncForTenant($tenantId);
+        $this->syncSystemDefinitions();
 
         if (ReportDefinition::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', $definition['code'])
             ->exists()) {
             throw new ConflictException('A report definition with this code already exists.', ['reason' => 'REPORT_CODE_RESERVED']);
         }
 
         $row = ReportDefinition::query()->create([
-            'tenant_id' => $tenantId,
             'is_system' => false,
             'code' => $definition['code'],
             'name' => $definition['name'],
@@ -342,25 +336,24 @@ final class ReportDefinitionCatalog
     }
 
     /**
-     * Synchronise code-owned definitions into the tenant read model.
+     * Synchronise code-owned definitions into the company read model.
      */
-    public function syncForTenant(int $tenantId): void
+    public function syncSystemDefinitions(): void
     {
-        DB::transaction(function () use ($tenantId): void {
+        DB::transaction(function (): void {
             foreach (self::definitions() as $definition) {
                 $existing = ReportDefinition::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('code', $definition['code'])
                     ->first();
 
-                // Tenant-authored definitions can never be shadowed by a
+                // Custom definitions can never be shadowed by a
                 // code-owned definition added later with the same code.
                 if ($existing !== null && ! (bool) $existing->is_system) {
                     continue;
                 }
 
                 ReportDefinition::query()->updateOrCreate(
-                    ['tenant_id' => $tenantId, 'code' => $definition['code']],
+                    ['code' => $definition['code']],
                     [
                         'is_system' => true,
                         'name' => $definition['name'],
@@ -381,12 +374,11 @@ final class ReportDefinitionCatalog
     /**
      * @return list<array<string, mixed>>
      */
-    public function payloadForTenant(int $tenantId): array
+    public function allActive(): array
     {
-        $this->syncForTenant($tenantId);
+        $this->syncSystemDefinitions();
 
         return ReportDefinition::query()
-            ->where('tenant_id', $tenantId)
             ->where('active', true)
             ->orderBy('code')
             ->get()

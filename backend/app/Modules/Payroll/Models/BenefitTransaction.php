@@ -11,8 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * same enrollment/period and payroll run cannot be paid twice.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $employment_id
  * @property int $enrollment_id
  * @property string $period
@@ -32,8 +30,6 @@ final class BenefitTransaction extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'employment_id',
         'enrollment_id',
         'period',
@@ -53,8 +49,6 @@ final class BenefitTransaction extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'employment_id' => 'integer',
             'enrollment_id' => 'integer',
             'base_amount_cents' => 'integer',

@@ -16,7 +16,7 @@ final class CompanyAnchorTest extends AuthorizationTestSupport
     {
         $this->assertSame('COMPANY', AnchorType::COMPANY->value);
         $this->assertFalse(AnchorType::COMPANY->requiresAnchorId());
-        $this->assertFalse(defined(AnchorType::class.'::LEGAL_ENTITY'));
+        $this->assertSame(['SELF', 'MANAGED', 'ORG_UNIT', 'ORG_SUBTREE', 'CASE', 'PAYROLL_RUN', 'COMPANY'], array_map(static fn (AnchorType $type): string => $type->value, AnchorType::cases()));
     }
 
     public function test_a_company_wildcard_binding_authorizes_a_capability_without_an_anchor_id(): void
@@ -52,7 +52,7 @@ final class CompanyAnchorTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability, AnchorType $anchor, ?int $anchorId, FieldProfile $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create([
                 'capability_code' => $capability,

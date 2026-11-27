@@ -66,7 +66,6 @@ final class DecisionService
         return DB::transaction(function () use ($principal, $caseId, $action, $comment, $targetUserId, $reason): CaseModel {
             /** @var CaseModel $case */
             $case = CaseModel::query()
-                ->where('tenant_id', $principal->tenantId)
                 ->whereKey($caseId)
                 ->lockForUpdate()
                 ->first();
@@ -127,7 +126,6 @@ final class DecisionService
 
             $actorSnapshot = $this->snapshotFor($principal, $grant);
             $decision = Decision::query()->create([
-                'tenant_id' => $case->tenant_id,
                 'case_id' => $case->id,
                 'node_key' => (string) $node['key'],
                 'actor_user_id' => $principal->userId,
@@ -156,7 +154,6 @@ final class DecisionService
             );
 
             CaseEvent::query()->create([
-                'tenant_id' => $case->tenant_id,
                 'case_id' => $case->id,
                 'event_type' => 'decision.recorded',
                 'actor_user_id' => $principal->userId,
@@ -271,7 +268,7 @@ final class DecisionService
     {
         $actor = $grant->principalUserId ?? $principal->userId;
 
-        if (! $this->eligibility->isEligible($case->tenant_id, $actor, (string) $case->business_date)) {
+        if (! $this->eligibility->isEligible($actor, (string) $case->business_date)) {
             throw new ConflictException('The acting user is no longer eligible to decide this case.', [
                 'reason' => 'ASSIGNEE_INELIGIBLE',
                 'user_id' => $actor,
@@ -409,7 +406,6 @@ final class DecisionService
                         'assignee_user_id' => $targetUserId,
                     ],
                     [
-                        'tenant_id' => $case->tenant_id,
                         'status' => TaskStatus::PENDING,
                         'due_at' => $task?->due_at,
                         'acted_at' => null,
@@ -419,7 +415,7 @@ final class DecisionService
 
                 CaseMember::query()->firstOrCreate(
                     ['case_id' => $case->id, 'user_id' => $targetUserId, 'role' => 'APPROVER'],
-                    ['tenant_id' => $case->tenant_id, 'created_at' => $now],
+                    ['created_at' => $now],
                 );
 
                 $this->event($case, 'task.delegated', $principal->userId, [
@@ -526,7 +522,6 @@ final class DecisionService
     private function event(CaseModel $case, string $eventType, ?int $actorUserId, array $payload, \Carbon\CarbonImmutable $now): void
     {
         CaseEvent::query()->create([
-            'tenant_id' => $case->tenant_id,
             'case_id' => $case->id,
             'event_type' => $eventType,
             'actor_user_id' => $actorUserId,
@@ -540,7 +535,7 @@ final class DecisionService
      */
     private function snapshotFor(WorkflowPrincipal $principal, ?ActingGrant $grant): array
     {
-        $snapshot = $this->actors->snapshot($principal->tenantId, $principal->userId)?->toArray()
+        $snapshot = $this->actors->snapshot($principal->userId)?->toArray()
             ?? $principal->actorSnapshot()->toArray();
 
         if ($grant?->isDelegation()) {
@@ -581,7 +576,6 @@ final class DecisionService
     private function audit(WorkflowPrincipal $principal, CaseModel $case, string $action, array $metadata): void
     {
         $this->audit->record(
-            tenantId: (int) $case->tenant_id,
             actorUserId: $principal->userId,
             action: $action,
             aggregateType: 'case',

@@ -13,5 +13,5 @@ interface AttendanceWorkspaceReader
     /**
      * @return array{month: string, summary: array{expectedDays: int, presentDays: int, lateCount: int, absentCount: int, leaveDays: int, remoteDays: int}, latestException: array{date: string, label: string}|null}
      */
-    public function currentMonth(int $tenantId, int $employmentId, string $month): array;
+    public function currentMonth(int $employmentId, string $month): array;
 }

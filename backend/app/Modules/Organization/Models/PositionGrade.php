@@ -7,11 +7,9 @@ namespace App\Modules\Organization\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Tenant-scoped job-grade catalogue used by position and compensation bands.
+ * Job-grade catalogue used by position and compensation bands.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $code
  * @property string $name
  * @property int $level
@@ -25,8 +23,6 @@ final class PositionGrade extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'code',
         'name',
         'level',
@@ -39,8 +35,6 @@ final class PositionGrade extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'level' => 'integer',
             'active' => 'boolean',
             'created_at' => 'immutable_datetime',

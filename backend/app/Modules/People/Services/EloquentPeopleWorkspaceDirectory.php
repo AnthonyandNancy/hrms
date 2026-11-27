@@ -14,7 +14,7 @@ use App\Shared\Time\AsOfQuery;
 use App\Shared\Time\BusinessDate;
 
 /**
- * Read model for /v1/me/workspace. It is People-owned, tenant-scoped, as-of a
+ * Read model for /v1/me/workspace. It is People-owned, as-of a
  * business date and composes only the frozen OrganizationFacts port.
  */
 final class EloquentPeopleWorkspaceDirectory implements PeopleWorkspaceDirectory
@@ -24,48 +24,44 @@ final class EloquentPeopleWorkspaceDirectory implements PeopleWorkspaceDirectory
         private readonly OrganizationFacts $organization,
     ) {}
 
-    public function profile(int $tenantId, int $employmentId, string $on): ?PeopleWorkspaceProfile
+    public function profile(int $employmentId, string $on): ?PeopleWorkspaceProfile
     {
-        $snapshot = $this->people->employmentSnapshot($tenantId, $employmentId, $on);
+        $snapshot = $this->people->employmentSnapshot($employmentId, $on);
 
         if ($snapshot === null) {
             return null;
         }
 
         $person = Person::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($snapshot->personId)
             ->first();
 
         $assignment = $snapshot->assignmentId !== null
             ? \App\Modules\People\Models\Assignment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($snapshot->assignmentId)
                 ->first()
             : null;
 
         $position = $assignment?->position_id !== null
-            ? $this->organization->position($tenantId, (int) $assignment->position_id)
+            ? $this->organization->position((int) $assignment->position_id)
             : null;
 
         $orgUnit = $snapshot->orgUnitId !== null
-            ? $this->organization->orgUnit($tenantId, $snapshot->orgUnitId)
+            ? $this->organization->orgUnit($snapshot->orgUnitId)
             : null;
 
         $managerName = null;
 
         if ($snapshot->managerEmploymentId !== null) {
-            $managerSnapshot = $this->people->employmentSnapshot($tenantId, $snapshot->managerEmploymentId, $on);
+            $managerSnapshot = $this->people->employmentSnapshot($snapshot->managerEmploymentId, $on);
             $managerName = $managerSnapshot !== null
                 ? Person::query()
-                    ->where('tenant_id', $tenantId)
                     ->whereKey($managerSnapshot->personId)
                     ->value('legal_name')
                 : null;
         }
 
         $terms = EmploymentTerms::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->tap(fn ($query) => AsOfQuery::whereValidOn($query, BusinessDate::from($on)->value(), 'effective_from', 'effective_to'))
             ->orderByDesc('version')
@@ -77,7 +73,6 @@ final class EloquentPeopleWorkspaceDirectory implements PeopleWorkspaceDirectory
 
         return new PeopleWorkspaceProfile(
             employmentId: $snapshot->employmentId,
-            legalEntityId: $snapshot->legalEntityId,
             personName: $displayName,
             employeeNo: $snapshot->employeeNo,
             initials: $this->initials($displayName),

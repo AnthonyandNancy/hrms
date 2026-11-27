@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Models;
 
 use App\Modules\Payroll\Enums\PayrollEmployeeStatus;
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $run_id
  * @property int $employment_id
  * @property PayrollEmployeeStatus $status
@@ -32,13 +30,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayrollRunEmployee extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'payroll_run_employees';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'run_id',
         'employment_id',
         'status',

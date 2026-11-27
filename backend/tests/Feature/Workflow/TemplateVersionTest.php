@@ -44,7 +44,7 @@ class TemplateVersionTest extends TestCase
         $this->assertDatabaseHas('decisions', ['case_id' => $newCase->id, 'template_version' => 2]);
     }
 
-    public function test_template_creation_is_idempotent_for_same_tenant_code_version(): void
+    public function test_template_creation_is_idempotent_for_same_company_code_version(): void
     {
         $this->bootWorkflow();
         $first = $this->createTemplate(['version' => 1]);
@@ -90,7 +90,7 @@ class TemplateVersionTest extends TestCase
         ], ['Idempotency-Key' => 'template-http-key'])->assertCreated()
             ->assertJsonPath('data.version', 1);
 
-        $this->actAs(10, capabilities: ['workflow.case.read']);
+        $this->actAs(10, ['workflow.case.read']);
         $this->postJson('/v1/workflow/templates', [
             'code' => 'http.template.2',
             'name' => 'HTTP template 2',

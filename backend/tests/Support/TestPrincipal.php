@@ -9,7 +9,6 @@ use App\Modules\IAM\Contracts\Principal;
 final readonly class TestPrincipal implements Principal
 {
     public function __construct(
-        private int $tenantId,
         private int $userId,
         private ?int $employmentId = null,
         private int $authVersion = 1,
@@ -22,11 +21,6 @@ final readonly class TestPrincipal implements Principal
     public function userId(): int
     {
         return $this->userId;
-    }
-
-    public function tenantId(): int
-    {
-        return $this->tenantId;
     }
 
     public function employmentId(): ?int

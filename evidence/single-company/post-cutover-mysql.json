@@ -1,0 +1,783 @@
+{
+    "connection": "mysql",
+    "data_disposition": "REBUILD",
+    "company_profile_rows": 1,
+    "legal_entity_bindings": 0,
+    "tables": [
+        {
+            "table": "assignments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "attendance_corrections",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "attendance_days",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "attendance_devices",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "attendance_period_closures",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "attendance_rule_versions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "audit_events",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "auth_events",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "authority_bindings",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "benefit_enrollments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "benefit_plans",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "benefit_transactions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "break_glass_grants",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "business_trip_records",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "cache",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "cache_locks",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "candidate_communications",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "candidate_conversions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "candidate_evaluations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "candidate_imports",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "candidates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "capabilities",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "case_events",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "case_members",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "cases",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "company_profile",
+            "rows": 1,
+            "legacy_columns": []
+        },
+        {
+            "table": "contract_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "dashboard_snapshots",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "decisions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "demo_datasets",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "documents",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "effects",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_certificates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_change_requests",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_compensations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_contacts",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_educations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_experiences",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employee_import_batches",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employment_contract_versions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employment_contracts",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employment_terms",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employment_user_links",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "employments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "export_jobs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "failed_jobs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "feature_flags",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "file_objects",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "holidays",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "iam_data_scope_policies",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "iam_field_policies",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "idempotency_keys",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "interviews",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "job_batches",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "jobs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "leave_accounts",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "leave_balances",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "leave_ledger_entries",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "leave_request_projections",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "leave_types",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "legal_entity_calendars",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "legal_holds",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "lifecycle_intents",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "lifecycle_tasks",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "login_attempts",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "menu_overrides",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "mfa_factors",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "migration_issues",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "migration_runs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "migration_shadow_rows",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "migrations",
+            "rows": 56,
+            "legacy_columns": []
+        },
+        {
+            "table": "notice_acknowledgements",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notice_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notices",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notification_deliveries",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notification_outbox",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notification_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "notifications",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "offers",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "onboarding_checklist_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "org_unit_closure",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "org_units",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "outbox_events",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "overtime_records",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "overtime_requests",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "overtime_settlements",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "password_reset_tokens",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_adjustments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_input_snapshots",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_items",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_receipts",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_run_employees",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_runs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_scheme_items",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_schemes",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payroll_ytd",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payslip_lines",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "payslips",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_appeals",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_calibrations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_cycles",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_feedback",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_goals",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_indicators",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_reviews",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "performance_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "persons",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "position_grades",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "position_qualifications",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "positions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "punch_records",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "recovery_codes",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "recruitment_requisitions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "report_definitions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "report_runs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "report_subscriptions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "reporting_projection_rows",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "requisition_openings",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "retention_purge_runs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "role_capabilities",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "role_pages",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "roles",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "salary_adjustments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "sessions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "shift_assignments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "shift_schedules",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "shift_templates",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "statutory_parameters",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_assignments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_leave_openings",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_organizations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_payroll_ytd",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_people",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "stg_terms",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "sys_dictionaries",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "sys_parameters",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "talent_pool_tags",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "tax_brackets",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_checkins",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_courses",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_enrollments",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_exams",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_feedback",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_plans",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_programs",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "training_sessions",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "travel_expenses",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "travel_policies",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "user_roles",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "users",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "workflow_delegations",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "workflow_instances",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "workflow_tasks",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "workflow_template_nodes",
+            "rows": 0,
+            "legacy_columns": []
+        },
+        {
+            "table": "workflow_templates",
+            "rows": 0,
+            "legacy_columns": []
+        }
+    ]
+}

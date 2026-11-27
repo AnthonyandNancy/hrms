@@ -56,17 +56,16 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
         $base = $this->seedPayrollBase(1_000_000);
         $directory = app(PayrollInputDirectoryService::class);
 
-        $this->assertFalse($directory->hasRecordedAttendance($this->tenantId, (int) $base['employment_id'], '2026-05'));
+        $this->assertFalse($directory->hasRecordedAttendance((int) $base['employment_id'], '2026-05'));
 
         $this->attendance($base['employment_id'], '2026-05-05', 480, 480, 0);
 
-        $this->assertTrue($directory->hasRecordedAttendance($this->tenantId, (int) $base['employment_id'], '2026-05'));
+        $this->assertTrue($directory->hasRecordedAttendance((int) $base['employment_id'], '2026-05'));
     }
 
     private function leaveType(string $code, string $name): LeaveType
     {
         return LeaveType::query()->create([
-            'tenant_id' => $this->tenantId,
             'code' => $code,
             'name' => $name,
             'is_statutory' => false,
@@ -84,7 +83,6 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
     private function attendance(int $employmentId, string $date, int $scheduled, int $worked, int $overtime): void
     {
         AttendanceDay::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => $employmentId,
             'business_date' => $date,
             'shift_template_id' => null,
@@ -104,7 +102,6 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
     private function leaveEntry(int $employmentId, int $leaveTypeId, string $effectiveOn, int $minutes): void
     {
         LeaveLedgerEntry::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'account' => 'CONSUME',
@@ -127,8 +124,8 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
     private function calculateGross(array $base, string $period): int
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return (int) $run->refresh()->gross_cents;

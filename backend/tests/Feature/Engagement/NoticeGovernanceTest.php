@@ -26,7 +26,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
         $fixture = $this->workforceFixture();
         $this->grantRole($fixture['user_a_id'], 'HR_ADMIN');
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $created = $this->postJson('/v1/engagement/notices', [
             'title' => 'Governed synthetic notice',
             'body' => 'Synthetic body that requires an independent workflow decision.',
@@ -44,12 +44,11 @@ final class NoticeGovernanceTest extends PeopleTestCase
         $this->assertGreaterThan(0, $caseId);
         $this->assertDatabaseHas('cases', [
             'id' => $caseId,
-            'tenant_id' => 1,
             'subject_type' => 'notice',
             'subject_id' => $noticeId,
         ]);
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_b_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_b_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/decision", [
             'action' => 'REJECT',
             'comment' => 'Synthetic rejection for governance test.',
@@ -58,7 +57,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
             ->assertJsonPath('data.notice_status', 'REJECTED')
             ->assertJsonPath('data.application_status', 'REJECTED');
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/publish", [], ['Idempotency-Key' => 'notice-publish-rejected'])
             ->assertStatus(409)
             ->assertJsonPath('data.reason', 'NOTICE_NOT_APPROVED');
@@ -71,7 +70,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
         $fixture = $this->workforceFixture();
         $this->grantRole($fixture['user_a_id'], 'HR_ADMIN');
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Approvable synthetic notice',
             'body' => 'Synthetic body that waits for an approved workflow case.',
@@ -81,7 +80,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
             'approval_required' => true,
         ], ['Idempotency-Key' => 'notice-approved-create'])->json('data.id');
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_b_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_b_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/decision", [
             'action' => 'APPROVE',
             'comment' => 'Synthetic approval for governance test.',
@@ -90,7 +89,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
             ->assertJsonPath('data.notice_status', 'APPROVED')
             ->assertJsonPath('data.application_status', 'APPROVED');
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/publish", [], ['Idempotency-Key' => 'notice-publish-approved'])
             ->assertOk()
             ->assertJsonPath('data.status', 'PUBLISHED');
@@ -102,7 +101,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Org A audience preview',
             'body' => 'Synthetic org audience preview body.',
@@ -125,7 +124,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $noticeId = (int) $this->postJson('/v1/engagement/notices', [
             'title' => 'Acknowledgement evidence notice',
             'body' => 'Synthetic notice used to prove acknowledgement evidence.',
@@ -134,10 +133,10 @@ final class NoticeGovernanceTest extends PeopleTestCase
             'requiresAck' => true,
         ], ['Idempotency-Key' => 'notice-reads-create'])->json('data.id');
 
-        $this->actAs(1, $fixture['user_a_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['user_a_id'], $fixture['employment_a_id']);
         $this->postJson("/v1/engagement/notices/{$noticeId}/acknowledge")->assertOk();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->getJson("/v1/engagement/notices/{$noticeId}/reads")
             ->assertOk()
             ->assertJsonPath('data.total', 1)
@@ -169,7 +168,7 @@ final class NoticeGovernanceTest extends PeopleTestCase
     {
         $fixture = $this->workforceFixture();
 
-        $this->actAs(1, $fixture['manager_id'], $fixture['employment_a_id']);
+        $this->actAs($fixture['manager_id'], $fixture['employment_a_id']);
         $this->postJson('/v1/engagement/notice-templates', [
             'code' => 'PAYROLL_REMINDER',
             'name' => 'Payroll reminder',
@@ -204,6 +203,13 @@ final class NoticeGovernanceTest extends PeopleTestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $noticeId);
 
+        // V3-B5: the manager view must still list the archived notice, otherwise
+        // the restore control disappears on reload and restore is unreachable.
+        $managed = $this->getJson('/v1/engagement/notices?filter=managed')
+            ->assertOk();
+        $managedIds = array_column($managed->json('data') ?? [], 'id');
+        $this->assertContains($noticeId, $managedIds, 'managed view must include archived notices');
+
         $this->postJson("/v1/engagement/notices/{$noticeId}/restore", [], ['Idempotency-Key' => 'notice-restore'])
             ->assertOk()
             ->assertJsonPath('data.status', 'PUBLISHED');
@@ -212,7 +218,6 @@ final class NoticeGovernanceTest extends PeopleTestCase
     private function grantRole(int $userId, string $role): void
     {
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => $userId,
             'role_code' => $role,
             'valid_from' => '2026-01-01 00:00:00',

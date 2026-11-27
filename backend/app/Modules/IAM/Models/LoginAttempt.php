@@ -13,7 +13,7 @@ final class LoginAttempt extends Model
     protected $table = 'login_attempts';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'username', 'ip', 'succeeded', 'attempted_at'];
+    protected $fillable = ['username', 'ip', 'succeeded', 'attempted_at'];
 
     /**
      * @return array<string, string>

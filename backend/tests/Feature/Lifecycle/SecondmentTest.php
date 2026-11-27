@@ -132,7 +132,7 @@ final class SecondmentTest extends LifecycleTestCase
             ->assertStatus(422)
             ->assertJsonPath('data.reason', 'SECONDMENT_INVALID_RANGE');
 
-        $other = $this->peopleScenario->employment($this->peopleScenario->person(), $this->peopleScenario->legalEntity(), 'SEC-0002');
+        $other = $this->peopleScenario->employment($this->peopleScenario->person(), 'SEC-0002');
 
         $this->postJson('/v1/lifecycle/secondments', [
             'employment_id' => $other->id,
@@ -145,7 +145,7 @@ final class SecondmentTest extends LifecycleTestCase
             ->assertJsonPath('data.reason', 'SECONDMENT_PRIMARY_MISSING');
     }
 
-    public function test_secondment_denies_missing_capability_and_cross_tenant_employment(): void
+    public function test_secondment_denies_missing_capability_and_unknown_employment(): void
     {
         [$employment, , $hostOrg] = $this->seedEmploymentWithOrg();
 
@@ -160,15 +160,14 @@ final class SecondmentTest extends LifecycleTestCase
         ], ['Idempotency-Key' => 'sec-denied'])->assertForbidden();
 
         $this->authorizer->deniedCapabilities = [];
-
-        $this->actAs(tenantId: 2, userId: 999);
+        $this->actAs(999);
 
         $this->postJson('/v1/lifecycle/secondments', [
-            'employment_id' => $employment->id,
+            'employment_id' => 999_999,
             'host_org_unit_id' => $hostOrg->id,
             'effective_from' => '2026-12-01',
             'effective_to' => '2027-03-31',
-            'reason' => 'Cross tenant secondment',
-        ], ['Idempotency-Key' => 'sec-cross-tenant'])->assertNotFound();
+            'reason' => 'Unknown employment secondment',
+        ], ['Idempotency-Key' => 'sec-unknown-employment'])->assertNotFound();
     }
 }

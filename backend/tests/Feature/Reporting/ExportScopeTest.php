@@ -220,7 +220,7 @@ final class ExportScopeTest extends ReportingTestCase
             (int) $ids['narrow_user']->auth_version,
         );
 
-        $this->seedProjectionRows(50_001, (int) $ids['org_a_id'], (int) $ids['entity_id']);
+        $this->seedProjectionRows(50_001, (int) $ids['org_a_id']);
 
         $response = $this->postExport('WORKFORCE_HEADCOUNT', [
             'fields' => ['employee_no'],
@@ -302,7 +302,7 @@ final class ExportScopeTest extends ReportingTestCase
         ];
     }
 
-    private function seedProjectionRows(int $count, int $orgUnitId, int $legalEntityId): void
+    private function seedProjectionRows(int $count, int $orgUnitId): void
     {
         $this->assertGreaterThan(0, $count);
 
@@ -312,7 +312,6 @@ final class ExportScopeTest extends ReportingTestCase
             for ($index = 0; $index < $limit; $index++) {
                 $ordinal = $offset + $index + 1;
                 ProjectionRow::query()->create([
-                    'tenant_id' => 1,
                     'source_projection' => 'workforce',
                     'business_date' => self::BUSINESS_DATE,
                     'metric_code' => 'headcount',
@@ -320,7 +319,6 @@ final class ExportScopeTest extends ReportingTestCase
                     'entity_id' => 'CAP-'.$ordinal,
                     'employment_id' => 900000 + $ordinal,
                     'org_unit_id' => $orgUnitId,
-                    'legal_entity_id' => $legalEntityId,
                     'label' => 'Synthetic Cap Employee '.$ordinal,
                     'secondary_label' => 'Synthetic Org A',
                     'status' => 'ACTIVE',

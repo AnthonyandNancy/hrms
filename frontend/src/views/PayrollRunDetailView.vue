@@ -119,7 +119,7 @@ onMounted(load)
       <header class="payroll-hero">
         <div>
           <p class="payroll-hero__meta">
-            {{ data.legalEntity }} · {{ formatMonthLabel(data.period) }}
+            {{ formatMonthLabel(data.period) }}
             <span v-if="data.isCorrection" class="plain-chip">更正批次</span>
           </p>
           <h1>{{ data.runNo }}</h1>

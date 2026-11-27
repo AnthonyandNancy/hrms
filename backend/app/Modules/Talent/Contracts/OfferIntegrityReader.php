@@ -7,7 +7,7 @@ namespace App\Modules\Talent\Contracts;
 interface OfferIntegrityReader
 {
     /**
-     * @return list<array{tenant_id:int, candidate_id:int, accepted_count:int}>
+     * @return list<array{candidate_id:int, accepted_count:int}>
      */
-    public function candidatesWithMultipleAcceptedOffers(?int $tenantId = null): array;
+    public function candidatesWithMultipleAcceptedOffers(): array;
 }

@@ -15,7 +15,7 @@ use App\Modules\Time\Contracts\LeaveRequestReader;
 use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
 use App\Shared\ApiResponse;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 
@@ -36,33 +36,32 @@ final class WorkspaceController
         private readonly LegalEntityCalendarDirectory $calendars,
         private readonly PayslipWorkspaceDirectory $payslips,
         private readonly NoticeWorkspaceDirectory $notices,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
     public function show(): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
-        $tenantId = $principal->tenantId();
-        $asOf = $this->businessDates->today($tenantId)->value();
+        $asOf = $this->businessDates->today()->value();
         $employmentId = $principal->employmentId()
-            ?? $this->people->employmentForUser($tenantId, $principal->userId());
+            ?? $this->people->employmentForUser($principal->userId());
 
         if ($employmentId === null) {
-            return ApiResponse::ok($this->emptyProjection($principal->tenantId(), $principal->userId()));
+            return ApiResponse::ok($this->emptyProjection());
         }
 
-        $profile = $this->profiles->profile($tenantId, $employmentId, $asOf);
+        $profile = $this->profiles->profile($employmentId, $asOf);
 
         if ($profile === null) {
-            return ApiResponse::ok($this->emptyProjection($principal->tenantId(), $principal->userId()));
+            return ApiResponse::ok($this->emptyProjection());
         }
 
         $month = $this->clock->now()
-            ->setTimezone($this->calendars->timezone($tenantId, $profile->legalEntityId)
+            ->setTimezone($this->calendars->timezone()
                 ?? (string) config('hrms.default_timezone', 'Asia/Shanghai'))
             ->format('Y-m');
-        $attendance = $this->attendance->currentMonth($tenantId, $employmentId, $month);
+        $attendance = $this->attendance->currentMonth($employmentId, $month);
 
         return ApiResponse::ok([
             'employment_linked' => true,
@@ -90,10 +89,10 @@ final class WorkspaceController
             'attendanceSummary' => $attendance['summary'],
             'attendanceMonth' => $attendance['month'],
             'attendanceException' => $attendance['latestException'],
-            'leaveBalances' => $this->leaveBalances->outstanding($tenantId, $employmentId, $asOf),
-            'myRequests' => $this->leaveRequests->forEmployment($tenantId, $employmentId, $asOf),
-            'payslips' => $this->payslips->recentForEmployment($tenantId, $employmentId),
-            'notices' => $this->notices->forUser($tenantId, $principal->userId()),
+            'leaveBalances' => $this->leaveBalances->outstanding($employmentId, $asOf),
+            'myRequests' => $this->leaveRequests->forEmployment($employmentId, $asOf),
+            'payslips' => $this->payslips->recentForEmployment($employmentId),
+            'notices' => $this->notices->forUser($principal->userId()),
             'freshness' => $this->clock->now()->toIso8601ZuluString(),
         ]);
     }
@@ -101,15 +100,15 @@ final class WorkspaceController
     /**
      * @return array<string, mixed>
      */
-    private function emptyProjection(int $tenantId, int $userId): array
+    private function emptyProjection(): array
     {
         return [
             'employment_linked' => false,
             'profile' => [
                 'employmentId' => null,
                 'employeeNo' => '',
-                'name' => 'User '.$userId,
-                'initials' => 'U',
+                'name' => '',
+                'initials' => '—',
                 'jobTitle' => null,
                 'orgName' => null,
                 'managerName' => null,
@@ -118,7 +117,7 @@ final class WorkspaceController
                 'phone' => ['display' => null, 'masked' => true, 'profile' => 'P1_INTERNAL', 'revealable' => false, 'exportable' => false],
             ],
             'contract' => null,
-            'businessDate' => $this->businessDates->today($tenantId)->value(),
+            'businessDate' => $this->businessDates->today()->value(),
             'attendanceSummary' => $this->emptyAttendanceSummary(),
             'attendanceMonth' => $this->clock->now()->format('Y-m'),
             'attendanceException' => null,

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * Single entry point for write commands.
  *
  * Ordering is deliberate:
- *  1. Resolve the caller principal (never trusts a client-supplied tenant).
+ *  1. Resolve the caller principal (never trusts client-supplied scope).
  *  2. Require a bounded Idempotency-Key.
  *  3. Reserve the key, then evaluate invariants and run the write inside the
  *     ledger's operation closure.
@@ -58,12 +58,11 @@ final class CommandRunner
 
         return DB::transaction(function () use ($definition, $payload, $operation, $key, $principal): CommandResult {
             $result = $this->idempotency->run(
-                tenantId: $principal->tenantId(),
                 principalId: $principal->userId(),
                 scope: 'CMD:'.$definition->name,
                 key: $key,
                 payload: $payload,
-                operation: function () use ($definition, $payload, $operation, $principal): array {
+                operation: function () use ($definition, $payload, $operation): array {
                     foreach ($definition->invariants as $invariantClass) {
                         $invariant = app($invariantClass);
 
@@ -71,7 +70,7 @@ final class CommandRunner
                             throw new \LogicException("{$invariantClass} must implement ".Invariant::class.'.');
                         }
 
-                        $invariant->assert($principal->tenantId(), $payload);
+                        $invariant->assert($payload);
                     }
 
                     return $operation();

@@ -18,7 +18,6 @@ class MigrateDomainCommand extends Command
         {--file= : Path to the source CSV}
         {--mode=validate : validate|apply}
         {--mapping=* : Crosswalk CSV paths (0..n)}
-        {--tenant=1 : Tenant id}
         {--shadow : Apply to the rehearsal shadow target instead of business tables}
         {--json : Print a machine-readable run summary}';
 
@@ -57,10 +56,9 @@ class MigrateDomainCommand extends Command
 
         try {
             $mappings = array_values((array) $this->option('mapping'));
-            $tenantId = (int) $this->option('tenant');
             $run = $mode === MigrationRunMode::APPLY
-                ? $runner->apply($domain, $tenantId, $file, $mappings, MigrationRunMode::APPLY, (bool) $this->option('shadow'))
-                : $runner->validate($domain, $tenantId, $file, $mappings);
+                ? $runner->apply($domain, $file, $mappings, MigrationRunMode::APPLY, (bool) $this->option('shadow'))
+                : $runner->validate($domain, $file, $mappings);
         } catch (Throwable $exception) {
             $this->error('PASS/FAIL: FAIL - '.$exception->getMessage());
 

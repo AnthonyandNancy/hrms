@@ -26,10 +26,10 @@ final class MenuOverrideTest extends PeopleTestCase
 
     public function test_menu_override_hides_presentation_but_capability_still_allows_the_api_route(): void
     {
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
-        $this->actAs(1, (int) $user->id, 1);
+        $user = User::factory()->create(['auth_version' => 1]);
+        $this->actAs(userId: (int) $user->id, employmentId: 1);
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, 1)
+            ->forPrincipal((int) $user->id, 1)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => 'people.employee.read',
@@ -81,6 +81,6 @@ final class MenuOverrideTest extends PeopleTestCase
             ->assertOk()
             ->assertJsonPath('data.deleted', true);
 
-        $this->assertDatabaseMissing('menu_overrides', ['tenant_id' => 1, 'page_code' => $pageCode]);
+        $this->assertDatabaseMissing('menu_overrides', ['page_code' => $pageCode]);
     }
 }

@@ -14,8 +14,8 @@ final class InlineExportDispatcher implements ExportDispatcher
 {
     public function __construct(private readonly ExportJobRunner $runner) {}
 
-    public function dispatch(int $tenantId, int $exportJobId): void
+    public function dispatch(int $exportJobId): void
     {
-        $this->runner->run($tenantId, $exportJobId);
+        $this->runner->run($exportJobId);
     }
 }

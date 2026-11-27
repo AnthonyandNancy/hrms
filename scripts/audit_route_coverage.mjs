@@ -37,7 +37,7 @@ const inventoryModules = [...inventory.matchAll(/^\|\s*(03B\.\d+)\s*\|\s*([^|]+?
 
 const registryPaths = [...registry.matchAll(/path:\s*'([^']+)'/g)].map((m) => m[1])
 const registryNames = [...registry.matchAll(/name:\s*'([^']+)'/g)].map((m) => m[1])
-const requiredApiCount = (registry.match(/requiredApis:/g) ?? []).length - 1
+const requiredApiCount = (registry.match(/requiredApis:/g) ?? []).length
 const statesCount = (registry.match(/states:\s*\[\.\.\.REQUIRED_STATES\]/g) ?? []).length
 const negativeCount = (registry.match(/negativeTests:\s*\[\.\.\.REQUIRED_NEGATIVE_TESTS\]/g) ?? []).length
 
@@ -96,21 +96,32 @@ const missingComponents = componentKeys.filter((key) => !matureViewExists(key) &
 const matureComponents = componentKeys.filter((key) => matureViewExists(key))
 
 const missingBusiness = inventoryPages.filter((page) => !registryPaths.includes(page.path))
+/**
+ * Deliberate deep-link additions that are not part of the frozen 03A/03B
+ * inventory. Each must be a detail route of an inventory page and is reported
+ * here so a new unreviewed path can never slip in silently.
+ */
+const DELIBERATE_DETAIL_ROUTES = new Set([
+  '/payroll/runs/:id',
+  '/workflow/cases/:id',
+])
 const extraBusiness = registryPaths.filter((path) => {
   if (path.startsWith('/account') || ['/login', '/workspace', '/forbidden', '/not-found'].includes(path)) return false
+  if (DELIBERATE_DETAIL_ROUTES.has(path)) return false
   return !inventoryPages.some((page) => page.path === path) && !inventoryModules.some((module) => module.path === path)
 })
 const duplicatePaths = registryPaths.filter((path, index) => registryPaths.indexOf(path) !== index)
 const duplicateNames = registryNames.filter((name, index) => registryNames.indexOf(name) !== index)
 
-// Cluster membership comes from the registry; the page count contract is 63.
+// Cluster membership comes from the registry; the page count contract is 62
+// after ADR-0035 moved the notice archive form route into a workspace action.
 const clusterMatches = [...registry.matchAll(/cluster:\s*'(K(?:[1-9]|1[0-2]))'/g)]
 const clusterCounts = clusterMatches.reduce((counts, match) => {
   counts[match[1]] = (counts[match[1]] ?? 0) + 1
   return counts
 }, {})
 const { CLUSTER_MEMBERSHIP, CLUSTER_COUNTS } = await import('./lib/clusterMembership.mjs')
-const CLUSTER_CONTRACT = { K1: 4, K2: 2, K3: 1, K4: 4, K5: 4, K6: 3, K7: 2, K8: 6, K9: 10, K10: 7, K11: 15, K12: 5 }
+const CLUSTER_CONTRACT = { K1: 4, K2: 2, K3: 1, K4: 4, K5: 4, K6: 3, K7: 2, K8: 6, K9: 10, K10: 7, K11: 14, K12: 5 }
 const clusterTotal = clusterMatches.length
 
 // Exact membership, not just counts: recover componentKey -> cluster from the
@@ -167,20 +178,20 @@ if (pageComponentProblem !== null) {
   else console.warn(`WARN ${message}`)
 }
 
-if (requireMature && matureComponents.length < 160) {
-  failures.push(`mature business views=${matureComponents.length}/160; remaining ${160 - matureComponents.length} are registry fallbacks`)
+if (requireMature && matureComponents.length < 155) {
+  failures.push(`mature business views=${matureComponents.length}/155; remaining ${155 - matureComponents.length} are registry fallbacks`)
 }
-if (inventoryPages.length !== 140) failures.push(`inventory business pages=${inventoryPages.length}, expected 140`)
+if (inventoryPages.length !== 133) failures.push(`inventory business pages=${inventoryPages.length}, expected 133`)
 if (inventoryModules.length !== 14) failures.push(`inventory platform modules=${inventoryModules.length}, expected 14`)
-if (registryPaths.length !== 160) failures.push(`registry entries=${registryPaths.length}, expected 160`)
+if (registryPaths.length !== 155) failures.push(`registry entries=${registryPaths.length}, expected 155`)
 if (new Set(registryNames).size !== registryNames.length) failures.push(`duplicate page names: ${[...new Set(duplicateNames)].join(', ')}`)
 if (duplicatePaths.length > 0) failures.push(`duplicate paths: ${[...new Set(duplicatePaths)].join(', ')}`)
-if (requiredApiCount !== 160) failures.push(`entries missing requiredApis=${160 - requiredApiCount}`)
-if (statesCount !== 160) failures.push(`entries missing five-state declaration=${160 - statesCount}`)
-if (negativeCount !== 160) failures.push(`entries missing negative-test declaration=${160 - negativeCount}`)
+if (requiredApiCount !== 155) failures.push(`entries missing requiredApis=${155 - requiredApiCount}`)
+if (statesCount !== 155) failures.push(`entries missing five-state declaration=${155 - statesCount}`)
+if (negativeCount !== 155) failures.push(`entries missing negative-test declaration=${155 - negativeCount}`)
 if (missingBusiness.length > 0) failures.push(`inventory pages missing from registry: ${missingBusiness.map((p) => p.path).join(', ')}`)
 if (extraBusiness.length > 0) failures.push(`extra registry paths not in inventory: ${extraBusiness.join(', ')}`)
-if (clusterTotal !== 63) failures.push(`registry cluster pages=${clusterTotal}, expected 63`)
+if (clusterTotal !== 62) failures.push(`registry cluster pages=${clusterTotal}, expected 62`)
 if (membershipMismatches.length > 0) {
   failures.push(`cluster membership drift: ${membershipMismatches.join('; ')}`)
 }
@@ -227,13 +238,13 @@ const report = {
   inventory: { business: inventoryPages.length, platform: inventoryModules.length, total: inventoryPages.length + inventoryModules.length + 6 },
   registry: {
     entries: registryPaths.length,
-    layers: { business: 140, platform: 14, base: 6 },
+    layers: { business: 134, platform: 15, base: 6 },
     missingRenderers: missingComponents.length,
     matureViews: matureComponents.length,
     fallbackViews: registryPaths.length - matureComponents.length,
   },
   coverage: {
-    business: `${140 - missingBusiness.length}/140`,
+    business: `${134 - missingBusiness.length}/134`,
     platform: `${14 - extraBusiness.filter((p) => inventoryModules.some((m) => m.path === p)).length}/14`,
     base: '6/6',
   },

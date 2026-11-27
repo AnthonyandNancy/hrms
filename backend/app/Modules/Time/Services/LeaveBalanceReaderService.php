@@ -10,8 +10,8 @@ final class LeaveBalanceReaderService implements LeaveBalanceReader
 {
     public function __construct(private readonly LeaveBalanceService $balances) {}
 
-    public function outstanding(int $tenantId, int $employmentId, string $asOf): array
+    public function outstanding(int $employmentId, string $asOf): array
     {
-        return $this->balances->outstanding($tenantId, $employmentId, $asOf);
+        return $this->balances->outstanding($employmentId, $asOf);
     }
 }

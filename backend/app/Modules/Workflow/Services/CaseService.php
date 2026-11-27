@@ -48,12 +48,11 @@ final class CaseService
         bool $submit,
     ): CaseModel {
         return DB::transaction(function () use ($principal, $type, $subjectType, $subjectId, $title, $payload, $templateId, $businessDate, $submit): CaseModel {
-            $template = $this->resolveTemplate($principal->tenantId, $templateId, $businessDate);
+            $template = $this->resolveTemplate($templateId, $businessDate);
 
             $now = $this->clock->now();
             $case = CaseModel::query()->create([
-                'tenant_id' => $principal->tenantId,
-                'case_no' => $this->nextCaseNo($principal->tenantId, $now),
+                'case_no' => $this->nextCaseNo($now),
                 'type' => $type,
                 'subject_type' => $subjectType,
                 'subject_id' => $subjectId,
@@ -71,7 +70,6 @@ final class CaseService
             ]);
 
             CaseMember::query()->create([
-                'tenant_id' => $principal->tenantId,
                 'case_id' => $case->id,
                 'user_id' => $principal->userId,
                 'role' => 'REQUESTER',
@@ -97,7 +95,6 @@ final class CaseService
         return DB::transaction(function () use ($principal, $case): CaseModel {
             /** @var CaseModel $locked */
             $locked = CaseModel::query()
-                ->where('tenant_id', $principal->tenantId)
                 ->whereKey($case->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -141,7 +138,6 @@ final class CaseService
 
             if ($instance === null) {
                 $instance = WorkflowInstance::query()->create([
-                    'tenant_id' => $locked->tenant_id,
                     'case_id' => $locked->id,
                     'current_node_key' => $nodes[0]['key'],
                     'status' => InstanceStatus::RUNNING,
@@ -172,7 +168,6 @@ final class CaseService
         return DB::transaction(function () use ($principal, $case, $comment): CaseModel {
             /** @var CaseModel $locked */
             $locked = CaseModel::query()
-                ->where('tenant_id', $principal->tenantId)
                 ->whereKey($case->id)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -291,7 +286,6 @@ final class CaseService
                 ])->save();
             } else {
                 $task->forceFill([
-                    'tenant_id' => $case->tenant_id,
                     'status' => TaskStatus::PENDING,
                     'due_at' => $dueAt,
                     'acted_at' => null,
@@ -306,7 +300,6 @@ final class CaseService
                     'role' => 'APPROVER',
                 ],
                 [
-                    'tenant_id' => $case->tenant_id,
                     'created_at' => $now,
                 ],
             );
@@ -335,9 +328,9 @@ final class CaseService
 
         $ids = match ($type) {
             'USER' => isset($rule['user_id']) ? [(int) $rule['user_id']] : [],
-            'MANAGER_OF_SUBJECT' => array_filter([$this->assignees->managerUserIdForSubject($case->tenant_id, $case->subject_type, $subjectId, $date)]),
-            'ORG_HEAD' => $this->assignees->orgHeadUserIdsForSubject($case->tenant_id, $case->subject_type, $subjectId, $date),
-            'ROLE' => isset($rule['role_code']) ? $this->assignees->userIdsWithRole($case->tenant_id, (string) $rule['role_code'], $date) : [],
+            'MANAGER_OF_SUBJECT' => array_filter([$this->assignees->managerUserIdForSubject($case->subject_type, $subjectId, $date)]),
+            'ORG_HEAD' => $this->assignees->orgHeadUserIdsForSubject($case->subject_type, $subjectId, $date),
+            'ROLE' => isset($rule['role_code']) ? $this->assignees->userIdsWithRole((string) $rule['role_code'], $date) : [],
             'CASE_MEMBER' => $this->caseMemberIds($case, $rule),
             default => throw new ValidationException(
                 ['assignee_rule' => ['Unsupported assignee rule type.']],
@@ -364,11 +357,10 @@ final class CaseService
             ->all();
     }
 
-    private function resolveTemplate(int $tenantId, ?int $templateId, string $businessDate): WorkflowTemplate
+    private function resolveTemplate(?int $templateId, string $businessDate): WorkflowTemplate
     {
         if ($templateId !== null) {
             $template = WorkflowTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($templateId)
                 ->where('status', 'PUBLISHED')
                 ->first();
@@ -383,10 +375,10 @@ final class CaseService
         throw new ValidationException(['template_id' => ['A published workflow template is required.']], 'A template is required.');
     }
 
-    private function nextCaseNo(int $tenantId, CarbonImmutable $now): string
+    private function nextCaseNo(CarbonImmutable $now): string
     {
         $prefix = 'CASE-'.$now->format('Ymd').'-';
-        $count = CaseModel::query()->where('tenant_id', $tenantId)->where('case_no', 'like', $prefix.'%')->count();
+        $count = CaseModel::query()->where('case_no', 'like', $prefix.'%')->count();
 
         return $prefix.str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
     }
@@ -397,7 +389,6 @@ final class CaseService
     private function event(CaseModel $case, string $eventType, ?int $actorUserId, array $payload, CarbonImmutable $now): CaseEvent
     {
         return CaseEvent::query()->create([
-            'tenant_id' => $case->tenant_id,
             'case_id' => $case->id,
             'event_type' => $eventType,
             'actor_user_id' => $actorUserId,

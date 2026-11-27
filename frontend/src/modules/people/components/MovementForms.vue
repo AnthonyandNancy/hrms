@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import type { PeopleForm } from '../types'
 import { peopleErrorInfo, type PeopleErrorInfo } from '../peopleErrors'
 import { postRow } from '../write'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 const props = defineProps<{
   form: PeopleForm
@@ -12,7 +13,6 @@ const props = defineProps<{
 const emit = defineEmits<{ created: [] }>()
 
 type Draft = {
-  legal_entity_id: string
   employee_no: string
   person_legal_name: string
   person_email: string
@@ -39,14 +39,13 @@ type Draft = {
 
 const defaults: Record<string, Partial<Draft>> = {
   'movement-onboarding': {
-    legal_entity_id: '1',
     employee_no: '',
     person_legal_name: '',
     person_email: '',
     org_unit_id: '',
     position_id: '',
     hire_date: '',
-    employment_type: 'FULL_TIME',
+    employment_type: DISPLAY_CODES.employmentType.fullTime,
     work_location: '',
     work_schedule: '',
     probation_end_date: '',
@@ -58,7 +57,6 @@ const defaults: Record<string, Partial<Draft>> = {
     position_id: '',
     effective_date: '',
     reason: '',
-    legal_entity_id: '1',
   },
   'movement-secondment': {
     employment_id: '',
@@ -128,7 +126,6 @@ function bodyFor(form: PeopleForm): Record<string, unknown> | null {
     if (orgUnitId === null || draft.work_location.trim() === '' || draft.work_schedule.trim() === '') return null
     return {
       person: { legal_name: draft.person_legal_name.trim(), email: draft.person_email.trim() === '' ? null : draft.person_email.trim() },
-      legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
       employee_no: draft.employee_no.trim(),
       org_unit_id: orgUnitId,
       position_id: numeric(draft.position_id),
@@ -157,7 +154,6 @@ function bodyFor(form: PeopleForm): Record<string, unknown> | null {
       position_id: numeric(draft.position_id),
       effective_date: draft.effective_date,
       reason: draft.reason.trim(),
-      legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
       submit: true,
     }
   }
@@ -237,7 +233,7 @@ async function submit(): Promise<void> {
       <div>
         <h2 class="panel__title">发起异动</h2>
         <p class="panel__subtitle">
-          {{ form === 'movement-secondment' ? '借调创建 assignment_type=SECONDMENT 的并行任职（POST /v1/lifecycle/secondments），不改写主任职。' : '异动命令会创建审批案例；审批通过不等于立即生效。' }}
+          {{ form === 'movement-secondment' ? '借调会创建并行任职记录，不改写主任职。' : '异动命令会创建审批案例；审批通过不等于立即生效。' }}
         </p>
       </div>
     </header>

@@ -11,34 +11,28 @@ use Tests\Support\PeopleTestCase;
 
 final class ModuleContractBoundaryTest extends PeopleTestCase
 {
-    public function test_organization_facts_contract_is_bound_and_tenant_scoped(): void
+    public function test_organization_facts_contract_is_bound_and_resolves_company_facts(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $unit = $scenario->orgUnit($entity, 'FACTS-ORG');
+        $unit = $scenario->orgUnit('FACTS-ORG');
 
         $facts = app(OrganizationFacts::class);
-        $entityInfo = $facts->legalEntity(1, $entity->id);
-        $unitInfo = $facts->orgUnit(1, $unit->id);
+        $unitInfo = $facts->orgUnit($unit->id);
 
-        $this->assertNotNull($entityInfo);
-        $this->assertSame('DEMO-CN', $entityInfo->code);
-        $this->assertSame('Asia/Shanghai', $entityInfo->timezone);
         $this->assertNotNull($unitInfo);
-        $this->assertSame($entity->id, $unitInfo->legalEntityId);
-        $this->assertNull($facts->legalEntity(2, $entity->id));
-        $this->assertNull($facts->orgUnit(2, $unit->id));
+        $this->assertSame('FACTS-ORG', $unitInfo->code);
+        $this->assertNull($facts->orgUnit(999999));
+        $this->assertSame('Asia/Shanghai', $facts->defaultTimezone());
     }
 
     public function test_people_impact_contract_is_used_by_org_impact_preview(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'IMPACT-CONTRACT');
-        $employment = $scenario->employment($scenario->person(), $entity, 'IMPACT-CONTRACT-1');
+        $org = $scenario->orgUnit('IMPACT-CONTRACT');
+        $employment = $scenario->employment($scenario->person(), 'IMPACT-CONTRACT-1');
         $assignment = $scenario->assignment($employment, $org);
 
-        $impact = app(OrgAssignmentImpactDirectory::class)->impactCounts(1, [$org->id], '2026-11-23');
+        $impact = app(OrgAssignmentImpactDirectory::class)->impactCounts([$org->id], '2026-11-23');
 
         $this->assertSame(1, $impact->employeeCount);
         $this->assertSame(0, $impact->managerCount);
@@ -58,6 +52,6 @@ final class ModuleContractBoundaryTest extends PeopleTestCase
 
         $this->assertSame($first, $second);
         $this->assertSame(4, count($first['org_unit_ids']));
-        $this->assertDatabaseHas('legal_entities', ['id' => $first['legal_entity_id'], 'code' => 'DEMO-CN']);
+        $this->assertDatabaseHas('company_profile', ['id' => 1]);
     }
 }

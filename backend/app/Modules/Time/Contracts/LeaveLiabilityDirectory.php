@@ -14,5 +14,5 @@ interface LeaveLiabilityDirectory
     /**
      * @return list<LeaveLiabilityRow>
      */
-    public function balances(int $tenantId, string $asOf): array;
+    public function balances(string $asOf): array;
 }

@@ -14,25 +14,14 @@ final class PayrollScenario
 {
     private PeopleScenario $people;
 
-    public function __construct(
-        private readonly int $tenantId,
-        private readonly Clock $clock,
-    ) {
-        $this->people = new PeopleScenario($tenantId, $clock);
-    }
-
-    public function legalEntity(): \App\Modules\Organization\Models\LegalEntity
+    public function __construct(private readonly Clock $clock)
     {
-        return $this->people->legalEntity('DEMO-CN', 'Demo China Payroll', 'Asia/Shanghai', 'CNY');
+        $this->people = new PeopleScenario($clock);
     }
 
     public function employment(string $employeeNo, int $baseSalaryCents): \App\Modules\People\Models\Employment
     {
-        $entity = $this->legalEntity();
-
         $existing = \App\Modules\People\Models\Employment::query()
-            ->where('tenant_id', $this->tenantId)
-            ->where('legal_entity_id', $entity->id)
             ->where('employee_no', $employeeNo)
             ->first();
 
@@ -41,7 +30,7 @@ final class PayrollScenario
         }
 
         $person = $this->people->person(['legal_name' => 'Synthetic Payroll Person '.$employeeNo]);
-        $employment = $this->people->employment($person, $entity, $employeeNo);
+        $employment = $this->people->employment($person, $employeeNo);
         $this->people->terms($employment, 1, [
             'base_salary_minor' => $baseSalaryCents,
             'salary_currency' => 'CNY',
@@ -53,10 +42,7 @@ final class PayrollScenario
 
     public function scheme(): PayrollScheme
     {
-        $entity = $this->legalEntity();
         $existing = PayrollScheme::query()
-            ->where('tenant_id', $this->tenantId)
-            ->where('legal_entity_id', $entity->id)
             ->where('code', 'SCHEME-A')
             ->where('version', 1)
             ->first();
@@ -66,8 +52,6 @@ final class PayrollScenario
         }
 
         return PayrollScheme::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $entity->id,
             'code' => 'SCHEME-A',
             'name' => 'Synthetic monthly scheme',
             'frequency' => 'MONTHLY',

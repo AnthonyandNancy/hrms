@@ -6,16 +6,14 @@ namespace App\Modules\Organization\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Organization\Contracts\OrganizationDirectory;
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Services\OrgUnitService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
-use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -26,31 +24,17 @@ final class OrgUnitController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly Clock $clock,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function tree(Request $request, OrganizationDirectory $directory): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->asOf($request, $principal->tenantId());
+        $asOf = $this->asOf($request);
         $this->assertPermits($principal, 'org.tree.read', $asOf->value());
         $this->assertPermits($principal, 'org.unit.read', $asOf->value());
 
-        $data = $request->validate([
-            'as_of' => ['nullable', new BusinessDateRule],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
-        ]);
-
-        $legalEntity = LegalEntity::query()
-            ->where('tenant_id', $principal->tenantId())
-            ->whereKey((int) $data['legal_entity_id'])
-            ->first();
-
-        if ($legalEntity === null) {
-            throw new NotFoundOrForbiddenException;
-        }
-
-        $items = $directory->tree($principal->tenantId(), (int) $legalEntity->id, $asOf->value());
+        $items = $directory->tree($asOf->value());
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -58,11 +42,10 @@ final class OrgUnitController
     public function store(Request $request, OrgUnitService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertPermits($principal, 'org.unit.manage', $today->value());
 
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'parent_id' => ['nullable', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:64'],
             'name' => ['required', 'string', 'max:160'],
@@ -71,7 +54,7 @@ final class OrgUnitController
             'valid_to' => ['nullable', new BusinessDateRule],
         ]);
 
-        $unit = $service->open($principal->tenantId(), $data, $principal->userId());
+        $unit = $service->open($data, $principal->userId());
 
         return ApiResponse::created($this->unitPayload($unit));
     }
@@ -79,7 +62,7 @@ final class OrgUnitController
     public function move(Request $request, int $id, OrgUnitService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertPermits($principal, 'org.unit.manage', $today->value());
 
         $data = $request->validate([
@@ -87,7 +70,7 @@ final class OrgUnitController
             'effective_from' => ['required', new BusinessDateRule],
         ]);
 
-        $result = $service->move($principal->tenantId(), $id, $data, $principal->userId());
+        $result = $service->move($id, $data, $principal->userId());
 
         return ApiResponse::ok([
             'moved' => true,
@@ -99,7 +82,7 @@ final class OrgUnitController
     public function impact(Request $request, int $id, OrgUnitService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $asOf = $this->asOf($request, $principal->tenantId());
+        $asOf = $this->asOf($request);
         $this->assertPermits($principal, 'org.unit.manage', $asOf->value());
 
         $data = $request->validate([
@@ -107,17 +90,17 @@ final class OrgUnitController
             'as_of' => ['nullable', new BusinessDateRule],
         ]);
 
-        $impact = $service->impact($principal->tenantId(), $id, $data, $asOf->value());
+        $impact = $service->impact($id, $data, $asOf->value());
 
         return ApiResponse::ok($impact);
     }
 
-    private function asOf(Request $request, int $tenantId): BusinessDate
+    private function asOf(Request $request): BusinessDate
     {
         $value = $request->query('as_of');
 
         if ($value === null || $value === '') {
-            return $this->today($tenantId);
+            return $this->businessDates->today();
         }
 
         if (! is_string($value) || ($date = BusinessDate::tryFrom($value)) === null) {
@@ -125,16 +108,6 @@ final class OrgUnitController
         }
 
         return $date;
-    }
-
-    private function today(int $tenantId): BusinessDate
-    {
-        $timezone = LegalEntity::query()
-            ->where('tenant_id', $tenantId)
-            ->orderBy('id')
-            ->value('timezone');
-
-        return BusinessDate::today(is_string($timezone) ? $timezone : 'UTC', $this->clock);
     }
 
     private function assertPermits(Principal $principal, string $capability, string $on): void
@@ -151,7 +124,6 @@ final class OrgUnitController
     {
         return [
             'id' => (int) $unit->id,
-            'legal_entity_id' => (int) $unit->legal_entity_id,
             'parent_id' => $unit->parent_id !== null ? (int) $unit->parent_id : null,
             'code' => (string) $unit->code,
             'name' => (string) $unit->name,

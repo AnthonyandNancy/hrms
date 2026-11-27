@@ -55,5 +55,5 @@ interface CaseCommandPort
     /**
      * @return array{id: int, case_no: string, title: string, status: string, effect_status: string, requester_user_id: int, type: string, subject_type: string, subject_id: int|null, payload: array<string, mixed>, business_date: string, submitted_at: string|null, current_node: string|null, due_at: string|null}|null
      */
-    public function find(int $tenantId, int $caseId): ?array;
+    public function find(int $caseId): ?array;
 }

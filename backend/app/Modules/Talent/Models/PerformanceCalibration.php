@@ -12,7 +12,7 @@ final class PerformanceCalibration extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id', 'cycle_id', 'review_id', 'previous_rating',
+        'cycle_id', 'review_id', 'previous_rating',
         'calibrated_rating', 'reason', 'calibrated_by', 'recorded_at',
     ];
 
@@ -22,7 +22,6 @@ final class PerformanceCalibration extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'cycle_id' => 'integer',
             'review_id' => 'integer',
             'calibrated_by' => 'integer',

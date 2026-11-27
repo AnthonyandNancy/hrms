@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollScheme;
+use App\Modules\Payroll\Models\StatutoryParameter;
+use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
+use App\Shared\Auth\AuthenticatedPrincipal;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakePayrollRunMembershipDirectory;
 use Tests\TestCase;
 
 /**
- * Shared payroll fixture. Creates a legal entity, one salaried employment and
- * a complete synthetic statutory parameter version. All values are obviously
- * DEMO data, never real statutory rates.
+ * Shared payroll fixture. Creates one salaried employment and a complete
+ * synthetic statutory parameter version. All values are obviously DEMO data,
+ * never real statutory rates.
  */
 abstract class PayrollTestCase extends TestCase
 {
@@ -25,10 +32,6 @@ abstract class PayrollTestCase extends TestCase
     protected FrozenClock $clock;
 
     protected PayrollScenario $scenario;
-
-    protected int $tenantId = 1;
-
-    protected int $legalEntityId = 1;
 
     protected function setUp(): void
     {
@@ -49,20 +52,19 @@ abstract class PayrollTestCase extends TestCase
 
         $this->app->instance(Authorizer::class, new AllowAllAuthorizer);
 
-        $this->scenario = new PayrollScenario($this->tenantId, $this->clock);
-        $this->legalEntityId = (int) $this->scenario->legalEntity()->id;
+        $this->scenario = new PayrollScenario($this->clock);
 
         $this->actAs(10, null);
     }
 
     protected function actAs(int $userId, ?int $employmentId = null, bool $mfa = true): TestPrincipal
     {
-        $principal = new TestPrincipal($this->tenantId, $userId, $employmentId, mfa: $mfa);
+        $principal = new TestPrincipal($userId, $employmentId, mfa: $mfa);
         $this->app->instance(Principal::class, $principal);
-        $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
+        $this->app->instance(AuthenticatedPrincipal::class, $principal);
 
-        if ($this->app->bound(\App\Modules\IAM\Auth\AuthenticationContext::class)) {
-            $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+        if ($this->app->bound(AuthenticationContext::class)) {
+            $this->app->make(AuthenticationContext::class)->set($principal);
         }
 
         return $principal;
@@ -71,18 +73,46 @@ abstract class PayrollTestCase extends TestCase
     /**
      * @return array{scheme: PayrollScheme, employment_id: int}
      */
+    /**
+     * The IAM provider binds a fake membership directory under `testing`, so a
+     * test that exercises run-scoped reads must declare its memberships. This
+     * mirrors the production rule: membership is the four lifecycle actors.
+     */
+    protected function registerRunMembership(PayrollRun $run, int ...$userIds): void
+    {
+        /** @var FakePayrollRunMembershipDirectory $directory */
+        $directory = $this->app->make(PayrollRunMembershipDirectory::class);
+
+        $members = $userIds === [] ? [(int) $run->prepared_by] : $userIds;
+
+        foreach ($members as $userId) {
+            $directory->runsByUser[$userId] = array_values(array_unique([
+                ...($directory->runsByUser[$userId] ?? []),
+                (int) $run->id,
+            ]));
+            $directory->memberships[(int) $run->id] = array_values(array_unique([
+                ...($directory->memberships[(int) $run->id] ?? []),
+                'payroll.payslip.read',
+                'payroll.run.read',
+            ]));
+        }
+
+        // PayrollRunService is a singleton and may have captured the previous
+        // directory instance when fixtures were built.
+        $this->app->forgetInstance(PayrollRunService::class);
+    }
+
+    /** @return array<string, mixed> */
     protected function seedPayrollBase(int $baseSalaryCents = 1_000_000): array
     {
         $employment = $this->scenario->employment('E0001', $baseSalaryCents);
         $scheme = $this->scenario->scheme();
 
-        if (\App\Modules\Payroll\Models\StatutoryParameter::query()->where('tenant_id', $this->tenantId)->exists()) {
+        if (StatutoryParameter::query()->exists()) {
             return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
         }
 
         app(TaxParameterResolver::class)->createVersion(
-            $this->tenantId,
-            $this->legalEntityId,
             [
                 'parameter_set' => 'TAX',
                 'version' => 'DEMO-TAX-2026',
@@ -102,8 +132,6 @@ abstract class PayrollTestCase extends TestCase
 
         foreach (['SOCIAL_INSURANCE', 'HOUSING_FUND'] as $set) {
             app(TaxParameterResolver::class)->createVersion(
-                $this->tenantId,
-                $this->legalEntityId,
                 [
                     'parameter_set' => $set,
                     'version' => 'DEMO-'.$set.'-2026',
@@ -123,13 +151,11 @@ abstract class PayrollTestCase extends TestCase
         return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
     }
 
-    protected function payrollRun(int $schemeId, string $period = '2026-01'): \App\Modules\Payroll\Models\PayrollRun
+    protected function payrollRun(int $schemeId, string $period = '2026-01'): PayrollRun
     {
         $start = $period.'-01';
 
-        return \App\Modules\Payroll\Models\PayrollRun::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $this->legalEntityId,
+        return PayrollRun::query()->create([
             'scheme_id' => $schemeId,
             'period' => $period,
             'earning_period_start' => $start,

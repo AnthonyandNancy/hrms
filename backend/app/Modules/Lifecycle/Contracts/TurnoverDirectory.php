@@ -11,12 +11,12 @@ namespace App\Modules\Lifecycle\Contracts;
  */
 interface TurnoverDirectory
 {
-    public function available(int $tenantId): bool;
+    public function available(): bool;
 
-    public function unavailableReason(int $tenantId): ?string;
+    public function unavailableReason(): ?string;
 
     /**
      * @return list<array{employment_id: int, terminated_on: string, voluntary: bool}>
      */
-    public function terminations(int $tenantId, string $asOf): array;
+    public function terminations(string $asOf): array;
 }

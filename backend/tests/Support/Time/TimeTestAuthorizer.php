@@ -23,7 +23,7 @@ final class TimeTestAuthorizer implements Authorizer
 
     public function constrain(Builder $query, Principal $p, string $capability, string $businessDate): Builder
     {
-        return $query->where('tenant_id', $p->tenantId());
+        return $query;
     }
 
     public function permits(Principal $principal, string $capability, string $businessDate): bool
@@ -36,7 +36,6 @@ final class TimeTestAuthorizer implements Authorizer
         $actor = $this->actors->resolve(app('request'));
 
         return $actor !== null
-            && $actor->tenantId === $p->tenantId()
             && $actor->userId === $p->userId()
             && $actor->hasCapability($capability);
     }

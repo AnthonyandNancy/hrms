@@ -15,7 +15,6 @@ final class EmployeeImportBatch extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'uploaded_by',
         'status',
         'original_name',

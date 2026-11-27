@@ -16,18 +16,16 @@ final class PeopleEmploymentDirectory implements EmploymentDirectory
 {
     public function __construct(private readonly PeopleDirectory $people) {}
 
-    public function snapshot(int $tenantId, int $employmentId, string $businessDate): ?EmploymentSnapshot
+    public function snapshot(int $employmentId, string $businessDate): ?EmploymentSnapshot
     {
-        $snapshot = $this->people->employmentSnapshot($tenantId, $employmentId, $businessDate);
+        $snapshot = $this->people->employmentSnapshot($employmentId, $businessDate);
 
         if ($snapshot === null) {
             return null;
         }
 
         return new EmploymentSnapshot(
-            tenantId: $tenantId,
             employmentId: $snapshot->employmentId,
-            legalEntityId: $snapshot->legalEntityId,
             personId: $snapshot->personId,
             employeeNo: $snapshot->employeeNo,
             validFrom: '0001-01-01',
@@ -38,23 +36,16 @@ final class PeopleEmploymentDirectory implements EmploymentDirectory
         );
     }
 
-    public function activeEmploymentIds(int $tenantId, string $businessDate): array
+    public function activeEmploymentIds(string $businessDate): array
     {
-        // Time never needs a full tenant employment scan for its HTTP reads;
+        // Time never needs a full company employment scan for its HTTP reads;
         // scoped reads always carry an employment id. Keep the port fail-closed
         // rather than inventing a cross-module bulk query outside People's API.
         return [];
     }
 
-    public function employmentForUser(int $tenantId, int $userId, string $businessDate): ?int
+    public function employmentForUser(int $userId, string $businessDate): ?int
     {
-        return $this->people->employmentForUser($tenantId, $userId);
-    }
-
-    public function legalEntityIdForEmployment(int $tenantId, int $employmentId): ?int
-    {
-        $ids = $this->people->legalEntityIdsForEmployment($tenantId, $employmentId);
-
-        return $ids[0] ?? null;
+        return $this->people->employmentForUser($userId);
     }
 }

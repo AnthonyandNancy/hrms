@@ -13,8 +13,8 @@ final class LeaveRequestReaderService implements LeaveRequestReader
     /**
      * @return list<array<string, mixed>>
      */
-    public function forEmployment(int $tenantId, int $employmentId, ?string $asOf = null): array
+    public function forEmployment(int $employmentId, ?string $asOf = null): array
     {
-        return $this->requests->forEmployment($tenantId, $employmentId, $asOf);
+        return $this->requests->forEmployment($employmentId, $asOf);
     }
 }

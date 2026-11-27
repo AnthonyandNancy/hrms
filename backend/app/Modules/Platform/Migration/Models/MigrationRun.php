@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property MigrationDomain $domain
  * @property MigrationRunMode $mode
  * @property MigrationRunStatus $status
@@ -26,7 +25,6 @@ final class MigrationRun extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'domain',
         'source_file',
         'source_file_hash',

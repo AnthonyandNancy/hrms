@@ -59,7 +59,6 @@ final class WorkflowAuthSessionTest extends TestCase
     private function makeUser(): User
     {
         return User::query()->create([
-            'tenant_id' => 1,
             'username' => 'workflow.auth.'.bin2hex(random_bytes(4)),
             'email' => 'workflow.auth@example.test',
             'password_hash' => password_hash('Correct-Horse-9!', PASSWORD_ARGON2ID),

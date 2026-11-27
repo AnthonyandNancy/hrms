@@ -17,10 +17,8 @@ final class ResourceRef
         public readonly string $resourceType,
         public readonly int $id,
         public readonly array $row,
-        public readonly ?int $tenantId = null,
         public readonly ?int $employmentId = null,
         public readonly ?int $orgUnitId = null,
-        public readonly ?int $legalEntityId = null,
         public readonly ?int $caseId = null,
         public readonly ?int $payrollRunId = null,
     ) {}

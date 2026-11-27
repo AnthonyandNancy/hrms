@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * production additionally grants only INSERT/SELECT on this table.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $case_id
  * @property string $node_key
  * @property int $actor_user_id
@@ -38,7 +37,6 @@ final class Decision extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'case_id',
         'node_key',
         'actor_user_id',

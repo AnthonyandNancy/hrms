@@ -26,7 +26,7 @@ trait WorkflowTestHelpers
     /**
      * @param  list<string>  $capabilities
      */
-    protected function bootWorkflow(int $userId = 10, int $tenantId = 1, array $capabilities = []): void
+    protected function bootWorkflow(int $userId = 10, array $capabilities = []): void
     {
         $this->principalResolver = new FakeWorkflowPrincipalResolver;
         $this->actorDirectory = new FakeActorDirectory;
@@ -42,7 +42,6 @@ trait WorkflowTestHelpers
         }
 
         $this->principalResolver->setPrincipal(new WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: null,
             authVersion: 3,
@@ -51,7 +50,6 @@ trait WorkflowTestHelpers
             capabilities: $capabilities,
         ));
         $this->actorDirectory->add(new ActorSnapshot(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: null,
             authVersion: 3,
@@ -74,7 +72,7 @@ trait WorkflowTestHelpers
     /**
      * @param  list<string>  $capabilities
      */
-    protected function actAs(int $userId, int $tenantId = 1, array $capabilities = []): void
+    protected function actAs(int $userId, array $capabilities = []): void
     {
         if ($capabilities === []) {
             $capabilities = [
@@ -86,7 +84,6 @@ trait WorkflowTestHelpers
         }
 
         $this->principalResolver->setPrincipal(new WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: null,
             authVersion: 3,
@@ -97,9 +94,8 @@ trait WorkflowTestHelpers
 
         $this->bindIamBridge();
 
-        if (! $this->actorDirectory->has($tenantId, $userId)) {
+        if (! $this->actorDirectory->has($userId)) {
             $this->actorDirectory->add(new ActorSnapshot(
-                tenantId: $tenantId,
                 userId: $userId,
                 employmentId: null,
                 authVersion: 3,
@@ -124,7 +120,6 @@ trait WorkflowTestHelpers
         }
 
         $principal = new TestPrincipal(
-            tenantId: $resolved->tenantId,
             userId: $resolved->userId,
             employmentId: $resolved->employmentId,
             authVersion: $resolved->authVersion,
@@ -144,7 +139,7 @@ trait WorkflowTestHelpers
      */
     protected function createTemplate(array $overrides = [], ?array $definition = null): WorkflowTemplate
     {
-        return app(TemplateService::class)->create(1, 10, array_merge([
+        return app(TemplateService::class)->create(10, array_merge([
             'code' => 'generic.approval',
             'name' => 'Generic approval',
             'version' => 1,

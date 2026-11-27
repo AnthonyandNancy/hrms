@@ -17,7 +17,7 @@ use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Resolves the approved, effective parameter versions for a legal entity.
+ * Resolves the approved, effective parameter versions for the company.
  * There is deliberately no default statutory rate in this class.
  */
 final class TaxParameterResolver
@@ -29,12 +29,10 @@ final class TaxParameterResolver
      * Parameters effective on that business date are selected; an
      * unconfigured set fails closed rather than inventing rates.
      */
-    public function versionFor(int $tenantId, int $legalEntityId, string $parameterSet, string $on): string
+    public function versionFor(string $parameterSet, string $on): string
     {
         $date = substr($on, 0, 10);
         $row = StatutoryParameter::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('parameter_set', $parameterSet)
             ->where('effective_from', '<=', $date)
             ->where('effective_to', '>', $date)
@@ -43,7 +41,7 @@ final class TaxParameterResolver
             ->first();
 
         if ($row === null) {
-            throw new ConflictException("No approved {$parameterSet} parameters are effective for this legal entity.", [
+            throw new ConflictException("No approved {$parameterSet} parameters are effective for the company.", [
                 'reason' => 'STATUTORY_PARAMETERS_MISSING',
                 'parameter_set' => $parameterSet,
                 'on' => $date,
@@ -53,15 +51,13 @@ final class TaxParameterResolver
         return (string) $row->version;
     }
 
-    public function taxTable(int $tenantId, int $legalEntityId, string $on): TaxTable
+    public function taxTable(string $on): TaxTable
     {
         $date = substr($on, 0, 10);
-        $threshold = $this->parameter($tenantId, $legalEntityId, PayrollParameterSet::TAX, 'THRESHOLD_CENTS', $date);
+        $threshold = $this->parameter(PayrollParameterSet::TAX, 'THRESHOLD_CENTS', $date);
         $version = (string) $threshold->version;
 
         $setRows = StatutoryParameter::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('parameter_set', PayrollParameterSet::TAX->value)
             ->where('version', $version)
             ->where('effective_from', '<=', $date)
@@ -70,7 +66,6 @@ final class TaxParameterResolver
             ->get();
 
         $bracketRows = TaxBracket::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('parameter_set_id', $setRows->pluck('id')->all())
             ->orderBy('lower_bound_cents')
             ->get();
@@ -99,14 +94,14 @@ final class TaxParameterResolver
     /**
      * @return array{version: string, employee_rate: Percentage, employer_rate: Percentage, min_base_cents: int, max_base_cents: int}
      */
-    public function insuranceRule(int $tenantId, int $legalEntityId, string $set, string $on): array
+    public function insuranceRule(string $set, string $on): array
     {
         $date = substr($on, 0, 10);
         $parameterSet = PayrollParameterSet::from($set);
-        $min = $this->parameter($tenantId, $legalEntityId, $parameterSet, 'MIN_BASE_CENTS', $date);
-        $max = $this->parameter($tenantId, $legalEntityId, $parameterSet, 'MAX_BASE_CENTS', $date);
-        $employee = $this->parameter($tenantId, $legalEntityId, $parameterSet, 'EMPLOYEE_RATE', $date);
-        $employer = $this->parameter($tenantId, $legalEntityId, $parameterSet, 'EMPLOYER_RATE', $date);
+        $min = $this->parameter($parameterSet, 'MIN_BASE_CENTS', $date);
+        $max = $this->parameter($parameterSet, 'MAX_BASE_CENTS', $date);
+        $employee = $this->parameter($parameterSet, 'EMPLOYEE_RATE', $date);
+        $employer = $this->parameter($parameterSet, 'EMPLOYER_RATE', $date);
         $version = (string) $min->version;
 
         foreach ([$max, $employee, $employer] as $row) {
@@ -131,11 +126,9 @@ final class TaxParameterResolver
         ];
     }
 
-    private function parameter(int $tenantId, int $legalEntityId, PayrollParameterSet $set, string $code, string $date): StatutoryParameter
+    private function parameter(PayrollParameterSet $set, string $code, string $date): StatutoryParameter
     {
         $row = StatutoryParameter::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('parameter_set', $set->value)
             ->where('code', $code)
             ->where('effective_from', '<=', $date)
@@ -145,7 +138,7 @@ final class TaxParameterResolver
             ->first();
 
         if ($row === null) {
-            throw new ConflictException("No approved {$set->value} parameter {$code} is effective for this legal entity.", [
+            throw new ConflictException("No approved {$set->value} parameter {$code} is effective for the company.", [
                 'reason' => 'STATUTORY_PARAMETER_MISSING',
                 'parameter_set' => $set->value,
                 'code' => $code,
@@ -163,7 +156,7 @@ final class TaxParameterResolver
      * @param  array<string, mixed>  $data
      * @return list<StatutoryParameter>
      */
-    public function createVersion(int $tenantId, int $legalEntityId, array $data, int $approvedBy, bool $isDemo = false, ?string $evidenceRef = null): array
+    public function createVersion(array $data, int $approvedBy, bool $isDemo = false, ?string $evidenceRef = null): array
     {
         $set = PayrollParameterSet::from((string) $data['parameter_set']);
         $version = (string) $data['version'];
@@ -175,7 +168,7 @@ final class TaxParameterResolver
             throw new ValidationException(['evidence_ref' => ['Statutory parameter versions require approval evidence.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $legalEntityId, $set, $version, $from, $to, $data, $approvedBy, $isDemo, $evidence): array {
+        return DB::transaction(function () use ($set, $version, $from, $to, $data, $approvedBy, $isDemo, $evidence): array {
             $rows = [];
             $now = $this->clock->now();
 
@@ -187,8 +180,6 @@ final class TaxParameterResolver
                 }
 
                 $row = StatutoryParameter::query()->create([
-                    'tenant_id' => $tenantId,
-                    'legal_entity_id' => $legalEntityId,
                     'parameter_set' => $set->value,
                     'code' => $code,
                     'value_decimal' => is_string($value) ? $value : null,
@@ -216,7 +207,6 @@ final class TaxParameterResolver
                     // Keep relationships explicit: the THRESHOLD row carries
                     // the set version; brackets reference it.
                     TaxBracket::query()->create([
-                        'tenant_id' => $tenantId,
                         'parameter_set_id' => (int) $rows[0]->id,
                         'lower_bound_cents' => (int) $bracket['lower_bound_cents'],
                         'upper_bound_cents' => $bracket['upper_bound_cents'] !== null ? (int) $bracket['upper_bound_cents'] : null,

@@ -272,29 +272,25 @@ final class PerformanceCycleTest extends TalentTestCase
             ->assertForbidden();
     }
 
-    public function test_calibration_cannot_escape_tenant_scope_or_revise_published_reviews(): void
+    public function test_calibration_cannot_escape_company_scope_or_revise_published_reviews(): void
     {
         $cycle = $this->createPerformanceCycle();
         $review = $this->createReview($cycle, 1);
 
-        $otherTenantReview = PerformanceReview::query()->create([
-            'tenant_id' => 2,
-            'cycle_id' => $cycle->id,
-            'employment_id' => 2,
-            'status' => 'DRAFT',
-            'self_rating' => '2',
-            'recorded_at' => $this->clock->now(),
-        ]);
+        $publishedOther = $this->createPerformanceCycle('Synthetic out-of-scope cycle');
+        $publishedOther->forceFill(['status' => 'PUBLISHED'])->save();
+        $outOfScopeReview = $this->createReview($publishedOther, 2, selfRating: '2');
 
-        $this->postJson("/v1/performance/reviews/{$otherTenantReview->id}/calibration", [
+        $this->postJson("/v1/performance/reviews/{$outOfScopeReview->id}/calibration", [
             'calibrated_rating' => '5',
-            'reason' => 'Synthetic cross-tenant attempt.',
-        ], ['Idempotency-Key' => 'calibration-cross-tenant']
-        )->assertNotFound();
+            'reason' => 'Synthetic out-of-scope cycle attempt.',
+        ], ['Idempotency-Key' => 'calibration-out-of-scope-cycle']
+        )->assertStatus(409)
+            ->assertJsonPath('data.reason', 'CYCLE_PUBLISHED');
 
-        $this->assertSame('2', $otherTenantReview->refresh()->self_rating);
-        $this->assertNull($otherTenantReview->calibrated_rating);
-        $this->assertSame(0, PerformanceCalibration::query()->where('review_id', $otherTenantReview->id)->count());
+        $this->assertSame('2', $outOfScopeReview->refresh()->self_rating);
+        $this->assertNull($outOfScopeReview->calibrated_rating);
+        $this->assertSame(0, PerformanceCalibration::query()->where('review_id', $outOfScopeReview->id)->count());
 
         PerformanceCycle::query()->whereKey($cycle->id)->update(['status' => 'PUBLISHED']);
 

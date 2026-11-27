@@ -11,7 +11,6 @@ use Throwable;
 class DemoResetCommand extends Command
 {
     protected $signature = 'demo:reset
-        {--tenant=1 : Tenant id}
         {--force : Required non-interactive confirmation}';
 
     protected $description = 'Remove synthetic demo data (non-production only)';
@@ -31,7 +30,7 @@ class DemoResetCommand extends Command
         }
 
         try {
-            $deleted = $seeder->reset((int) $this->option('tenant'));
+            $deleted = $seeder->reset();
         } catch (Throwable $exception) {
             $this->error('PASS/FAIL: FAIL - '.$exception->getMessage());
 

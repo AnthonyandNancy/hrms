@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Platform\Contracts;
 
 /**
- * Read port for typed tenant parameters.
+ * Read port for typed company parameters.
  *
- * Scope semantics (ADR-0031 decision 4): parameters are layered, most specific
- * first. `get()` resolves the requested scope, then falls back through
- * `COMPANY` to `TENANT`, so an override never silently disappears.
+ * There is one company, so a parameter has exactly one effective value. The
+ * storage scope is retained as a versioned diagnostic field, not as a
+ * client-selectable data boundary.
  *
  * Storage shape: `value_json` must be a JSON object containing a `value` key,
  * for example `{"value": 200}`. Rows that do not follow that shape are treated
@@ -18,8 +18,5 @@ namespace App\Modules\Platform\Contracts;
  */
 interface ParameterReader
 {
-    /**
-     * @param  array{legal_entity_id?: int}  $context  Anchor for scope resolution.
-     */
-    public function get(int $tenantId, string $key, mixed $default = null, array $context = []): mixed;
+    public function get(string $key, mixed $default = null): mixed;
 }

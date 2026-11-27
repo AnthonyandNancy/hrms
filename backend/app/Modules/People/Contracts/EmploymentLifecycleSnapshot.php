@@ -8,9 +8,7 @@ final readonly class EmploymentLifecycleSnapshot
 {
     public function __construct(
         public int $id,
-        public int $tenantId,
         public int $personId,
-        public int $legalEntityId,
         public string $employeeNo,
         public string $employmentType,
         public string $status,

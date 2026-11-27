@@ -6,35 +6,36 @@
 ## 1. 汇总
 
 - 03A 截图菜单：**17** 个
-- 03A 页面：**140** 个
+- 03A 页面：**133** 个
+- ADR-0035 动作页（不计为页面）：**7** 个（创建/编辑/归档表单）
 - 03B 平台模块：**14** 个
 
 | 波次 | 页面数 | 范围 |
 |---|---:|---|
-| Wave 2 | 39 | 组织与人事：员工、部门、岗位、异动、合同 |
+| Wave 2 | 35 | 组织与人事：员工、部门、岗位、异动、合同 |
 | Wave 3 | 43 | 假勤与薪酬：考勤、请假、加班、出差、薪资 |
-| Wave 4 | 36 | 绩效、招聘、培训 |
-| Wave 5 | 22 | 概览、报表、公告，以及 03B 平台页面 |
+| Wave 4 | 35 | 绩效、招聘、培训 |
+| Wave 5 | 20 | 概览、报表、公告，以及 03B 平台页面 |
 
 | 菜单 | 页面数 | 主能力域 | 波次 |
 |---|---:|---|---|
 | 仪表盘 | 6 | `reporting.dashboard.read` | Wave 5 |
 | 报表中心 | 9 | `reporting.export` | Wave 5 |
-| 员工档案 | 11 | `people.employee.read` | Wave 2 |
-| 部门管理 | 6 | `org.unit.read` | Wave 2 |
-| 岗位管理 | 6 | `org.position.read` | Wave 2 |
+| 员工档案 | 10 | `people.employee.read` | Wave 2 |
+| 部门管理 | 5 | `org.unit.read` | Wave 2 |
+| 岗位管理 | 5 | `org.position.read` | Wave 2 |
 | 员工异动 | 9 | `lifecycle.case.read` | Wave 2 |
-| 劳动合同 | 7 | `people.contract.read` | Wave 2 |
+| 劳动合同 | 6 | `people.contract.read` | Wave 2 |
 | 考勤打卡 | 10 | `time.attendance.read` | Wave 3 |
 | 请假管理 | 8 | `time.leave.read` | Wave 3 |
 | 加班管理 | 6 | `time.overtime.read` | Wave 3 |
 | 出差管理 | 7 | `time.travel.read` | Wave 3 |
 | 薪资管理 | 12 | `payroll.run.read` | Wave 3 |
 | 绩效考核 | 10 | `performance.cycle.read` | Wave 4 |
-| 招聘需求 | 7 | `recruitment.requisition.read` | Wave 4 |
+| 招聘需求 | 6 | `recruitment.requisition.read` | Wave 4 |
 | 候选人 | 10 | `recruitment.candidate.read` | Wave 4 |
 | 培训管理 | 9 | `training.program.read` | Wave 4 |
-| 公告通知 | 7 | `engagement.notice.read` | Wave 5 |
+| 公告通知 | 5 | `engagement.notice.read` | Wave 5 |
 
 ## 2. 03A 页面清单
 
@@ -56,7 +57,6 @@
 | 14 | 报表中心 | 报表订阅 | `/reports/subscriptions` | `reporting.export` | Wave 5 |
 | 15 | 报表中心 | 导出任务 | `/reports/exports` | `reporting.export` | Wave 5 |
 | 16 | 员工档案 | 员工列表 | `/hr/employees` | `people.employee.read` | Wave 2 |
-| 17 | 员工档案 | 新增员工 | `/hr/employees/create` | `people.employee.read` | Wave 2 |
 | 18 | 员工档案 | 档案详情 | `/hr/employees/:id` | `people.employee.read` | Wave 2 |
 | 19 | 员工档案 | 教育经历 | `/hr/employees/:id/education` | `people.employee.read` | Wave 2 |
 | 20 | 员工档案 | 工作经历 | `/hr/employees/:id/work-history` | `people.employee.read` | Wave 2 |
@@ -68,12 +68,10 @@
 | 26 | 员工档案 | 导入校验结果 | `/hr/employees/imports` | `people.employee.read` | Wave 2 |
 | 27 | 部门管理 | 组织架构树 | `/hr/departments` | `org.unit.read` | Wave 2 |
 | 28 | 部门管理 | 部门列表 | `/hr/departments/list` | `org.unit.read` | Wave 2 |
-| 29 | 部门管理 | 新建/编辑部门 | `/hr/departments/editor` | `org.unit.read` | Wave 2 |
 | 30 | 部门管理 | 部门成员 | `/hr/departments/members` | `org.unit.read` | Wave 2 |
 | 31 | 部门管理 | 部门迁移 | `/hr/departments/move` | `org.unit.read` | Wave 2 |
 | 32 | 部门管理 | 部门编制 | `/hr/departments/staffing` | `org.unit.read` | Wave 2 |
 | 33 | 岗位管理 | 岗位目录 | `/hr/positions` | `org.position.read` | Wave 2 |
-| 34 | 岗位管理 | 岗位编辑 | `/hr/positions/editor` | `org.position.read` | Wave 2 |
 | 35 | 岗位管理 | 岗位编制 | `/hr/positions/headcount` | `org.position.read` | Wave 2 |
 | 36 | 岗位管理 | 岗位任职资格 | `/hr/positions/requirements` | `org.position.read` | Wave 2 |
 | 37 | 岗位管理 | 职级/职等 | `/hr/positions/grades` | `org.position.read` | Wave 2 |
@@ -88,7 +86,6 @@
 | 46 | 员工异动 | 异动审批详情 | `/hr/movements/:id` | `lifecycle.case.read` | Wave 2 |
 | 47 | 员工异动 | 异动日历 | `/hr/movements/calendar` | `lifecycle.case.read` | Wave 2 |
 | 48 | 劳动合同 | 合同台账 | `/hr/contracts` | `people.contract.read` | Wave 2 |
-| 49 | 劳动合同 | 合同录入/续签 | `/hr/contracts/editor` | `people.contract.read` | Wave 2 |
 | 50 | 劳动合同 | 合同详情 | `/hr/contracts/:id` | `people.contract.read` | Wave 2 |
 | 51 | 劳动合同 | 合同续签 | `/hr/contracts/renewals` | `people.contract.read` | Wave 2 |
 | 52 | 劳动合同 | 合同变更/终止 | `/hr/contracts/changes` | `people.contract.read` | Wave 2 |
@@ -148,7 +145,6 @@
 | 106 | 绩效考核 | 绩效申诉 | `/performance/appeals` | `performance.cycle.read` | Wave 4 |
 | 107 | 绩效考核 | 绩效报表 | `/performance/reports` | `performance.cycle.read` | Wave 4 |
 | 108 | 招聘需求 | 招聘需求列表 | `/recruitment/requests` | `recruitment.requisition.read` | Wave 4 |
-| 109 | 招聘需求 | 招聘需求新建 | `/recruitment/requests/create` | `recruitment.requisition.read` | Wave 4 |
 | 110 | 招聘需求 | 招聘需求审批 | `/recruitment/requests/approval` | `recruitment.requisition.read` | Wave 4 |
 | 111 | 招聘需求 | 招聘岗位发布 | `/recruitment/requests/openings` | `recruitment.requisition.read` | Wave 4 |
 | 112 | 招聘需求 | 招聘进度看板 | `/recruitment/requests/board` | `recruitment.requisition.read` | Wave 4 |
@@ -174,12 +170,10 @@
 | 132 | 培训管理 | 培训档案 | `/training/records` | `training.program.read` | Wave 4 |
 | 133 | 培训管理 | 培训报表 | `/training/reports` | `training.program.read` | Wave 4 |
 | 134 | 公告通知 | 公告列表 | `/notices` | `engagement.notice.read` | Wave 5 |
-| 135 | 公告通知 | 公告编辑 | `/notices/editor` | `engagement.notice.read` | Wave 5 |
 | 136 | 公告通知 | 公告审核 | `/notices/approval` | `engagement.notice.read` | Wave 5 |
 | 137 | 公告通知 | 公告发布范围 | `/notices/audience` | `engagement.notice.read` | Wave 5 |
 | 138 | 公告通知 | 公告阅读记录 | `/notices/reads` | `engagement.notice.read` | Wave 5 |
 | 139 | 公告通知 | 公告模板 | `/notices/templates` | `engagement.notice.read` | Wave 5 |
-| 140 | 公告通知 | 公告归档 | `/notices/archive` | `engagement.notice.read` | Wave 5 |
 
 ## 3. 03B 平台模块清单
 
@@ -203,6 +197,7 @@
 ## 4. 验收规则
 
 - 页面注册表必须与本清单一一对应；多一个或少一个都失败。
-- 03A 的 140 个页面是主验收范围；03B 的 14 个模块必须各有独立路由、权限、API、空/错/无权限态与真实 E2E。
+- 03A 的 133 个页面是主验收范围；另有 7 个创建/编辑/归档表单按 ADR-0035 作为工作区动作，不注册页面路由。
+- 03B 的 14 个模块必须各有独立路由、权限、API、空/错/无权限态与真实 E2E。
 - 主能力域是页面默认所需的最小能力；具体动作（create/update/approve/export）在角色分配中单独授予。
 - 页面可见性 = 页面授权 AND 动作能力；仅有菜单授权不能调用 API，仅有动作能力未授权页面也不会出现在菜单。

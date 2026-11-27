@@ -10,16 +10,19 @@ use App\Modules\IAM\Authorization\RolePageAssignmentCatalog;
 use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Shared\Authorization\CapabilityWildcard;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 final class PagePermissionCoverageTest extends TestCase
 {
     private const INVENTORY_PATH = __DIR__.'/../../../docs/audit/2026-11-25-v11-page-inventory.md';
 
-    public function test_the_catalog_contains_exactly_160_unique_page_resources(): void
+    private const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+    public function test_the_catalog_contains_exactly_153_unique_page_resources(): void
     {
         $pages = (new PermissionResourceCatalog)->pages();
 
-        $this->assertCount(160, $pages);
+        $this->assertCount(153, $pages);
 
         $paths = array_map(static fn (array $page): string => $page['path'], $pages);
         $codes = array_map(static fn (array $page): string => $page['page_code'], $pages);
@@ -28,7 +31,7 @@ final class PagePermissionCoverageTest extends TestCase
         $this->assertSame(count($codes), count(array_unique($codes)), 'Page codes must be unique.');
 
         $layers = array_count_values(array_map(static fn (array $page): string => $page['layer'], $pages));
-        $this->assertSame(140, $layers['business'] ?? 0);
+        $this->assertSame(133, $layers['business'] ?? 0);
         $this->assertSame(14, $layers['platform'] ?? 0);
         $this->assertSame(6, $layers['base'] ?? 0);
     }
@@ -78,7 +81,7 @@ final class PagePermissionCoverageTest extends TestCase
         }
     }
 
-    public function test_all_140_inventory_business_paths_are_present(): void
+    public function test_all_133_inventory_business_paths_are_present(): void
     {
         $inventory = file_get_contents(self::INVENTORY_PATH);
         $this->assertIsString($inventory);
@@ -86,7 +89,7 @@ final class PagePermissionCoverageTest extends TestCase
         preg_match_all('/^\|\s*\d+\s*\|[^|]*\|[^|]*\|\s*`(\/[^`]+)`\s*\|/m', $inventory, $matches);
         $inventoryPaths = array_values(array_unique($matches[1]));
 
-        $this->assertCount(140, $inventoryPaths);
+        $this->assertCount(133, $inventoryPaths);
 
         $catalogPaths = array_column((new PermissionResourceCatalog)->pages(), 'path');
 
@@ -123,7 +126,7 @@ final class PagePermissionCoverageTest extends TestCase
             $sorted = $rolePages;
             sort($sorted);
 
-            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 160 pages.");
+            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 153 pages.");
         }
 
         $employeePages = $assignments->pagesForRole('EMPLOYEE');
@@ -163,6 +166,126 @@ final class PagePermissionCoverageTest extends TestCase
                 );
             }
         }
+    }
+
+    public function test_every_page_action_exists_and_is_declared_by_the_catalog(): void
+    {
+        $catalog = new CapabilityCatalog;
+        $operations = $this->openApiOperations();
+        $pages = (new PermissionResourceCatalog)->pages();
+        $declared = [];
+
+        foreach ($pages as $page) {
+            $capability = $page['required_capability'];
+
+            if ($capability !== 'public') {
+                $declared[$capability] = true;
+            }
+
+            foreach ($page['required_apis'] as $operation) {
+                $operationCapability = $operations[$operation]['x-capability'] ?? null;
+
+                if (is_string($operationCapability) && $operationCapability !== '') {
+                    $declared[$operationCapability] = true;
+                }
+            }
+        }
+
+        $violations = [];
+
+        foreach ($pages as $page) {
+            foreach ($page['actions'] as $action) {
+                if (! $catalog->has($action)) {
+                    $violations[] = "{$page['page_code']} declares unknown capability {$action}";
+                }
+
+                if (! isset($declared[$action])) {
+                    $violations[] = "{$page['page_code']} declares action {$action} but no page or required API relationship declares that capability";
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode('
+', $violations));
+    }
+
+    public function test_every_required_api_operation_exists_in_openapi(): void
+    {
+        $operations = $this->openApiOperations();
+        $violations = [];
+
+        foreach ((new PermissionResourceCatalog)->pages() as $page) {
+            foreach ($page['required_apis'] as $operation) {
+                if (! array_key_exists($operation, $operations)) {
+                    $violations[] = "{$page['page_code']} requires missing OpenAPI operation {$operation}";
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function test_every_page_write_api_capability_is_declared_in_actions(): void
+    {
+        $operations = $this->openApiOperations();
+        $violations = [];
+
+        foreach ((new PermissionResourceCatalog)->pages() as $page) {
+            if ($page['required_capability'] === 'public') {
+                continue;
+            }
+
+            foreach ($page['required_apis'] as $operation) {
+                [$method] = explode(' ', $operation, 2);
+
+                if (! in_array($method, self::WRITE_METHODS, true)) {
+                    continue;
+                }
+
+                $openApiOperation = $operations[$operation] ?? null;
+                $capability = is_array($openApiOperation) ? ($openApiOperation['x-capability'] ?? null) : null;
+
+                if (! is_string($capability) || $capability === '') {
+                    $violations[] = "{$page['page_code']} write API {$operation} has no OpenAPI x-capability";
+
+                    continue;
+                }
+
+                if (! in_array($capability, $page['actions'], true)) {
+                    $violations[] = "{$page['page_code']} write API {$operation} uses {$capability}, which is absent from actions";
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function openApiOperations(): array
+    {
+        $path = realpath(__DIR__.'/../../../docs/openapi/openapi.yaml');
+        $this->assertNotFalse($path, 'OpenAPI spec is missing at docs/openapi/openapi.yaml');
+
+        $spec = Yaml::parseFile($path);
+        $operations = [];
+
+        foreach ($spec['paths'] ?? [] as $apiPath => $pathItem) {
+            if (! is_array($pathItem)) {
+                continue;
+            }
+
+            foreach ($pathItem as $method => $operation) {
+                if (! in_array(strtoupper((string) $method), ['GET', ...self::WRITE_METHODS], true) || ! is_array($operation)) {
+                    continue;
+                }
+
+                $operations[strtoupper((string) $method).' '.$apiPath] = $operation;
+            }
+        }
+
+        return $operations;
     }
 
     public function test_permission_catalog_is_deterministic_and_has_17_business_menu_groups(): void

@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property string $contract_no
  * @property string $status
@@ -30,7 +29,6 @@ final class EmploymentContract extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'contract_no',
         'contract_type',
@@ -43,7 +41,6 @@ final class EmploymentContract extends Model
         'previous_contract_id',
         'renewed_by_id',
         'template_id',
-        'legal_entity_id',
         'terms_summary',
         'recorded_at',
         'source_type',

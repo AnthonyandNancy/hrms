@@ -9,7 +9,7 @@ import {
   auditPageComponents,
   discoverPageComponentManifest,
   parseRegistryComponentKeys,
-} from '../../../scripts/audit_page_components.mjs'
+} from '../../../scripts/audit_page_components_lib.mjs'
 
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const repoRoot = resolve(frontendDir, '..')
@@ -260,7 +260,7 @@ describe('registry and module manifest discovery', () => {
 })
 
 describe('real repository page component gate', () => {
-  it('passes with 160 registry keys mapped to 154 module pages plus 6 base pages', () => {
+  it('passes with 155 registry keys mapped to 149 module pages plus 6 base pages', () => {
     const result = spawnSync(process.execPath, [script], {
       cwd: frontendDir,
       encoding: 'utf8',
@@ -285,12 +285,13 @@ ${result.stderr}`).toBe(0)
     }
 
     expect(report.ok).toBe(true)
-    expect(report.total).toBe(160)
-    expect(report.expected).toBe(160)
-    expect(report.mapped).toBe(154)
-    expect(report.moduleMapped).toBe(154)
+    // ADR-0035: seven form routes became workspace actions (162 -> 155).
+    expect(report.total).toBe(155)
+    expect(report.expected).toBe(155)
+    expect(report.mapped).toBe(149)
+    expect(report.moduleMapped).toBe(149)
     expect(report.baseMapped).toBe(6)
-    expect(report.mappedIncludingBase).toBe(160)
+    expect(report.mappedIncludingBase).toBe(155)
     expect(report.failures).toEqual([])
     expect(report.missingMappings).toEqual([])
     expect(report.missingFiles).toEqual([])

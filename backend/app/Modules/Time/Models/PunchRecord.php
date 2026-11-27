@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Model;
  * Corrections are separate Case-linked rows and attendance is recalculated.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $punched_at_utc
  * @property string $source
@@ -23,7 +22,6 @@ final class PunchRecord extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'device_id',
         'punched_at_utc',

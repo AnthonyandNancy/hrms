@@ -26,9 +26,9 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
         private readonly WorkflowCaseGateway $gateway,
     ) {}
 
-    public function ensureTemplate(int $tenantId): void
+    public function ensureTemplate(): void
     {
-        $this->gateway->ensureTemplate($tenantId, 'notice.approval', 'Notice approval', [
+        $this->gateway->ensureTemplate('notice.approval', 'Notice approval', [
             'nodes' => [
                 ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
                 ['key' => 'hr_review', 'name' => 'Notice review', 'type' => 'APPROVAL', 'sequence' => 2, 'assignee_rule' => ['type' => 'ROLE', 'role_code' => 'HR_ADMIN'], 'required_count' => 1, 'sla_hours' => 24],
@@ -46,7 +46,7 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
         array $recipientUserIds,
         string $businessDate,
     ): array {
-        $this->ensureTemplate($principal->tenantId);
+        $this->ensureTemplate();
 
         $case = $this->cases->open(
             principal: $principal,
@@ -81,7 +81,7 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
     ): array {
         // Validate ownership before recording evidence. A case for a different
         // notice must fail closed with the same not-found response as unknown.
-        $case = $this->cases->find($principal->tenantId, $caseId);
+        $case = $this->cases->find($caseId);
 
         if ($case === null
             || $case['subject_type'] !== 'notice'
@@ -90,7 +90,6 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
         }
 
         $decision = $this->decisions->decide(
-            tenantId: $principal->tenantId,
             userId: $principal->userId,
             caseId: $caseId,
             action: $action,
@@ -105,9 +104,9 @@ final class NoticeApprovalWorkflowAdapter implements NoticeApprovalPort
         ];
     }
 
-    public function find(int $tenantId, int $caseId): ?array
+    public function find(int $caseId): ?array
     {
-        $case = $this->cases->find($tenantId, $caseId);
+        $case = $this->cases->find($caseId);
 
         if ($case === null) {
             return null;

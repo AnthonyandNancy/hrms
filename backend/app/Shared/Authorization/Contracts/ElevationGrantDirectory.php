@@ -6,14 +6,14 @@ namespace App\Shared\Authorization\Contracts;
 
 /**
  * Break-glass elevation lookup. A grant is only trusted when active, bound to
- * the same tenant/user and not expired or revoked.
+ * the same user and not expired or revoked.
  */
 interface ElevationGrantDirectory
 {
     /**
      * Capability codes (or ['*']) granted by the active elevation.
      *
-     * @return list<string>|null
+     * @return list<string>
      */
-    public function activeCapabilities(int $tenantId, int $userId, int $grantId): ?array;
+    public function activeCapabilities(int $userId, int $grantId): array;
 }

@@ -110,7 +110,6 @@ final class EffectService
                 || ($scheduledFor !== null && $scheduledFor > $now->toDateString());
 
             $effect = Effect::query()->create([
-                'tenant_id' => $case->tenant_id,
                 'case_id' => $case->id,
                 'decision_id' => $decision->id,
                 'effect_type' => $type,
@@ -134,7 +133,6 @@ final class EffectService
             ]);
 
             CaseEvent::query()->create([
-                'tenant_id' => $case->tenant_id,
                 'case_id' => $case->id,
                 'event_type' => 'effect.created',
                 'actor_user_id' => null,
@@ -154,7 +152,7 @@ final class EffectService
             } elseif ($needsScheduling) {
                 // Future/SCHEDULED effects wait for the idempotent due runner.
             } else {
-                $this->executor->apply($case->tenant_id, $effect->id);
+                $this->executor->apply($effect->id);
             }
         }
 
@@ -219,7 +217,6 @@ final class EffectService
         // IDs and versions only. Never copy effect.payload_json or case payload
         // into an integration event.
         $this->outbox->record(
-            tenantId: $effect->tenant_id,
             eventType: $eventType,
             aggregateType: $effect->aggregate_type,
             aggregateId: $effect->aggregate_id,
@@ -239,7 +236,6 @@ final class EffectService
     {
         $statuses = Effect::query()
             ->where('case_id', $case->id)
-            ->where('tenant_id', $case->tenant_id)
             ->pluck('status')
             ->map(static fn (mixed $status): string => $status instanceof EffectStatus ? $status->value : (string) $status)
             ->all();

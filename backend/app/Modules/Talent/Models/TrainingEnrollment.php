@@ -12,7 +12,6 @@ final class TrainingEnrollment extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'session_id',
         'employment_id',
         'status',
@@ -29,7 +28,6 @@ final class TrainingEnrollment extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'session_id' => 'integer',
             'employment_id' => 'integer',
             'attended' => 'boolean',

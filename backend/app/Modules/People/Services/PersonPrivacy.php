@@ -61,7 +61,6 @@ final class PersonPrivacy
         $mobile = $person->getAttribute('mobile_ciphertext');
         $row = [
             'id' => (int) $person->id,
-            'tenant_id' => (int) $person->tenant_id,
             'legal_name' => (string) $person->legal_name,
             'preferred_name' => $person->preferred_name !== null ? (string) $person->preferred_name : null,
             'birth_date' => $person->getAttribute('birth_date') instanceof \DateTimeInterface

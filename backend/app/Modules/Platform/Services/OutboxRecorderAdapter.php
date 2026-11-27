@@ -14,7 +14,6 @@ final class OutboxRecorderAdapter implements OutboxRecorder
     public function __construct(private readonly OutboxService $outbox) {}
 
     public function record(
-        int $tenantId,
         string $eventType,
         string $aggregateType,
         string $aggregateId,
@@ -22,7 +21,6 @@ final class OutboxRecorderAdapter implements OutboxRecorder
         array $payload,
     ): void {
         $this->outbox->record(
-            tenantId: $tenantId,
             eventType: $eventType,
             aggregateType: $aggregateType,
             aggregateId: $aggregateId,

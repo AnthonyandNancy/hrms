@@ -23,7 +23,6 @@ final class EloquentPrincipalAuthorityReader implements PrincipalAuthorityReader
     public function grants(Principal $principal, string $businessDate): array
     {
         $query = AuthorityBinding::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('principal_id', $principal->userId())
             ->where('auth_version', $principal->authVersion());
 

@@ -11,7 +11,7 @@ final class TalentPoolTag extends Model
     protected $table = 'talent_pool_tags';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'candidate_id', 'tag', 'reason', 'retention_until', 'status', 'recorded_at'];
+    protected $fillable = ['candidate_id', 'tag', 'reason', 'retention_until', 'status', 'recorded_at'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class TalentPoolTag extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

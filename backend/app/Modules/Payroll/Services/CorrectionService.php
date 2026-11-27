@@ -26,15 +26,14 @@ final class CorrectionService
      * calculation is delta-only against the original plus all prior published
      * corrections. YTD is applied when this correction is published.
      */
-    public function create(int $tenantId, int $originalRunId, int $actorUserId, string $period, string $reason): PayrollRun
+    public function create(int $originalRunId, int $actorUserId, string $period, string $reason): PayrollRun
     {
         if (mb_strlen(trim($reason)) < 10) {
             throw new ValidationException(['reason' => ['A correction reason of at least 10 characters is required.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $originalRunId, $actorUserId, $period, $reason): PayrollRun {
+        return DB::transaction(function () use ($originalRunId, $actorUserId, $period, $reason): PayrollRun {
             $original = PayrollRun::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($originalRunId)
                 ->lockForUpdate()
                 ->first();
@@ -57,7 +56,6 @@ final class CorrectionService
             $correctionPeriod = $this->periodDetails($period);
 
             $existing = PayrollRun::query()
-                ->where('tenant_id', $tenantId)
                 ->where('correction_of_run_id', $originalRunId)
                 ->where('period', $period)
                 ->where('run_type', PayrollRunType::CORRECTION->value)
@@ -68,8 +66,6 @@ final class CorrectionService
             }
 
             $run = PayrollRun::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $original->legal_entity_id,
                 'scheme_id' => $original->scheme_id,
                 'period' => $period,
                 'earning_period_start' => $original->earning_period_start,
@@ -86,7 +82,6 @@ final class CorrectionService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.correction.created',
                 aggregateType: 'payroll_run',

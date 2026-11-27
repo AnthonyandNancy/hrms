@@ -11,7 +11,7 @@ namespace App\Modules\Organization\Contracts;
 interface DemoOrganizationSeeder
 {
     /**
-     * @return array{legal_entity_id: int, org_unit_ids: array<string, int>}
+     * @return array{org_unit_ids: array<string, int>}
      */
     public function seedDemo(): array;
 }

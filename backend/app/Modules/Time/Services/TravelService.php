@@ -42,9 +42,8 @@ final class TravelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function publishPolicy(int $tenantId, array $input, int $actorUserId): array
+    public function publishPolicy(array $input, int $actorUserId): array
     {
-        $legalEntityId = (int) $input['legal_entity_id'];
         $cityTier = strtoupper((string) $input['city_tier']);
         $effectiveFrom = (string) $input['effective_from'];
         $hotelCap = (int) $input['hotel_cap_cents'];
@@ -54,10 +53,8 @@ final class TravelService
             throw new ValidationException(['hotel_cap_cents' => ['Travel caps must be non-negative integer cents.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $legalEntityId, $cityTier, $effectiveFrom, $hotelCap, $transportCap, $actorUserId): array {
+        return DB::transaction(function () use ($cityTier, $effectiveFrom, $hotelCap, $transportCap, $actorUserId): array {
             $latest = TravelPolicy::query()
-                ->where('tenant_id', $tenantId)
-                ->where('legal_entity_id', $legalEntityId)
                 ->where('city_tier', $cityTier)
                 ->orderByDesc('version')
                 ->lockForUpdate()
@@ -76,8 +73,6 @@ final class TravelService
 
             /** @var TravelPolicy $policy */
             $policy = TravelPolicy::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $legalEntityId,
                 'city_tier' => $cityTier,
                 'hotel_cap_cents' => $hotelCap,
                 'transport_cap_cents' => $transportCap,
@@ -89,13 +84,11 @@ final class TravelService
             ]);
 
             $this->audit->record(
-                $tenantId,
                 $actorUserId,
                 'time.travel.policy.published',
                 'travel_policy',
                 (int) $policy->id,
                 after: [
-                    'legal_entity_id' => $legalEntityId,
                     'city_tier' => $cityTier,
                     'version' => (int) $policy->version,
                     'effective_from' => $effectiveFrom,
@@ -107,16 +100,12 @@ final class TravelService
     }
 
     public function policyProjection(
-        int $tenantId,
-        int $legalEntityId,
         ?string $cityTier,
         ?string $asOf,
         int $page,
         int $pageSize,
     ): ProjectionResult {
-        $query = TravelPolicy::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId);
+        $query = TravelPolicy::query();
 
         if ($cityTier !== null && $cityTier !== '') {
             $query->where('city_tier', strtoupper($cityTier));
@@ -147,7 +136,7 @@ final class TravelService
             partialReason: null,
             drilldown: [
                 'resource' => 'travel_policies',
-                'filters' => ['legal_entity_id' => $legalEntityId, 'city_tier' => $cityTier],
+                'filters' => ['city_tier' => $cityTier],
             ],
         );
     }
@@ -156,13 +145,12 @@ final class TravelService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function openRequest(int $tenantId, int $employmentId, array $input, int $actorUserId): array
+    public function openRequest(int $employmentId, array $input, int $actorUserId): array
     {
         $fromDate = (string) $input['from_date'];
         $toDate = (string) $input['to_date'];
 
         $overlap = BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
             ->where('from_date', '<=', $toDate)
@@ -173,9 +161,8 @@ final class TravelService
             throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $fromDate, $toDate, $input, $actorUserId): array {
+        return DB::transaction(function () use ($employmentId, $fromDate, $toDate, $input, $actorUserId): array {
             $caseId = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $actorUserId,
                 type: 'TRAVEL_REQUEST',
                 subjectType: 'employment',
@@ -193,7 +180,6 @@ final class TravelService
 
             /** @var BusinessTripRecord $record */
             $record = BusinessTripRecord::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
@@ -204,13 +190,13 @@ final class TravelService
                 'created_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'time.travel.requested', 'business_trip', (int) $record->id, after: [
+            $this->audit->record($actorUserId, 'time.travel.requested', 'business_trip', (int) $record->id, after: [
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
                 'case_id' => $caseId,
             ]);
 
-            return $this->requestPayload($record, $this->workflow->case($tenantId, $caseId));
+            return $this->requestPayload($record, $this->workflow->case($caseId));
         });
     }
 
@@ -219,7 +205,6 @@ final class TravelService
      * @return array<string, mixed>
      */
     public function approve(
-        int $tenantId,
         int $travelId,
         string $decision,
         string $comment,
@@ -233,9 +218,8 @@ final class TravelService
             throw new ValidationException(['decision' => ['The decision must be APPROVE or REJECT.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $travelId, $action, $comment, $actorUserId, $managedEmploymentIds, $legalEntityWide): array {
+        return DB::transaction(function () use ($travelId, $action, $comment, $actorUserId, $managedEmploymentIds, $legalEntityWide): array {
             $trip = BusinessTripRecord::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($travelId)
                 ->lockForUpdate()
                 ->first();
@@ -245,7 +229,6 @@ final class TravelService
             }
 
             $employment = $this->employments->snapshot(
-                $tenantId,
                 (int) $trip->employment_id,
                 $trip->from_date->format('Y-m-d'),
             );
@@ -272,7 +255,7 @@ final class TravelService
                 ]);
             }
 
-            $case = $this->workflow->case($tenantId, (int) $trip->case_id);
+            $case = $this->workflow->case((int) $trip->case_id);
 
             if ($case === null) {
                 throw new ConflictException('The travel approval case was not found.', [
@@ -289,13 +272,12 @@ final class TravelService
             }
 
             $this->workflow->decide(
-                $tenantId,
                 (int) $trip->case_id,
                 $action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
                 $comment,
             );
 
-            $decided = $this->workflow->case($tenantId, (int) $trip->case_id);
+            $decided = $this->workflow->case((int) $trip->case_id);
 
             if ($decided === null || ! in_array($decided->status, ['APPROVED', 'REJECTED'], true)) {
                 throw new ConflictException('The workflow decision was not recorded.', [
@@ -306,7 +288,6 @@ final class TravelService
             $trip->forceFill(['status' => $action === 'APPROVE' ? 'APPROVED' : 'REJECTED'])->save();
 
             $this->audit->record(
-                $tenantId,
                 $actorUserId,
                 'time.travel.decided',
                 'business_trip',
@@ -326,15 +307,13 @@ final class TravelService
     /**
      * @param  array<string, mixed>  $input
      * @param  list<int>  $employmentIds
-     * @param  list<int>  $legalEntityIds
      * @return array<string, mixed>
      */
     public function recordExpense(
-        int $tenantId,
         array $input,
         int $actorUserId,
         array $employmentIds = [],
-        array $legalEntityIds = [],
+        bool $companyWide = false,
     ): array {
         $travelId = (int) $input['travel_id'];
         $amountCents = $input['amount_cents'];
@@ -348,9 +327,8 @@ final class TravelService
             throw new ValidationException(['category' => ['The expense category is not supported.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $travelId, $amountCents, $category, $input, $actorUserId, $employmentIds, $legalEntityIds): array {
+        return DB::transaction(function () use ($travelId, $amountCents, $category, $input, $actorUserId, $employmentIds, $companyWide): array {
             $trip = BusinessTripRecord::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($travelId)
                 ->lockForUpdate()
                 ->first();
@@ -373,7 +351,7 @@ final class TravelService
                 ]);
             }
 
-            $case = $this->workflow->case($tenantId, (int) $trip->case_id);
+            $case = $this->workflow->case((int) $trip->case_id);
 
             if ($case === null || ! $case->isApproved()) {
                 throw new ConflictException('Travel expenses require an approved workflow case.', [
@@ -383,23 +361,20 @@ final class TravelService
                 ]);
             }
 
-            $employment = $this->employments->snapshot($tenantId, (int) $trip->employment_id, $trip->from_date->format('Y-m-d'));
+            $employment = $this->employments->snapshot((int) $trip->employment_id, $trip->from_date->format('Y-m-d'));
 
             if ($employment === null) {
                 throw new NotFoundOrForbiddenException;
             }
 
-            $employmentScoped = in_array((int) $trip->employment_id, $employmentIds, true);
-            $entityScoped = in_array($employment->legalEntityId, $legalEntityIds, true);
+            $employmentScoped = $companyWide || in_array((int) $trip->employment_id, $employmentIds, true);
 
-            if (! $employmentScoped && ! $entityScoped) {
+            if (! $employmentScoped) {
                 throw new NotFoundOrForbiddenException;
             }
 
             /** @var TravelExpense $expense */
             $expense = TravelExpense::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $employment->legalEntityId,
                 'employment_id' => (int) $trip->employment_id,
                 'travel_id' => $travelId,
                 'category' => $category,
@@ -411,7 +386,7 @@ final class TravelService
                 'created_at' => $this->clock->now(),
             ]);
 
-            $this->audit->record($tenantId, $actorUserId, 'time.travel.expense.claimed', 'travel_expense', (int) $expense->id, after: [
+            $this->audit->record($actorUserId, 'time.travel.expense.claimed', 'travel_expense', (int) $expense->id, after: [
                 'travel_id' => $travelId,
                 'category' => $category,
                 'amount_cents' => $amountCents,
@@ -419,11 +394,10 @@ final class TravelService
             ]);
 
             $this->sensitiveAuditor->record(
-                tenantId: $tenantId,
                 userId: $actorUserId,
+                capabilityCode: 'time.travel.expense.manage',
                 resourceType: 'travel_expense',
-                resourceId: (string) $expense->id,
-                capability: 'time.travel.expense.manage',
+                resourceId: (int) $expense->id,
                 fields: ['amount_cents'],
                 context: ['profile' => 'P2_SENSITIVE', 'access' => 'WRITE'],
             );
@@ -433,25 +407,20 @@ final class TravelService
     }
 
     /**
-     * @param  list<int>  $employmentIds
-     * @param  list<int>  $legalEntityIds
+     * @param  list<int>|null  $employmentIds  null means company-wide
      */
     public function expenseProjection(
-        int $tenantId,
-        array $employmentIds,
-        array $legalEntityIds,
+        ?array $employmentIds,
         ?int $travelId,
         int $page,
         int $pageSize,
     ): ProjectionResult {
-        $query = TravelExpense::query()->where('tenant_id', $tenantId);
+        $query = TravelExpense::query();
 
-        if ($employmentIds !== []) {
-            $query->whereIn('employment_id', $employmentIds);
-        } elseif ($legalEntityIds !== []) {
-            $query->whereIn('legal_entity_id', $legalEntityIds);
-        } else {
+        if ($employmentIds === []) {
             $query->whereRaw('1 = 0');
+        } elseif ($employmentIds !== null) {
+            $query->whereIn('employment_id', $employmentIds);
         }
 
         if ($travelId !== null) {
@@ -488,10 +457,9 @@ final class TravelService
      * @param  list<int>  $managedEmploymentIds
      * @return list<array<string, mixed>>
      */
-    public function listRequests(int $tenantId, int $employmentId, array $managedEmploymentIds = [], bool $approvalQueue = false): array
+    public function listRequests(int $employmentId, array $managedEmploymentIds = [], bool $approvalQueue = false): array
     {
-        $query = BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId);
+        $query = BusinessTripRecord::query();
 
         if ($approvalQueue) {
             $query->whereIn('employment_id', $managedEmploymentIds)
@@ -506,7 +474,7 @@ final class TravelService
             ->get()
             ->map(fn (BusinessTripRecord $record): array => $this->requestPayload(
                 $record,
-                $record->case_id !== null ? $this->workflow->case($tenantId, (int) $record->case_id) : null,
+                $record->case_id !== null ? $this->workflow->case((int) $record->case_id) : null,
             ))
             ->all();
     }
@@ -514,10 +482,9 @@ final class TravelService
     /**
      * @return array<string, mixed>
      */
-    public function cancel(int $tenantId, int $employmentId, int $id, string $reason, int $actorUserId): array
+    public function cancel(int $employmentId, int $id, string $reason, int $actorUserId): array
     {
         $record = BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereKey($id)
             ->first();
@@ -539,13 +506,13 @@ final class TravelService
             'cancelled_at' => $this->clock->now(),
         ])->save();
 
-        $this->audit->record($tenantId, $actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
+        $this->audit->record($actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
             'reason' => $reason,
         ]);
 
         return $this->requestPayload(
             $record,
-            $record->case_id !== null ? $this->workflow->case($tenantId, (int) $record->case_id) : null,
+            $record->case_id !== null ? $this->workflow->case((int) $record->case_id) : null,
         );
     }
 
@@ -575,7 +542,6 @@ final class TravelService
     {
         return [
             'id' => (int) $policy->id,
-            'legal_entity_id' => (int) $policy->legal_entity_id,
             'city_tier' => (string) $policy->city_tier,
             'hotel_cap_cents' => (int) $policy->hotel_cap_cents,
             'transport_cap_cents' => (int) $policy->transport_cap_cents,
@@ -594,7 +560,6 @@ final class TravelService
             'id' => (int) $expense->id,
             'travel_id' => (int) $expense->travel_id,
             'employment_id' => (int) $expense->employment_id,
-            'legal_entity_id' => (int) $expense->legal_entity_id,
             'category' => (string) $expense->category,
             'amount_cents' => (int) $expense->amount_cents,
             'currency' => 'CNY',

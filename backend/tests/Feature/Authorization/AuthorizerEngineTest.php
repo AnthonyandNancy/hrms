@@ -30,7 +30,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_self_anchor_allows_only_the_callers_employments(): void
     {
         $user = User::factory()->create();
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::SELF, null)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $user->id)->anchor(AnchorType::SELF, null)->create([
             'capability_code' => 'people.employee.read',
         ]);
         $this->people->employmentByUser[(int) $user->id] = [501];
@@ -47,7 +47,7 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_managed_anchor_follows_manager_directory(): void
     {
         $manager = User::factory()->create();
-        AuthorityBinding::factory()->forPrincipal(1, (int) $manager->id)->anchor(AnchorType::MANAGED, null)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $manager->id)->anchor(AnchorType::MANAGED, null)->create([
             'capability_code' => 'time.attendance.read',
         ]);
         $this->people->managedByUser[(int) $manager->id] = [11, 12];
@@ -61,12 +61,11 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_expired_and_future_bindings_do_not_grant(): void
     {
         $user = User::factory()->create();
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'org.tree.read',
             'valid_from' => '2025-01-01 00:00:00',
             'valid_to' => '2026-01-01 00:00:00',
         ]);
-        $this->organization->knownLegalEntities = [1];
 
         $this->assertFalse(app(CapabilityAuthorizer::class)->allows(
             $this->actingAsUser($user),
@@ -76,27 +75,25 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
         ));
     }
 
-    public function test_tenant_mismatch_never_grants(): void
+    public function test_department_anchor_does_not_widen_to_company_scope(): void
     {
-        $user = User::factory()->create(['tenant_id' => 2]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::COMPANY, null)->create([
+        $user = User::factory()->create();
+        AuthorityBinding::factory()->forPrincipal((int) $user->id)->anchor(AnchorType::ORG_UNIT, 30)->create([
             'capability_code' => 'org.tree.read',
         ]);
-        $this->organization->knownLegalEntities = [1];
+        $this->organization->knownUnits[30] = true;
 
-        $this->assertFalse(app(CapabilityAuthorizer::class)->allows(
-            $this->actingAsUser($user),
-            'org.tree.read',
-            AnchorRef::company(),
-            '2026-11-23',
-        ));
+        $principal = $this->actingAsUser($user);
+
+        $this->assertTrue(app(CapabilityAuthorizer::class)->allows($principal, 'org.tree.read', AnchorRef::orgUnit(30), '2026-11-23'));
+        $this->assertFalse(app(CapabilityAuthorizer::class)->allows($principal, 'org.tree.read', AnchorRef::company(), '2026-11-23'));
     }
 
     public function test_sod_conflict_hard_denies_both_capabilities(): void
     {
         $user = User::factory()->create();
         foreach (['payroll.run.prepare', 'payroll.run.approve'] as $code) {
-            AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::PAYROLL_RUN, 9)->create([
+            AuthorityBinding::factory()->forPrincipal((int) $user->id)->anchor(AnchorType::PAYROLL_RUN, 9)->create([
                 'capability_code' => $code,
                 'field_profile' => FieldProfile::P2_SENSITIVE->value,
             ]);
@@ -113,12 +110,11 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     public function test_stale_auth_version_is_not_granted(): void
     {
         $user = User::factory()->create(['auth_version' => 4]);
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id, 3)->anchor(AnchorType::COMPANY, null)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $user->id, 3)->anchor(AnchorType::COMPANY, null)->create([
             'capability_code' => 'org.tree.read',
         ]);
-        $this->organization->knownLegalEntities = [1];
 
-        $principal = new \App\Modules\IAM\Auth\AuthenticatedPrincipal((int) $user->id, 1, null, 3, false, false);
+        $principal = new \App\Modules\IAM\Auth\AuthenticatedPrincipal((int) $user->id, null, 3, false, false);
 
         $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
 
@@ -129,19 +125,18 @@ class AuthorizerEngineTest extends AuthorizationTestSupport
     {
         Schema::create('scope_rows', function ($table): void {
             $table->id();
-            $table->unsignedBigInteger('tenant_id');
             $table->unsignedBigInteger('employment_id')->nullable();
             $table->unsignedBigInteger('org_unit_id')->nullable();
         });
 
         DB::table('scope_rows')->insert([
-            ['tenant_id' => 1, 'employment_id' => 501, 'org_unit_id' => 3],
-            ['tenant_id' => 1, 'employment_id' => 502, 'org_unit_id' => 3],
-            ['tenant_id' => 2, 'employment_id' => 503, 'org_unit_id' => 3],
+            ['employment_id' => 501, 'org_unit_id' => 3],
+            ['employment_id' => 502, 'org_unit_id' => 3],
+            ['employment_id' => 503, 'org_unit_id' => 4],
         ]);
 
         $user = User::factory()->create();
-        AuthorityBinding::factory()->forPrincipal(1, (int) $user->id)->anchor(AnchorType::SELF, null)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $user->id)->anchor(AnchorType::SELF, null)->create([
             'capability_code' => 'time.attendance.read',
         ]);
         $this->people->employmentByUser[(int) $user->id] = [501];

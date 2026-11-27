@@ -9,5 +9,5 @@ interface LeaveBalanceReader
     /**
      * @return list<array<string, mixed>>
      */
-    public function outstanding(int $tenantId, int $employmentId, string $asOf): array;
+    public function outstanding(int $employmentId, string $asOf): array;
 }

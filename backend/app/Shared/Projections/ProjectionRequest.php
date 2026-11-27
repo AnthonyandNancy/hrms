@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Shared\Projections;
 
 /**
- * Input contract for one projection read. `tenantId` always comes from the
- * resolved principal, never from the query string.
+ * Input contract for one projection read. Filters are explicit; the company
+ * scope is implicit because the instance serves exactly one company.
  */
 final class ProjectionRequest
 {
@@ -14,7 +14,6 @@ final class ProjectionRequest
      * @param  array<string, mixed>  $filters
      */
     public function __construct(
-        public readonly int $tenantId,
         public readonly string $asOf,
         public readonly int $page,
         public readonly int $pageSize,

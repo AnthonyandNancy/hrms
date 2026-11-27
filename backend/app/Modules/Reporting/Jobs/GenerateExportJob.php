@@ -17,12 +17,11 @@ final class GenerateExportJob implements ShouldQueue
     public int $timeout = 120;
 
     public function __construct(
-        public readonly int $tenantId,
         public readonly int $exportJobId,
     ) {}
 
     public function handle(ExportJobRunner $runner): void
     {
-        $runner->run($this->tenantId, $this->exportJobId);
+        $runner->run($this->exportJobId);
     }
 }

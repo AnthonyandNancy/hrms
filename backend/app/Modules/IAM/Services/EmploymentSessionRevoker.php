@@ -17,23 +17,22 @@ final class EmploymentSessionRevoker implements SessionRevoker
         private readonly EmploymentLifecycleDirectory $employments,
     ) {}
 
-    public function revokeForEmployment(int $tenantId, int $employmentId, string $reason): ?array
+    public function revokeForEmployment(int $employmentId, string $reason): ?array
     {
-        $userIds = $this->employments->linkedUserIds($tenantId, $employmentId, $this->clock->now()->toDateString());
+        $userIds = $this->employments->linkedUserIds($employmentId, $this->clock->now()->toDateString());
 
         $last = null;
 
         foreach ($userIds as $userId) {
-            $last = $this->revokeForUser($tenantId, $userId, $reason);
+            $last = $this->revokeForUser($userId, $reason);
         }
 
         return $last;
     }
 
-    public function revokeForUser(int $tenantId, int $userId, string $reason): ?array
+    public function revokeForUser(int $userId, string $reason): ?array
     {
         $user = User::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($userId)
             ->lockForUpdate()
             ->first();
@@ -44,7 +43,6 @@ final class EmploymentSessionRevoker implements SessionRevoker
 
         $now = $this->clock->now();
         $revoked = (int) Session::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->whereNull('revoked_at')
             ->update(['revoked_at' => $now]);

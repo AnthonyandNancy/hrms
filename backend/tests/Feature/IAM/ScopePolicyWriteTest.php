@@ -22,7 +22,6 @@ final class ScopePolicyWriteTest extends PeopleTestCase
             ->assertJsonFragment(['template' => 'ORG_SUBTREE', 'anchor_type' => 'ORG_SUBTREE']);
 
         $this->assertDatabaseHas('iam_data_scope_policies', [
-            'tenant_id' => 1,
             'template_code' => 'ORG_SUBTREE',
             'anchor_type' => 'ORG_SUBTREE',
         ]);

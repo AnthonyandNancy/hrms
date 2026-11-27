@@ -17,7 +17,7 @@ final class MarkPaidEvidenceTest extends PayrollTestCase
         $run = $this->publishedRun();
 
         $this->expectException(ValidationException::class);
-        app(ApprovalService::class)->markPaid($this->tenantId, (int) $run->id, 13);
+        app(ApprovalService::class)->markPaid((int) $run->id, 13);
     }
 
     public function test_mark_paid_accepts_manual_confirmation_reason(): void
@@ -25,7 +25,6 @@ final class MarkPaidEvidenceTest extends PayrollTestCase
         $run = $this->publishedRun();
 
         $paid = app(ApprovalService::class)->markPaid(
-            $this->tenantId,
             (int) $run->id,
             13,
             '',
@@ -43,13 +42,13 @@ final class MarkPaidEvidenceTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
         $approval = app(ApprovalService::class);
-        $approval->review($this->tenantId, (int) $run->id, 11);
-        $approval->approve($this->tenantId, (int) $run->id, 12);
+        $approval->review((int) $run->id, 11);
+        $approval->approve((int) $run->id, 12);
 
-        return $approval->publish($this->tenantId, (int) $run->id, 13);
+        return $approval->publish((int) $run->id, 13);
     }
 }

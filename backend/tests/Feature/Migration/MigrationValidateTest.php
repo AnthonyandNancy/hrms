@@ -26,7 +26,6 @@ class MigrationValidateTest extends TestCase
         foreach (MigrationDomain::cases() as $domain) {
             $run = $runner->validate(
                 domain: $domain,
-                tenantId: 1,
                 file: $this->fixture('known-good', $domain->value.'.csv'),
                 mappingPaths: [$this->mappingFile()],
             );
@@ -64,7 +63,6 @@ class MigrationValidateTest extends TestCase
             $domain = MigrationDomain::from($domainValue);
             $run = $runner->apply(
                 domain: $domain,
-                tenantId: 1,
                 file: $this->fixture('broken', $domain->value.'.csv'),
                 mappingPaths: [$this->mappingFile()],
                 mode: MigrationRunMode::APPLY,
@@ -95,7 +93,6 @@ class MigrationValidateTest extends TestCase
         try {
             $run = app(MigrationRunner::class)->validate(
                 MigrationDomain::ORGANIZATIONS,
-                1,
                 $file,
             );
 

@@ -21,13 +21,12 @@ final class FeatureFlagController
 {
     public function index(FeatureFlagService $flags): JsonResponse
     {
-        $tenantId = RequestContext::tenantId();
         $items = [];
 
         foreach ($flags->flags() as $flag) {
             $items[] = [
                 'flag' => $flag,
-                'enabled' => $flags->enabled($flag, $tenantId),
+                'enabled' => $flags->enabled($flag),
                 'risky' => in_array($flag, ['payroll_enabled', 'time_enabled', 'export_enabled'], true),
             ];
         }
@@ -48,7 +47,6 @@ final class FeatureFlagController
 
         $flags->set(
             $flag,
-            RequestContext::tenantId(),
             (bool) $validated['enabled'],
             RequestContext::userId(),
             (string) $validated['reason'],
@@ -56,7 +54,7 @@ final class FeatureFlagController
 
         return ApiResponse::ok([
             'flag' => $flag,
-            'enabled' => $flags->enabled($flag, RequestContext::tenantId()),
+            'enabled' => $flags->enabled($flag),
         ]);
     }
 }

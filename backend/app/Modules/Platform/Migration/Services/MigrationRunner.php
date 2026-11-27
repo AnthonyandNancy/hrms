@@ -75,11 +75,10 @@ final class MigrationRunner
      */
     public function validate(
         MigrationDomain $domain,
-        int $tenantId,
         string $file,
         array $mappingPaths = [],
     ): MigrationRun {
-        return $this->run($domain, $tenantId, $file, $mappingPaths, MigrationRunMode::VALIDATE);
+        return $this->run($domain, $file, $mappingPaths, MigrationRunMode::VALIDATE);
     }
 
     /**
@@ -87,17 +86,16 @@ final class MigrationRunner
      */
     public function apply(
         MigrationDomain $domain,
-        int $tenantId,
         string $file,
         array $mappingPaths = [],
         MigrationRunMode $mode = MigrationRunMode::APPLY,
         bool $allowShadow = false,
     ): MigrationRun {
         if ($mode === MigrationRunMode::DRY_RUN || $mode === MigrationRunMode::VALIDATE) {
-            return $this->run($domain, $tenantId, $file, $mappingPaths, MigrationRunMode::DRY_RUN);
+            return $this->run($domain, $file, $mappingPaths, MigrationRunMode::DRY_RUN);
         }
 
-        return $this->run($domain, $tenantId, $file, $mappingPaths, MigrationRunMode::APPLY, $allowShadow);
+        return $this->run($domain, $file, $mappingPaths, MigrationRunMode::APPLY, $allowShadow);
     }
 
     /**
@@ -105,7 +103,6 @@ final class MigrationRunner
      */
     private function run(
         MigrationDomain $domain,
-        int $tenantId,
         string $file,
         array $mappingPaths,
         MigrationRunMode $mode,
@@ -117,7 +114,6 @@ final class MigrationRunner
         $mappingSet = $mappingResult['set'];
 
         $run = MigrationRun::query()->create([
-            'tenant_id' => $tenantId,
             'domain' => $domain->value,
             'source_file' => $file,
             'source_file_hash' => $document->fileHash,
@@ -135,12 +131,12 @@ final class MigrationRunner
 
                 if ($target instanceof \App\Modules\Platform\Migration\Contracts\DatabaseMigrationTargetPort
                     || $target instanceof ShadowMigrationTarget) {
-                    $this->assertDependenciesApplied($domain, $tenantId);
+                    $this->assertDependenciesApplied($domain);
                 }
             }
 
             $references = $this->references->build($domain, dirname($file), $mappingSet);
-            $validation = $this->validateDocument($domain, $document, $references, $mappingSet, $tenantId, $run, $mappingResult['issues']);
+            $validation = $this->validateDocument($domain, $document, $references, $mappingSet, $run, $mappingResult['issues']);
 
             $run->forceFill([
                 'rows_read' => count($document->rows),
@@ -166,7 +162,7 @@ final class MigrationRunner
 
             $target ??= $this->targets->target($domain, allowShadow: $allowShadow, preferShadow: $allowShadow);
 
-            return $this->applyRows($run, $target, $validation, $tenantId);
+            return $this->applyRows($run, $target, $validation);
         } catch (TargetUnavailableException $exception) {
             $this->recordIssue($run, new RowIssue(
                 IssueSeverity::ERROR,
@@ -200,12 +196,11 @@ final class MigrationRunner
         CsvDocument $document,
         ReferenceData $references,
         MappingSet $mappingSet,
-        int $tenantId,
         MigrationRun $run,
         array $mappingIssues,
     ): PreparedImport {
         $importer = $this->importers[$domain->value];
-        $validation = $importer->validate($document, $references, $mappingSet, $tenantId);
+        $validation = $importer->validate($document, $references, $mappingSet);
         $issues = [...$mappingIssues, ...$validation->issues];
 
         $staging = StagingRow::forDomain($domain);
@@ -234,7 +229,6 @@ final class MigrationRunner
             }
 
             $record = $staging->newQuery()->create([
-                'tenant_id' => $tenantId,
                 'run_id' => $run->id,
                 'source_row_number' => $csvRow->sourceRowNumber,
                 'row_hash' => hash('sha256', json_encode($csvRow->values, JSON_THROW_ON_ERROR)),
@@ -273,16 +267,15 @@ final class MigrationRunner
         MigrationRun $run,
         MigrationTargetPort $target,
         PreparedImport $validation,
-        int $tenantId,
     ): MigrationRun {
         $created = 0;
         $updated = 0;
         $skipped = 0;
 
         try {
-            DB::transaction(function () use ($validation, $target, $tenantId, $run, &$created, &$updated, &$skipped): void {
+            DB::transaction(function () use ($validation, $target, $run, &$created, &$updated, &$skipped): void {
                 foreach ($validation->rows as $row) {
-                    $result = $target->apply($row, $tenantId, (int) $run->id);
+                    $result = $target->apply($row, (int) $run->id);
 
                     match ($result->status) {
                         'CREATED' => $created++,
@@ -302,7 +295,7 @@ final class MigrationRunner
                     ])->save();
                 }
 
-                $target->finalize($tenantId, (int) $run->id);
+                $target->finalize((int) $run->id);
             });
         } catch (TargetUnavailableException $exception) {
             $this->recordIssue($run, new RowIssue(
@@ -379,11 +372,10 @@ final class MigrationRunner
         ]);
     }
 
-    private function assertDependenciesApplied(MigrationDomain $domain, int $tenantId): void
+    private function assertDependenciesApplied(MigrationDomain $domain): void
     {
         foreach ($domain->dependsOn() as $dependency) {
             $exists = MigrationRun::query()
-                ->where('tenant_id', $tenantId)
                 ->where('domain', $dependency->value)
                 ->where('status', MigrationRunStatus::APPLIED->value)
                 ->exists();

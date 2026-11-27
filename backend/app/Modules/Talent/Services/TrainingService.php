@@ -12,6 +12,7 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
+use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -28,10 +29,10 @@ final class TrainingService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createProgram(int $tenantId, int $actorUserId, array $input): array
+    public function createProgram(int $actorUserId, array $input): array
     {
         $program = TrainingProgram::query()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'code' => (string) $input['code']],
+            ['code' => (string) $input['code']],
             [
                 'title' => (string) $input['title'],
                 'status' => 'ACTIVE',
@@ -52,10 +53,9 @@ final class TrainingService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createSession(int $tenantId, int $actorUserId, array $input): array
+    public function createSession(int $actorUserId, array $input): array
     {
         $program = TrainingProgram::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $input['program_id'])
             ->first();
 
@@ -67,7 +67,7 @@ final class TrainingService
         $courseId = isset($input['course_id']) ? (int) $input['course_id'] : null;
 
         if ($courseId !== null) {
-            $course = TrainingCourse::query()->where('tenant_id', $tenantId)->whereKey($courseId)->first();
+            $course = TrainingCourse::query()->whereKey($courseId)->first();
 
             if ($course === null) {
                 throw new ValidationException(['course_id' => ['The training course does not exist.']]);
@@ -81,7 +81,6 @@ final class TrainingService
         }
 
         $session = TrainingSession::query()->create([
-            'tenant_id' => $tenantId,
             'program_id' => (int) $program->id,
             'plan_id' => $planId,
             'course_id' => $courseId,
@@ -104,18 +103,16 @@ final class TrainingService
      *
      * @return array<string, mixed>
      */
-    public function enroll(int $tenantId, int $actorUserId, int $sessionId, int $employmentId): array
+    public function enroll(int $actorUserId, int $sessionId, int $employmentId): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $sessionId, $employmentId): array {
+        return DB::transaction(function () use ($actorUserId, $sessionId, $employmentId): array {
             /** @var TrainingSession $session */
             $session = TrainingSession::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($sessionId)
                 ->lockForUpdate()
                 ->firstOrFail();
 
             $existing = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('session_id', $sessionId)
                 ->where('employment_id', $employmentId)
                 ->first();
@@ -125,7 +122,6 @@ final class TrainingService
             }
 
             $count = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->where('session_id', $sessionId)
                 ->whereIn('status', ['ENROLLED', 'ATTENDED', 'COMPLETED'])
                 ->count();
@@ -142,7 +138,6 @@ final class TrainingService
 
             try {
                 $enrollment = TrainingEnrollment::query()->create([
-                    'tenant_id' => $tenantId,
                     'session_id' => $sessionId,
                     'employment_id' => $employmentId,
                     'status' => 'ENROLLED',
@@ -151,13 +146,12 @@ final class TrainingService
                 ]);
             } catch (UniqueConstraintViolationException) {
                 $enrollment = TrainingEnrollment::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('session_id', $sessionId)
                     ->where('employment_id', $employmentId)
                     ->firstOrFail();
             }
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training.enrolled', 'training_enrollment', (int) $enrollment->id, after: [
+            $this->audit->record($actorUserId, 'talent.training.enrolled', 'training_enrollment', (int) $enrollment->id, after: [
                 'session_id' => $sessionId,
                 'employment_id' => $employmentId,
             ]);
@@ -170,11 +164,10 @@ final class TrainingService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function complete(int $tenantId, int $actorUserId, int $enrollmentId, array $input): array
+    public function complete(int $actorUserId, int $enrollmentId, array $input): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $enrollmentId, $input): array {
+        return DB::transaction(function () use ($actorUserId, $enrollmentId, $input): array {
             $enrollment = TrainingEnrollment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($enrollmentId)
                 ->lockForUpdate()
                 ->first();
@@ -187,15 +180,31 @@ final class TrainingService
                 return $this->enrollmentData($enrollment);
             }
 
+            // Only an active enrolment may complete. A cancelled or otherwise
+            // inactive row must never be silently revived by a completion.
+            if (! in_array((string) $enrollment->status, ['ENROLLED', 'ATTENDED'], true)) {
+                throw new ConflictException('Only an active enrollment can be completed.', [
+                    'reason' => 'TRAINING_ENROLLMENT_NOT_ACTIVE',
+                    'enrollment_id' => $enrollmentId,
+                    'status' => (string) $enrollment->status,
+                ]);
+            }
+
+            // A supplied completion date is a business DATE with no time
+            // component; anchor it at UTC midnight so it never shifts day.
+            $completedOn = isset($input['completed_on']) && is_string($input['completed_on'])
+                ? BusinessDate::parse($input['completed_on'])
+                : $this->clock->now();
+
             $enrollment->forceFill([
                 'status' => 'COMPLETED',
                 'attended' => (bool) ($input['attended'] ?? true),
                 'completion_result' => (string) $input['completion_result'],
                 'score' => isset($input['score']) ? (int) $input['score'] : null,
-                'completed_at' => $this->clock->now(),
+                'completed_at' => $completedOn,
             ])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.training.completed', 'training_enrollment', (int) $enrollment->id, after: [
+            $this->audit->record($actorUserId, 'talent.training.completed', 'training_enrollment', (int) $enrollment->id, after: [
                 'completion_result' => (string) $enrollment->completion_result,
             ]);
 
@@ -206,10 +215,9 @@ final class TrainingService
     /**
      * @return list<array<string, mixed>>
      */
-    public function sessions(int $tenantId, ?int $programId = null, ?string $status = null): array
+    public function sessions(?int $programId = null, ?string $status = null): array
     {
         return TrainingSession::query()
-            ->where('tenant_id', $tenantId)
             ->when($programId !== null, fn ($builder) => $builder->where('program_id', $programId))
             ->when($status !== null && $status !== '', fn ($builder) => $builder->where('status', $status))
             ->orderByDesc('id')
@@ -241,14 +249,13 @@ final class TrainingService
     /**
      * @return list<array<string, mixed>>
      */
-    public function report(int $tenantId, ?int $programId = null, ?int $employmentId = null): array
+    public function report(?int $programId = null, ?int $employmentId = null): array
     {
         return TrainingEnrollment::query()
-            ->where('tenant_id', $tenantId)
             ->when($employmentId !== null, fn ($query) => $query->where('employment_id', $employmentId))
             ->when($programId !== null, fn ($query) => $query->whereIn(
                 'session_id',
-                TrainingSession::query()->where('tenant_id', $tenantId)->where('program_id', $programId)->select('id'),
+                TrainingSession::query()->where('program_id', $programId)->select('id'),
             ))
             ->orderBy('id')
             ->get()

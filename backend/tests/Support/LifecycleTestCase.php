@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Support;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\People\Models\Employment;
 use App\Modules\Workflow\Domain\EffectRegistry;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Time\Clock;
@@ -40,16 +42,15 @@ abstract class LifecycleTestCase extends TestCase
         $this->app->forgetInstance(EffectRegistry::class);
         $this->bindLifecycleEffects();
 
-        $this->actAs(10, 1);
-        $this->peopleScenario = new PeopleScenario(1, $this->clock);
-        $this->bindWorkflowPrincipal(1, 10);
+        $this->actAs(10);
+        $this->peopleScenario = new PeopleScenario($this->clock);
+        $this->bindWorkflowPrincipal(10);
         $this->app->instance(Authorizer::class, $this->authorizer);
     }
 
-    protected function actAs(int $userId, int $tenantId = 1, ?int $employmentId = null, bool $privileged = true): TestPrincipal
+    protected function actAs(int $userId, ?int $employmentId = null, bool $privileged = true): TestPrincipal
     {
         $principal = new TestPrincipal(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: $employmentId,
             authVersion: 1,
@@ -66,14 +67,13 @@ abstract class LifecycleTestCase extends TestCase
     }
 
     /**
-     * @return array{0: \App\Modules\People\Models\Employment, 1: \App\Modules\Organization\Models\OrgUnit, 2: \App\Modules\Organization\Models\OrgUnit}
+     * @return array{0: Employment, 1: OrgUnit, 2: OrgUnit}
      */
     protected function seedEmploymentWithOrg(): array
     {
-        $entity = $this->peopleScenario->legalEntity();
-        $home = $this->peopleScenario->orgUnit($entity, 'HOME-ORG');
-        $host = $this->peopleScenario->orgUnit($entity, 'HOST-ORG');
-        $employment = $this->peopleScenario->employment($this->peopleScenario->person(), $entity, 'SEC-0001');
+        $home = $this->peopleScenario->orgUnit('HOME-ORG');
+        $host = $this->peopleScenario->orgUnit('HOST-ORG');
+        $employment = $this->peopleScenario->employment($this->peopleScenario->person(), 'SEC-0001');
         $this->peopleScenario->assignment($employment, $home);
 
         return [$employment, $home, $host];
@@ -99,11 +99,10 @@ abstract class LifecycleTestCase extends TestCase
         ], ['Idempotency-Key' => $key]);
     }
 
-    protected function bindWorkflowPrincipal(int $tenantId, int $userId, ?int $employmentId = null): void
+    protected function bindWorkflowPrincipal(int $userId, ?int $employmentId = null): void
     {
         $resolver = new FakeWorkflowPrincipalResolver;
         $resolver->setPrincipal(new \App\Modules\Workflow\Contracts\WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: $userId,
             employmentId: $employmentId,
             authVersion: 1,
@@ -119,22 +118,22 @@ abstract class LifecycleTestCase extends TestCase
         $this->app->instance(\App\Modules\Workflow\Contracts\ActorDirectory::class, new FakeActorDirectory);
         $this->app->instance(\App\Modules\Workflow\Contracts\AssigneeDirectory::class, new class implements \App\Modules\Workflow\Contracts\AssigneeDirectory
         {
-            public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int
+            public function managerUserIdForSubject(string $subjectType, int $subjectId, string $businessDate): ?int
             {
                 return null;
             }
 
-            public function orgHeadUserIdsForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): array
+            public function orgHeadUserIdsForSubject(string $subjectType, int $subjectId, string $businessDate): array
             {
                 return [];
             }
 
-            public function userIdsWithRole(int $tenantId, string $roleCode, string $businessDate): array
+            public function userIdsWithRole(string $roleCode, string $businessDate): array
             {
                 return [10];
             }
 
-            public function reassignmentCandidates(int $tenantId, int $caseId, int $currentAssigneeId, string $businessDate): array
+            public function reassignmentCandidates(int $caseId, int $currentAssigneeId, string $businessDate): array
             {
                 return [];
             }

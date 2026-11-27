@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Model;
  * the only compensation path.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $business_date
  * @property int $declared_minutes
@@ -51,7 +50,6 @@ final class OvertimeRequest extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'business_date',
         'declared_minutes',
@@ -71,7 +69,6 @@ final class OvertimeRequest extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'employment_id' => 'integer',
             'business_date' => 'immutable_date:Y-m-d',
             'declared_minutes' => 'integer',

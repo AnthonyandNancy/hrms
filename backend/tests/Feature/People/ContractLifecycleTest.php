@@ -13,12 +13,11 @@ final class ContractLifecycleTest extends PeopleTestCase
     public function test_contract_can_be_amended_and_terminated_without_overwriting_history(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'CONTRACT-ORG');
-        $employment = $scenario->employment($scenario->person(), $entity, 'CON-0001');
+        $org = $scenario->orgUnit('CONTRACT-ORG');
+        $employment = $scenario->employment($scenario->person(), 'CON-0001');
         $scenario->assignment($employment, $org);
 
-        $contract = $this->contract($employment->id, $entity->id, 'C-0001');
+        $contract = $this->contract($employment->id, 'C-0001');
 
         $amended = $this->postJson("/v1/employment-contracts/{$contract->id}/amendments", [
             'effective_date' => '2026-06-01',
@@ -31,7 +30,7 @@ final class ContractLifecycleTest extends PeopleTestCase
 
         $amendmentId = (int) $amended->json('data.version.id');
 
-        $terminated = $this->postJson("/v1/employment-contracts/{$contract->id}/terminate", [
+        $this->postJson("/v1/employment-contracts/{$contract->id}/terminate", [
             'effective_date' => '2026-09-30',
             'reason' => 'Synthetic termination',
         ], ['Idempotency-Key' => 'term-1'])->assertOk()
@@ -59,10 +58,9 @@ final class ContractLifecycleTest extends PeopleTestCase
     public function test_ledger_and_amendment_history_use_the_projection_envelope(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'LEDGER-0001');
-        $scenario->assignment($employment, $scenario->orgUnit($entity, 'LEDGER-ORG'));
-        $contract = $this->contract($employment->id, $entity->id, 'LEDGER-C-1');
+        $employment = $scenario->employment($scenario->person(), 'LEDGER-0001');
+        $scenario->assignment($employment, $scenario->orgUnit('LEDGER-ORG'));
+        $contract = $this->contract($employment->id, 'LEDGER-C-1');
 
         $this->postJson("/v1/employment-contracts/{$contract->id}/amendments", [
             'effective_date' => '2026-06-01',
@@ -93,9 +91,8 @@ final class ContractLifecycleTest extends PeopleTestCase
     public function test_contract_mutations_are_idempotent_and_require_a_key(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'IDEM-CON');
-        $contract = $this->contract($employment->id, $entity->id, 'IDEM-C-1');
+        $employment = $scenario->employment($scenario->person(), 'IDEM-CON');
+        $contract = $this->contract($employment->id, 'IDEM-C-1');
 
         $payload = [
             'effective_date' => '2026-06-01',
@@ -169,12 +166,11 @@ final class ContractLifecycleTest extends PeopleTestCase
             ]]);
     }
 
-    public function test_cross_tenant_contract_mutation_is_not_found_and_unknown_changes_are_rejected(): void
+    public function test_out_of_scope_contract_mutation_is_not_found_and_unknown_changes_are_rejected(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $employment = $scenario->employment($scenario->person(), $entity, 'SCOPE-CON');
-        $contract = $this->contract($employment->id, $entity->id, 'SCOPE-C-1');
+        $employment = $scenario->employment($scenario->person(), 'SCOPE-CON');
+        $contract = $this->contract($employment->id, 'SCOPE-C-1');
 
         $this->postJson("/v1/employment-contracts/{$contract->id}/amendments", [
             'effective_date' => '2026-06-01',
@@ -182,20 +178,19 @@ final class ContractLifecycleTest extends PeopleTestCase
             'changes' => ['status' => 'RENEWED'],
         ], ['Idempotency-Key' => 'unsupported-change'])->assertStatus(422);
 
-        $this->actAs(tenantId: 2, userId: 999);
+        $this->actAs(userId: 999);
+        $this->authorizer->deniedCapabilities = ['people.contract.terminate'];
 
         $this->postJson("/v1/employment-contracts/{$contract->id}/terminate", [
             'effective_date' => '2026-09-30',
-            'reason' => 'Cross-tenant termination',
-        ], ['Idempotency-Key' => 'cross-tenant-term'])->assertNotFound();
+            'reason' => 'Out-of-scope termination',
+        ], ['Idempotency-Key' => 'cross-scope-term'])->assertForbidden();
     }
 
-    private function contract(int $employmentId, int $legalEntityId, string $contractNo): EmploymentContract
+    private function contract(int $employmentId, string $contractNo): EmploymentContract
     {
         return EmploymentContract::query()->create([
-            'tenant_id' => 1,
             'employment_id' => $employmentId,
-            'legal_entity_id' => $legalEntityId,
             'contract_no' => $contractNo,
             'contract_type' => 'FIXED_TERM',
             'start_date' => '2026-01-01',

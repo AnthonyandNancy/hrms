@@ -58,11 +58,9 @@ export type MaskedFieldValue = {
 
 export type Principal = {
   userId: number
-  tenantId: number
   employmentId: number | null
   displayName: string
-  tenantName?: string
-  legalEntityName?: string
+  companyName?: string
   email: string
   employmentNo: string
   jobTitle: string
@@ -149,7 +147,6 @@ export type EmployeeAssignment = {
 }
 
 export type EmployeeDetail = DirectoryEmployee & {
-  legalEntity: string
   managerName: string
   workLocation: string
   personalEmail: MaskedFieldValue
@@ -176,7 +173,6 @@ export type OrgNode = {
   code: string
   name: string
   type: 'COMPANY' | 'DIVISION' | 'DEPARTMENT' | 'TEAM' | 'COST_CENTER' | 'SHARED_SERVICE'
-  legalEntityId: number
   managerName: string | null
   headcount: number | null
   directHeadcount: number | null
@@ -397,7 +393,6 @@ export type PayrollRunSummary = {
   id: number
   runNo: string
   period: string
-  legalEntity: string
   state: PayrollRunState
   employeeCount: number
   grossCents: number
@@ -458,7 +453,6 @@ export type Payslip = {
   employeeName: string
   employeeNo: string
   orgName: string
-  legalEntity: string
   payDate: string
   grossCents: number
   earningLines: Array<{ label: string; cents: number }>

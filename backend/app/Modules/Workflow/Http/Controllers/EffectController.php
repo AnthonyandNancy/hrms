@@ -29,7 +29,6 @@ final class EffectController
         ]);
 
         $effect = Effect::query()
-            ->where('tenant_id', $principal->tenantId)
             ->whereKey($id)
             ->first();
 
@@ -41,7 +40,7 @@ final class EffectController
         // here keeps 404 semantics for unreadable cases.
         $this->queries->detail($principal, $effect->case_id);
 
-        $result = $this->executor->retry($principal->tenantId, $effect->id, $principal, (string) $validated['reason']);
+        $result = $this->executor->retry($effect->id, $principal, (string) $validated['reason']);
         $fresh = $effect->fresh() ?? $effect;
 
         $data = [

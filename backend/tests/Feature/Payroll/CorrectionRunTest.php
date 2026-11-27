@@ -28,7 +28,6 @@ final class CorrectionRunTest extends PayrollTestCase
 
         // A previously missed deduction entered after close.
         \App\Modules\Payroll\Models\PayrollAdjustment::query()->create([
-            'tenant_id' => $this->tenantId,
             'run_id' => null,
             'employment_id' => $base['employment_id'],
             'item_code' => 'RETRO_DEDUCTION',
@@ -41,7 +40,6 @@ final class CorrectionRunTest extends PayrollTestCase
         ]);
 
         $correction = app(CorrectionService::class)->create(
-            $this->tenantId,
             (int) $original->id,
             11,
             '2026-02',
@@ -52,7 +50,7 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame($original->id, $correction->correction_of_run_id);
 
         $runs = app(PayrollRunService::class);
-        $correction = $runs->lockInputs($this->tenantId, (int) $correction->id, 11);
+        $correction = $runs->lockInputs((int) $correction->id, 11);
         app(CalculationService::class)->calculate($correction, 11);
         $correction = $correction->refresh();
 
@@ -72,7 +70,7 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame($originalSnapshot['net_cents'], (int) $original->refresh()->net_cents);
         $this->assertSame($originalSnapshot['gross_cents'], (int) $original->refresh()->gross_cents);
 
-        $report = app(ReconciliationService::class)->reconcile($this->tenantId, (int) $correction->id);
+        $report = app(ReconciliationService::class)->reconcile((int) $correction->id);
         $this->assertTrue($report['passed'], json_encode($report['differences']));
         $this->assertSame(
             (int) $original->refresh()->net_cents + (int) $correction->net_cents,
@@ -100,7 +98,7 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame(16_490, (int) $secondEmployee->net_cents);
         $this->assertSame(3_510, (int) $secondEmployee->deductions_cents);
 
-        $report = app(ReconciliationService::class)->reconcile($this->tenantId, (int) $second->id);
+        $report = app(ReconciliationService::class)->reconcile((int) $second->id);
         $this->assertTrue($report['passed'], json_encode($report['differences']));
         $this->assertSame((int) $original->net_cents, $report['chain']['original_net_cents']);
         $this->assertSame((int) $first->net_cents + (int) $second->net_cents, $report['chain']['correction_net_cents']);
@@ -121,10 +119,10 @@ final class CorrectionRunTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $draft = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $draft = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
 
         $this->expectException(ConflictException::class);
-        app(CorrectionService::class)->create($this->tenantId, (int) $draft->id, 11, '2026-02', 'Draft is not a valid correction base.');
+        app(CorrectionService::class)->create((int) $draft->id, 11, '2026-02', 'Draft is not a valid correction base.');
     }
 
     /**
@@ -133,17 +131,17 @@ final class CorrectionRunTest extends PayrollTestCase
     private function closedJanuaryRun(array $base): PayrollRun
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         $approval = app(ApprovalService::class);
-        $run = $approval->review($this->tenantId, (int) $run->id, 11);
-        $run = $approval->approve($this->tenantId, (int) $run->id, 12);
-        $run = $approval->publish($this->tenantId, (int) $run->id, 13);
-        $run = $approval->markPaid($this->tenantId, (int) $run->id, 13, 'DEMO-BANK');
+        $run = $approval->review((int) $run->id, 11);
+        $run = $approval->approve((int) $run->id, 12);
+        $run = $approval->publish((int) $run->id, 13);
+        $run = $approval->markPaid((int) $run->id, 13, 'DEMO-BANK');
 
-        return $approval->close($this->tenantId, (int) $run->id, 13);
+        return $approval->close((int) $run->id, 13);
     }
 
     private function postAdjustmentAndPublish(PayrollRun $original, int $amountCents, string $period, int $actor): PayrollRun
@@ -154,7 +152,6 @@ final class CorrectionRunTest extends PayrollTestCase
             ->employment_id;
 
         \App\Modules\Payroll\Models\PayrollAdjustment::query()->create([
-            'tenant_id' => $this->tenantId,
             'run_id' => null,
             'employment_id' => $employmentId,
             'item_code' => $amountCents < 0 ? 'RETRO_DEDUCTION' : 'RETRO_EARNING',
@@ -167,7 +164,6 @@ final class CorrectionRunTest extends PayrollTestCase
         ]);
 
         $correction = app(CorrectionService::class)->create(
-            $this->tenantId,
             (int) $original->id,
             $actor,
             $period,
@@ -175,7 +171,7 @@ final class CorrectionRunTest extends PayrollTestCase
         );
 
         $runs = app(PayrollRunService::class);
-        $correction = $runs->lockInputs($this->tenantId, (int) $correction->id, $actor);
+        $correction = $runs->lockInputs((int) $correction->id, $actor);
         app(CalculationService::class)->calculate($correction, $actor);
         $this->publishCorrection($correction->refresh());
 
@@ -185,8 +181,8 @@ final class CorrectionRunTest extends PayrollTestCase
     private function publishCorrection(PayrollRun $correction): void
     {
         $approval = app(ApprovalService::class);
-        $approval->review($this->tenantId, (int) $correction->id, 21);
-        $approval->approve($this->tenantId, (int) $correction->id, 22);
-        $approval->publish($this->tenantId, (int) $correction->id, 23);
+        $approval->review((int) $correction->id, 21);
+        $approval->approve((int) $correction->id, 22);
+        $approval->publish((int) $correction->id, 23);
     }
 }

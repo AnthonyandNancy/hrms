@@ -23,7 +23,6 @@ final class DirectoryScopeAuthorizer implements Authorizer
     public function __construct(
         private readonly PeopleDirectory $people,
         private readonly OrganizationDirectory $organization,
-        private readonly Principal $principal,
         private readonly string $scope,
         private readonly int|string|null $anchorId = null,
     ) {}
@@ -34,10 +33,10 @@ final class DirectoryScopeAuthorizer implements Authorizer
             'SELF' => array_values(array_filter([$principal->employmentId()])),
             'MANAGED' => $principal->employmentId() === null
                 ? []
-                : $this->people->managedEmploymentIds($principal->tenantId(), $principal->employmentId(), $businessDate),
+                : $this->people->managedEmploymentIds($principal->employmentId(), $businessDate),
             'ORG_UNIT' => $this->employmentIdsInOrg((int) $this->anchorId, $businessDate, false),
             'ORG_SUBTREE' => $this->employmentIdsInOrg((int) $this->anchorId, $businessDate, true),
-            'COMPANY' => $this->people->employmentIdsForLegalEntities($principal->tenantId(), [(int) $this->anchorId], $businessDate),
+            'COMPANY' => $this->people->employmentIdsAsOf($businessDate),
             default => [],
         };
 
@@ -67,26 +66,19 @@ final class DirectoryScopeAuthorizer implements Authorizer
     private function employmentIdsInOrg(int $orgId, string $on, bool $subtree): array
     {
         $orgIds = $subtree
-            ? $this->organization->subtreeIds($this->principal->tenantId(), $orgId, $on)
-            : $this->organization->orgUnitIds($this->principal->tenantId(), [$orgId], $on);
+            ? $this->organization->subtreeIds($orgId, $on)
+            : $this->organization->orgUnitIds([$orgId], $on);
 
         if ($orgIds === []) {
             return [];
         }
 
-        $legalEntityId = $this->organization->legalEntityOfOrg($this->principal->tenantId(), $orgId, $on);
-
-        if ($legalEntityId === null) {
-            return [];
-        }
-
-        $ids = $this->people->employmentIdsForLegalEntities($this->principal->tenantId(), [$legalEntityId], $on);
         $matches = [];
 
-        foreach ($ids as $employmentId) {
-            $snapshot = $this->people->employmentSnapshot($this->principal->tenantId(), $employmentId, $on);
+        foreach ($this->people->employmentIdsAsOf($on) as $employmentId) {
+            $snapshot = $this->people->employmentSnapshot($employmentId, $on);
 
-            if ($snapshot !== null && in_array($snapshot->orgUnitId, $orgIds, true)) {
+            if ($snapshot !== null && $snapshot->orgUnitId !== null && in_array($snapshot->orgUnitId, $orgIds, true)) {
                 $matches[] = $employmentId;
             }
         }

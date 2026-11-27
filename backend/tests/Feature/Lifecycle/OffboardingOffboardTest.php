@@ -16,17 +16,15 @@ final class OffboardingOffboardTest extends LifecycleTestCase
     public function test_offboarding_requires_checklist_resolution_and_revokes_access_in_same_effect(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'OFF-ORG');
+        $org = $scenario->orgUnit('OFF-ORG');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'OFF-0001');
+        $employment = $scenario->employment($person, 'OFF-0001');
         $scenario->assignment($employment, $org);
-        $user = User::factory()->create(['tenant_id' => 1, 'auth_version' => 1]);
+        $user = User::factory()->create(['auth_version' => 1]);
         $user->forceFill(['person_id' => $person->id])->save();
         $scenario->userLink((int) $user->id, $employment);
-        $session = Session::factory()->create(['tenant_id' => 1, 'user_id' => $user->id, 'auth_version' => 1]);
+        $session = Session::factory()->create(['user_id' => $user->id, 'auth_version' => 1]);
         $delegation = WorkflowDelegation::query()->create([
-            'tenant_id' => 1,
             'proxy_user_id' => 202,
             'principal_user_id' => $user->id,
             'valid_from' => '2026-01-01',
@@ -47,7 +45,6 @@ final class OffboardingOffboardTest extends LifecycleTestCase
 
         foreach (['ACCOUNT_PROVISION', 'CONTRACT_SIGNATURE', 'PAYROLL_ENROLLMENT', 'PROBATION_END_DATE'] as $index => $code) {
             $task = LifecycleTask::query()->create([
-                'tenant_id' => 1,
                 'case_id' => $caseId,
                 'employment_id' => $employment->id,
                 'task_code' => $code,

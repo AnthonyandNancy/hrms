@@ -14,22 +14,14 @@ final class FakeCaseMembershipDirectory implements CaseMembershipDirectory
     /** @var array<int, list<string>> map case => capability codes */
     public array $memberships = [];
 
-    public function isMember(int $tenantId, int $userId, int $caseId, string $capabilityCode): bool
+    public function isMember(int $userId, int $caseId, string $capabilityCode): bool
     {
         return in_array($capabilityCode, $this->memberships[$caseId] ?? [], true)
             && in_array($caseId, $this->casesByUser[$userId] ?? [], true);
     }
 
-    public function caseIdsForUser(int $tenantId, int $userId, string $businessDate): array
+    public function caseIdsForUser(int $userId, string $businessDate): array
     {
         return $this->casesByUser[$userId] ?? [];
-    }
-
-    /** @var array<int, int> */
-    public array $caseEntity = [];
-
-    public function legalEntityForCase(int $tenantId, int $caseId): ?int
-    {
-        return $this->caseEntity[$caseId] ?? null;
     }
 }

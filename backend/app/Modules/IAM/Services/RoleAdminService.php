@@ -9,6 +9,7 @@ use App\Modules\IAM\Authorization\CapabilityDefinition;
 use App\Modules\IAM\Authorization\RoleTemplateCatalog;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
+use App\Modules\IAM\Models\RolePage;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\AnchorType;
@@ -37,7 +38,7 @@ final class RoleAdminService
      * @param  array{code: string, name: string, purpose: string, owner: int, expires_at: string|null, capabilities: list<array{capability: string, anchor_type: string, field_profile: string}>}  $data
      * @return array<string, mixed>
      */
-    public function create(int $tenantId, array $data): array
+    public function create(array $data): array
     {
         $code = strtoupper(trim($data['code']));
 
@@ -52,11 +53,10 @@ final class RoleAdminService
         $this->assertNonEmptyPurpose((string) $data['purpose']);
         $grants = $this->validateGrants($data['capabilities']);
 
-        return DB::transaction(function () use ($tenantId, $data, $code, $grants): array {
+        return DB::transaction(function () use ($data, $code, $grants): array {
             /** @var Role $role */
             $role = Role::query()->create([
                 'code' => $code,
-                'tenant_id' => $tenantId,
                 'name' => trim((string) $data['name']),
                 'is_template' => false,
                 'owner' => (int) $data['owner'],
@@ -64,7 +64,7 @@ final class RoleAdminService
                 'expires_at' => $data['expires_at'] ?? $this->clock->now()->addYear(),
             ]);
 
-            $this->replaceGrants($tenantId, $code, $grants);
+            $this->replaceGrants($code, $grants);
 
             return $this->payload($role);
         });
@@ -74,7 +74,7 @@ final class RoleAdminService
      * @param  array{code: string, name: string, purpose: string, owner: int}  $data
      * @return array<string, mixed>
      */
-    public function copy(int $tenantId, string $sourceCode, array $data): array
+    public function copy(string $sourceCode, array $data): array
     {
         /** @var Role|null $source */
         $source = Role::query()->whereKey($sourceCode)->first();
@@ -107,11 +107,10 @@ final class RoleAdminService
 
         $validated = $this->validateGrants($grants);
 
-        return DB::transaction(function () use ($tenantId, $data, $code, $validated): array {
+        return DB::transaction(function () use ($data, $code, $validated): array {
             /** @var Role $role */
             $role = Role::query()->create([
                 'code' => $code,
-                'tenant_id' => $tenantId,
                 'name' => trim((string) $data['name']),
                 'is_template' => false,
                 'owner' => (int) $data['owner'],
@@ -119,7 +118,7 @@ final class RoleAdminService
                 'expires_at' => $this->clock->now()->addYear(),
             ]);
 
-            $this->replaceGrants($tenantId, $code, $validated);
+            $this->replaceGrants($code, $validated);
 
             return $this->payload($role);
         });
@@ -129,7 +128,111 @@ final class RoleAdminService
      * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
      * @return array<string, mixed>
      */
-    public function replaceCapabilities(int $tenantId, string $roleCode, array $capabilities): array
+    /**
+     * Rename a custom role. The role code is immutable because it is the
+     * identity used by bindings, role_pages and user_roles; only the display
+     * name (and optional purpose) can change.
+     *
+     * @param  array{name: string, purpose?: string|null}  $data
+     * @return array<string, mixed>
+     */
+    public function rename(string $roleCode, array $data): array
+    {
+        /** @var Role|null $role */
+        $role = Role::query()->whereKey($roleCode)->first();
+
+        // Code-owned templates live in the catalogue, not the roles table, so a
+        // missing row may still be a real, immutable template.
+        if (RoleTemplateCatalog::find(strtoupper(trim($roleCode))) !== null) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be changed through the API.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        if ($role === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if ((bool) $role->is_template) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be renamed.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        return DB::transaction(function () use ($role, $data): array {
+            $role->name = trim((string) $data['name']);
+
+            if (array_key_exists('purpose', $data) && $data['purpose'] !== null) {
+                $this->assertNonEmptyPurpose((string) $data['purpose']);
+                $role->purpose = trim((string) $data['purpose']);
+            }
+
+            $role->save();
+
+            return $this->payload($role->refresh());
+        });
+    }
+
+    /**
+     * Delete a custom role. Refused while any user still holds it, so deleting a
+     * role can never silently strip authority from live accounts.
+     *
+     * @return array{role_code: string, deleted: bool}
+     */
+    public function delete(string $roleCode): array
+    {
+        /** @var Role|null $role */
+        $role = Role::query()->whereKey($roleCode)->first();
+
+        // Code-owned templates live in the catalogue, not the roles table, so a
+        // missing row may still be a real, immutable template.
+        if (RoleTemplateCatalog::find(strtoupper(trim($roleCode))) !== null) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be changed through the API.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        if ($role === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if ((bool) $role->is_template) {
+            throw new ConflictException(
+                'Code-owned role templates cannot be deleted.',
+                ['reason' => 'TEMPLATE_ROLE_IMMUTABLE'],
+            );
+        }
+
+        $holders = UserRole::query()
+            ->where('role_code', (string) $role->code)
+            ->where('valid_to', '>', $this->clock->now())
+            ->count();
+
+        if ($holders > 0) {
+            throw new ConflictException(
+                'This role is still assigned to users.',
+                ['reason' => 'ROLE_IN_USE', 'holders' => $holders],
+            );
+        }
+
+        return DB::transaction(function () use ($role): array {
+            RoleCapability::query()->where('role_code', (string) $role->code)->delete();
+            RolePage::query()->where('role_code', (string) $role->code)->delete();
+            $code = (string) $role->code;
+            $role->delete();
+
+            return ['role_code' => $code, 'deleted' => true];
+        });
+    }
+
+    /**
+     * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
+     * @return array<string, mixed>
+     */
+    public function replaceCapabilities(string $roleCode, array $capabilities): array
     {
         /** @var Role|null $role */
         $role = Role::query()->whereKey($roleCode)->first();
@@ -144,18 +247,16 @@ final class RoleAdminService
 
         $grants = $this->validateGrants($capabilities);
 
-        return DB::transaction(function () use ($tenantId, $role, $grants): array {
-            $this->replaceGrants($tenantId, (string) $role->code, $grants);
+        return DB::transaction(function () use ($role, $grants): array {
+            $this->replaceGrants((string) $role->code, $grants);
 
             UserRole::query()
-                ->where('tenant_id', $tenantId)
                 ->where('role_code', (string) $role->code)
                 ->orderBy('user_id')
                 ->pluck('user_id')
                 ->unique()
-                ->each(function (mixed $userId) use ($tenantId): void {
+                ->each(function (mixed $userId): void {
                     $user = User::query()
-                        ->where('tenant_id', $tenantId)
                         ->whereKey((int) $userId)
                         ->first();
 
@@ -235,13 +336,12 @@ final class RoleAdminService
     /**
      * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $grants
      */
-    private function replaceGrants(int $tenantId, string $roleCode, array $grants): void
+    private function replaceGrants(string $roleCode, array $grants): void
     {
         RoleCapability::query()->where('role_code', $roleCode)->delete();
 
         foreach ($grants as $grant) {
             RoleCapability::query()->create([
-                'tenant_id' => $tenantId,
                 'role_code' => $roleCode,
                 'capability_code' => $grant['capability'],
                 'anchor_type' => $grant['anchor_type'],

@@ -12,7 +12,6 @@ final class ReportRun extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'definition_code',
         'as_of',
         'filters_json',
@@ -28,7 +27,6 @@ final class ReportRun extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'as_of' => 'immutable_date:Y-m-d',
             'filters_json' => 'array',
             'row_count' => 'integer',

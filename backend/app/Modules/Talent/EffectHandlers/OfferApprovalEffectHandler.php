@@ -30,7 +30,6 @@ final class OfferApprovalEffectHandler implements DomainEffectHandler
             $payload = $this->support->payload($command);
             $offerId = (int) ($payload['offer_id'] ?? 0);
             $offer = Offer::query()
-                ->where('tenant_id', $command->tenantId)
                 ->whereKey($offerId)
                 ->lockForUpdate()
                 ->first();
@@ -52,7 +51,6 @@ final class OfferApprovalEffectHandler implements DomainEffectHandler
 
             $offer->forceFill(['status' => 'APPROVED', 'case_id' => $command->caseId])->save();
             $this->support->audit()->record(
-                tenantId: $command->tenantId,
                 actorUserId: null,
                 action: 'talent.offer.approved',
                 aggregateType: 'offer',

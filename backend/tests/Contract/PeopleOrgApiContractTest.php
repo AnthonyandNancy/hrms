@@ -22,9 +22,8 @@ final class PeopleOrgApiContractTest extends PeopleTestCase
     public function test_employee_list_uses_paginated_data_shape(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'CONTRACT-ORG');
-        $scenario->assignment($scenario->employment($scenario->person(), $entity, 'CONTRACT-1'), $org);
+        $org = $scenario->orgUnit('CONTRACT-ORG');
+        $scenario->assignment($scenario->employment($scenario->person(), 'CONTRACT-1'), $org);
 
         $this->getJson('/v1/employees?page=1&page_size=10')
             ->assertOk()
@@ -39,10 +38,9 @@ final class PeopleOrgApiContractTest extends PeopleTestCase
     public function test_org_tree_uses_list_envelope(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $scenario->orgUnit($entity, 'CONTRACT-TREE');
+        $scenario->orgUnit('CONTRACT-TREE');
 
-        $this->getJson("/v1/org-units/tree?legal_entity_id={$entity->id}")
+        $this->getJson('/v1/org-units/tree')
             ->assertOk()
             ->assertJsonStructure(['data' => ['items', 'page', 'page_size', 'total']]);
     }
@@ -50,10 +48,9 @@ final class PeopleOrgApiContractTest extends PeopleTestCase
     public function test_commands_emit_outbox_events_without_pii(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'CONTRACT-OUTBOX');
+        $org = $scenario->orgUnit('CONTRACT-OUTBOX');
         $person = $scenario->person(['id_number' => 'OUTBOX-SECRET-ID']);
-        $employment = $scenario->employment($person, $entity, 'CONTRACT-2');
+        $employment = $scenario->employment($person, 'CONTRACT-2');
 
         $this->postJson("/v1/employments/{$employment->id}/assignments", [
             'org_unit_id' => $org->id,

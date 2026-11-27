@@ -18,15 +18,14 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE)
             ->create(['capability_code' => 'people.employee.read']);
-        $this->organization->knownLegalEntities = [1];
 
         $set = app(\App\Shared\Authorization\Authorizer::class)->fields(
             $this->actingAsUser($user),
             'people.employee.read',
-            new \App\Shared\Authorization\ResourceRef('employee', 1, ['id_number' => 'x'], 1, 1, 1, 1),
+            new \App\Shared\Authorization\ResourceRef('employee', 1, ['id_number' => 'x'], employmentId: 1, orgUnitId: 1),
         );
 
         try {
@@ -37,22 +36,23 @@ final class FieldDenialHttpTest extends AuthorizationTestSupport
         }
     }
 
-    public function test_idor_user_cannot_read_another_users_bindings(): void
+    public function test_user_without_binding_manage_cannot_read_another_users_bindings(): void
     {
-        $caller = User::factory()->create(['tenant_id' => 1]);
-        $other = User::factory()->create(['tenant_id' => 2]);
+        $caller = User::factory()->create();
+        $other = User::factory()->create();
 
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $caller->id)
+            ->forPrincipal((int) $caller->id)
             ->anchor(AnchorType::COMPANY, null)
-            ->create(['capability_code' => 'iam.binding.manage']);
+            ->create(['capability_code' => 'iam.user.read']);
 
         $this->people->employmentByUser[(int) $caller->id] = [1];
         $auth = $this->loginAs($caller);
 
-        $response = $this->withHeader('X-CSRF-Token', $auth['csrf'])
-            ->getJson('/v1/users/'.$other->id.'/bindings');
-
-        $response->assertNotFound()->assertJsonPath('code', 'NOT_FOUND');
+        $this->withHeader('X-CSRF-Token', $auth['csrf'])
+            ->getJson('/v1/users/'.$other->id.'/bindings')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'FORBIDDEN')
+            ->assertJsonPath('data.capability', 'iam.binding.manage');
     }
 }

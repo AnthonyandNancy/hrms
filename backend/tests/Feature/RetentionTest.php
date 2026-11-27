@@ -31,28 +31,25 @@ class RetentionTest extends TestCase
 
     public function test_preview_reports_candidates_without_deleting(): void
     {
-        $this->seedPayslip(1, '2019-01-01');
-        $this->seedPayslip(1, '2025-01-01');
-        $this->seedPayslip(2, '2019-01-01');
+        $this->seedPayslip('2019-01-01');
+        $this->seedPayslip('2025-01-01');
 
         $preview = app(RetentionService::class)->preview(
             'payroll_payment_records',
-            1,
             CarbonImmutable::parse('2026-11-23'),
         );
 
         $this->assertTrue($preview['available']);
         $this->assertSame(1, $preview['candidates']);
         $this->assertSame(1, $preview['purgeable']);
-        $this->assertSame(3, DB::table('payslips')->count());
+        $this->assertSame(2, DB::table('payslips')->count());
     }
 
     public function test_legal_hold_blocks_purge_and_is_skipped(): void
     {
-        $old = $this->seedPayslip(1, '2019-01-01');
-        $otherOld = $this->seedPayslip(1, '2019-02-01');
+        $old = $this->seedPayslip('2019-01-01');
+        $otherOld = $this->seedPayslip('2019-02-01');
         LegalHold::query()->create([
-            'tenant_id' => 1,
             'retention_class' => 'payroll_payment_records',
             'subject_type' => 'payslips',
             'subject_id' => (string) $old,
@@ -63,7 +60,6 @@ class RetentionTest extends TestCase
 
         $result = app(RetentionService::class)->purge(
             'payroll_payment_records',
-            1,
             CarbonImmutable::parse('2026-11-23'),
             confirm: true,
             actorUserId: 7,
@@ -87,11 +83,10 @@ class RetentionTest extends TestCase
 
     public function test_purge_without_confirm_is_a_dry_run(): void
     {
-        $this->seedPayslip(1, '2019-01-01');
+        $this->seedPayslip('2019-01-01');
 
         $result = app(RetentionService::class)->purge(
             'payroll_payment_records',
-            1,
             CarbonImmutable::parse('2026-11-23'),
             confirm: false,
         );
@@ -118,14 +113,12 @@ class RetentionTest extends TestCase
 
         // Reporting now owns a real `report_runs` table via migration, so the
         // permanent-class guard is asserted without creating a duplicate stub.
-        app(RetentionService::class)->purge('annual_financial_reports', 1, confirm: true);
+        app(RetentionService::class)->purge('annual_financial_reports', confirm: true);
     }
 
-    private function seedPayslip(int $tenantId, string $publishedAt): int
+    private function seedPayslip(string $publishedAt): int
     {
         $runId = (int) DB::table('payroll_runs')->insertGetId([
-            'tenant_id' => $tenantId,
-            'legal_entity_id' => 1,
             'scheme_id' => 1,
             'period' => '2019-01',
             'earning_period_start' => '2019-01-01',
@@ -142,7 +135,6 @@ class RetentionTest extends TestCase
         ]);
 
         return (int) DB::table('payslips')->insertGetId([
-            'tenant_id' => $tenantId,
             'run_id' => $runId,
             'employment_id' => 1,
             'version' => 1,

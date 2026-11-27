@@ -11,7 +11,7 @@ final class CandidateCommunication extends Model
     protected $table = 'candidate_communications';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'candidate_id', 'channel', 'direction', 'subject', 'body', 'consent_basis', 'sent_at', 'recorded_at'];
+    protected $fillable = ['candidate_id', 'channel', 'direction', 'subject', 'body', 'consent_basis', 'sent_at', 'recorded_at'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class CandidateCommunication extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

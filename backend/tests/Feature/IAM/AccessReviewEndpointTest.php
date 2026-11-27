@@ -21,7 +21,7 @@ final class AccessReviewEndpointTest extends AuthorizationTestSupport
         $this->grant($target, 'iam.audit.read', 'P2_SENSITIVE');
         $this->grant($target, '*', 'P3_RESTRICTED');
 
-        $response = $this->getJson('/v1/access-review', ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => 'test-session'])
+        $response = $this->getJson('/v1/access-review', ['X-CSRF-Token' => 'test-session'])
             ->assertOk()
             ->assertJsonStructure(['data' => ['generated_at', 'unused_high_risk_bindings', 'sod_risks']]);
 
@@ -39,32 +39,35 @@ final class AccessReviewEndpointTest extends AuthorizationTestSupport
         $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->requirePrincipal());
         $this->grant($user, 'iam.user.read', 'P1_INTERNAL');
 
-        $this->getJson('/v1/access-review', ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => 'test-session'])
+        $this->getJson('/v1/access-review', ['X-CSRF-Token' => 'test-session'])
             ->assertForbidden();
     }
 
-    public function test_it_does_not_leak_another_tenants_bindings(): void
+    public function test_it_reports_sod_risks_only_for_principals_that_hold_both_capabilities(): void
     {
         $this->systemAdmin();
 
-        $foreign = User::factory()->create(['tenant_id' => 2, 'auth_version' => 1]);
-        $this->grant($foreign, 'iam.binding.manage', 'P1_INTERNAL', tenantId: 2);
-        $this->grant($foreign, 'iam.audit.read', 'P2_SENSITIVE', tenantId: 2);
+        $singleHolder = User::factory()->create(['auth_version' => 1]);
+        $this->grant($singleHolder, 'iam.binding.manage', 'P1_INTERNAL');
 
-        $response = $this->getJson('/v1/access-review', ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => 'test-session'])
+        $riskyHolder = User::factory()->create(['auth_version' => 1]);
+        $this->grant($riskyHolder, 'iam.binding.manage', 'P1_INTERNAL');
+        $this->grant($riskyHolder, 'iam.audit.read', 'P2_SENSITIVE');
+
+        $response = $this->getJson('/v1/access-review', ['X-CSRF-Token' => 'test-session'])
             ->assertOk();
 
-        $principalIds = array_column($response->json('data.sod_risks'), 'principal_id');
-        $this->assertNotContains((int) $foreign->id, array_map('intval', $principalIds));
+        $principalIds = array_map('intval', array_column($response->json('data.sod_risks'), 'principal_id'));
+        $this->assertContains((int) $riskyHolder->id, $principalIds);
+        $this->assertNotContains((int) $singleHolder->id, $principalIds);
     }
 
-    private function grant(User $user, string $capability, string $profile, int $tenantId = 1): void
+    private function grant(User $user, string $capability, string $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal($tenantId, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::from($profile))
             ->create([
-                'tenant_id' => $tenantId,
                 'capability_code' => $capability,
                 'valid_from' => '2025-01-01 00:00:00',
                 'valid_to' => '2030-01-01 00:00:00',

@@ -15,23 +15,16 @@ namespace App\Modules\People\Contracts;
 interface WorkforceIntegrityDirectory
 {
     /**
-     * Tenants that currently hold workforce facts.
-     *
-     * @return list<int>
-     */
-    public function tenantIds(): array;
-
-    /**
      * Primary assignments that overlap in validity for the same employment.
      *
      * @return list<array{employment_id: int, assignment_ids: list<int>}>
      */
-    public function overlappingPrimaryAssignments(int $tenantId): array;
+    public function overlappingPrimaryAssignments(): array;
 
     /**
      * Assignments whose validity extends past a terminated employment.
      *
      * @return list<array{employment_id: int, assignment_id: int}>
      */
-    public function assignmentsOnTerminatedEmployments(int $tenantId): array;
+    public function assignmentsOnTerminatedEmployments(): array;
 }

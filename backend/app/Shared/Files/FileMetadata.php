@@ -8,7 +8,6 @@ final readonly class FileMetadata
 {
     public function __construct(
         public int $id,
-        public int $tenantId,
         public string $sha256,
         public string $mime,
         public int $sizeBytes,

@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Shared\Authorization;
 
 /**
- * Minimal, tenant-safe employment context returned by the People port.
+ * Minimal employment context returned by the People port for authorization.
+ * It carries identifiers only; scope is the single company.
  */
-final class EmploymentRef
+final readonly class EmploymentRef
 {
     public function __construct(
-        public readonly int $tenantId,
-        public readonly int $employmentId,
-        public readonly ?int $orgUnitId,
-        public readonly ?int $legalEntityId,
+        public int $employmentId,
+        public int $personId,
+        public ?int $userId = null,
+        public ?int $orgUnitId = null,
+        public ?int $managerEmploymentId = null,
+        public ?string $validFrom = null,
+        public ?string $validTo = null,
     ) {}
 }

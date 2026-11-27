@@ -55,7 +55,7 @@ class DecisionImmutabilityTest extends TestCase
         $snapshotBefore = $case->fresh()?->template_snapshot_json;
         $this->assertSame(1, $case->fresh()?->template_version);
 
-        app(TemplateService::class)->create(1, 10, [
+        app(TemplateService::class)->create(10, [
             'code' => 'generic.approval',
             'name' => 'Generic approval v2',
             'version' => 2,

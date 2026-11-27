@@ -27,8 +27,6 @@ use RuntimeException;
  */
 final class DemoSeeder
 {
-    public const TENANT_ID = 1;
-
     public const DATASET = 'demo';
 
     public const BUSINESS_DOMAINS = [
@@ -49,7 +47,7 @@ final class DemoSeeder
     /**
      * @return array{dataset: string, mode: string, created: bool, domains: array<string, array<string, mixed>>, deferred: array<string, string>}
      */
-    public function seed(bool $allowLive = false, int $tenantId = self::TENANT_ID): array
+    public function seed(bool $allowLive = false): array
     {
         $fixtureRoot = $this->fixtureRoot();
         $mapping = $fixtureRoot.'/mapping/demo.csv';
@@ -71,7 +69,6 @@ final class DemoSeeder
             $file = $fixtureRoot.'/known-good/'.$domainValue.'.csv';
             $run = $this->runner->apply(
                 $domain,
-                $tenantId,
                 $file,
                 [$mapping],
                 MigrationRunMode::APPLY,
@@ -97,7 +94,7 @@ final class DemoSeeder
         }
 
         foreach ($this->flags->flags() as $flag) {
-            $this->ensureDefaultFlag($flag, $tenantId);
+            $this->ensureDefaultFlag($flag);
         }
 
         $hashParts = [];
@@ -110,13 +107,12 @@ final class DemoSeeder
         $now = CarbonImmutable::now('UTC');
 
         $existingDataset = DemoDataset::query()
-            ->where('tenant_id', $tenantId)
             ->where('dataset', self::DATASET)
             ->first();
         $created = $existingDataset === null;
 
         $dataset = DemoDataset::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'dataset' => self::DATASET],
+            ['dataset' => self::DATASET],
             [
                 'status' => 'READY',
                 'mode' => $useLive ? 'LIVE' : 'SHADOW',
@@ -138,16 +134,16 @@ final class DemoSeeder
         ];
     }
 
-    public function reset(int $tenantId = self::TENANT_ID): int
+    public function reset(): int
     {
         if (app()->environment('production')) {
             throw new RuntimeException('demo:reset is refused in production environments.');
         }
 
         $deleted = 0;
-        $deleted += MigrationShadowRow::query()->where('tenant_id', $tenantId)->delete();
+        $deleted += MigrationShadowRow::query()->delete();
 
-        $runIds = MigrationRun::query()->where('tenant_id', $tenantId)->pluck('id')->all();
+        $runIds = MigrationRun::query()->pluck('id')->all();
 
         if ($runIds !== []) {
             MigrationIssue::query()->whereIn('run_id', $runIds)->delete();
@@ -162,21 +158,20 @@ final class DemoSeeder
             $deleted += MigrationRun::query()->whereIn('id', $runIds)->delete();
         }
 
-        $deleted += DemoDataset::query()->where('tenant_id', $tenantId)->delete();
-        $deleted += DB::table('feature_flags')->where('tenant_id', $tenantId)->delete();
+        $deleted += DemoDataset::query()->delete();
+        $deleted += DB::table('feature_flags')->delete();
 
         return $deleted;
     }
 
-    private function ensureDefaultFlag(string $flag, int $tenantId): void
+    private function ensureDefaultFlag(string $flag): void
     {
         $exists = DB::table('feature_flags')
-            ->where('tenant_id', $tenantId)
             ->where('flag', $flag)
             ->exists();
 
         if (! $exists) {
-            $this->flags->set($flag, $tenantId, false, null, 'demo seed default-off risky domain');
+            $this->flags->set($flag, false, null, 'demo seed default-off risky domain');
         }
     }
 

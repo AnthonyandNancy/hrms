@@ -12,10 +12,9 @@ final class DatabaseDictionaryReader implements DictionaryReader
     /**
      * @return list<array{code: string, label: string, sort_order: int}>
      */
-    public function entries(int $tenantId, string $type): array
+    public function entries(string $type): array
     {
         return DictionaryEntry::query()
-            ->where('tenant_id', $tenantId)
             ->where('type', $type)
             ->where('active', true)
             ->orderBy('sort_order')

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Services;
 
-use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Payroll\Domain\DeductionLine;
 use App\Modules\Payroll\Domain\EarningLine;
 use App\Modules\Payroll\Domain\HousingFundRule;
@@ -30,7 +30,6 @@ use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Shared\Exceptions\ConflictException;
-use App\Shared\Exceptions\ValidationException;
 use App\Shared\Money\Money;
 use App\Shared\Money\RoundingMode;
 use App\Shared\Observability\AuditRecorder;
@@ -50,7 +49,7 @@ final class CalculationService
         private readonly PayrollCalculator $calculator,
         private readonly SnapshotService $snapshots,
         private readonly TaxParameterResolver $parameters,
-        private readonly OrganizationFacts $organization,
+        private readonly CompanyProfileReader $company,
         private readonly PayrollStateMachine $stateMachine,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
@@ -62,7 +61,7 @@ final class CalculationService
     public function calculate(PayrollRun $run, int $actorUserId): array
     {
         return DB::transaction(function () use ($run, $actorUserId): array {
-            $locked = $this->stateMachine->lockRun((int) $run->tenant_id, (int) $run->id);
+            $locked = $this->stateMachine->lockRun((int) $run->id);
             $status = $locked->status instanceof PayrollRunStatus
                 ? $locked->status
                 : PayrollRunStatus::from((string) $locked->status);
@@ -75,18 +74,12 @@ final class CalculationService
             }
 
             $scheme = PayrollScheme::query()
-                ->where('tenant_id', $locked->tenant_id)
                 ->whereKey($locked->scheme_id)
                 ->with('items')
                 ->firstOrFail();
-            $entity = $this->organization->legalEntity((int) $locked->tenant_id, (int) $locked->legal_entity_id);
-
-            if ($entity === null) {
-                throw new ValidationException(['legal_entity_id' => ['The run legal entity does not exist.']]);
-            }
+            $company = $this->company->current();
 
             $snapshots = PayrollInputSnapshot::query()
-                ->where('tenant_id', $locked->tenant_id)
                 ->where('run_id', $locked->id)
                 ->where('snapshot_type', 'INPUT')
                 // Reopening creates a new snapshot version. Historical
@@ -118,7 +111,7 @@ final class CalculationService
                 $payload = (array) $snapshot->payload_json;
 
                 try {
-                    $result = $this->calculateOne($locked, $scheme, $entity->timezone, (string) $entity->currencyCode, $payload);
+                    $result = $this->calculateOne($locked, $scheme, $company->timezone, (string) $company->currencyCode, $payload);
 
                     if ($isCorrection) {
                         $stored = $this->storeCorrection($locked, $snapshot, $payload, $result);
@@ -162,7 +155,6 @@ final class CalculationService
             );
 
             $this->audit->record(
-                tenantId: (int) $locked->tenant_id,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.calculated',
                 aggregateType: 'payroll_run',
@@ -206,7 +198,6 @@ final class CalculationService
         $roundingMode = RoundingMode::from((string) $scheme->rounding_mode);
 
         $context = new PayrollContext(
-            legalEntityId: (int) $run->legal_entity_id,
             currency: $currency,
             timezone: $timezone,
             rounding: new RoundingConfig($roundingMode),
@@ -220,9 +211,9 @@ final class CalculationService
         $hfVersion = (string) ($payload['housing_fund_parameters_version'] ?? '');
         $on = (string) $run->cutoff_at;
 
-        $taxTable = $this->parameters->taxTable((int) $run->tenant_id, (int) $run->legal_entity_id, $on);
-        $si = $this->parameters->insuranceRule((int) $run->tenant_id, (int) $run->legal_entity_id, 'SOCIAL_INSURANCE', $on);
-        $hf = $this->parameters->insuranceRule((int) $run->tenant_id, (int) $run->legal_entity_id, 'HOUSING_FUND', $on);
+        $taxTable = $this->parameters->taxTable($on);
+        $si = $this->parameters->insuranceRule('SOCIAL_INSURANCE', $on);
+        $hf = $this->parameters->insuranceRule('HOUSING_FUND', $on);
 
         if ($taxVersion !== '' && $taxTable->version !== $taxVersion) {
             throw new \InvalidArgumentException('The effective tax table does not match the locked parameter version.');
@@ -324,7 +315,6 @@ final class CalculationService
         $employee = PayrollRunEmployee::query()->updateOrCreate(
             ['run_id' => $run->id, 'employment_id' => $snapshot->employment_id],
             [
-                'tenant_id' => $run->tenant_id,
                 'status' => PayrollEmployeeStatus::CALCULATED,
                 'gross_cents' => $result->gross->minor(),
                 'taxable_cents' => $result->taxableIncome->minor(),
@@ -349,7 +339,6 @@ final class CalculationService
             'employment_id' => $snapshot->employment_id,
         ]);
         $payslip->forceFill([
-            'tenant_id' => $run->tenant_id,
             'version' => 1,
             'gross_cents' => $result->gross->minor(),
             'deductions_cents' => $result->employeeDeductions->minor(),
@@ -396,7 +385,6 @@ final class CalculationService
         $employee = PayrollRunEmployee::query()->updateOrCreate(
             ['run_id' => $run->id, 'employment_id' => $snapshot->employment_id],
             [
-                'tenant_id' => $run->tenant_id,
                 'status' => PayrollEmployeeStatus::CALCULATED,
                 'gross_cents' => $delta->gross->minor(),
                 'taxable_cents' => $delta->taxableIncome->minor(),
@@ -421,7 +409,6 @@ final class CalculationService
             'employment_id' => $snapshot->employment_id,
         ]);
         $payslip->forceFill([
-            'tenant_id' => $run->tenant_id,
             'version' => 1,
             'gross_cents' => $delta->gross->minor(),
             'deductions_cents' => $delta->employeeDeductions->minor(),
@@ -454,11 +441,9 @@ final class CalculationService
     private function baseline(PayrollRun $correction, int $originalRunId, int $employmentId): array
     {
         $original = PayrollRun::query()
-            ->where('tenant_id', $correction->tenant_id)
             ->whereKey($originalRunId)
             ->firstOrFail();
         $originalPayslip = Payslip::query()
-            ->where('tenant_id', $correction->tenant_id)
             ->where('run_id', $originalRunId)
             ->where('employment_id', $employmentId)
             ->first();
@@ -528,7 +513,6 @@ final class CalculationService
 
         foreach ($drafts as $draft) {
             $created[] = PayslipLine::query()->create([
-                'tenant_id' => $payslip->tenant_id,
                 'payslip_id' => $payslip->id,
                 'item_code' => $draft->itemCode,
                 'category' => $draft->category->value,
@@ -596,7 +580,6 @@ final class CalculationService
 
             $meta = $revisedLine ?? ['category' => (string) $baselineLines[$key]['category']];
             $created[] = PayslipLine::query()->create([
-                'tenant_id' => $payslip->tenant_id,
                 'payslip_id' => $payslip->id,
                 'item_code' => (string) ($meta['item_code'] ?? 'CORRECTION_DELTA'),
                 'category' => (string) $meta['category'],
@@ -621,7 +604,6 @@ final class CalculationService
         PayrollRunEmployee::query()->updateOrCreate(
             ['run_id' => $run->id, 'employment_id' => $snapshot->employment_id],
             [
-                'tenant_id' => $run->tenant_id,
                 'status' => PayrollEmployeeStatus::FAILED,
                 'gross_cents' => 0,
                 'taxable_cents' => 0,

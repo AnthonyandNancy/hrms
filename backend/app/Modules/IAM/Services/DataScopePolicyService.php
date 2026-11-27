@@ -16,10 +16,9 @@ final class DataScopePolicyService
     /**
      * @return list<array{template: string, anchor_type: string, label: string, active: bool, sort_order: int, description: string}>
      */
-    public function rows(int $tenantId): array
+    public function rows(): array
     {
         $stored = DataScopePolicy::query()
-            ->where('tenant_id', $tenantId)
             ->get()
             ->keyBy('template_code');
 
@@ -46,12 +45,11 @@ final class DataScopePolicyService
      * @param  array{template: string, anchor_type: string, label: string, active: bool, sort_order: int}  $data
      * @return array{template: string, anchor_type: string, label: string, active: bool, sort_order: int}
      */
-    public function upsert(int $tenantId, array $data): array
+    public function upsert(array $data): array
     {
-        return DB::transaction(function () use ($tenantId, $data): array {
+        return DB::transaction(function () use ($data): array {
             /** @var DataScopePolicy|null $existing */
             $existing = DataScopePolicy::query()
-                ->where('tenant_id', $tenantId)
                 ->where('template_code', $data['template'])
                 ->first();
 
@@ -64,7 +62,7 @@ final class DataScopePolicyService
 
             /** @var DataScopePolicy $policy */
             $policy = DataScopePolicy::query()->updateOrCreate(
-                ['tenant_id' => $tenantId, 'template_code' => $data['template']],
+                ['template_code' => $data['template']],
                 [
                     'anchor_type' => $data['anchor_type'],
                     'label' => $data['label'],
@@ -81,7 +79,6 @@ final class DataScopePolicyService
             ];
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: \App\Shared\RequestContext::userId(),
                 action: 'iam.data_scope.updated',
                 aggregateType: 'data_scope_template',

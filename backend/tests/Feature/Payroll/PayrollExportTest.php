@@ -21,8 +21,8 @@ final class PayrollExportTest extends PayrollTestCase
         $run = $this->approvedRun($base, '2026-01');
         $service = app(ExportService::class);
 
-        $bank = $service->bankCsv($this->tenantId, (int) $run->id, 13);
-        $tax = $service->taxCsv($this->tenantId, (int) $run->id, 13);
+        $bank = $service->bankCsv((int) $run->id, 13);
+        $tax = $service->taxCsv((int) $run->id, 13);
 
         $this->assertStringStartsWith("\xEF\xBB\xBF", $bank['content']);
         $this->assertStringStartsWith("\xEF\xBB\xBF", $tax['content']);
@@ -49,12 +49,12 @@ final class PayrollExportTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         $this->expectException(\App\Shared\Exceptions\ConflictException::class);
-        app(ExportService::class)->bankCsv($this->tenantId, (int) $run->id, 13);
+        app(ExportService::class)->bankCsv((int) $run->id, 13);
     }
 
     public function test_payslip_lines_are_traceable_and_reconcile_to_totals(): void
@@ -89,12 +89,12 @@ final class PayrollExportTest extends PayrollTestCase
     private function approvedRun(array $base, string $period): PayrollRun
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
         $approval = app(ApprovalService::class);
-        $approval->review($this->tenantId, (int) $run->id, 11);
+        $approval->review((int) $run->id, 11);
 
-        return $approval->approve($this->tenantId, (int) $run->id, 12);
+        return $approval->approve((int) $run->id, 12);
     }
 }

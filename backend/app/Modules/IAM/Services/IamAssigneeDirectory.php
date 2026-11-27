@@ -17,7 +17,7 @@ final class IamAssigneeDirectory implements AssigneeDirectory
 {
     public function __construct(private readonly EmploymentManagerDirectory $managers) {}
 
-    public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int
+    public function managerUserIdForSubject(string $subjectType, int $subjectId, string $businessDate): ?int
     {
         // Only employment subjects have an approval line. Any other subject
         // type stays unresolved so the case fails closed instead of guessing.
@@ -25,13 +25,13 @@ final class IamAssigneeDirectory implements AssigneeDirectory
             return null;
         }
 
-        return $this->managers->managerUserIdForEmployment($tenantId, $subjectId, $businessDate);
+        return $this->managers->managerUserIdForEmployment($subjectId, $businessDate);
     }
 
     /**
      * @return list<int>
      */
-    public function orgHeadUserIdsForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): array
+    public function orgHeadUserIdsForSubject(string $subjectType, int $subjectId, string $businessDate): array
     {
         return [];
     }
@@ -39,10 +39,9 @@ final class IamAssigneeDirectory implements AssigneeDirectory
     /**
      * @return list<int>
      */
-    public function userIdsWithRole(int $tenantId, string $roleCode, string $businessDate): array
+    public function userIdsWithRole(string $roleCode, string $businessDate): array
     {
         $query = UserRole::query()
-            ->where('tenant_id', $tenantId)
             ->where('role_code', $roleCode);
 
         return BindingValidity::whereActiveOn($query, $businessDate)
@@ -55,8 +54,8 @@ final class IamAssigneeDirectory implements AssigneeDirectory
     /**
      * @return list<int>
      */
-    public function reassignmentCandidates(int $tenantId, int $caseId, int $currentAssigneeId, string $businessDate): array
+    public function reassignmentCandidates(int $caseId, int $currentAssigneeId, string $businessDate): array
     {
-        return $this->userIdsWithRole($tenantId, 'HR_ADMIN', $businessDate);
+        return $this->userIdsWithRole('HR_ADMIN', $businessDate);
     }
 }

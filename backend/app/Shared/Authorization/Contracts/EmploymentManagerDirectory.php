@@ -14,5 +14,5 @@ interface EmploymentManagerDirectory
     /**
      * User id of the manager of the given employment on the business date.
      */
-    public function managerUserIdForEmployment(int $tenantId, int $employmentId, string $businessDate): ?int;
+    public function managerUserIdForEmployment(int $employmentId, string $businessDate): ?int;
 }

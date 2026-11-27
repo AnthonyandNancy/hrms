@@ -10,13 +10,12 @@ use App\Modules\IAM\Models\User;
 
 /**
  * Immutable request principal. Constructing one requires a live user row and a
- * session whose tenant and auth_version have already been verified.
+ * session whose auth_version has already been verified.
  */
 final class AuthenticatedPrincipal implements Principal
 {
     public function __construct(
         private readonly int $userId,
-        private readonly int $tenantId,
         private readonly ?int $employmentId,
         private readonly int $authVersion,
         private readonly bool $privileged,
@@ -29,7 +28,6 @@ final class AuthenticatedPrincipal implements Principal
     {
         return new self(
             userId: (int) $user->id,
-            tenantId: (int) $user->tenant_id,
             employmentId: $employmentId,
             authVersion: (int) $session->auth_version,
             privileged: (bool) $user->is_privileged,
@@ -42,11 +40,6 @@ final class AuthenticatedPrincipal implements Principal
     public function userId(): int
     {
         return $this->userId;
-    }
-
-    public function tenantId(): int
-    {
-        return $this->tenantId;
     }
 
     public function employmentId(): ?int

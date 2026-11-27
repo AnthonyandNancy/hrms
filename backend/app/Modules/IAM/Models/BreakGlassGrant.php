@@ -24,7 +24,6 @@ final class BreakGlassGrant extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'requester_user_id',
         'approver_user_id',
         'reason',
@@ -44,7 +43,6 @@ final class BreakGlassGrant extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'requester_user_id' => 'integer',
             'approver_user_id' => 'integer',
             'scope_json' => 'array',

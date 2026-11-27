@@ -11,5 +11,5 @@ namespace App\Modules\Lifecycle\Contracts;
  */
 interface ExportTaskCanceller
 {
-    public function cancelPendingForEmployment(int $tenantId, int $employmentId, string $reason): int;
+    public function cancelPendingForEmployment(int $employmentId, string $reason): int;
 }

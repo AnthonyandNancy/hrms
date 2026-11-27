@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * have several channel-specific postings; history is retained by status.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $requisition_id
  * @property string $channel
  * @property string $status
@@ -25,7 +24,6 @@ final class RequisitionOpening extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'requisition_id',
         'channel',
         'status',
@@ -40,7 +38,6 @@ final class RequisitionOpening extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'requisition_id' => 'integer',
             'published_at' => 'immutable_datetime',
             'closed_at' => 'immutable_datetime',

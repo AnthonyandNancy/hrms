@@ -37,7 +37,6 @@ final class ReportSubscriptionController
         ]);
 
         return $this->projections->ok($this->subscriptions->listing(
-            $principal->tenantId(),
             $principal->userId(),
             (int) ($data['page'] ?? 1),
             (int) ($data['page_size'] ?? 20),
@@ -65,7 +64,7 @@ final class ReportSubscriptionController
                 auditAction: 'reporting.subscription.created',
             ),
             $data,
-            fn (int $tenantId, int $actorUserId): array => $this->subscriptions->create($tenantId, $actorUserId, $data),
+            fn (int $actorUserId): array => $this->subscriptions->create($actorUserId, $data),
             201,
             'report_subscription',
         );
@@ -93,7 +92,7 @@ final class ReportSubscriptionController
                 auditAction: 'reporting.subscription.updated',
             ),
             ['subscription_id' => $subscriptionId, ...$data],
-            fn (int $tenantId, int $actorUserId): array => $this->subscriptions->update($tenantId, $actorUserId, $subscriptionId, $data),
+            fn (int $actorUserId): array => $this->subscriptions->update($actorUserId, $subscriptionId, $data),
             200,
             'report_subscription',
         );
@@ -113,7 +112,7 @@ final class ReportSubscriptionController
                 auditAction: 'reporting.subscription.deleted',
             ),
             ['subscription_id' => $subscriptionId],
-            fn (int $tenantId, int $actorUserId): array => $this->subscriptions->delete($tenantId, $actorUserId, $subscriptionId),
+            fn (int $actorUserId): array => $this->subscriptions->delete($actorUserId, $subscriptionId),
             200,
             'report_subscription',
         );
@@ -121,7 +120,7 @@ final class ReportSubscriptionController
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  Closure(int, int): array<string, mixed>  $operation
+     * @param  Closure(int): array<string, mixed>  $operation
      */
     private function command(
         Request $request,
@@ -136,7 +135,7 @@ final class ReportSubscriptionController
             $definition,
             $payload,
             function () use ($operation, $principal, $successStatus, $resourceType): array {
-                $body = $operation($principal->tenantId(), $principal->userId());
+                $body = $operation($principal->userId());
 
                 return [
                     'http_status' => $successStatus,

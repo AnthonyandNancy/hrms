@@ -12,7 +12,7 @@ use App\Shared\Time\Clock;
 
 /**
  * Employee travel request surface. Scope is always SELF at the HTTP boundary;
- * the service additionally filters by employment and tenant so an id from
+ * the service additionally filters by employment so an id from
  * another employee is indistinguishable from a missing row.
  */
 final class TravelRequestService
@@ -26,10 +26,9 @@ final class TravelRequestService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function open(int $tenantId, int $employmentId, array $input, int $actorUserId): array
+    public function open(int $employmentId, array $input, int $actorUserId): array
     {
         $overlap = BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
             ->where('from_date', '<=', (string) $input['to_date'])
@@ -42,7 +41,6 @@ final class TravelRequestService
 
         /** @var BusinessTripRecord $record */
         $record = BusinessTripRecord::query()->create([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'from_date' => (string) $input['from_date'],
             'to_date' => (string) $input['to_date'],
@@ -52,7 +50,7 @@ final class TravelRequestService
             'created_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'time.travel.requested', 'business_trip', (int) $record->id, after: [
+        $this->audit->record($actorUserId, 'time.travel.requested', 'business_trip', (int) $record->id, after: [
             'from_date' => (string) $record->from_date,
             'to_date' => (string) $record->to_date,
         ]);
@@ -63,10 +61,9 @@ final class TravelRequestService
     /**
      * @return list<array<string, mixed>>
      */
-    public function list(int $tenantId, int $employmentId): array
+    public function list(int $employmentId): array
     {
         return BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->orderByDesc('from_date')
             ->orderByDesc('id')
@@ -78,10 +75,9 @@ final class TravelRequestService
     /**
      * @return array<string, mixed>
      */
-    public function cancel(int $tenantId, int $employmentId, int $id, string $reason, int $actorUserId): array
+    public function cancel(int $employmentId, int $id, string $reason, int $actorUserId): array
     {
         $record = BusinessTripRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->whereKey($id)
             ->first();
@@ -103,7 +99,7 @@ final class TravelRequestService
             'cancelled_at' => $this->clock->now(),
         ])->save();
 
-        $this->audit->record($tenantId, $actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
+        $this->audit->record($actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
             'reason' => $reason,
         ]);
 

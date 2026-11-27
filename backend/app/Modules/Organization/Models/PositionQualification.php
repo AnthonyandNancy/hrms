@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
  * Versioned qualification requirements for a position.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $position_id
  * @property int $version
  * @property array<string, mixed> $requirements_json
@@ -24,7 +23,6 @@ final class PositionQualification extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'position_id',
         'version',
         'requirements_json',
@@ -38,7 +36,6 @@ final class PositionQualification extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'position_id' => 'integer',
             'version' => 'integer',
             'requirements_json' => 'array',

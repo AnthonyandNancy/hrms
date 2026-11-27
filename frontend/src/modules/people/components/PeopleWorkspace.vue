@@ -113,10 +113,6 @@ function openEmployment(id: number | null): void {
   void router.push(`/hr/employees/${id}`)
 }
 
-function onNavClick(target: string): void {
-  void router.push(target)
-}
-
 watch(
   () => props.config.key,
   () => {
@@ -141,7 +137,7 @@ onMounted(load)
   <div class="page people-page" :data-page="config.key">
     <header class="page-header">
       <div class="page-header__copy">
-        <p class="page-header__breadcrumb">{{ config.group }} · Wave 2</p>
+        <p class="page-header__breadcrumb">{{ config.group }} · 员工与组织</p>
         <h1 class="page-header__title">{{ config.title }}</h1>
         <p class="page-header__description">{{ config.description }}</p>
       </div>
@@ -150,14 +146,6 @@ onMounted(load)
         <el-button :disabled="loading" @click="load">刷新</el-button>
       </div>
     </header>
-
-    <nav class="people-local-nav" aria-label="员工与组织快捷入口">
-      <button type="button" class="people-local-nav__item" :class="{ 'people-local-nav__item--active': config.key.startsWith('hr/employees') }" @click="onNavClick('/hr/employees')">员工档案</button>
-      <button type="button" class="people-local-nav__item" :class="{ 'people-local-nav__item--active': config.key.startsWith('hr/departments') }" @click="onNavClick('/hr/departments')">部门管理</button>
-      <button type="button" class="people-local-nav__item" :class="{ 'people-local-nav__item--active': config.key.startsWith('hr/positions') }" @click="onNavClick('/hr/positions')">岗位管理</button>
-      <button type="button" class="people-local-nav__item" :class="{ 'people-local-nav__item--active': config.key.startsWith('hr/movements') }" @click="onNavClick('/hr/movements')">员工异动</button>
-      <button type="button" class="people-local-nav__item" :class="{ 'people-local-nav__item--active': config.key.startsWith('hr/contracts') }" @click="onNavClick('/hr/contracts')">劳动合同</button>
-    </nav>
 
     <NoActiveEmploymentState
       v-if="pageError.noActiveEmployment.value"
@@ -341,37 +329,6 @@ onMounted(load)
   background: var(--color-canvas);
   border: 1px solid var(--color-line);
   border-radius: 999px;
-}
-
-.people-local-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 5px;
-  background: #fff;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-}
-
-.people-local-nav__item {
-  padding: 7px 13px;
-  color: var(--color-ink-secondary);
-  font-size: 12px;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.people-local-nav__item:hover {
-  color: var(--color-brand);
-  background: var(--color-brand-soft);
-}
-
-.people-local-nav__item--active {
-  color: #fff;
-  font-weight: 600;
-  background: var(--color-brand);
 }
 
 .people-partial {

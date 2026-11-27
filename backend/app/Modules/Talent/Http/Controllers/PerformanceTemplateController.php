@@ -11,7 +11,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +22,7 @@ final class PerformanceTemplateController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly PerformanceTemplateService $templates,
         private readonly IdempotencyRunner $idempotency,
     ) {}
@@ -31,7 +31,7 @@ final class PerformanceTemplateController
     {
         $principal = $this->principals->resolve();
         $this->allow($principal, 'performance.cycle.read');
-        $items = $this->templates->list($principal->tenantId());
+        $items = $this->templates->list();
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -55,14 +55,13 @@ final class PerformanceTemplateController
         }
 
         $result = DB::transaction(fn () => $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: 'POST:/v1/performance/templates',
             key: $key,
             payload: $data,
             operation: fn (): array => [
                 'http_status' => 201,
-                'body' => $this->templates->publish($principal->tenantId(), $principal->userId(), $data),
+                'body' => $this->templates->publish($principal->userId(), $data),
                 'resource_type' => 'performance_template',
             ],
         ));
@@ -78,7 +77,7 @@ final class PerformanceTemplateController
 
     private function allow(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->allows($principal, $capability, \App\Shared\Authorization\AnchorRef::company(), $today)) {
             throw new AuthorizationException('Forbidden.');

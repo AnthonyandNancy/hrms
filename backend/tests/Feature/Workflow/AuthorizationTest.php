@@ -35,7 +35,7 @@ class AuthorizationTest extends TestCase
             ->assertJsonPath('data.capability', 'workflow.case.read');
     }
 
-    public function test_requester_sees_own_case_and_approver_sees_assigned_case_but_unrelated_user_gets_404(): void
+    public function test_case_scope_limits_requester_and_approver_but_unrelated_user_gets_404(): void
     {
         $this->bootWorkflow(userId: 10);
         $template = $this->createTemplate();
@@ -53,7 +53,7 @@ class AuthorizationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.total', 1);
 
-        $this->actAs(99, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(99, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->getJson("/v1/cases/{$case->id}")->assertNotFound();
         $this->getJson('/v1/cases')->assertOk()->assertJsonPath('data.total', 0);
     }
@@ -118,7 +118,7 @@ class AuthorizationTest extends TestCase
         $this->postJson("/v1/effects/{$effect->id}/retry", [], ['Idempotency-Key' => 'retry-no-reason'])
             ->assertUnprocessable();
 
-        $this->actAs(10, capabilities: ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
+        $this->actAs(10, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide']);
         $this->postJson("/v1/effects/{$effect->id}/retry", ['reason' => 'Attempt retry without admin capability.'], ['Idempotency-Key' => 'retry-no-cap'])
             ->assertForbidden();
 

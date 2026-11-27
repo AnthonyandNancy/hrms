@@ -14,8 +14,6 @@ use Illuminate\Database\Eloquent\Model;
  * SELECTs against real rows.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $code
  * @property string $name
  * @property string $adapter
@@ -49,8 +47,6 @@ final class AttendanceDevice extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'code',
         'name',
         'adapter',
@@ -67,8 +63,6 @@ final class AttendanceDevice extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'health' => 'string',
             'last_seen_at' => 'immutable_datetime',
             'active' => 'boolean',

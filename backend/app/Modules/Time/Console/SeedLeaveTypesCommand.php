@@ -9,27 +9,25 @@ use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 
 /**
- * Reference leave-type catalog. A tenant with no leave types cannot open a
+ * Reference leave-type catalog. A company with no leave types cannot open a
  * leave account or migrate opening balances, so this command is the supported
  * way to create the baseline catalog outside tests.
  *
  * The statutory annual entitlement is deliberately NOT invented here: it is a
  * per-jurisdiction decision (S-02 in the approved plan). Only the code, unit
  * and whether the type is statutory/annual are seeded; the entitlement must be
- * supplied per tenant via --annual-days or configured by an administrator.
+ * supplied via --annual-days or configured by an administrator.
  */
 final class SeedLeaveTypesCommand extends Command
 {
     protected $signature = 'time:seed-leave-types
-        {--tenant=1 : Tenant id}
         {--annual-days= : Statutory annual entitlement in days; required for the ANNUAL type}
         {--legal-basis= : Legal basis text recorded on statutory types}';
 
-    protected $description = 'Create the reference leave-type catalog for a tenant (idempotent)';
+    protected $description = 'Create the reference leave-type catalog for the company (idempotent)';
 
     public function handle(Clock $clock): int
     {
-        $tenantId = max(1, (int) $this->option('tenant'));
         $annualDays = $this->option('annual-days');
         $legalBasis = $this->option('legal-basis');
 
@@ -79,7 +77,6 @@ final class SeedLeaveTypesCommand extends Command
 
         foreach ($catalog as $definition) {
             $existing = LeaveType::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', $definition['code'])
                 ->first();
 
@@ -89,7 +86,6 @@ final class SeedLeaveTypesCommand extends Command
 
             LeaveType::query()->create([
                 ...$definition,
-                'tenant_id' => $tenantId,
                 'expiry_rule_json' => null,
                 'version' => 1,
                 'created_at' => $clock->now(),
@@ -98,7 +94,7 @@ final class SeedLeaveTypesCommand extends Command
             $created++;
         }
 
-        $this->info("Seeded {$created} leave type(s) for tenant {$tenantId}.");
+        $this->info("Seeded {$created} leave type(s) for the company.");
 
         if ($created > 0 && $annualDays === null) {
             $this->warn('ANNUAL was created without an entitlement. Set it per jurisdiction (S-02) before granting balances.');

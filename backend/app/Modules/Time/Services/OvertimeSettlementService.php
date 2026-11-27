@@ -29,15 +29,14 @@ final class OvertimeSettlementService
     /**
      * @return array<string, mixed>
      */
-    public function settle(int $tenantId, int $recordId, string $method, string $reason, int $actorUserId): array
+    public function settle(int $recordId, string $method, string $reason, int $actorUserId): array
     {
         if (! in_array($method, ['PAY', 'TIMEOFF'], true)) {
             throw new ValidationException(['method' => ['Settlement method must be PAY or TIMEOFF.']], 'The given data was invalid.', ['reason' => 'INVALID_SETTLEMENT_METHOD']);
         }
 
-        return DB::transaction(function () use ($tenantId, $recordId, $method, $reason, $actorUserId): array {
+        return DB::transaction(function () use ($recordId, $method, $reason, $actorUserId): array {
             $record = OvertimeRecord::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($recordId)
                 ->lockForUpdate()
                 ->first();
@@ -47,7 +46,6 @@ final class OvertimeSettlementService
             }
 
             $existing = OvertimeSettlement::query()
-                ->where('tenant_id', $tenantId)
                 ->where('overtime_record_id', $recordId)
                 ->first();
 
@@ -65,7 +63,6 @@ final class OvertimeSettlementService
             try {
                 /** @var OvertimeSettlement $settlement */
                 $settlement = OvertimeSettlement::query()->create([
-                    'tenant_id' => $tenantId,
                     'overtime_record_id' => $recordId,
                     'employment_id' => (int) $record->employment_id,
                     'method' => $method,
@@ -75,7 +72,6 @@ final class OvertimeSettlementService
                 ]);
             } catch (UniqueConstraintViolationException) {
                 $existing = OvertimeSettlement::query()
-                    ->where('tenant_id', $tenantId)
                     ->where('overtime_record_id', $recordId)
                     ->firstOrFail();
 
@@ -89,7 +85,7 @@ final class OvertimeSettlementService
                 return $this->payload($existing, true);
             }
 
-            $this->audit->record($tenantId, $actorUserId, 'time.overtime.settled', 'overtime_settlement', (int) $settlement->id, after: [
+            $this->audit->record($actorUserId, 'time.overtime.settled', 'overtime_settlement', (int) $settlement->id, after: [
                 'overtime_record_id' => $recordId,
                 'method' => $method,
                 'minutes' => (int) $settlement->minutes,

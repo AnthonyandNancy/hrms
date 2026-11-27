@@ -14,10 +14,9 @@ use App\Shared\Authorization\Contracts\CaseMembershipDirectory;
  */
 final class EloquentCaseMembershipDirectory implements CaseMembershipDirectory
 {
-    public function isMember(int $tenantId, int $userId, int $caseId, string $capabilityCode): bool
+    public function isMember(int $userId, int $caseId, string $capabilityCode): bool
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($caseId)
             ->first();
 
@@ -30,37 +29,24 @@ final class EloquentCaseMembershipDirectory implements CaseMembershipDirectory
         }
 
         return WorkflowTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('case_id', $caseId)
             ->where('assignee_user_id', $userId)
             ->exists();
     }
 
     /** @return list<int> */
-    public function caseIdsForUser(int $tenantId, int $userId, string $businessDate): array
+    public function caseIdsForUser(int $userId, string $businessDate): array
     {
         $requested = CaseModel::query()
-            ->where('tenant_id', $tenantId)
             ->where('requester_user_id', $userId)
             ->pluck('id')
             ->all();
 
         $assigned = WorkflowTask::query()
-            ->where('tenant_id', $tenantId)
             ->where('assignee_user_id', $userId)
             ->pluck('case_id')
             ->all();
 
         return array_values(array_unique(array_map('intval', [...$requested, ...$assigned])));
-    }
-
-    public function legalEntityForCase(int $tenantId, int $caseId): ?int
-    {
-        $value = CaseModel::query()
-            ->where('tenant_id', $tenantId)
-            ->whereKey($caseId)
-            ->value('legal_entity_id');
-
-        return $value === null ? null : (int) $value;
     }
 }

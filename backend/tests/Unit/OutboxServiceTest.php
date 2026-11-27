@@ -18,7 +18,6 @@ class OutboxServiceTest extends TestCase
     public function test_record_persists_event_with_json_payload_and_ulid(): void
     {
         $event = app(OutboxService::class)->record(
-            tenantId: 1,
             eventType: 'employment.assignment.changed.v1',
             aggregateType: 'employment',
             aggregateId: 'emp_123',
@@ -42,7 +41,6 @@ class OutboxServiceTest extends TestCase
     {
         DB::beginTransaction();
         app(OutboxService::class)->record(
-            tenantId: 1,
             eventType: 'test.rolled.back.v1',
             aggregateType: 'test',
             aggregateId: '1',
@@ -60,7 +58,6 @@ class OutboxServiceTest extends TestCase
         foreach (['id_number', 'password', 'bank_account'] as $key) {
             try {
                 app(OutboxService::class)->record(
-                    tenantId: 1,
                     eventType: 'test.sensitive.v1',
                     aggregateType: 'test',
                     aggregateId: '1',

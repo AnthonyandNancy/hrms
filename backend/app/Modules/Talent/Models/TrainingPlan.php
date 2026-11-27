@@ -12,7 +12,6 @@ final class TrainingPlan extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'code',
         'title',
         'year',
@@ -28,7 +27,6 @@ final class TrainingPlan extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'year' => 'integer',
             'budget_cents' => 'integer',
             'recorded_at' => 'immutable_datetime',

@@ -53,7 +53,6 @@ final class PayrollCorrectionDeltaTest extends TestCase
         $context = $this->context();
         if ($currency !== 'CNY') {
             $context = new \App\Modules\Payroll\Domain\PayrollContext(
-                legalEntityId: 1,
                 currency: $currency,
                 timezone: 'Asia/Shanghai',
                 rounding: new \App\Modules\Payroll\Domain\RoundingConfig(\App\Shared\Money\RoundingMode::HALF_UP),

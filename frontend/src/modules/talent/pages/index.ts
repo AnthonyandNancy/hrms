@@ -10,7 +10,6 @@ export const PAGE_COMPONENTS = {
   'performance/appeals': () => import('./PerformanceAppealsPage.vue'),
   'performance/reports': () => import('./PerformanceReportsPage.vue'),
   'recruitment/requests/index': () => import('./RequisitionListPage.vue'),
-  'recruitment/requests/create': () => import('./RequisitionCreatePage.vue'),
   'recruitment/requests/approval': () => import('./RequisitionApprovalPage.vue'),
   'recruitment/requests/openings': () => import('./RequisitionOpeningsPage.vue'),
   'recruitment/requests/board': () => import('./RequisitionBoardPage.vue'),

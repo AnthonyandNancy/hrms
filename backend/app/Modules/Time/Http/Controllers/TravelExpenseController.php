@@ -11,7 +11,6 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\Clock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,7 +18,7 @@ use Illuminate\Validation\Rule;
 /**
  * Travel expense claims. The write is an idempotent command that requires an
  * APPROVED trip plus an APPROVED Workflow case; it never pays or posts to
- * payroll. Reads are projections scoped to the actor's legal entities.
+ * payroll. Reads are projections scoped to the actor's employments.
  */
 final class TravelExpenseController
 {
@@ -28,7 +27,6 @@ final class TravelExpenseController
         private readonly TravelService $travel,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly Clock $clock,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -40,12 +38,8 @@ final class TravelExpenseController
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        [$employmentIds, $legalEntityIds] = $this->scope($actor);
-
         return $this->projections->ok($this->travel->expenseProjection(
-            tenantId: $actor->tenantId,
-            employmentIds: $employmentIds,
-            legalEntityIds: $legalEntityIds,
+            employmentIds: $this->employmentScope($actor),
             travelId: isset($data['travel_id']) ? (int) $data['travel_id'] : null,
             page: (int) ($data['page'] ?? 1),
             pageSize: (int) ($data['page_size'] ?? 20),
@@ -83,13 +77,11 @@ final class TravelExpenseController
             ),
             $payload,
             function () use ($actor, $payload): array {
-                [$employmentIds, $legalEntityIds] = $this->scope($actor);
                 $body = $this->travel->recordExpense(
-                    $actor->tenantId,
                     $payload,
                     $actor->userId,
-                    $employmentIds,
-                    $legalEntityIds,
+                    $this->employmentScope($actor) ?? [],
+                    $actor->scope === 'COMPANY',
                 );
 
                 return [
@@ -114,16 +106,16 @@ final class TravelExpenseController
     }
 
     /**
-     * @return array{0: list<int>, 1: list<int>}
+     * @return list<int>|null null is the whole company; [] denies access.
      */
-    private function scope(\App\Modules\Time\Contracts\TimeActor $actor): array
+    private function employmentScope(\App\Modules\Time\Contracts\TimeActor $actor): ?array
     {
-        $today = $this->clock->now()->toDateString();
-
         return match ($actor->scope) {
-            'SELF' => [$actor->employmentId !== null ? [$actor->employmentId] : [], []],
-            'MANAGED' => [$actor->managedEmploymentIds, []],
-            default => [[], $this->scope->legalEntityIds($actor, $today)],
+            'SELF' => $actor->employmentId !== null ? [$actor->employmentId] : [],
+            'MANAGED' => $actor->managedEmploymentIds,
+            // COMPANY is the whole company and needs no employment predicate.
+            'COMPANY' => null,
+            default => [],
         };
     }
 }

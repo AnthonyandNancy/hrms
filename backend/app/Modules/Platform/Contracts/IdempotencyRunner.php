@@ -17,7 +17,6 @@ interface IdempotencyRunner
      * @param  Closure(): array{http_status: int, body: array<string, mixed>, resource_type?: string, resource_id?: string}  $operation
      */
     public function run(
-        int $tenantId,
         int $principalId,
         string $scope,
         string $key,

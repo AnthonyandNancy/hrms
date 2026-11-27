@@ -67,11 +67,9 @@ function syntheticSession(includeWriteCapabilities = false): SessionBootstrap & 
     authenticated: true as const,
     principal: {
       userId: 9001,
-      tenantId: 1,
       employmentId: 501,
       displayName: 'Synthetic Reviewer',
-      tenantName: 'Synthetic Tenant',
-      legalEntityName: 'Synthetic Legal Entity',
+      companyName: 'Synthetic Company',
       email: 'synthetic.reviewer@example.invalid',
       employmentNo: 'E9001',
       jobTitle: 'Test Reviewer',
@@ -151,7 +149,6 @@ const payrollRuns = {
   items: [
     {
       id: 5,
-      legal_entity_id: 1,
       period: '2026-11',
       run_type: 'REGULAR',
       status: 'DRAFT',
@@ -169,9 +166,12 @@ const payrollRuns = {
 
 describe('time/payroll registry mapping', () => {
   it('covers exactly the 43 Wave 3 registry keys and returns a component for each', () => {
+    // The payroll workspace/detail keys now belong to modules/payroll, so this
+    // manifest owns the remaining 42 Wave 3 keys (43 minus the moved overview).
     const registryKeys = PAGE_REGISTRY.filter(
       (page) =>
         page.wave === 'Wave 3' &&
+        page.componentKey in PAGE_COMPONENTS &&
         ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
           page.componentKey.startsWith(prefix),
         ),
@@ -180,7 +180,7 @@ describe('time/payroll registry mapping', () => {
       .sort()
 
     const manifestKeys = Object.keys(PAGE_COMPONENTS).sort()
-    expect(manifestKeys).toHaveLength(43)
+    expect(manifestKeys).toHaveLength(42)
     expect(manifestKeys).toEqual(registryKeys)
 
     for (const key of registryKeys) {
@@ -594,7 +594,6 @@ describe('representative time/payroll mounts', () => {
       items: [
         {
           id: 7,
-          legal_entity_id: 1,
           city_tier: 'A',
           hotel_cap_cents: 80000,
           transport_cap_cents: 30000,
@@ -617,7 +616,7 @@ describe('representative time/payroll mounts', () => {
     const wrapper = await mountPage('travel/policies', true)
     await flushPromises()
 
-    expect(resourceGet).toHaveBeenCalledWith('/travel/policies', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resourceGet).toHaveBeenCalledWith('/travel/policies', expect.objectContaining({ page: 1, page_size: 20 }))
     expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
     const text = wrapper.get('[data-testid="travel-policies"]').text()
     expect(text).toContain('¥800.00')
@@ -643,7 +642,6 @@ describe('representative time/payroll mounts', () => {
     const wrapper = await mountPage('travel/policies', true)
     await flushPromises()
 
-    await wrapper.get('[data-testid="travel-policy-legal-entity"]').setValue('1')
     await wrapper.get('[data-testid="travel-policy-city-tier"]').setValue('A')
     await wrapper.get('[data-testid="travel-policy-effective-from"]').setValue('2026-07-01')
     await wrapper.get('[data-testid="travel-policy-hotel-cents"]').setValue('90000')
@@ -654,7 +652,6 @@ describe('representative time/payroll mounts', () => {
     expect(resourcePost).toHaveBeenCalledWith(
       '/travel/policies',
       {
-        legal_entity_id: 1,
         city_tier: 'A',
         hotel_cap_cents: 90000,
         transport_cap_cents: 35000,
@@ -709,7 +706,6 @@ describe('representative time/payroll mounts', () => {
           id: 21,
           travel_id: 12,
           employment_id: 501,
-          legal_entity_id: 1,
           category: 'TRANSPORT',
           amount_cents: 12050,
           currency: 'CNY',
@@ -891,7 +887,6 @@ describe('representative time/payroll mounts', () => {
         {
           id: 31,
           employment_id: 501,
-          legal_entity_id: 1,
           effective_from: '2026-01-01',
           currency: 'CNY',
           salary_scheme_code: 'SCHEME-A',
@@ -901,7 +896,6 @@ describe('representative time/payroll mounts', () => {
         {
           id: 32,
           employment_id: 501,
-          legal_entity_id: 1,
           effective_from: '2026-07-01',
           currency: 'CNY',
           salary_scheme_code: 'SCHEME-A',
@@ -923,7 +917,7 @@ describe('representative time/payroll mounts', () => {
     const wrapper = await mountPage('payroll/employee-plans', true)
     await flushPromises()
 
-    expect(resourceGet).toHaveBeenCalledWith('/payroll/employee-plans', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resourceGet).toHaveBeenCalledWith('/payroll/employee-plans', expect.objectContaining({ page: 1, page_size: 20 }))
     expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
     const text = wrapper.get('[data-testid="payroll-employee-plans"]').text()
     expect(text).toContain('¥10,000.00')
@@ -937,7 +931,6 @@ describe('representative time/payroll mounts', () => {
         {
           id: 33,
           employment_id: 501,
-          legal_entity_id: 1,
           effective_from: '2026-08-01',
           currency: 'CNY',
           salary_scheme_code: 'SCHEME-A',
@@ -970,7 +963,6 @@ describe('representative time/payroll mounts', () => {
         {
           id: 41,
           employment_id: 501,
-          legal_entity_id: 1,
           effective_from: '2026-10-01',
           currency: 'CNY',
           case_id: 77,
@@ -994,7 +986,7 @@ describe('representative time/payroll mounts', () => {
     const wrapper = await mountPage('payroll/adjustments', true)
     await flushPromises()
 
-    expect(resourceGet).toHaveBeenCalledWith('/payroll/adjustments', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resourceGet).toHaveBeenCalledWith('/payroll/adjustments', expect.objectContaining({ page: 1, page_size: 20 }))
     const text = wrapper.get('[data-testid="payroll-adjustments"]').text()
     expect(text).toContain('CASE-77')
     expect(text).toContain('¥14,000.00')
@@ -1028,7 +1020,7 @@ describe('representative time/payroll mounts', () => {
     const wrapper = await mountPage('payroll/inputs')
     await flushPromises()
 
-    expect(resourceGet).toHaveBeenCalledWith('/payroll/runs', expect.objectContaining({ legal_entity_id: 1 }))
+    expect(resourceGet).toHaveBeenCalledWith('/payroll/runs', expect.objectContaining({ page: 1, page_size: 20 }))
     expect(resourceGet).toHaveBeenCalledWith('/payroll/runs/5/inputs')
     expect(wrapper.find('[data-testid="backend-gap"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('ATTENDANCE_MONTH')
@@ -1338,7 +1330,6 @@ describe('live write actions', () => {
         items: [
           {
             id: 41,
-            legal_entity_id: 1,
             employment_id: 501,
             business_date: '2026-11-25',
             shift_template_id: 7,
@@ -1361,7 +1352,6 @@ describe('live write actions', () => {
     })
     resourcePost.mockResolvedValue({
       schedule_id: 42,
-      legal_entity_id: 1,
       employment_id: 501,
       business_date: '2026-11-26',
       shift_template_id: 8,
@@ -1432,7 +1422,6 @@ describe('live write actions', () => {
       items: [
         {
           id: 91,
-          legal_entity_id: 1,
           month: '2026-11',
           status: 'CLOSED',
           closed_by: 10,
@@ -1443,7 +1432,6 @@ describe('live write actions', () => {
         },
         {
           id: 90,
-          legal_entity_id: 1,
           month: '2026-10',
           status: 'REOPENED',
           closed_by: 10,
@@ -1480,7 +1468,6 @@ describe('live write actions', () => {
       items: [
         {
           id: 5,
-          legal_entity_id: 1,
           code: 'DEV-SYNTH-01',
           name: 'Synthetic lobby reader',
           adapter: 'ZK-LAN',
@@ -1545,7 +1532,7 @@ describe('live write actions', () => {
     await flushPromises()
     expect(resourcePost).toHaveBeenCalledWith(
       '/time/attendance/closings',
-      { month: '2026-11', legal_entity_id: 1 },
+      { month: '2026-11' },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
 
@@ -1561,7 +1548,7 @@ describe('live write actions', () => {
     await flushPromises()
     expect(resourcePost).toHaveBeenCalledWith(
       '/time/attendance/recalculate',
-      { month: '2026-11', legal_entity_id: 1 },
+      { month: '2026-11' },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
   })

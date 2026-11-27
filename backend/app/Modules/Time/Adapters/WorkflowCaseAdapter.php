@@ -14,6 +14,8 @@ use App\Shared\Exceptions\ConflictException;
 /**
  * Time -> Workflow adapter. Depends only on Workflow Contracts; no Workflow
  * model or service class is imported.
+ *
+ * Workflow is company-scoped: no tenant id is carried across this boundary.
  */
 final class WorkflowCaseAdapter implements WorkflowCasePort
 {
@@ -23,7 +25,6 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
     ) {}
 
     public function createCase(
-        int $tenantId,
         int $requesterUserId,
         string $type,
         string $subjectType,
@@ -32,7 +33,7 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         string $businessDate,
     ): int {
         $case = $this->cases->open(
-            principal: $this->principalFor($tenantId, $requesterUserId),
+            principal: $this->principalFor($requesterUserId),
             type: $type,
             subjectType: $subjectType,
             subjectId: $subjectId,
@@ -45,9 +46,9 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         return $case['id'];
     }
 
-    public function case(int $tenantId, int $caseId): ?WorkflowCaseSnapshot
+    public function case(int $caseId): ?WorkflowCaseSnapshot
     {
-        $case = $this->cases->find($tenantId, $caseId);
+        $case = $this->cases->find($caseId);
 
         if ($case === null) {
             return null;
@@ -55,7 +56,6 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
 
         return new WorkflowCaseSnapshot(
             id: $case['id'],
-            tenantId: $tenantId,
             requesterUserId: $case['requester_user_id'],
             type: $case['type'],
             subjectType: $case['subject_type'],
@@ -71,11 +71,11 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         );
     }
 
-    public function decide(int $tenantId, int $caseId, string $action, string $comment): void
+    public function decide(int $caseId, string $action, string $comment): void
     {
         $principal = $this->principals->resolve();
 
-        if ($principal === null || $principal->tenantId !== $tenantId) {
+        if ($principal === null) {
             throw new ConflictException(
                 'The workflow principal does not match the request actor.',
                 ['reason' => 'WORKFLOW_PRINCIPAL_MISMATCH'],
@@ -85,9 +85,9 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         $this->cases->decide($principal, $caseId, $action, $comment);
     }
 
-    public function requestCancel(int $tenantId, int $caseId, int $actorUserId, string $reason): void
+    public function requestCancel(int $caseId, int $actorUserId, string $reason): void
     {
-        $case = $this->case($tenantId, $caseId);
+        $case = $this->case($caseId);
 
         if ($case === null) {
             throw new ConflictException('The workflow case was not found.', ['reason' => 'CASE_NOT_FOUND']);
@@ -97,14 +97,14 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
             throw new ConflictException('Only the requester may cancel this case.', ['reason' => 'CASE_NOT_CANCELLABLE']);
         }
 
-        $this->cases->withdraw($this->principalFor($tenantId, $actorUserId), $caseId, $reason);
+        $this->cases->withdraw($this->principalFor($actorUserId), $caseId, $reason);
     }
 
-    private function principalFor(int $tenantId, int $userId): WorkflowPrincipal
+    private function principalFor(int $userId): WorkflowPrincipal
     {
         $principal = $this->principals->resolve();
 
-        if ($principal === null || $principal->tenantId !== $tenantId || $principal->userId !== $userId) {
+        if ($principal === null || $principal->userId !== $userId) {
             throw new ConflictException(
                 'The workflow principal does not match the request actor.',
                 ['reason' => 'WORKFLOW_PRINCIPAL_MISMATCH'],

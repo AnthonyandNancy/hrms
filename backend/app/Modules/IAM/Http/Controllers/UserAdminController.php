@@ -11,9 +11,13 @@ use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RoleCapability;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
+use App\Modules\IAM\Services\AdminProtectionGuard;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\SecurityEventService;
 use App\Modules\IAM\Services\SessionManager;
+use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\People\Contracts\PeopleEmploymentWriter;
+use App\Modules\People\Contracts\PeopleWorkspaceDirectory;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\AuthorizationSnapshot;
@@ -21,6 +25,7 @@ use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +41,11 @@ final class UserAdminController
         private readonly SessionManager $sessions,
         private readonly Clock $clock,
         private readonly AuthorizationSnapshot $snapshot,
+        private readonly PeopleDirectory $people,
+        private readonly PeopleWorkspaceDirectory $workspaceProfiles,
+        private readonly PeopleEmploymentWriter $employments,
+        private readonly CompanyBusinessDate $businessDates,
+        private readonly AdminProtectionGuard $adminProtection,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -43,16 +53,49 @@ final class UserAdminController
         $validated = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'q' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'nullable', 'string', Rule::in(User::STATUS_ACTIVE, User::STATUS_LOCKED, User::STATUS_DISABLED)],
+            'role_code' => ['sometimes', 'nullable', 'string', 'max:64'],
+            ...$this->scopeFieldRules(['page', 'page_size', 'q', 'status', 'role_code']),
         ]);
         $page = (int) ($validated['page'] ?? 1);
         $pageSize = (int) ($validated['page_size'] ?? 20);
-        $principal = $this->context->requirePrincipal();
 
-        $query = User::query()->where('tenant_id', $principal->tenantId())->orderBy('id');
-        $total = (int) (clone $query)->count();
+        $query = User::query()->orderBy('id');
+
+        $search = isset($validated['q']) ? trim((string) $validated['q']) : '';
+        if ($search !== '') {
+            $term = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
+            $query->where(function ($inner) use ($term): void {
+                $inner->where('username', 'like', $term)
+                    ->orWhere('email', 'like', $term);
+            });
+        }
+
+        if (isset($validated['status'])) {
+            $query->where('status', (string) $validated['status']);
+        }
+
         $now = $this->clock->now();
+        $businessDate = $this->businessDates->today()->value();
+
+        $roleCode = isset($validated['role_code']) ? strtoupper(trim((string) $validated['role_code'])) : '';
+        if ($roleCode !== '') {
+            $query->whereExists(function ($sub) use ($roleCode, $now): void {
+                $sub->selectRaw('1')
+                    ->from('user_roles')
+                    ->whereColumn('user_roles.user_id', 'users.id')
+                    ->where('user_roles.role_code', $roleCode)
+                    ->whereColumn('user_roles.auth_version', 'users.auth_version')
+                    ->where('user_roles.valid_from', '<=', $now)
+                    ->where('user_roles.valid_to', '>', $now);
+            });
+        }
+
+        $total = (int) (clone $query)->count();
         /** @var list<array<string, mixed>> $items */
         $items = [];
+
         foreach ($query->forPage($page, $pageSize)->get() as $user) {
             /** @var list<array{role_code: string, valid_from: string|null, valid_to: string|null}> $roles */
             $roles = [];
@@ -73,15 +116,39 @@ final class UserAdminController
                 ];
             }
 
+            $employmentId = $this->people->employmentForUser((int) $user->id);
+            $binding = null;
+            $displayName = (string) $user->username;
+
+            if ($employmentId !== null) {
+                $snapshot = $this->people->employmentSnapshot($employmentId, $businessDate);
+
+                if ($snapshot !== null) {
+                    $profile = $this->workspaceProfiles->profile($employmentId, $businessDate);
+                    $personName = $profile === null ? null : $profile->personName;
+                    $binding = [
+                        'employment_id' => $snapshot->employmentId,
+                        'employee_no' => $snapshot->employeeNo,
+                        'person_name' => $personName ?? $snapshot->personName,
+                    ];
+                    $displayName = $personName ?? $snapshot->personName ?? $displayName;
+                }
+            }
+
             $items[] = [
                 'id' => (int) $user->id,
                 'username' => $user->username,
+                'display_name' => $displayName,
                 'email' => $user->email,
                 'status' => $user->status,
                 'is_privileged' => (bool) $user->is_privileged,
                 'mfa_enrolled' => $user->hasConfirmedMfa(),
                 'auth_version' => (int) $user->auth_version,
+                'last_login_at' => $user->last_login_at instanceof \Carbon\CarbonInterface
+                    ? $user->last_login_at->toIso8601ZuluString()
+                    : null,
                 'roles' => $roles,
+                'employment_binding' => $binding,
             ];
         }
 
@@ -94,20 +161,38 @@ final class UserAdminController
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:80', 'regex:/^[a-zA-Z0-9._-]+$/'],
             'email' => ['nullable', 'email', 'max:255'],
+            'display_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'password' => ['required', 'string', 'min:12', 'max:1024'],
             'is_privileged' => ['sometimes', 'boolean'],
+            'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'reason' => ['sometimes', 'nullable', 'string', 'min:3', 'max:255'],
+            ...$this->scopeFieldRules([
+                'username', 'email', 'display_name', 'password',
+                'is_privileged', 'employment_id', 'reason',
+            ]),
         ]);
+
+        // The cutover removed tenant/legal-entity dimensions from the user
+        // workbench. The rules above reject any stale client payload that still
+        // tries to choose a scope instead of silently ignoring it.
 
         $username = mb_strtolower((string) $validated['username']);
 
-        if (User::query()->where('tenant_id', $principal->tenantId())->where('username', $username)->exists()) {
+        if (User::query()->where('username', $username)->exists()) {
             throw new ValidationException(['username' => ['The username has already been taken.']]);
         }
 
-        $user = DB::transaction(function () use ($validated, $username, $principal, $request): User {
+        $employmentId = isset($validated['employment_id']) ? (int) $validated['employment_id'] : null;
+
+        if ($employmentId !== null && ! $this->people->employmentExistsInTenant($employmentId)) {
+            throw new ValidationException(['employment_id' => ['The selected employment does not exist.']]);
+        }
+
+        $displayName = isset($validated['display_name']) ? trim((string) $validated['display_name']) : '';
+
+        $user = DB::transaction(function () use ($validated, $username, $principal, $request, $employmentId, $displayName): User {
             /** @var User $created */
             $created = User::query()->create([
-                'tenant_id' => $principal->tenantId(),
                 'username' => $username,
                 'email' => $validated['email'] ?? null,
                 'password_hash' => $this->passwords->hash((string) $validated['password']),
@@ -116,8 +201,19 @@ final class UserAdminController
                 'is_privileged' => (bool) ($validated['is_privileged'] ?? false),
             ]);
 
-            $this->events->record($principal->tenantId(), $principal->userId(), 'user.created', 'SUCCESS', [
+            if ($employmentId !== null) {
+                $this->employments->linkUser(
+                    userId: (int) $created->id,
+                    employmentId: $employmentId,
+                    validFrom: $this->businessDates->today()->value(),
+                    validTo: null,
+                    actorUserId: $principal->userId(),
+                );
+            }
+
+            $this->events->record($principal->userId(), 'user.created', 'SUCCESS', [
                 'target_user_id' => (int) $created->id,
+                'reason' => $displayName !== '' ? $displayName : $username,
             ], $request);
 
             return $created;
@@ -126,7 +222,9 @@ final class UserAdminController
         return ApiResponse::created([
             'id' => (int) $user->id,
             'username' => $user->username,
+            'display_name' => $displayName !== '' ? $displayName : $user->username,
             'status' => $user->status,
+            'employment_id' => $employmentId,
         ]);
     }
 
@@ -139,31 +237,39 @@ final class UserAdminController
         ]);
 
         /** @var User|null $user */
-        $user = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $user = User::query()->whereKey($id)->first();
 
         if ($user === null) {
             throw new NotFoundOrForbiddenException;
         }
 
-        DB::transaction(function () use ($user, $validated, $principal, $request): void {
-            $old = $user->status;
-            $user->forceFill([
+        /** @var array{status: string, auth_version: int} $result */
+        $result = DB::transaction(function () use ($user, $validated, $principal, $request): array {
+            /** @var User $locked */
+            $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+
+            $this->assertNotLastActiveAdmin($locked, (string) $validated['status']);
+
+            $old = $locked->status;
+            $locked->forceFill([
                 'status' => (string) $validated['status'],
             ])->save();
 
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->snapshot->replay($user, 'user.status.changed');
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'user.status.changed', 'SUCCESS', [
-                'target_user_id' => (int) $user->id,
+            $this->sessions->revokeAllForUser((int) $locked->id);
+            $version = $this->snapshot->replay($locked, 'user.status.changed');
+            $this->events->record($principal->userId(), 'user.status.changed', 'SUCCESS', [
+                'target_user_id' => (int) $locked->id,
                 'reason' => (string) $validated['reason'],
-                'role_code' => $old.'->'.$user->status,
+                'role_code' => $old.'->'.$locked->status,
             ], $request);
+
+            return ['status' => (string) $locked->status, 'auth_version' => $version];
         });
 
         return ApiResponse::ok([
             'id' => (int) $user->id,
-            'status' => $user->status,
-            'auth_version' => (int) $user->auth_version,
+            'status' => $result['status'],
+            'auth_version' => $result['auth_version'],
         ]);
     }
 
@@ -185,7 +291,7 @@ final class UserAdminController
         }
 
         /** @var User|null $target */
-        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $target = User::query()->whereKey($id)->first();
         /** @var Role|null $role */
         $role = Role::query()->whereKey((string) $validated['role_code'])->first();
 
@@ -233,7 +339,6 @@ final class UserAdminController
             $currentVersion = (int) $user->auth_version;
 
             UserRole::query()->create([
-                'tenant_id' => (int) $user->tenant_id,
                 'user_id' => (int) $user->id,
                 'role_code' => (string) $role->code,
                 'valid_from' => $from,
@@ -246,7 +351,6 @@ final class UserAdminController
 
             foreach ($grants as $grant) {
                 AuthorityBinding::query()->create([
-                    'tenant_id' => (int) $user->tenant_id,
                     'principal_id' => (int) $user->id,
                     'capability_code' => (string) $grant->capability_code,
                     'anchor_type' => (string) $grant->anchor_type,
@@ -264,15 +368,15 @@ final class UserAdminController
             }
 
             $this->snapshot->replay($user, 'role.assigned');
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.assigned', 'SUCCESS', [
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record($principal->userId(), 'role.assigned', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'role_code' => (string) $role->code,
                 'reason' => (string) $validated['reason'],
             ], $request);
 
             if ($risks !== []) {
-                $this->events->record((int) $user->tenant_id, $principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
+                $this->events->record($principal->userId(), 'security.sod_risk_accepted', 'SUCCESS', [
                     'target_user_id' => (int) $user->id,
                     'role_code' => (string) $role->code,
                     'reason' => (string) $validated['reason'],
@@ -298,7 +402,7 @@ final class UserAdminController
         ]);
 
         /** @var User|null $target */
-        $target = User::query()->where('tenant_id', $principal->tenantId())->whereKey($id)->first();
+        $target = User::query()->whereKey($id)->first();
 
         if ($target === null) {
             throw new NotFoundOrForbiddenException;
@@ -309,6 +413,8 @@ final class UserAdminController
         DB::transaction(function () use ($target, $roleCode, $principal, $validated, $request): void {
             $user = User::query()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             $currentVersion = (int) $user->auth_version;
+
+            $this->assertNotLastAdminRoleRemoval($user, $roleCode);
 
             $deleted = UserRole::query()
                 ->where('user_id', (int) $user->id)
@@ -328,8 +434,8 @@ final class UserAdminController
                 ->delete();
 
             $this->snapshot->replay($user, 'role.revoked');
-            $this->sessions->revokeAllForUser((int) $user->tenant_id, (int) $user->id);
-            $this->events->record((int) $user->tenant_id, $principal->userId(), 'role.revoked', 'SUCCESS', [
+            $this->sessions->revokeAllForUser((int) $user->id);
+            $this->events->record($principal->userId(), 'role.revoked', 'SUCCESS', [
                 'target_user_id' => (int) $user->id,
                 'role_code' => $roleCode,
                 'reason' => (string) $validated['reason'],
@@ -344,9 +450,38 @@ final class UserAdminController
     }
 
     /**
+     * Administrator identity is live authority, not the display-only
+     * `is_privileged` flag. The single company must keep at least one enabled
+     * administrator, and the rule lives in one place so every mutation path
+     * enforces the same predicate.
+     */
+    private function assertNotLastActiveAdmin(User $user, string $nextStatus): void
+    {
+        if ($nextStatus === User::STATUS_ACTIVE || ! $user->isActive()) {
+            return;
+        }
+
+        $this->adminProtection->assertNotLastAdminDisable((int) $user->id);
+    }
+
+    /**
+     * Revoking the last administrator role from the last enabled administrator
+     * would leave the company with no manageable authority.
+     */
+    private function assertNotLastAdminRoleRemoval(User $user, string $roleCode): void
+    {
+        // Roles are keyed by their code, and the guard works with the live
+        // role assignments rather than a synthetic numeric id.
+        $this->adminProtection->assertNotLastAdminRoleRemoval(
+            (int) $user->id,
+            [Role::query()->whereKey($roleCode)->firstOrFail()->getKey()],
+        );
+    }
+
+    /**
      * Role templates can span anchors. Every anchor that requires an id must
-     * be supplied explicitly, except COMPANY which may come from the
-     * route's legal entity header.
+     * be supplied explicitly; COMPANY is the whole single-company instance
+     * and never carries an anchor id.
      *
      * @param  \Illuminate\Database\Eloquent\Collection<int, RoleCapability>  $grants
      * @return array<string, int>
@@ -382,6 +517,27 @@ final class UserAdminController
         }
 
         return $resolved;
+    }
+
+    /**
+     * Single-company deployment: request bodies are whitelisted, so a stale
+     * multi-company client payload is rejected instead of being silently
+     * ignored. Query-string values are excluded from this check because they
+     * are governed by their own rules above.
+     *
+     * @param  list<string>  $allowed
+     * @return array<string, list<string>>
+     */
+    private function scopeFieldRules(array $allowed): array
+    {
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 
     /**

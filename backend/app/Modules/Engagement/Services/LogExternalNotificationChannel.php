@@ -13,10 +13,9 @@ use Illuminate\Support\Facades\Log;
  */
 final class LogExternalNotificationChannel implements ExternalNotificationChannel
 {
-    public function notify(int $tenantId, string $type, array $userIds, array $payload): void
+    public function notify(string $type, array $userIds, array $payload): void
     {
         Log::info('engagement.external_notification_stub', [
-            'tenant_id' => $tenantId,
             'type' => $type,
             'user_ids' => array_values($userIds),
             'payload_keys' => array_keys($payload),

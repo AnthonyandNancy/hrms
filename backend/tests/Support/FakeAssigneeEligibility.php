@@ -12,11 +12,11 @@ final class FakeAssigneeEligibility implements AssigneeEligibility
     public array $eligible = [];
 
     /** @var array<string, bool> */
-    public array $eligibleByTenantAndDate = [];
+    public array $eligibleByUserAndDate = [];
 
-    public function isEligible(int $tenantId, int $userId, string $businessDate): bool
+    public function isEligible(int $userId, string $businessDate): bool
     {
-        return $this->eligibleByTenantAndDate["{$tenantId}:{$userId}:{$businessDate}"]
+        return $this->eligibleByUserAndDate["{$userId}:{$businessDate}"]
             ?? $this->eligible[$userId]
             ?? true;
     }

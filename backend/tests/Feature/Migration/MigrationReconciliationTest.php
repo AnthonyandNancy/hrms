@@ -21,7 +21,6 @@ class MigrationReconciliationTest extends TestCase
         $targets = MigrationTargetRegistryFakes::install();
         $run = app(MigrationRunner::class)->apply(
             MigrationDomain::LEAVE_OPENINGS,
-            1,
             $this->fixture('leave_openings.csv'),
             [$this->mappingFile()],
             MigrationRunMode::APPLY,
@@ -43,7 +42,6 @@ class MigrationReconciliationTest extends TestCase
         MigrationTargetRegistryFakes::install();
         $run = app(MigrationRunner::class)->apply(
             MigrationDomain::PAYROLL_YTD,
-            1,
             $this->fixture('payroll_ytd.csv'),
             [$this->mappingFile()],
             MigrationRunMode::APPLY,
@@ -63,7 +61,6 @@ class MigrationReconciliationTest extends TestCase
         $targets = MigrationTargetRegistryFakes::install();
         $run = app(MigrationRunner::class)->apply(
             MigrationDomain::PEOPLE,
-            1,
             $this->fixture('people.csv'),
             [$this->mappingFile()],
             MigrationRunMode::APPLY,
@@ -83,7 +80,6 @@ class MigrationReconciliationTest extends TestCase
         $targets = MigrationTargetRegistryFakes::install();
         $run = app(MigrationRunner::class)->apply(
             MigrationDomain::LEAVE_OPENINGS,
-            1,
             $this->fixture('leave_openings.csv'),
             [$this->mappingFile()],
             MigrationRunMode::APPLY,

@@ -211,7 +211,7 @@ final class SodRiskAcknowledgementTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create([
                 'capability_code' => $capability,

@@ -19,35 +19,35 @@ class BusinessCalendarTest extends TestCase
         $clock = new FrozenClock('2026-11-23T09:00:00Z');
         $calendar = new BusinessCalendar($clock);
 
-        $calendar->configure(1, 1, 'Asia/Shanghai', [1, 2, 3, 4, 5], 480);
-        $calendar->addHoliday(1, 1, '2026-11-23', 'Synthetic public holiday', 'PUBLIC', 'TEST');
-        $calendar->addHoliday(1, 1, '2026-11-28', 'Synthetic make-up workday', 'MAKEUP', 'TEST');
+        $calendar->configure('Asia/Shanghai', [1, 2, 3, 4, 5], 480);
+        $calendar->addHoliday('2026-11-23', 'Synthetic public holiday', 'PUBLIC', 'TEST');
+        $calendar->addHoliday('2026-11-28', 'Synthetic make-up workday', 'MAKEUP', 'TEST');
 
-        $this->assertTrue($calendar->isRestDay(1, 1, '2026-11-21'));
-        $this->assertTrue($calendar->isRestDay(1, 1, '2026-11-23'));
-        $this->assertFalse($calendar->isRestDay(1, 1, '2026-11-28'));
-        $this->assertTrue($calendar->isRestDay(1, 1, '2026-11-29'));
-        $this->assertSame(480, $calendar->standardDayMinutes(1, 1));
+        $this->assertTrue($calendar->isRestDay('2026-11-21'));
+        $this->assertTrue($calendar->isRestDay('2026-11-23'));
+        $this->assertFalse($calendar->isRestDay('2026-11-28'));
+        $this->assertTrue($calendar->isRestDay('2026-11-29'));
+        $this->assertSame(480, $calendar->standardDayMinutes());
     }
 
     public function test_public_holiday_and_company_holiday_are_non_working(): void
     {
         $calendar = new BusinessCalendar(new FrozenClock('2026-11-23T09:00:00Z'));
-        $calendar->configure(1, 1, 'Asia/Shanghai', [1, 2, 3, 4, 5], 480);
-        $calendar->addHoliday(1, 1, '2026-11-24', 'Public', 'PUBLIC', 'TEST');
-        $calendar->addHoliday(1, 1, '2026-11-25', 'Company', 'COMPANY', 'TEST');
+        $calendar->configure('Asia/Shanghai', [1, 2, 3, 4, 5], 480);
+        $calendar->addHoliday('2026-11-24', 'Public', 'PUBLIC', 'TEST');
+        $calendar->addHoliday('2026-11-25', 'Company', 'COMPANY', 'TEST');
 
-        $this->assertTrue($calendar->isRestDay(1, 1, '2026-11-24'));
-        $this->assertTrue($calendar->isRestDay(1, 1, '2026-11-25'));
+        $this->assertTrue($calendar->isRestDay('2026-11-24'));
+        $this->assertTrue($calendar->isRestDay('2026-11-25'));
     }
 
     public function test_makeup_workday_on_a_weekend_is_working(): void
     {
         $calendar = new BusinessCalendar(new FrozenClock('2026-11-23T09:00:00Z'));
-        $calendar->configure(1, 1, 'Asia/Shanghai', [1, 2, 3, 4, 5], 480);
-        $calendar->addHoliday(1, 1, '2026-11-28', 'Make-up', 'MAKEUP', 'TEST');
+        $calendar->configure('Asia/Shanghai', [1, 2, 3, 4, 5], 480);
+        $calendar->addHoliday('2026-11-28', 'Make-up', 'MAKEUP', 'TEST');
 
-        $this->assertFalse($calendar->isRestDay(1, 1, '2026-11-28'));
+        $this->assertFalse($calendar->isRestDay('2026-11-28'));
     }
 
     public function test_unknown_timezone_is_rejected(): void
@@ -55,7 +55,7 @@ class BusinessCalendarTest extends TestCase
         $this->expectException(\App\Shared\Exceptions\ValidationException::class);
 
         (new BusinessCalendar(new FrozenClock('2026-11-23T09:00:00Z')))
-            ->configure(1, 1, 'Mars/Olympus', [1, 2, 3, 4, 5], 480);
+            ->configure('Mars/Olympus', [1, 2, 3, 4, 5], 480);
     }
 
     public function test_shift_window_maps_overnight_morning_punch_to_start_business_date(): void
@@ -72,7 +72,7 @@ class BusinessCalendarTest extends TestCase
         );
     }
 
-    public function test_day_shift_uses_legal_entity_local_date_not_utc_date(): void
+    public function test_day_shift_uses_company_local_date_not_utc_date(): void
     {
         $window = new ShiftWindow;
 

@@ -61,7 +61,6 @@ final class EnsureCapability
 
         Log::warning('authorization.denied', [
             'request_id' => RequestContext::requestId(),
-            'tenant_id' => RequestContext::tenantId(),
             'user_id' => RequestContext::userId(),
             'route' => $request->route()?->getName() ?? '/'.$request->path(),
             'capability' => $capability,
@@ -75,7 +74,6 @@ final class EnsureCapability
     {
         Log::warning('authorization.denied', [
             'request_id' => RequestContext::requestId(),
-            'tenant_id' => RequestContext::tenantId(),
             'user_id' => RequestContext::userId(),
             'route' => $request->route()?->getName() ?? '/'.$request->path(),
             'capability' => $capability,

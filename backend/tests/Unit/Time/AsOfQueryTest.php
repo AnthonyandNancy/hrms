@@ -41,9 +41,7 @@ final class AsOfQueryTest extends TestCase
     {
         \Illuminate\Support\Facades\DB::table('employments')->insert([
             'id' => $id,
-            'tenant_id' => 1,
             'person_id' => 1,
-            'legal_entity_id' => 1,
             'employee_no' => 'ASOF-'.$id,
             'employment_type' => 'FULL_TIME',
             'status' => 'ACTIVE',

@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * rows retain the rule_version that produced them until a new calculation.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $employment_id
  * @property \Carbon\CarbonImmutable $business_date
  * @property string $status
@@ -21,7 +20,6 @@ use Illuminate\Database\Eloquent\Model;
 final class AttendanceDay extends Model
 {
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'business_date',
         'shift_template_id',

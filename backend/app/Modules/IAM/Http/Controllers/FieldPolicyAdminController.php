@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Authorization\SensitiveFieldCatalog;
 use App\Modules\IAM\Services\FieldPolicyService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
+use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,7 +26,7 @@ final class FieldPolicyAdminController
         private readonly FieldPolicyService $policies,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -32,18 +35,19 @@ final class FieldPolicyAdminController
         $data = $request->validate([
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            ...$this->singleCompanyRules([]),
         ]);
 
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $items = $this->policies->rows($principal->tenantId());
+        $items = $this->policies->rows();
 
         return $this->projections->ok(new ProjectionResult(
             items: array_slice($items, ($page - 1) * $pageSize, $pageSize),
             page: $page,
             pageSize: $pageSize,
             total: count($items),
-            asOf: $this->businessDates->today($principal->tenantId())->value(),
+            asOf: $this->businessDates->today()->value(),
             freshness: ProjectionResult::FRESHNESS_LIVE,
             sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
             partial: false,
@@ -57,7 +61,24 @@ final class FieldPolicyAdminController
         $principal = $this->context->requirePrincipal();
         $data = $request->validate([
             'field_profile' => ['required', 'string', 'max:24'],
+            ...$this->singleCompanyRules(['field_profile']),
         ]);
+
+        if (SensitiveFieldCatalog::declared($fieldKey) === null) {
+            throw new ValidationException(
+                ['field_key' => ['The field is not declared in the code-owned sensitive field catalog.']],
+                'The given data was invalid.',
+                ['reason' => 'UNKNOWN_FIELD_POLICY'],
+            );
+        }
+
+        if (FieldProfile::tryFrom((string) $data['field_profile']) === null) {
+            throw new ValidationException(
+                ['field_profile' => ['Unknown field profile.']],
+                'The given data was invalid.',
+                ['reason' => 'UNKNOWN_FIELD_PROFILE'],
+            );
+        }
 
         $payload = ['field_key' => $fieldKey, 'field_profile' => (string) $data['field_profile']];
 
@@ -72,8 +93,8 @@ final class FieldPolicyAdminController
                 auditAction: 'iam.field_policy.updated',
             ),
             payload: $payload,
-            operation: function () use ($principal, $fieldKey, $data): array {
-                $row = $this->policies->update($principal->tenantId(), $fieldKey, (string) $data['field_profile']);
+            operation: function () use ($fieldKey, $data): array {
+                $row = $this->policies->update($fieldKey, (string) $data['field_profile']);
 
                 return [
                     'http_status' => 200,
@@ -92,5 +113,25 @@ final class FieldPolicyAdminController
         }
 
         return $response;
+    }
+
+    /**
+     * Single-company deployment: the request BODY is whitelisted, so any field
+     * outside that whitelist is rejected. Query-string parameters are governed
+     * by their own explicit rules above and are never inspected here.
+     *
+     * @param  list<string>  $allowed
+     * @return array<string, list<string>>
+     */
+    private function singleCompanyRules(array $allowed): array
+    {
+        $rules = [];
+        foreach (array_keys(request()->request->all()) as $field) {
+            if (! in_array($field, $allowed, true)) {
+                $rules[(string) $field] = ['prohibited'];
+            }
+        }
+
+        return $rules;
     }
 }

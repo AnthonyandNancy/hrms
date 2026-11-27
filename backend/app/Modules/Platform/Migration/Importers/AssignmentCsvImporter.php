@@ -32,7 +32,6 @@ final class AssignmentCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
         foreach (['employment_no', 'org_code', 'position_code'] as $field) {
             $this->validator->requireString($values, $field, $sourceRow, $issues);
@@ -69,7 +68,6 @@ final class AssignmentCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         $employeeNumbers = $references->employeeNumbers;
 

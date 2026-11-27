@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property string $code
  * @property bool $is_statutory
  * @property bool $is_annual
@@ -19,7 +18,6 @@ use Illuminate\Database\Eloquent\Model;
 final class LeaveType extends Model
 {
     protected $fillable = [
-        'tenant_id',
         'code',
         'name',
         'is_statutory',

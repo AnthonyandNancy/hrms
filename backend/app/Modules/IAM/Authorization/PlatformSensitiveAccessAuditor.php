@@ -17,22 +17,20 @@ final class PlatformSensitiveAccessAuditor implements SensitiveAccessAuditor
     public function __construct(private readonly AuditRecorder $audit) {}
 
     public function record(
-        int $tenantId,
         int $userId,
+        string $capabilityCode,
         string $resourceType,
-        string $resourceId,
-        string $capability,
-        array $fields,
+        ?int $resourceId = null,
+        array $fields = [],
         array $context = [],
     ): void {
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $userId,
             action: 'sensitive_field_access',
             aggregateType: $resourceType,
-            aggregateId: $resourceId,
+            aggregateId: $resourceId ?? 0,
             metadata: [
-                'capability' => $capability,
+                'capability' => $capabilityCode,
                 'fields' => array_values($fields),
                 ...$context,
             ],
@@ -40,7 +38,7 @@ final class PlatformSensitiveAccessAuditor implements SensitiveAccessAuditor
 
         // Log field names only; values are never logged.
         Log::info('sensitive_field_access', [
-            'capability' => $capability,
+            'capability' => $capabilityCode,
             'resource_type' => $resourceType,
             'resource_id' => $resourceId,
             'fields' => array_values($fields),

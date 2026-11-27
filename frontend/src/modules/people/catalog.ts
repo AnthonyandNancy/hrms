@@ -30,7 +30,6 @@ const CONTRACT_DOMAIN = { domain: 'contracts' as const, group: '劳动合同' }
 
 const EMPLOYEE_PAGES: PeoplePageConfig[] = [
   { ...EMPLOYEE_DOMAIN, key: 'hr/employees/index', title: '员工列表', description: '按业务日期、组织与关键词查询员工主数据；敏感字段使用服务端字段档位。', readLabel: '员工', read: { kind: 'employee-list' }, columns: EMPLOYEE_COLUMNS },
-  { ...EMPLOYEE_DOMAIN, key: 'hr/employees/create', title: '新增员工', description: '依次创建人员、员工关系与组织任职；每一步都调用真实 People 接口。', readLabel: '最近员工', read: { kind: 'employee-list' }, columns: EMPLOYEE_COLUMNS, form: 'employee-create' },
   {
     ...EMPLOYEE_DOMAIN, key: 'hr/employees/by-id', title: '档案详情', description: '查看员工身份、当前任职、直属主管与条款摘要。', readLabel: '员工档案', read: { kind: 'employee-detail' }, columns: EMPLOYEE_COLUMNS,
     detailFields: [
@@ -59,7 +58,6 @@ const EMPLOYEE_PAGES: PeoplePageConfig[] = [
 const DEPARTMENT_PAGES: PeoplePageConfig[] = [
   { ...DEPARTMENT_DOMAIN, key: 'hr/departments/index', title: '组织架构树', description: '按业务日期查看生效组织层级、编码与状态。', readLabel: '组织节点', read: { kind: 'org-tree' }, columns: DEPARTMENT_COLUMNS },
   { ...DEPARTMENT_DOMAIN, key: 'hr/departments/list', title: '部门列表', description: '部门列表带直接与汇总在编人数，可按编码或名称筛选。', readLabel: '部门', read: { kind: 'department-list' }, columns: DEPARTMENT_COLUMNS },
-  { ...DEPARTMENT_DOMAIN, key: 'hr/departments/editor', title: '新建/编辑部门', description: '创建组织节点并指定上级、类型与生效期；编码由后端校验。', readLabel: '现有组织', read: { kind: 'org-tree' }, columns: DEPARTMENT_COLUMNS, form: 'department-create' },
   { ...DEPARTMENT_DOMAIN, key: 'hr/departments/members', title: '部门成员', description: '查看部门当前任职并提交主任职迁移；历史任职不会覆盖。', readLabel: '部门成员', read: { kind: 'department-members' }, columns: MEMBER_COLUMNS, form: 'department-member' },
   { ...DEPARTMENT_DOMAIN, key: 'hr/departments/move', title: '部门迁移', description: '先预览受影响员工、主管与跨法人风险，再提交带生效日期的迁移。', readLabel: '可迁移组织', read: { kind: 'org-tree' }, columns: DEPARTMENT_COLUMNS, form: 'department-move' },
   { ...DEPARTMENT_DOMAIN, key: 'hr/departments/staffing', title: '部门编制', description: '对比核定编制、在编人数、空缺与超编状态。', readLabel: '部门编制', read: { kind: 'department-staffing' }, columns: STAFFING_COLUMNS },
@@ -67,7 +65,6 @@ const DEPARTMENT_PAGES: PeoplePageConfig[] = [
 
 const POSITION_PAGES: PeoplePageConfig[] = [
   { ...POSITION_DOMAIN, key: 'hr/positions/index', title: '岗位目录', description: '查看生效岗位、职级、核定编制与实时占用。', readLabel: '岗位', read: { kind: 'positions' }, columns: POSITION_COLUMNS },
-  { ...POSITION_DOMAIN, key: 'hr/positions/editor', title: '岗位编辑', description: '创建岗位，或修订已有岗位的职级、名称与编制上限。', readLabel: '岗位', read: { kind: 'positions' }, columns: POSITION_COLUMNS, form: 'position-editor', selectable: true },
   { ...POSITION_DOMAIN, key: 'hr/positions/headcount', title: '岗位编制', description: '以服务端占用数对比核定编制与空缺；调整编制通过岗位 PATCH 提交。', readLabel: '岗位编制', read: { kind: 'positions' }, columns: POSITION_COLUMNS, form: 'position-headcount', selectable: true },
   { ...POSITION_DOMAIN, key: 'hr/positions/requirements', title: '岗位任职资格', description: '查看并追加岗位任职资格版本；历史版本只追加、不覆盖。', readLabel: '任职资格版本', read: { kind: 'position-requirements' }, columns: REQUIREMENT_COLUMNS, form: 'position-requirement' },
   { ...POSITION_DOMAIN, key: 'hr/positions/grades', title: '职级/职等', description: '维护法人级职级目录；职级代码在法人内唯一，可停用而不删除。', readLabel: '职级', read: { kind: 'position-grades' }, columns: GRADE_COLUMNS, form: 'position-grade' },
@@ -99,7 +96,6 @@ const MOVEMENT_PAGES: PeoplePageConfig[] = [
 
 const CONTRACT_PAGES: PeoplePageConfig[] = [
   { ...CONTRACT_DOMAIN, key: 'hr/contracts/index', title: '合同台账', description: '按员工查看合同版本、状态与剩余到期天数。', readLabel: '合同', read: { kind: 'contracts-ledger' }, columns: CONTRACT_COLUMNS },
-  { ...CONTRACT_DOMAIN, key: 'hr/contracts/editor', title: '合同录入/续签', description: '为选中员工创建合同或续签新版本；历史合同不会被覆盖。', readLabel: '员工合同', read: { kind: 'contracts-ledger' }, columns: CONTRACT_COLUMNS, form: 'contract-editor' },
   {
     ...CONTRACT_DOMAIN, key: 'hr/contracts/by-id', title: '合同详情', description: '查看单个合同版本、续签链与到期信息。', readLabel: '合同', read: { kind: 'contract-detail' }, columns: [],
     detailFields: [

@@ -34,8 +34,8 @@ class EffectIdempotencyTest extends TestCase
         $this->assertSame(EffectStatus::APPLIED, $effect->status);
 
         $executor = app(EffectExecutor::class);
-        $executor->apply(1, $effect->id);
-        $executor->apply(1, $effect->id);
+        $executor->apply($effect->id);
+        $executor->apply($effect->id);
 
         $this->assertSame(1, $handler->calls);
         $this->assertSame(1, $effect->fresh()?->attempts);
@@ -55,7 +55,6 @@ class EffectIdempotencyTest extends TestCase
         $this->expectException(UniqueConstraintViolationException::class);
 
         Effect::query()->create([
-            'tenant_id' => $effect->tenant_id,
             'case_id' => $effect->case_id,
             'decision_id' => $effect->decision_id,
             'effect_type' => $effect->effect_type,

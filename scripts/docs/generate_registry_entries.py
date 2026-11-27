@@ -2,7 +2,8 @@
 """Generate RegistryEntry literals for frontend/src/router/registry.ts.
 
 This script is a developer tool, not runtime code. It reads the machine-
-generated inventory so the 140 business page entries are never hand-counted.
+generated inventory so the 133 business page entries are never hand-counted.
+Form routes are workspace actions (ADR-0035) and are absent by design.
 The platform entries are derived from the blueprint's 03B table.
 """
 
@@ -169,7 +170,7 @@ def module_capability(module: str) -> str:
 def module_route(module: dict[str, str]) -> str:
     # 03B.1's operational entry is the account-security hub. /login and the
     # individual MFA/session pages are the six base entries, so this keeps all
-    # 160 registry paths unique.
+    # 155 registry paths unique.
     if module["code"] == "03B.1":
         return "/account"
     return module["route"]
@@ -182,8 +183,8 @@ def module_component(route: str) -> str:
 def emit() -> str:
     pages = parse_pages()
     modules = parse_modules()
-    if len(pages) != 140:
-        raise SystemExit(f"expected 140 business pages, got {len(pages)}")
+    if len(pages) != 133:
+        raise SystemExit(f"expected 133 business pages, got {len(pages)}")
     if len(modules) != 14:
         raise SystemExit(f"expected 14 platform modules, got {len(modules)}")
 
@@ -231,4 +232,4 @@ if __name__ == "__main__":
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(body + "\n", encoding="utf-8")
     print(f"wrote {output}")
-    print(f"business=140 platform=14 total={140 + 14}")
+    print(f"business=133 platform=14 total={133 + 14}")

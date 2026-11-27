@@ -11,7 +11,7 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -21,7 +21,7 @@ final class NoticeService
         private readonly NoticeAudienceService $audience,
         private readonly NoticeAccessPolicy $policy,
         private readonly NotificationService $notifications,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
@@ -31,8 +31,8 @@ final class NoticeService
      */
     public function create(Principal $principal, array $input, ?string $businessDate = null): array
     {
-        $today = $this->businessDates->resolve($businessDate, $principal->tenantId())->value();
-        $resolved = $this->audience->resolve($principal->tenantId(), $input, $today);
+        $today = $this->businessDates->resolve($businessDate)->value();
+        $resolved = $this->audience->resolve($input, $today);
 
         if (! $this->policy->canManageAudience($principal, $resolved['audience_json'], $today)) {
             throw new \Illuminate\Auth\Access\AuthorizationException('Forbidden.');
@@ -53,7 +53,6 @@ final class NoticeService
 
         $notice = DB::transaction(function () use ($principal, $resolved, $publishAt, $title, $body, $input, $approvalRequired): Notice {
             $notice = Notice::query()->create([
-                'tenant_id' => $principal->tenantId(),
                 'title' => mb_substr($title, 0, 200),
                 'body' => $body,
                 'audience_json' => $resolved['audience_json'],
@@ -68,7 +67,6 @@ final class NoticeService
 
             if (! $approvalRequired) {
                 $this->notifications->notify(
-                    tenantId: $principal->tenantId(),
                     userIds: $resolved['recipients'],
                     type: 'NOTICE_PUBLISHED',
                     payload: [
@@ -90,7 +88,7 @@ final class NoticeService
      */
     public function list(Principal $principal, array $filters): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $filter = (string) ($filters['filter'] ?? 'all');
 
         if (! in_array($filter, ['all', 'unread', 'acknowledged', 'managed'], true)) {
@@ -102,7 +100,6 @@ final class NoticeService
         }
 
         $query = Notice::query()
-            ->where('tenant_id', $principal->tenantId())
             ->when($filter !== 'managed', fn ($builder) => $builder
                 ->where('status', Notice::STATUS_PUBLISHED)
                 ->where('publish_at', '<=', $this->clock->now()))
@@ -113,6 +110,9 @@ final class NoticeService
                 Notice::STATUS_REJECTED,
                 Notice::STATUS_PUBLISHED,
                 Notice::STATUS_RETRACTED,
+                // Managers must still see archived notices: restore is an
+                // authoring action on exactly those rows (V3-B5).
+                Notice::STATUS_ARCHIVED,
             ]))
             ->orderByDesc('publish_at')
             ->orderByDesc('id');
@@ -120,10 +120,8 @@ final class NoticeService
         // Route-level permits() already established feature access. Row scope
         // is the audience policy below; constrain() would incorrectly narrow
         // an ALL-audience notice to the caller's own employment row.
-        $query->where('tenant_id', $principal->tenantId());
 
         $acknowledgedIds = NoticeAcknowledgement::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('user_id', $principal->userId())
             ->pluck('notice_id')
             ->map(static fn (mixed $id): int => (int) $id)
@@ -152,7 +150,7 @@ final class NoticeService
      */
     public function show(Principal $principal, int $noticeId): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         return $this->payload($principal, $this->findVisible($principal, $noticeId, $today), $today);
     }
@@ -162,7 +160,7 @@ final class NoticeService
      */
     public function acknowledge(Principal $principal, int $noticeId): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $notice = $this->findVisible($principal, $noticeId, $today);
 
         if (! $notice->requires_ack) {
@@ -172,7 +170,6 @@ final class NoticeService
         NoticeAcknowledgement::query()->firstOrCreate(
             ['notice_id' => (int) $notice->id, 'user_id' => $principal->userId()],
             [
-                'tenant_id' => $principal->tenantId(),
                 'acknowledged_at' => $this->clock->now(),
             ],
         );
@@ -185,7 +182,7 @@ final class NoticeService
      */
     public function retract(Principal $principal, int $noticeId): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $notice = $this->findVisible($principal, $noticeId, $today);
 
         if (! $this->policy->canManage($principal, $notice, $today)) {
@@ -206,7 +203,6 @@ final class NoticeService
     public function findVisible(Principal $principal, int $noticeId, string $today): Notice
     {
         $notice = Notice::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($noticeId)
             ->first();
 
@@ -223,11 +219,9 @@ final class NoticeService
     public function payload(Principal $principal, Notice $notice, string $today): array
     {
         $acknowledgementCount = NoticeAcknowledgement::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('notice_id', $notice->id)
             ->count();
         $acknowledged = NoticeAcknowledgement::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('notice_id', $notice->id)
             ->where('user_id', $principal->userId())
             ->exists();

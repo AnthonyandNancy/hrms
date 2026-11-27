@@ -55,7 +55,7 @@ watch(
 )
 
 const mfaEnabled = false
-const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
+const companyLabel = computed(() => session.principal?.companyName ?? 'HRMS')
 
 const app = useAppStore()
 
@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
         <span class="sidebar__mark" aria-hidden="true">澄</span>
         <span class="sidebar__brand-copy">
           <span class="sidebar__name">澄明 HR</span>
-          <span class="sidebar__tenant">{{ tenantLabel }}</span>
+          <span class="sidebar__tenant">{{ companyLabel }}</span>
         </span>
         <button
           class="sidebar__collapse"

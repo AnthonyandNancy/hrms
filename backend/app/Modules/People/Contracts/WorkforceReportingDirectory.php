@@ -13,5 +13,5 @@ interface WorkforceReportingDirectory
     /**
      * @return list<WorkforceReportingRow>
      */
-    public function rows(int $tenantId, string $on): array;
+    public function rows(string $on): array;
 }

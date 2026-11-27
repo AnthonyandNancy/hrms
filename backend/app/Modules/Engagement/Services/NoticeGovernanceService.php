@@ -16,7 +16,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,18 +44,18 @@ final class NoticeGovernanceService
         private readonly NoticeApprovalPort $approval,
         private readonly AuditRecorder $audit,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
     ) {}
 
-    public function approvalTemplate(int $tenantId): void
+    public function approvalTemplate(): void
     {
-        $this->approval->ensureTemplate($tenantId);
+        $this->approval->ensureTemplate();
     }
 
-    public function businessDate(int $tenantId): string
+    public function businessDate(): string
     {
-        return $this->businessDates->today($tenantId)->value();
+        return $this->businessDates->today()->value();
     }
 
     /**
@@ -67,7 +67,7 @@ final class NoticeGovernanceService
      */
     public function submit(Principal $principal, int $noticeId, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         if ($notice->status !== Notice::STATUS_DRAFT) {
@@ -79,7 +79,7 @@ final class NoticeGovernanceService
 
         $workflowPrincipal = $this->workflowPrincipal($principal);
         $audience = (array) $notice->audience_json;
-        $recipients = $this->audience->recipientsForSnapshot($principal->tenantId(), $audience, $today);
+        $recipients = $this->audience->recipientsForSnapshot($audience, $today);
         $case = $this->approval->open(
             principal: $workflowPrincipal,
             noticeId: (int) $notice->id,
@@ -97,7 +97,6 @@ final class NoticeGovernanceService
         ])->save();
 
         $this->audit->record(
-            tenantId: $principal->tenantId(),
             actorUserId: $principal->userId(),
             action: 'engagement.notice.submitted',
             aggregateType: 'notice',
@@ -118,8 +117,8 @@ final class NoticeGovernanceService
      */
     public function decide(Principal $principal, int $noticeId, string $action, string $comment, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
-        $notice = $this->tenantNotice($principal, $noticeId);
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
+        $notice = $this->noticeOrFail($noticeId);
 
         if ($notice->status !== Notice::STATUS_PENDING_APPROVAL || $notice->approval_case_id === null) {
             throw new ConflictException('This notice has no approval case awaiting a decision.', [
@@ -151,7 +150,6 @@ final class NoticeGovernanceService
         ])->save();
 
         $this->audit->record(
-            tenantId: $principal->tenantId(),
             actorUserId: $principal->userId(),
             action: 'engagement.notice.decision',
             aggregateType: 'notice',
@@ -179,11 +177,11 @@ final class NoticeGovernanceService
      */
     public function publish(Principal $principal, int $noticeId, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         if ($notice->approval_case_id !== null) {
-            $case = $this->approval->find($principal->tenantId(), (int) $notice->approval_case_id);
+            $case = $this->approval->find((int) $notice->approval_case_id);
 
             if (($case['status'] ?? null) !== 'APPROVED') {
                 throw new ConflictException('A notice must be approved by its Workflow Case before publication.', [
@@ -209,7 +207,7 @@ final class NoticeGovernanceService
         }
 
         $audience = (array) $notice->audience_json;
-        $recipients = $this->audience->recipientsForSnapshot($principal->tenantId(), $audience, $today);
+        $recipients = $this->audience->recipientsForSnapshot($audience, $today);
 
         DB::transaction(function () use ($notice, $principal, $recipients): void {
             $notice->forceFill([
@@ -219,7 +217,6 @@ final class NoticeGovernanceService
             ])->save();
 
             $this->notifications->notify(
-                tenantId: $principal->tenantId(),
                 userIds: $recipients,
                 type: 'NOTICE_PUBLISHED',
                 payload: [
@@ -229,7 +226,6 @@ final class NoticeGovernanceService
             );
 
             $this->audit->record(
-                tenantId: $principal->tenantId(),
                 actorUserId: $principal->userId(),
                 action: 'engagement.notice.published',
                 aggregateType: 'notice',
@@ -248,10 +244,10 @@ final class NoticeGovernanceService
      */
     public function audiencePreview(Principal $principal, int $noticeId, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
         $notice = $this->manageable($principal, $noticeId, $today);
         $audience = (array) $notice->audience_json;
-        $recipients = $this->audience->recipientsForSnapshot($principal->tenantId(), $audience, $today);
+        $recipients = $this->audience->recipientsForSnapshot($audience, $today);
 
         return [
             'notice_id' => (int) $notice->id,
@@ -272,11 +268,10 @@ final class NoticeGovernanceService
      */
     public function reads(Principal $principal, int $noticeId, int $page, int $pageSize): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         $query = NoticeAcknowledgement::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('notice_id', (int) $notice->id)
             ->orderBy('acknowledged_at')
             ->orderBy('id');
@@ -296,7 +291,7 @@ final class NoticeGovernanceService
      */
     public function exportReads(Principal $principal, int $noticeId, array $requestedFields): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         $fields = $requestedFields === []
@@ -314,7 +309,6 @@ final class NoticeGovernanceService
         }
 
         $rows = NoticeAcknowledgement::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('notice_id', (int) $notice->id)
             ->orderBy('acknowledged_at')
             ->orderBy('id')
@@ -334,17 +328,15 @@ final class NoticeGovernanceService
             ->all();
 
         $this->sensitiveAuditor->record(
-            tenantId: $principal->tenantId(),
             userId: $principal->userId(),
+            capabilityCode: 'engagement.notice.export',
             resourceType: 'notice_acknowledgement',
-            resourceId: (string) $notice->id,
-            capability: 'engagement.notice.export',
+            resourceId: (int) $notice->id,
             fields: $fields,
             context: ['notice_id' => (int) $notice->id, 'export' => true, 'row_count' => count($rows)],
         );
 
         $this->audit->record(
-            tenantId: $principal->tenantId(),
             actorUserId: $principal->userId(),
             action: 'engagement.notice.reads.exported',
             aggregateType: 'notice',
@@ -366,7 +358,6 @@ final class NoticeGovernanceService
     public function listTemplates(Principal $principal): array
     {
         return NoticeTemplate::query()
-            ->where('tenant_id', $principal->tenantId())
             ->orderBy('code')
             ->orderByDesc('version')
             ->get()
@@ -395,14 +386,12 @@ final class NoticeGovernanceService
 
         return DB::transaction(function () use ($principal, $data, $code, $variables): array {
             $latest = NoticeTemplate::query()
-                ->where('tenant_id', $principal->tenantId())
                 ->where('code', $code)
                 ->lockForUpdate()
                 ->orderByDesc('version')
                 ->first();
 
             $template = NoticeTemplate::query()->create([
-                'tenant_id' => $principal->tenantId(),
                 'code' => $code,
                 'name' => trim((string) $data['name']),
                 'version' => $latest === null ? 1 : ((int) $latest->version) + 1,
@@ -413,7 +402,6 @@ final class NoticeGovernanceService
             ]);
 
             $this->audit->record(
-                tenantId: $principal->tenantId(),
                 actorUserId: $principal->userId(),
                 action: 'engagement.notice_template.published',
                 aggregateType: 'notice_template',
@@ -430,9 +418,8 @@ final class NoticeGovernanceService
      */
     public function archived(Principal $principal, int $page, int $pageSize): array
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
         $query = Notice::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('status', Notice::STATUS_ARCHIVED)
             ->orderByDesc('archived_at')
             ->orderByDesc('id');
@@ -452,7 +439,7 @@ final class NoticeGovernanceService
      */
     public function archive(Principal $principal, int $noticeId, string $reason, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         if ($notice->status === Notice::STATUS_ARCHIVED) {
@@ -470,7 +457,6 @@ final class NoticeGovernanceService
         ])->save();
 
         $this->audit->record(
-            tenantId: $principal->tenantId(),
             actorUserId: $principal->userId(),
             action: 'engagement.notice.archived',
             aggregateType: 'notice',
@@ -487,7 +473,7 @@ final class NoticeGovernanceService
      */
     public function restore(Principal $principal, int $noticeId, string $businessDate): array
     {
-        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null, $principal->tenantId())->value();
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
         $notice = $this->manageable($principal, $noticeId, $today);
 
         if ($notice->status !== Notice::STATUS_ARCHIVED) {
@@ -507,7 +493,6 @@ final class NoticeGovernanceService
         ])->save();
 
         $this->audit->record(
-            tenantId: $principal->tenantId(),
             actorUserId: $principal->userId(),
             action: 'engagement.notice.restored',
             aggregateType: 'notice',
@@ -555,7 +540,7 @@ final class NoticeGovernanceService
 
     private function manageable(Principal $principal, int $noticeId, string $today): Notice
     {
-        $notice = $this->tenantNotice($principal, $noticeId);
+        $notice = $this->noticeOrFail($noticeId);
 
         if (! $this->policy->canManage($principal, $notice, $today)) {
             throw new NotFoundOrForbiddenException;
@@ -564,10 +549,9 @@ final class NoticeGovernanceService
         return $notice;
     }
 
-    private function tenantNotice(Principal $principal, int $noticeId): Notice
+    private function noticeOrFail(int $noticeId): Notice
     {
         $notice = Notice::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($noticeId)
             ->first();
 
@@ -616,7 +600,6 @@ final class NoticeGovernanceService
 
         if ($workflowPrincipal === null || $workflowPrincipal->userId !== $principal->userId()) {
             return new \App\Modules\Workflow\Contracts\WorkflowPrincipal(
-                tenantId: $principal->tenantId(),
                 userId: $principal->userId(),
                 employmentId: $principal->employmentId(),
                 authVersion: $principal->authVersion(),

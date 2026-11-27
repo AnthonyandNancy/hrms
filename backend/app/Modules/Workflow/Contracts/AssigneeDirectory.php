@@ -10,17 +10,17 @@ namespace App\Modules\Workflow\Contracts;
  */
 interface AssigneeDirectory
 {
-    public function managerUserIdForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): ?int;
+    public function managerUserIdForSubject(string $subjectType, int $subjectId, string $businessDate): ?int;
 
     /**
      * @return list<int>
      */
-    public function orgHeadUserIdsForSubject(int $tenantId, string $subjectType, int $subjectId, string $businessDate): array;
+    public function orgHeadUserIdsForSubject(string $subjectType, int $subjectId, string $businessDate): array;
 
     /**
      * @return list<int>
      */
-    public function userIdsWithRole(int $tenantId, string $roleCode, string $businessDate): array;
+    public function userIdsWithRole(string $roleCode, string $businessDate): array;
 
     /**
      * Candidate users for reassignment in priority order: new manager,
@@ -28,5 +28,5 @@ interface AssigneeDirectory
      *
      * @return list<int>
      */
-    public function reassignmentCandidates(int $tenantId, int $caseId, int $currentAssigneeId, string $businessDate): array;
+    public function reassignmentCandidates(int $caseId, int $currentAssigneeId, string $businessDate): array;
 }

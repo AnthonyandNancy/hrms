@@ -15,7 +15,6 @@ final class TalentLedgerReadTest extends TalentTestCase
     public function test_performance_reviews_can_be_listed_and_filtered_by_cycle(): void
     {
         $cycle = PerformanceCycle::query()->create([
-            'tenant_id' => 1,
             'name' => 'Synthetic 2026 review',
             'period_from' => '2026-01-01',
             'period_to' => '2026-12-31',
@@ -23,7 +22,6 @@ final class TalentLedgerReadTest extends TalentTestCase
             'recorded_at' => $this->clock->now(),
         ]);
         $review = PerformanceReview::query()->create([
-            'tenant_id' => 1,
             'cycle_id' => $cycle->id,
             'employment_id' => 1,
             'manager_employment_id' => 2,
@@ -48,14 +46,12 @@ final class TalentLedgerReadTest extends TalentTestCase
     public function test_training_sessions_can_be_listed_and_filtered_by_program(): void
     {
         $program = TrainingProgram::query()->create([
-            'tenant_id' => 1,
             'code' => 'SYN-PROG',
             'title' => 'Synthetic program',
             'status' => 'ACTIVE',
             'recorded_at' => $this->clock->now(),
         ]);
         $session = TrainingSession::query()->create([
-            'tenant_id' => 1,
             'program_id' => $program->id,
             'starts_on' => '2026-12-01',
             'ends_on' => '2026-12-01',

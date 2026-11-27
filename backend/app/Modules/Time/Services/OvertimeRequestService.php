@@ -35,7 +35,6 @@ final class OvertimeRequestService
     ) {}
 
     public function apply(
-        int $tenantId,
         int $employmentId,
         string $businessDate,
         int $declaredMinutes,
@@ -48,9 +47,8 @@ final class OvertimeRequestService
             ]);
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $businessDate, $declaredMinutes, $reason, $actorUserId): OvertimeRequest {
+        return DB::transaction(function () use ($employmentId, $businessDate, $declaredMinutes, $reason, $actorUserId): OvertimeRequest {
             $duplicate = OvertimeRequest::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('business_date', $businessDate)
                 ->lockForUpdate()
@@ -66,7 +64,6 @@ final class OvertimeRequestService
             try {
                 /** @var OvertimeRequest $request */
                 $request = OvertimeRequest::query()->create([
-                    'tenant_id' => $tenantId,
                     'employment_id' => $employmentId,
                     'business_date' => $businessDate,
                     'declared_minutes' => $declaredMinutes,
@@ -83,7 +80,7 @@ final class OvertimeRequestService
                 ]);
             }
 
-            $this->audit->record($tenantId, $actorUserId, 'time.overtime.requested', 'overtime_request', (int) $request->id, after: [
+            $this->audit->record($actorUserId, 'time.overtime.requested', 'overtime_request', (int) $request->id, after: [
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'declared_minutes' => $declaredMinutes,
@@ -99,7 +96,6 @@ final class OvertimeRequestService
      * conflict even with a fresh idempotency key.
      */
     public function confirm(
-        int $tenantId,
         int $overtimeRequestId,
         int $confirmedMinutes,
         int $actorUserId,
@@ -110,9 +106,8 @@ final class OvertimeRequestService
             ]);
         }
 
-        return DB::transaction(function () use ($tenantId, $overtimeRequestId, $confirmedMinutes, $actorUserId): OvertimeRequest {
+        return DB::transaction(function () use ($overtimeRequestId, $confirmedMinutes, $actorUserId): OvertimeRequest {
             $request = OvertimeRequest::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($overtimeRequestId)
                 ->lockForUpdate()
                 ->first();
@@ -140,7 +135,6 @@ final class OvertimeRequestService
 
             /** @var OvertimeRecord $record */
             $record = OvertimeRecord::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => (int) $request->employment_id,
                 'business_date' => $businessDate,
                 'minutes' => $confirmedMinutes,
@@ -157,7 +151,6 @@ final class OvertimeRequestService
             ])->save();
 
             $this->audit->record(
-                $tenantId,
                 $actorUserId,
                 'time.overtime.confirmed',
                 'overtime_request',
@@ -178,16 +171,14 @@ final class OvertimeRequestService
         });
     }
 
-    public function find(int $tenantId, int $overtimeRequestId): ?OvertimeRequest
+    public function find(int $overtimeRequestId): ?OvertimeRequest
     {
         return OvertimeRequest::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($overtimeRequestId)
             ->first();
     }
 
     public function project(
-        int $tenantId,
         int $employmentId,
         string $asOf,
         ?string $status,
@@ -195,7 +186,6 @@ final class OvertimeRequestService
         int $pageSize,
     ): ProjectionResult {
         $query = OvertimeRequest::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '<=', $asOf);
 
@@ -236,17 +226,15 @@ final class OvertimeRequestService
      * Time-off balance is a projection over TIMEOFF settlements only. No row
      * is written to a balance table, and PAY settlements never contribute.
      */
-    public function timeoffBalances(int $tenantId, int $employmentId, string $asOf): ProjectionResult
+    public function timeoffBalances(int $employmentId, string $asOf): ProjectionResult
     {
         $records = OvertimeRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('business_date', '<=', $asOf)
             ->get()
             ->keyBy('id');
 
         $settlements = OvertimeSettlement::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('method', 'TIMEOFF')
             ->whereIn('overtime_record_id', $records->keys()->all())

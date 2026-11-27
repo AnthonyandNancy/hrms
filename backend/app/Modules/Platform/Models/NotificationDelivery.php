@@ -18,7 +18,6 @@ final class NotificationDelivery extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'notification_outbox_id',
         'template_code',
         'recipient_user_id',
@@ -35,7 +34,6 @@ final class NotificationDelivery extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'notification_outbox_id' => 'integer',
             'recipient_user_id' => 'integer',
             'attempts' => 'integer',

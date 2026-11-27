@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
  * In-app notification. Payloads carry identifiers only and never PII.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $user_id
  * @property string $type
  * @property array<string, mixed> $payload_json
@@ -22,7 +21,6 @@ final class Notification extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'user_id',
         'type',
         'payload_json',
@@ -35,7 +33,6 @@ final class Notification extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'user_id' => 'integer',
             'payload_json' => 'array',
             'read_at' => 'immutable_datetime',

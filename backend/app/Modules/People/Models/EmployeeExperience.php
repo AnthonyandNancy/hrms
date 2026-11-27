@@ -15,7 +15,6 @@ final class EmployeeExperience extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'company',
         'title',

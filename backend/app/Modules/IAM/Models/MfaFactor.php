@@ -25,7 +25,6 @@ final class MfaFactor extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'user_id',
         'type',
         'secret_ciphertext',
@@ -46,7 +45,6 @@ final class MfaFactor extends Model
     {
         return [
             'user_id' => 'integer',
-            'tenant_id' => 'integer',
             'confirmed_at' => 'immutable_datetime',
             'disabled_at' => 'immutable_datetime',
         ];

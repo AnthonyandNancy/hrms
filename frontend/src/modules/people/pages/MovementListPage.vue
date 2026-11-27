@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import { peoplePageConfig } from '../catalog'
-import PeopleWorkspace from '../components/PeopleWorkspace.vue'
-
-defineOptions({ name: 'MovementListPage' })
-
-const config = peoplePageConfig('hr/movements/index')!
+// Volume 3 Task 7: the movement workspace replaced the generic list shell.
+import MovementWorkspacePage from '../lifecycle/pages/MovementWorkspacePage.vue'
 </script>
 
 <template>
-  <PeopleWorkspace :config="config" />
+  <MovementWorkspacePage />
 </template>

@@ -14,7 +14,6 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
  * nullable cross-module reference and is never a foreign key owned by IAM.
  *
  * @property int $id
- * @property int $tenant_id
  * @property string $username
  * @property string|null $email
  * @property string|null $password_hash
@@ -42,7 +41,6 @@ final class User extends Authenticatable
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'username',
         'email',
         'password_hash',
@@ -63,7 +61,6 @@ final class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'auth_version' => 'integer',
             'is_privileged' => 'boolean',
             'person_id' => 'integer',

@@ -23,8 +23,8 @@ final class WorkflowPayrollApprovalTest extends PayrollTestCase
         $run = $this->reviewedRun();
         $effect = app(\App\Modules\Payroll\Contracts\PayrollApprovalEffectPort::class);
 
-        $effect->applyApproval($this->tenantId, (int) $run->id, 12);
-        $effect->applyApproval($this->tenantId, (int) $run->id, 12);
+        $effect->applyApproval((int) $run->id, 12);
+        $effect->applyApproval((int) $run->id, 12);
 
         $run->refresh();
         $this->assertSame(PayrollRunStatus::APPROVED, $run->status);
@@ -35,20 +35,20 @@ final class WorkflowPayrollApprovalTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-02']);
 
         $this->expectException(\App\Shared\Exceptions\ConflictException::class);
-        app(\App\Modules\Payroll\Contracts\PayrollApprovalEffectPort::class)->applyApproval($this->tenantId, (int) $run->id, 12);
+        app(\App\Modules\Payroll\Contracts\PayrollApprovalEffectPort::class)->applyApproval((int) $run->id, 12);
     }
 
     private function reviewedRun(): PayrollRun
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
-        return app(ApprovalService::class)->review($this->tenantId, (int) $run->id, 11);
+        return app(ApprovalService::class)->review((int) $run->id, 11);
     }
 }

@@ -9,40 +9,20 @@ use App\Modules\Platform\Models\SystemParameter;
 
 final class DatabaseParameterReader implements ParameterReader
 {
-    /**
-     * Scopes are resolved most-specific first. A legal-entity override wins
-     * over the tenant default; a missing scope falls through to the next one.
-     *
-     * @param  array{legal_entity_id?: int}  $context
-     */
-    public function get(int $tenantId, string $key, mixed $default = null, array $context = []): mixed
+    public function get(string $key, mixed $default = null): mixed
     {
-        $scopes = ['TENANT'];
+        $reading = $this->read($key);
 
-        if (isset($context['legal_entity_id'])) {
-            array_unshift($scopes, 'COMPANY:'.$context['legal_entity_id']);
-        }
-
-        foreach ($scopes as $scope) {
-            $reading = $this->read($tenantId, $key, $scope);
-
-            if ($reading['found']) {
-                return $reading['value'];
-            }
-        }
-
-        return $default;
+        return $reading['found'] ? $reading['value'] : $default;
     }
 
     /**
      * @return array{found: bool, value: mixed}
      */
-    private function read(int $tenantId, string $key, string $scope): array
+    private function read(string $key): array
     {
         $parameter = SystemParameter::query()
-            ->where('tenant_id', $tenantId)
             ->where('key', $key)
-            ->where('scope', $scope)
             ->first();
 
         if ($parameter === null) {

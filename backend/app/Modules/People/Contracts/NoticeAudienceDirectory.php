@@ -15,16 +15,16 @@ interface NoticeAudienceDirectory
      * @param  list<int>  $orgUnitIds
      * @return list<int>
      */
-    public function employmentIdsForOrgUnits(int $tenantId, array $orgUnitIds, string $on): array;
+    public function employmentIdsForOrgUnits(array $orgUnitIds, string $on): array;
 
     /**
      * @param  list<int>  $employmentIds
      * @return list<int>
      */
-    public function userIdsForEmployments(int $tenantId, array $employmentIds, string $on): array;
+    public function userIdsForEmployments(array $employmentIds, string $on): array;
 
     /**
      * @return list<int>
      */
-    public function employmentOrgUnitIds(int $tenantId, int $employmentId, string $on): array;
+    public function employmentOrgUnitIds(int $employmentId, string $on): array;
 }

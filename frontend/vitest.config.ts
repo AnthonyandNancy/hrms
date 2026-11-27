@@ -14,5 +14,8 @@ export default defineConfig({
     include: ['tests/unit/**/*.spec.ts'],
     restoreMocks: true,
     css: false,
+    // Full-suite Element Plus mount costs (jsdom) put a few integration tests
+    // close to the 5s default under load; keep unit behavior unchanged.
+    testTimeout: 15000,
   },
 })

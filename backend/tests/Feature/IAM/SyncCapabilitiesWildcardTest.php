@@ -45,7 +45,6 @@ final class SyncCapabilitiesWildcardTest extends TestCase
     private function createBinding(User $user, string $capabilityCode): void
     {
         AuthorityBinding::query()->create([
-            'tenant_id' => 1,
             'principal_id' => (int) $user->id,
             'capability_code' => $capabilityCode,
             'anchor_type' => 'COMPANY',

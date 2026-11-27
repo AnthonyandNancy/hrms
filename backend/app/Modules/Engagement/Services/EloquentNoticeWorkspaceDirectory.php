@@ -12,7 +12,7 @@ use App\Shared\Time\Clock;
 /**
  * Bounded, self-scoped notice projection. Audience authorisation is still
  * enforced by the full notice list/show endpoints; this port only supplies the
- * workspace teaser, limited to tenant-wide and role-wide notices for the
+ * workspace teaser, limited to company-wide and role-wide notices for the
  * caller plus anything already acknowledged.
  */
 final class EloquentNoticeWorkspaceDirectory implements NoticeWorkspaceDirectory
@@ -22,17 +22,15 @@ final class EloquentNoticeWorkspaceDirectory implements NoticeWorkspaceDirectory
     /**
      * @return list<array{id: int, title: string, publishedAt: string|null, requiresAck: bool, acknowledged: bool, authorName: string|null}>
      */
-    public function forUser(int $tenantId, int $userId, int $limit = 5): array
+    public function forUser(int $userId, int $limit = 5): array
     {
         $acknowledgedIds = NoticeAcknowledgement::query()
-            ->where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->pluck('notice_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
 
         $notices = Notice::query()
-            ->where('tenant_id', $tenantId)
             ->where('status', Notice::STATUS_PUBLISHED)
             ->where('publish_at', '<=', $this->clock->now())
             ->where(function ($query) use ($acknowledgedIds): void {

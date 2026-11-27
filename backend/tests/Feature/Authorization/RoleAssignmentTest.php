@@ -31,7 +31,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
         $this->postJson('/v1/users/'.$target->id.'/roles', [
             'role_code' => 'Zhang San',
             'reason' => 'Name-shaped codes are forbidden.',
-        ], ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']])->assertUnprocessable();
+        ], ['X-CSRF-Token' => $auth['csrf']])->assertUnprocessable();
     }
 
     public function test_role_assignment_requires_anchor_ids_for_id_bearing_anchors(): void
@@ -47,7 +47,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
         $this->postJson('/v1/users/'.$target->id.'/roles', [
             'role_code' => 'PAYROLL_SPECIALIST',
             'reason' => 'Payroll onboarding.',
-        ], ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']])
+        ], ['X-CSRF-Token' => $auth['csrf']])
             ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'ROLE_ANCHOR_REQUIRED');
     }
@@ -69,7 +69,7 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
                 'PAYROLL_RUN' => 77,
                 'COMPANY' => 1,
             ],
-        ], ['X-Legal-Entity-Id' => '1', 'X-CSRF-Token' => $auth['csrf']])->assertCreated();
+        ], ['X-CSRF-Token' => $auth['csrf']])->assertCreated();
 
         $runBinding = AuthorityBinding::query()
             ->where('principal_id', $target->id)
@@ -91,11 +91,10 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
         $this->enableMfa($actor);
         $this->loginAs($actor);
         $this->stepUp();
-        $auth = ['X-Legal-Entity-Id' => '1'];
-        $this->withHeader('X-Legal-Entity-Id', '1');
+        $auth = [];
 
         // Existing preparer binding from the same role assignment.
-        AuthorityBinding::factory()->forPrincipal(1, (int) $target->id)->anchor(AnchorType::PAYROLL_RUN, 77, FieldProfile::P2_SENSITIVE)->create([
+        AuthorityBinding::factory()->forPrincipal((int) $target->id)->anchor(AnchorType::PAYROLL_RUN, 77, FieldProfile::P2_SENSITIVE)->create([
             'capability_code' => 'payroll.run.approve',
             'valid_from' => '2025-01-01 00:00:00',
             'valid_to' => '2030-01-01 00:00:00',
@@ -117,9 +116,8 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->people->employmentByUser[(int) $user->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id)
+            ->forPrincipal((int) $user->id)
             ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
             ->create(['capability_code' => 'iam.role.manage']);
 

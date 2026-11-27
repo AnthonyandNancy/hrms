@@ -14,30 +14,28 @@ use Illuminate\Console\Command;
  */
 final class SeedWorkflowTemplatesCommand extends Command
 {
-    protected $signature = 'workflow:seed-templates {--tenant-id=1}';
+    protected $signature = 'workflow:seed-templates';
 
-    protected $description = 'Create idempotent reference workflow templates for the demo tenant';
+    protected $description = 'Create idempotent reference workflow templates for the company';
 
     public function handle(TemplateService $templates): int
     {
-        $tenantId = max(1, (int) $this->option('tenant-id'));
         $seeded = 0;
 
         foreach ($this->definitions() as $definition) {
             $existing = \App\Modules\Workflow\Models\WorkflowTemplate::query()
-                ->where('tenant_id', $tenantId)
                 ->where('code', $definition['code'])
                 ->where('version', $definition['version'])
                 ->exists();
 
-            $templates->create($tenantId, 0, $definition);
+            $templates->create(0, $definition);
 
             if (! $existing) {
                 $seeded++;
             }
         }
 
-        $this->info("Seeded {$seeded} workflow template(s) for tenant {$tenantId}.");
+        $this->info("Seeded {$seeded} workflow template(s) for the company.");
 
         return self::SUCCESS;
     }

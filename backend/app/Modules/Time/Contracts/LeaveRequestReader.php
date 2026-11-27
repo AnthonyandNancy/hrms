@@ -13,5 +13,5 @@ interface LeaveRequestReader
     /**
      * @return list<array<string, mixed>>
      */
-    public function forEmployment(int $tenantId, int $employmentId, ?string $asOf = null): array;
+    public function forEmployment(int $employmentId, ?string $asOf = null): array;
 }

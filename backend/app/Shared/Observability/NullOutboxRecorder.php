@@ -7,7 +7,6 @@ namespace App\Shared\Observability;
 final class NullOutboxRecorder implements OutboxRecorder
 {
     public function record(
-        int $tenantId,
         string $eventType,
         string $aggregateType,
         string $aggregateId,

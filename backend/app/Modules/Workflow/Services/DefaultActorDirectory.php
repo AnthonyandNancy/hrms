@@ -13,7 +13,7 @@ use App\Modules\Workflow\Contracts\ActorSnapshot;
  */
 final class DefaultActorDirectory implements ActorDirectory
 {
-    public function snapshot(int $tenantId, int $userId): ?ActorSnapshot
+    public function snapshot(int $userId): ?ActorSnapshot
     {
         return null;
     }

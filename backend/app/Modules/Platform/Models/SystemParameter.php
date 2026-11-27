@@ -15,7 +15,7 @@ final class SystemParameter extends Model
     protected $table = 'sys_parameters';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'key', 'value_json', 'scope', 'sensitive'];
+    protected $fillable = ['key', 'value_json', 'scope', 'sensitive'];
 
     /**
      * A sensitive parameter is stored with Laravel's authenticated encryption;
@@ -26,7 +26,6 @@ final class SystemParameter extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'value_json' => 'json',
             'sensitive' => 'boolean',
         ];

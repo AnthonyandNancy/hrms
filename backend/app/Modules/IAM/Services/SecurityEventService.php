@@ -21,7 +21,6 @@ final class SecurityEventService
      * @param  array<string, mixed>  $metadata
      */
     public function record(
-        int $tenantId,
         ?int $userId,
         string $eventType,
         string $result,
@@ -47,7 +46,6 @@ final class SecurityEventService
         ]));
 
         return AuthEvent::query()->create([
-            'tenant_id' => $tenantId,
             'user_id' => $userId,
             'event_type' => $eventType,
             'result' => $result,

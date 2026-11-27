@@ -12,10 +12,9 @@ final class WorkflowDelegationRevocationService implements WorkflowDelegationRev
 {
     public function __construct(private readonly Clock $clock) {}
 
-    public function revokeForUser(int $tenantId, int $userId, string $reason): int
+    public function revokeForUser(int $userId, string $reason): int
     {
         return WorkflowDelegation::query()
-            ->where('tenant_id', $tenantId)
             ->where('active', true)
             ->whereNull('revoked_at')
             ->where(function ($query) use ($userId): void {

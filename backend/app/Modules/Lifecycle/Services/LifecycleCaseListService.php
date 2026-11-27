@@ -20,10 +20,9 @@ final class LifecycleCaseListService
      * @param  array<string, mixed>  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
-    public function paginate(int $tenantId, array $filters, int $page, int $pageSize): array
+    public function paginate(array $filters, int $page, int $pageSize): array
     {
         $query = LifecycleIntent::query()
-            ->where('tenant_id', $tenantId)
             ->when(isset($filters['case_type']) && $filters['case_type'] !== '', fn ($builder) => $builder->where('case_type', (string) $filters['case_type']))
             ->when(isset($filters['status']) && $filters['status'] !== '', fn ($builder) => $builder->where('status', (string) $filters['status']))
             ->when(isset($filters['employment_id']) && (int) $filters['employment_id'] > 0, fn ($builder) => $builder->where('employment_id', (int) $filters['employment_id']))
@@ -40,7 +39,7 @@ final class LifecycleCaseListService
         $items = [];
 
         foreach ($query->forPage($page, $pageSize)->get() as $intent) {
-            $case = $this->workflow->caseForTenant($tenantId, (int) $intent->case_id);
+            $case = $this->workflow->caseFor((int) $intent->case_id);
 
             $items[] = [
                 'case_id' => (int) $intent->case_id,

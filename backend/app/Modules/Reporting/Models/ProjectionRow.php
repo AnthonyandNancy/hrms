@@ -17,7 +17,6 @@ final class ProjectionRow extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'source_projection',
         'business_date',
         'metric_code',
@@ -25,7 +24,6 @@ final class ProjectionRow extends Model
         'entity_id',
         'employment_id',
         'org_unit_id',
-        'legal_entity_id',
         'label',
         'secondary_label',
         'status',
@@ -39,11 +37,9 @@ final class ProjectionRow extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'business_date' => 'immutable_date:Y-m-d',
             'employment_id' => 'integer',
             'org_unit_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'numeric_value' => 'integer',
             'attributes_json' => 'array',
             'computed_at' => 'immutable_datetime',

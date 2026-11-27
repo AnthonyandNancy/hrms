@@ -15,7 +15,6 @@ class MigrateReconcileCommand extends Command
 {
     protected $signature = 'migrate:reconcile
         {--run= : Migration run id (all applied runs when omitted)}
-        {--tenant=1 : Tenant id used with --all}
         {--json : Print JSON instead of a human table}
         {--output= : Write the JSON report to this path}';
 
@@ -39,7 +38,7 @@ class MigrateReconcileCommand extends Command
 
                 $reports[] = $reconciler->reconcile($run);
             } else {
-                $reports = $reconciler->reconcileAll((int) $this->option('tenant'));
+                $reports = $reconciler->reconcileAll();
             }
         } catch (Throwable $exception) {
             $this->error('PASS/FAIL: FAIL - '.$exception->getMessage());

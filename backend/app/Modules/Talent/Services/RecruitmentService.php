@@ -35,12 +35,10 @@ final class RecruitmentService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createRequisition(int $tenantId, int $actorUserId, array $input, string $businessDate): array
+    public function createRequisition(int $actorUserId, array $input, string $businessDate): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input, $businessDate): array {
+        return DB::transaction(function () use ($actorUserId, $input, $businessDate): array {
             $requisition = Requisition::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $input['legal_entity_id'],
                 'org_unit_id' => (int) $input['org_unit_id'],
                 'requisition_no' => (string) $input['requisition_no'],
                 'title' => (string) $input['title'],
@@ -52,9 +50,8 @@ final class RecruitmentService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->ensureWorkflowTemplate($tenantId);
+            $this->ensureWorkflowTemplate();
             $case = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $actorUserId,
                 type: 'REQUISITION_APPROVAL',
                 subjectType: 'recruitment_requisition',
@@ -63,7 +60,6 @@ final class RecruitmentService
                 payload: [
                     'requisition_id' => (int) $requisition->id,
                     'headcount' => (int) $requisition->headcount,
-                    'legal_entity_id' => (int) $requisition->legal_entity_id,
                 ],
                 templateCode: 'talent.requisition',
                 businessDate: $businessDate,
@@ -72,7 +68,7 @@ final class RecruitmentService
 
             $requisition->forceFill(['case_id' => $case->id])->save();
 
-            $this->audit->record($tenantId, $actorUserId, 'talent.requisition.created', 'recruitment_requisition', (int) $requisition->id, after: [
+            $this->audit->record($actorUserId, 'talent.requisition.created', 'recruitment_requisition', (int) $requisition->id, after: [
                 'case_id' => $case->id,
                 'headcount' => (int) $requisition->headcount,
             ]);
@@ -93,7 +89,7 @@ final class RecruitmentService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createCandidate(int $tenantId, int $actorUserId, array $input): array
+    public function createCandidate(int $actorUserId, array $input): array
     {
         $email = isset($input['email']) ? mb_strtolower(trim((string) $input['email'])) : null;
         $mobile = isset($input['mobile']) ? trim((string) $input['mobile']) : null;
@@ -101,7 +97,6 @@ final class RecruitmentService
         $mobileHash = $mobile !== null && $mobile !== '' ? hash_hmac('sha256', $mobile, (string) config('hrms.pii_hmac_key')) : null;
 
         $existing = Candidate::query()
-            ->where('tenant_id', $tenantId)
             ->where(function ($query) use ($emailHash, $mobileHash): void {
                 if ($emailHash !== null) {
                     $query->where('email_hash', $emailHash);
@@ -120,7 +115,6 @@ final class RecruitmentService
         }
 
         $candidate = Candidate::query()->create([
-            'tenant_id' => $tenantId,
             'display_name' => (string) $input['display_name'],
             'email' => $email,
             'mobile_ciphertext' => $mobile,
@@ -131,7 +125,7 @@ final class RecruitmentService
             'recorded_at' => $this->clock->now(),
         ]);
 
-        $this->audit->record($tenantId, $actorUserId, 'talent.candidate.created', 'candidate', (int) $candidate->id, after: [
+        $this->audit->record($actorUserId, 'talent.candidate.created', 'candidate', (int) $candidate->id, after: [
             'has_email' => $emailHash !== null,
             'has_mobile' => $mobileHash !== null,
         ]);
@@ -147,9 +141,9 @@ final class RecruitmentService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createInterview(int $tenantId, int $actorUserId, int $candidateId, array $input): array
+    public function createInterview(int $actorUserId, int $candidateId, array $input): array
     {
-        $candidate = Candidate::query()->where('tenant_id', $tenantId)->whereKey($candidateId)->first();
+        $candidate = Candidate::query()->whereKey($candidateId)->first();
 
         if ($candidate === null) {
             throw NotFoundException::forResource();
@@ -157,7 +151,6 @@ final class RecruitmentService
 
         $requisitionId = (int) $input['requisition_id'];
         $requisition = Requisition::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($requisitionId)
             ->where('status', 'APPROVED')
             ->first();
@@ -167,7 +160,6 @@ final class RecruitmentService
         }
 
         $interview = Interview::query()->create([
-            'tenant_id' => $tenantId,
             'candidate_id' => $candidateId,
             'requisition_id' => $requisitionId,
             'scheduled_at' => (string) $input['scheduled_at'],
@@ -190,12 +182,11 @@ final class RecruitmentService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createOffer(int $tenantId, int $actorUserId, array $input, string $businessDate): array
+    public function createOffer(int $actorUserId, array $input, string $businessDate): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $input, $businessDate): array {
-            $candidate = Candidate::query()->where('tenant_id', $tenantId)->whereKey((int) $input['candidate_id'])->lockForUpdate()->first();
+        return DB::transaction(function () use ($actorUserId, $input, $businessDate): array {
+            $candidate = Candidate::query()->whereKey((int) $input['candidate_id'])->lockForUpdate()->first();
             $requisition = Requisition::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey((int) $input['requisition_id'])
                 ->where('status', 'APPROVED')
                 ->first();
@@ -209,12 +200,10 @@ final class RecruitmentService
             }
 
             $version = ((int) Offer::query()
-                ->where('tenant_id', $tenantId)
                 ->where('candidate_id', (int) $candidate->id)
                 ->max('version')) + 1;
 
             $offer = Offer::query()->create([
-                'tenant_id' => $tenantId,
                 'candidate_id' => (int) $candidate->id,
                 'requisition_id' => (int) $requisition->id,
                 'version' => max(1, $version),
@@ -225,9 +214,8 @@ final class RecruitmentService
                 'recorded_at' => $this->clock->now(),
             ]);
 
-            $this->ensureWorkflowTemplate($tenantId);
+            $this->ensureWorkflowTemplate();
             $case = $this->workflow->createCase(
-                tenantId: $tenantId,
                 requesterUserId: $actorUserId,
                 type: 'OFFER_APPROVAL',
                 subjectType: 'offer',
@@ -258,11 +246,10 @@ final class RecruitmentService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function acceptOffer(int $tenantId, int $actorUserId, int $offerId, array $input, string $businessDate): array
+    public function acceptOffer(int $actorUserId, int $offerId, array $input, string $businessDate): array
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $offerId, $input, $businessDate): array {
+        return DB::transaction(function () use ($actorUserId, $offerId, $input, $businessDate): array {
             $offer = Offer::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($offerId)
                 ->lockForUpdate()
                 ->first();
@@ -285,7 +272,6 @@ final class RecruitmentService
             $offer->forceFill(['status' => 'ACCEPTED', 'accepted_at' => $this->clock->now()])->save();
 
             foreach (Offer::query()
-                ->where('tenant_id', $tenantId)
                 ->where('candidate_id', (int) $offer->candidate_id)
                 ->where('id', '!=', $offer->id)
                 ->whereIn('status', ['APPROVED', 'PENDING_APPROVAL'])
@@ -294,11 +280,9 @@ final class RecruitmentService
             }
 
             $draft = $this->onboarding->createDraftFromAcceptedOffer([
-                'tenant_id' => $tenantId,
                 'actor_user_id' => $actorUserId,
                 'candidate_id' => (int) $offer->candidate_id,
                 'offer_id' => (int) $offer->id,
-                'legal_entity_id' => (int) $input['legal_entity_id'],
                 'org_unit_id' => (int) $input['org_unit_id'],
                 'employee_no' => (string) $input['employee_no'],
                 'hire_date' => (string) ($input['hire_date'] ?? $offer->start_date),
@@ -320,10 +304,9 @@ final class RecruitmentService
      * @param  array<string, mixed>  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
-    public function offers(int $tenantId, array $filters = [], int $page = 1, int $pageSize = 20): array
+    public function offers(array $filters = [], int $page = 1, int $pageSize = 20): array
     {
         $query = Offer::query()
-            ->where('tenant_id', $tenantId)
             ->when(isset($filters['candidate_id']) && (int) $filters['candidate_id'] > 0, fn ($builder) => $builder->where('candidate_id', (int) $filters['candidate_id']))
             ->when(isset($filters['requisition_id']) && (int) $filters['requisition_id'] > 0, fn ($builder) => $builder->where('requisition_id', (int) $filters['requisition_id']))
             ->when(isset($filters['status']) && $filters['status'] !== '', fn ($builder) => $builder->where('status', (string) $filters['status']))
@@ -331,13 +314,12 @@ final class RecruitmentService
             ->orderBy('version');
 
         $total = (int) (clone $query)->count();
-        $items = $query->forPage($page, $pageSize)->get()->map(function (Offer $offer) use ($tenantId): array {
+        $items = $query->forPage($page, $pageSize)->get()->map(function (Offer $offer): array {
             $this->sensitiveAuditor->record(
-                tenantId: $tenantId,
                 userId: app(\App\Shared\Authorization\PrincipalResolver::class)->resolve()->userId(),
+                capabilityCode: 'recruitment.offer.manage',
                 resourceType: 'offer',
-                resourceId: (string) $offer->id,
-                capability: 'recruitment.offer.manage',
+                resourceId: (int) $offer->id,
                 fields: ['base_salary_minor'],
                 context: ['profile' => 'P3_RESTRICTED', 'access' => 'LIST'],
             );
@@ -370,7 +352,7 @@ final class RecruitmentService
         return CarbonImmutable::parse((string) $value)->toIso8601ZuluString();
     }
 
-    private function ensureWorkflowTemplate(int $tenantId): void
+    private function ensureWorkflowTemplate(): void
     {
         $definition = [
             'nodes' => [
@@ -386,8 +368,8 @@ final class RecruitmentService
             ]],
         ];
 
-        $this->workflow->ensureTemplate($tenantId, 'talent.requisition', 'Talent requisition approval', $definition);
+        $this->workflow->ensureTemplate('talent.requisition', 'Talent requisition approval', $definition);
         $definition['effects'][0]['type'] = 'talent.offer.approve';
-        $this->workflow->ensureTemplate($tenantId, 'talent.offer', 'Talent offer approval', $definition);
+        $this->workflow->ensureTemplate('talent.offer', 'Talent offer approval', $definition);
     }
 }

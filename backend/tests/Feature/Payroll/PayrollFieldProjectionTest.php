@@ -62,11 +62,11 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
     {
         $base = $this->seedPayrollBase();
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, [
+        $run = $runs->createRun(10, [
             'scheme_id' => (int) $base['scheme']->id,
             'period' => '2026-10',
         ]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return $run->refresh();
@@ -95,7 +95,6 @@ final class PayrollFieldProjectionTest extends PayrollTestCase
     private function payrollHeaders(): array
     {
         return [
-            'X-Legal-Entity-Id' => (string) $this->legalEntityId,
             'X-CSRF-Token' => 'test-csrf-token',
         ];
     }

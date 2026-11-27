@@ -14,26 +14,26 @@ use Tests\Support\Time\TimeTestFixtures;
 
 /**
  * K4/C2 — attendance rule versions, shift schedules, monthly closing list and
- * device health. These endpoints are the read/write surface behind the four
- * remaining attendance gap pages.
+ * device health. Every fixture is inside the single company; isolation is by
+ * employment scope, not by a tenant or legal-entity column.
  */
 final class AttendanceOperationsTest extends TimeHttpTestCase
 {
-    public function test_schedule_conflict_is_rejected_and_closing_list_is_tenant_scoped(): void
+    public function test_schedule_conflict_is_rejected_and_closing_list_is_company_scoped(): void
     {
         $this->actAsAttendanceSpecialist();
-        $employmentId = $this->seedEmployment();
+        $this->seedEmployment();
         $this->shift(code: 'DAY');
         $this->shift(code: 'NIGHT');
 
         $this->postJson('/v1/time/shift-schedules', [
-            'employment_id' => $employmentId,
+            'employment_id' => 1,
             'business_date' => '2026-11-25',
             'shift_template_id' => 1,
         ], ['Idempotency-Key' => 'sch-1'])->assertCreated();
 
         $this->postJson('/v1/time/shift-schedules', [
-            'employment_id' => $employmentId,
+            'employment_id' => 1,
             'business_date' => '2026-11-25',
             'shift_template_id' => 2,
         ], ['Idempotency-Key' => 'sch-2'])->assertStatus(409)->assertJsonPath('data.reason', 'SCHEDULE_CONFLICT');
@@ -51,8 +51,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->shift(code: 'NIGHT');
 
         ShiftSchedule::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $this->legalEntityId,
             'employment_id' => 1,
             'business_date' => '2026-11-25',
             'shift_template_id' => 1,
@@ -63,8 +61,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->expectException(UniqueConstraintViolationException::class);
 
         ShiftSchedule::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => $this->legalEntityId,
             'employment_id' => 1,
             'business_date' => '2026-11-25',
             'shift_template_id' => 2,
@@ -113,7 +109,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->actAsAttendanceSpecialist();
         $this->seedEmployment();
         $this->shift(code: 'DAY');
-        $this->shift(code: 'NIGHT');
 
         $this->postJson('/v1/time/shift-schedules', [
             'employment_id' => 1,
@@ -130,18 +125,24 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
             ->assertJsonPath('data.reason', 'IDEMPOTENCY_PAYLOAD_MISMATCH');
     }
 
-    public function test_a_template_from_another_legal_entity_is_not_usable(): void
+    public function test_an_out_of_scope_employment_cannot_be_scheduled(): void
     {
-        $this->actAsAttendanceSpecialist();
-        $this->people->add(TimeTestFixtures::employment(1, 2, 2));
+        $this->seedEmployment();
         $this->shift(code: 'DAY');
-        $foreign = $this->shift(tenantId: 1, legalEntityId: 2, code: 'REMOTE');
+
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'SELF',
+            capabilities: ['time.shift.schedule.manage', 'time.shift.read'],
+        ));
 
         $this->postJson('/v1/time/shift-schedules', [
-            'employment_id' => 1,
+            'employment_id' => 999,
             'business_date' => '2026-11-25',
-            'shift_template_id' => $foreign->id,
-        ], ['Idempotency-Key' => 'sch-foreign'])->assertNotFound();
+            'shift_template_id' => 1,
+        ], ['Idempotency-Key' => 'sch-out-of-scope'])->assertNotFound();
+
+        $this->assertDatabaseCount('shift_schedules', 0);
     }
 
     public function test_a_closed_period_rejects_new_schedules_until_it_is_reopened(): void
@@ -152,7 +153,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-nov'])->assertCreated();
 
         $this->postJson('/v1/time/shift-schedules', [
@@ -182,7 +182,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-audit'])->assertCreated();
 
         $closureId = (int) AttendancePeriodClosure::query()->where('month', '2026-11')->value('id');
@@ -196,7 +195,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         ], ['Idempotency-Key' => 'reopen-audited'])->assertOk();
 
         $this->assertDatabaseHas('audit_events', [
-            'tenant_id' => 1,
             'action' => 'time.attendance.reopened',
             'aggregate_type' => 'attendance_period',
             'aggregate_id' => (string) $closureId,
@@ -204,7 +202,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
         $this->postJson('/v1/time/attendance/recalculate', [
             'month' => '2026-11',
-            'legal_entity_id' => 1,
             'employment_id' => 1,
         ], ['Idempotency-Key' => 'recalc-after-reopen'])->assertStatus(202);
     }
@@ -214,8 +211,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->actAsAttendanceSpecialist();
 
         AttendancePeriodClosure::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'month' => '2026-10',
             'status' => AttendancePeriodClosure::STATUS_CLOSED,
             'closed_by' => 10,
@@ -223,8 +218,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
             'created_at' => $this->clock->now(),
         ]);
         AttendancePeriodClosure::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'month' => '2026-09',
             'status' => AttendancePeriodClosure::STATUS_REOPENED,
             'closed_by' => 10,
@@ -232,16 +225,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
             'reopened_by' => 11,
             'reopened_at' => $this->clock->now(),
             'reopen_reason' => 'Synthetic correction after close.',
-            'created_at' => $this->clock->now(),
-        ]);
-        // Another tenant's row must never leak into the projection.
-        AttendancePeriodClosure::query()->create([
-            'tenant_id' => 2,
-            'legal_entity_id' => 1,
-            'month' => '2026-08',
-            'status' => AttendancePeriodClosure::STATUS_CLOSED,
-            'closed_by' => 99,
-            'closed_at' => $this->clock->now(),
             'created_at' => $this->clock->now(),
         ]);
 
@@ -253,11 +236,15 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->assertSame('LIVE', $response->json('data.freshness'));
     }
 
-    public function test_a_closing_list_cannot_be_redirected_to_another_legal_entity(): void
+    public function test_a_self_actor_cannot_read_company_closings(): void
     {
-        $this->actAsAttendanceSpecialist();
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'SELF',
+            capabilities: ['time.attendance.read'],
+        ));
 
-        $this->getJson('/v1/time/attendance/closings?legal_entity_id=2')->assertNotFound();
+        $this->getJson('/v1/time/attendance/closings')->assertNotFound();
     }
 
     public function test_rule_versions_are_immutable_and_effective_dated(): void
@@ -316,24 +303,11 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->actAsAttendanceSpecialist();
 
         AttendanceDevice::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'code' => 'DEV-SYNTH-01',
             'name' => 'Synthetic lobby reader',
             'adapter' => 'ZK-LAN',
             'health' => AttendanceDevice::HEALTH_DEGRADED,
             'last_seen_at' => $this->clock->now()->subMinutes(42),
-            'active' => true,
-            'created_at' => $this->clock->now(),
-        ]);
-        AttendanceDevice::query()->create([
-            'tenant_id' => 2,
-            'legal_entity_id' => 1,
-            'code' => 'DEV-OTHER-TENANT',
-            'name' => 'Other tenant reader',
-            'adapter' => 'ZK-LAN',
-            'health' => AttendanceDevice::HEALTH_ONLINE,
-            'last_seen_at' => $this->clock->now(),
             'active' => true,
             'created_at' => $this->clock->now(),
         ]);
@@ -357,7 +331,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
             employmentId: 1,
             scope: 'COMPANY',
             capabilities: ['time.attendance.read'],
-            legalEntityIds: [1],
         ));
 
         $this->getJson('/v1/time/attendance/rules')->assertForbidden();
@@ -399,7 +372,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
                 'time.attendance.rule.read',
                 'time.shift.schedule.read',
             ],
-            legalEntityIds: [1],
         ));
 
         $this->postJson('/v1/time/attendance/rules', [
@@ -420,12 +392,10 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
     public function test_a_self_actor_only_sees_their_own_shift_schedules(): void
     {
-        $this->people->add(TimeTestFixtures::employment(1, 2, 1));
+        $this->people->add(TimeTestFixtures::employment(2));
         $this->shift(code: 'DAY');
 
         ShiftSchedule::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-25',
             'shift_template_id' => 1,
@@ -433,8 +403,6 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
             'created_at' => $this->clock->now(),
         ]);
         ShiftSchedule::query()->create([
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'employment_id' => 2,
             'business_date' => '2026-11-25',
             'shift_template_id' => 1,
@@ -456,8 +424,7 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
     public function test_a_self_actor_cannot_schedule_another_employment(): void
     {
-        $this->people->add(TimeTestFixtures::employment(1, 2, 1));
-        $this->people->add(TimeTestFixtures::employment(2, 88, 8));
+        $this->people->add(TimeTestFixtures::employment(2));
         $this->shift(code: 'DAY');
 
         $this->actAsHttp(TimeTestFixtures::actor(
@@ -467,34 +434,12 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         ));
 
         $this->postJson('/v1/time/shift-schedules', [
-            'employment_id' => 88,
+            'employment_id' => 2,
             'business_date' => '2026-11-25',
             'shift_template_id' => 1,
         ], ['Idempotency-Key' => 'sch-cross-self'])->assertNotFound();
 
         $this->assertDatabaseCount('shift_schedules', 0);
-    }
-
-    public function test_a_cross_tenant_device_row_is_never_listed(): void
-    {
-        $this->actAsAttendanceSpecialist();
-
-        AttendanceDevice::query()->create([
-            'tenant_id' => 2,
-            'legal_entity_id' => 1,
-            'code' => 'DEV-T2',
-            'name' => 'Other tenant reader',
-            'adapter' => 'ZK-LAN',
-            'health' => AttendanceDevice::HEALTH_ONLINE,
-            'last_seen_at' => $this->clock->now(),
-            'active' => true,
-            'created_at' => $this->clock->now(),
-        ]);
-
-        $response = $this->getJson('/v1/time/attendance/devices')->assertOk();
-
-        $this->assertSame(0, $response->json('data.total'));
-        $this->assertSame([], $response->json('data.items'));
     }
 
     public function test_unknown_rule_configuration_keys_are_rejected(): void
@@ -544,13 +489,12 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
                 'time.attendance.device.read',
                 'time.calendar.read',
             ],
-            legalEntityIds: [1],
         ));
     }
 
     private function seedEmployment(): int
     {
-        $this->people->add(TimeTestFixtures::employment($this->tenantId, 1, $this->legalEntityId));
+        $this->people->add(TimeTestFixtures::employment(1));
 
         return 1;
     }

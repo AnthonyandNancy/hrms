@@ -12,7 +12,7 @@ use App\Shared\Authorization\AnchorType;
 use Tests\Fakes\SpySensitiveAccessAuditor;
 
 /**
- * D4 / K12: a subscription is a stored, tenant-scoped schedule over a report
+ * D4 / K12: a subscription is a stored, company-wide schedule over a report
  * definition. It never copies report rows, never bypasses the report field
  * whitelist, and re-authorizes its recipient against the current binding set
  * before every run.
@@ -57,17 +57,14 @@ final class ReportSubscriptionTest extends ReportingTestCase
 
         $this->assertDatabaseHas('report_subscriptions', [
             'id' => $id,
-            'tenant_id' => 1,
             'active' => false,
         ]);
         $this->assertDatabaseHas('audit_events', [
-            'tenant_id' => 1,
             'action' => 'reporting.subscription.created',
             'aggregate_type' => 'report_subscription',
             'aggregate_id' => (string) $id,
         ]);
         $this->assertDatabaseHas('audit_events', [
-            'tenant_id' => 1,
             'action' => 'reporting.subscription.paused',
             'aggregate_type' => 'report_subscription',
             'aggregate_id' => (string) $id,
@@ -83,7 +80,7 @@ final class ReportSubscriptionTest extends ReportingTestCase
             (int) $ids['broad_user']->auth_version,
         );
 
-        $recipient = User::factory()->create(['tenant_id' => 1]);
+        $recipient = User::factory()->create();
         $this->peopleScope->employmentByUser[(int) $recipient->id] = [(int) $ids['employment_a2_id']];
 
         $this->postJson('/v1/reporting/subscriptions', [
@@ -216,7 +213,6 @@ final class ReportSubscriptionTest extends ReportingTestCase
             ->assertOk();
         $this->assertStringStartsWith("\xEF\xBB\xBF", (string) $download->getContent());
         $this->assertDatabaseHas('audit_events', [
-            'tenant_id' => 1,
             'action' => 'reporting.export.downloaded',
             'aggregate_type' => 'export_job',
             'aggregate_id' => (string) $created['id'],

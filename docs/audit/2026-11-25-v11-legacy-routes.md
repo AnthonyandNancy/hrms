@@ -4,10 +4,10 @@
 > **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
 > 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 操作总数：**314**
-- 有能力的操作：**308**
+- v1 操作总数：**338**
+- 有能力的操作：**332**
 - 公共白名单操作：**6**
-- kernel 操作：**145**
+- kernel 操作：**169**
 
 ## 1. 台账
 
@@ -25,6 +25,10 @@
 | 10 | `POST` | `/v1/auth/mfa/totp/confirm` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 11 | `POST` | `/v1/auth/mfa/totp/enroll` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 12 | `POST` | `/v1/auth/password` | `iam.session.manage` | `SELF` | legacy | E3 |
+| 324 | `GET` | `/v1/auth/mfa/status` | `iam.session.manage` | `SELF` | kernel | — |
+| 325 | `POST` | `/v1/auth/mfa/totp/disable` | `iam.session.manage` | `SELF` | kernel | — |
+| 326 | `GET` | `/v1/auth/sessions` | `iam.session.manage` | `SELF` | kernel | — |
+| 327 | `DELETE` | `/v1/auth/sessions/{id}` | `iam.session.manage` | `SELF` | kernel | — |
 | 13 | `POST` | `/v1/auth/webauthn/assert/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 14 | `POST` | `/v1/auth/webauthn/register/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 15 | `GET` | `/v1/benefits/enrollments` | `benefit.read` | `SELF` | kernel | — |
@@ -154,7 +158,7 @@
 | 139 | `POST` | `/v1/payroll/items` | `payroll.run.prepare` | `LEGAL_ENTITY` | legacy | B5 |
 | 140 | `GET` | `/v1/payroll/payslips` | `payroll.payslip.read.self` | `SELF` | legacy | B5 |
 | 141 | `GET` | `/v1/payroll/payslips/{id}` | `payroll.payslip.read.self` | `SELF` | legacy | B5 |
-| 142 | `GET` | `/v1/payroll/runs` | `payroll.run.read` | `LEGAL_ENTITY` | legacy | B5 |
+| 142 | `GET` | `/v1/payroll/runs` | `payroll.run.read` | `PAYROLL_RUN` | legacy | B5 |
 | 143 | `POST` | `/v1/payroll/runs` | `payroll.run.prepare` | `LEGAL_ENTITY` | legacy | B5 |
 | 144 | `GET` | `/v1/payroll/runs/{id}` | `payroll.run.read` | `PAYROLL_RUN` | legacy | B5 |
 | 145 | `POST` | `/v1/payroll/runs/{id}/approve` | `payroll.run.approve` | `PAYROLL_RUN` | legacy | B5 |
@@ -244,7 +248,7 @@
 | 229 | `POST` | `/v1/roles` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
 | 230 | `PUT` | `/v1/roles/{id}/capabilities` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
 | 231 | `POST` | `/v1/roles/{id}/copy` | `iam.role.manage` | `LEGAL_ENTITY` | kernel | — |
-| 232 | `POST` | `/v1/system/calendars/{legal_entity_id}/publish` | `time.calendar.manage` | `LEGAL_ENTITY` | kernel | — |
+| 232 | `POST` | `/v1/system/calendars/publish` | `time.calendar.manage` | `LEGAL_ENTITY` | kernel | — |
 | 233 | `GET` | `/v1/system/data-scopes` | `iam.scope.manage` | `LEGAL_ENTITY` | kernel | — |
 | 234 | `PUT` | `/v1/system/data-scopes/{id}` | `iam.scope.manage` | `LEGAL_ENTITY` | kernel | — |
 | 235 | `GET` | `/v1/system/dictionaries` | `system.dictionary.manage` | `LEGAL_ENTITY` | kernel | — |
@@ -269,7 +273,7 @@
 | 254 | `GET` | `/v1/time/attendance/rules` | `time.attendance.rule.read` | `—` | kernel | — |
 | 255 | `POST` | `/v1/time/attendance/rules` | `time.attendance.rule.manage` | `—` | kernel | — |
 | 256 | `GET` | `/v1/time/attendance/{employment_id}` | `time.attendance.read` | `—` | legacy | C2 |
-| 257 | `GET` | `/v1/time/calendars/{legal_entity_id}` | `time.calendar.read` | `—` | legacy | D1 |
+| 257 | `GET` | `/v1/time/calendars` | `time.calendar.read` | `—` | legacy | D1 |
 | 258 | `GET` | `/v1/time/leave/balances` | `time.leave.read` | `—` | legacy | E3 |
 | 259 | `GET` | `/v1/time/leave/ledger` | `time.leave.ledger.read` | `—` | legacy | E3 |
 | 260 | `GET` | `/v1/time/leave/policies` | `time.leave.read` | `—` | legacy | E3 |
@@ -341,7 +345,10 @@
 | 现有端点族 | 为何归 E3 | 迁移方式 |
 |---|---|---|
 | `/v1/auth/*`、`/v1/me/*`、`/v1/bindings` | IAM 会话与身份治理 | D1 完成后改 ProjectionResponder；会话路由保持专用中间件 |
+| `/v1/auth/sessions*`、`/v1/auth/mfa/status`、`/v1/auth/mfa/totp/disable`（V4 Task 2 新增） | 账号安全与会话自助管理 | 直接使用 IAM `SessionManager`/`MfaService`/`AuthorizationSnapshot`，登记为 kernel；无迁移 Task |
 | `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 既有端点 | E3 统一改 ProjectionResponder/CommandRunner |
+| `/v1/cases` (`view=my_decided`) | V4 Task 3 adds the caller's decision-history view to the existing list route; no new path | Existing E3 list route extended; OpenAPI parameter + endpoint matrix row updated |
+| `/v1/cases/{caseId}/decisions` (assignee-only / decided 409) | V4 Task 3 pins the existing decision route's assignee guard and immutable-state conflict | Existing E3 command route; OpenAPI description + endpoint matrix denial rows updated |
 | `/v1/leave/*`、`/v1/time/leave/*` | 假期账本既有端点 | E3 迁移；K5 只新增调休投影 |
 | `/v1/employees*`、`/v1/employments*`、`/v1/persons` | People 主档既有读写 | C1 迁移岗位与组织；员工主档 E3 收敛 |
 | `/v1/platform/features` | Feature flag 管理 | D1 迁移 |
@@ -354,3 +361,14 @@
 | 321 | `DELETE` | `/v1/users/{id}/roles/{roleCode}` | `iam.role.manage` | `COMPANY` | kernel | — |
 | 322 | `GET` | `/v1/users/{id}/permissions-preview` | `iam.user.read` | `COMPANY` | kernel | — |
 | 323 | `GET` | `/v1/pages/catalog` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 258 | `PUT` | `/v1/roles/{id}/authorization` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 259 | `POST` | `/v1/employees/onboard` | `people.employee.manage` | `COMPANY` | kernel | — |
+| 261 | `PATCH` | `/v1/departments/{id}` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 262 | `DELETE` | `/v1/departments/{id}/members/{employmentId}` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 263 | `POST` | `/v1/departments` | `org.unit.manage` | `COMPANY` | kernel | — |
+| 264 | `PATCH` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 265 | `DELETE` | `/v1/roles/{id}` | `iam.role.manage` | `COMPANY` | kernel | — |
+| 266 | `PATCH` | `/v1/recruitment/requisitions/{id}` | `recruitment.*` | `COMPANY` | kernel | — |
+| 267 | `POST` | `/v1/recruitment/requisitions/{id}/close` | `recruitment.*` | `COMPANY` | kernel | — |
+| 268 | `PATCH` | `/v1/recruitment/candidates/{id}/stage` | `recruitment.*` | `COMPANY` | kernel | — |
+| 269 | `GET` | `/v1/recruitment/candidates/{id}/interviews` | `recruitment.*` | `COMPANY` | kernel | — |

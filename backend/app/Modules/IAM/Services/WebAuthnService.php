@@ -18,10 +18,10 @@ final class WebAuthnService
     /**
      * @return array{challenge: string, public_key: array<string, mixed>}
      */
-    public function beginRegistration(int $tenantId, int $userId): array
+    public function beginRegistration(int $userId): array
     {
         $challenge = $this->base64UrlEncode(random_bytes(32));
-        Cache::put($this->cacheKey($tenantId, $userId, 'register'), $challenge, (int) config('iam.mfa.webauthn_challenge_ttl_seconds', 300));
+        Cache::put($this->cacheKey($userId, 'register'), $challenge, (int) config('iam.mfa.webauthn_challenge_ttl_seconds', 300));
 
         return [
             'challenge' => $challenge,
@@ -48,10 +48,10 @@ final class WebAuthnService
     /**
      * @return array{challenge: string, public_key: array<string, mixed>}
      */
-    public function beginAssertion(int $tenantId, int $userId): array
+    public function beginAssertion(int $userId): array
     {
         $challenge = $this->base64UrlEncode(random_bytes(32));
-        Cache::put($this->cacheKey($tenantId, $userId, 'assert'), $challenge, (int) config('iam.mfa.webauthn_challenge_ttl_seconds', 300));
+        Cache::put($this->cacheKey($userId, 'assert'), $challenge, (int) config('iam.mfa.webauthn_challenge_ttl_seconds', 300));
 
         return [
             'challenge' => $challenge,
@@ -68,25 +68,25 @@ final class WebAuthnService
     /**
      * @return array<string, mixed>
      */
-    public function verifyRegistrationClientData(int $tenantId, int $userId, string $clientDataJson): array
+    public function verifyRegistrationClientData(int $userId, string $clientDataJson): array
     {
-        return $this->verifyClientData($tenantId, $userId, 'register', 'webauthn.create', $clientDataJson);
+        return $this->verifyClientData($userId, 'register', 'webauthn.create', $clientDataJson);
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function verifyAssertionClientData(int $tenantId, int $userId, string $clientDataJson): array
+    public function verifyAssertionClientData(int $userId, string $clientDataJson): array
     {
-        return $this->verifyClientData($tenantId, $userId, 'assert', 'webauthn.get', $clientDataJson);
+        return $this->verifyClientData($userId, 'assert', 'webauthn.get', $clientDataJson);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function verifyClientData(int $tenantId, int $userId, string $ceremony, string $expectedType, string $clientDataJson): array
+    private function verifyClientData(int $userId, string $ceremony, string $expectedType, string $clientDataJson): array
     {
-        $key = $this->cacheKey($tenantId, $userId, $ceremony);
+        $key = $this->cacheKey($userId, $ceremony);
         $expectedChallenge = Cache::get($key);
 
         if (! is_string($expectedChallenge) || $expectedChallenge === '') {
@@ -148,9 +148,9 @@ final class WebAuthnService
         return $decoded === false ? null : $decoded;
     }
 
-    private function cacheKey(int $tenantId, int $userId, string $ceremony): string
+    private function cacheKey(int $userId, string $ceremony): string
     {
-        return "iam:webauthn:{$tenantId}:{$userId}:{$ceremony}";
+        return "iam:webauthn:{$userId}:{$ceremony}";
     }
 
     private function invalid(string $message): ValidationException

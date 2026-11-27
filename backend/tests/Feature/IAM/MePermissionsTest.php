@@ -139,7 +139,7 @@ final class MePermissionsTest extends TestCase
 
         $response = $this->actAs($user)->getJson('/v1/me/permissions')->assertOk();
 
-        $this->assertCount(160, $this->arrayData($response->json('data.pages')));
+        $this->assertCount(153, $this->arrayData($response->json('data.pages')));
         $this->assertGreaterThanOrEqual(100, count($this->arrayData($response->json('data.actions'))));
         $this->assertContains('P3_RESTRICTED', $this->arrayData($response->json('data.field_capabilities')));
         $this->assertNotEmpty($this->arrayData($response->json('data.scope_labels')));
@@ -155,11 +155,10 @@ final class MePermissionsTest extends TestCase
         return array_values($value);
     }
 
-    private function actAs(User $user, int $tenantId = 1): self
+    private function actAs(User $user): self
     {
         $principal = new AuthenticatedPrincipal(
             userId: (int) $user->id,
-            tenantId: $tenantId,
             employmentId: null,
             authVersion: (int) $user->auth_version,
             privileged: true,
@@ -177,7 +176,6 @@ final class MePermissionsTest extends TestCase
     private function assignRole(User $user, string $roleCode): void
     {
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $user->id,
             'role_code' => $roleCode,
             'valid_from' => '2026-01-01 00:00:00',
@@ -206,7 +204,7 @@ final class MePermissionsTest extends TestCase
         string $purposeCode,
     ): AuthorityBinding {
         return AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor(AnchorType::from($anchorType), $anchorId, FieldProfile::from($fieldProfile))
             ->create([
                 'capability_code' => $capability,

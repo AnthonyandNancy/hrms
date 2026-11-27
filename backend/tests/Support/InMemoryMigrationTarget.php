@@ -52,7 +52,7 @@ final class InMemoryMigrationTarget implements MigrationTargetPort
         return null;
     }
 
-    public function apply(MigrationRow $row, int $tenantId, int $runId): TargetWriteResult
+    public function apply(MigrationRow $row, int $runId): TargetWriteResult
     {
         $key = $this->naturalKey($row->data);
         $hash = $this->dataHash($row->data);
@@ -69,7 +69,6 @@ final class InMemoryMigrationTarget implements MigrationTargetPort
         $id = (int) ($existing['target_id'] ?? $this->nextId++);
         $this->rows[$key] = [
             'target_id' => $id,
-            'tenant_id' => $tenantId,
             'migration_run_id' => $runId,
             'source_id' => $row->stgId,
             'data_hash' => $hash,
@@ -86,17 +85,14 @@ final class InMemoryMigrationTarget implements MigrationTargetPort
         return new TargetWriteResult($id, $status);
     }
 
-    public function finalize(int $tenantId, int $runId): void
+    public function finalize(int $runId): void
     {
         // No closure or manager resolution is performed by the in-memory port.
     }
 
-    public function metrics(int $tenantId): TargetMetrics
+    public function metrics(): TargetMetrics
     {
-        $rows = array_values(array_filter(
-            $this->rows,
-            static fn (array $row): bool => $row['tenant_id'] === $tenantId,
-        ));
+        $rows = array_values($this->rows);
 
         $sums = [];
 
@@ -125,10 +121,10 @@ final class InMemoryMigrationTarget implements MigrationTargetPort
     /**
      * @return list<string>
      */
-    public function rollbackStatements(int $tenantId, int $runId): array
+    public function rollbackStatements(int $runId): array
     {
         return [
-            "-- preflight: rows created by migration run {$runId} for tenant {$tenantId}",
+            "-- preflight: rows created by migration run {$runId}",
             "DELETE FROM target_shadow WHERE domain = '{$this->domain->value}' AND migration_run_id = {$runId};",
         ];
     }

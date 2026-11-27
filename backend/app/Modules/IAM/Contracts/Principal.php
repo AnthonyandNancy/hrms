@@ -14,8 +14,6 @@ interface Principal extends AuthenticatedPrincipal
 {
     public function userId(): int;
 
-    public function tenantId(): int;
-
     public function employmentId(): ?int;
 
     public function authVersion(): int;

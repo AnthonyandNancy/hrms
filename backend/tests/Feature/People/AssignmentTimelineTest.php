@@ -12,11 +12,10 @@ final class AssignmentTimelineTest extends PeopleTestCase
     public function test_concurrent_second_assignment_is_allowed(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $parent = $scenario->orgUnit($entity, 'DIV-ENG', null, 'Engineering', 'DIVISION');
-        $secondary = $scenario->orgUnit($entity, 'DEPT-PLATFORM', $parent);
+        $parent = $scenario->orgUnit('DIV-ENG', null, 'Engineering', 'DIVISION');
+        $secondary = $scenario->orgUnit('DEPT-PLATFORM', $parent);
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'E1001');
+        $employment = $scenario->employment($person, 'E1001');
         $scenario->assignment($employment, $parent);
 
         $response = $this->postJson("/v1/employments/{$employment->id}/assignments", [
@@ -35,10 +34,9 @@ final class AssignmentTimelineTest extends PeopleTestCase
     public function test_two_overlapping_primary_assignments_are_rejected(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'DEPT-A');
+        $org = $scenario->orgUnit('DEPT-A');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'E1002');
+        $employment = $scenario->employment($person, 'E1002');
         $scenario->assignment($employment, $org, ['valid_from' => '2026-01-01', 'valid_to' => '2026-04-01']);
 
         $response = $this->postJson("/v1/employments/{$employment->id}/assignments", [
@@ -55,11 +53,10 @@ final class AssignmentTimelineTest extends PeopleTestCase
     public function test_future_assignment_does_not_change_today(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $current = $scenario->orgUnit($entity, 'DEPT-CURRENT');
-        $future = $scenario->orgUnit($entity, 'DEPT-FUTURE');
+        $current = $scenario->orgUnit('DEPT-CURRENT');
+        $future = $scenario->orgUnit('DEPT-FUTURE');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'E1003');
+        $employment = $scenario->employment($person, 'E1003');
         $scenario->assignment($employment, $current, ['valid_from' => '2026-01-01', 'valid_to' => '2026-12-01']);
 
         $this->postJson("/v1/employments/{$employment->id}/assignments", [
@@ -80,11 +77,10 @@ final class AssignmentTimelineTest extends PeopleTestCase
     public function test_half_open_boundaries_of_assignments(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $first = $scenario->orgUnit($entity, 'DEPT-FIRST');
-        $second = $scenario->orgUnit($entity, 'DEPT-SECOND');
+        $first = $scenario->orgUnit('DEPT-FIRST');
+        $second = $scenario->orgUnit('DEPT-SECOND');
         $person = $scenario->person();
-        $employment = $scenario->employment($person, $entity, 'E1004');
+        $employment = $scenario->employment($person, 'E1004');
         $scenario->assignment($employment, $first, ['valid_from' => '2026-01-01', 'valid_to' => '2026-02-01']);
         $scenario->assignment($employment, $second, ['valid_from' => '2026-02-01', 'valid_to' => '2026-03-01']);
 
@@ -100,14 +96,13 @@ final class AssignmentTimelineTest extends PeopleTestCase
     public function test_manager_chain_is_projected_in_snapshot(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'DEPT-MANAGED');
+        $org = $scenario->orgUnit('DEPT-MANAGED');
         $manager = $scenario->person(['legal_name' => 'Synthetic Manager']);
-        $managerEmployment = $scenario->employment($manager, $entity, 'M1001');
+        $managerEmployment = $scenario->employment($manager, 'M1001');
         $managerAssignment = $scenario->assignment($managerEmployment, $org);
 
         $report = $scenario->person(['legal_name' => 'Synthetic Report']);
-        $reportEmployment = $scenario->employment($report, $entity, 'M1002');
+        $reportEmployment = $scenario->employment($report, 'M1002');
         $scenario->assignment($reportEmployment, $org, ['manager_assignment_id' => $managerAssignment->id]);
 
         $this->getJson("/v1/employees/{$reportEmployment->id}?as_of=2026-11-23")
@@ -117,7 +112,7 @@ final class AssignmentTimelineTest extends PeopleTestCase
         $directories = app(\App\Modules\People\Contracts\PeopleDirectory::class);
         $this->assertSame(
             [$reportEmployment->id],
-            $directories->managedEmploymentIds(1, $managerEmployment->id, '2026-11-23'),
+            $directories->managedEmploymentIds($managerEmployment->id, '2026-11-23'),
         );
     }
 }

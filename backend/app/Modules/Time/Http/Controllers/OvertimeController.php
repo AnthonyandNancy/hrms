@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
+use App\Modules\Time\Http\TimeRequestScope;
 use App\Modules\Time\Services\OvertimeSettlementService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Time\TenantBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,14 +18,14 @@ final class OvertimeController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly TimeRequestScope $scope,
         private readonly OvertimeSettlementService $settlements,
     ) {}
 
     public function settle(Request $request, int $recordId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->scope->today()->value();
 
         if (! $this->authorizer->permits($principal, 'time.overtime.settle', $today)) {
             throw new AuthorizationException('Forbidden.');
@@ -37,7 +37,6 @@ final class OvertimeController
         ]);
 
         return ApiResponse::created($this->settlements->settle(
-            $principal->tenantId(),
             $recordId,
             (string) $data['method'],
             (string) $data['reason'],

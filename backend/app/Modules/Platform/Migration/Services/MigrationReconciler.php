@@ -50,7 +50,7 @@ final class MigrationReconciler
 
         $usedShadow = ($run->report_json['target'] ?? null) === 'SHADOW';
         $target = $this->targets->target($domain, allowShadow: true, preferShadow: $usedShadow);
-        $metrics = $target->metrics($run->tenant_id);
+        $metrics = $target->metrics();
         $targetSums = [];
 
         foreach ($domain->reconciliationSums() as $field) {
@@ -112,12 +112,11 @@ final class MigrationReconciler
     /**
      * @return list<ReconciliationReport>
      */
-    public function reconcileAll(int $tenantId): array
+    public function reconcileAll(): array
     {
         $reports = [];
 
         foreach (MigrationRun::query()
-            ->where('tenant_id', $tenantId)
             ->where('status', MigrationRunStatus::APPLIED->value)
             ->orderBy('id')
             ->get() as $run) {

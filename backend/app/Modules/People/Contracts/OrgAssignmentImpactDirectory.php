@@ -14,5 +14,5 @@ interface OrgAssignmentImpactDirectory
     /**
      * @param  list<int>  $orgUnitIds
      */
-    public function impactCounts(int $tenantId, array $orgUnitIds, string $on): OrgAssignmentImpact;
+    public function impactCounts(array $orgUnitIds, string $on): OrgAssignmentImpact;
 }

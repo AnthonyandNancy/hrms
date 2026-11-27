@@ -10,18 +10,14 @@ use App\Modules\Time\Contracts\TimeActor;
 final class TimeTestFixtures
 {
     public static function employment(
-        int $tenantId = 1,
         int $employmentId = 1,
-        int $legalEntityId = 1,
         string $validFrom = '2020-01-01',
         string $validTo = '9999-12-31',
         string $seniorityStartDate = '2020-01-01',
         ?int $managerEmploymentId = null,
     ): EmploymentSnapshot {
         return new EmploymentSnapshot(
-            tenantId: $tenantId,
             employmentId: $employmentId,
-            legalEntityId: $legalEntityId,
             personId: $employmentId,
             employeeNo: 'E'.str_pad((string) $employmentId, 4, '0', STR_PAD_LEFT),
             validFrom: $validFrom,
@@ -35,10 +31,8 @@ final class TimeTestFixtures
     /**
      * @param  list<string>  $capabilities
      * @param  list<int>  $managedEmploymentIds
-     * @param  list<int>  $legalEntityIds
      */
     public static function actor(
-        int $tenantId = 1,
         int $userId = 10,
         ?int $employmentId = 1,
         string $scope = 'SELF',
@@ -56,16 +50,13 @@ final class TimeTestFixtures
             'time.leave.ledger.read',
         ],
         array $managedEmploymentIds = [],
-        array $legalEntityIds = [],
     ): TimeActor {
         return new TimeActor(
             userId: $userId,
-            tenantId: $tenantId,
             employmentId: $employmentId,
             scope: $scope,
             capabilities: $capabilities,
             managedEmploymentIds: $managedEmploymentIds,
-            legalEntityIds: $legalEntityIds,
         );
     }
 }

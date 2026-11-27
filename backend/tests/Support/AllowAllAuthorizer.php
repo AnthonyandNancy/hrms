@@ -44,6 +44,14 @@ final class AllowAllAuthorizer implements Authorizer
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet
     {
+        // Record the resolution: ADR-0024 tests assert that a restricted read
+        // actually passes through the field projection.
+        $this->calls[] = [
+            'capability' => $capability,
+            'anchor' => AnchorRef::self(),
+            'on' => '',
+        ];
+
         $profile = $this->fieldProfiles[$capability] ?? null;
         $schemas = [
             'payslip' => [
@@ -97,11 +105,10 @@ final class AllowAllAuthorizer implements Authorizer
 
         if ($sensitive !== []) {
             app(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class)->record(
-                tenantId: (int) $principal->tenantId(),
                 userId: (int) $principal->userId(),
+                capabilityCode: $capability,
                 resourceType: $row->resourceType,
-                resourceId: (string) $row->id,
-                capability: $capability,
+                resourceId: (int) $row->id,
                 fields: $sensitive,
                 context: ['profile' => $profile->value, 'access' => 'READ'],
             );

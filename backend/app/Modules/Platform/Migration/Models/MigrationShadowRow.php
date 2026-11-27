@@ -21,7 +21,6 @@ final class MigrationShadowRow extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'domain',
         'natural_key',
         'migration_run_id',

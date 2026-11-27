@@ -20,7 +20,6 @@ interface EmploymentContractVersionLedger
      * @return array<string, mixed>
      */
     public function append(
-        int $tenantId,
         int $contractId,
         int $employmentId,
         string $changeType,
@@ -34,5 +33,5 @@ interface EmploymentContractVersionLedger
     /**
      * @return list<array<string, mixed>>
      */
-    public function history(int $tenantId, int $contractId): array;
+    public function history(int $contractId): array;
 }

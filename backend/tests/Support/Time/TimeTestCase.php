@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support\Time;
 
+use App\Modules\Time\Models\BusinessTripRecord;
 use App\Modules\Time\Models\LeaveAccount;
 use App\Modules\Time\Models\LeaveType;
 use App\Modules\Time\Models\LegalEntityCalendar;
@@ -12,6 +13,7 @@ use App\Modules\Time\Models\ShiftTemplate;
 use App\Modules\Time\Services\LeaveAccountService;
 use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\TestPrincipal;
 use Tests\TestCase;
 
 abstract class TimeTestCase extends TestCase
@@ -25,10 +27,6 @@ abstract class TimeTestCase extends TestCase
     protected FakeTimeActorResolver $actors;
 
     protected FrozenClock $clock;
-
-    protected int $tenantId = 1;
-
-    protected int $legalEntityId = 1;
 
     protected function setUp(): void
     {
@@ -47,22 +45,18 @@ abstract class TimeTestCase extends TestCase
         $this->app->instance(\App\Modules\Time\Contracts\TimeActorResolver::class, $this->actors);
         $this->app->instance(\App\Shared\Time\Clock::class, $this->clock);
 
-        $this->people->add(TimeTestFixtures::employment($this->tenantId, 1, $this->legalEntityId));
-        $this->people->bindUser($this->tenantId, 10, 1);
+        $this->people->add(TimeTestFixtures::employment(1));
+        $this->people->bindUser(10, 1);
     }
 
     /**
      * @param  list<int>  $workweek
      */
     protected function calendar(
-        int $tenantId = 1,
-        int $legalEntityId = 1,
         string $timezone = 'Asia/Shanghai',
         array $workweek = [1, 2, 3, 4, 5],
     ): LegalEntityCalendar {
         return LegalEntityCalendar::query()->create([
-            'tenant_id' => $tenantId,
-            'legal_entity_id' => $legalEntityId,
             'timezone' => $timezone,
             'workweek_json' => $workweek,
             'standard_day_minutes' => 480,
@@ -71,8 +65,6 @@ abstract class TimeTestCase extends TestCase
     }
 
     protected function shift(
-        int $tenantId = 1,
-        int $legalEntityId = 1,
         string $code = 'DAY',
         string $start = '09:00:00',
         string $end = '18:00:00',
@@ -84,8 +76,6 @@ abstract class TimeTestCase extends TestCase
         string $validTo = '9999-12-31',
     ): ShiftTemplate {
         return ShiftTemplate::query()->create([
-            'tenant_id' => $tenantId,
-            'legal_entity_id' => $legalEntityId,
             'code' => $code,
             'name' => $code,
             'start_local_time' => $start,
@@ -110,7 +100,6 @@ abstract class TimeTestCase extends TestCase
         string $validTo = '9999-12-31',
     ): ShiftAssignment {
         return ShiftAssignment::query()->create([
-            'tenant_id' => $shift->tenant_id,
             'employment_id' => $employmentId,
             'shift_template_id' => $shift->id,
             'valid_from' => $validFrom,
@@ -124,10 +113,8 @@ abstract class TimeTestCase extends TestCase
      */
     protected function leaveType(
         array $overrides = [],
-        int $tenantId = 1,
     ): LeaveType {
         return LeaveType::query()->create(array_merge([
-            'tenant_id' => $tenantId,
             'code' => 'ANNUAL',
             'name' => 'Annual leave',
             'is_statutory' => true,
@@ -142,10 +129,9 @@ abstract class TimeTestCase extends TestCase
         ], $overrides));
     }
 
-    protected function leaveAccount(LeaveType $type, int $employmentId = 1, int $tenantId = 1): LeaveAccount
+    protected function leaveAccount(LeaveType $type, int $employmentId = 1): LeaveAccount
     {
         return app(LeaveAccountService::class)->ensureAccount(
-            tenantId: $tenantId,
             employmentId: $employmentId,
             leaveTypeId: $type->id,
             openedOn: '2026-01-01',
@@ -164,7 +150,6 @@ abstract class TimeTestCase extends TestCase
         $this->app->instance(\App\Shared\Authorization\Authorizer::class, new TimeTestAuthorizer($this->actors));
 
         $actor = TimeTestFixtures::actor(
-            tenantId: $this->tenantId,
             employmentId: 1,
             scope: 'MANAGED',
             capabilities: [
@@ -177,12 +162,10 @@ abstract class TimeTestCase extends TestCase
                 'time.travel.expense.manage',
             ],
             managedEmploymentIds: [1],
-            legalEntityIds: [$this->legalEntityId],
         );
         $this->actAsTimeActor($actor);
 
-        $principal = new \Tests\Support\TestPrincipal(
-            tenantId: $actor->tenantId,
+        $principal = new TestPrincipal(
             userId: $actor->userId,
             employmentId: $actor->employmentId,
         );
@@ -196,10 +179,8 @@ abstract class TimeTestCase extends TestCase
 
     protected function createPendingTrip(): int
     {
-        $trip = \App\Modules\Time\Models\BusinessTripRecord::query()->create([
-            'tenant_id' => $this->tenantId,
+        $trip = BusinessTripRecord::query()->create([
             'employment_id' => 1,
-            'legal_entity_id' => $this->legalEntityId,
             'from_date' => '2026-12-01',
             'to_date' => '2026-12-02',
             'destination' => 'Synthetic City',
@@ -211,10 +192,9 @@ abstract class TimeTestCase extends TestCase
         return (int) $trip->id;
     }
 
-    protected function createApprovedTrip(): \App\Modules\Time\Models\BusinessTripRecord
+    protected function createApprovedTrip(): BusinessTripRecord
     {
         $caseId = $this->workflow->createCase(
-            tenantId: $this->tenantId,
             requesterUserId: 10,
             type: 'TRAVEL_REQUEST',
             subjectType: 'employment',
@@ -222,12 +202,10 @@ abstract class TimeTestCase extends TestCase
             payload: ['title' => 'Synthetic travel request'],
             businessDate: '2026-12-01',
         );
-        $this->workflow->approve($this->tenantId, $caseId);
+        $this->workflow->approve($caseId);
 
-        return \App\Modules\Time\Models\BusinessTripRecord::query()->create([
-            'tenant_id' => $this->tenantId,
+        return BusinessTripRecord::query()->create([
             'employment_id' => 1,
-            'legal_entity_id' => $this->legalEntityId,
             'from_date' => '2026-12-01',
             'to_date' => '2026-12-02',
             'destination' => 'Synthetic City',
@@ -256,15 +234,13 @@ abstract class TimeTestCase extends TestCase
         $this->app->instance(\App\Shared\Authorization\Authorizer::class, new TimeTestAuthorizer($this->actors));
 
         $actor = TimeTestFixtures::actor(
-            tenantId: $this->tenantId,
             employmentId: 1,
             scope: 'SELF',
             capabilities: $capabilities,
         );
         $this->actAsTimeActor($actor);
 
-        $principal = new \Tests\Support\TestPrincipal(
-            tenantId: $actor->tenantId,
+        $principal = new TestPrincipal(
             userId: $actor->userId,
             employmentId: $actor->employmentId,
         );

@@ -6,7 +6,7 @@ namespace App\Modules\Organization\Contracts;
 
 /**
  * Frozen read contract consumed by IAM anchor resolvers and other modules.
- * Every method is tenant-scoped and as-of a tenant business date.
+ * Every method is as-of a company business date.
  */
 interface OrganizationDirectory
 {
@@ -14,17 +14,15 @@ interface OrganizationDirectory
      * @param  list<int>  $orgIds
      * @return list<int>
      */
-    public function orgUnitIds(int $tenantId, array $orgIds, string $on): array;
+    public function orgUnitIds(array $orgIds, string $on): array;
 
     /**
      * @return list<int>
      */
-    public function subtreeIds(int $tenantId, int $orgId, string $on): array;
+    public function subtreeIds(int $orgId, string $on): array;
 
     /**
-     * @return list<array{id: int, parent_id: int|null, code: string, name: string, type: string, legal_entity_id: int}>
+     * @return list<array{id: int, parent_id: int|null, code: string, name: string, type: string}>
      */
-    public function tree(int $tenantId, int $legalEntityId, string $on): array;
-
-    public function legalEntityOfOrg(int $tenantId, int $orgId, string $on): ?int;
+    public function tree(string $on): array;
 }

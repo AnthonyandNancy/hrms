@@ -12,7 +12,6 @@ final class TrainingCourse extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'plan_id',
         'code',
         'title',
@@ -32,7 +31,6 @@ final class TrainingCourse extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'plan_id' => 'integer',
             'duration_minutes' => 'integer',
             'cost_cents' => 'integer',

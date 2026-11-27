@@ -27,7 +27,6 @@ class WorkflowSchemaTest extends TestCase
             'workflow_delegations',
         ] as $table) {
             $this->assertTrue(Schema::hasTable($table), "Missing table {$table}");
-            $this->assertTrue(Schema::hasColumn($table, 'tenant_id'), "{$table} must carry tenant_id");
         }
 
         $this->assertTrue(Schema::hasColumn('cases', 'status'));

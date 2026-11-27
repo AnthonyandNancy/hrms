@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import { peoplePageConfig } from '../catalog'
-import PeopleWorkspace from '../components/PeopleWorkspace.vue'
-
-defineOptions({ name: 'MovementDetailPage' })
-
-const config = peoplePageConfig('hr/movements/by-id')!
+// Volume 3 Task 7: the movement detail page replaced the generic shell.
+import MovementDetailPage from '../lifecycle/pages/MovementDetailPage.vue'
 </script>
 
 <template>
-  <PeopleWorkspace :config="config" />
+  <MovementDetailPage />
 </template>

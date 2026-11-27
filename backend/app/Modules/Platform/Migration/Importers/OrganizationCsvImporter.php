@@ -25,7 +25,7 @@ final class OrganizationCsvImporter extends AbstractCsvImporter
      */
     public function requiredHeaders(): array
     {
-        return ['code', 'name', 'parent_code', 'legal_entity_code', 'type', 'valid_from', 'valid_to'];
+        return ['code', 'name', 'parent_code', 'type', 'valid_from', 'valid_to'];
     }
 
     protected function normalizeRow(
@@ -34,9 +34,8 @@ final class OrganizationCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
-        foreach (['code', 'name', 'legal_entity_code'] as $field) {
+        foreach (['code', 'name'] as $field) {
             $this->validator->requireString($values, $field, $sourceRow, $issues);
         }
 
@@ -48,20 +47,12 @@ final class OrganizationCsvImporter extends AbstractCsvImporter
             $this->validator->range($validFrom, $validTo, $sourceRow, $issues);
         }
 
-        $legalEntity = trim($values['legal_entity_code'] ?? '');
-
-        if ($legalEntity !== '' && $references->legalEntityCodes !== [] && ! isset($references->legalEntityCodes[$legalEntity])) {
-            $this->addIssue($sourceRow, $issues, IssueCode::ORPHAN_COMPANY, "Legal entity '{$legalEntity}' is not present in reference data.", 'legal_entity_code');
-        }
-
         $code = trim($values['code'] ?? '');
 
         return [
             'code' => $code,
             'name' => trim($values['name'] ?? ''),
             'parent_code' => trim($values['parent_code'] ?? ''),
-            'legal_entity_code' => $legalEntity,
-            'legal_entity_id' => null,
             'type' => trim($values['type'] ?? ''),
             'valid_from' => $validFrom,
             'valid_to' => $validTo,
@@ -73,7 +64,6 @@ final class OrganizationCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         /** @var array<string, list<ValidatedRow>> $byCode */
         $byCode = [];

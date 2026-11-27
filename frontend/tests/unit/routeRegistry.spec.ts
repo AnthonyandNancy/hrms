@@ -7,10 +7,11 @@ import {
 } from '@/router/registry'
 
 describe('V1.1 controlled page registry', () => {
-  it('registers exactly 140 business pages, 14 platform modules and 6 base pages', () => {
-    expect(PAGE_REGISTRY).toHaveLength(160)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'business')).toHaveLength(140)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(14)
+  it('registers exactly 134 business pages, 15 platform entries and 6 base pages', () => {
+    // ADR-0035: seven create/edit/archive form routes became workspace actions.
+    expect(PAGE_REGISTRY).toHaveLength(155)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'business')).toHaveLength(134)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(15)
     expect(PAGE_REGISTRY.filter((page) => page.layer === 'base')).toHaveLength(6)
   })
 
@@ -42,9 +43,13 @@ describe('V1.1 controlled page registry', () => {
 
   it('covers every of the 17 V1.1 menu groups', () => {
     const groups = new Set(
-      PAGE_REGISTRY.filter((page) => page.layer === 'business').map((page) => page.menu?.group),
+      PAGE_REGISTRY
+        .filter((page) => page.layer === 'business' && page.menu !== null)
+        .map((page) => page.menu?.group),
     )
 
+    // ADR-0035: detail routes are deep links with menu: null and must not
+    // contribute an `undefined` menu group.
     expect(groups.size).toBe(17)
   })
 })

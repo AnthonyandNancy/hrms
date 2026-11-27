@@ -10,5 +10,5 @@ namespace App\Modules\Reporting\Contracts;
  */
 interface ExportDispatcher
 {
-    public function dispatch(int $tenantId, int $exportJobId): void;
+    public function dispatch(int $exportJobId): void;
 }

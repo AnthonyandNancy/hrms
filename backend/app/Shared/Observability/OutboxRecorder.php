@@ -14,7 +14,6 @@ interface OutboxRecorder
      * @param  array<string, mixed>  $payload
      */
     public function record(
-        int $tenantId,
         string $eventType,
         string $aggregateType,
         string $aggregateId,

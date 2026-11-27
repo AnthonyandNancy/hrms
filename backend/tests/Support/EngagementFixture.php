@@ -16,19 +16,18 @@ trait EngagementFixture
      *
      * @return array{org_a_id: int, org_b_id: int, manager_id: int, user_a_id: int, user_b_id: int, employment_a_id: int, employment_b_id: int}
      */
-    protected function workforceFixture(int $tenantId = 1): array
+    protected function workforceFixture(): array
     {
-        $scenario = $this->scenario($tenantId);
-        $entity = $scenario->legalEntity();
-        $orgA = $scenario->orgUnit($entity, 'ORG-A', null, 'Org A');
-        $orgB = $scenario->orgUnit($entity, 'ORG-B', null, 'Org B');
+        $scenario = $this->scenario();
+        $orgA = $scenario->orgUnit('ORG-A', null, 'Org A');
+        $orgB = $scenario->orgUnit('ORG-B', null, 'Org B');
 
-        $manager = User::factory()->create(['tenant_id' => $tenantId]);
-        $userA = User::factory()->create(['tenant_id' => $tenantId]);
-        $userB = User::factory()->create(['tenant_id' => $tenantId]);
+        $manager = User::factory()->create();
+        $userA = User::factory()->create();
+        $userB = User::factory()->create();
 
-        $employmentA = $scenario->employment($scenario->person(), $entity, 'E-A');
-        $employmentB = $scenario->employment($scenario->person(), $entity, 'E-B');
+        $employmentA = $scenario->employment($scenario->person(), 'E-A');
+        $employmentB = $scenario->employment($scenario->person(), 'E-B');
 
         $scenario->assignment($employmentA, $orgA);
         $scenario->assignment($employmentB, $orgB);
@@ -37,7 +36,6 @@ trait EngagementFixture
 
         foreach ([$manager, $userA, $userB] as $user) {
             UserRole::query()->create([
-                'tenant_id' => $tenantId,
                 'user_id' => (int) $user->id,
                 'role_code' => 'EMPLOYEE',
                 'valid_from' => '2026-01-01 00:00:00',

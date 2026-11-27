@@ -11,7 +11,7 @@ final class DataScopePolicy extends Model
     protected $table = 'iam_data_scope_policies';
 
     /** @var list<string> */
-    protected $fillable = ['tenant_id', 'template_code', 'label', 'anchor_type', 'active', 'sort_order'];
+    protected $fillable = ['template_code', 'label', 'anchor_type', 'active', 'sort_order'];
 
     /**
      * @return array<string, string>
@@ -19,7 +19,6 @@ final class DataScopePolicy extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'active' => 'boolean',
             'sort_order' => 'integer',
         ];

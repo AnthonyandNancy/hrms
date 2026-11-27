@@ -16,7 +16,7 @@ use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -27,18 +27,17 @@ final class EmploymentController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function store(Request $request, EmploymentService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'people.employee.manage', $today->value());
 
         $data = $request->validate([
             'person_id' => ['required', 'integer', 'min:1'],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'employee_no' => ['required', 'string', 'max:64'],
             'employment_type' => ['required', 'string', 'in:FULL_TIME,PART_TIME,FIXED_TERM,INTERN,CONTRACTOR'],
             'status' => ['nullable', 'string', 'in:PROBATION,ACTIVE,LEAVE,SUSPENDED,TERMINATED'],
@@ -49,7 +48,7 @@ final class EmploymentController
             'seniority_start_date' => ['nullable', new BusinessDateRule],
         ]);
 
-        $employment = $service->open($principal->tenantId(), $data, $principal->userId());
+        $employment = $service->open($data, $principal->userId());
 
         return ApiResponse::created($this->employmentPayload($employment));
     }
@@ -57,7 +56,7 @@ final class EmploymentController
     public function storeAssignment(Request $request, int $employmentId, AssignmentService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'people.assignment.manage', $today->value());
 
         $data = $request->validate([
@@ -70,7 +69,7 @@ final class EmploymentController
             'valid_to' => ['nullable', new BusinessDateRule],
         ]);
 
-        $assignment = $service->open($principal->tenantId(), $employmentId, $data, $principal->userId());
+        $assignment = $service->open($employmentId, $data, $principal->userId());
 
         return ApiResponse::created($this->assignmentPayload($assignment));
     }
@@ -78,7 +77,7 @@ final class EmploymentController
     public function storeTerms(Request $request, int $employmentId, TermsService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'people.contract.manage', $today->value());
 
         $data = $request->validate([
@@ -96,7 +95,7 @@ final class EmploymentController
             'signed_at' => ['nullable', 'date'],
         ]);
 
-        $terms = $service->append($principal->tenantId(), $employmentId, $data, $principal->userId());
+        $terms = $service->append($employmentId, $data, $principal->userId());
 
         return ApiResponse::created($this->termsPayload($terms));
     }
@@ -104,7 +103,7 @@ final class EmploymentController
     public function storeDocument(Request $request, int $employmentId, DocumentService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'people.contract.manage', $today->value());
 
         $data = $request->validate([
@@ -116,7 +115,7 @@ final class EmploymentController
             'legal_hold' => ['nullable', 'boolean'],
         ]);
 
-        $document = $service->open($principal->tenantId(), $employmentId, $data, $principal->userId());
+        $document = $service->open($employmentId, $data, $principal->userId());
 
         return ApiResponse::created([
             'id' => (int) $document->id,
@@ -134,11 +133,11 @@ final class EmploymentController
     public function downloadDocument(int $documentId, DocumentService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'people.contract.read', $today->value());
         $this->assertAllows($principal, 'people.document.download', $today->value());
 
-        $document = $service->findForDownload($principal->tenantId(), $documentId);
+        $document = $service->findForDownload($documentId);
 
         if ($document === null) {
             throw new NotFoundOrForbiddenException;
@@ -149,24 +148,6 @@ final class EmploymentController
             'download_requires_signed_url' => true,
             'storage_key' => null,
         ]);
-    }
-
-    public function transfer(Request $request, int $employmentId, EmploymentService $service): JsonResponse
-    {
-        $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
-        $this->assertAllows($principal, 'people.employee.manage', $today->value());
-
-        $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
-            'effective_from' => ['required', new BusinessDateRule],
-            'employee_no' => ['nullable', 'string', 'max:64'],
-            'employment_type' => ['nullable', 'string', 'in:FULL_TIME,PART_TIME,FIXED_TERM,INTERN,CONTRACTOR'],
-        ]);
-
-        $employment = $service->transferLegalEntity($principal->tenantId(), $employmentId, $data, $principal->userId());
-
-        return ApiResponse::created($this->employmentPayload($employment));
     }
 
     private function assertAllows(Principal $principal, string $capability, string $on): void
@@ -184,7 +165,6 @@ final class EmploymentController
         return [
             'employment_id' => (int) $employment->id,
             'person_id' => (int) $employment->person_id,
-            'legal_entity_id' => (int) $employment->legal_entity_id,
             'employee_no' => (string) $employment->employee_no,
             'employment_type' => (string) $employment->employment_type,
             'status' => (string) $employment->status,

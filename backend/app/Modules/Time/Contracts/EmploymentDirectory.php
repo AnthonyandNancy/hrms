@@ -10,14 +10,12 @@ namespace App\Modules\Time\Contracts;
  */
 interface EmploymentDirectory
 {
-    public function snapshot(int $tenantId, int $employmentId, string $businessDate): ?EmploymentSnapshot;
+    public function snapshot(int $employmentId, string $businessDate): ?EmploymentSnapshot;
 
     /**
      * @return list<int>
      */
-    public function activeEmploymentIds(int $tenantId, string $businessDate): array;
+    public function activeEmploymentIds(string $businessDate): array;
 
-    public function employmentForUser(int $tenantId, int $userId, string $businessDate): ?int;
-
-    public function legalEntityIdForEmployment(int $tenantId, int $employmentId): ?int;
+    public function employmentForUser(int $userId, string $businessDate): ?int;
 }

@@ -53,15 +53,16 @@ Task 12 单公司迁移演练、恢复与第 2 册验收
 ### Task 1: 单公司迁移预检与冲突报告
 
 **Files:**
-- Create: `backend/app/Modules/Organization/Commands/AuditSingleCompanyCommand.php`
+- Create: `backend/app/Console/Commands/CompanyPreflightCommand.php`
 - Create: `backend/tests/Feature/Organization/SingleCompanyPreflightTest.php`
 - Create: `docs/audit/2026-11-26-single-company-preflight.md`
-- Modify: `backend/app/Modules/Organization/Providers/OrganizationServiceProvider.php`
+- Modify: `backend/bootstrap/app.php`
+- Modify: `backend/tests/Contract/NoTenantNoLegalEntityTest.php` (扫描根加入 `backend/database/seeders`、`docs/generated`、`docs/openapi/openapi.yaml`；仅按文件+方法精确豁免预检的列名检查)
 - Test: `backend/tests/Feature/Organization/SingleCompanyPreflightTest.php`
 
 **Interfaces:**
 - Consumes: 现有 schema、`company_profile`、`legal_entities`、tenant/legal 列。
-- Produces: 可重复执行的 `php artisan company:preflight`；输出表级行数、空值、重复键、跨法人冲突与授权绑定统计。
+- Produces: 可重复执行的 `php artisan company:preflight`；输出表级行数、旧列清单、业务键重复与授权绑定统计。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -75,7 +76,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Organization;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 final class SingleCompanyPreflightTest extends TestCase
@@ -85,10 +86,25 @@ final class SingleCompanyPreflightTest extends TestCase
     public function test_preflight_reports_company_profile_and_legacy_columns(): void
     {
         $this->artisan('company:preflight', ['--json' => true])
+            ->expectsOutputToContain('"tables"')
             ->assertExitCode(0);
 
         $this->assertDatabaseCount('company_profile', 1);
-        $this->assertTrue(DB::getSchemaBuilder()->hasColumn('users', 'tenant_id'));
+    }
+
+    public function test_report_is_driver_neutral_and_lists_every_legacy_column(): void
+    {
+        $report = (new \App\Console\Commands\CompanyPreflightCommand)->buildReport();
+
+        $this->assertContains($report['connection'], ['sqlite', 'mysql']);
+        $this->assertArrayHasKey('tables', $report);
+        foreach ($report['tables'] as $table) {
+            $this->assertIsArray($table['legacy_columns']);
+            $this->assertSame(
+                Schema::hasColumn($table['table'], 'tenant_id') || Schema::hasColumn($table['table'], 'legal_entity_id'),
+                $table['legacy_columns'] !== [],
+            );
+        }
     }
 }
 ```
@@ -105,7 +121,7 @@ Expected: FAIL，`Command "company:preflight" is not defined.`
 
 - [ ] **Step 3: 实现预检命令**
 
-创建 `backend/app/Modules/Organization/Commands/AuditSingleCompanyCommand.php`：
+创建 `backend/app/Console/Commands/CompanyPreflightCommand.php`：
 
 ```php
 <?php
@@ -118,52 +134,76 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-final class AuditSingleCompanyCommand extends Command
+final class CompanyPreflightCommand extends Command
 {
     protected $signature = 'company:preflight {--json : Output JSON}';
 
-    protected $description = 'Audit tables and data before the single-company cutover.';
+    protected $description = 'Audit schema and data before the single-company cutover.';
 
     public function handle(): int
     {
-        $tables = collect(DB::select('SHOW TABLES'))
-            ->map(static fn (object $row): string => (string) array_values((array) $row)[0])
-            ->values();
-
-        $report = [
-            'company_profile_rows' => DB::table('company_profile')->count(),
-            'tables' => $tables->map(function (string $table): array {
-                $columns = Schema::getColumnListing($table);
-                return [
-                    'table' => $table,
-                    'rows' => DB::table($table)->count(),
-                    'tenant_id' => in_array('tenant_id', $columns, true),
-                    'legal_entity_id' => in_array('legal_entity_id', $columns, true),
-                ];
-            })->all(),
-            'legal_entity_bindings' => DB::table('authority_bindings')
-                ->where('anchor_type', 'LEGAL_ENTITY')
-                ->count(),
-        ];
+        $report = $this->buildReport();
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
             return self::SUCCESS;
         }
 
-        $this->table(['table', 'rows', 'tenant_id', 'legal_entity_id'], array_map(
-            static fn (array $row): array => [$row['table'], $row['rows'], $row['tenant_id'] ? 'yes' : 'no', $row['legal_entity_id'] ? 'yes' : 'no'],
+        $this->table(['table', 'rows', 'legacy columns'], array_map(
+            static fn (array $row): array => [$row['table'], $row['rows'], implode(',', $row['legacy_columns'])],
             $report['tables'],
         ));
-        $this->info('company_profile rows: '.$report['company_profile_rows']);
-        $this->info('LEGAL_ENTITY bindings: '.$report['legal_entity_bindings']);
 
         return self::SUCCESS;
+    }
+
+    /** @return array<string, mixed> */
+    public function buildReport(): array
+    {
+        // Driver-neutral: Schema::getTables works on SQLite (tests) and MySQL 8.4.
+        /** @var array<string, list<list<string>>> $keysBefore */
+        $keysBefore = [];
+        $tables = collect(Schema::getTables())
+            ->pluck('name')
+            ->map(static fn (mixed $name): string => (string) $name)
+            ->values();
+
+        return [
+            'connection' => (string) DB::connection()->getDriverName(),
+            'company_profile_rows' => Schema::hasTable('company_profile') ? DB::table('company_profile')->count() : 0,
+            'tables' => $tables->map(function (string $table): array {
+                $legacy = array_values(array_filter(
+                    ['tenant_id', 'legal_entity_id'],
+                    static fn (string $column): bool => Schema::hasColumn($table, $column),
+                ));
+
+                return ['table' => $table, 'rows' => DB::table($table)->count(), 'legacy_columns' => $legacy];
+            })->all(),
+            'legal_entity_bindings' => Schema::hasTable('authority_bindings')
+                ? DB::table('authority_bindings')->where('anchor_type', 'LEGAL_ENTITY')->count()
+                : 0,
+        ];
     }
 }
 ```
 
-在 `OrganizationServiceProvider` 的 `commands()` 中注册该命令。
+注册：把 `CompanyPreflightCommand::class` 加入 `backend/bootstrap/app.php` 的 `->withCommands([...])`。命令位于 PSR-4 `App\` -> `app/` 内，可被自动加载。
+
+**扫描范围契约（Step 3 必须同时修改测试）：** `NoTenantNoLegalEntityTest` 的 roots 扩展为：
+
+```php
+$roots = [
+    $this->app->basePath('app'),
+    $this->app->basePath('routes'),
+    $this->app->basePath('database/seeders'),
+    $this->app->basePath('../frontend/src'),
+    $this->app->basePath('../docs/generated'),
+];
+$explicit = [__FILE__]; // 测试自身；文档与历史审计不在运行时代码面
+```
+
+另对 `docs/openapi/openapi.yaml` 做同样的字符串扫描（它在 API 契约面）。迁移目录继续排除。`CompanyPreflightCommand::buildReport()` 是唯一允许的运行时例外：豁免必须按**文件+方法**精确匹配（可用 `// single-company:preflight-only` 行标记 + 该测试只忽略该标记行），不得忽略整个目录或整个文件。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -173,7 +213,7 @@ Run:
 cd backend && ../.tools/php/php.exe artisan test --compact --filter=SingleCompanyPreflightTest
 ```
 
-Expected: PASS，1 test。
+Expected: PASS，2 tests。
 
 - [ ] **Step 5: 生成真实预检报告**
 
@@ -196,7 +236,7 @@ cd backend && ../.tools/php/php.exe artisan company:preflight --json > ../docs/a
 （逐表列出 tenant_id / legal_entity_id）
 
 ## 冲突清单
-（业务键重复、空值、跨法人同键；没有则写 none）
+（系统未上线，旧库将删除重建；此处只记录将被丢弃的现有数据量与来源，不做去重裁定）
 
 ## 授权绑定
 - LEGAL_ENTITY 数量：
@@ -204,23 +244,22 @@ cd backend && ../.tools/php/php.exe artisan company:preflight --json > ../docs/a
 - 受影响的 user/role：
 
 ## 阻断项
-（任何无法判定归属的数据必须列此；有阻断则停止 Task 2）
+（无。用户已裁定删除旧库并全量重建；唯一阻断是迁移脚本无法在 MySQL 8.4 执行）
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/app/Modules/Organization/Commands/AuditSingleCompanyCommand.php backend/app/Modules/Organization/Providers/OrganizationServiceProvider.php backend/tests/Feature/Organization/SingleCompanyPreflightTest.php docs/audit/2026-11-26-single-company-preflight.json docs/audit/2026-11-26-single-company-preflight.md
+git add backend/app/Console/Commands/CompanyPreflightCommand.php backend/bootstrap/app.php backend/tests/Feature/Organization/SingleCompanyPreflightTest.php backend/tests/Contract/NoTenantNoLegalEntityTest.php docs/audit/2026-11-26-single-company-preflight.json docs/audit/2026-11-26-single-company-preflight.md
 git commit -m "feat(org): add single-company cutover preflight"
 ```
 
 ---
 
-### Task 2: 单公司数据合并与 COMPANY 锚点迁移
+### Task 2: 单公司 schema cutover 与 COMPANY 锚点迁移
 
 **Files:**
 - Create: `backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php`
-- Create: `backend/database/migrations/2026_11_26_000310_merge_single_company_duplicates.php`
 - Create: `backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php`
 - Create: `backend/tests/Feature/Organization/SingleCompanyMigrationTest.php`
 - Modify: `backend/database/migrations/2026_11_26_000050_create_company_profile.php`：**不得修改**；所有变更走新迁移。
@@ -229,6 +268,7 @@ git commit -m "feat(org): add single-company cutover preflight"
 **Interfaces:**
 - Consumes: Task 1 预检报告、`company_profile` 单例、`authority_bindings`。
 - Produces: 可重复演练的 forward 迁移；`LEGAL_ENTITY` → `COMPANY`；旧列删除；唯一索引重建。
+- **数据裁决（用户 2026-11-26）：** 系统尚未上线，不接受为保留旧数据而做去重/合并。迁移只负责把 schema 收敛到单公司；测试库、预发库与真实栈一律删除旧库后用 `migrate:fresh --seed` 全量重建。生产式演练只验证“快照 → 迁移 → 回滚到快照”的机制，不验证旧业务数据保留。
 
 - [ ] **Step 1: 写迁移失败测试**
 
@@ -252,9 +292,10 @@ final class SingleCompanyMigrationTest extends TestCase
 
     public function test_single_company_schema_has_no_legacy_columns(): void
     {
-        foreach (['users', 'org_units', 'employments', 'employment_contracts'] as $table) {
-            $this->assertFalse(Schema::hasColumn($table, 'tenant_id'), "{$table} still has tenant_id");
-            $this->assertFalse(Schema::hasColumn($table, 'legal_entity_id'), "{$table} still has legal_entity_id");
+        foreach (Schema::getTables() as $table) {
+            $name = (string) $table['name'];
+            $this->assertFalse(Schema::hasColumn($name, 'tenant_id'), "{$name} still has tenant_id");
+            $this->assertFalse(Schema::hasColumn($name, 'legal_entity_id'), "{$name} still has legal_entity_id");
         }
         $this->assertFalse(Schema::hasTable('legal_entities'));
     }
@@ -268,6 +309,20 @@ final class SingleCompanyMigrationTest extends TestCase
     public function test_company_profile_is_singleton(): void
     {
         $this->assertSame(1, DB::table('company_profile')->count());
+    }
+
+    public function test_single_company_business_keys_are_unique(): void
+    {
+        foreach ([['users', 'username'], ['org_units', 'code'], ['employments', 'employee_no']] as [$table, $column]) {
+            $this->assertTrue(
+                Schema::hasIndex($table, [$column], 'unique'),
+                "{$table}.{$column} must be unique after cutover",
+            );
+        }
+
+        DB::table('users')->insert(['username' => 'unique.probe', 'password_hash' => 'x', 'status' => 'ACTIVE', 'auth_version' => 1, 'is_privileged' => false]);
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        DB::table('users')->insert(['username' => 'unique.probe', 'password_hash' => 'x', 'status' => 'ACTIVE', 'auth_version' => 1, 'is_privileged' => false]);
     }
 }
 ```
@@ -319,50 +374,15 @@ return new class extends Migration
 };
 ```
 
-- [ ] **Step 4: 写冲突合并迁移**
+- [ ] **Step 4: 删除旧的冲突合并迁移**
 
-创建 `2026_11_26_000310_merge_single_company_duplicates.php`。迁移必须只处理 Task 1 报告已确认的重复键，不得静默合并：
+系统未上线，用户已裁定删除旧库并全量重建，因此**不创建** `2026_11_26_000310_merge_single_company_duplicates.php`。迁移不得包含 `firstOrCreate`、去重、数据搬运或“冲突即停”的业务逻辑。
 
-```php
-<?php
+在 `2026_11_26_000300_migrate_legal_entity_bindings_to_company.php` 中保留绑定类型转换，因为它属于 schema/授权语义收敛；若目标库是空库，该迁移自然无行可更新。
 
-declare(strict_types=1);
+- [ ] **Step 5: 写删列与唯一索引重建迁移**
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        if (! Schema::hasTable('company_profile') || DB::table('company_profile')->count() !== 1) {
-            throw new RuntimeException('Single company profile must exist exactly once before merge.');
-        }
-
-        $duplicates = DB::table('org_units')
-            ->select('code', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('code')
-            ->having('aggregate', '>', 1)
-            ->get();
-
-        if ($duplicates->isNotEmpty()) {
-            throw new RuntimeException('Duplicate org unit codes require manual resolution: '.$duplicates->pluck('code')->implode(', '));
-        }
-    }
-
-    public function down(): void
-    {
-        // Forward-only: duplicate resolution is not reversible.
-    }
-};
-```
-
-按预检报告为每个有业务键的表重复该检查；禁止用 `firstOrCreate` 或删除重复行“自动修复”。
-
-- [ ] **Step 5: 写删列迁移**
-
-创建 `2026_11_26_000320_drop_tenant_and_legal_entity_columns.php`。先列出所有列，再逐表删除；删除索引/外键必须先于列：
+创建 `2026_11_26_000320_drop_tenant_and_legal_entity_columns.php`。**必须先删除依赖索引/外键，再重建单公司业务唯一索引，最后删除旧列**；不得只删列：
 
 ```php
 <?php
@@ -371,21 +391,44 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        $tables = [
-            'users', 'org_units', 'positions', 'persons', 'employments',
-            'assignments', 'employment_terms', 'employment_contracts',
-            'attendance_records', 'leave_requests', 'payroll_runs',
-            'reporting_definitions', 'audit_events',
-        ];
+        $tables = collect(Schema::getTables())
+            ->pluck('name')
+            ->map(static fn (mixed $name): string => (string) $name)
+            ->filter(static fn (string $table): bool => Schema::hasColumn($table, 'tenant_id')
+                || Schema::hasColumn($table, 'legal_entity_id'))
+            ->values();
+
+        /** @var array<string, list<list<string>>> $keysBefore */
+        $keysBefore = [];
 
         foreach ($tables as $table) {
-            if (! Schema::hasTable($table)) continue;
+            // Derive the replacement keys BEFORE any index or column is dropped.
+            $keysBefore[$table] = $this->uniqueKeysWithoutLegacyColumns($table);
+
+            foreach (Schema::getForeignKeys($table) as $foreign) {
+                $columns = array_map(static fn (mixed $column): string => (string) $column, $foreign['columns']);
+                if (array_intersect($columns, ['tenant_id', 'legal_entity_id']) !== []) {
+                    Schema::table($table, static fn (Blueprint $blueprint) => $blueprint->dropForeign($foreign['name']));
+                }
+            }
+
+            foreach (Schema::getIndexes($table) as $index) {
+                if (($index['primary'] ?? false) === true) {
+                    continue; // Never drop the primary key.
+                }
+                $columns = array_map(static fn (mixed $column): string => (string) $column, $index['columns']);
+                if (array_intersect($columns, ['tenant_id', 'legal_entity_id']) !== []) {
+                    Schema::table($table, static fn (Blueprint $blueprint) => $blueprint->dropIndex($index['name']));
+                }
+            }
+
             Schema::table($table, function (Blueprint $blueprint) use ($table): void {
                 foreach (['tenant_id', 'legal_entity_id'] as $column) {
                     if (Schema::hasColumn($table, $column)) {
@@ -393,9 +436,51 @@ return new class extends Migration
                     }
                 }
             });
+
+            foreach ($keysBefore[$table] as $columns) {
+                Schema::table($table, static fn (Blueprint $blueprint) => $blueprint->unique($columns));
+            }
         }
 
         Schema::dropIfExists('legal_entities');
+    }
+
+    /**
+     * For each unique index led by tenant_id/legal_entity_id, return the
+     * remaining columns. Deriving from the live schema prevents the map from
+     * drifting and prevents silently dropping a business uniqueness rule.
+     *
+     * @return list<list<string>>
+     */
+    private function uniqueKeysWithoutLegacyColumns(string $table): array
+    {
+        $keys = [];
+
+        foreach (Schema::getIndexes($table) as $index) {
+            if (($index['unique'] ?? false) !== true || ($index['primary'] ?? false) === true) {
+                continue;
+            }
+
+            $columns = array_values(array_map(
+                static fn (mixed $column): string => (string) $column,
+                $index['columns'],
+            ));
+
+            if (! in_array($columns[0] ?? '', ['tenant_id', 'legal_entity_id'], true)) {
+                continue;
+            }
+
+            $single = array_values(array_filter(
+                $columns,
+                static fn (string $column): bool => ! in_array($column, ['tenant_id', 'legal_entity_id'], true),
+            ));
+
+            if ($single !== [] && ! in_array($single, $keys, true)) {
+                $keys[] = $single;
+            }
+        }
+
+        return $keys;
     }
 
     public function down(): void
@@ -405,7 +490,7 @@ return new class extends Migration
 };
 ```
 
-实际删列前必须先跑 `php artisan migrate --pretend` 并核对索引/外键；如果 MySQL 因外键失败，先新增单独的 `dropForeign` 迁移，不得修改已合并迁移。
+单公司业务唯一键从现有唯一索引推导，不手写表清单。旧数据将被删除重建，因此迁移不做去重；但重建后必须证明唯一索引存在并能拒绝重复插入。迁移必须在 MySQL 8.4 测试库执行，不得只在 SQLite 验证。
 
 - [ ] **Step 6: 在测试库运行迁移**
 
@@ -417,9 +502,35 @@ cd backend
 ../.tools/php/php.exe artisan test --compact --filter=SingleCompanyMigrationTest
 ```
 
-Expected: 迁移成功；3 tests PASS；`company_profile` 恰好 1 行；旧列与 `legal_entities` 不存在。
+Expected: `migrate:fresh --seed` 成功；4 tests PASS；`company_profile` 恰好 1 行；旧列与 `legal_entities` 不存在；`users.username`、`org_units.code`、`employments.employee_no` 等单公司唯一索引存在。
 
-- [ ] **Step 7: 验证迁移可重复与失败即停**
+- [ ] **Step 7: 实现 ADR-0037 承诺的 `single-company:check` 门禁**
+
+ADR-0037 与规格都引用 `single-company:check`，但仓库尚无此脚本。新增：
+
+- Create: `scripts/audit_single_company.mjs`
+- Create: `scripts/tests/audit_single_company.test.mjs`
+- Modify: `package.json`（`"single-company:check": "node scripts/audit_single_company.mjs"`）
+
+扫描范围必须覆盖 ADR-0037 的承诺：`backend/app`、`backend/routes`、`backend/database/seeders`、`frontend/src`、`frontend/src/generated`、`docs/openapi/openapi.yaml`、`docs/generated`。允许清单只包含迁移目录与 `CompanyPreflightCommand` 的精确行标记；禁止目录级豁免。
+
+```js
+const FORBIDDEN = [/tenant_id/, /legal_entity_id/, /LEGAL_ENTITY/, /X-Legal-Entity-Id/, /activeLegalEntityId/]
+// exit 1 and print file:line for each match outside the explicit allowlist
+```
+
+反例测试至少覆盖：`tenant_id` 命中、`LEGAL_ENTITY` 命中、allowlist 精确匹配、目录级豁免被拒绝。
+
+Run:
+
+```bash
+node scripts/audit_single_company.mjs
+node --test scripts/tests/audit_single_company.test.mjs
+```
+
+Expected: 本步结束时真实仓库仍 FAIL（`app/` 尚未清理）；测试自身 PASS。本步只建立门禁，由本册 Task 3/4 清零。
+
+- [ ] **Step 8: 验证迁移可重复**
 
 Run:
 
@@ -429,12 +540,12 @@ cd backend
 ../.tools/php/php.exe artisan migrate --force
 ```
 
-Expected: 回滚/重跑无异常；冲突数据存在时迁移必须失败并输出表与键，不得成功。
+Expected: 回滚/重跑无异常。数据由 seeder 重建，因此不再验证“冲突即停”。
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php backend/database/migrations/2026_11_26_000310_merge_single_company_duplicates.php backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php backend/tests/Feature/Organization/SingleCompanyMigrationTest.php
+git add backend/database/migrations/2026_11_26_000300_migrate_legal_entity_bindings_to_company.php backend/database/migrations/2026_11_26_000320_drop_tenant_and_legal_entity_columns.php backend/tests/Feature/Organization/SingleCompanyMigrationTest.php scripts/audit_single_company.mjs scripts/tests/audit_single_company.test.mjs package.json
 git commit -m "feat(db): cut over to single-company schema"
 ```
 
@@ -629,6 +740,7 @@ Expected: FAIL，列出仍含旧引用的文件。
 
 - 删除所有 `tenant_id`、`legal_entity_id`、`legal_entity_name`、`X-Legal-Entity-Id`。
 - 日历路径移除 `{legal_entity_id}`。
+- `CalendarAdminController::publish` 返回值删除 `legal_entity_id`；`CalendarVersion` schema 删除该必填字段；前端生成类型同步更新。
 - `anchor_type` 枚举删除 `LEGAL_ENTITY`，加入/保留 `COMPANY`。
 - `late_grace_source` 枚举删除 `LEGAL_ENTITY`。
 
@@ -651,7 +763,7 @@ cd frontend && pnpm exec vitest run tests/unit/noTenantLegal.spec.ts
 cd .. && rg -n 'tenant_id|legal_entity|LEGAL_ENTITY|X-Legal-Entity-Id|activeLegalEntityId|tenantLabel' frontend/src docs/openapi
 ```
 
-Expected: 测试 PASS；扫描结果仅允许 `docs/openapi` 历史注释或迁移说明，不得在运行时源码出现。
+Expected: 测试 PASS；`node scripts/audit_single_company.mjs` 退出码 0；`rg` 扫描仅允许迁移文件与 `CompanyPreflightCommand` 的精确标记行。
 
 - [ ] **Step 7: Commit**
 
@@ -686,7 +798,7 @@ node scripts/audit_action_manifest.mjs
 node scripts/generate_action_manifest.mjs
 ```
 
-Expected: 输出当前真实缺口；把清单保存到 `docs/audit/2026-11-26-v2-action-gaps.md`。
+Expected: 输出当前真实缺口；把清单保存到 `docs/audit/2026-11-26-v2-action-gaps.json`，并在同名 `.md` 中写人类可读汇总。
 
 - [ ] **Step 2: 逐页补齐动作输入**
 
@@ -707,6 +819,7 @@ Expected: 输出当前真实缺口；把清单保存到 `docs/audit/2026-11-26-v
 为 `PermissionResourceCatalog.php` 中每个页面的 `actions` 补真实能力码。要求：
 
 ```php
+// Source of truth is docs/generated/page-actions.json; this array is a projection.
 'actions' => ['people.employee.manage', 'people.employee.archive', 'people.employee.restore'],
 ```
 
@@ -746,7 +859,7 @@ Expected: 生成文件稳定；门禁通过；不存在“写 API 无动作”�
 - [ ] **Step 6: Commit**
 
 ```bash
-git add docs/generated/action-input.json docs/generated/page-actions.json backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php backend/app/Modules/IAM/Authorization/CapabilityCatalog.php docs/openapi/openapi.yaml docs/audit/2026-11-26-v2-action-gaps.md
+git add docs/generated/action-input.json docs/generated/page-actions.json backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php backend/app/Modules/IAM/Authorization/CapabilityCatalog.php docs/openapi/openapi.yaml docs/audit/2026-11-26-v2-action-gaps.json docs/audit/2026-11-26-v2-action-gaps.md
 git commit -m "feat(iam): declare every writable page action"
 ```
 
@@ -761,16 +874,26 @@ git commit -m "feat(iam): declare every writable page action"
 - Create: `frontend/src/modules/platform/components/UserPermissionPreview.vue`
 - Modify: `backend/app/Modules/IAM/Http/Controllers/UserAdminController.php`
 - Modify: `backend/app/Modules/IAM/Services/RoleAdminService.php`
-- Test: `frontend/tests/unit/SystemUsersPage.spec.ts`
-- Test: `backend/tests/Feature/IAM/UserRoleAssignmentApiTest.php`
+- Modify: `frontend/tests/unit/systemUsersPage.spec.ts`（已存在；扩展而不是新建重复测试）
+- Modify: `backend/tests/Feature/IAM/UserRoleAssignmentApiTest.php`（若文件不存在则创建；先运行 `rg --files backend/tests | rg UserRole` 确认）
+- Create: `backend/tests/Support/UserAdminScenario.php`（提供 `userWithRole(string $role, ...$args)` 与 `admin()`；真实创建 User + Role + AuthorityBinding）
 
 **Interfaces:**
 - Consumes: `/v1/users`、`/v1/users/{id}/roles`、`/v1/users/{id}/permissions-preview`、角色列表。
 - Produces: 列表 + 创建弹窗 + 编辑弹窗 + 启停 + 重置密码 + 角色抽屉 + 权限预览 + 变更历史。
 
+> 测试辅助契约（必须在 `UserAdminScenario` 中实现，供本册所有 IAM 测试复用）：
+>
+> - `admin(): User`
+> - `userWithRole(string $roleCode, string $anchorType = 'COMPANY', ?int $anchorId = null): User`
+> - `userWithCapability(string $capability, string $anchorType = 'COMPANY', ?int $anchorId = null): User`
+> - `employee(): \App\Modules\People\Models\Employment`
+>
+> 每个 helper 必须创建有效 `UserRole` + `AuthorityBinding`（`auth_version` 与用户当前值一致），不得只写 `role_code` 字段。
+
 - [ ] **Step 1: 写前端失败测试**
 
-创建 `frontend/tests/unit/SystemUsersPage.spec.ts`：
+扩展 `frontend/tests/unit/systemUsersPage.spec.ts`；新增用例（保留现有 3 个用例，不删除、不弱化）：
 
 ```ts
 import { mount } from '@vue/test-utils'
@@ -803,7 +926,7 @@ describe('SystemUsersPage', () => {
 Run:
 
 ```bash
-cd frontend && pnpm exec vitest run tests/unit/SystemUsersPage.spec.ts
+cd frontend && pnpm exec vitest run tests/unit/systemUsersPage.spec.ts
 ```
 
 Expected: FAIL：页面仍显示 `ACTIVE`，且没有创建弹窗入口。
@@ -821,23 +944,21 @@ Expected: FAIL：页面仍显示 `ACTIVE`，且没有创建弹窗入口。
 
 - [ ] **Step 4: 后端补齐启停与重置密码**
 
-在 `UserAdminController` 增加：
+停用复用现有 `PATCH /v1/users/{id}`（`UserAdminController::update`，`status=DISABLED` + `reason`），不新增 `/deactivate`。重置密码新增：
 
 ```php
-public function deactivate(int $id): JsonResponse
+public function resetPassword(Request $request, int $id): JsonResponse
 {
-    $this->users->deactivate($id, $this->actor());
-    return ApiResponse::ok(['status' => 'DISABLED']);
-}
-
-public function resetPassword(int $id, ResetPasswordRequest $request): JsonResponse
-{
-    $this->users->resetPassword($id, $request->string('password')->toString(), $this->actor());
-    return ApiResponse::ok(['status' => 'RESET']);
+    $validated = $request->validate([
+        'password' => ['required', 'string', 'min:12'],
+        'reason' => ['required', 'string', 'min:3', 'max:255'],
+    ]);
+    // forceFill password_hash + increment auth_version, revokeAllForUser, audit
+    return ApiResponse::ok(['id' => $id, 'auth_version' => $authVersion]);
 }
 ```
 
-对应服务必须递增 `auth_version`、撤销现有会话、写审计；路由能力分别为 `iam.user.manage` 与 `iam.user.manage`。
+同时在 `backend/routes/api.php` 注册 `POST /v1/users/{id}/password-reset`，中间件为 `['mfa.enrolled', 'mfa.step-up', 'capability:iam.user.manage,COMPANY']`，并在 `docs/openapi/openapi.yaml` 增加同名 operation、`x-capability: iam.user.manage` 与 `x-action-label: 重置密码`。
 
 - [ ] **Step 5: 后端测试**
 
@@ -849,7 +970,9 @@ public function test_disabling_user_revokes_existing_session_and_blocks_next_req
     $admin = $this->userWithCapability('iam.user.manage');
     $target = $this->userWithCapability('iam.session.manage');
 
-    $this->actingAs($admin)->postJson("/v1/users/{$target->id}/deactivate")->assertOk();
+    $this->actingAs($admin)
+        ->patchJson("/v1/users/{$target->id}", ['status' => 'DISABLED', 'reason' => '合成测试停用'])
+        ->assertOk();
     $this->actingAs($target)->getJson('/v1/me')->assertStatus(401);
 }
 ```
@@ -860,7 +983,7 @@ Run:
 
 ```bash
 cd frontend && pnpm exec vitest run tests/unit/SystemUsersPage.spec.ts
-cd ../backend && ../.tools/php/php.exe artisan test --compact --filter='UserRoleAssignmentApiTest|UserAdminTest'
+cd ../backend && ../.tools/php/php.exe artisan test --compact --filter='UserRoleAssignmentApiTest|PasswordOnlyLoginTest'
 ```
 
 Expected: PASS；停用后旧会话下一次请求 401。
@@ -868,7 +991,7 @@ Expected: PASS；停用后旧会话下一次请求 401。
 - [ ] **Step 7: Commit**
 
 ```bash
-git add frontend/src/modules/platform/pages/SystemUsersPage.vue frontend/src/modules/platform/components/UserCreateDialog.vue frontend/src/modules/platform/components/UserRoleDrawer.vue frontend/src/modules/platform/components/UserPermissionPreview.vue backend/app/Modules/IAM/Http/Controllers/UserAdminController.php backend/app/Modules/IAM/Services/RoleAdminService.php frontend/tests/unit/SystemUsersPage.spec.ts backend/tests/Feature/IAM/UserRoleAssignmentApiTest.php
+git add frontend/src/modules/platform/pages/SystemUsersPage.vue frontend/src/modules/platform/components/UserCreateDialog.vue frontend/src/modules/platform/components/UserRoleDrawer.vue frontend/src/modules/platform/components/UserPermissionPreview.vue backend/app/Modules/IAM/Http/Controllers/UserAdminController.php frontend/tests/unit/systemUsersPage.spec.ts backend/tests/Feature/IAM/UserRoleAssignmentApiTest.php backend/tests/Support/UserAdminScenario.php backend/routes/api.php docs/openapi/openapi.yaml
 git commit -m "feat(iam): rebuild user management workspace"
 ```
 
@@ -1065,7 +1188,7 @@ label, icon, sort_order, visible, parent_group
 public function test_sensitive_field_is_redacted_even_when_client_requests_it(): void
 {
     $response = $this->actingAs($this->hrWithoutP3())
-        ->getJson('/v1/employees/'.$this->employee()->id.'?include=bank_account');
+        ->getJson('/v1/employees/'.$this->employee()->employment_id.'?include=bank_account');
 
     $response->assertOk();
     $this->assertArrayNotHasKey('bank_account', $response->json('data'));
@@ -1114,10 +1237,10 @@ public function test_revoked_role_loses_page_and_action_on_next_request(): void
     $user = $this->userWithRole('HR_ADMIN');
     $this->actingAs($user)->getJson('/v1/me/permissions')->assertOk();
 
-    $this->admin()->deleteJson("/v1/users/{$user->id}/roles/HR_ADMIN")->assertOk();
+    $this->admin()->deleteJson("/v1/users/{$user->id}/roles/HR_ADMIN", ['reason' => '合成测试撤权'])->assertOk();
 
     $this->actingAs($user)->getJson('/v1/me/permissions')->assertOk();
-    $this->actingAs($user)->postJson('/v1/employees')->assertStatus(403);
+    $this->actingAs($user)->postJson('/v1/users', [])->assertStatus(403);
 }
 ```
 
@@ -1128,14 +1251,16 @@ public function test_admin_cannot_grant_super_admin_to_self(): void
 {
     $admin = $this->userWithRole('SYSTEM_ADMIN');
     $this->actingAs($admin)
-        ->postJson("/v1/users/{$admin->id}/roles", ['role_code' => 'SUPER_ADMIN'])
+        ->postJson("/v1/users/{$admin->id}/roles", ['role_code' => 'SUPER_ADMIN', 'reason' => '合成测试自授'])
         ->assertStatus(403);
 }
 
 public function test_last_enabled_system_admin_cannot_be_disabled(): void
 {
     $admin = $this->userWithRole('SYSTEM_ADMIN');
-    $this->actingAs($admin)->postJson("/v1/users/{$admin->id}/deactivate")->assertStatus(409);
+    $this->actingAs($admin)
+        ->patchJson("/v1/users/{$admin->id}", ['status' => 'DISABLED', 'reason' => '合成测试停用'])
+        ->assertStatus(409);
 }
 ```
 
@@ -1270,13 +1395,21 @@ git commit -m "feat(auth): enforce password-only login posture"
 
 **Files:**
 - Create: `backend/tests/Feature/Authorization/RoleMatrixTest.php`
+- Create: `backend/tests/Support/AuthorizationMatrixScenario.php`（提供 `userWithRole()`、`employeeIn()`、`deptA()`/`deptB()`；不得在各测试里重复造 fixture）
 - Create: `frontend/tests/e2e/real/role-matrix.spec.ts`
 - Create: `docs/audit/2026-11-26-role-permission-matrix.md`
 - Modify: `backend/database/seeders/DemoRoleSeeder.php`
 
 **Interfaces:**
 - Consumes: Task 6–10 的授权工作台、动作清单、登录基线。
-- Produces: 系统管理员、人事管理员、部门经理、普通员工、工资专员五类账号的真实登录—菜单—页面—按钮—数据—字段—导出闭环证据。
+- Produces: 系统管理员、人事管理员、部门经理、普通员工、工资专员五类账号的真实登录—菜单—页面—按钮—数据—字段—导出闭环证据。员工建档等第 3 册新增闭环在 Volume 3 Task 18 复验；本册只使用既有 API 与页面。
+
+`AuthorizationMatrixScenario` 必须提供：
+
+- `userWithRole(string $roleCode, string $anchorType = 'COMPANY', ?int $anchorId = null): User`
+- `deptA(): int` / `deptB(): int` — 真实 `org_units.id`
+- `employeeIn(int $orgUnitId): \App\Modules\People\Models\Employment`
+- `hrWithoutP3(): User` — HR_ADMIN，但明确缺少 P3 字段/导出能力
 
 - [ ] **Step 1: 写 API 矩阵测试**
 
@@ -1286,10 +1419,10 @@ git commit -m "feat(auth): enforce password-only login posture"
 public function test_five_roles_have_expected_page_action_and_scope(): void
 {
     $cases = [
-        'SYSTEM_ADMIN' => ['/v1/users', 200, 'POST /v1/users', 200],
+        'SYSTEM_ADMIN' => ['/v1/users', 200, 'POST /v1/users', 201],
         'HR_ADMIN' => ['/v1/users', 403, 'POST /v1/users', 403],
-        'DEPT_MANAGER' => ['/v1/employees', 200, 'POST /v1/employees', 403],
-        'EMPLOYEE' => ['/v1/employees', 403, 'POST /v1/employees', 403],
+        'DEPT_MANAGER' => ['/v1/employees', 200, 'POST /v1/users', 403],
+        'EMPLOYEE' => ['/v1/employees', 403, 'POST /v1/users', 403],
         'PAYROLL_SPECIALIST' => ['/v1/employees', 403, 'GET /v1/payroll/runs', 200],
     ];
 
@@ -1297,7 +1430,10 @@ public function test_five_roles_have_expected_page_action_and_scope(): void
         $user = $this->userWithRole($role);
         $this->actingAs($user)->getJson($getPath)->assertStatus($getStatus);
         [$method, $path] = explode(' ', $write, 2);
-        $this->actingAs($user)->json($method, $path, [])->assertStatus($writeStatus);
+        $payload = $path === '/v1/users'
+            ? ['username' => 'matrix.'.strtolower($role).'.'.Str::lower(Str::random(6)), 'password' => 'Synthetic-Pass-2026!']
+            : [];
+        $this->actingAs($user)->json($method, $path, $payload)->assertStatus($writeStatus);
     }
 }
 ```
@@ -1310,7 +1446,7 @@ public function test_department_manager_cannot_read_other_department_employee():
     $manager = $this->userWithRole('DEPT_MANAGER', 'ORG_UNIT', $this->deptA());
     $other = $this->employeeIn($this->deptB());
 
-    $this->actingAs($manager)->getJson("/v1/employees/{$other->id}")->assertStatus(403);
+    $this->actingAs($manager)->getJson("/v1/employees/{$other->employment_id}")->assertStatus(403);
 }
 ```
 
@@ -1319,8 +1455,13 @@ public function test_department_manager_cannot_read_other_department_employee():
 ```php
 public function test_payroll_specialist_cannot_export_employee_bank_account_without_p3(): void
 {
+    // /v1/reporting/exports is POST-only; field whitelist violations are 403.
     $user = $this->userWithRole('PAYROLL_SPECIALIST');
-    $response = $this->actingAs($user)->getJson('/v1/employees/export?fields=bank_account');
+    $response = $this->actingAs($user)->postJson('/v1/reporting/exports', [
+        'definition_code' => 'EMPLOYEE_ROSTER',
+        'purpose' => '合成权限矩阵负测',
+        'fields' => ['bank_account'],
+    ]);
     $response->assertStatus(403);
 }
 ```
@@ -1330,12 +1471,10 @@ public function test_payroll_specialist_cannot_export_employee_bank_account_with
 `role-matrix.spec.ts` 至少断言：
 
 ```ts
-test('HR admin creates an employee and cannot manage users', async ({ page }) => {
-  await login(page, 'demo.hr', password)
-  await page.getByRole('link', { name: '员工列表' }).click()
-  await page.getByRole('button', { name: '新增员工' }).click()
-  // 填写最小合法字段并保存
-  // 断言详情页出现新员工
+test('HR admin can open the employee workspace and cannot manage users', async ({ page }) => {
+  await login(page, 'demo.hr')
+  await page.goto('/hr/employees')
+  await expect(page.getByRole('heading', { name: '员工列表' })).toBeVisible()
   await page.goto('/system/users')
   await expect(page.getByText('无权访问')).toBeVisible()
 })
@@ -1361,7 +1500,8 @@ Run:
 
 ```bash
 cd backend && ../.tools/php/php.exe artisan test --compact --filter='RoleMatrixTest|AnchorScopeTest|FieldDenialHttpTest|DenyByDefaultTest'
-cd ../frontend && pnpm exec playwright test tests/e2e/real/role-matrix.spec.ts
+cd ../frontend && HRMS_FRONTEND_URL=http://127.0.0.1:5174 HRMS_BACKEND_URL=http://127.0.0.1:8080 \
+  pnpm exec playwright test -c playwright.real.config.ts tests/e2e/real/role-matrix.spec.ts
 ```
 
 Expected: API 与 E2E 均通过；若真实栈不可用，E2E 标 `NOT RUN` 并阻断第 2 册验收。
@@ -1388,50 +1528,56 @@ git commit -m "test(iam): prove five-role permission matrix"
 
 - [ ] **Step 1: 写演练脚本**
 
-创建 `deploy/scripts/single_company_rehearsal.sh`：
+演练必须在 **MySQL 8.4 测试库**执行，不能只用 SQLite。复用现有 Compose 备份工具，不假设宿主机已安装 `mysqldump`/`mysql`。创建 `deploy/scripts/single_company_rehearsal.sh`：
 
 ```bash
 #!/usr/bin/env bash
+# Single-company cutover rehearsal on the MySQL 8.4 Compose service.
 set -euo pipefail
 
+: "${COMPOSE_PROJECT_NAME:?set COMPOSE_PROJECT_NAME}"
 : "${MYSQL_DATABASE:?set MYSQL_DATABASE}"
-: "${MYSQL_USER:?set MYSQL_USER}"
-: "${MYSQL_PASSWORD:?set MYSQL_PASSWORD}"
+: "${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}"
 : "${BACKUP_DIR:?set BACKUP_DIR}"
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-backup="${BACKUP_DIR}/pre-single-company-${timestamp}.sql"
-mkdir -p "${BACKUP_DIR}"
+backup="$BACKUP_DIR/pre-single-company-$timestamp.sql"
+mkdir -p "$BACKUP_DIR"
 
-mysqldump --single-transaction --routines --triggers \
-  -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" > "${backup}"
+docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$(docker compose -p "$COMPOSE_PROJECT_NAME" ps -q mysql)" \
+  sh -c "mysqldump -uroot --single-transaction --routines --triggers --set-gtid-purged=OFF $MYSQL_DATABASE" > "$backup"
+[ -s "$backup" ] || { echo "empty backup" >&2; exit 1; }
 
-php artisan company:preflight --json > "${BACKUP_DIR}/preflight-${timestamp}.json"
-php artisan migrate --force
-php artisan test --compact --filter=SingleCompanyMigrationTest
-
-mysql -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" < "${backup}"
-php artisan company:preflight --json > "${BACKUP_DIR}/restored-${timestamp}.json"
-
-diff -u "${BACKUP_DIR}/preflight-${timestamp}.json" "${BACKUP_DIR}/restored-${timestamp}.json"
-echo "single-company rehearsal OK: ${timestamp}"
+# Run artisan inside the php-app container so it uses the compose MySQL DSN,
+# never the host .env SQLite database.
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan company:preflight --json > "$BACKUP_DIR/preflight-$timestamp.json"
+# The system is not live: rebuild the schema and synthetic data from scratch.
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan migrate:fresh --seed --force
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan test --compact --filter=SingleCompanyMigrationTest
+docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$(docker compose -p "$COMPOSE_PROJECT_NAME" ps -q mysql)" \
+  mysql -uroot "$MYSQL_DATABASE" < "$backup"
+docker compose -p "$COMPOSE_PROJECT_NAME" exec -T php-app php backend/artisan company:preflight --json > "$BACKUP_DIR/restored-$timestamp.json"
+diff -u "$BACKUP_DIR/preflight-$timestamp.json" "$BACKUP_DIR/restored-$timestamp.json"
+echo "single-company rehearsal OK: $timestamp"
 ```
 
-脚本中 `php` 必须使用仓库实际 PHP 路径；若在容器内执行，改为容器内路径。不得把密码写入脚本或日志。
+脚本必须从仓库根解析路径；所有数据库命令都在 Compose 的 MySQL 容器内执行，宿主机不需要 `mysql`/`mysqldump`；密码通过 `MYSQL_PWD` 传入，不进入进程参数或日志。
 
 - [ ] **Step 2: 在测试库执行演练**
 
 Run:
 
 ```bash
+COMPOSE_PROJECT_NAME=factoryhr \
 MYSQL_DATABASE=factoryhr_rehearsal \
-MYSQL_USER=factoryhr \
-MYSQL_PASSWORD='<测试库密码>' \
+MYSQL_ROOT_PASSWORD='<测试库密码>' \
 BACKUP_DIR=evidence/single-company \
 bash deploy/scripts/single_company_rehearsal.sh
 ```
 
-Expected: 备份生成；迁移成功；合同测试通过；恢复后预检 JSON 与迁移前一致；脚本输出 `single-company rehearsal OK`。
+Expected: 备份生成；`migrate:fresh --seed` 成功；合同测试通过；恢复快照后数据库可再次查询；脚本输出 `single-company rehearsal OK`。不要求恢复后的行数与迁移前一致（旧数据被有意丢弃）。
 
 - [ ] **Step 3: 运行第 2 册门禁**
 
@@ -1442,13 +1588,14 @@ cd backend
 ../.tools/php/php.exe artisan arch:test
 cd ..
 node scripts/audit_action_manifest.mjs
+node scripts/audit_single_company.mjs
 node scripts/audit_page_model.mjs
 node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs
 cd frontend && pnpm typecheck && pnpm lint && pnpm test:unit
 ```
 
-Expected: 后端全量测试全绿；三个页面门禁对第 2 册范围通过；前端全绿。未通过项必须归入第 3 册并阻断发布，不得写成通过。
+Expected: 后端全量测试全绿；`audit_single_company` 为 0 命中；三个页面门禁对第 2 册范围（平台页）通过；前端全绿。业务页存量违规必须归入第 3 册并阻断发布，不得写成通过。
 
 - [ ] **Step 4: 写验收记录**
 
@@ -1473,8 +1620,8 @@ git commit -m "docs(plan): accept V2.1 volume 2 permissions and cutover"
 ## 第 2 册退出条件
 
 - 单公司 schema 完成：旧列、旧表、旧上下文中间件、旧请求头、旧前端字段零运行引用。
-- `LEGAL_ENTITY` 授权绑定全部迁移为 `COMPANY`；预检冲突均有裁定。
-- 迁移在测试库演练成功，备份可恢复，关键表行数与校验和一致。
+- `LEGAL_ENTITY` 授权绑定全部迁移为 `COMPANY`；旧库删除重建，无需数据裁定。
+- 迁移在 MySQL 8.4 测试库演练成功；快照可恢复；重建后的 schema 无旧列、唯一索引齐全。
 - 所有可写页面有真实动作；动作—能力—API 双向门禁通过。
 - 用户、角色、菜单、数据范围、字段权限五个工作台可操作，保存事务与审计完整。
 - 密码登录主流程无 MFA/验证码前置；关闭 MFA 时管理员、HR、工资专员合法 API 均通过。

@@ -17,7 +17,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         $this->actingAsTravelManager();
 
         $first = $this->postJson('/v1/travel/policies', [
-            'legal_entity_id' => 1,
             'city_tier' => 'A',
             'hotel_cap_cents' => 80000,
             'transport_cap_cents' => 30000,
@@ -28,7 +27,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         $this->assertSame(80000, $first->json('data.hotel_cap_cents'));
 
         $second = $this->postJson('/v1/travel/policies', [
-            'legal_entity_id' => 1,
             'city_tier' => 'A',
             'hotel_cap_cents' => 90000,
             'transport_cap_cents' => 35000,
@@ -37,7 +35,7 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
 
         $this->assertSame(2, $second->json('data.version'));
 
-        $listed = $this->getJson('/v1/travel/policies?legal_entity_id=1')
+        $listed = $this->getJson('/v1/travel/policies')
             ->assertOk()
             ->assertJsonPath('data.total', 2)
             ->assertJsonPath('data.items.0.version', 2)
@@ -52,7 +50,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         $this->assertSame(90000, (int) TravelPolicy::query()->where('version', 2)->value('hotel_cap_cents'));
 
         $this->postJson('/v1/travel/policies', [
-            'legal_entity_id' => 1,
             'city_tier' => 'A',
             'hotel_cap_cents' => 100000,
             'effective_from' => '2025-12-01',
@@ -85,7 +82,7 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         $travelId = (int) $created->json('data.travel_id');
         $caseId = (int) $created->json('data.case_id');
         $this->assertGreaterThan(0, $caseId);
-        $this->assertSame('SUBMITTED', $this->workflow->case(1, $caseId)?->status);
+        $this->assertSame('SUBMITTED', $this->workflow->case($caseId)?->status);
 
         $this->postJson('/v1/travel/expenses', [
             'travel_id' => $travelId,
@@ -105,7 +102,7 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
             ->assertJsonPath('data.application_status', 'APPROVED');
 
         $this->assertSame('APPROVED', $approved->json('data.application_status'));
-        $this->assertSame('APPROVED', $this->workflow->case(1, $caseId)?->status);
+        $this->assertSame('APPROVED', $this->workflow->case($caseId)?->status);
         $this->assertDatabaseHas('business_trip_records', [
             'id' => $travelId,
             'status' => 'APPROVED',
@@ -194,7 +191,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         $this->actingAsTravelManager();
 
         $this->postJson('/v1/travel/policies', [
-            'legal_entity_id' => 1,
             'city_tier' => 'B',
             'hotel_cap_cents' => 60000,
             'effective_from' => '2026-01-01',
@@ -210,7 +206,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
             ->assertJsonPath('data.reason', 'IDEMPOTENCY_KEY_REQUIRED');
 
         $payload = [
-            'legal_entity_id' => 1,
             'city_tier' => 'C',
             'hotel_cap_cents' => 40000,
             'effective_from' => '2026-02-01',
@@ -263,9 +258,8 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
 
     public function test_manager_approval_queue_and_decisions_are_scoped_to_managed_employments(): void
     {
-        $this->people->add(TimeTestFixtures::employment($this->tenantId, 2, $this->legalEntityId));
+        $this->people->add(TimeTestFixtures::employment(2));
         $manager = TimeTestFixtures::actor(
-            tenantId: $this->tenantId,
             employmentId: 1,
             scope: 'MANAGED',
             capabilities: [
@@ -274,12 +268,10 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
                 'time.travel.expense.manage',
             ],
             managedEmploymentIds: [2],
-            legalEntityIds: [$this->legalEntityId],
         );
         $this->actAsHttp($manager);
 
         $caseId = $this->workflow->createCase(
-            tenantId: $this->tenantId,
             requesterUserId: 20,
             type: 'TRAVEL_REQUEST',
             subjectType: 'employment',
@@ -289,9 +281,7 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         );
 
         $managedTrip = BusinessTripRecord::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => 2,
-            'legal_entity_id' => $this->legalEntityId,
             'from_date' => '2026-12-03',
             'to_date' => '2026-12-04',
             'destination' => 'Synthetic Managed City',
@@ -302,9 +292,7 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         ]);
 
         $unmanagedTrip = BusinessTripRecord::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => 1,
-            'legal_entity_id' => $this->legalEntityId,
             'from_date' => '2026-12-05',
             'to_date' => '2026-12-06',
             'destination' => 'Synthetic Own City',
@@ -328,14 +316,12 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         ]);
     }
 
-    public function test_expense_projection_is_scoped_to_the_actors_legal_entities(): void
+    public function test_expense_projection_is_scoped_to_the_actors_employments(): void
     {
         $this->actingAsTravelManager();
         $trip = $this->createApprovedTrip();
 
         TravelExpense::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => 1,
             'employment_id' => 1,
             'travel_id' => (int) $trip->id,
             'category' => 'OTHER',
@@ -345,8 +331,6 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
             'created_at' => $this->clock->now(),
         ]);
         TravelExpense::query()->create([
-            'tenant_id' => $this->tenantId,
-            'legal_entity_id' => 2,
             'employment_id' => 2,
             'travel_id' => 999,
             'category' => 'OTHER',
@@ -370,9 +354,8 @@ final class TravelPolicyExpenseTest extends TimeHttpTestCase
         ]);
         $this->actAsHttp($employee);
 
-        $this->getJson('/v1/travel/policies?legal_entity_id=1')->assertForbidden();
+        $this->getJson('/v1/travel/policies')->assertForbidden();
         $this->postJson('/v1/travel/policies', [
-            'legal_entity_id' => 1,
             'city_tier' => 'A',
             'hotel_cap_cents' => 80000,
             'effective_from' => '2026-01-01',

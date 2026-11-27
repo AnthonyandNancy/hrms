@@ -24,8 +24,6 @@ use Illuminate\Console\Command;
 final class SeedDemoPayrollRunCommand extends Command
 {
     protected $signature = 'payroll:seed-demo-run
-        {--tenant=1 : Tenant id}
-        {--legal-entity=1 : Legal entity id}
         {--period=2026-11 : Payroll period YYYY-MM}
         {--actor=1 : Acting user id recorded as the preparer}';
 
@@ -37,8 +35,6 @@ final class SeedDemoPayrollRunCommand extends Command
         PeopleDirectory $people,
         EmploymentTermsDirectory $terms,
     ): int {
-        $tenantId = max(1, (int) $this->option('tenant'));
-        $legalEntityId = max(1, (int) $this->option('legal-entity'));
         $period = (string) $this->option('period');
         $actor = max(1, (int) $this->option('actor'));
 
@@ -48,24 +44,21 @@ final class SeedDemoPayrollRunCommand extends Command
             return self::INVALID;
         }
 
-        $hasParameters = StatutoryParameter::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
-            ->exists();
+        $hasParameters = StatutoryParameter::query()->exists();
 
         if (! $hasParameters) {
-            $this->error('No statutory parameters exist for this legal entity. Run payroll:seed-parameters first.');
+            $this->error('No statutory parameters exist. Run payroll:seed-parameters first.');
 
             return self::FAILURE;
         }
 
         // Payroll may not import People models (arch:test); resolve the eligible
         // population through People's published Contracts instead.
-        $employmentIds = $people->employmentIdsForLegalEntities($tenantId, [$legalEntityId], $period.'-28');
+        $employmentIds = $people->employmentIdsAsOf($period.'-28');
         $withSalary = [];
 
         foreach (array_unique($employmentIds) as $employmentId) {
-            $snapshot = $terms->termsAsOf($tenantId, (int) $employmentId, $period.'-28');
+            $snapshot = $terms->termsAsOf((int) $employmentId, $period.'-28');
 
             if ($snapshot !== null && $snapshot->baseSalaryMinor !== null && $snapshot->baseSalaryMinor > 0) {
                 $withSalary[] = (int) $employmentId;
@@ -73,22 +66,18 @@ final class SeedDemoPayrollRunCommand extends Command
         }
 
         if ($withSalary === []) {
-            $this->error('No employment with a positive base salary exists for this legal entity.');
+            $this->error('No employment with a positive base salary exists.');
 
             return self::FAILURE;
         }
 
         $scheme = PayrollScheme::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('status', 'ACTIVE')
             ->orderBy('version')
             ->first();
 
         if ($scheme === null) {
             $scheme = PayrollScheme::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $legalEntityId,
                 'code' => 'DEMO-MONTHLY',
                 'name' => 'Synthetic demo monthly scheme',
                 'frequency' => 'MONTHLY',
@@ -101,8 +90,6 @@ final class SeedDemoPayrollRunCommand extends Command
         }
 
         $existing = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('scheme_id', $scheme->id)
             ->where('period', $period)
             ->first();
@@ -113,12 +100,12 @@ final class SeedDemoPayrollRunCommand extends Command
             return self::SUCCESS;
         }
 
-        $run = $runs->createRun($tenantId, $actor, [
+        $run = $runs->createRun($actor, [
             'scheme_id' => (int) $scheme->id,
             'period' => $period,
         ]);
 
-        $run = $runs->lockInputs($tenantId, (int) $run->id, $actor);
+        $run = $runs->lockInputs((int) $run->id, $actor);
         $result = $calculator->calculate($run, $actor);
         $calculated = $run->refresh();
 

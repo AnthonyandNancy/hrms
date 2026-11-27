@@ -1,5 +1,5 @@
 mysql backup/restore drill
 project=factoryhr container=1dce67668583df58c4b719ac11ea38ea39b026782e5b8c72f0e19620f7befd68 database=factoryhr
-dump_sha256=dd429f8792b1e5df6a9af48f02448c87cdfe9e8e0a78aa9dd40d1128eec22203 bytes=470408
-tables_checked=154 mismatches=0
+dump_sha256=cd5706c4cd5ba24c1f381b338dc4423c58f56e8f903d102f9c759b6c0e9084a3 bytes=453750
+tables_checked=156 mismatches=0
 PASS: mysql dump restored with identical table row counts

@@ -20,14 +20,13 @@ final class ShiftService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createTemplate(int $tenantId, array $data): ShiftTemplate
+    public function createTemplate(array $data): ShiftTemplate
     {
-        $legalEntityId = (int) ($data['legal_entity_id'] ?? 0);
-        $timezone = $this->calendar->timezone($tenantId, $legalEntityId);
+        $timezone = $this->calendar->timezone();
 
         if ($timezone === null) {
             throw new ValidationException([
-                'legal_entity_id' => ['Configure the legal entity calendar before creating shifts.'],
+                'calendar' => ['Configure the company calendar before creating shifts.'],
             ]);
         }
 
@@ -48,8 +47,6 @@ final class ShiftService
         $this->assertValidity($validFrom, $validTo);
 
         return ShiftTemplate::query()->create([
-            'tenant_id' => $tenantId,
-            'legal_entity_id' => $legalEntityId,
             'code' => (string) $data['code'],
             'name' => (string) ($data['name'] ?? $data['code']),
             'start_local_time' => $start,
@@ -69,7 +66,6 @@ final class ShiftService
     }
 
     public function assign(
-        int $tenantId,
         int $employmentId,
         int $shiftTemplateId,
         string $validFrom,
@@ -79,7 +75,6 @@ final class ShiftService
         $this->assertValidity($validFrom, $validTo);
 
         $template = ShiftTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($shiftTemplateId)
             ->firstOrFail();
 
@@ -90,7 +85,6 @@ final class ShiftService
         }
 
         return ShiftAssignment::query()->create([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'shift_template_id' => $shiftTemplateId,
             'valid_from' => $validFrom,

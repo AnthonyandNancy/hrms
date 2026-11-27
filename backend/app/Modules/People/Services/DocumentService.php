@@ -45,20 +45,20 @@ final class DocumentService
     /**
      * @param  array<string, mixed>  $input
      */
-    public function open(int $tenantId, int $employmentId, array $input, ?int $actorUserId): Document
+    public function open(int $employmentId, array $input, ?int $actorUserId): Document
     {
-        return DB::transaction(function () use ($tenantId, $employmentId, $input, $actorUserId): Document {
-            if (! Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->exists()) {
+        return DB::transaction(function () use ($employmentId, $input, $actorUserId): Document {
+            if (! Employment::query()->whereKey($employmentId)->exists()) {
                 throw new NotFoundOrForbiddenException;
             }
 
-            $file = $this->files->metadata($tenantId, (int) $input['file_object_id']);
+            $file = $this->files->metadata((int) $input['file_object_id']);
 
             if ($file === null) {
-                throw new ValidationException(['file_object_id' => ['The file object does not exist in this tenant.']]);
+                throw new ValidationException(['file_object_id' => ['The file object does not exist.']]);
             }
 
-            return $this->persist($tenantId, $employmentId, $input, $actorUserId, (int) $file->id, (string) $file->sha256);
+            return $this->persist($employmentId, $input, $actorUserId, (int) $file->id, (string) $file->sha256);
         });
     }
 
@@ -68,7 +68,6 @@ final class DocumentService
      * @param  array<string, mixed>  $input
      */
     public function openBytes(
-        int $tenantId,
         int $employmentId,
         array $input,
         string $contents,
@@ -80,13 +79,12 @@ final class DocumentService
             throw new ValidationException(['file' => ['The uploaded file is empty.']]);
         }
 
-        return DB::transaction(function () use ($tenantId, $employmentId, $input, $contents, $originalName, $mime, $actorUserId): Document {
-            if (! Employment::query()->where('tenant_id', $tenantId)->whereKey($employmentId)->exists()) {
+        return DB::transaction(function () use ($employmentId, $input, $contents, $originalName, $mime, $actorUserId): Document {
+            if (! Employment::query()->whereKey($employmentId)->exists()) {
                 throw new NotFoundOrForbiddenException;
             }
 
             $fileObjectId = $this->store->store(
-                tenantId: $tenantId,
                 contents: $contents,
                 originalName: $originalName,
                 mime: $mime,
@@ -96,7 +94,6 @@ final class DocumentService
             );
 
             return $this->persist(
-                $tenantId,
                 $employmentId,
                 $input,
                 $actorUserId,
@@ -110,7 +107,6 @@ final class DocumentService
      * @param  array<string, mixed>  $input
      */
     private function persist(
-        int $tenantId,
         int $employmentId,
         array $input,
         ?int $actorUserId,
@@ -118,14 +114,12 @@ final class DocumentService
         string $sha256,
     ): Document {
         $version = (int) Document::query()
-            ->where('tenant_id', $tenantId)
             ->where('owner_type', 'EMPLOYMENT')
             ->where('owner_id', $employmentId)
             ->where('category', (string) $input['category'])
             ->max('version') + 1;
 
         $document = Document::query()->create([
-            'tenant_id' => $tenantId,
             'owner_type' => 'EMPLOYMENT',
             'owner_id' => $employmentId,
             'category' => (string) $input['category'],
@@ -139,7 +133,6 @@ final class DocumentService
         ]);
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.document.attached',
             aggregateType: 'employment',
@@ -153,10 +146,9 @@ final class DocumentService
     /**
      * List documents for one employment as a standard projection.
      */
-    public function listing(int $tenantId, int $employmentId, int $page, int $pageSize): ProjectionResult
+    public function listing(int $employmentId, int $page, int $pageSize): ProjectionResult
     {
         $query = Document::query()
-            ->where('tenant_id', $tenantId)
             ->where('owner_type', 'EMPLOYMENT')
             ->where('owner_id', $employmentId)
             ->orderByDesc('id');
@@ -166,7 +158,7 @@ final class DocumentService
         $rows = $query
             ->forPage($page, $pageSize)
             ->get()
-            ->map(fn (Document $document): array => $this->payload($tenantId, $document))
+            ->map(fn (Document $document): array => $this->payload($document))
             ->all();
 
         return new ProjectionResult(
@@ -183,19 +175,18 @@ final class DocumentService
         );
     }
 
-    public function findForDownload(int $tenantId, int $documentId): ?Document
+    public function findForDownload(int $documentId): ?Document
     {
         return Document::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($documentId)
             ->first();
     }
 
     /**
      * Mint a short-lived signed URL. The URL itself is the capability: it
-     * expires quickly and is bound to the document id and tenant.
+     * expires quickly and is bound to the document id.
      */
-    public function signedDownloadUrl(int $tenantId, Document $document, ?int $actorUserId = null): string
+    public function signedDownloadUrl(Document $document, ?int $actorUserId = null): string
     {
         // Sign against the wall clock the `signed` middleware validates with,
         // not the business clock: a frozen business clock would mint URLs that
@@ -203,11 +194,10 @@ final class DocumentService
         $url = URL::temporarySignedRoute(
             'documents.content',
             \Carbon\CarbonImmutable::now('UTC')->addMinutes(self::SIGNED_URL_TTL_MINUTES),
-            ['document_id' => (int) $document->id, 'tenant_id' => $tenantId],
+            ['document_id' => (int) $document->id],
         );
 
         $this->audit->record(
-            tenantId: $tenantId,
             actorUserId: $actorUserId,
             action: 'people.document.download_signed',
             aggregateType: 'document',
@@ -218,12 +208,12 @@ final class DocumentService
         return $url;
     }
 
-    public function contents(int $tenantId, Document $document): string
+    public function contents(Document $document): string
     {
-        return $this->reader->contents($tenantId, (int) $document->getAttribute('file_object_id'));
+        return $this->reader->contents((int) $document->getAttribute('file_object_id'));
     }
 
-    public function delete(int $tenantId, Document $document, ?int $actorUserId): void
+    public function delete(Document $document, ?int $actorUserId): void
     {
         if ((bool) $document->legal_hold) {
             throw new ConflictException(
@@ -232,11 +222,10 @@ final class DocumentService
             );
         }
 
-        DB::transaction(function () use ($tenantId, $document, $actorUserId): void {
+        DB::transaction(function () use ($document, $actorUserId): void {
             $fileObjectId = (int) $document->getAttribute('file_object_id');
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.document.deleted',
                 aggregateType: 'document',
@@ -245,16 +234,16 @@ final class DocumentService
             );
 
             $document->delete();
-            $this->store->delete($tenantId, $fileObjectId);
+            $this->store->delete($fileObjectId);
         });
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function payload(int $tenantId, Document $document): array
+    private function payload(Document $document): array
     {
-        $file = $this->files->metadata($tenantId, (int) $document->getAttribute('file_object_id'));
+        $file = $this->files->metadata((int) $document->getAttribute('file_object_id'));
 
         if ($file === null) {
             throw new NotFoundOrForbiddenException;

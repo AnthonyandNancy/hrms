@@ -20,13 +20,10 @@ final class PayrollReconciliationCommand extends Command
 
     public function handle(ReconciliationService $service): int
     {
-        $tenantId = \App\Shared\RequestContext::tenantId();
-        $tenantId = $tenantId > 0 ? $tenantId : 1;
         $runId = $this->option('run');
         $period = $this->option('period');
 
         $query = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->when(is_numeric($runId), fn ($q) => $q->whereKey((int) $runId))
             ->when(is_string($period) && $period !== '', fn ($q) => $q->where('period', $period))
             ->whereIn('status', [
@@ -53,7 +50,7 @@ final class PayrollReconciliationCommand extends Command
 
         foreach ($runs as $run) {
             try {
-                $report = $service->reconcile($tenantId, (int) $run->id);
+                $report = $service->reconcile((int) $run->id);
             } catch (DomainException $exception) {
                 $this->error("Run {$run->id}: ".$exception->getMessage());
                 $failed++;

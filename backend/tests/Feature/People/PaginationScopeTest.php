@@ -16,26 +16,24 @@ final class PaginationScopeTest extends PeopleTestCase
     public function test_total_counts_are_computed_after_row_scope(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $mine = $scenario->orgUnit($entity, 'PAGE-MINE');
-        $other = $scenario->orgUnit($entity, 'PAGE-OTHER');
+        $mine = $scenario->orgUnit('PAGE-MINE');
+        $other = $scenario->orgUnit('PAGE-OTHER');
 
         for ($i = 0; $i < 3; $i++) {
-            $employment = $scenario->employment($scenario->person(), $entity, "PAGE-MINE-{$i}");
+            $employment = $scenario->employment($scenario->person(), "PAGE-MINE-{$i}");
             $scenario->assignment($employment, $mine);
         }
 
         for ($i = 0; $i < 7; $i++) {
-            $employment = $scenario->employment($scenario->person(), $entity, "PAGE-OTHER-{$i}");
+            $employment = $scenario->employment($scenario->person(), "PAGE-OTHER-{$i}");
             $scenario->assignment($employment, $other);
         }
 
-        $principal = new TestPrincipal(1, 800);
+        $principal = new TestPrincipal(800);
         $this->app->instance(TestPrincipal::class, $principal);
         $this->app->instance(Authorizer::class, new DirectoryScopeAuthorizer(
             app(PeopleDirectory::class),
             app(OrganizationDirectory::class),
-            $principal,
             'ORG_UNIT',
             $mine->id,
         ));
@@ -51,11 +49,10 @@ final class PaginationScopeTest extends PeopleTestCase
     public function test_last_page_returns_remaining_rows_in_stable_order(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'PAGE-STABLE');
+        $org = $scenario->orgUnit('PAGE-STABLE');
 
         for ($i = 0; $i < 5; $i++) {
-            $employment = $scenario->employment($scenario->person(), $entity, "PAGE-STABLE-{$i}");
+            $employment = $scenario->employment($scenario->person(), "PAGE-STABLE-{$i}");
             $scenario->assignment($employment, $org);
         }
 

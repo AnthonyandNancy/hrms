@@ -12,11 +12,9 @@ final class OrgUnitWriteTest extends PeopleTestCase
     public function test_create_org_unit_builds_closure_and_audits(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $parent = $scenario->orgUnit($entity, 'WRITE-PARENT', null, 'Parent', 'COMPANY');
+        $parent = $scenario->orgUnit('WRITE-PARENT', null, 'Parent', 'COMPANY');
 
         $response = $this->postJson('/v1/org-units', [
-            'legal_entity_id' => $entity->id,
             'parent_id' => $parent->id,
             'code' => 'WRITE-CHILD',
             'name' => 'Child',
@@ -38,13 +36,12 @@ final class OrgUnitWriteTest extends PeopleTestCase
     public function test_impact_preview_counts_employees_managers_and_zero_payroll_cost_centers(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $division = $scenario->orgUnit($entity, 'IMPACT-DIV', null, 'Division', 'DIVISION');
-        $team = $scenario->orgUnit($entity, 'IMPACT-TEAM', $division);
-        $other = $scenario->orgUnit($entity, 'IMPACT-OTHER', null, 'Other', 'DIVISION');
-        $managerEmployment = $scenario->employment($scenario->person(), $entity, 'IMPACT-M');
+        $division = $scenario->orgUnit('IMPACT-DIV', null, 'Division', 'DIVISION');
+        $team = $scenario->orgUnit('IMPACT-TEAM', $division);
+        $other = $scenario->orgUnit('IMPACT-OTHER', null, 'Other', 'DIVISION');
+        $managerEmployment = $scenario->employment($scenario->person(), 'IMPACT-M');
         $managerAssignment = $scenario->assignment($managerEmployment, $team);
-        $employeeEmployment = $scenario->employment($scenario->person(), $entity, 'IMPACT-E');
+        $employeeEmployment = $scenario->employment($scenario->person(), 'IMPACT-E');
         $scenario->assignment($employeeEmployment, $team, ['manager_assignment_id' => $managerAssignment->id]);
 
         $response = $this->getJson("/v1/org-units/{$team->id}/impact?new_parent_id={$other->id}&as_of=2026-11-23")
@@ -56,59 +53,45 @@ final class OrgUnitWriteTest extends PeopleTestCase
         $this->assertFalse($response->json('data.cross_entity_warning'));
     }
 
-    public function test_impact_warns_on_cross_entity_parent(): void
+    public function test_impact_of_an_unknown_new_parent_is_not_found(): void
     {
         $scenario = $this->scenario();
-        $cn = $scenario->legalEntity('IMPACT-CN');
-        $sg = $scenario->legalEntity('IMPACT-SG', 'SG', 'Asia/Singapore', 'SGD');
-        $unit = $scenario->orgUnit($cn, 'IMPACT-CN-ORG');
-        $sgParent = $scenario->orgUnit($sg, 'IMPACT-SG-ORG');
+        $unit = $scenario->orgUnit('IMPACT-UNKNOWN-PARENT');
 
-        $this->getJson("/v1/org-units/{$unit->id}/impact?new_parent_id={$sgParent->id}&as_of=2026-11-23")
-            ->assertOk()
-            ->assertJsonPath('data.cross_entity_warning', true);
+        $this->getJson("/v1/org-units/{$unit->id}/impact?new_parent_id=999999&as_of=2026-11-23")
+            ->assertNotFound();
     }
 
     public function test_org_type_is_validated(): void
     {
-        $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-
         $this->postJson('/v1/org-units', [
-            'legal_entity_id' => $entity->id,
             'code' => 'BAD-TYPE',
             'name' => 'Bad',
             'type' => 'CUSTOM_DEPARTMENT',
         ])->assertUnprocessable()->assertJsonPath('code', 'VALIDATION_FAILED');
     }
 
-    public function test_org_unit_codes_are_unique_within_tenant(): void
+    public function test_org_unit_codes_are_unique_within_the_company(): void
     {
         $scenario = $this->scenario();
-        $entity = $scenario->legalEntity();
-        $scenario->orgUnit($entity, 'DUP-CODE');
+        $scenario->orgUnit('DUP-CODE');
 
         $this->postJson('/v1/org-units', [
-            'legal_entity_id' => $entity->id,
             'code' => 'DUP-CODE',
             'name' => 'Duplicate',
             'type' => 'DEPARTMENT',
         ])->assertConflict()->assertJsonPath('data.reason', 'ORG_UNIT_CODE_DUPLICATE');
     }
 
-    public function test_tenant_cannot_create_org_unit_under_another_tenants_entity(): void
+    public function test_org_unit_cannot_be_created_under_an_unknown_parent(): void
     {
-        $scenario = $this->scenario(1);
-        $entity = $scenario->legalEntity();
-        $this->actAs(tenantId: 2, userId: 5);
-
         $this->postJson('/v1/org-units', [
-            'legal_entity_id' => $entity->id,
-            'code' => 'CROSS-TENANT',
-            'name' => 'Cross',
+            'parent_id' => 999999,
+            'code' => 'ORPHAN',
+            'name' => 'Orphan',
             'type' => 'DEPARTMENT',
         ])->assertUnprocessable()->assertJsonPath('code', 'VALIDATION_FAILED');
 
-        $this->assertSame(0, OrgUnit::query()->where('tenant_id', 2)->count());
+        $this->assertSame(0, OrgUnit::query()->where('code', 'ORPHAN')->count());
     }
 }

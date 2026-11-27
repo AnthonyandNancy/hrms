@@ -14,7 +14,6 @@ final class PunchService
     public function __construct(private readonly Clock $clock) {}
 
     public function record(
-        int $tenantId,
         int $employmentId,
         string $punchedAtUtc,
         string $source,
@@ -37,7 +36,6 @@ final class PunchService
         }
 
         $existing = PunchRecord::query()
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('raw_payload_hash', $rawPayloadHash)
             ->first();
@@ -48,7 +46,6 @@ final class PunchService
 
         try {
             return PunchRecord::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'device_id' => $deviceId,
                 'punched_at_utc' => $punched,
@@ -59,7 +56,6 @@ final class PunchService
             ]);
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             return PunchRecord::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->where('raw_payload_hash', $rawPayloadHash)
                 ->firstOrFail();
@@ -72,7 +68,7 @@ final class PunchService
      * @param  list<array{punched_at_utc: string, source?: string, device_id?: string, source_local_offset?: string, raw_payload_hash?: string}>  $punches
      * @return list<PunchRecord>
      */
-    public function import(int $tenantId, int $employmentId, array $punches): array
+    public function import(int $employmentId, array $punches): array
     {
         if ($punches === []) {
             throw new ValidationException(['punches' => ['At least one punch is required.']]);
@@ -85,7 +81,6 @@ final class PunchService
                 ?? hash('sha256', $employmentId.'|'.$punch['punched_at_utc'].'|'.(string) ($punch['device_id'] ?? ''));
 
             $records[] = $this->record(
-                tenantId: $tenantId,
                 employmentId: $employmentId,
                 punchedAtUtc: (string) $punch['punched_at_utc'],
                 source: (string) ($punch['source'] ?? 'IMPORT'),

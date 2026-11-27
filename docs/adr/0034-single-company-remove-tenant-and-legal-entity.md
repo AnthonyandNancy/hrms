@@ -140,6 +140,8 @@ instance
 
 ## 迁移顺序（高层）
 
+> **执行说明已取代：** 本节执行说明由 ADR-0037 取代；ADR-0034 的单公司决策本身继续有效（2026-11-26 V2.1 裁决）。
+
 ```text
 1. 新增 company_profile 单例；显式指定保留的旧 legal_entity_id（演示用 DEMO-CN）；多个法人/租户时迁移失败，人工确认并全量备份
 2. 新增加权 COMPANY 锚点；把 LEGAL_ENTITY 绑定迁移为 COMPANY

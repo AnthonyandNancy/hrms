@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * version is never rewritten so sent notices retain their frozen definition.
  *
  * @property int $id
- * @property int $tenant_id
  * @property string $code
  * @property string $name
  * @property int $version
@@ -28,7 +27,6 @@ final class NoticeTemplate extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'code',
         'name',
         'version',
@@ -44,7 +42,6 @@ final class NoticeTemplate extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'version' => 'integer',
             'variables_json' => 'array',
             'created_by' => 'integer',

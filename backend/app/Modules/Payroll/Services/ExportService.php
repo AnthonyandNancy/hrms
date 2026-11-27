@@ -26,13 +26,12 @@ final class ExportService
     /**
      * @return array{filename: string, content: string, sha256: string}
      */
-    public function bankCsv(int $tenantId, int $runId, int $actorUserId): array
+    public function bankCsv(int $runId, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId): array {
-            $run = $this->run($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId): array {
+            $run = $this->run($runId);
             $this->assertExportable($run);
             $payslips = Payslip::query()
-                ->where('tenant_id', $tenantId)
                 ->where('run_id', $runId)
                 ->orderBy('employment_id')
                 ->get();
@@ -63,7 +62,6 @@ final class ExportService
             ])->save();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.export.bank',
                 aggregateType: 'payroll_run',
@@ -82,10 +80,10 @@ final class ExportService
     /**
      * @return array{filename: string, content: string, sha256: string}
      */
-    public function taxCsv(int $tenantId, int $runId, int $actorUserId): array
+    public function taxCsv(int $runId, int $actorUserId): array
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId): array {
-            $run = $this->run($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId): array {
+            $run = $this->run($runId);
             $this->assertExportable($run);
             $employees = $run->employees()->get();
 
@@ -116,7 +114,6 @@ final class ExportService
             ])->save();
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.export.tax',
                 aggregateType: 'payroll_run',
@@ -132,10 +129,9 @@ final class ExportService
         });
     }
 
-    private function run(int $tenantId, int $runId): PayrollRun
+    private function run(int $runId): PayrollRun
     {
         $run = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($runId)
             ->first();
 
@@ -163,7 +159,6 @@ final class ExportService
     private function currency(PayrollRun $run): string
     {
         $scheme = \App\Modules\Payroll\Models\PayrollScheme::query()
-            ->where('tenant_id', $run->tenant_id)
             ->whereKey($run->scheme_id)
             ->first();
 

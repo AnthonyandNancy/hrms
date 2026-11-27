@@ -12,7 +12,6 @@ class RetentionPreviewCommand extends Command
 {
     protected $signature = 'retention:preview
         {--class= : Retention class}
-        {--tenant=1 : Tenant id}
         {--as-of= : Evaluate expiry at this date (YYYY-MM-DD)}
         {--json : Print JSON}
         {--all : Preview every retention class}';
@@ -53,7 +52,7 @@ class RetentionPreviewCommand extends Command
 
         foreach ($classes as $class) {
             try {
-                $results[] = $retention->preview($class, (int) $this->option('tenant'), $asOf);
+                $results[] = $retention->preview($class, $asOf);
             } catch (\InvalidArgumentException $exception) {
                 $this->error('PASS/FAIL: FAIL - '.$exception->getMessage());
 

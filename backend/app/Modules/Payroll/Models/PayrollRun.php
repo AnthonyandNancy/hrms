@@ -6,7 +6,6 @@ namespace App\Modules\Payroll\Models;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Enums\PayrollRunType;
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -16,8 +15,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 /**
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $scheme_id
  * @property string $period
  * @property string $earning_period_start
@@ -60,14 +57,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class PayrollRun extends Model
 {
-    use BelongsToTenant;
-
     protected $table = 'payroll_runs';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'scheme_id',
         'period',
         'earning_period_start',
@@ -190,7 +183,6 @@ final class PayrollRun extends Model
                     'scheme_id',
                     'cutoff_at',
                     'correction_of_run_id',
-                    'legal_entity_id',
                     'run_type',
                 ];
 

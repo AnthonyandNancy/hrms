@@ -70,8 +70,9 @@ Task 9  契约冻结评审与第 1 册验收
 ```markdown
 # ADR-0035: Page, View, Action and Permission Boundaries
 
-- Status: Proposed
+- Status: Accepted — 2026-11-26
 - Date: 2026-11-26
+- Approval: 用户 2026-11-26 批准 FactoryHR V2.1 全量整改规格与四册计划；本 ADR 为该批准的可执行化
 - Related: ADR-0026, ADR-0027, ADR-0033
 
 ## Context
@@ -118,15 +119,16 @@ A task genuinely requires a multi-step, resumable workflow route.
 ```markdown
 # ADR-0036: Action Manifest Is Generated from Capability and OpenAPI
 
-- Status: Proposed
+- Status: Accepted — 2026-11-26
 - Date: 2026-11-26
+- Approval: 用户 2026-11-26 批准 FactoryHR V2.1 全量整改规格与四册计划；本 ADR 为该批准的可执行化
 - Related: ADR-0035, ADR-0027
 
 ## Decision
 
 1. Backend CapabilityCatalog and OpenAPI are the only action truth sources.
 2. `docs/generated/page-actions.json` is generated, never hand-edited.
-3. Frontend registry imports the manifest at build time.
+3. Frontend imports a generated TypeScript module (`frontend/src/generated/pageActions.ts`) at build time; it never reads `docs/` at runtime and never enables runtime file access.
 4. CI fails when a write API lacks an action, an action lacks an API, or capability differs.
 5. Runtime never reads documentation files.
 
@@ -143,8 +145,9 @@ A task genuinely requires a multi-step, resumable workflow route.
 ```markdown
 # ADR-0037: Single-Company Cutover Execution
 
-- Status: Proposed
+- Status: Accepted — 2026-11-26
 - Date: 2026-11-26
+- Approval: 用户 2026-11-26 批准把单公司 cutover 纳入本次，并接受代码与迁移一次完成
 - Supersedes: ADR-0034 migration execution notes only
 - Related: ADR-0034
 
@@ -169,8 +172,9 @@ A task genuinely requires a multi-step, resumable workflow route.
 ```markdown
 # ADR-0038: Password Login Is the Final Posture; MFA Is Optional
 
-- Status: Proposed
+- Status: Accepted — 2026-11-26
 - Date: 2026-11-26
+- Approval: 用户 2026-11-26 批准密码登录为最终姿态、MFA 默认关闭
 - Related: ADR-0018, ADR-0025
 
 ## Decision
@@ -238,26 +242,20 @@ Expected: 仅剩带“V2.1 裁决/历史对照”说明的条目；没有未加�
 
 - [ ] **Step 8: 登记文档状态**
 
-在 `docs/README.md` 的变更提案表追加：
+`docs/README.md` 已登记 V2.1（状态 `已批准（2026-11-26）`）并将旧 IA 草稿标为 `Superseded`。本步骤只核对，不允许把 V2.1 改回待确认，也不允许重新启用旧 IA 草稿。
 
-```markdown
-| FactoryHR V2.1 全量整改（四册） | `superpowers/specs/2026-11-26-factoryhr-v2-1-full-remediation-design.md` | `superpowers/plans/2026-11-26-v2-1-remediation-master-plan.md` | **待用户确认**；四册顺序执行 |
-```
-
-并将旧 IA 草稿标记为：
-
-```markdown
-| 信息架构、业务页面统一性与生产化文案（旧） | `superpowers/specs/2026-11-26-ia-presentation-production-readiness-design.md` | `superpowers/plans/2026-11-26-ia-presentation-production-readiness-implementation-plan.md` | **Superseded**；内容并入 V2.1 第 1/3 册 |
+```bash
+rg -n 'V2.1 全量整改|信息架构、业务页面统一性与生产化文案' docs/README.md
 ```
 
 - [ ] **Step 9: 运行文档一致性检查**
 
 ```bash
-rg -n 'Status: Proposed|状态：.*Proposed' docs/adr/0035-page-view-action-boundaries.md docs/adr/0036-action-manifest-single-source.md docs/adr/0037-single-company-cutover.md docs/adr/0038-password-login-final-posture.md
+rg -n 'Status: (Proposed|Accepted)' docs/adr/0035-page-view-action-boundaries.md docs/adr/0036-action-manifest-single-source.md docs/adr/0037-single-company-cutover.md docs/adr/0038-password-login-final-posture.md
 rg -n '2026-11-26 V2.1 裁决' HRMS-V1.1实施书.md
 ```
 
-Expected: 4 个 ADR 均为 Proposed；V1.1 至少 6 处带裁决注记。
+Expected: 4 个 ADR 均为 `Accepted — 2026-11-26` 且带 Approval 行；V1.1 至少 6 处带裁决注记。
 
 - [ ] **Step 10: Commit**
 
@@ -294,6 +292,7 @@ test('baseline report records command, exit code and output tail', () => {
   const report = buildBaselineReport([
     { name: 'node-version', command: 'node --version', exitCode: 0, stdout: 'v24.19.0\n', stderr: '' },
     { name: 'php-test', command: 'php artisan test', exitCode: 1, stdout: 'FAILED\n', stderr: '1 failure\n' },
+    { name: 'mysql-rehearsal', command: 'mysql --version', exitCode: 127, stdout: '', stderr: '' },
   ])
 
   assert.match(report, /## node-version/)
@@ -302,6 +301,7 @@ test('baseline report records command, exit code and output tail', () => {
   assert.match(report, /## php-test/)
   assert.match(report, /exit code: 1/)
   assert.match(report, /1 failure/)
+  assert.match(report, /## mysql-rehearsal/)
   assert.match(report, /NOT RUN/)
 })
 ```
@@ -538,7 +538,7 @@ Run:
 node --test scripts/tests/generate_route_disposition.test.mjs
 ```
 
-Expected: PASS，2 tests。
+Expected: PASS，6 tests。
 
 - [ ] **Step 5: 录入最终裁决**
 
@@ -631,18 +631,38 @@ git commit -m "docs(audit): map every V1.1 route and capability to a V2.1 target
 - Produces:
 
 ```ts
+// Keep this module dependency-free at runtime. PageSpec is declared here and
+// re-exported from @/router/registry; importing the registry type would create
+// a cycle once registry imports `kind` from this module.
 export type PageKind = 'workspace' | 'detail' | 'governance' | 'base'
 export type PageMenu = { group: string; label: string; order: number; icon: string } | null
+export type PageState = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
+export type PageActionSpec = {
+  key: string
+  label: string
+  capability: string
+  api: string
+  ui: 'primary' | 'secondary' | 'danger' | 'hidden'
+  confirm?: 'none' | 'danger' | 'sod'
+}
 
 export type PageSpec = {
   path: string
   name: string
   componentKey: string
   capability: string
-  kind: PageKind
   menu: PageMenu
+  kind: PageKind
   primaryObject?: string
   detailOf?: string
+  layer: 'business' | 'platform' | 'base'
+  wave: 'base' | 'Wave 2' | 'Wave 3' | 'Wave 4' | 'Wave 5'
+  requiredApis: string[]
+  actions: PageActionSpec[]
+  states: PageState[]
+  e2e: string[]
+  negativeTests: Array<'unauthenticated' | 'no_capability' | 'cross_anchor' | 'field_or_export'>
+  cluster?: string
 }
 
 export function validatePageModel(pages: PageSpec[]): { ok: boolean; errors: string[] }
@@ -664,6 +684,13 @@ const base: PageSpec = {
   kind: 'workspace',
   menu: { group: '员工档案', label: '员工列表', order: 16, icon: 'User' },
   primaryObject: 'employee',
+  layer: 'business',
+  wave: 'Wave 2',
+  requiredApis: ['GET /v1/employees'],
+  actions: [],
+  states: ['loading', 'empty', 'error', 'forbidden', 'partial'],
+  e2e: ['employee-list'],
+  negativeTests: ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
 }
 
 describe('page model', () => {
@@ -721,18 +748,38 @@ Expected: FAIL，`Cannot find module '@/shared/navigation/pageModel'`。
 - [ ] **Step 3: 实现 `pageModel.ts`**
 
 ```ts
+// Keep this module dependency-free at runtime. PageSpec is declared here and
+// re-exported from @/router/registry; importing the registry type would create
+// a cycle once registry imports `kind` from this module.
 export type PageKind = 'workspace' | 'detail' | 'governance' | 'base'
 export type PageMenu = { group: string; label: string; order: number; icon: string } | null
+export type PageState = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
+export type PageActionSpec = {
+  key: string
+  label: string
+  capability: string
+  api: string
+  ui: 'primary' | 'secondary' | 'danger' | 'hidden'
+  confirm?: 'none' | 'danger' | 'sod'
+}
 
 export type PageSpec = {
   path: string
   name: string
   componentKey: string
   capability: string
-  kind: PageKind
   menu: PageMenu
+  kind: PageKind
   primaryObject?: string
   detailOf?: string
+  layer: 'business' | 'platform' | 'base'
+  wave: 'base' | 'Wave 2' | 'Wave 3' | 'Wave 4' | 'Wave 5'
+  requiredApis: string[]
+  actions: PageActionSpec[]
+  states: PageState[]
+  e2e: string[]
+  negativeTests: Array<'unauthenticated' | 'no_capability' | 'cross_anchor' | 'field_or_export'>
+  cluster?: string
 }
 
 const ACTION_LIKE = /\/(create|new|edit|editor|archive|restore|import|export|approval|renewal)(\/|$)/
@@ -859,6 +906,9 @@ git commit -m "feat(ui): add typed page model and menu-only navigation"
 - Create: `scripts/generate_action_manifest.mjs`
 - Create: `scripts/tests/generate_action_manifest.test.mjs`
 - Create: `docs/generated/page-actions.json`
+- Create: `frontend/src/generated/pageActions.ts`（由生成器写出，禁止手改）
+- Modify: `frontend/tsconfig.app.json`（将 `src/generated/**/*.ts` 纳入；不启用 JSON 模块解析）
+- Create: `docs/audit/2026-11-26-v2-action-gaps.json`
 - Modify: `package.json`
 - Modify: `frontend/src/router/registry.ts`
 - Test: `frontend/tests/unit/actionManifest.spec.ts`
@@ -871,17 +921,17 @@ git commit -m "feat(ui): add typed page model and menu-only navigation"
 {
   "version": 1,
   "pages": {
-    "employees": [
+    "system-users": [
       {
-        "key": "employees.create",
-        "pageCode": "employees",
-        "label": "新增员工",
-        "capability": "people.employee.manage",
-        "api": "POST /v1/employees/onboard",
+        "key": "system-users.create",
+        "pageCode": "system-users",
+        "label": "新增用户",
+        "capability": "iam.user.manage",
+        "api": "POST /v1/users",
         "ui": "primary",
         "confirm": "none",
-        "anchorTypes": ["COMPANY", "ORG_UNIT", "ORG_SUBTREE"],
-        "fieldProfileMax": "P2_SENSITIVE"
+        "anchorTypes": ["ORG_UNIT", "ORG_SUBTREE", "COMPANY"],
+        "fieldProfileMax": "P1_INTERNAL"
       }
     ]
   }
@@ -899,22 +949,66 @@ import { buildActionManifest, validateActionManifest } from '../generate_action_
 
 test('generates deterministic actions from registry, catalog and OpenAPI', () => {
   const manifest = buildActionManifest({
-    pages: [{ name: 'employees', path: '/hr/employees', requiredApis: ['POST /v1/employees/onboard'] }],
-    catalog: [{ code: 'people.employee.manage', anchorTypes: ['COMPANY'], fieldProfileMax: 'P2_SENSITIVE' }],
-    openapi: { paths: { '/v1/employees/onboard': { post: { 'x-capability': 'people.employee.manage', 'x-action-label': '新增员工' } } } },
-    actions: [{ pageCode: 'employees', key: 'employees.create', label: '新增员工', capability: 'people.employee.manage', api: 'POST /v1/employees/onboard', ui: 'primary', confirm: 'none' }],
+    pages: [{ name: 'system-users', path: '/system/users', requiredApis: ['GET /v1/users', 'POST /v1/users'] }],
+    catalog: [{ code: 'iam.user.manage', anchorTypes: ['COMPANY'], fieldProfileMax: 'P3_RESTRICTED' }],
+    openapi: { paths: { '/v1/users': { post: { 'x-capability': 'iam.user.manage', 'x-action-label': '新增用户' } } } },
+    actions: [{ pageCode: 'system-users', key: 'system-users.create', label: '新增用户', capability: 'iam.user.manage', api: 'POST /v1/users', ui: 'primary', confirm: 'none' }],
   })
-  assert.deepEqual(manifest.pages.employees.map((action) => action.key), ['employees.create'])
-  assert.equal(manifest.pages.employees[0].fieldProfileMax, 'P2_SENSITIVE')
+  assert.deepEqual(manifest.pages['system-users'].map((action) => action.key), ['system-users.create'])
+  assert.equal(manifest.pages['system-users'][0].fieldProfileMax, 'P3_RESTRICTED')
+})
+
+test('rejects an action whose API is absent from OpenAPI', () => {
+  assert.throws(
+    () => buildActionManifest({
+      pages: [{ name: 'system-users', path: '/system/users', requiredApis: ['POST /v1/users'] }],
+      catalog: [{ code: 'iam.user.manage', anchorTypes: ['COMPANY'], fieldProfileMax: 'P3_RESTRICTED' }],
+      openapi: { paths: {} },
+      actions: [{ pageCode: 'system-users', key: 'system-users.create', label: '新增用户', capability: 'iam.user.manage', api: 'POST /v1/users', ui: 'primary', confirm: 'none' }],
+    }),
+    /missing OpenAPI operation/,
+  )
+})
+
+test('validate reports a write API in the registry that has no action', () => {
+  const result = validateActionManifest({
+    pages: [{ name: 'system-users', requiredApis: ['GET /v1/users', 'POST /v1/users'] }],
+    manifest: { version: 1, pages: { 'system-users': [] } },
+    openapi: { paths: { '/v1/users': { post: { 'x-capability': 'iam.user.manage' } } } },
+    gaps: [],
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join('\n'), /write API POST \/v1\/users has no action/)
+})
+
+test('validate reports a capability-guarded OpenAPI write that has no action', () => {
+  const result = validateActionManifest({
+    pages: [{ name: 'system-users', requiredApis: ['GET /v1/users'] }],
+    manifest: { version: 1, pages: {} },
+    openapi: { paths: { '/v1/users': { post: { 'x-capability': 'iam.user.manage' } } } },
+    gaps: [],
+  })
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join('\n'), /OpenAPI write POST \/v1\/users has no action/)
+})
+
+test('validate honours only explicitly listed gaps', () => {
+  const result = validateActionManifest({
+    pages: [{ name: 'system-users', requiredApis: ['GET /v1/users'] }],
+    manifest: { version: 1, pages: {} },
+    openapi: { paths: { '/v1/users': { post: { 'x-capability': 'iam.user.manage' } } } },
+    gaps: [{ api: 'POST /v1/users', owner: 'Volume 2 Task 5' }],
+  })
+  assert.equal(result.ok, true)
 })
 
 test('rejects action capability that differs from OpenAPI', () => {
   assert.throws(
     () => buildActionManifest({
-      pages: [{ name: 'employees', path: '/hr/employees', requiredApis: ['POST /v1/employees/onboard'] }],
-      catalog: [{ code: 'people.employee.manage', anchorTypes: ['COMPANY'], fieldProfileMax: 'P2_SENSITIVE' }],
-      openapi: { paths: { '/v1/employees/onboard': { post: { 'x-capability': 'people.employee.create' } } } },
-      actions: [{ pageCode: 'employees', key: 'employees.create', label: '新增员工', capability: 'people.employee.manage', api: 'POST /v1/employees/onboard', ui: 'primary', confirm: 'none' }],
+      pages: [{ name: 'system-users', path: '/system/users', requiredApis: ['GET /v1/users', 'POST /v1/users'] }],
+      catalog: [{ code: 'iam.user.manage', anchorTypes: ['COMPANY'], fieldProfileMax: 'P3_RESTRICTED' }],
+      openapi: { paths: { '/v1/users': { post: { 'x-capability': 'iam.user.read' } } } },
+      actions: [{ pageCode: 'system-users', key: 'system-users.create', label: '新增用户', capability: 'iam.user.manage', api: 'POST /v1/users', ui: 'primary', confirm: 'none' }],
     }),
     /capability mismatch/,
   )
@@ -972,20 +1066,56 @@ export function buildActionManifest({ pages, catalog, openapi, actions }) {
   return result
 }
 
-export function validateActionManifest({ pages, manifest, openapi }) {
+export function validateActionManifest({ pages, manifest, openapi, gaps = [] }) {
   const errors = []
+  const pageByName = new Map(pages.map((page) => [page.name, page]))
+
+  // Registry -> manifest: every declared write API must have an action.
   for (const page of pages) {
     const declared = new Set((manifest.pages[page.name] ?? []).map((action) => action.api))
     for (const api of page.requiredApis.filter((item) => /^(POST|PUT|PATCH|DELETE) /.test(item))) {
       if (!declared.has(api)) errors.push(`${page.name}: write API ${api} has no action`)
     }
   }
+
+  // Manifest -> registry and OpenAPI: every action must be real in both.
   for (const [pageCode, actions] of Object.entries(manifest.pages)) {
+    const page = pageByName.get(pageCode)
+    if (page === undefined) {
+      errors.push(`${pageCode}: action page does not exist in the registry`)
+      continue
+    }
     for (const action of actions) {
       const [method, path] = action.api.split(' ', 2)
-      if (!openapi.paths?.[path]?.[method.toLowerCase()]) errors.push(`${pageCode}/${action.key}: missing API ${action.api}`)
+      const operation = openapi.paths?.[path]?.[method.toLowerCase()]
+      if (operation === undefined) errors.push(`${pageCode}/${action.key}: missing API ${action.api}`)
+      else if (operation['x-capability'] !== action.capability) errors.push(`${pageCode}/${action.key}: capability mismatch with OpenAPI`)
+      if (!page.requiredApis.includes(action.api)) errors.push(`${pageCode}/${action.key}: API ${action.api} is not in requiredApis`)
     }
   }
+
+  // OpenAPI -> manifest: every capability-guarded write operation must have exactly one action,
+  // unless it is named in the explicit gap list (exact API match, with an owner).
+  const covered = new Set(Object.values(manifest.pages).flat().map((action) => action.api))
+  const gapByApi = new Map(gaps.map((gap) => [gap.api, gap]))
+  for (const [path, operations] of Object.entries(openapi.paths ?? {})) {
+    for (const method of ['post', 'put', 'patch', 'delete']) {
+      const operation = operations?.[method]
+      if (operation === undefined || operation['x-capability'] === undefined) continue
+      const api = `${method.toUpperCase()} ${path}`
+      if (covered.has(api)) continue
+      const gap = gapByApi.get(api)
+      if (gap === undefined || typeof gap.owner !== 'string' || gap.owner.trim() === '') {
+        errors.push(`OpenAPI write ${api} has no action`)
+      }
+    }
+  }
+
+  for (const gap of gaps) {
+    if (!/^(POST|PUT|PATCH|DELETE) \//.test(String(gap.api))) errors.push(`gap has invalid api: ${gap.api}`)
+    if (covered.has(gap.api)) errors.push(`gap ${gap.api} is already covered by an action; remove the gap`)
+  }
+
   return { ok: errors.length === 0, errors }
 }
 ```
@@ -998,7 +1128,7 @@ Run:
 node --test scripts/tests/generate_action_manifest.test.mjs
 ```
 
-Expected: PASS，2 tests。
+Expected: PASS，6 tests。
 
 - [ ] **Step 5: 提供手工动作输入文件**
 
@@ -1008,20 +1138,20 @@ Expected: PASS，2 tests。
 {
   "actions": [
     {
-      "pageCode": "employees",
-      "key": "employees.create",
-      "label": "新增员工",
-      "capability": "people.employee.manage",
-      "api": "POST /v1/employees/onboard",
+      "pageCode": "system-users",
+      "key": "system-users.create",
+      "label": "新增用户",
+      "capability": "iam.user.manage",
+      "api": "POST /v1/users",
       "ui": "primary",
       "confirm": "none"
     },
     {
-      "pageCode": "employees",
-      "key": "employees.archive",
+      "pageCode": "hr-employees",
+      "key": "hr-employees.archive",
       "label": "归档员工",
       "capability": "people.employee.archive",
-      "api": "POST /v1/employees/{id}/archive",
+      "api": "DELETE /v1/employees/{employment_id}",
       "ui": "danger",
       "confirm": "danger"
     }
@@ -1029,7 +1159,7 @@ Expected: PASS，2 tests。
 }
 ```
 
-其余动作在第 2 册 IAM-01 完成后补齐；本任务只冻结输入格式与生成器。
+本步只冻结输入格式与生成器。**Step 7 必须**枚举当前所有页面承载的写操作并全部登记，或写入带 owner 的 gap 文件；不得把“页面已存在但动作未登记”留给第 2 册。
 
 - [ ] **Step 6: 生成并检查确定性**
 
@@ -1051,27 +1181,76 @@ sha256sum docs/generated/page-actions.json
 
 Expected: 两次 SHA-256 相同。
 
-- [ ] **Step 7: 前端消费清单**
+- [ ] **Step 7: 盘点所有可写 API 并扩展输入**
+
+> 注意：`frontend/src/router/registry.ts` 中的页面名是 `hr-employees`、`system-users` 等真实 page_code；生成器的 `pageCode` 必须等于 `PAGE_REGISTRY.name`，不是菜单标签或后端路由名。示例中的 `system-users` 与 `hr-employees` 均为真实 page_code。
+
+运行 `php artisan route:list --json` 与 OpenAPI 解析，列出全部 `POST/PUT/PATCH/DELETE` 操作；对每个会改变业务状态的操作，在 `docs/generated/action-input.json` 中给出唯一 `pageCode` 与 `x-action-label`。第 1 册只允许两种结果：动作已登记，或在 `docs/audit/2026-11-26-v2-action-gaps.json` 中列明归属第 2/3 册的具体 Task。生成器必须对“OpenAPI 写操作无动作输入”失败，不允许静默跳过。
+
+同步重写 `scripts/audit_action_manifest.mjs` 的导出签名为：
+
+```js
+// Pure entry point; the CLI reads the three files plus the gap list and calls this.
+export function auditActionManifest({ manifest, registry, openapi, gaps = [], catalog })
+// -> { ok, errors, pageCount, writePageCount, pagesWithActions, actionCount, gapsUsed }
+```
+
+`registry` 是解析后的 `PAGE_REGISTRY` 条目数组（含 `requiredApis`），`catalog` 是能力码集合，`gaps` 是 `docs/audit/2026-11-26-v2-action-gaps.json` 中的显式条目数组。CLI 读取 `frontend/src/router/registry.ts` 时只解析 `path/name/capability/requiredApis`，**不再读取 `actions:`**。分别校验
+
+1. OpenAPI 每个带 `x-capability` 的写操作都有且仅有一个动作；
+2. 每个动作的能力与 OpenAPI `x-capability` 完全一致；
+3. 每个动作的 `pageCode` 存在于 `PAGE_REGISTRY`，且 `api` 在其 `requiredApis` 中；
+4. `PAGE_REGISTRY` 的 `requiredApis` 中每个写操作都有动作；
+5. `PUBLIC_WRITE_EXCEPTIONS` 仍只允许 `POST /v1/auth/login`。
+
+旧的手写 `actions` 解析可保留为过渡兼容，但不得作为放行依据。
+
+**允许的过渡缺口**：执行 Step 1 时必须用脚本重新实测（不得沿用本文旧数字）当前有多少 `x-capability` 写操作尚无 `x-action-label`，并把实测数字与命令写入 gap 文件头部。第 1 册必须为其中**已有页面承载**的写操作补齐标签与动作；没有页面承载的写操作列入 `docs/audit/2026-11-26-v2-action-gaps.json`，并绑定第 2/3 册具体 Task；同名 `.md` 只做人类可读汇总，机器门禁只读 JSON。`audit_action_manifest.mjs` 对该缺口使用**显式、逐条、可审计的** gap 清单放行，禁止通配忽略；清单为空时才能宣称“写 API 无动作 = 0”。
+
+- [ ] **Step 8: 前端消费清单**
+
+生成器在写出 `docs/generated/page-actions.json` 的同一事务中，再写出一个冻结的 TypeScript 模块：
+
+```ts
+// frontend/src/generated/pageActions.ts — generated by scripts/generate_action_manifest.mjs
+export type GeneratedPageAction = {
+  key: string
+  pageCode: string
+  label: string
+  capability: string
+  api: string
+  ui: 'primary' | 'secondary' | 'danger' | 'hidden'
+  confirm?: 'none' | 'danger' | 'sod'
+  anchorTypes: string[]
+  fieldProfileMax: string
+}
+
+export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
+  // ...generated entries...
+}
+```
 
 在 `frontend/src/router/registry.ts` 中删除手写 `PageActionSpec[]` 数据，改为：
 
 ```ts
-import actionManifest from '../../../docs/generated/page-actions.json'
+import { PAGE_ACTIONS } from '@/generated/pageActions'
 
 export function actionsForPage(pageCode: string) {
-  return actionManifest.pages[pageCode] ?? []
+  return PAGE_ACTIONS[pageCode] ?? []
 }
 ```
+
+`frontend/tsconfig.app.json` 已包含 `src/**/*.ts`，无需 `resolveJsonModule`；禁止从 `docs/` 相对导入 JSON。
 
 并在 `frontend/tests/unit/actionManifest.spec.ts` 断言：
 
 ```ts
 import { describe, expect, it } from 'vitest'
-import manifest from '../../../docs/generated/page-actions.json'
+import { PAGE_ACTIONS } from '@/generated/pageActions'
 
 describe('action manifest', () => {
   it('contains only actions with api and capability', () => {
-    for (const actions of Object.values(manifest.pages)) {
+    for (const actions of Object.values(PAGE_ACTIONS)) {
       for (const action of actions) {
         expect(action.api).toMatch(/^(POST|PUT|PATCH|DELETE) \/v1\//)
         expect(action.capability).toMatch(/^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/)
@@ -1081,7 +1260,7 @@ describe('action manifest', () => {
 })
 ```
 
-- [ ] **Step 8: 运行前端测试**
+- [ ] **Step 9: 运行前端测试**
 
 Run:
 
@@ -1091,10 +1270,10 @@ cd frontend && pnpm exec vitest run tests/unit/actionManifest.spec.ts
 
 Expected: PASS，1 test。
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add scripts/generate_action_manifest.mjs scripts/tests/generate_action_manifest.test.mjs docs/generated/action-input.json docs/generated/page-actions.json package.json frontend/src/router/registry.ts frontend/tests/unit/actionManifest.spec.ts
+git add scripts/generate_action_manifest.mjs scripts/tests/generate_action_manifest.test.mjs scripts/audit_action_manifest.mjs docs/generated/action-input.json docs/generated/page-actions.json frontend/src/generated/pageActions.ts frontend/tsconfig.app.json docs/audit/2026-11-26-v2-action-gaps.json docs/audit/2026-11-26-v2-action-gaps.md package.json frontend/src/router/registry.ts frontend/tests/unit/actionManifest.spec.ts
 git commit -m "feat(contract): generate page actions from capability and OpenAPI"
 ```
 
@@ -1126,22 +1305,25 @@ namespace Tests\Contract;
 
 use App\Modules\IAM\Authorization\CapabilityCatalog;
 use App\Modules\IAM\Authorization\PermissionResourceCatalog;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 final class ActionManifestParityTest extends TestCase
 {
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
+
     public function test_generated_manifest_matches_backend_catalog_and_pages(): void
     {
+        $root = dirname(__DIR__, 3); // backend/tests/Contract -> repository root
         $manifest = json_decode(
-            (string) file_get_contents(__DIR__.'/../../../docs/generated/page-actions.json'),
+            (string) file_get_contents($root.'/docs/generated/page-actions.json'),
             true,
             flags: JSON_THROW_ON_ERROR,
         );
-        $pages = (new PermissionResourceCatalog)->pages();
+        $catalog = new PermissionResourceCatalog;
         $capabilities = new CapabilityCatalog;
 
         foreach ($manifest['pages'] as $pageCode => $actions) {
-            $page = (new PermissionResourceCatalog)->find($pageCode);
+            $page = $catalog->find($pageCode);
             $this->assertNotNull($page, "Unknown page {$pageCode} in manifest.");
             foreach ($actions as $action) {
                 $this->assertTrue($capabilities->has($action['capability']), "Unknown capability {$action['capability']}.");
@@ -1264,6 +1446,8 @@ export function translate(domain: string, field: string, code: string | null | u
 ```ts
 import { describe, expect, it } from 'vitest'
 import { translate } from '@/shared/display/dictionary'
+
+// 3 dictionary tests + 1 PageShell test = 4 tests below.
 
 describe('dictionary', () => {
   it('translates employee status', () => {
@@ -1446,7 +1630,7 @@ git commit -m "feat(ui): add shared page shell, form containers and Chinese dict
 
 **Interfaces:**
 - Consumes: Task 4–7 的页面模型、清单、共享骨架。
-- Produces: 三个可运行门禁；当前代码预期失败，失败清单作为第 2/3 册输入。
+- Produces: 三个可运行门禁与反例测试。门禁对“构造的反例”必须失败；对当前仓库的**存量页面**先产出基线清单（`docs/audit/2026-11-26-v2-gate-baseline.md`），该清单是第 2/3 册的输入，但不作为第 1 册的通过条件，也不接入 CI 阻断。第 1 册退出时，这三个门禁的**单元/反例测试**必须全绿；存量违规清零分别在第 2 册（平台页）和第 3 册（业务页）退出时达成。
 
 - [ ] **Step 1: 写页面模型门禁测试**
 
@@ -1606,7 +1790,7 @@ node --test scripts/tests/audit_user_copy.test.mjs
 
 Expected: PASS，1 test。
 
-- [ ] **Step 7: 接真实仓库并记录失败清单**
+- [ ] **Step 7: 接真实仓库并记录存量基线**
 
 在 `package.json` 增加：
 
@@ -1626,13 +1810,13 @@ node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs
 ```
 
-Expected: 当前代码至少在三项中产生真实失败；把输出保存到 `docs/audit/2026-11-26-v2-gate-baseline.md`。不得为了让门禁通过而放宽容忍列表。
+Expected: 当前存量页面至少在三项中产生真实失败；把输出原样保存到 `docs/audit/2026-11-26-v2-gate-baseline.md`，并逐条标注归属的第 2/3 册 Task。**不得为了让门禁通过而放宽容忍列表。** 三个 `node --test scripts/tests/audit_*.test.mjs` 反例测试必须全绿；存量门禁失败数只作为基线，不作为第 1 册放行依据，也不得写成“已通过”。
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add scripts/audit_page_model.mjs scripts/audit_ui_primitives.mjs scripts/audit_user_copy.mjs scripts/tests/audit_page_model.test.mjs scripts/tests/audit_ui_primitives.test.mjs scripts/tests/audit_user_copy.test.mjs package.json docs/audit/2026-11-26-v2-gate-baseline.md
-git commit -m "test(gates): add failing-by-default page, primitive and copy gates"
+git commit -m "test(gates): add page, primitive and copy gates with baseline inventory"
 ```
 
 ---
@@ -1661,7 +1845,7 @@ node scripts/audit_user_copy.mjs
 node --test scripts/tests/*.test.mjs
 ```
 
-Expected: 新增契约测试全绿；页面/原语/文案门禁允许对旧页面失败，但失败清单必须与第 2/3 册任务一一对应。
+Expected: 第 1 册自有契约测试、Vitest、类型检查、lint 全绿。页面/原语/文案三个门禁对**存量页面**仍会失败；这些失败必须在 `2026-11-26-v2-gate-baseline.md` 中有逐条归属（第 2 册平台页 / 第 3 册业务页），且必须与本次基线清单逐项一致。第 1 册**不以存量违规清零为退出条件**，但不得把这三个门禁写成“通过”。
 
 - [ ] **Step 2: 运行后端契约测试**
 
@@ -1670,7 +1854,7 @@ cd backend
 ../.tools/php/php.exe artisan test --compact --filter='ActionManifestParityTest|PagePermissionCoverageTest|NoTenantNoLegalEntityTest'
 ```
 
-Expected: 动作与页面契约测试通过；`NoTenantNoLegalEntityTest` 按预期失败，作为第 2 册输入。
+Expected: 动作与页面契约测试通过。`NoTenantNoLegalEntityTest` 在单公司 cutover 前仍会失败；验收记录必须写 `FAIL` 并注明“第 2 册 Task 2/3 关闭”，不得计入第 1 册通过项。
 
 - [ ] **Step 3: 写验收记录**
 
@@ -1691,6 +1875,8 @@ Expected: 动作与页面契约测试通过；`NoTenantNoLegalEntityTest` 按预
 ## 已知失败与归属
 | 失败项 | 证据 | 归属册/任务 | 是否阻断第 2 册 |
 |---|---|---|---|
+
+> 允许存在的失败仅限：单公司 cutover 前的 `NoTenantNoLegalEntityTest`，以及三个存量页面门禁的违规清单。两者都必须有逐条归属，且在第 2/3 册退出时清零。第 1 册自有测试与生成器确定性测试不得有失败。
 
 ## 结论
 第 1 册是否达到退出条件：是/否；未达到时列出阻断项。
@@ -1716,5 +1902,6 @@ git commit -m "docs(plan): accept V2.1 volume 1 contracts"
 - 160 条路由逐条有处置；140 项能力无未映射。
 - 页面模型、动作清单、权限/OpenAPI 对齐契约测试可运行。
 - 共享 UI 骨架与中文字典有单元测试。
-- 三个新产品级门禁能对反例失败，并对真实旧页面给出可归属的失败清单。
+- 三个新产品级门禁的反例测试全绿；存量违规清单完整、可归属，并明确记录为未清零（由第 2/3 册关闭）。
+- 本册自有的类型检查、lint、Vitest、契约测试、生成器确定性测试全绿。
 - 第 2 册所需接口、文件路径、测试命令已冻结。

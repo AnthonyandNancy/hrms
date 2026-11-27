@@ -11,12 +11,12 @@ namespace App\Modules\Platform\Contracts;
 interface FileObjectReader
 {
     /**
-     * Return the stored bytes for a tenant-owned file object.
+     * Return the stored bytes for a file object.
      *
      * @throws \App\Shared\Exceptions\NotFoundException when the file is not
-     *                                                  visible to the tenant
+     *                                                  visible to the caller
      */
-    public function contents(int $tenantId, int $fileObjectId): string;
+    public function contents(int $fileObjectId): string;
 
-    public function exists(int $tenantId, int $fileObjectId): bool;
+    public function exists(int $fileObjectId): bool;
 }

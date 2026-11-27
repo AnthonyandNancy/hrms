@@ -12,10 +12,9 @@ use App\Modules\People\Models\Person;
 
 final class AssignmentDirectoryService implements AssignmentDirectory
 {
-    public function positionIncumbents(int $tenantId, int $positionId, string $on): array
+    public function positionIncumbents(int $positionId, string $on): array
     {
         $assignments = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('position_id', $positionId)
             ->where('valid_from', '<=', $on)
             ->where('valid_to', '>', $on)
@@ -23,13 +22,12 @@ final class AssignmentDirectoryService implements AssignmentDirectory
             ->orderBy('id')
             ->get();
 
-        return $this->occupants($tenantId, $assignments->all());
+        return $this->occupants($assignments->all());
     }
 
-    public function secondments(int $tenantId, ?int $employmentId = null): array
+    public function secondments(?int $employmentId = null): array
     {
         $query = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->where('assignment_type', 'SECONDMENT')
             ->orderByDesc('valid_from')
             ->orderByDesc('id');
@@ -38,13 +36,12 @@ final class AssignmentDirectoryService implements AssignmentDirectory
             $query->where('employment_id', $employmentId);
         }
 
-        return $this->occupants($tenantId, $query->get()->all());
+        return $this->occupants($query->get()->all());
     }
 
-    public function occupant(int $tenantId, int $assignmentId): ?AssignmentOccupant
+    public function occupant(int $assignmentId): ?AssignmentOccupant
     {
         $assignment = Assignment::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($assignmentId)
             ->first();
 
@@ -52,14 +49,14 @@ final class AssignmentDirectoryService implements AssignmentDirectory
             return null;
         }
 
-        return $this->occupants($tenantId, [$assignment])[0] ?? null;
+        return $this->occupants([$assignment])[0] ?? null;
     }
 
     /**
      * @param  list<Assignment>  $assignments
      * @return list<AssignmentOccupant>
      */
-    private function occupants(int $tenantId, array $assignments): array
+    private function occupants(array $assignments): array
     {
         if ($assignments === []) {
             return [];
@@ -71,7 +68,6 @@ final class AssignmentDirectoryService implements AssignmentDirectory
         )));
 
         $employments = Employment::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $employmentIds)
             ->get()
             ->keyBy('id');
@@ -79,7 +75,6 @@ final class AssignmentDirectoryService implements AssignmentDirectory
         $personIds = $employments->pluck('person_id')->map(static fn (mixed $id): int => (int) $id)->unique()->values()->all();
 
         $persons = Person::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $personIds)
             ->get()
             ->keyBy('id');
@@ -98,7 +93,6 @@ final class AssignmentDirectoryService implements AssignmentDirectory
             $rows[] = new AssignmentOccupant(
                 assignmentId: (int) $assignment->id,
                 employmentId: (int) $employment->id,
-                legalEntityId: (int) $employment->legal_entity_id,
                 employeeNo: (string) $employment->employee_no,
                 personName: $person instanceof Person ? (string) $person->legal_name : '',
                 orgUnitId: (int) $assignment->org_unit_id,

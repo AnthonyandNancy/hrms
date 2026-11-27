@@ -208,6 +208,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's live server-side sessions
+         * @description Only sessions owned by the caller are returned. The raw bearer and CSRF
+         *     hashes are never serialised; `device` is a readable label derived on the
+         *     server from the user agent and `current` marks this request's session.
+         */
+        get: operations["listAccountSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one of the caller's sessions
+         * @description Sessions belonging to another user answer 404 (not 403) so ids cannot be
+         *     enumerated. Revoking the current session ends it and clears the cookie.
+         */
+        delete: operations["revokeAccountSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deployment MFA posture for the caller
+         * @description `enabled` is the single ADR-0038 deployment switch. The SPA must hide
+         *     the MFA section when it is false and must never infer the flag locally.
+         */
+        get: operations["getMfaStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable the caller's TOTP factor after factor proof
+         * @description Requires a current TOTP code or an unused recovery code. Disabling a
+         *     factor revokes every session and requires re-authentication.
+         */
+        post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/webauthn/assert/options": {
         parameters: {
             query?: never;
@@ -340,7 +425,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List cases visible to the caller */
+        /**
+         * List cases visible to the caller
+         * @description Returns cases visible through the caller's requester, task-assignee or decision-actor membership. `view=my_approvals` returns cases with a pending task assigned to the caller; `view=my_decided` returns cases where the caller has recorded a decision; `view=my_requests` returns cases the caller created. A single `type` filter is supported. Callers that need several case types issue one bounded query per type because there is deliberately no multi-value `type[]` parameter.
+         */
         get: operations["workflowCasesIndex"];
         put?: never;
         /** Create a case */
@@ -360,7 +448,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Append an immutable decision */
+        /**
+         * Append an immutable decision
+         * @description Appends one immutable decision. The action is one of APPROVE, REJECT or RETURN for an assigned approver; WITHDRAW, DELEGATE and CC remain supported workflow actions. Replaying the same Idempotency-Key and payload returns the stored 200 response with `Idempotency-Replayed: true`; reusing a key with a different payload returns 409. A decision on a case that is no longer pending returns 409, and a caller without a pending task for the case receives 404 so case existence is not leaked.
+         */
         post: operations["workflowDecisionsStore"];
         delete?: never;
         options?: never;
@@ -515,8 +606,46 @@ export interface paths {
         /** List organization units with active headcount */
         get: operations["listDepartments"];
         put?: never;
+        /** Create an organization unit */
+        post: operations["createDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/departments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        /** Move a department under a new parent, effective from a business date */
+        patch: operations["moveDepartment"];
+        trace?: never;
+    };
+    "/v1/departments/{id}/members/{employmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End a member assignment in this department from a business date
+         * @description Effective-dated removal: the assignment keeps its history and simply stops being live. Requires capability `org.unit.manage`.
+         */
+        delete: operations["removeDepartmentMember"];
         options?: never;
         head?: never;
         patch?: never;
@@ -671,6 +800,26 @@ export interface paths {
         get: operations["listEmployees"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/onboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a person, employment, assignment and first terms version atomically
+         * @description One transactional business act. A replay with the same Idempotency-Key returns the original employee with `data.replayed = true` and creates no duplicate. Requires capability `people.employee.manage` at COMPANY.
+         */
+        post: operations["onboardEmployee"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1047,7 +1196,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create an employment (employee number unique per tenant+legal entity)
+         * Create an employment (employee number unique per company)
          * @description Requires capability `people.employee.manage`.
          */
         post: operations["createEmployment"];
@@ -1243,7 +1392,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Transfer an employment to another legal entity
+         * Transfer an employment between organization units
          * @description Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
          */
         post: operations["transferEmploymentLegalEntity"];
@@ -2057,7 +2206,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * As-of organization tree for one legal entity
+         * As-of organization tree for the company
          * @description Requires capabilities `org.tree.read` and `org.unit.read`.
          */
         get: operations["getOrgTree"];
@@ -2221,7 +2370,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Payroll endpoint /v1/payroll/runs */
+        /**
+         * Payroll endpoint /v1/payroll/runs
+         * @description Feature-level guard. The response is scoped to the payroll runs the caller is a member of (preparer, reviewer, approver or publisher); callers outside a run never see its row and cannot read it by id.
+         */
         get: operations["payrollv1_payroll_runs_get"];
         put?: never;
         /** Payroll endpoint /v1/payroll/runs */
@@ -2853,14 +3005,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List the job-grade catalogue for a legal entity
+         * List the job-grade catalogue for the company
          * @description Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
          */
         get: operations["listPositionGrades"];
         put?: never;
         /**
          * Create or update a job-grade row
-         * @description Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+         * @description Upsert is keyed by (code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
          */
         post: operations["upsertPositionGrade"];
         delete?: never;
@@ -3106,7 +3258,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/recruitment/candidates/{id}/interviews": {
+    "/v1/recruitment/candidates/{id}/stage": {
         parameters: {
             query?: never;
             header?: never;
@@ -3114,6 +3266,24 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Move a candidate to another pipeline stage */
+        patch: operations["moveCandidateStage"];
+        trace?: never;
+    };
+    "/v1/recruitment/candidates/{id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a candidate's interview records */
+        get: operations["listCandidateInterviews"];
         put?: never;
         /** Schedule an interview */
         post: operations["recruitmentInterviewsStore"];
@@ -3173,6 +3343,43 @@ export interface paths {
         put?: never;
         /** Create a requisition approval Case */
         post: operations["recruitmentRequisitionsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recruitment/requisitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an open requisition
+         * @description A closed requisition is immutable and returns 409.
+         */
+        patch: operations["updateRequisition"];
+        trace?: never;
+    };
+    "/v1/recruitment/requisitions/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a requisition */
+        post: operations["closeRequisition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3427,6 +3634,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/roles/{id}/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save page, action, scope and field authorization atomically
+         * @description One transactional save for the role workbench. Page grants control view access only; action capabilities are granted explicitly and must belong to a granted page. Template roles are code-owned and return 409.
+         */
+        put: operations["replaceRoleAuthorization"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a custom role
+         * @description Refused while any user still holds the role (409 ROLE_IN_USE). Template roles return 409.
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a custom role
+         * @description Role codes are immutable; only the display name and purpose change. Template roles return 409.
+         */
+        patch: operations["renameRole"];
+        trace?: never;
+    };
     "/v1/roles/{id}/copy": {
         parameters: {
             query?: never;
@@ -3444,7 +3695,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/system/calendars/{legal_entity_id}/publish": {
+    "/v1/system/calendars/publish": {
         parameters: {
             query?: never;
             header?: never;
@@ -3453,7 +3704,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish a legal-entity calendar version */
+        /**
+         * Publish the company calendar version
+         * @description Single-company deployment; the calendar belongs to the company profile.
+         */
         post: operations["publishCalendarVersion"];
         delete?: never;
         options?: never;
@@ -3675,14 +3929,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List attendance period closures for the actor's legal entities
+         * List attendance period closures for the company
          * @description Read-only list of closed and reopened months with the reopen evidence.
-         *     Scoped to the actor's legal entities; a `legal_entity_id` outside that
-         *     scope returns 404. Requires capability `time.attendance.read`.
          */
         get: operations["timeAttendanceClosingsIndex"];
         put?: never;
-        /** Close an attendance month for one legal entity */
+        /** Close an attendance month for the company */
         post: operations["closeAttendancePeriod"];
         delete?: never;
         options?: never;
@@ -3817,7 +4069,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/time/calendars/{legal_entity_id}": {
+    "/v1/time/calendars": {
         parameters: {
             query?: never;
             header?: never;
@@ -3825,8 +4077,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Legal entity calendar, workweek and holidays for one year
-         * @description Requires capability `time.calendar.read`.
+         * Company calendar, workweek and holidays for one year
+         * @description Single-company deployment; requires capability `time.calendar.read`.
          */
         get: operations["timeCalendarShow"];
         put?: never;
@@ -4463,7 +4715,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List effective-dated travel policy versions for a legal entity */
+        /** List effective-dated travel policy versions for the company */
         get: operations["listTravelPolicies"];
         put?: never;
         /** Append a new effective-dated travel policy version */
@@ -4931,6 +5183,62 @@ export interface components {
             };
             request_id: string;
         };
+        OnboardEmployeeRequest: {
+            person: {
+                given_name: string;
+                family_name: string;
+                national_id?: string | null;
+                /** @enum {string|null} */
+                id_type?: "CN_ID" | "PASSPORT" | "OTHER" | null;
+                mobile?: string | null;
+                /** Format: email */
+                email?: string | null;
+                /** Format: date */
+                birth_date?: string | null;
+            };
+            employment: {
+                employee_no: string;
+                /** Format: date */
+                hire_date: string;
+                employment_type?: string | null;
+            };
+            assignment: {
+                org_unit_id: number;
+                position_id?: number | null;
+                /** Format: date */
+                valid_from?: string | null;
+            };
+            terms: {
+                /** @description Integer minor units; never a floating-point amount. */
+                salary_minor: number;
+                currency: string;
+                work_location?: string | null;
+                work_schedule?: string | null;
+                /** Format: date */
+                effective_from?: string | null;
+            };
+        };
+        OnboardedEmployee: {
+            person_id: number;
+            employment_id: number;
+            employee_no: string;
+            assignment_id: number;
+            terms_id: number;
+            replayed: boolean;
+        };
+        DepartmentWriteRequest: {
+            code: string;
+            name: string;
+            parent_id?: number | null;
+            /** @enum {string} */
+            type: "COMPANY" | "DIVISION" | "DEPARTMENT" | "TEAM" | "COST_CENTER" | "SHARED_SERVICE";
+            /** @enum {string} */
+            status?: "ACTIVE" | "INACTIVE";
+            /** Format: date */
+            valid_from: string;
+            /** Format: date */
+            valid_to?: string | null;
+        };
         Envelope: {
             /** @example OK */
             code: string;
@@ -5014,7 +5322,6 @@ export interface components {
             person_id: number;
             person_name?: string | null;
             employee_no: string;
-            legal_entity_id: number;
             /** @enum {string} */
             status: "PROBATION" | "ACTIVE" | "LEAVE" | "SUSPENDED" | "TERMINATED";
             /** @enum {string} */
@@ -5071,7 +5378,6 @@ export interface components {
         };
         OrgUnit: {
             id: number;
-            legal_entity_id: number;
             parent_id?: number | null;
             code: string;
             name: string;
@@ -5099,7 +5405,6 @@ export interface components {
         };
         EmploymentCreate: {
             person_id: number;
-            legal_entity_id: number;
             employee_no: string;
             /** @enum {string} */
             employment_type: "FULL_TIME" | "PART_TIME" | "FIXED_TERM" | "INTERN" | "CONTRACTOR";
@@ -5156,7 +5461,6 @@ export interface components {
             legal_hold?: boolean;
         };
         OrgUnitCreate: {
-            legal_entity_id: number;
             parent_id?: number | null;
             code: string;
             name: string;
@@ -5326,7 +5630,6 @@ export interface components {
         };
         Position: {
             id: number;
-            legal_entity_id: number;
             org_unit_id: number | null;
             code: string;
             title: string;
@@ -5438,7 +5741,6 @@ export interface components {
         EmploymentContractLifecycle: {
             id: number;
             employment_id: number;
-            legal_entity_id: number | null;
             contract_no: string;
             /** @enum {string} */
             contract_type: "FIXED_TERM" | "OPEN_ENDED" | "INTERNSHIP" | "CONSULTANT";
@@ -5519,7 +5821,6 @@ export interface components {
         };
         PositionGrade: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             level: number;
@@ -5531,7 +5832,6 @@ export interface components {
         PositionStaffRow: {
             assignment_id: number;
             employment_id: number;
-            legal_entity_id: number;
             employee_no?: string;
             person_name?: string;
             org_unit_id?: number;
@@ -5621,7 +5921,6 @@ export interface components {
         };
         Department: {
             id: number;
-            legal_entity_id: number;
             parent_id: number | null;
             code: string;
             name: string;
@@ -5790,7 +6089,6 @@ export interface components {
             requisition_no: string;
             title: string;
             status: string;
-            legal_entity_id: number;
             org_unit_id: number;
             headcount: number;
             openings_count: number;
@@ -5807,7 +6105,6 @@ export interface components {
             requisition_no: string;
             title: string;
             status: string;
-            legal_entity_id: number;
             headcount: number;
             /** @description Integer minor units; null when no budget was configured. */
             budget_minor: number | null;
@@ -5929,7 +6226,6 @@ export interface components {
             recorded_at: string | null;
         };
         RecruitmentCandidateConversionRequest: {
-            legal_entity_id: number;
             org_unit_id: number;
             employee_no: string;
             /** Format: date */
@@ -5941,7 +6237,6 @@ export interface components {
             employment_id: number;
             person_id: number;
             offer_id: number;
-            legal_entity_id: number;
             org_unit_id: number;
             employee_no: string;
             status: string;
@@ -5971,10 +6266,45 @@ export interface components {
         PasswordChangeData: {
             password_changed: boolean;
             reauth_required: boolean;
+            sessions_revoked: boolean;
+        };
+        AccountSessionItem: {
+            /** @description Opaque ULID session identifier. */
+            id: string;
+            /** @description Server-derived readable device label; never the raw user agent. */
+            device: string;
+            ip: string | null;
+            /** @description True only for the session authenticating this request. */
+            current: boolean;
+            mfa_verified: boolean;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            absolute_expires_at: string;
+        };
+        AccountSessionListData: {
+            items: components["schemas"]["AccountSessionItem"][];
+        };
+        AccountSessionRevokeData: {
+            revoked: boolean;
+            already_revoked: boolean;
+            current_session: boolean;
+        };
+        MfaStatusData: {
+            /** @description Deployment MFA flag (ADR-0038). False hides enrollment in the SPA; it never bypasses capability checks. */
+            enabled: boolean;
+            enrolled: boolean;
+            mfa_verified: boolean;
+        };
+        MfaDisableData: {
+            disabled: boolean;
+            reauth_required: boolean;
         };
         MeData: {
             id: number;
-            tenant_id: number;
+            company_name: string;
             username: string;
             /** Format: email */
             email: string | null;
@@ -5983,8 +6313,6 @@ export interface components {
             has_mfa: boolean;
             mfa_verified: boolean;
             auth_version: number;
-            tenant_name: string;
-            legal_entity_name: string;
             roles: string[];
         };
         MyCapabilitiesData: {
@@ -6387,7 +6715,6 @@ export interface components {
         };
         PayrollItem: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             /** @enum {string} */
@@ -6406,7 +6733,6 @@ export interface components {
         };
         PayrollScheme: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             currency: string;
@@ -6436,7 +6762,6 @@ export interface components {
         };
         PayrollRunSummary: {
             id: number;
-            legal_entity_id: number;
             period: string;
             /** @enum {string} */
             run_type: "REGULAR" | "CORRECTION" | "OFF_CYCLE" | "BONUS";
@@ -6445,6 +6770,7 @@ export interface components {
             correction_of_run_id: number | null;
             /** Format: date */
             pay_date: string;
+            employee_count: number;
             /** Format: date-time */
             created_at: string;
             gross_cents?: number;
@@ -6515,13 +6841,18 @@ export interface components {
             };
             passed: boolean;
         };
+        /** @description Calculation counters plus the refreshed run. The four amount fields are omitted entirely when the caller lacks a per-run payroll.payslip.read grant at a money-revealing profile (P3); they are never returned as null or zero for such callers. */
         PayrollCalculationResult: {
             calculated: number;
             failed: number;
-            gross_cents: number;
-            deductions_cents: number;
-            net_cents: number;
-            employer_cost_cents: number;
+            /** @description Present only when the caller may see amounts on this run. */
+            gross_cents?: number;
+            /** @description Present only when the caller may see amounts on this run. */
+            deductions_cents?: number;
+            /** @description Present only when the caller may see amounts on this run. */
+            net_cents?: number;
+            /** @description Present only when the caller may see amounts on this run. */
+            employer_cost_cents?: number;
             run: components["schemas"]["PayrollRunDetail"];
         };
         PayrollCsvExport: {
@@ -6563,7 +6894,6 @@ export interface components {
         };
         StatutoryParameter: {
             id: number;
-            legal_entity_id: number;
             parameter_set: string;
             code: string;
             value_decimal: string | null;
@@ -6795,7 +7125,6 @@ export interface components {
         EmployeeCompensation: {
             id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** Format: date */
             effective_from: string;
             currency: string;
@@ -6810,7 +7139,6 @@ export interface components {
         SalaryAdjustment: {
             id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** Format: date */
             effective_from: string;
             currency: string;
@@ -6919,7 +7247,6 @@ export interface components {
         };
         AttendanceClosure: {
             closure_id: number;
-            legal_entity_id: number;
             month: string;
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
@@ -6927,7 +7254,7 @@ export interface components {
         };
         AttendanceRuleConfig: {
             /** @enum {string} */
-            late_grace_source?: "SHIFT" | "LEGAL_ENTITY" | "NONE";
+            late_grace_source?: "SHIFT" | "COMPANY" | "NONE";
             count_break?: boolean;
             overtime_after_scheduled?: boolean;
             incomplete_threshold_minutes?: number;
@@ -6946,7 +7273,6 @@ export interface components {
         };
         ShiftSchedule: {
             id: number;
-            legal_entity_id: number;
             employment_id: number;
             /** Format: date */
             business_date: string;
@@ -6962,7 +7288,6 @@ export interface components {
         };
         ShiftScheduleWrite: {
             schedule_id: number;
-            legal_entity_id: number;
             employment_id: number;
             /** Format: date */
             business_date: string;
@@ -6971,7 +7296,6 @@ export interface components {
         };
         AttendanceClosureRow: {
             id: number;
-            legal_entity_id: number;
             month: string;
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
@@ -6985,7 +7309,6 @@ export interface components {
         };
         AttendanceDevice: {
             id: number;
-            legal_entity_id: number;
             code: string;
             name: string;
             adapter: string;
@@ -7283,7 +7606,6 @@ export interface components {
         };
         TravelPolicy: {
             id: number;
-            legal_entity_id: number;
             city_tier: string;
             /** @description Hotel cap in integer minor units (cents). */
             hotel_cap_cents: number;
@@ -7299,7 +7621,6 @@ export interface components {
             id: number;
             travel_id: number;
             employment_id: number;
-            legal_entity_id: number;
             /** @enum {string} */
             category: "TRANSPORT" | "LODGING" | "MEALS" | "OTHER";
             /** @description Claim amount in integer minor units (cents); never a float. */
@@ -7322,9 +7643,9 @@ export interface components {
         };
         DataScopePolicy: {
             /** @enum {string} */
-            template: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            template: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
             /** @enum {string} */
-            anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "LEGAL_ENTITY" | "CASE" | "PAYROLL_RUN";
+            anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
             label: string;
             active: boolean;
             sort_order: number;
@@ -7379,7 +7700,6 @@ export interface components {
             sent_at: string | null;
         };
         CalendarVersion: {
-            legal_entity_id: number;
             version: number;
             timezone: string;
             workweek: number[];
@@ -7410,6 +7730,19 @@ export interface components {
             code: string;
             name: string;
             purpose: string;
+        };
+        RoleAuthorizationRequest: {
+            pages: string[];
+            capabilities: {
+                capability: string;
+                /** @enum {string} */
+                anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "COMPANY" | "CASE" | "PAYROLL_RUN";
+                /** @enum {string} */
+                field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";
+                /** @description Required when the capability is a page action. */
+                page_code?: string;
+            }[];
+            reason?: string | null;
         };
         RoleCapabilitiesRequest: {
             capabilities: components["schemas"]["RoleCapabilitySelection"][];
@@ -7505,7 +7838,6 @@ export interface components {
             id: number;
             code: string;
             name: string;
-            legal_entity_id: number | null;
             employer_rate: string;
             employee_rate: string;
             /** Format: date */
@@ -7518,7 +7850,6 @@ export interface components {
             id: number;
             plan_id: number;
             employment_id: number;
-            legal_entity_id: number;
             base_amount_cents: number;
             employee_rate: string;
             employer_rate: string;
@@ -7534,7 +7865,6 @@ export interface components {
             id: number;
             enrollment_id: number;
             employment_id: number;
-            legal_entity_id: number;
             period: string;
             base_amount_cents: number;
             employee_amount_cents: number;
@@ -8076,6 +8406,11 @@ export interface operations {
                     current_password: string;
                     /** Format: password */
                     new_password: string;
+                    /**
+                     * Format: password
+                     * @description Optional client confirmation; when present it must equal new_password.
+                     */
+                    new_password_confirmation?: string;
                 };
             };
         };
@@ -8088,6 +8423,125 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["PasswordChangeData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            419: components["responses"]["CsrfFailed"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAccountSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live sessions for the caller */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["AccountSessionListData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokeAccountSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /** @description Opaque ULID session identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session revoked (idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["AccountSessionRevokeData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            419: components["responses"]["CsrfFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getMfaStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MFA posture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MfaStatusData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    disableTotp: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    factor_type: "TOTP" | "RECOVERY_CODE";
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description TOTP factor disabled; re-authentication required */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MfaDisableData"];
                     };
                 };
             };
@@ -8239,7 +8693,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 code?: string;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -8285,7 +8738,6 @@ export interface operations {
                     effective_from: string;
                     /** Format: date */
                     effective_to?: string | null;
-                    legal_entity_id?: number | null;
                 };
             };
         };
@@ -8456,6 +8908,12 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                view?: "my_approvals" | "my_decided" | "my_requests";
+                status?: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELLED";
+                effect_status?: "NONE" | "PENDING" | "SCHEDULED" | "APPLIED" | "PARTIAL" | "FAILED" | "REVERSED";
+                /** @description One business case type, e.g. LEAVE_REQUEST or ASSIGNMENT_CHANGE. */
+                type?: string;
+                business_date?: string;
             };
             header?: never;
             path?: never;
@@ -8523,8 +8981,8 @@ export interface operations {
     workflowDecisionsStore: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
             path: {
                 caseId: number;
@@ -8534,7 +8992,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    action: string;
+                    /** @enum {string} */
+                    action: "APPROVE" | "REJECT" | "RETURN" | "WITHDRAW" | "DELEGATE" | "CC";
                     comment?: string;
                     target_user_id?: number | null;
                     reason?: string | null;
@@ -8553,7 +9012,6 @@ export interface operations {
                     };
                 };
             };
-            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -8841,8 +9299,7 @@ export interface operations {
     };
     listDepartments: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
                 q?: string;
             };
@@ -8870,10 +9327,124 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    createDepartment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description Department created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            id?: number;
+                            code?: string;
+                            name?: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    moveDepartment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    new_parent_id?: number | null;
+                    /** Format: date */
+                    effective_from: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Department moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeDepartmentMember: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+                employmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_from: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Member removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     listDepartmentStaffing: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
             };
             header?: never;
@@ -9015,7 +9586,6 @@ export interface operations {
     downloadDocumentContent: {
         parameters: {
             query: {
-                tenant_id: number;
                 expires: number;
                 signature: string;
             };
@@ -9165,6 +9735,51 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    onboardEmployee: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardEmployeeRequest"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay of a previous onboarding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OnboardedEmployee"];
+                    };
+                };
+            };
+            /** @description Employee onboarded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OnboardedEmployee"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
@@ -10244,7 +10859,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 status?: "DRAFT" | "ACTIVE" | "EXPIRING" | "RENEWED" | "TERMINATED" | "ARCHIVED";
                 page?: number;
                 page_size?: number;
@@ -10275,7 +10889,6 @@ export interface operations {
             query?: {
                 within_days?: number;
                 as_of?: string;
-                legal_entity_id?: number;
             };
             header?: never;
             path?: never;
@@ -10638,7 +11251,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     employee_no: string;
                     /** Format: date */
                     valid_from: string;
@@ -11660,8 +12272,7 @@ export interface operations {
     };
     lifecycleSecondmentsIndex: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 employment_id?: number;
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
@@ -12102,10 +12713,9 @@ export interface operations {
     };
     getOrgTree: {
         parameters: {
-            query: {
+            query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id: number;
             };
             header?: never;
             path?: never;
@@ -12244,7 +12854,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -12308,7 +12917,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -13739,8 +14347,7 @@ export interface operations {
     };
     listPositions: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 as_of?: string;
                 q?: string;
             };
@@ -13780,7 +14387,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     org_unit_id?: number | null;
                     code: string;
                     title: string;
@@ -13814,8 +14420,7 @@ export interface operations {
     };
     listPositionGrades: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 active?: boolean;
@@ -13857,7 +14462,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     code: string;
                     name: string;
                     level: number;
@@ -14440,7 +15044,15 @@ export interface operations {
     };
     recruitmentCandidatesIndex: {
         parameters: {
-            query?: never;
+            query?: {
+                requisition_id?: number;
+                /** @description Direct id lookup for the candidate detail route. */
+                candidate_id?: number;
+                status?: string;
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14482,6 +15094,77 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    moveCandidateStage: {
+        parameters: {
+            query?: {
+                /** @description Direct id lookup for the candidate detail route. */
+                candidate_id?: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Movable pipeline stage. HIRED is reached only through conversion, not by a manual move.
+                     * @enum {string}
+                     */
+                    status: "NEW" | "SCREENING" | "INTERVIEW" | "OFFER" | "OFFER_ACCEPTED" | "REJECTED";
+                    reason?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Candidate stage updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listCandidateInterviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Interview records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -14599,7 +15282,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     org_unit_id: number;
                     requisition_no: string;
                     title: string;
@@ -14616,6 +15298,86 @@ export interface operations {
             201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateRequisition: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title?: string;
+                    headcount?: number;
+                    org_unit_id?: number;
+                    budget_minor?: number | null;
+                    budget_currency?: string | null;
+                    /** Format: date */
+                    target_start_date?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Requisition updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    closeRequisition: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Requisition closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
@@ -15259,6 +16021,122 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    replaceRoleAuthorization: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Authorization replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            role: components["schemas"]["RoleDefinition"];
+                            pages: string[];
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: {
+                            role_code?: string;
+                            deleted?: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    renameRole: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    purpose?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Role renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["RoleDefinition"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     copyRole: {
         parameters: {
             query?: never;
@@ -15303,9 +16181,7 @@ export interface operations {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
-            path: {
-                legal_entity_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
@@ -15875,7 +16751,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 page?: number;
                 page_size?: number;
             };
@@ -15923,7 +16798,6 @@ export interface operations {
             content: {
                 "application/json": {
                     month: string;
-                    legal_entity_id: number;
                 };
             };
         };
@@ -16039,7 +16913,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                legal_entity_id?: number;
                 active?: boolean;
                 page?: number;
                 page_size?: number;
@@ -16086,7 +16959,6 @@ export interface operations {
             content: {
                 "application/json": {
                     month: string;
-                    legal_entity_id: number;
                     employment_id?: number | null;
                 };
             };
@@ -16115,8 +16987,6 @@ export interface operations {
             query?: {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
-                /** @description Optional legal entity the caller must already be scoped to. */
-                legal_entity_id?: number;
             };
             header?: never;
             path?: never;
@@ -16245,9 +17115,7 @@ export interface operations {
                 year: number;
             };
             header?: never;
-            path: {
-                legal_entity_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -16260,7 +17128,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: {
-                            legal_entity_id?: number;
                             year?: number;
                             /** @example Asia/Shanghai */
                             timezone?: string;
@@ -16952,7 +17819,6 @@ export interface operations {
                 /** @description Business date. Defaults to today in the legal entity timezone. */
                 as_of?: components["parameters"]["AsOf"];
                 employment_id?: number;
-                legal_entity_id?: number;
                 from?: string;
                 to?: string;
                 page?: number;
@@ -17046,7 +17912,6 @@ export interface operations {
                         data?: {
                             items?: {
                                 id?: number;
-                                legal_entity_id?: number;
                                 code?: string;
                                 name?: string;
                                 start_local_time?: string;
@@ -17909,8 +18774,7 @@ export interface operations {
     };
     listTravelPolicies: {
         parameters: {
-            query: {
-                legal_entity_id: number;
+            query?: {
                 city_tier?: string;
                 as_of?: string;
                 page?: number;
@@ -17953,7 +18817,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    legal_entity_id: number;
                     city_tier: string;
                     /** @description Hotel cap in integer minor units (cents), never a float. */
                     hotel_cap_cents: number;
@@ -18281,7 +19144,7 @@ export interface operations {
                 "application/json": {
                     capability_code: string;
                     /** @enum {string} */
-                    anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "CASE" | "PAYROLL_RUN" | "LEGAL_ENTITY";
+                    anchor_type: "SELF" | "MANAGED" | "ORG_UNIT" | "ORG_SUBTREE" | "CASE" | "PAYROLL_RUN" | "COMPANY";
                     anchor_id?: number | null;
                     /** @enum {string} */
                     field_profile: "P0_PUBLIC" | "P1_INTERNAL" | "P2_SENSITIVE" | "P3_RESTRICTED";

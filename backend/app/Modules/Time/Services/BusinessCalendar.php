@@ -4,32 +4,34 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
+use App\Modules\Time\Models\Holiday;
+use App\Modules\Time\Models\LegalEntityCalendar;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Time\BusinessDate;
+use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Throwable;
 
 /**
- * Business calendar projection. A business date is always a date in the legal
- * entity's IANA timezone; DATE(punched_at) is never used.
+ * Company business calendar projection. There is exactly one calendar row in
+ * the single-company schema. A business date is always a date in that
+ * calendar's IANA timezone; DATE(punched_at) is never used.
  */
-final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityCalendarDirectory
+final class BusinessCalendar implements LegalEntityCalendarDirectory
 {
-    public function __construct(
-        private readonly \App\Shared\Time\Clock $clock,
-    ) {}
+    public function __construct(private readonly Clock $clock) {}
 
     /**
      * @param  list<int>  $workweek
      */
     public function configure(
-        int $tenantId,
-        int $legalEntityId,
         string $timezone,
         array $workweek,
         int $standardDayMinutes = 480,
-    ): \App\Modules\Time\Models\LegalEntityCalendar {
+    ): LegalEntityCalendar {
         $this->assertTimezone($timezone);
         $this->assertWorkweek($workweek);
 
@@ -39,11 +41,8 @@ final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityC
             ]);
         }
 
-        return \App\Modules\Time\Models\LegalEntityCalendar::query()->updateOrCreate(
-            [
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $legalEntityId,
-            ],
+        return LegalEntityCalendar::query()->updateOrCreate(
+            ['id' => 1],
             [
                 'timezone' => $timezone,
                 'workweek_json' => array_values(array_map('intval', $workweek)),
@@ -55,58 +54,49 @@ final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityC
         );
     }
 
-    public function calendar(int $tenantId, int $legalEntityId): ?\App\Modules\Time\Models\LegalEntityCalendar
+    public function calendar(): ?LegalEntityCalendar
     {
-        return \App\Modules\Time\Models\LegalEntityCalendar::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
-            ->first();
+        return LegalEntityCalendar::query()->orderBy('id')->first();
     }
 
-    public function timezone(int $tenantId, int $legalEntityId): ?string
+    public function timezone(): ?string
     {
-        return $this->calendar($tenantId, $legalEntityId)?->timezone;
+        return $this->calendar()?->timezone;
     }
 
     /**
      * @return list<int>
      */
-    public function workweek(int $tenantId, int $legalEntityId): array
+    public function workweek(): array
     {
-        $calendar = $this->calendar($tenantId, $legalEntityId);
+        $calendar = $this->calendar();
 
         return $calendar === null ? [1, 2, 3, 4, 5] : array_values((array) $calendar->workweek_json);
     }
 
-    public function standardDayMinutes(int $tenantId, int $legalEntityId): int
+    public function standardDayMinutes(): int
     {
-        return (int) ($this->calendar($tenantId, $legalEntityId)->standard_day_minutes ?? 480);
+        return (int) ($this->calendar()->standard_day_minutes ?? 480);
     }
 
     public function addHoliday(
-        int $tenantId,
-        int $legalEntityId,
         string $date,
         string $name,
         string $type,
         ?string $source = null,
-    ): \App\Modules\Time\Models\Holiday {
+    ): Holiday {
         $this->assertDate($date);
 
         if (! in_array($type, ['PUBLIC', 'COMPANY', 'MAKEUP'], true)) {
             throw new ValidationException(['type' => ['Holiday type must be PUBLIC, COMPANY or MAKEUP.']]);
         }
 
-        if ($this->calendar($tenantId, $legalEntityId) === null) {
-            throw new ConflictException('Configure a legal entity calendar before adding holidays.');
+        if ($this->calendar() === null) {
+            throw new ConflictException('Configure the company calendar before adding holidays.');
         }
 
-        return \App\Modules\Time\Models\Holiday::query()->updateOrCreate(
-            [
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $legalEntityId,
-                'date' => $date,
-            ],
+        return Holiday::query()->updateOrCreate(
+            ['date' => $date],
             [
                 'name' => $name,
                 'type' => $type,
@@ -117,23 +107,19 @@ final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityC
         );
     }
 
-    public function holiday(int $tenantId, int $legalEntityId, string $date): ?\App\Modules\Time\Models\Holiday
+    public function holiday(string $date): ?Holiday
     {
-        return \App\Modules\Time\Models\Holiday::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
-            ->where('date', $date)
-            ->first();
+        return Holiday::query()->where('date', $date)->first();
     }
 
     /**
      * A MAKEUP day forces work even on a weekend; PUBLIC/COMPANY force rest
      * even on a weekday. Otherwise weekday membership decides.
      */
-    public function isRestDay(int $tenantId, int $legalEntityId, string $date): bool
+    public function isRestDay(string $date): bool
     {
         $this->assertDate($date);
-        $holiday = $this->holiday($tenantId, $legalEntityId, $date);
+        $holiday = $this->holiday($date);
 
         if ($holiday !== null) {
             return $holiday->type !== 'MAKEUP';
@@ -141,12 +127,12 @@ final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityC
 
         $weekday = CarbonImmutable::parse($date)->dayOfWeekIso;
 
-        return ! in_array($weekday, $this->workweek($tenantId, $legalEntityId), true);
+        return ! in_array($weekday, $this->workweek(), true);
     }
 
-    public function isWorkingDay(int $tenantId, int $legalEntityId, string $date): bool
+    public function isWorkingDay(string $date): bool
     {
-        return ! $this->isRestDay($tenantId, $legalEntityId, $date);
+        return ! $this->isRestDay($date);
     }
 
     public function assertTimezone(string $timezone): void
@@ -185,6 +171,6 @@ final class BusinessCalendar implements \App\Modules\Time\Contracts\LegalEntityC
 
     private function assertDate(string $date): void
     {
-        \App\Shared\Time\BusinessDate::parse($date);
+        BusinessDate::parse($date);
     }
 }

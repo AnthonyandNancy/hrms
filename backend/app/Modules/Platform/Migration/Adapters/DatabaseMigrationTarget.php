@@ -71,34 +71,34 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return null;
     }
 
-    public function apply(MigrationRow $row, int $tenantId, int $runId): TargetWriteResult
+    public function apply(MigrationRow $row, int $runId): TargetWriteResult
     {
         if (! $this->isAvailable()) {
             throw TargetUnavailableException::forDomain($this->domain->value, (string) $this->unavailableReason());
         }
 
         return match ($this->domain) {
-            MigrationDomain::ORGANIZATIONS => $this->applyOrganization($row, $tenantId),
-            MigrationDomain::PEOPLE => $this->applyPerson($row, $tenantId),
-            MigrationDomain::ASSIGNMENTS => $this->applyAssignment($row, $tenantId),
-            MigrationDomain::TERMS => $this->applyTerms($row, $tenantId),
-            MigrationDomain::LEAVE_OPENINGS => $this->applyLeaveOpening($row, $tenantId),
-            MigrationDomain::PAYROLL_YTD => $this->applyPayrollYtd($row, $tenantId),
+            MigrationDomain::ORGANIZATIONS => $this->applyOrganization($row),
+            MigrationDomain::PEOPLE => $this->applyPerson($row),
+            MigrationDomain::ASSIGNMENTS => $this->applyAssignment($row),
+            MigrationDomain::TERMS => $this->applyTerms($row),
+            MigrationDomain::LEAVE_OPENINGS => $this->applyLeaveOpening($row),
+            MigrationDomain::PAYROLL_YTD => $this->applyPayrollYtd($row),
         };
     }
 
-    public function finalize(int $tenantId, int $runId): void
+    public function finalize(int $runId): void
     {
         if ($this->domain === MigrationDomain::ORGANIZATIONS) {
-            $this->rebuildOrganizationClosure($tenantId);
+            $this->rebuildOrganizationClosure();
         }
 
         if ($this->domain === MigrationDomain::ASSIGNMENTS) {
-            $this->resolveManagers($tenantId, $runId);
+            $this->resolveManagers($runId);
         }
     }
 
-    public function metrics(int $tenantId): TargetMetrics
+    public function metrics(): TargetMetrics
     {
         $table = match ($this->domain) {
             MigrationDomain::ORGANIZATIONS => 'org_units',
@@ -109,9 +109,9 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             MigrationDomain::PAYROLL_YTD => 'payroll_ytd',
         };
         // Reconciliation must compare the rows this migration is responsible
-        // for, not every row the tenant happens to own: a reused or
-        // demo-seeded tenant would otherwise never reconcile.
-        $query = DB::table($table)->where('tenant_id', $tenantId);
+        // for, not every row already present: a reused or demo-seeded database
+        // would otherwise never reconcile.
+        $query = DB::table($table);
 
         if ($this->domain === MigrationDomain::LEAVE_OPENINGS) {
             // Opening balances use their own source_type marker.
@@ -139,7 +139,7 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
     /**
      * @return list<string>
      */
-    public function rollbackStatements(int $tenantId, int $runId): array
+    public function rollbackStatements(int $runId): array
     {
         $statements = [];
         $stgIds = StagingRow::forDomain($this->domain)
@@ -153,7 +153,7 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
 
         foreach ($this->rollbackTables() as $table) {
             if (Schema::hasTable($table) && Schema::hasColumn($table, 'source_id')) {
-                $statements[] = "DELETE FROM {$table} WHERE tenant_id = {$tenantId} AND source_type IN ('MIGRATION','MIGRATION_OPENING') AND source_id IN ({$ids});";
+                $statements[] = "DELETE FROM {$table} WHERE source_type IN ('MIGRATION','MIGRATION_OPENING') AND source_id IN ({$ids});";
             }
         }
 
@@ -167,33 +167,31 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
     {
         return match ($this->domain) {
             MigrationDomain::ORGANIZATIONS => [
-                'legal_entities' => ['id', 'tenant_id', 'code'],
-                'org_units' => ['id', 'tenant_id', 'legal_entity_id', 'parent_id', 'code', 'name', 'type', 'valid_from', 'valid_to', 'source_type', 'source_id'],
+                'org_units' => ['id', 'parent_id', 'code', 'name', 'type', 'valid_from', 'valid_to', 'source_type', 'source_id'],
                 'org_unit_closure' => ['ancestor_id', 'descendant_id', 'depth', 'valid_from', 'valid_to'],
             ],
             MigrationDomain::PEOPLE => [
-                'legal_entities' => ['id', 'tenant_id', 'code'],
-                'persons' => ['id', 'tenant_id', 'legal_name', 'id_type', 'id_number_ciphertext', 'id_number_hash', 'birth_date'],
-                'employments' => ['id', 'tenant_id', 'person_id', 'legal_entity_id', 'employee_no', 'employment_type', 'status', 'valid_from', 'valid_to', 'hire_date', 'termination_date', 'source_type', 'source_id'],
+                'persons' => ['id', 'legal_name', 'id_type', 'id_number_ciphertext', 'id_number_hash', 'birth_date'],
+                'employments' => ['id', 'person_id', 'employee_no', 'employment_type', 'status', 'valid_from', 'valid_to', 'hire_date', 'termination_date', 'source_type', 'source_id'],
             ],
             MigrationDomain::ASSIGNMENTS => [
-                'employments' => ['id', 'tenant_id', 'employee_no'],
-                'org_units' => ['id', 'tenant_id', 'code'],
-                'assignments' => ['id', 'tenant_id', 'employment_id', 'org_unit_id', 'position_id', 'manager_assignment_id', 'assignment_type', 'is_primary', 'valid_from', 'valid_to', 'source_type', 'source_id'],
+                'employments' => ['id', 'employee_no'],
+                'org_units' => ['id', 'code'],
+                'assignments' => ['id', 'employment_id', 'org_unit_id', 'position_id', 'manager_assignment_id', 'assignment_type', 'is_primary', 'valid_from', 'valid_to', 'source_type', 'source_id'],
             ],
             MigrationDomain::TERMS => [
-                'employments' => ['id', 'tenant_id', 'employee_no'],
-                'employment_terms' => ['id', 'tenant_id', 'employment_id', 'version', 'effective_from', 'effective_to', 'probation_end_date', 'salary_scheme_code', 'source_type', 'source_id'],
+                'employments' => ['id', 'employee_no'],
+                'employment_terms' => ['id', 'employment_id', 'version', 'effective_from', 'effective_to', 'probation_end_date', 'salary_scheme_code', 'source_type', 'source_id'],
             ],
             MigrationDomain::LEAVE_OPENINGS => [
-                'employments' => ['id', 'tenant_id', 'employee_no'],
-                'leave_types' => ['id', 'tenant_id', 'code'],
-                'leave_accounts' => ['id', 'tenant_id', 'employment_id', 'leave_type_id', 'opened_on', 'closed_on'],
-                'leave_ledger_entries' => ['id', 'tenant_id', 'employment_id', 'leave_type_id', 'account', 'quantity_minutes', 'business_date', 'effective_on', 'source_type', 'source_id'],
+                'employments' => ['id', 'employee_no'],
+                'leave_types' => ['id', 'code'],
+                'leave_accounts' => ['id', 'employment_id', 'leave_type_id', 'opened_on', 'closed_on'],
+                'leave_ledger_entries' => ['id', 'employment_id', 'leave_type_id', 'account', 'quantity_minutes', 'business_date', 'effective_on', 'source_type', 'source_id'],
             ],
             MigrationDomain::PAYROLL_YTD => [
-                'employments' => ['id', 'tenant_id', 'employee_no'],
-                'payroll_ytd' => ['id', 'tenant_id', 'employment_id', 'tax_year', 'taxable_income_cents', 'tax_withheld_cents', 'social_insurance_cents', 'housing_fund_cents', 'gross_cents', 'net_cents'],
+                'employments' => ['id', 'employee_no'],
+                'payroll_ytd' => ['id', 'employment_id', 'tax_year', 'taxable_income_cents', 'tax_withheld_cents', 'social_insurance_cents', 'housing_fund_cents', 'gross_cents', 'net_cents'],
             ],
         };
     }
@@ -213,18 +211,15 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         };
     }
 
-    private function applyOrganization(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyOrganization(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $legalEntityId = $this->legalEntityId($tenantId, (string) $data['legal_entity_code']);
         $mappedId = isset($data['mapped_org_id']) && is_int($data['mapped_org_id']) ? $data['mapped_org_id'] : null;
-        $existing = DB::table('org_units')->where('tenant_id', $tenantId)->where('code', $data['code'])->first();
-        $parentId = $this->organizationId($tenantId, (string) ($data['parent_code'] ?? ''));
+        $existing = DB::table('org_units')->where('code', $data['code'])->first();
+        $parentId = $this->organizationId((string) ($data['parent_code'] ?? ''));
 
         $attributes = [
-            'tenant_id' => $tenantId,
-            'legal_entity_id' => $legalEntityId,
             'parent_id' => $parentId,
             'code' => $data['code'],
             'name' => $data['name'],
@@ -239,7 +234,7 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         ];
 
         if ($existing instanceof stdClass) {
-            if ($this->sameAttributes($existing, $attributes, ['parent_id', 'name', 'type', 'valid_from', 'valid_to', 'legal_entity_id'])) {
+            if ($this->sameAttributes($existing, $attributes, ['parent_id', 'name', 'type', 'valid_from', 'valid_to'])) {
                 return new TargetWriteResult((int) $existing->id, TargetWriteResult::SKIPPED, true);
             }
 
@@ -265,16 +260,14 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($id, TargetWriteResult::CREATED);
     }
 
-    private function applyPerson(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyPerson(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $legalEntityId = $this->legalEntityId($tenantId, (string) $data['legal_entity_code']);
         $person = null;
 
         if (($data['id_number_hash'] ?? '') !== '') {
             $person = DB::table('persons')
-                ->where('tenant_id', $tenantId)
                 ->where('id_type', $data['id_type'])
                 ->where('id_number_hash', $data['id_number_hash'])
                 ->first();
@@ -282,7 +275,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
 
         if (! $person instanceof stdClass) {
             $personId = (int) DB::table('persons')->insertGetId([
-                'tenant_id' => $tenantId,
                 'legal_name' => $data['legal_name'],
                 'id_type' => $data['id_type'],
                 'id_number_ciphertext' => $data['id_number_ciphertext'],
@@ -298,15 +290,11 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         }
 
         $employment = DB::table('employments')
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('employee_no', $data['employee_no'])
             ->first();
 
         $attributes = [
-            'tenant_id' => $tenantId,
             'person_id' => $personId,
-            'legal_entity_id' => $legalEntityId,
             'employee_no' => $data['employee_no'],
             'employment_type' => $data['employment_type'],
             'status' => $data['status'],
@@ -355,29 +343,27 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($employmentId, $personReplayed ? TargetWriteResult::SKIPPED : TargetWriteResult::CREATED);
     }
 
-    private function applyAssignment(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyAssignment(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $employmentId = $this->employmentId($tenantId, (string) $data['employment_no']);
-        $orgUnitId = $this->organizationId($tenantId, (string) $data['org_code']);
+        $employmentId = $this->employmentId((string) $data['employment_no']);
+        $orgUnitId = $this->organizationId((string) $data['org_code']);
 
         if ($orgUnitId === null) {
             throw new RuntimeException("Assignment references unknown organization '{$data['org_code']}'.");
         }
 
         $existing = DB::table('assignments')
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('valid_from', $data['valid_from'])
             ->where('is_primary', $data['is_primary'] ? 1 : 0)
             ->first();
 
         $attributes = [
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'org_unit_id' => $orgUnitId,
-            'position_id' => $this->positionId($tenantId, (string) ($data['position_code'] ?? '')),
+            'position_id' => $this->positionId((string) ($data['position_code'] ?? '')),
             'manager_assignment_id' => null,
             'assignment_type' => $data['assignment_type'],
             'is_primary' => $data['is_primary'] ? 1 : 0,
@@ -412,19 +398,17 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($id, TargetWriteResult::CREATED);
     }
 
-    private function applyTerms(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyTerms(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $employmentId = $this->employmentId($tenantId, (string) $data['employment_no']);
+        $employmentId = $this->employmentId((string) $data['employment_no']);
         $existing = DB::table('employment_terms')
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('version', $data['version'])
             ->first();
 
         $attributes = [
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'version' => $data['version'],
             'effective_from' => $data['effective_from'],
@@ -481,22 +465,20 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($id, TargetWriteResult::CREATED);
     }
 
-    private function applyLeaveOpening(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyLeaveOpening(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $employmentId = $this->employmentId($tenantId, (string) $data['employment_no']);
+        $employmentId = $this->employmentId((string) $data['employment_no']);
         $leaveTypeId = (int) DB::table('leave_types')
-            ->where('tenant_id', $tenantId)
             ->where('code', $data['leave_type'])
             ->value('id');
 
         if ($leaveTypeId === 0) {
-            throw new RuntimeException("Leave type '{$data['leave_type']}' is not configured for tenant {$tenantId}.");
+            throw new RuntimeException("Leave type '{$data['leave_type']}' is not configured.");
         }
 
         $accountId = DB::table('leave_accounts')
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->whereNull('closed_on')
@@ -504,7 +486,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
 
         if ($accountId === null) {
             $accountId = (int) DB::table('leave_accounts')->insertGetId([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'leave_type_id' => $leaveTypeId,
                 'opened_on' => $data['business_date'],
@@ -519,7 +500,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         // the staging row id: a re-run of the same file must be a no-op, while
         // two genuinely different openings must both survive.
         $existing = DB::table('leave_ledger_entries')
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('leave_type_id', $leaveTypeId)
             ->where('account', 'GRANT')
@@ -540,7 +520,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         // tamper-evidence digest; compute it with the same recipe the Time
         // ledger service uses instead of inserting a default.
         $entryHash = hash('sha256', implode('|', [
-            $tenantId,
             $employmentId,
             $leaveTypeId,
             'GRANT',
@@ -552,7 +531,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         ]));
 
         $id = (int) DB::table('leave_ledger_entries')->insertGetId([
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'leave_type_id' => $leaveTypeId,
             'account' => 'GRANT',
@@ -576,19 +554,17 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($id, TargetWriteResult::CREATED);
     }
 
-    private function applyPayrollYtd(MigrationRow $row, int $tenantId): TargetWriteResult
+    private function applyPayrollYtd(MigrationRow $row): TargetWriteResult
     {
         $data = $row->data;
         $now = CarbonImmutable::now('UTC');
-        $employmentId = $this->employmentId($tenantId, (string) $data['employment_no']);
+        $employmentId = $this->employmentId((string) $data['employment_no']);
         $existing = DB::table('payroll_ytd')
-            ->where('tenant_id', $tenantId)
             ->where('employment_id', $employmentId)
             ->where('tax_year', $data['tax_year'])
             ->first();
 
         $attributes = [
-            'tenant_id' => $tenantId,
             'employment_id' => $employmentId,
             'tax_year' => $data['tax_year'],
             'taxable_income_cents' => $data['taxable_cents'],
@@ -618,46 +594,35 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return new TargetWriteResult($id, TargetWriteResult::CREATED);
     }
 
-    private function legalEntityId(int $tenantId, string $code): int
+    private function employmentId(string $employeeNo): int
     {
-        $id = DB::table('legal_entities')->where('tenant_id', $tenantId)->where('code', $code)->value('id');
+        $id = DB::table('employments')->where('employee_no', $employeeNo)->value('id');
 
         if ($id === null) {
-            throw new RuntimeException("Legal entity '{$code}' is not configured for tenant {$tenantId}.");
+            throw new RuntimeException("Employment '{$employeeNo}' is not configured.");
         }
 
         return (int) $id;
     }
 
-    private function employmentId(int $tenantId, string $employeeNo): int
-    {
-        $id = DB::table('employments')->where('tenant_id', $tenantId)->where('employee_no', $employeeNo)->value('id');
-
-        if ($id === null) {
-            throw new RuntimeException("Employment '{$employeeNo}' is not configured for tenant {$tenantId}.");
-        }
-
-        return (int) $id;
-    }
-
-    private function organizationId(int $tenantId, string $code): ?int
+    private function organizationId(string $code): ?int
     {
         if ($code === '') {
             return null;
         }
 
-        $id = DB::table('org_units')->where('tenant_id', $tenantId)->where('code', $code)->value('id');
+        $id = DB::table('org_units')->where('code', $code)->value('id');
 
         return $id === null ? null : (int) $id;
     }
 
-    private function positionId(int $tenantId, string $code): ?int
+    private function positionId(string $code): ?int
     {
         if ($code === '' || ! Schema::hasTable('positions')) {
             return null;
         }
 
-        $id = DB::table('positions')->where('tenant_id', $tenantId)->where('code', $code)->value('id');
+        $id = DB::table('positions')->where('code', $code)->value('id');
 
         return $id === null ? null : (int) $id;
     }
@@ -680,9 +645,9 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         return true;
     }
 
-    private function rebuildOrganizationClosure(int $tenantId): void
+    private function rebuildOrganizationClosure(): void
     {
-        $units = DB::table('org_units')->where('tenant_id', $tenantId)->get()->keyBy('id');
+        $units = DB::table('org_units')->get()->keyBy('id');
         $now = CarbonImmutable::now('UTC');
 
         foreach ($units as $unit) {
@@ -697,7 +662,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
                         'valid_from' => $unit->valid_from,
                     ],
                     [
-                        'tenant_id' => $tenantId,
                         'depth' => $depth,
                         'valid_to' => $unit->valid_to,
                         // org_unit_closure has no created_at column; it records
@@ -714,7 +678,7 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
         }
     }
 
-    private function resolveManagers(int $tenantId, int $runId): void
+    private function resolveManagers(int $runId): void
     {
         $rows = StagingRow::forDomain(MigrationDomain::ASSIGNMENTS)
             ->newQuery()
@@ -736,7 +700,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             }
 
             $managerEmploymentId = DB::table('employments')
-                ->where('tenant_id', $tenantId)
                 ->where('employee_no', $managerEmployeeNo)
                 ->value('id');
 
@@ -745,7 +708,6 @@ final class DatabaseMigrationTarget implements DatabaseMigrationTargetPort
             }
 
             $managerAssignmentId = DB::table('assignments')
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $managerEmploymentId)
                 ->where('is_primary', 1)
                 ->where('valid_from', '<=', $assignment->valid_from)

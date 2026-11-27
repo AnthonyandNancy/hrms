@@ -10,7 +10,7 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  * Thin HTTP adapter for the K9 recruitment funnel.
  *
  * Reads are projected through ProjectionResponder; writes go through
- * CommandRunner so every mutation has bounded idempotency and tenant binding.
+ * CommandRunner so every mutation has bounded idempotency and company context.
  * Capability and anchor checks remain route middleware responsibilities.
  */
 final class RecruitmentFunnelController
@@ -27,27 +27,27 @@ final class RecruitmentFunnelController
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
         private readonly RecruitmentFunnelService $funnel,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function board(Request $request): JsonResponse
     {
-        return $this->projections->ok($this->funnel->board($this->tenantId(), $this->asOf($request)));
+        return $this->projections->ok($this->funnel->board($this->asOf($request)));
     }
 
     public function budget(Request $request): JsonResponse
     {
-        return $this->projections->ok($this->funnel->budget($this->tenantId(), $this->asOf($request)));
+        return $this->projections->ok($this->funnel->budget($this->asOf($request)));
     }
 
     public function reports(Request $request): JsonResponse
     {
-        return $this->projections->ok($this->funnel->reports($this->tenantId(), $this->asOf($request)));
+        return $this->projections->ok($this->funnel->reports($this->asOf($request)));
     }
 
     public function candidates(Request $request): JsonResponse
     {
-        return $this->projections->ok($this->funnel->candidates($this->tenantId(), $this->userId(), $this->asOf($request)));
+        return $this->projections->ok($this->funnel->candidates($this->userId(), $this->asOf($request)));
     }
 
     public function importCandidates(Request $request): JsonResponse
@@ -63,13 +63,13 @@ final class RecruitmentFunnelController
             'recruitment.candidate.import',
             'recruitment.candidate.import',
             $data,
-            fn (int $tenantId, int $actorUserId): array => $this->funnel->importCandidates($tenantId, $actorUserId, $data),
+            fn (int $actorUserId): array => $this->funnel->importCandidates($actorUserId, $data),
         );
     }
 
     public function evaluations(Request $request, int $id): JsonResponse
     {
-        return $this->projections->ok($this->funnel->evaluations($this->tenantId(), $this->userId(), $id, $this->asOf($request)));
+        return $this->projections->ok($this->funnel->evaluations($this->userId(), $id, $this->asOf($request)));
     }
 
     public function storeEvaluation(Request $request, int $id): JsonResponse
@@ -88,13 +88,13 @@ final class RecruitmentFunnelController
             'recruitment.evaluation',
             'recruitment.evaluation.manage',
             $data,
-            fn (int $tenantId, int $actorUserId): array => $this->funnel->createEvaluation($tenantId, $actorUserId, $id, $data),
+            fn (int $actorUserId): array => $this->funnel->createEvaluation($actorUserId, $id, $data),
         );
     }
 
     public function communications(Request $request, int $id): JsonResponse
     {
-        return $this->projections->ok($this->funnel->communications($this->tenantId(), $this->userId(), $id, $this->asOf($request)));
+        return $this->projections->ok($this->funnel->communications($this->userId(), $id, $this->asOf($request)));
     }
 
     public function storeCommunication(Request $request, int $id): JsonResponse
@@ -113,13 +113,13 @@ final class RecruitmentFunnelController
             'recruitment.communication',
             'recruitment.communication.manage',
             $data,
-            fn (int $tenantId, int $actorUserId): array => $this->funnel->createCommunication($tenantId, $actorUserId, $id, $data),
+            fn (int $actorUserId): array => $this->funnel->createCommunication($actorUserId, $id, $data),
         );
     }
 
     public function talentPool(Request $request, int $id): JsonResponse
     {
-        return $this->projections->ok($this->funnel->talentPool($this->tenantId(), $this->userId(), $id, $this->asOf($request)));
+        return $this->projections->ok($this->funnel->talentPool($this->userId(), $id, $this->asOf($request)));
     }
 
     public function storeTalentPoolTag(Request $request, int $id): JsonResponse
@@ -135,14 +135,13 @@ final class RecruitmentFunnelController
             'recruitment.talent-pool',
             'recruitment.talent-pool.manage',
             $data,
-            fn (int $tenantId, int $actorUserId): array => $this->funnel->createTalentPoolTag($tenantId, $actorUserId, $id, $data),
+            fn (int $actorUserId): array => $this->funnel->createTalentPoolTag($actorUserId, $id, $data),
         );
     }
 
     public function convert(Request $request, int $id): JsonResponse
     {
         $data = $request->validate([
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'employee_no' => ['required', 'string', 'max:64'],
             'hire_date' => ['nullable', 'date_format:Y-m-d'],
@@ -164,7 +163,7 @@ final class RecruitmentFunnelController
             $definition,
             ['candidate_id' => $id, ...$data],
             function () use ($id, $data, $principal): array {
-                $body = $this->funnel->convertCandidate($principal->tenantId(), $principal->userId(), $id, $data);
+                $body = $this->funnel->convertCandidate($principal->userId(), $id, $data);
 
                 return [
                     'http_status' => 201,
@@ -190,7 +189,7 @@ final class RecruitmentFunnelController
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  \Closure(int, int): array<string, mixed>  $operation
+     * @param  \Closure(int): array<string, mixed>  $operation
      */
     private function runCommand(Request $request, string $scope, string $capability, array $payload, \Closure $operation): JsonResponse
     {
@@ -212,7 +211,7 @@ final class RecruitmentFunnelController
             function () use ($operation, $principal): array {
                 return [
                     'http_status' => 201,
-                    'body' => $operation($principal->tenantId(), $principal->userId()),
+                    'body' => $operation($principal->userId()),
                     'resource_type' => 'talent',
                 ];
             },
@@ -235,11 +234,6 @@ final class RecruitmentFunnelController
         return app(\App\Shared\Authorization\PrincipalResolver::class)->resolve();
     }
 
-    private function tenantId(): int
-    {
-        return $this->principal()->tenantId();
-    }
-
     private function userId(): int
     {
         return $this->principal()->userId();
@@ -249,7 +243,6 @@ final class RecruitmentFunnelController
     {
         return $this->businessDates->resolve(
             is_string($request->query('as_of')) ? $request->query('as_of') : null,
-            $this->tenantId(),
         )->value();
     }
 }

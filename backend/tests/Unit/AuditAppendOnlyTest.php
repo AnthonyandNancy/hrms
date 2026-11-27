@@ -15,7 +15,6 @@ class AuditAppendOnlyTest extends TestCase
     public function test_creating_audit_event_persists_json_payloads(): void
     {
         $event = AuditEvent::query()->create([
-            'tenant_id' => 1,
             'actor_user_id' => 7,
             'actor_type' => 'USER',
             'action' => 'user.updated',
@@ -64,7 +63,6 @@ class AuditAppendOnlyTest extends TestCase
     private function attributes(): array
     {
         return [
-            'tenant_id' => 1,
             'actor_type' => 'SYSTEM',
             'action' => 'test.action',
             'aggregate_type' => 'test',

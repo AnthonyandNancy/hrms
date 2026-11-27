@@ -11,7 +11,6 @@ final readonly class WorkflowCaseSnapshot
      */
     public function __construct(
         public int $id,
-        public int $tenantId,
         public int $requesterUserId,
         public string $type,
         public string $subjectType,

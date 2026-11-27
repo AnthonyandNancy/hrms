@@ -36,8 +36,8 @@ final class ReportService
      */
     public function run(Principal $principal, string $code, string $asOf, array $filters = []): array
     {
-        $this->projections->ensure($principal->tenantId(), $asOf);
-        $definition = $this->definition($principal->tenantId(), $code);
+        $this->projections->ensure($asOf);
+        $definition = $this->definition($code);
         $fields = (array) $definition['fields'];
         $visible = $this->fieldSet($fields);
         $result = $this->rows($principal, $code, $asOf, $filters, $fields);
@@ -48,7 +48,6 @@ final class ReportService
         }
 
         $run = ReportRun::query()->create([
-            'tenant_id' => $principal->tenantId(),
             'definition_code' => (string) $definition['code'],
             'as_of' => $asOf,
             'filters_json' => $filters,
@@ -101,7 +100,7 @@ final class ReportService
             throw new ValidationException(['fields' => ['At least one export field is required.']], 'The given data was invalid.', ['reason' => 'EXPORT_FIELDS_REQUIRED']);
         }
 
-        $definition = $this->definition($principal->tenantId(), $code);
+        $definition = $this->definition($code);
         $catalogFields = (array) $definition['fields'];
         $byKey = [];
 
@@ -148,10 +147,10 @@ final class ReportService
     /**
      * @return array<string, mixed>
      */
-    public function definition(int $tenantId, string $code): array
+    public function definition(string $code): array
     {
-        $this->catalog->syncForTenant($tenantId);
-        $definitions = $this->catalog->payloadForTenant($tenantId);
+        $this->catalog->syncSystemDefinitions();
+        $definitions = $this->catalog->allActive();
 
         foreach ($definitions as $definition) {
             if ($definition['code'] === $code) {
@@ -201,7 +200,7 @@ final class ReportService
         if ($metric === null) {
             // A stored custom definition is only a subset over an approved
             // metric/projection; it must not need report-specific PHP.
-            $metric = $this->metricForDefinition($principal->tenantId(), $code);
+            $metric = $this->metricForDefinition($code);
         }
 
         $result = $this->metrics->query($principal, $metric, $asOf, $filters);
@@ -234,9 +233,9 @@ final class ReportService
      * Map a stored definition's source projection to the same metric query.
      * Custom definitions cannot select a different data source at run time.
      */
-    private function metricForDefinition(int $tenantId, string $code): string
+    private function metricForDefinition(string $code): string
     {
-        $definition = $this->definition($tenantId, $code);
+        $definition = $this->definition($code);
         $source = (string) ($definition['sourceProjection'] ?? '');
 
         return match ($source) {
@@ -321,11 +320,10 @@ final class ReportService
         }
 
         $this->sensitiveAudit->record(
-            tenantId: $principal->tenantId(),
             userId: $principal->userId(),
+            capabilityCode: $definitionCode === null ? 'reporting.report.read' : 'reporting.export',
             resourceType: $definitionCode === null ? 'report_run' : 'report_export',
-            resourceId: $run !== null ? (string) $run->id : $definitionCode,
-            capability: $definitionCode === null ? 'reporting.report.read' : 'reporting.export',
+            resourceId: $run !== null ? (int) $run->id : null,
             fields: $sensitive,
             context: [
                 'definition_code' => $definitionCode ?? ($run !== null ? (string) $run->definition_code : null),

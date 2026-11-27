@@ -26,10 +26,10 @@
 
 | 册 | 计划文件 | 目标 | 主要退出证据 |
 |---|---|---|---|
-| 第 1 册 | `2026-11-26-v2-1-volume-1-decisions-baseline-contracts.md` | 决策、基线、160/140 处置、页面/动作/权限/API/展示契约、失败门禁 | 基线证据、处置表、契约测试、门禁反例失败清单 |
-| 第 2 册 | `2026-11-26-v2-1-volume-2-permissions-company-login.md` | 单公司 cutover、权限闭环、用户/角色/菜单/范围/字段工作台、密码登录 | 迁移演练、备份恢复、五角色矩阵、MFA 关闭 API 证据 |
-| 第 3 册 | `2026-11-26-v2-1-volume-3-employee-domains.md` | 员工样板与全部业务域 | 各域真实读写、字段/范围权限、跨域 E2E、性能基线 |
-| 第 4 册 | `2026-11-26-v2-1-volume-4-platform-release.md` | 平台收敛、真实栈、性能、备份恢复、发布 | 全量门禁、五角色 UAT、回滚演练、最终 GO/NO-GO |
+| 第 1 册 ✅ | `2026-11-26-v2-1-volume-1-decisions-baseline-contracts.md` | 决策、基线、160/140 处置、页面/动作/权限/API/展示契约、失败门禁 | 基线证据、处置表、契约测试、门禁反例失败清单 |
+| 第 2 册 ✅ | `2026-11-26-v2-1-volume-2-permissions-company-login.md` | 单公司 cutover、权限闭环、用户/角色/菜单/范围/字段工作台、密码登录 | 迁移演练、备份恢复、五角色矩阵、MFA 关闭 API 证据 |
+| 第 3 册 ✅ | `2026-11-26-v2-1-volume-3-employee-domains.md` | 员工样板与全部业务域 | 各域真实读写、字段/范围权限、跨域 E2E、性能基线 |
+| 第 4 册 ⚠️ | `2026-11-26-v2-1-volume-4-platform-release.md` | 平台收敛、真实栈、性能、备份恢复、发布 | 全量门禁、五角色 UAT、回滚演练、最终 GO/NO-GO |
 
 ---
 
@@ -39,19 +39,40 @@
 
 ### 3.1 页面模型
 
+唯一实现位置：`frontend/src/shared/navigation/pageModel.ts`（依赖自由，禁止从
+`@/router/registry` 导入类型，以免形成运行时循环）。`frontend/src/router/registry.ts`
+只做类型再导出并保存 `PAGE_REGISTRY` 数据。
+
 ```ts
 export type PageKind = 'workspace' | 'detail' | 'governance' | 'base'
 export type PageMenu = { group: string; label: string; order: number; icon: string } | null
+export type PageState = 'loading' | 'empty' | 'error' | 'forbidden' | 'partial'
+export type PageLayer = 'business' | 'platform' | 'base'
+export type PageWave = 'base' | 'Wave 2' | 'Wave 3' | 'Wave 4' | 'Wave 5'
+export type ClusterCode = 'K1' | ... | 'K12'
+export type PageActionSpec = {
+  key: string; label: string; capability: string; api: string
+  ui: 'primary' | 'secondary' | 'danger' | 'hidden'
+  confirm?: 'none' | 'danger' | 'sod'
+}
 
 export type PageSpec = {
   path: string
   name: string
   componentKey: string
   capability: string
-  kind: PageKind
   menu: PageMenu
+  kind: PageKind
   primaryObject?: string
   detailOf?: string
+  layer: PageLayer
+  wave: PageWave
+  requiredApis: string[]
+  actions: PageActionSpec[]
+  states: PageState[]
+  e2e: string[]
+  negativeTests: Array<'unauthenticated' | 'no_capability' | 'cross_anchor' | 'field_or_export'>
+  cluster?: ClusterCode
 }
 
 export function validatePageModel(pages: PageSpec[]): { ok: boolean; errors: string[] }
@@ -59,28 +80,31 @@ export function validatePageModel(pages: PageSpec[]): { ok: boolean; errors: str
 
 ### 3.2 动作清单
 
-生成文件：`docs/generated/page-actions.json`
+生成文件：`docs/generated/page-actions.json`（机器契约）与
+`frontend/src/generated/pageActions.ts`（前端构建时消费的冻结 TypeScript 模块；二者由同一命令生成）。
 
 ```json
 {
   "version": 1,
   "pages": {
-    "employees": [
+    "system-users": [
       {
-        "key": "employees.create",
-        "pageCode": "employees",
-        "label": "新增员工",
-        "capability": "people.employee.manage",
-        "api": "POST /v1/employees/onboard",
+        "key": "system-users.create",
+        "pageCode": "system-users",
+        "label": "新增用户",
+        "capability": "iam.user.manage",
+        "api": "POST /v1/users",
         "ui": "primary",
         "confirm": "none",
-        "anchorTypes": ["COMPANY", "ORG_UNIT", "ORG_SUBTREE"],
-        "fieldProfileMax": "P2_SENSITIVE"
+        "anchorTypes": ["ORG_UNIT", "ORG_SUBTREE", "COMPANY"],
+        "fieldProfileMax": "P1_INTERNAL"
       }
     ]
   }
 }
 ```
+
+> 员工建档 `POST /v1/employees/onboard` 是第 3 册新增契约；第 1 册只冻结生成器、输入格式与门禁，不得引用尚未存在的 operation。
 
 命令：`node scripts/generate_action_manifest.mjs`；校验：`node scripts/audit_action_manifest.mjs`。
 
@@ -148,6 +172,7 @@ role_pages（页面进入权）
 - [ ] 该册退出条件有证据文件与命令输出。
 - [ ] 新增/修改的 ADR 已评审并接受。
 - [ ] 相关门禁全绿；未执行项标 `NOT RUN` 且有阻断说明。
+- [ ] **唯一例外（命名且归属到关闭册）：** 第 1 册退出时，`NoTenantNoLegalEntityTest` 与三个存量页面门禁（`page-model:check`、`ui-primitives:check`、`copy:check`）可以对旧代码失败，但必须有逐条归属并在第 2/3 册退出时清零。除此之外不得带失败退出。
 - [ ] 代码评审无未关闭 Critical/Important 项。
 - [ ] 文档、OpenAPI、页面清单、权限矩阵与实现一致。
 - [ ] 进度记录写入 `.superpowers/sdd/progress.md` 或等价持久账本。
@@ -174,6 +199,7 @@ pnpm test:unit
 node scripts/audit_page_components.mjs
 node scripts/audit_frontend_modules.mjs
 node scripts/audit_action_manifest.mjs
+node scripts/audit_single_company.mjs
 node scripts/audit_page_model.mjs
 node scripts/audit_ui_primitives.mjs
 node scripts/audit_user_copy.mjs

@@ -40,7 +40,7 @@ final class TravelController
             'view' => ['sometimes', 'nullable', 'string', 'in:my_approvals'],
         ]);
         $approvalQueue = ($data['view'] ?? null) === 'my_approvals';
-        $items = $this->travel->listRequests($actor->tenantId, $employmentId, $actor->managedEmploymentIds, $approvalQueue);
+        $items = $this->travel->listRequests($employmentId, $actor->managedEmploymentIds, $approvalQueue);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -77,7 +77,7 @@ final class TravelController
             ),
             $payload,
             function () use ($actor, $payload): array {
-                $body = $this->travel->openRequest($actor->tenantId, (int) $payload['employment_id'], $payload, $actor->userId);
+                $body = $this->travel->openRequest((int) $payload['employment_id'], $payload, $actor->userId);
 
                 return [
                     'http_status' => 201,
@@ -114,7 +114,7 @@ final class TravelController
             ),
             ['employment_id' => $employmentId, ...$payload],
             function () use ($actor, $employmentId, $id, $payload): array {
-                $body = $this->travel->cancel($actor->tenantId, $employmentId, $id, (string) $payload['reason'], $actor->userId);
+                $body = $this->travel->cancel($employmentId, $id, (string) $payload['reason'], $actor->userId);
 
                 return [
                     'http_status' => 200,
@@ -155,15 +155,14 @@ final class TravelController
             ),
             $payload,
             function () use ($actor, $id, $payload): array {
-                $legalEntityWide = in_array($actor->scope, ['COMPANY', 'HR', 'ADMIN'], true);
+                $companyWide = $actor->scope === 'COMPANY';
                 $body = $this->travel->approve(
-                    $actor->tenantId,
                     $id,
                     (string) $payload['decision'],
                     (string) $payload['comment'],
                     $actor->userId,
                     $actor->managedEmploymentIds,
-                    $legalEntityWide,
+                    $companyWide,
                 );
 
                 return [

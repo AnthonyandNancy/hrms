@@ -8,7 +8,7 @@ use App\Shared\Money\RoundingMode;
 use InvalidArgumentException;
 
 /**
- * Versioned rounding policy for a payroll legal entity. V1 money is integer
+ * Versioned rounding policy for the company payroll configuration. V1 money is integer
  * cents, so the only supported monetary scale is 2; an unsupported scale is
  * rejected instead of being silently coerced.
  */

@@ -23,7 +23,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
-        $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
             $this->actingAsUser($user),
@@ -52,7 +51,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
-        $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
             $this->actingAsUser($user),
@@ -68,7 +66,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
-        $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields(
             $this->actingAsUser($user),
@@ -80,29 +77,18 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $set->assertFilterable('id_number');
     }
 
-    public function test_caller_without_field_coverage_gets_404_while_same_company_rows_are_covered(): void
+    public function test_unknown_resource_schema_yields_an_empty_field_set(): void
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
 
-        $this->assertTrue(
-            app(Authorizer::class)->fields(
-                $this->actingAsUser($user),
-                'people.employee.read',
-                $this->resourceRow(),
-            )->isVisible('display_name'),
+        $set = app(Authorizer::class)->fields(
+            $this->actingAsUser($user),
+            'people.employee.read',
+            new ResourceRef(resourceType: 'unknown_resource', id: 99, row: ['display_name' => 'Grace']),
         );
 
-        $otherTenant = new ResourceRef(
-            resourceType: 'employee',
-            id: 18,
-            row: ['display_name' => 'Grace'],
-            tenantId: 2,
-            employmentId: 502,
-        );
-
-        $this->expectException(\App\Shared\Exceptions\NotFoundOrForbiddenException::class);
-        app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $otherTenant);
+        $this->assertSame([], $set->profiles());
     }
 
     public function test_export_flag_only_applies_to_export_capability_and_never_unlocks_p3(): void
@@ -110,7 +96,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
         $this->grant($user, 'reporting.export', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
-        $this->organization->knownLegalEntities = [1];
 
         $readSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
         $exportSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'reporting.export', $this->resourceRow());
@@ -124,7 +109,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
-        $this->organization->knownLegalEntities = [1];
 
         app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
 
@@ -140,7 +124,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
         $this->grant($user, 'reporting.export', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
-        $this->organization->knownLegalEntities = [1];
 
         $set = app(Authorizer::class)->fields($this->actingAsUser($user), 'people.employee.read', $this->resourceRow());
         $exportSet = app(Authorizer::class)->fields($this->actingAsUser($user), 'reporting.export', $this->resourceRow());
@@ -156,7 +139,6 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     {
         $user = User::factory()->create();
         $this->grant($user, 'people.employee.read', AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED);
-        $this->organization->knownLegalEntities = [1];
 
         app(Authorizer::class)->fields(
             $this->actingAsUser($user),
@@ -171,7 +153,7 @@ final class FieldProjectionTest extends AuthorizationTestSupport
     private function grant(User $user, string $capability, AnchorType $anchor, ?int $anchorId, FieldProfile $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal((int) $user->tenant_id, (int) $user->id, (int) $user->auth_version)
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
             ->anchor($anchor, $anchorId, $profile)
             ->create(['capability_code' => $capability]);
     }
@@ -188,10 +170,8 @@ final class FieldProjectionTest extends AuthorizationTestSupport
                 'salary' => '999999',
                 'health' => 'sensitive',
             ],
-            tenantId: 1,
             employmentId: 501,
             orgUnitId: 12,
-            legalEntityId: 1,
         );
     }
 }

@@ -29,7 +29,6 @@ abstract class TimeHttpTestCase extends TimeTestCase
     {
         $this->actAsTimeActor($actor);
         $principal = new TestPrincipal(
-            tenantId: $actor->tenantId,
             userId: $userId ?? $actor->userId,
             employmentId: $actor->employmentId,
         );

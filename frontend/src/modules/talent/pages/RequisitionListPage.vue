@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import TalentWorkspacePage from '../components/TalentWorkspacePage.vue'
-import { talentPageConfig } from '../catalog'
+import RequisitionWorkspacePage from '../recruiting/pages/RequisitionWorkspacePage.vue'
 
-const config = talentPageConfig('recruitment/requests/index')
-if (config === null) throw new Error('Missing Talent page config for recruitment/requests/index')
+defineOptions({ name: 'RequisitionListPage' })
 </script>
 
 <template>
-  <TalentWorkspacePage :config="config" />
+  <RequisitionWorkspacePage />
 </template>

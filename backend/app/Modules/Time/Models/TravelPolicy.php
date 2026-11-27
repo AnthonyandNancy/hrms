@@ -11,8 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * path exists for a historical version.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property string $city_tier
  * @property int $hotel_cap_cents
  * @property int $transport_cap_cents
@@ -30,8 +28,6 @@ final class TravelPolicy extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'city_tier',
         'hotel_cap_cents',
         'transport_cap_cents',
@@ -48,8 +44,6 @@ final class TravelPolicy extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'hotel_cap_cents' => 'integer',
             'transport_cap_cents' => 'integer',
             'effective_from' => 'immutable_date:Y-m-d',

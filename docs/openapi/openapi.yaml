@@ -510,6 +510,70 @@ components:
               format: date-time
         request_id:
           type: string
+    OnboardEmployeeRequest:
+      type: object
+      required: [person, employment, assignment, terms]
+      properties:
+        person:
+          type: object
+          required: [given_name, family_name]
+          properties:
+            given_name: { type: string, maxLength: 120 }
+            family_name: { type: string, maxLength: 120 }
+            national_id: { type: [string, "null"], maxLength: 64 }
+            id_type: { type: [string, "null"], enum: [CN_ID, PASSPORT, OTHER] }
+            mobile: { type: [string, "null"], maxLength: 32 }
+            email: { type: [string, "null"], format: email, maxLength: 255 }
+            birth_date: { type: [string, "null"], format: date }
+        employment:
+          type: object
+          required: [employee_no, hire_date]
+          properties:
+            employee_no: { type: string, maxLength: 64 }
+            hire_date: { type: string, format: date }
+            employment_type: { type: [string, "null"], maxLength: 32 }
+        assignment:
+          type: object
+          required: [org_unit_id]
+          properties:
+            org_unit_id: { type: integer, minimum: 1 }
+            position_id: { type: [integer, "null"], minimum: 1 }
+            valid_from: { type: [string, "null"], format: date }
+        terms:
+          type: object
+          required: [salary_minor, currency]
+          properties:
+            salary_minor:
+              type: integer
+              minimum: 1
+              description: Integer minor units; never a floating-point amount.
+            currency: { type: string, minLength: 3, maxLength: 3 }
+            work_location: { type: [string, "null"], maxLength: 120 }
+            work_schedule: { type: [string, "null"], maxLength: 64 }
+            effective_from: { type: [string, "null"], format: date }
+    OnboardedEmployee:
+      type: object
+      required: [person_id, employment_id, employee_no, assignment_id, terms_id, replayed]
+      properties:
+        person_id: { type: integer }
+        employment_id: { type: integer }
+        employee_no: { type: string }
+        assignment_id: { type: integer }
+        terms_id: { type: integer }
+        replayed: { type: boolean }
+    DepartmentWriteRequest:
+      type: object
+      required: [code, name, type, valid_from]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 160 }
+        parent_id: { type: [integer, "null"], minimum: 1 }
+        type:
+          type: string
+          enum: [COMPANY, DIVISION, DEPARTMENT, TEAM, COST_CENTER, SHARED_SERVICE]
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        valid_from: { type: string, format: date }
+        valid_to: { type: [string, "null"], format: date }
     Envelope:
       type: object
       required:
@@ -754,7 +818,6 @@ components:
       required:
         - employment_id
         - person_id
-        - legal_entity_id
         - employee_no
         - status
         - current_assignment
@@ -770,8 +833,6 @@ components:
             - "null"
         employee_no:
           type: string
-        legal_entity_id:
-          type: integer
         status:
           type: string
           enum:
@@ -916,14 +977,11 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - type
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parent_id:
           type:
@@ -1006,15 +1064,12 @@ components:
       type: object
       required:
         - person_id
-        - legal_entity_id
         - employee_no
         - employment_type
         - valid_from
         - hire_date
       properties:
         person_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employee_no:
           type: string
@@ -1159,13 +1214,10 @@ components:
     OrgUnitCreate:
       type: object
       required:
-        - legal_entity_id
         - code
         - name
         - type
       properties:
-        legal_entity_id:
-          type: integer
         parent_id:
           type:
             - integer
@@ -1551,7 +1603,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - org_unit_id
         - code
         - title
@@ -1564,8 +1615,6 @@ components:
         - valid_to
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         org_unit_id:
           type:
@@ -1891,7 +1940,6 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - contract_no
         - contract_type
         - start_date
@@ -1910,10 +1958,6 @@ components:
           type: integer
         employment_id:
           type: integer
-        legal_entity_id:
-          type:
-            - integer
-            - "null"
         contract_no:
           type: string
         contract_type:
@@ -2127,15 +2171,12 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - level
         - active
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -2160,7 +2201,6 @@ components:
       required:
         - assignment_id
         - employment_id
-        - legal_entity_id
         - position_id
         - assignment_type
         - is_primary
@@ -2170,8 +2210,6 @@ components:
         assignment_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employee_no:
           type: string
@@ -2398,7 +2436,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - parent_id
         - code
         - name
@@ -2411,8 +2448,6 @@ components:
         - valid_to
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parent_id:
           type:
@@ -2686,13 +2721,12 @@ components:
           type: [string, "null"]
     RecruitmentBoardRow:
       type: object
-      required: [requisition_id, requisition_no, title, status, legal_entity_id, org_unit_id, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, vacancy_count, fill_rate_bps]
+      required: [requisition_id, requisition_no, title, status, org_unit_id, headcount, openings_count, candidate_count, interview_count, offer_count, accepted_offers, hired_count, vacancy_count, fill_rate_bps]
       properties:
         requisition_id: {type: integer}
         requisition_no: {type: string}
         title: {type: string}
         status: {type: string}
-        legal_entity_id: {type: integer}
         org_unit_id: {type: integer}
         headcount: {type: integer, minimum: 0}
         openings_count: {type: integer, minimum: 0}
@@ -2705,13 +2739,12 @@ components:
         fill_rate_bps: {type: integer, minimum: 0, maximum: 10000}
     RecruitmentBudgetRow:
       type: object
-      required: [requisition_id, requisition_no, title, status, legal_entity_id, headcount, budget_minor, budget_currency, committed_offer_minor, budget_variance_minor, filled_headcount, vacancy_count]
+      required: [requisition_id, requisition_no, title, status, headcount, budget_minor, budget_currency, committed_offer_minor, budget_variance_minor, filled_headcount, vacancy_count]
       properties:
         requisition_id: {type: integer}
         requisition_no: {type: string}
         title: {type: string}
         status: {type: string}
-        legal_entity_id: {type: integer}
         headcount: {type: integer, minimum: 0}
         budget_minor:
           type: [integer, "null"]
@@ -2879,9 +2912,8 @@ components:
           format: date-time
     RecruitmentCandidateConversionRequest:
       type: object
-      required: [legal_entity_id, org_unit_id, employee_no]
+      required: [org_unit_id, employee_no]
       properties:
-        legal_entity_id: {type: integer, minimum: 1}
         org_unit_id: {type: integer, minimum: 1}
         employee_no: {type: string, maxLength: 64}
         hire_date:
@@ -2889,14 +2921,13 @@ components:
           format: date
     RecruitmentCandidateConversion:
       type: object
-      required: [conversion_id, candidate_id, employment_id, person_id, offer_id, legal_entity_id, org_unit_id, employee_no, status, converted_at, business_replayed]
+      required: [conversion_id, candidate_id, employment_id, person_id, offer_id, org_unit_id, employee_no, status, converted_at, business_replayed]
       properties:
         conversion_id: {type: integer}
         candidate_id: {type: integer}
         employment_id: {type: integer}
         person_id: {type: integer}
         offer_id: {type: integer}
-        legal_entity_id: {type: integer}
         org_unit_id: {type: integer}
         employee_no: {type: string}
         status: {type: string}
@@ -2960,8 +2991,95 @@ components:
       required:
         - password_changed
         - reauth_required
+        - sessions_revoked
       properties:
         password_changed:
+          type: boolean
+        reauth_required:
+          type: boolean
+        sessions_revoked:
+          type: boolean
+    AccountSessionItem:
+      type: object
+      required:
+        - id
+        - device
+        - ip
+        - current
+        - mfa_verified
+        - last_seen_at
+        - created_at
+        - absolute_expires_at
+      properties:
+        id:
+          type: string
+          description: Opaque ULID session identifier.
+          minLength: 26
+          maxLength: 26
+        device:
+          type: string
+          description: Server-derived readable device label; never the raw user agent.
+        ip:
+          type:
+            - string
+            - "null"
+        current:
+          type: boolean
+          description: True only for the session authenticating this request.
+        mfa_verified:
+          type: boolean
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        absolute_expires_at:
+          type: string
+          format: date-time
+    AccountSessionListData:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountSessionItem"
+    AccountSessionRevokeData:
+      type: object
+      required:
+        - revoked
+        - already_revoked
+        - current_session
+      properties:
+        revoked:
+          type: boolean
+        already_revoked:
+          type: boolean
+        current_session:
+          type: boolean
+    MfaStatusData:
+      type: object
+      required:
+        - enabled
+        - enrolled
+        - mfa_verified
+      properties:
+        enabled:
+          type: boolean
+          description: Deployment MFA flag (ADR-0038). False hides enrollment in the SPA; it never bypasses capability checks.
+        enrolled:
+          type: boolean
+        mfa_verified:
+          type: boolean
+    MfaDisableData:
+      type: object
+      required:
+        - disabled
+        - reauth_required
+      properties:
+        disabled:
           type: boolean
         reauth_required:
           type: boolean
@@ -2969,7 +3087,7 @@ components:
       type: object
       required:
         - id
-        - tenant_id
+        - company_name
         - username
         - email
         - employment_id
@@ -2977,14 +3095,12 @@ components:
         - has_mfa
         - mfa_verified
         - auth_version
-        - tenant_name
-        - legal_entity_name
         - roles
       properties:
         id:
           type: integer
-        tenant_id:
-          type: integer
+        company_name:
+          type: string
         username:
           type: string
         email:
@@ -3004,10 +3120,6 @@ components:
           type: boolean
         auth_version:
           type: integer
-        tenant_name:
-          type: string
-        legal_entity_name:
-          type: string
         roles:
           type: array
           items:
@@ -4034,7 +4146,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - type
@@ -4045,8 +4156,6 @@ components:
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -4091,7 +4200,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - currency
@@ -4104,8 +4212,6 @@ components:
         - items
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -4174,17 +4280,15 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - period
         - run_type
         - status
         - correction_of_run_id
         - pay_date
+        - employee_count
         - created_at
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         period:
           type: string
@@ -4214,6 +4318,9 @@ components:
         pay_date:
           type: string
           format: date
+        employee_count:
+          type: integer
+          minimum: 0
         created_at:
           type: string
           format: date-time
@@ -4404,13 +4511,10 @@ components:
           type: boolean
     PayrollCalculationResult:
       type: object
+      description: "Calculation counters plus the refreshed run. The four amount fields are omitted entirely when the caller lacks a per-run payroll.payslip.read grant at a money-revealing profile (P3); they are never returned as null or zero for such callers."
       required:
         - calculated
         - failed
-        - gross_cents
-        - deductions_cents
-        - net_cents
-        - employer_cost_cents
         - run
       properties:
         calculated:
@@ -4419,12 +4523,16 @@ components:
           type: integer
         gross_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         deductions_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         net_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         employer_cost_cents:
           type: integer
+          description: Present only when the caller may see amounts on this run.
         run:
           $ref: "#/components/schemas/PayrollRunDetail"
     PayrollCsvExport:
@@ -4537,7 +4645,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - parameter_set
         - code
         - value_decimal
@@ -4550,8 +4657,6 @@ components:
         - is_demo
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         parameter_set:
           type: string
@@ -5148,15 +5253,12 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - effective_from
         - currency
       properties:
         id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         effective_from:
           type: string
@@ -5184,7 +5286,6 @@ components:
       required:
         - id
         - employment_id
-        - legal_entity_id
         - effective_from
         - currency
         - case_id
@@ -5194,8 +5295,6 @@ components:
         id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         effective_from:
           type: string
@@ -5459,14 +5558,11 @@ components:
       type: object
       required:
         - closure_id
-        - legal_entity_id
         - month
         - status
         - replayed
       properties:
         closure_id:
-          type: integer
-        legal_entity_id:
           type: integer
         month:
           type: string
@@ -5485,7 +5581,7 @@ components:
           type: string
           enum:
             - SHIFT
-            - LEGAL_ENTITY
+            - COMPANY
             - NONE
         count_break:
           type: boolean
@@ -5531,15 +5627,12 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - employment_id
         - business_date
         - shift_template_id
         - created_by
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         employment_id:
           type: integer
@@ -5579,15 +5672,12 @@ components:
       type: object
       required:
         - schedule_id
-        - legal_entity_id
         - employment_id
         - business_date
         - shift_template_id
         - replayed
       properties:
         schedule_id:
-          type: integer
-        legal_entity_id:
           type: integer
         employment_id:
           type: integer
@@ -5602,13 +5692,10 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - month
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         month:
           type: string
@@ -5643,7 +5730,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - code
         - name
         - adapter
@@ -5651,8 +5737,6 @@ components:
         - active
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         code:
           type: string
@@ -6149,7 +6233,6 @@ components:
       type: object
       required:
         - id
-        - legal_entity_id
         - city_tier
         - hotel_cap_cents
         - transport_cap_cents
@@ -6158,8 +6241,6 @@ components:
         - status
       properties:
         id:
-          type: integer
-        legal_entity_id:
           type: integer
         city_tier:
           type: string
@@ -6185,7 +6266,6 @@ components:
         - id
         - travel_id
         - employment_id
-        - legal_entity_id
         - category
         - amount_cents
         - currency
@@ -6197,8 +6277,6 @@ components:
         travel_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         category:
           type: string
@@ -6246,8 +6324,8 @@ components:
       type: object
       required: [template, anchor_type, label, active, sort_order, description]
       properties:
-        template: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
-        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, LEGAL_ENTITY, CASE, PAYROLL_RUN] }
+        template: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN] }
+        anchor_type: { type: string, enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN] }
         label: { type: string }
         active: { type: boolean }
         sort_order: { type: integer, minimum: 0 }
@@ -6306,9 +6384,8 @@ components:
         sent_at: { type: [string, 'null'], format: date-time }
     CalendarVersion:
       type: object
-      required: [legal_entity_id, version, timezone, workweek, standard_day_minutes, holidays]
+      required: [version, timezone, workweek, standard_day_minutes, holidays]
       properties:
-        legal_entity_id: { type: integer }
         version: { type: integer, minimum: 1 }
         timezone: { type: string }
         workweek:
@@ -6354,6 +6431,36 @@ components:
         code: { type: string, maxLength: 64 }
         name: { type: string, maxLength: 120 }
         purpose: { type: string, minLength: 8, maxLength: 255 }
+    RoleAuthorizationRequest:
+      type: object
+      required: [pages, capabilities]
+      properties:
+        pages:
+          type: array
+          maxItems: 160
+          items:
+            type: string
+        capabilities:
+          type: array
+          maxItems: 64
+          items:
+            type: object
+            required: [capability, anchor_type, field_profile]
+            properties:
+              capability:
+                type: string
+              anchor_type:
+                type: string
+                enum: [SELF, MANAGED, ORG_UNIT, ORG_SUBTREE, COMPANY, CASE, PAYROLL_RUN]
+              field_profile:
+                type: string
+                enum: [P0_PUBLIC, P1_INTERNAL, P2_SENSITIVE, P3_RESTRICTED]
+              page_code:
+                type: string
+                description: Required when the capability is a page action.
+        reason:
+          type: [string, "null"]
+          maxLength: 255
     RoleCapabilitiesRequest:
       type: object
       required: [capabilities]
@@ -6522,7 +6629,6 @@ components:
         - id
         - code
         - name
-        - legal_entity_id
         - employer_rate
         - employee_rate
         - effective_from
@@ -6535,10 +6641,6 @@ components:
           type: string
         name:
           type: string
-        legal_entity_id:
-          type:
-            - integer
-            - "null"
         employer_rate:
           type: string
           pattern: '^(0|1)\.[0-9]{6,18}$'
@@ -6562,7 +6664,6 @@ components:
         - id
         - plan_id
         - employment_id
-        - legal_entity_id
         - base_amount_cents
         - employee_rate
         - employer_rate
@@ -6577,8 +6678,6 @@ components:
         plan_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         base_amount_cents:
           type: integer
@@ -6610,7 +6709,6 @@ components:
         - id
         - enrollment_id
         - employment_id
-        - legal_entity_id
         - period
         - base_amount_cents
         - employee_amount_cents
@@ -6624,8 +6722,6 @@ components:
         enrollment_id:
           type: integer
         employment_id:
-          type: integer
-        legal_entity_id:
           type: integer
         period:
           type: string
@@ -6979,6 +7075,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: iam.session.manage
+      x-action-label: 申请紧急授权
   /v1/auth/break-glass/{id}/revoke:
     post:
       operationId: revokeBreakGlass
@@ -7014,6 +7111,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 撤销紧急授权
   /v1/auth/events:
     get:
       operationId: listAuthEvents
@@ -7133,6 +7231,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 退出登录
   /v1/auth/logout-all:
     post:
       operationId: logoutAll
@@ -7162,6 +7261,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 退出全部会话
   /v1/auth/mfa/challenge:
     post:
       operationId: completeMfaChallenge
@@ -7258,6 +7358,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 完成二次验证
   /v1/auth/mfa/totp/confirm:
     post:
       operationId: confirmTotp
@@ -7305,6 +7406,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 确认动态口令
   /v1/auth/mfa/totp/enroll:
     post:
       operationId: enrollTotp
@@ -7334,6 +7436,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 绑定动态口令
   /v1/auth/password:
     post:
       operationId: changePassword
@@ -7359,6 +7462,11 @@ paths:
                   type: string
                   minLength: 12
                   format: password
+                new_password_confirmation:
+                  type: string
+                  minLength: 12
+                  format: password
+                  description: Optional client confirmation; when present it must equal new_password.
       responses:
         "200":
           description: Password changed; session revoked
@@ -7382,6 +7490,162 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 修改密码
+  /v1/auth/sessions:
+    get:
+      operationId: listAccountSessions
+      tags:
+        - IAM Auth
+      summary: List the caller's live server-side sessions
+      description: |
+        Only sessions owned by the caller are returned. The raw bearer and CSRF
+        hashes are never serialised; `device` is a readable label derived on the
+        server from the user agent and `current` marks this request's session.
+      responses:
+        "200":
+          description: Live sessions for the caller
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccountSessionListData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 查看登录会话
+  /v1/auth/sessions/{id}:
+    delete:
+      operationId: revokeAccountSession
+      tags:
+        - IAM Auth
+      summary: Revoke one of the caller's sessions
+      description: |
+        Sessions belonging to another user answer 404 (not 403) so ids cannot be
+        enumerated. Revoking the current session ends it and clears the cookie.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          description: Opaque ULID session identifier.
+          schema:
+            type: string
+            minLength: 26
+            maxLength: 26
+      responses:
+        "200":
+          description: Session revoked (idempotent)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccountSessionRevokeData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "419":
+          $ref: "#/components/responses/CsrfFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 撤销登录会话
+  /v1/auth/mfa/status:
+    get:
+      operationId: getMfaStatus
+      tags:
+        - IAM MFA
+      summary: Deployment MFA posture for the caller
+      description: |
+        `enabled` is the single ADR-0038 deployment switch. The SPA must hide
+        the MFA section when it is false and must never infer the flag locally.
+      responses:
+        "200":
+          description: MFA posture
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MfaStatusData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 查看多因素认证状态
+  /v1/auth/mfa/totp/disable:
+    post:
+      operationId: disableTotp
+      tags:
+        - IAM MFA
+      summary: Disable the caller's TOTP factor after factor proof
+      description: |
+        Requires a current TOTP code or an unused recovery code. Disabling a
+        factor revokes every session and requires re-authentication.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - factor_type
+                - code
+              properties:
+                factor_type:
+                  type: string
+                  enum:
+                    - TOTP
+                    - RECOVERY_CODE
+                code:
+                  type: string
+                  maxLength: 32
+      responses:
+        "200":
+          description: TOTP factor disabled; re-authentication required
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MfaDisableData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "419":
+          $ref: "#/components/responses/CsrfFailed"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 停用多因素认证
   /v1/auth/webauthn/assert/options:
     post:
       operationId: webauthnAssertOptions
@@ -7411,6 +7675,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 发起安全密钥验证
   /v1/auth/webauthn/register/options:
     post:
       operationId: webauthnRegisterOptions
@@ -7440,6 +7705,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
+      x-action-label: 注册安全密钥
   /v1/benefits/enrollments:
     get:
       operationId: benefitsEnrollmentsIndex
@@ -7547,6 +7813,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 登记社保基数调整
   /v1/benefits/plans:
     get:
       operationId: benefitsPlansIndex
@@ -7559,11 +7826,6 @@ paths:
           in: query
           schema:
             type: string
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
         - name: page
           in: query
           schema:
@@ -7630,10 +7892,6 @@ paths:
                     - string
                     - "null"
                   format: date
-                legal_entity_id:
-                  type:
-                    - integer
-                    - "null"
       responses:
         "201":
           description: Plan version created
@@ -7660,6 +7918,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 新增福利方案版本
   /v1/benefits/transactions:
     get:
       operationId: benefitsTransactionsIndex
@@ -7769,6 +8028,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
+      x-action-label: 登记福利缴款
   /v1/bindings/{id}:
     delete:
       operationId: deleteBinding
@@ -7806,6 +8066,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.binding.manage
+      x-action-label: 撤销授权绑定
   /v1/capabilities:
     get:
       operationId: listCapabilities
@@ -7833,13 +8094,21 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: iam.role.manage
+      x-capability: iam.permission.read
   /v1/cases:
     get:
       operationId: workflowCasesIndex
       tags:
         - Workflow
       summary: List cases visible to the caller
+      description: >
+        Returns cases visible through the caller's requester, task-assignee or
+        decision-actor membership. `view=my_approvals` returns cases with a
+        pending task assigned to the caller; `view=my_decided` returns cases
+        where the caller has recorded a decision; `view=my_requests` returns
+        cases the caller created. A single `type` filter is supported. Callers
+        that need several case types issue one bounded query per type because
+        there is deliberately no multi-value `type[]` parameter.
       parameters:
         - name: page
           in: query
@@ -7854,6 +8123,32 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [my_approvals, my_decided, my_requests]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, SUBMITTED, IN_REVIEW, APPROVED, REJECTED, WITHDRAWN, CANCELLED]
+        - name: effect_status
+          in: query
+          schema:
+            type: string
+            enum: [NONE, PENDING, SCHEDULED, APPLIED, PARTIAL, FAILED, REVERSED]
+        - name: type
+          in: query
+          description: One business case type, e.g. LEAVE_REQUEST or ASSIGNMENT_CHANGE.
+          schema:
+            type: string
+            maxLength: 64
+        - name: business_date
+          in: query
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Case page
@@ -7933,6 +8228,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.create
+      x-action-label: 发起审批事项
   /v1/cases/{caseId}/decisions:
     post:
       operationId: workflowDecisionsStore
@@ -7945,12 +8241,15 @@ paths:
           required: true
           schema:
             type: integer
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema:
-            type: string
-            maxLength: 128
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      description: >
+        Appends one immutable decision. The action is one of APPROVE, REJECT or
+        RETURN for an assigned approver; WITHDRAW, DELEGATE and CC remain
+        supported workflow actions. Replaying the same Idempotency-Key and
+        payload returns the stored 200 response with `Idempotency-Replayed:
+        true`; reusing a key with a different payload returns 409. A decision
+        on a case that is no longer pending returns 409, and a caller without a
+        pending task for the case receives 404 so case existence is not leaked.
       requestBody:
         required: true
         content:
@@ -7962,8 +8261,10 @@ paths:
               properties:
                 action:
                   type: string
+                  enum: [APPROVE, REJECT, RETURN, WITHDRAW, DELEGATE, CC]
                 comment:
                   type: string
+                  maxLength: 4000
                 target_user_id:
                   type:
                     - integer
@@ -7972,9 +8273,8 @@ paths:
                   type:
                     - string
                     - "null"
+                  maxLength: 2000
       responses:
-        "201":
-          $ref: "#/components/responses/Envelope"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -7999,6 +8299,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/DecisionResult"
       x-capability: workflow.case.decide
+      x-action-label: 提交审批决定
   /v1/cases/{id}:
     get:
       operationId: workflowCasesShow
@@ -8067,6 +8368,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
       x-capability: workflow.case.create
+      x-action-label: 提交审批事项
   /v1/cases/{id}/timeline:
     get:
       operationId: workflowCasesTimeline
@@ -8135,6 +8437,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
       x-capability: workflow.case.create
+      x-action-label: 撤回审批事项
   /v1/contract-templates:
     get:
       operationId: listContractTemplates
@@ -8231,6 +8534,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.template.manage
+      x-action-label: 新增合同模板版本
   /v1/contract-templates/{id}/publish:
     post:
       operationId: publishContractTemplate
@@ -8265,6 +8569,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.template.manage
+      x-action-label: 发布合同模板
   /v1/delegations:
     post:
       operationId: workflowDelegationsStore
@@ -8320,6 +8625,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.decide
+      x-action-label: 新增审批委托
   /v1/delegations/{id}:
     delete:
       operationId: workflowDelegationsDestroy
@@ -8353,7 +8659,50 @@ paths:
                       data:
                         $ref: "#/components/schemas/DelegationRevocationData"
       x-capability: workflow.case.decide
+      x-action-label: 撤销审批委托
   /v1/departments:
+    post:
+      operationId: createDepartment
+      tags:
+        - Organization
+      summary: Create an organization unit
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepartmentWriteRequest"
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: integer }
+                          code: { type: string }
+                          name: { type: string }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 新建部门
     get:
       operationId: listDepartments
       tags:
@@ -8386,12 +8735,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -8402,6 +8745,97 @@ paths:
           schema:
             type: string
             maxLength: 160
+  /v1/departments/{id}:
+    patch:
+      operationId: moveDepartment
+      tags:
+        - Organization
+      summary: Move a department under a new parent, effective from a business date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from]
+              properties:
+                new_parent_id: { type: [integer, "null"], minimum: 1 }
+                effective_from: { type: string, format: date }
+      responses:
+        "200":
+          description: Department moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 调整部门层级
+  /v1/departments/{id}/members/{employmentId}:
+    delete:
+      operationId: removeDepartmentMember
+      tags:
+        - Organization
+      summary: End a member assignment in this department from a business date
+      description: >
+        Effective-dated removal: the assignment keeps its history and simply
+        stops being live. Requires capability `org.unit.manage`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: employmentId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from, reason]
+              properties:
+                effective_from: { type: string, format: date }
+                reason: { type: string, minLength: 3, maxLength: 255 }
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: org.unit.manage
+      x-action-label: 移除部门成员
   /v1/departments/staffing:
     get:
       operationId: listDepartmentStaffing
@@ -8435,12 +8869,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -8540,6 +8968,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 调入部门成员
       parameters:
         - name: id
           in: path
@@ -8617,6 +9046,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 删除员工附件
   /v1/documents/{document_id}/content:
     get:
       tags:
@@ -8631,12 +9061,6 @@ paths:
       parameters:
         - name: document_id
           in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - name: tenant_id
-          in: query
           required: true
           schema:
             type: integer
@@ -8790,6 +9214,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
       x-capability: workflow.case.admin
+      x-action-label: 重试审批副作用
   /v1/employees:
     get:
       tags:
@@ -8842,6 +9267,60 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.read
+  /v1/employees/onboard:
+    post:
+      operationId: onboardEmployee
+      tags:
+        - People
+      summary: Create a person, employment, assignment and first terms version atomically
+      description: >
+        One transactional business act. A replay with the same Idempotency-Key
+        returns the original employee with `data.replayed = true` and creates no
+        duplicate. Requires capability `people.employee.manage` at COMPANY.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardEmployeeRequest"
+      responses:
+        "201":
+          description: Employee onboarded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OnboardedEmployee"
+        "200":
+          description: Idempotent replay of a previous onboarding
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OnboardedEmployee"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 员工入职建档
   /v1/employees/{employmentId}/certificates:
     get:
       operationId: listEmployeeCertificates
@@ -8911,6 +9390,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工证书
       parameters:
         - name: employmentId
           in: path
@@ -8981,6 +9461,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑员工证书
       parameters:
         - name: employmentId
           in: path
@@ -9097,6 +9578,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9150,6 +9632,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9207,6 +9690,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 提交员工变更申请
       parameters:
         - name: employmentId
           in: path
@@ -9289,6 +9773,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增紧急联系人
       parameters:
         - name: employmentId
           in: path
@@ -9353,6 +9838,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑紧急联系人
       parameters:
         - name: employmentId
           in: path
@@ -9463,6 +9949,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增教育经历
       parameters:
         - name: employmentId
           in: path
@@ -9531,6 +10018,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑教育经历
       parameters:
         - name: employmentId
           in: path
@@ -9645,6 +10133,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增工作经历
       parameters:
         - name: employmentId
           in: path
@@ -9713,6 +10202,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 编辑工作经历
       parameters:
         - name: employmentId
           in: path
@@ -9827,6 +10317,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 导入员工资料
       parameters:
         - name: employmentId
           in: path
@@ -9881,6 +10372,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 更新导入记录
       parameters:
         - name: employmentId
           in: path
@@ -9996,6 +10488,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.archive
+      x-action-label: 归档员工
   /v1/employees/{employment_id}/restore:
     post:
       operationId: restoreEmployee
@@ -10032,6 +10525,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.restore
+      x-action-label: 恢复员工
   /v1/employees/{employment_id}/onboarding-checklist:
     get:
       operationId: lifecycleOnboardingChecklist
@@ -10105,6 +10599,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.delete
+      x-action-label: 删除劳动合同
   /v1/employment-contracts/{id}/restore:
     post:
       operationId: restoreEmploymentContract
@@ -10144,6 +10639,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.restore
+      x-action-label: 恢复劳动合同
   /v1/employment-contracts/{id}/amendments:
     get:
       operationId: listEmploymentContractAmendments
@@ -10273,6 +10769,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.amend
+      x-action-label: 新增合同变更
   /v1/employment-contracts/{id}/terminate:
     post:
       operationId: terminateEmploymentContract
@@ -10324,12 +10821,13 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.terminate
+      x-action-label: 终止劳动合同
   /v1/employments:
     post:
       tags:
         - People
       operationId: createEmployment
-      summary: Create an employment (employee number unique per tenant+legal entity)
+      summary: Create an employment (employee number unique per company)
       description: Requires capability `people.employee.manage`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -10358,6 +10856,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增员工
   /v1/employments/contracts:
     get:
       operationId: listEmploymentContractLedger
@@ -10367,11 +10866,6 @@ paths:
       description: Requires capability `people.contract.read`. Row scope is applied before pagination and returned in the standard projection envelope.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
         - name: status
           in: query
           schema:
@@ -10457,11 +10951,6 @@ paths:
           schema:
             type: string
             format: date
-        - name: legal_entity_id
-          in: query
-          schema:
-            type: integer
-            minimum: 1
   /v1/employments/{employmentId}/contracts:
     get:
       operationId: listEmploymentContracts
@@ -10533,6 +11022,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 签订劳动合同
       parameters:
         - name: employmentId
           in: path
@@ -10671,6 +11161,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.assignment.manage
+      x-action-label: 新增任职记录
   /v1/employments/{employment_id}/document-files:
     get:
       tags:
@@ -10785,6 +11276,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.document.read
+      x-action-label: 上传员工附件
   /v1/employments/{employment_id}/documents:
     post:
       tags:
@@ -10824,6 +11316,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 关联员工附件
   /v1/employments/{employment_id}/terms:
     post:
       tags:
@@ -10870,6 +11363,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.manage
+      x-action-label: 新增合同条款
   /v1/employments/{employment_id}/timeline:
     get:
       tags:
@@ -10919,7 +11413,7 @@ paths:
   /v1/employments/{employment_id}/transfer:
     post:
       operationId: transferEmploymentLegalEntity
-      summary: Transfer an employment to another legal entity
+      summary: Transfer an employment between organization units
       description: Ends the source employment and creates a new employment for the same person. Requires `people.employment.manage`.
       tags:
         - People
@@ -10937,12 +11431,9 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - employee_no
                 - valid_from
               properties:
-                legal_entity_id:
-                  type: integer
                 employee_no:
                   type: string
                   maxLength: 64
@@ -10978,6 +11469,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 转移员工主体
   /v1/engagement/notice-templates:
     get:
       operationId: engagementNoticeTemplatesIndex
@@ -11060,6 +11552,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 发布公告模板
   /v1/engagement/notices:
     get:
       operationId: engagementNoticesIndex
@@ -11152,6 +11645,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 发布公告
   /v1/engagement/notices/archive:
     get:
       operationId: engagementNoticesArchiveIndex
@@ -11256,6 +11750,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: engagement.notice.read
+      x-action-label: 确认已读公告
   /v1/engagement/notices/{notice}/archive:
     post:
       operationId: engagementNoticesArchive
@@ -11303,6 +11798,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 归档公告
   /v1/engagement/notices/{notice}/audience:
     get:
       operationId: engagementNoticesAudience
@@ -11388,6 +11884,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.publish
+      x-action-label: 审批公告
   /v1/engagement/notices/{notice}/publish:
     post:
       operationId: engagementNoticesPublish
@@ -11422,6 +11919,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.publish
+      x-action-label: 发布已审公告
   /v1/engagement/notices/{notice}/reads:
     get:
       operationId: engagementNoticesReads
@@ -11554,6 +12052,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 恢复公告
   /v1/engagement/notices/{notice}/retract:
     post:
       operationId: engagementNoticesRetract
@@ -11582,6 +12081,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 撤回公告
   /v1/engagement/notices/{notice}/submit:
     post:
       operationId: engagementNoticesSubmit
@@ -11616,6 +12116,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: engagement.notice.manage
+      x-action-label: 提交公告审批
   /v1/engagement/notifications:
     get:
       operationId: engagementNotificationsIndex
@@ -11635,7 +12136,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: engagement.notification.read
+      x-capability: notification.read
   /v1/engagement/notifications/{notification}/read:
     post:
       operationId: engagementNotificationsRead
@@ -11663,7 +12164,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: engagement.notification.read
+      x-capability: notification.read
+      x-action-label: 标记通知已读
   /v1/health:
     get:
       operationId: getHealth
@@ -12000,6 +12502,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request
+      x-action-label: 兼容入口申请请假
   /v1/leave/requests/{caseId}/cancel:
     post:
       operationId: leaveRequestsCancelAlias
@@ -12047,6 +12550,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request.cancel
+      x-action-label: 兼容入口撤销请假
   /v1/lifecycle/cases:
     get:
       tags: [Lifecycle]
@@ -12137,6 +12641,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.contract.manage
+      x-action-label: 发起合同续签
   /v1/lifecycle/offboardings:
     post:
       operationId: lifecycleOffboardingStore
@@ -12157,6 +12662,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.offboard.manage
+      x-action-label: 发起离职流程
   /v1/lifecycle/onboarding:
     post:
       operationId: lifecycleOnboardingStore
@@ -12177,6 +12683,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.onboarding.manage
+      x-action-label: 发起入职流程
   /v1/lifecycle/probation-confirmations:
     post:
       operationId: lifecycleProbationConfirmationStore
@@ -12197,6 +12704,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.probation.manage
+      x-action-label: 发起转正流程
   /v1/lifecycle/rehires:
     post:
       operationId: lifecycleRehireStore
@@ -12217,6 +12725,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.rehire.manage
+      x-action-label: 发起返聘流程
   /v1/lifecycle/salary-changes:
     post:
       operationId: lifecycleSalaryChangeStore
@@ -12237,6 +12746,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.terms.manage
+      x-action-label: 发起调薪流程
   /v1/lifecycle/secondments:
     get:
       operationId: lifecycleSecondmentsIndex
@@ -12245,12 +12755,6 @@ paths:
       summary: List secondment assignments as a live projection
       description: Requires capability `lifecycle.secondment.manage`. Only assignments with assignment_type SECONDMENT are returned.
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: employment_id
           in: query
           required: false
@@ -12365,6 +12869,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.secondment.manage
+      x-action-label: 发起借调安排
   /v1/lifecycle/transfers:
     post:
       operationId: lifecycleTransferStore
@@ -12385,6 +12890,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.transfer.manage
+      x-action-label: 发起调岗流程
   /v1/me:
     get:
       operationId: getMe
@@ -12578,6 +13084,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.template.manage
+      x-action-label: 新增通知模板
   /v1/notifications/deliveries:
     get:
       operationId: listNotificationDeliveries
@@ -12652,6 +13159,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.delivery.manage
+      x-action-label: 重试通知发送
   /v1/notifications/dispatch:
     post:
       operationId: dispatchNotification
@@ -12702,6 +13210,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: notification.delivery.manage
+      x-action-label: 发送通知
   /v1/onboarding-tasks/{id}:
     patch:
       operationId: lifecycleOnboardingTaskUpdate
@@ -12730,6 +13239,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: lifecycle.checklist.manage
+      x-action-label: 完成入职任务
   /v1/org-units:
     post:
       tags:
@@ -12769,20 +13279,16 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 新增部门
   /v1/org-units/tree:
     get:
       tags:
         - Organization
       operationId: getOrgTree
-      summary: As-of organization tree for one legal entity
+      summary: As-of organization tree for the company
       description: Requires capabilities `org.tree.read` and `org.unit.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
       responses:
         "200":
           description: Org tree page
@@ -12895,6 +13401,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.unit.manage
+      x-action-label: 移动部门
   /v1/overtime/records/{recordId}/settlements:
     post:
       operationId: settleOvertimeRecord
@@ -12952,6 +13459,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.settle
+      x-action-label: 结算加班
   /v1/payroll/adjustments:
     get:
       operationId: payrollAdjustmentsIndex
@@ -12961,12 +13469,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: employment_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-        - name: legal_entity_id
           in: query
           required: false
           schema:
@@ -13035,6 +13537,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.salary-adjustment.manage
+      x-action-label: 应用调薪调整
   /v1/payroll/employee-plans:
     get:
       operationId: payrollEmployeePlansIndex
@@ -13044,12 +13547,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: employment_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-        - name: legal_entity_id
           in: query
           required: false
           schema:
@@ -13118,6 +13615,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.compensation.manage
+      x-action-label: 新增薪资档案版本
   /v1/payroll/items:
     get:
       operationId: payrollv1_payroll_items_get
@@ -13171,6 +13669,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增薪资项目
   /v1/payroll/payslips:
     get:
       operationId: payrollv1_payroll_payslips_get
@@ -13238,6 +13737,7 @@ paths:
       tags:
         - Payroll
       parameters: []
+      description: "Feature-level guard. The response is scoped to the payroll runs the caller is a member of (preparer, reviewer, approver or publisher); callers outside a run never see its row and cannot read it by id."
       responses:
         "200":
           description: GET /v1/payroll/runs response
@@ -13284,6 +13784,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增工资批次
   /v1/payroll/runs/{id}:
     get:
       operationId: payrollv1_payroll_runs_id_get
@@ -13352,6 +13853,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.approve
+      x-action-label: 审批工资批次
   /v1/payroll/runs/{id}/calculate:
     post:
       operationId: payrollv1_payroll_runs_id_calculate_post
@@ -13387,6 +13889,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollCalculationResultEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 试算工资批次
   /v1/payroll/runs/{id}/cancel:
     post:
       operationId: payrollv1_payroll_runs_id_cancel_post
@@ -13422,6 +13925,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 取消工资批次
   /v1/payroll/runs/{id}/close:
     post:
       operationId: payrollv1_payroll_runs_id_close_post
@@ -13457,6 +13961,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.close
+      x-action-label: 关闭工资批次
   /v1/payroll/runs/{id}/corrections:
     post:
       operationId: payrollv1_payroll_runs_id_corrections_post
@@ -13490,6 +13995,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.correct
+      x-action-label: 创建冲正批次
   /v1/payroll/runs/{id}/employees:
     get:
       operationId: payrollv1_payroll_runs_id_employees_get
@@ -13656,6 +14162,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.prepare
+      x-action-label: 锁定计薪数据
   /v1/payroll/runs/{id}/mark-paid:
     post:
       operationId: payrollv1_payroll_runs_id_mark_paid_post
@@ -13691,6 +14198,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.close
+      x-action-label: 登记工资发放
   /v1/payroll/runs/{id}/publish:
     post:
       operationId: payrollv1_payroll_runs_id_publish_post
@@ -13726,6 +14234,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.publish
+      x-action-label: 发布工资批次
   /v1/payroll/runs/{id}/reconciliation:
     get:
       operationId: payrollv1_payroll_runs_id_reconciliation_get
@@ -13794,6 +14303,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.reopen
+      x-action-label: 重开工资批次
   /v1/payroll/runs/{id}/review:
     post:
       operationId: payrollv1_payroll_runs_id_review_post
@@ -13829,6 +14339,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayrollRunDetailEnvelope"
       x-capability: payroll.run.review
+      x-action-label: 复核工资批次
   /v1/payroll/schemes:
     get:
       operationId: payrollv1_payroll_schemes_get
@@ -13882,6 +14393,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.prepare
+      x-action-label: 新增薪酬方案
   /v1/payroll/statutory-parameters:
     get:
       operationId: payrollv1_payroll_statutory_parameters_get
@@ -13935,6 +14447,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.parameters.manage
+      x-action-label: 新增社保参数版本
   /v1/performance/calibration:
     get:
       operationId: listPerformanceCalibrations
@@ -14005,6 +14518,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: performance.cycle.manage
+      x-action-label: 新增绩效周期
   /v1/performance/cycles/{id}/publish:
     post:
       operationId: publishPerformanceCycle
@@ -14041,6 +14555,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.result.publish
+      x-action-label: 发布绩效结果
   /v1/performance/feedback:
     get:
       operationId: listPerformanceFeedback
@@ -14119,6 +14634,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.feedback.manage
+      x-action-label: 记录绩效反馈
   /v1/performance/goals:
     get:
       operationId: listPerformanceGoals
@@ -14197,6 +14713,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.goal.manage
+      x-action-label: 设定绩效目标
   /v1/performance/indicators:
     get:
       operationId: listPerformanceIndicators
@@ -14273,6 +14790,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.indicator.manage
+      x-action-label: 新增绩效指标
   /v1/performance/reports:
     get:
       operationId: listPerformanceReports
@@ -14390,6 +14908,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: performance.review.manage
+      x-action-label: 新增绩效评估
   /v1/performance/reviews/{id}/appeals:
     post:
       operationId: performanceReviewsAppealsStore
@@ -14416,6 +14935,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.appeal.manage
+      x-action-label: 发起绩效申诉
   /v1/performance/reviews/{id}/calibration:
     post:
       operationId: calibratePerformanceReview
@@ -14462,6 +14982,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.calibration.manage
+      x-action-label: 校准绩效评估
   /v1/performance/reviews/{id}/submit:
     post:
       operationId: performanceReviewsSubmit
@@ -14488,6 +15009,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.review.submit
+      x-action-label: 提交绩效评估
   /v1/performance/templates:
     get:
       operationId: listPerformanceTemplates
@@ -14548,6 +15070,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: performance.cycle.manage
+      x-action-label: 发布绩效模板
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -14622,6 +15145,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.manage
+      x-action-label: 新增自然人档案
   /v1/platform/features:
     get:
       operationId: listFeatureFlags
@@ -14688,6 +15212,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: platform.feature.manage
+      x-action-label: 切换功能开关
   /v1/positions:
     get:
       operationId: listPositions
@@ -14721,12 +15246,6 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.read
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: as_of
           in: query
           schema:
@@ -14765,6 +15284,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.manage
+      x-action-label: 新增岗位
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -14774,13 +15294,9 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - code
                 - title
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 org_unit_id:
                   type:
                     - integer
@@ -14817,15 +15333,9 @@ paths:
       operationId: listPositionGrades
       tags:
         - Organization
-      summary: List the job-grade catalogue for a legal entity
+      summary: List the job-grade catalogue for the company
       description: Requires capability `org.position.grade.manage`. Returns a live projection ordered by level then code.
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - $ref: "#/components/parameters/AsOf"
         - name: active
           in: query
@@ -14873,7 +15383,7 @@ paths:
       tags:
         - Organization
       summary: Create or update a job-grade row
-      description: Upsert is keyed by (tenant, legal entity, code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
+      description: Upsert is keyed by (code). Replaying the same Idempotency-Key returns the stored body with `Idempotency-Replayed` set; the same key with a different payload is 409.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
@@ -14883,14 +15393,10 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - code
                 - name
                 - level
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 code:
                   type: string
                   maxLength: 32
@@ -14937,6 +15443,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.grade.manage
+      x-action-label: 维护岗位职级
   /v1/positions/{id}:
     get:
       operationId: getPosition
@@ -15001,6 +15508,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.manage
+      x-action-label: 编辑岗位
       parameters:
         - name: id
           in: path
@@ -15142,6 +15650,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: org.position.qualification.manage
+      x-action-label: 新增岗位任职要求
   /v1/positions/{id}/staff:
     get:
       operationId: listPositionStaff
@@ -15335,6 +15844,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.import
+      x-action-label: 导入候选人
   /v1/recruitment/candidates/{id}/evaluations:
     get:
       operationId: recruitmentCandidateEvaluationsIndex
@@ -15413,6 +15923,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.evaluation.manage
+      x-action-label: 记录候选人评价
   /v1/recruitment/candidates/{id}/communications:
     get:
       operationId: recruitmentCandidateCommunicationsIndex
@@ -15491,6 +16002,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.communication.manage
+      x-action-label: 记录候选人沟通
   /v1/recruitment/candidates/{id}/talent-pool:
     get:
       operationId: recruitmentCandidateTalentPoolIndex
@@ -15569,6 +16081,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.talent-pool.manage
+      x-action-label: 加入人才库
   /v1/recruitment/candidates/{id}/convert:
     post:
       operationId: recruitmentCandidateConvert
@@ -15620,6 +16133,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.convert
+      x-action-label: 录用转入职
   /v1/recruitment/candidates:
     get:
       operationId: recruitmentCandidatesIndex
@@ -15627,6 +16141,32 @@ paths:
         - Talent
       summary: List candidates with minimized contact PII
       description: List responses expose only presence flags for email and mobile; sensitive field access is audited.
+      parameters:
+        - name: requisition_id
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - name: candidate_id
+          in: query
+          required: false
+          description: Direct id lookup for the candidate detail route.
+          schema: { type: integer, minimum: 1 }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, maxLength: 24 }
+        - name: search
+          in: query
+          required: false
+          schema: { type: string, maxLength: 120 }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
         "200":
           description: Candidate projection with minimized PII
@@ -15678,7 +16218,86 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.candidate.manage
+      x-action-label: 新增候选人
+  /v1/recruitment/candidates/{id}/stage:
+    patch:
+      operationId: moveCandidateStage
+      tags:
+        - Talent
+      summary: Move a candidate to another pipeline stage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: candidate_id
+          in: query
+          required: false
+          description: Direct id lookup for the candidate detail route.
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  description: Movable pipeline stage. HIRED is reached only through conversion, not by a manual move.
+                  enum: [NEW, SCREENING, INTERVIEW, OFFER, OFFER_ACCEPTED, REJECTED]
+                reason: { type: [string, "null"], maxLength: 500 }
+      responses:
+        "200":
+          description: Candidate stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.candidate.manage
+      x-action-label: 推进候选人阶段
   /v1/recruitment/candidates/{id}/interviews:
+    get:
+      operationId: listCandidateInterviews
+      tags:
+        - Talent
+      summary: List a candidate's interview records
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Interview records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.interview.manage
     post:
       operationId: recruitmentInterviewsStore
       tags:
@@ -15706,6 +16325,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
       x-capability: recruitment.interview.manage
+      x-action-label: 安排面试
   /v1/recruitment/offers:
     get:
       tags: [Talent]
@@ -15768,6 +16388,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.offer.manage
+      x-action-label: 发起录用审批
   /v1/recruitment/offers/{id}/accept:
     post:
       operationId: recruitmentOffersAccept
@@ -15796,6 +16417,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.offer.accept
+      x-action-label: 接受录用通知
   /v1/recruitment/requisitions:
     get:
       operationId: recruitmentRequisitionsIndex
@@ -15823,9 +16445,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [legal_entity_id, org_unit_id, requisition_no, title, headcount]
+              required: [org_unit_id, requisition_no, title, headcount]
               properties:
-                legal_entity_id: {type: integer, minimum: 1}
                 org_unit_id: {type: integer, minimum: 1}
                 requisition_no: {type: string, maxLength: 64}
                 title: {type: string, maxLength: 160}
@@ -15855,6 +16476,98 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.requisition.manage
+      x-action-label: 发起招聘需求
+  /v1/recruitment/requisitions/{id}:
+    patch:
+      operationId: updateRequisition
+      tags:
+        - Talent
+      summary: Update an open requisition
+      description: A closed requisition is immutable and returns 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial update of the editable requisition fields. Status is not editable here; use the close operation.
+              properties:
+                title: { type: string, maxLength: 160 }
+                headcount: { type: integer, minimum: 1, maximum: 1000 }
+                org_unit_id: { type: integer, minimum: 1 }
+                budget_minor: { type: [integer, "null"], minimum: 0 }
+                budget_currency: { type: [string, "null"], minLength: 3, maxLength: 3 }
+                target_start_date: { type: [string, "null"], format: date }
+      responses:
+        "200":
+          description: Requisition updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.requisition.manage
+      x-action-label: 修改招聘需求
+  /v1/recruitment/requisitions/{id}/close:
+    post:
+      operationId: closeRequisition
+      tags:
+        - Talent
+      summary: Close a requisition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 255 }
+      responses:
+        "200":
+          description: Requisition closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.requisition.manage
+      x-action-label: 关闭招聘需求
   /v1/recruitment/requisitions/{id}/openings:
     get:
       operationId: listRequisitionOpenings
@@ -15933,6 +16646,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: recruitment.requisition.manage
+      x-action-label: 发布招聘岗位
       parameters:
         - name: id
           in: path
@@ -16079,6 +16793,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.definition.manage
+      x-action-label: 保存报表定义
   /v1/reporting/exports:
     post:
       operationId: reportingExportsStore
@@ -16123,6 +16838,7 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
       x-capability: reporting.export
+      x-action-label: 创建导出任务
     get:
       operationId: reportingExportsIndex
       tags:
@@ -16225,6 +16941,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.report.read
+      x-action-label: 运行报表
   /v1/reporting/subscriptions:
     get:
       operationId: reportingSubscriptionsIndex
@@ -16291,6 +17008,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 新增报表订阅
   /v1/reporting/subscriptions/{subscriptionId}:
     patch:
       operationId: reportingSubscriptionsUpdate
@@ -16338,6 +17056,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 编辑报表订阅
     delete:
       operationId: reportingSubscriptionsDelete
       tags:
@@ -16367,6 +17086,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: reporting.subscription.manage
+      x-action-label: 删除报表订阅
   /v1/roles:
     get:
       operationId: listRoles
@@ -16436,6 +17156,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 新增角色
   /v1/pages/catalog:
     get:
       operationId: pageCatalogIndex
@@ -16538,6 +17259,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 保存角色页面权限
   /v1/roles/{id}/capabilities:
     put:
       operationId: replaceRoleCapabilities
@@ -16584,6 +17306,157 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 保存角色动作权限
+  /v1/roles/{id}/authorization:
+    put:
+      operationId: replaceRoleAuthorization
+      tags:
+        - IAM Administration
+      summary: Save page, action, scope and field authorization atomically
+      description: >
+        One transactional save for the role workbench. Page grants control view
+        access only; action capabilities are granted explicitly and must belong
+        to a granted page. Template roles are code-owned and return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleAuthorizationRequest"
+      responses:
+        "200":
+          description: Authorization replaced
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [role, pages]
+                        properties:
+                          role:
+                            $ref: "#/components/schemas/RoleDefinition"
+                          pages:
+                            type: array
+                            items:
+                              type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 保存角色授权
+  /v1/roles/{id}:
+    patch:
+      operationId: renameRole
+      tags:
+        - IAM Administration
+      summary: Rename a custom role
+      description: Role codes are immutable; only the display name and purpose change. Template roles return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 3, maxLength: 120 }
+                purpose: { type: [string, "null"], minLength: 8, maxLength: 255 }
+      responses:
+        "200":
+          description: Role renamed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RoleDefinition"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 重命名角色
+    delete:
+      operationId: deleteRole
+      tags:
+        - IAM Administration
+      summary: Delete a custom role
+      description: Refused while any user still holds the role (409 ROLE_IN_USE). Template roles return 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      responses:
+        "200":
+          description: Role deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          role_code: { type: string }
+                          deleted: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.role.manage
+      x-action-label: 删除角色
   /v1/roles/{id}/copy:
     post:
       operationId: copyRole
@@ -16629,17 +17502,15 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
-  /v1/system/calendars/{legal_entity_id}/publish:
+      x-action-label: 复制角色
+  /v1/system/calendars/publish:
     post:
       operationId: publishCalendarVersion
       tags:
         - Platform Governance
-      summary: Publish a legal-entity calendar version
+      summary: Publish the company calendar version
+      description: Single-company deployment; the calendar belongs to the company profile.
       parameters:
-        - name: legal_entity_id
-          in: path
-          required: true
-          schema: { type: integer, minimum: 1 }
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
@@ -16671,6 +17542,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.calendar.manage
+      x-action-label: 发布工作日历
   /v1/system/data-scopes:
     get:
       operationId: listDataScopePolicies
@@ -16752,6 +17624,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.scope.manage
+      x-action-label: 保存数据范围
   /v1/system/dictionaries:
     get:
       operationId: listDictionaries
@@ -16827,6 +17700,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.dictionary.manage
+      x-action-label: 新增字典项
   /v1/system/dictionaries/{id}:
     patch:
       operationId: updateDictionaryEntry
@@ -16869,6 +17743,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.dictionary.manage
+      x-action-label: 编辑字典项
   /v1/system/field-policies:
     get:
       operationId: listFieldPolicies
@@ -16950,6 +17825,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.field.manage
+      x-action-label: 保存字段策略
   /v1/system/menus:
     get:
       operationId: listMenuOverrides
@@ -17023,6 +17899,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 新增菜单覆盖
   /v1/system/menus/{page_code}:
     patch:
       operationId: updateMenuOverride
@@ -17066,6 +17943,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 编辑菜单覆盖
     delete:
       operationId: deleteMenuOverride
       tags:
@@ -17106,6 +17984,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.menu.manage
+      x-action-label: 删除菜单覆盖
   /v1/system/parameters:
     get:
       operationId: listSystemParameters
@@ -17183,6 +18062,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: system.parameter.manage
+      x-action-label: 保存系统参数
   /v1/tasks/my:
     get:
       operationId: workflowTasksMine
@@ -17340,19 +18220,11 @@ paths:
       operationId: timeAttendanceClosingsIndex
       tags:
         - Time
-      summary: List attendance period closures for the actor's legal entities
+      summary: List attendance period closures for the company
       description: |
         Read-only list of closed and reopened months with the reopen evidence.
-        Scoped to the actor's legal entities; a `legal_entity_id` outside that
-        scope returns 404. Requires capability `time.attendance.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: page
           in: query
           required: false
@@ -17417,7 +18289,7 @@ paths:
       operationId: closeAttendancePeriod
       tags:
         - Time
-      summary: Close an attendance month for one legal entity
+      summary: Close an attendance month for the company
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -17428,14 +18300,10 @@ paths:
               type: object
               required:
                 - month
-                - legal_entity_id
               properties:
                 month:
                   type: string
                   pattern: ^d{4}-d{2}$
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
       responses:
         "201":
           description: Attendance period closed or already closed
@@ -17459,6 +18327,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.manage
+      x-action-label: 关闭考勤期间
   /v1/time/attendance/closings/{id}/reopen:
     post:
       operationId: reopenAttendancePeriod
@@ -17508,6 +18377,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.reopen
+      x-action-label: 重开考勤期间
   /v1/time/attendance/corrections:
     post:
       operationId: timeAttendanceCorrectionsStore
@@ -17589,6 +18459,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.correct.request
+      x-action-label: 申请补卡
   /v1/time/attendance/devices:
     get:
       operationId: timeAttendanceDevicesIndex
@@ -17602,12 +18473,6 @@ paths:
         legal entities. Requires capability `time.attendance.device.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
         - name: active
           in: query
           required: false
@@ -17687,14 +18552,10 @@ paths:
               type: object
               required:
                 - month
-                - legal_entity_id
               properties:
                 month:
                   type: string
                   pattern: ^d{4}-d{2}$
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 employment_id:
                   type:
                     - integer
@@ -17723,6 +18584,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.manage
+      x-action-label: 重算考勤期间
   /v1/time/attendance/rules:
     get:
       operationId: timeAttendanceRulesIndex
@@ -17736,13 +18598,6 @@ paths:
         `time.attendance.rule.read`.
       parameters:
         - $ref: "#/components/parameters/AsOf"
-        - name: legal_entity_id
-          in: query
-          required: false
-          description: Optional legal entity the caller must already be scoped to.
-          schema:
-            type: integer
-            minimum: 1
       responses:
         "200":
           description: Attendance rule versions
@@ -17853,6 +18708,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.rule.manage
+      x-action-label: 发布考勤规则
   /v1/time/attendance/{employment_id}:
     get:
       operationId: timeAttendanceDays
@@ -17936,19 +18792,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.attendance.read
-  /v1/time/calendars/{legal_entity_id}:
+  /v1/time/calendars:
     get:
       operationId: timeCalendarShow
       tags:
         - Time
-      summary: Legal entity calendar, workweek and holidays for one year
-      description: Requires capability `time.calendar.read`.
+      summary: Company calendar, workweek and holidays for one year
+      description: Single-company deployment; requires capability `time.calendar.read`.
       parameters:
-        - name: legal_entity_id
-          in: path
-          required: true
-          schema:
-            type: integer
         - name: year
           in: query
           required: true
@@ -17970,8 +18821,6 @@ paths:
                       data:
                         type: object
                         properties:
-                          legal_entity_id:
-                            type: integer
                           year:
                             type: integer
                           timezone:
@@ -18371,6 +19220,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.read
+      x-action-label: 预览请假时长
   /v1/time/leave/requests:
     get:
       operationId: timeLeaveRequestsIndex
@@ -18515,6 +19365,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request
+      x-action-label: 申请请假
   /v1/time/leave/requests/{caseId}/cancel:
     post:
       operationId: timeLeaveRequestsCancel
@@ -18577,6 +19428,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.request.cancel
+      x-action-label: 撤销请假申请
   /v1/time/leave/types:
     get:
       operationId: timeLeaveTypesIndex
@@ -18777,6 +19629,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.request
+      x-action-label: 申请加班
   /v1/time/overtime/requests/{id}/confirm:
     post:
       operationId: timeOvertimeRequestsConfirm
@@ -18831,6 +19684,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.confirm
+      x-action-label: 确认加班时长
   /v1/time/overtime/timeoff-balances:
     get:
       operationId: timeOvertimeTimeoffBalancesShow
@@ -18958,6 +19812,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.punch.import
+      x-action-label: 导入打卡记录
   /v1/time/shift-schedules:
     get:
       operationId: timeShiftSchedulesIndex
@@ -18971,12 +19826,6 @@ paths:
       parameters:
         - $ref: "#/components/parameters/AsOf"
         - name: employment_id
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-        - name: legal_entity_id
           in: query
           required: false
           schema:
@@ -19111,6 +19960,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.shift.schedule.manage
+      x-action-label: 安排班次
   /v1/time/shifts:
     get:
       operationId: timeShiftsIndex
@@ -19137,8 +19987,6 @@ paths:
                               type: object
                               properties:
                                 id:
-                                  type: integer
-                                legal_entity_id:
                                   type: integer
                                 code:
                                   type: string
@@ -19270,6 +20118,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.course.manage
+      x-action-label: 新增培训课程
   /v1/training/enrollments:
     get:
       operationId: trainingEnrollmentsIndex
@@ -19342,6 +20191,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.enrollment.manage
+      x-action-label: 报名培训
   /v1/training/enrollments/{id}/complete:
     post:
       operationId: trainingEnrollmentsComplete
@@ -19384,6 +20234,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.completion.manage
+      x-action-label: 登记培训完成
   /v1/training/exams:
     get:
       operationId: trainingExamsIndex
@@ -19443,6 +20294,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
+      x-action-label: 新增培训考试
   /v1/training/exams/{id}/publish:
     post:
       operationId: trainingExamsPublish
@@ -19474,6 +20326,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
+      x-action-label: 发布培训考试
   /v1/training/feedback:
     get:
       operationId: trainingFeedbackIndex
@@ -19535,6 +20388,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.feedback.manage
+      x-action-label: 提交培训反馈
   /v1/training/plans:
     get:
       operationId: trainingPlansIndex
@@ -19595,6 +20449,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.plan.manage
+      x-action-label: 新增培训计划
   /v1/training/programs:
     get:
       operationId: trainingProgramsIndex
@@ -19651,6 +20506,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.program.manage
+      x-action-label: 新增培训项目
   /v1/training/records:
     get:
       operationId: trainingRecordsIndex
@@ -19839,6 +20695,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.session.manage
+      x-action-label: 新增培训场次
   /v1/training/sessions/{id}/checkins:
     parameters:
       - name: id
@@ -19916,6 +20773,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: training.checkin.manage
+      x-action-label: 培训签到
   /v1/travel/expenses:
     get:
       operationId: listTravelExpenses
@@ -20043,19 +20901,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.expense.manage
+      x-action-label: 登记差旅费用
   /v1/travel/policies:
     get:
       operationId: listTravelPolicies
       tags:
         - Time
-      summary: List effective-dated travel policy versions for a legal entity
+      summary: List effective-dated travel policy versions for the company
       parameters:
-        - name: legal_entity_id
-          in: query
-          required: true
-          schema:
-            type: integer
-            minimum: 1
         - name: city_tier
           in: query
           required: false
@@ -20129,14 +20982,10 @@ paths:
             schema:
               type: object
               required:
-                - legal_entity_id
                 - city_tier
                 - hotel_cap_cents
                 - effective_from
               properties:
-                legal_entity_id:
-                  type: integer
-                  minimum: 1
                 city_tier:
                   type: string
                   maxLength: 8
@@ -20174,6 +21023,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.policy.manage
+      x-action-label: 发布差旅政策
   /v1/travel/requests:
     get:
       operationId: listTravelRequests
@@ -20259,6 +21109,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+      x-action-label: 申请出差
   /v1/travel/requests/{id}/approve:
     post:
       operationId: approveTravelRequest
@@ -20321,6 +21172,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.approve
+      x-action-label: 审批出差申请
   /v1/travel/requests/{id}/cancel:
     post:
       operationId: cancelTravelRequest
@@ -20372,6 +21224,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: time.travel.request
+      x-action-label: 取消出差申请
   /v1/users:
     get:
       operationId: listUsers
@@ -20468,6 +21321,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.user.manage
+      x-action-label: 新增用户
   /v1/users/{id}:
     patch:
       operationId: updateUserStatus
@@ -20527,6 +21381,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.user.manage
+      x-action-label: 编辑用户状态
   /v1/users/{id}/bindings:
     get:
       operationId: listUserBindings
@@ -20599,7 +21454,7 @@ paths:
                     - ORG_SUBTREE
                     - CASE
                     - PAYROLL_RUN
-                    - LEGAL_ENTITY
+                    - COMPANY
                 anchor_id:
                   type:
                     - integer
@@ -20652,6 +21507,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.binding.manage
+      x-action-label: 新增授权绑定
   /v1/users/{id}/roles:
     post:
       operationId: assignRole
@@ -20723,6 +21579,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 分配角色
   /v1/users/{id}/permissions-preview:
     get:
       operationId: previewUserPermissions
@@ -20812,6 +21669,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: iam.role.manage
+      x-action-label: 撤销角色
   /v1/workflow/templates:
     get:
       operationId: workflowTemplatesIndex
@@ -20884,3 +21742,4 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: workflow.case.admin
+      x-action-label: 新增流程模板

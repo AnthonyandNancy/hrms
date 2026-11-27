@@ -26,7 +26,6 @@ final class RequisitionApprovalEffectHandler implements DomainEffectHandler
             $payload = $this->support->payload($command);
             $requisitionId = (int) ($payload['requisition_id'] ?? 0);
             $requisition = Requisition::query()
-                ->where('tenant_id', $command->tenantId)
                 ->whereKey($requisitionId)
                 ->lockForUpdate()
                 ->first();
@@ -41,7 +40,6 @@ final class RequisitionApprovalEffectHandler implements DomainEffectHandler
 
             $requisition->forceFill(['status' => 'APPROVED', 'case_id' => $command->caseId])->save();
             $this->support->audit()->record(
-                tenantId: $command->tenantId,
                 actorUserId: null,
                 action: 'talent.requisition.approved',
                 aggregateType: 'recruitment_requisition',

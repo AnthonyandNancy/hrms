@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Server-side feature gates. The code catalogue is authoritative; the table
- * only stores per-tenant overrides. Unknown flags are denied (default deny).
+ * only stores instance-wide overrides. Unknown flags are denied (default deny).
  * Every block and every override change is audited.
  */
 final class FeatureFlagService
@@ -25,12 +25,11 @@ final class FeatureFlagService
         'export_enabled' => false,
     ];
 
-    public function enabled(string $flag, int $tenantId): bool
+    public function enabled(string $flag): bool
     {
         $this->assertKnown($flag);
         $configured = (bool) config("hrms.feature_flags.{$flag}", self::DEFAULTS[$flag]);
         $override = DB::table('feature_flags')
-            ->where('tenant_id', $tenantId)
             ->where('flag', $flag)
             ->value('enabled');
 
@@ -49,14 +48,14 @@ final class FeatureFlagService
         return array_keys(self::DEFAULTS);
     }
 
-    public function set(string $flag, int $tenantId, bool $enabled, ?int $actorUserId = null, string $reason = ''): void
+    public function set(string $flag, bool $enabled, ?int $actorUserId = null, string $reason = ''): void
     {
         $this->assertKnown($flag);
-        $before = $this->enabled($flag, $tenantId);
+        $before = $this->enabled($flag);
         $now = CarbonImmutable::now('UTC');
 
         DB::table('feature_flags')->updateOrInsert(
-            ['tenant_id' => $tenantId, 'flag' => $flag],
+            ['flag' => $flag],
             [
                 'enabled' => $enabled,
                 'updated_by' => $actorUserId,
@@ -68,7 +67,6 @@ final class FeatureFlagService
 
         if ($before !== $enabled) {
             AuditEvent::query()->create([
-                'tenant_id' => $tenantId,
                 'actor_user_id' => $actorUserId,
                 'actor_type' => $actorUserId === null ? 'SYSTEM' : 'USER',
                 'action' => 'feature_flag.changed',
@@ -85,7 +83,6 @@ final class FeatureFlagService
     public function auditBlocked(string $flag, string $route): void
     {
         AuditEvent::query()->create([
-            'tenant_id' => RequestContext::tenantId(),
             'actor_user_id' => RequestContext::userId(),
             'actor_type' => RequestContext::userId() === null ? 'SYSTEM' : 'USER',
             'action' => 'feature_flag.blocked',

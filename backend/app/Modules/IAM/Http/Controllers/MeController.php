@@ -8,7 +8,7 @@ use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Authorization\PermissionProjection;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
-use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\BindingValidity;
 use App\Shared\Time\Clock;
@@ -30,7 +30,6 @@ final class MeController
 
         return ApiResponse::ok([
             'id' => (int) $user->id,
-            'tenant_id' => (int) $user->tenant_id,
             'username' => $user->username,
             'email' => $user->email,
             'employment_id' => $principal->employmentId(),
@@ -38,11 +37,9 @@ final class MeController
             'has_mfa' => $user->hasConfirmedMfa(),
             'mfa_verified' => $principal->hasMfa(),
             'auth_version' => $principal->authVersion(),
-            'tenant_name' => $this->tenantName($principal->tenantId()),
-            'legal_entity_name' => $this->tenantName($principal->tenantId()),
+            'company_name' => $this->companyName(),
             'roles' => BindingValidity::whereActiveOn(
                 UserRole::query()
-                    ->where('tenant_id', $principal->tenantId())
                     ->where('user_id', $principal->userId()),
                 $this->clock->now()->toDateString(),
             )
@@ -55,12 +52,12 @@ final class MeController
     public function capabilities(Request $request): JsonResponse
     {
         $principal = $this->context->requirePrincipal();
-        [$rows, $wildcard] = $this->permissions->effectiveBindings($principal->tenantId(), $principal->userId(), $principal->authVersion());
+        [$rows, $wildcard] = $this->permissions->effectiveBindings($principal->userId(), $principal->authVersion());
 
         return ApiResponse::ok([
             'capabilities' => $rows,
             'wildcard' => $wildcard,
-            'mfa_required' => $this->requiresMfa($principal->userId(), $principal->tenantId()),
+            'mfa_required' => $this->requiresMfa($principal->userId()),
             'mfa_verified' => $principal->hasMfa(),
         ]);
     }
@@ -76,7 +73,6 @@ final class MeController
     {
         $principal = $this->context->requirePrincipal();
         $projection = $this->permissions->forUser(
-            $principal->tenantId(),
             $principal->userId(),
             $principal->authVersion(),
         );
@@ -94,17 +90,14 @@ final class MeController
         ]);
     }
 
-    private function tenantName(int $tenantId): string
+    private function companyName(): string
     {
-        $entities = app(OrganizationFacts::class)->legalEntitiesForTenant($tenantId);
-
-        return $entities === [] ? 'HRMS' : $entities[0]->name;
+        return app(CompanyProfileReader::class)->current()->name;
     }
 
-    private function requiresMfa(int $userId, int $tenantId): bool
+    private function requiresMfa(int $userId): bool
     {
         $user = User::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($userId)
             ->first();
 

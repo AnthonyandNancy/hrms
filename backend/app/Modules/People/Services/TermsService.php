@@ -29,11 +29,10 @@ final class TermsService
      *
      * @param  array<string, mixed>  $input
      */
-    public function append(int $tenantId, int $employmentId, array $input, ?int $actorUserId): EmploymentTerms
+    public function append(int $employmentId, array $input, ?int $actorUserId): EmploymentTerms
     {
-        return DB::transaction(function () use ($tenantId, $employmentId, $input, $actorUserId): EmploymentTerms {
+        return DB::transaction(function () use ($employmentId, $input, $actorUserId): EmploymentTerms {
             $employment = Employment::query()
-                ->where('tenant_id', $tenantId)
                 ->whereKey($employmentId)
                 ->lockForUpdate()
                 ->first();
@@ -50,7 +49,6 @@ final class TermsService
             }
 
             $latest = EmploymentTerms::query()
-                ->where('tenant_id', $tenantId)
                 ->where('employment_id', $employmentId)
                 ->orderByDesc('version')
                 ->lockForUpdate()
@@ -76,7 +74,6 @@ final class TermsService
 
             $version = $latest !== null ? (int) $latest->version + 1 : 1;
             $terms = EmploymentTerms::query()->create([
-                'tenant_id' => $tenantId,
                 'employment_id' => $employmentId,
                 'version' => $version,
                 'effective_from' => $effectiveFrom->value(),
@@ -94,7 +91,6 @@ final class TermsService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'people.terms.versioned',
                 aggregateType: 'employment',
@@ -107,7 +103,6 @@ final class TermsService
             );
 
             $this->outbox->record(
-                tenantId: $tenantId,
                 eventType: 'employment.terms.changed.v1',
                 aggregateType: 'employment',
                 aggregateId: (string) $employmentId,

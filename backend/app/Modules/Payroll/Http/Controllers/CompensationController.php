@@ -18,7 +18,7 @@ use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +37,7 @@ final class CompensationController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly CompensationService $compensations,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -46,18 +46,16 @@ final class CompensationController
     public function plans(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $businessDate = $this->businessDates->today($principal->tenantId())->value();
+        $businessDate = $this->businessDates->today()->value();
         [$page, $pageSize] = $this->pagination($request);
         $filters = $request->validate([
             'employment_id' => ['nullable', 'integer', 'min:1'],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
         ]);
         $result = $this->compensations->listCompensations(
             $principal,
             $businessDate,
             [
                 'employment_id' => isset($filters['employment_id']) ? (int) $filters['employment_id'] : null,
-                'legal_entity_id' => isset($filters['legal_entity_id']) ? (int) $filters['legal_entity_id'] : null,
             ],
             $page,
             $pageSize,
@@ -102,7 +100,7 @@ final class CompensationController
             ),
             $data,
             function () use ($principal, $data): array {
-                $row = $this->compensations->createCompensation($principal->tenantId(), $principal->userId(), $data);
+                $row = $this->compensations->createCompensation($principal->userId(), $data);
 
                 return [
                     'http_status' => 201,
@@ -120,18 +118,16 @@ final class CompensationController
     public function adjustments(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $businessDate = $this->businessDates->today($principal->tenantId())->value();
+        $businessDate = $this->businessDates->today()->value();
         [$page, $pageSize] = $this->pagination($request);
         $filters = $request->validate([
             'employment_id' => ['nullable', 'integer', 'min:1'],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
         ]);
         $result = $this->compensations->listAdjustments(
             $principal,
             $businessDate,
             [
                 'employment_id' => isset($filters['employment_id']) ? (int) $filters['employment_id'] : null,
-                'legal_entity_id' => isset($filters['legal_entity_id']) ? (int) $filters['legal_entity_id'] : null,
             ],
             $page,
             $pageSize,
@@ -178,7 +174,7 @@ final class CompensationController
             ),
             $data,
             function () use ($principal, $data): array {
-                $created = $this->compensations->createAdjustment($principal->tenantId(), $principal->userId(), $data);
+                $created = $this->compensations->createAdjustment($principal->userId(), $data);
                 $row = $created['adjustment'];
 
                 return [
@@ -206,7 +202,6 @@ final class CompensationController
         return [
             'id' => (int) $row->id,
             'employment_id' => (int) $row->employment_id,
-            'legal_entity_id' => (int) $row->legal_entity_id,
             'effective_from' => (string) $row->effective_from,
             'currency' => (string) $row->currency,
             'salary_scheme_code' => $row->salary_scheme_code !== null ? (string) $row->salary_scheme_code : null,
@@ -226,7 +221,6 @@ final class CompensationController
         return [
             'id' => (int) $row->id,
             'employment_id' => (int) $row->employment_id,
-            'legal_entity_id' => (int) $row->legal_entity_id,
             'effective_from' => (string) $row->effective_from,
             'currency' => (string) $row->currency,
             'case_id' => (int) $row->case_id,
@@ -249,9 +243,7 @@ final class CompensationController
                 resourceType: $resourceType,
                 id: (int) $row->id,
                 row: [],
-                tenantId: (int) $row->tenant_id,
                 employmentId: (int) $row->employment_id,
-                legalEntityId: (int) $row->legal_entity_id,
                 caseId: $row instanceof SalaryAdjustment ? (int) $row->case_id : null,
             ),
         );

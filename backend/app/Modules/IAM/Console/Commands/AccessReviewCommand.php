@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 
 final class AccessReviewCommand extends Command
 {
-    protected $signature = 'iam:access-review {--quarter= : Quarter in YYYY-Qn format} {--tenant=1 : Tenant id}';
+    protected $signature = 'iam:access-review {--quarter= : Quarter in YYYY-Qn format}';
 
     protected $description = 'Report high-risk bindings unused for 90 days and separation-of-duties risks.';
 
@@ -27,7 +27,6 @@ final class AccessReviewCommand extends Command
             return self::FAILURE;
         }
 
-        $tenantId = max(1, (int) $this->option('tenant'));
         $cutoff = $clock->now()->subDays(90);
         $highRiskCodes = array_values(array_map(
             static fn ($definition): string => $definition->code,
@@ -38,7 +37,6 @@ final class AccessReviewCommand extends Command
         ));
 
         $unusedQuery = AuthorityBinding::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('capability_code', $highRiskCodes)
             ->where('created_at', '<', $cutoff);
 
@@ -54,7 +52,7 @@ final class AccessReviewCommand extends Command
             ])
             ->all();
 
-        $activeQuery = AuthorityBinding::query()->where('tenant_id', $tenantId);
+        $activeQuery = AuthorityBinding::query();
 
         $byPrincipal = [];
         foreach (BindingValidity::whereActiveOn($activeQuery, $clock->now()->toDateString())->get() as $binding) {

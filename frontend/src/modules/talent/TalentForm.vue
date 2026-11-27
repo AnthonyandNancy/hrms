@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import { resourcePost } from '@/api/resourceClient'
 import { talentErrorInfo, type TalentErrorInfo } from './talentErrors'
 import { nextIdempotencyKey } from './talentRead'
@@ -9,6 +10,13 @@ type SectionDraft = {
   key: string
   weight: string
 }
+
+const importReportColumns: DataTableColumn[] = [
+  { key: 'row_number', label: '行号', width: '80px' },
+  { key: 'status', label: '状态', width: '120px' },
+  { key: 'reason', label: '原因', minWidth: '180px' },
+  { key: 'candidate_id', label: '候选人编号', width: '120px' },
+]
 
 const props = defineProps<{
   kind: TalentFormKind
@@ -66,7 +74,6 @@ const form = reactive({
   approvalCaseId: '',
   approvalComment: '',
   requisitionTitle: '',
-  legalEntityId: '1',
   orgUnitId: '',
   headcount: '1',
   targetStartDate: '',
@@ -96,7 +103,6 @@ const form = reactive({
   talentPoolReason: '',
   talentPoolRetentionUntil: '',
   convertCandidateId: '',
-  convertLegalEntityId: '1',
   convertOrgUnitId: '1',
   convertEmployeeNo: '',
   convertHireDate: '',
@@ -112,7 +118,6 @@ const form = reactive({
   offerCurrency: 'CNY',
   offerStartDate: '',
   offerId: '',
-  acceptLegalEntityId: '1',
   acceptOrgUnitId: '',
   acceptEmployeeNo: '',
   acceptHireDate: '',
@@ -455,7 +460,6 @@ async function submitRequisition(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       '/v1/recruitment/requisitions',
       {
-        legal_entity_id: numeric(form.legalEntityId),
         org_unit_id: numeric(form.orgUnitId),
         requisition_no: form.requisitionNo.trim(),
         title: form.requisitionTitle.trim(),
@@ -669,7 +673,6 @@ async function submitConvertCandidate(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       `/v1/recruitment/candidates/${candidateId}/convert`,
       {
-        legal_entity_id: numeric(form.convertLegalEntityId),
         org_unit_id: numeric(form.convertOrgUnitId),
         employee_no: form.convertEmployeeNo.trim(),
         hire_date: form.convertHireDate || null,
@@ -741,7 +744,6 @@ async function submitAcceptOffer(): Promise<void> {
     const row = await resourcePost<TalentRow>(
       `/v1/recruitment/offers/${offerId}/accept`,
       {
-        legal_entity_id: numeric(form.acceptLegalEntityId),
         org_unit_id: numeric(form.acceptOrgUnitId),
         employee_no: form.acceptEmployeeNo.trim(),
         hire_date: form.acceptHireDate || null,
@@ -1010,25 +1012,25 @@ async function submitCompletion(): Promise<void> {
     <p v-if="successMessage" class="talent-form-success" role="status" data-testid="talent-form-success">{{ successMessage }}</p>
 
     <form v-if="kind === 'cycle-create'" class="talent-form" @submit.prevent="submitCycle">
-      <label class="talent-field">周期名称<input v-model="form.cycleName" required maxlength="120" /></label>
-      <label class="talent-field">开始日期<input v-model="form.periodFrom" required type="date" /></label>
-      <label class="talent-field">结束日期<input v-model="form.periodTo" required type="date" /></label>
+      <label class="talent-field">周期名称<el-input v-model="form.cycleName" required maxlength="120" /></label>
+      <label class="talent-field">开始日期<el-input v-model="form.periodFrom" required type="date" /></label>
+      <label class="talent-field">结束日期<el-input v-model="form.periodTo" required type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="cycle-submit">创建周期</button>
     </form>
 
     <form v-else-if="kind === 'template-create'" class="talent-form" @submit.prevent="submitTemplate">
-      <label class="talent-field">模板编码<input v-model="form.templateCode" data-testid="template-code" required maxlength="64" /></label>
-      <label class="talent-field">模板名称<input v-model="form.templateName" data-testid="template-name" required maxlength="120" /></label>
+      <label class="talent-field">模板编码<el-input v-model="form.templateCode" data-testid="template-code" required maxlength="64" /></label>
+      <label class="talent-field">模板名称<el-input v-model="form.templateName" data-testid="template-name" required maxlength="120" /></label>
       <fieldset class="talent-sections">
         <legend>分项权重</legend>
         <div v-for="(section, index) in form.sections" :key="index" class="talent-section-row">
           <label class="talent-field">
             分项 {{ index + 1 }} 标识
-            <input v-model="section.key" :data-testid="`template-section-${index + 1}-key`" required maxlength="64" />
+            <el-input v-model="section.key" :data-testid="`template-section-${index + 1}-key`" required maxlength="64" />
           </label>
           <label class="talent-field">
             权重
-            <input v-model="section.weight" :data-testid="`template-section-${index + 1}-weight`" required inputmode="numeric" />
+            <el-input v-model="section.weight" :data-testid="`template-section-${index + 1}-weight`" required inputmode="numeric" />
           </label>
           <button type="button" class="talent-button-secondary" @click="removeSection(index)">移除</button>
         </div>
@@ -1041,329 +1043,328 @@ async function submitCompletion(): Promise<void> {
     </form>
 
     <form v-else-if="kind === 'indicator-create'" class="talent-form" @submit.prevent="submitIndicator">
-      <label class="talent-field">指标编码<input v-model="form.indicatorCode" data-testid="indicator-code" required maxlength="64" /></label>
-      <label class="talent-field">指标名称<input v-model="form.indicatorName" data-testid="indicator-name" required maxlength="160" /></label>
-      <label class="talent-field">分类<input v-model="form.indicatorCategory" maxlength="64" /></label>
-      <label class="talent-field">数据来源<input v-model="form.indicatorDataSource" maxlength="120" /></label>
+      <label class="talent-field">指标编码<el-input v-model="form.indicatorCode" data-testid="indicator-code" required maxlength="64" /></label>
+      <label class="talent-field">指标名称<el-input v-model="form.indicatorName" data-testid="indicator-name" required maxlength="160" /></label>
+      <label class="talent-field">分类<el-input v-model="form.indicatorCategory" maxlength="64" /></label>
+      <label class="talent-field">数据来源<el-input v-model="form.indicatorDataSource" maxlength="120" /></label>
       <button type="submit" :disabled="submitting" data-testid="indicator-submit">创建指标</button>
     </form>
 
     <form v-else-if="kind === 'goal-create'" class="talent-form" @submit.prevent="submitGoal">
-      <label class="talent-field">周期 ID<input v-model="form.goalCycleId" data-testid="goal-cycle-id" inputmode="numeric" required /></label>
-      <label class="talent-field">员工任职 ID<input v-model="form.goalEmploymentId" data-testid="goal-employment-id" inputmode="numeric" required /></label>
-      <label class="talent-field">指标 ID<input v-model="form.goalIndicatorId" data-testid="goal-indicator-id" inputmode="numeric" /></label>
-      <label class="talent-field">目标标题<input v-model="form.goalTitle" data-testid="goal-title" required maxlength="200" /></label>
-      <label class="talent-field">目标值<input v-model="form.goalTarget" data-testid="goal-target" required maxlength="120" /></label>
-      <label class="talent-field">权重<input v-model="form.goalWeight" data-testid="goal-weight" inputmode="numeric" /></label>
-      <label class="talent-field">截止日期<input v-model="form.goalDueOn" type="date" /></label>
+      <label class="talent-field">周期 ID<el-input v-model="form.goalCycleId" data-testid="goal-cycle-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<el-input v-model="form.goalEmploymentId" data-testid="goal-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">指标 ID<el-input v-model="form.goalIndicatorId" data-testid="goal-indicator-id" inputmode="numeric" /></label>
+      <label class="talent-field">目标标题<el-input v-model="form.goalTitle" data-testid="goal-title" required maxlength="200" /></label>
+      <label class="talent-field">目标值<el-input v-model="form.goalTarget" data-testid="goal-target" required maxlength="120" /></label>
+      <label class="talent-field">权重<el-input v-model="form.goalWeight" data-testid="goal-weight" inputmode="numeric" /></label>
+      <label class="talent-field">截止日期<el-input v-model="form.goalDueOn" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="goal-submit">保存目标</button>
     </form>
 
     <form v-else-if="kind === 'feedback-create'" class="talent-form" @submit.prevent="submitFeedback">
-      <label class="talent-field">周期 ID<input v-model="form.feedbackCycleId" data-testid="feedback-cycle-id" inputmode="numeric" required /></label>
-      <label class="talent-field">评审 ID<input v-model="form.feedbackReviewId" data-testid="feedback-review-id" inputmode="numeric" /></label>
-      <label class="talent-field">评价人任职 ID<input v-model="form.feedbackFromEmploymentId" data-testid="feedback-from-employment-id" inputmode="numeric" required /></label>
-      <label class="talent-field">被评价人任职 ID<input v-model="form.feedbackToEmploymentId" data-testid="feedback-to-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">周期 ID<el-input v-model="form.feedbackCycleId" data-testid="feedback-cycle-id" inputmode="numeric" required /></label>
+      <label class="talent-field">评审 ID<el-input v-model="form.feedbackReviewId" data-testid="feedback-review-id" inputmode="numeric" /></label>
+      <label class="talent-field">评价人任职 ID<el-input v-model="form.feedbackFromEmploymentId" data-testid="feedback-from-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">被评价人任职 ID<el-input v-model="form.feedbackToEmploymentId" data-testid="feedback-to-employment-id" inputmode="numeric" required /></label>
       <label class="talent-field">
         反馈类型
-        <select v-model="form.feedbackType" data-testid="feedback-type">
-          <option value="PEER">同级</option>
-          <option value="MANAGER">主管</option>
-          <option value="SELF">自评</option>
-          <option value="UPWARD">向上</option>
-          <option value="CROSS">跨团队</option>
-        </select>
+        <el-select v-model="form.feedbackType" data-testid="feedback-type">
+          <el-option value="PEER" label="同级" />
+          <el-option value="MANAGER" label="主管" />
+          <el-option value="SELF" label="自评" />
+          <el-option value="UPWARD" label="向上" />
+          <el-option value="CROSS" label="跨团队" />
+        </el-select>
       </label>
-      <label class="talent-field">评级<input v-model="form.feedbackRating" maxlength="16" /></label>
-      <label class="talent-field talent-field--wide">反馈内容<textarea v-model="form.feedbackComments" data-testid="feedback-comments" rows="3" required maxlength="10000" /></label>
-      <label class="talent-checkbox"><input v-model="form.feedbackAnonymous" type="checkbox" /> 匿名反馈</label>
+      <label class="talent-field">评级<el-input v-model="form.feedbackRating" maxlength="16" /></label>
+      <label class="talent-field talent-field--wide">反馈内容<el-input v-model="form.feedbackComments" data-testid="feedback-comments" rows="3" required maxlength="10000" type="textarea" /></label>
+      <label class="talent-checkbox"><el-checkbox v-model="form.feedbackAnonymous">匿名反馈</el-checkbox></label>
       <button type="submit" :disabled="submitting" data-testid="feedback-submit">记录反馈</button>
     </form>
 
     <form v-else-if="kind === 'calibration-create'" class="talent-form" @submit.prevent="submitCalibration">
-      <label class="talent-field">评审 ID<input v-model="form.calibrationReviewId" data-testid="calibration-review-id" inputmode="numeric" required /></label>
-      <label class="talent-field">校准等级<input v-model="form.calibrationRating" data-testid="calibration-rating" required maxlength="16" /></label>
-      <label class="talent-field talent-field--wide">校准理由<textarea v-model="form.calibrationReason" data-testid="calibration-reason" rows="3" required minlength="3" maxlength="4000" /></label>
+      <label class="talent-field">评审 ID<el-input v-model="form.calibrationReviewId" data-testid="calibration-review-id" inputmode="numeric" required /></label>
+      <label class="talent-field">校准等级<el-input v-model="form.calibrationRating" data-testid="calibration-rating" required maxlength="16" /></label>
+      <label class="talent-field talent-field--wide">校准理由<el-input v-model="form.calibrationReason" data-testid="calibration-reason" rows="3" required minlength="3" maxlength="4000" type="textarea" /></label>
       <button type="submit" :disabled="submitting" data-testid="calibration-submit">保存校准</button>
     </form>
 
     <form v-else-if="kind === 'cycle-publish'" class="talent-form" @submit.prevent="submitPublish">
-      <label class="talent-field">周期 ID<input v-model="form.publishCycleId" data-testid="publish-cycle-id" inputmode="numeric" required /></label>
+      <label class="talent-field">周期 ID<el-input v-model="form.publishCycleId" data-testid="publish-cycle-id" inputmode="numeric" required /></label>
       <button type="submit" :disabled="submitting" data-testid="publish-submit">发布周期结果</button>
     </form>
 
     <div v-else-if="kind === 'review-create'" class="talent-form">
-      <label class="talent-field">周期 ID<input v-model="form.reviewCycleId" inputmode="numeric" required /></label>
-      <label class="talent-field">员工任职 ID<input v-model="form.reviewEmploymentId" inputmode="numeric" required /></label>
-      <label class="talent-field">主管任职 ID<input v-model="form.reviewManagerEmploymentId" inputmode="numeric" /></label>
-      <label class="talent-field talent-field--wide">目标<textarea v-model="form.reviewGoals" rows="3" maxlength="10000" /></label>
-      <label class="talent-field talent-field--wide">自评<textarea v-model="form.reviewSelfAssessment" rows="3" maxlength="10000" /></label>
-      <label class="talent-field">自评等级<input v-model="form.reviewSelfRating" maxlength="16" /></label>
+      <label class="talent-field">周期 ID<el-input v-model="form.reviewCycleId" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<el-input v-model="form.reviewEmploymentId" inputmode="numeric" required /></label>
+      <label class="talent-field">主管任职 ID<el-input v-model="form.reviewManagerEmploymentId" inputmode="numeric" /></label>
+      <label class="talent-field talent-field--wide">目标<el-input v-model="form.reviewGoals" rows="3" maxlength="10000" type="textarea" /></label>
+      <label class="talent-field talent-field--wide">自评<el-input v-model="form.reviewSelfAssessment" rows="3" maxlength="10000" type="textarea" /></label>
+      <label class="talent-field">自评等级<el-input v-model="form.reviewSelfRating" maxlength="16" /></label>
       <button type="button" :disabled="submitting" data-testid="review-create-submit" @click="submitReview">创建评审</button>
     </div>
 
     <div v-else-if="kind === 'review-submit'" class="talent-form">
-      <label class="talent-field">评审 ID<input v-model="form.reviewId" inputmode="numeric" required /></label>
-      <label class="talent-field talent-field--wide">主管评语<textarea v-model="form.managerAssessment" rows="3" maxlength="10000" /></label>
-      <label class="talent-field">主管评分<input v-model="form.managerRating" maxlength="16" /></label>
+      <label class="talent-field">评审 ID<el-input v-model="form.reviewId" inputmode="numeric" required /></label>
+      <label class="talent-field talent-field--wide">主管评语<el-input v-model="form.managerAssessment" rows="3" maxlength="10000" type="textarea" /></label>
+      <label class="talent-field">主管评分<el-input v-model="form.managerRating" maxlength="16" /></label>
       <button type="button" :disabled="submitting" data-testid="review-submit-submit" @click="submitReviewAction">提交评审</button>
     </div>
 
     <div v-else-if="kind === 'review-appeal'" class="talent-form">
-      <label class="talent-field">评审 ID<input v-model="form.reviewId" inputmode="numeric" required /></label>
-      <label class="talent-field talent-field--wide">申诉理由<textarea v-model="form.appealReason" rows="4" minlength="10" maxlength="4000" required /></label>
+      <label class="talent-field">评审 ID<el-input v-model="form.reviewId" inputmode="numeric" required /></label>
+      <label class="talent-field talent-field--wide">申诉理由<el-input v-model="form.appealReason" rows="4" minlength="10" maxlength="4000" required type="textarea" /></label>
       <button type="button" :disabled="submitting" data-testid="appeal-submit" @click="submitAppeal">提交申诉</button>
     </div>
 
     <form v-else-if="kind === 'requisition-create'" class="talent-form" @submit.prevent="submitRequisition">
-      <label class="talent-field">法人 ID<input v-model="form.legalEntityId" inputmode="numeric" required /></label>
-      <label class="talent-field">组织单元 ID<input v-model="form.orgUnitId" inputmode="numeric" required /></label>
-      <label class="talent-field">需求编号<input v-model="form.requisitionNo" required maxlength="64" /></label>
-      <label class="talent-field">岗位名称<input v-model="form.requisitionTitle" required maxlength="160" /></label>
-      <label class="talent-field">招聘人数<input v-model="form.headcount" inputmode="numeric" required /></label>
-      <label class="talent-field">计划入职日<input v-model="form.targetStartDate" type="date" /></label>
+      <label class="talent-field">组织单元 ID<el-input v-model="form.orgUnitId" inputmode="numeric" required /></label>
+      <label class="talent-field">需求编号<el-input v-model="form.requisitionNo" required maxlength="64" /></label>
+      <label class="talent-field">岗位名称<el-input v-model="form.requisitionTitle" required maxlength="160" /></label>
+      <label class="talent-field">招聘人数<el-input v-model="form.headcount" inputmode="numeric" required /></label>
+      <label class="talent-field">计划入职日<el-input v-model="form.targetStartDate" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="requisition-submit">创建并提交审批</button>
     </form>
 
     <form v-else-if="kind === 'requisition-approve'" class="talent-form" @submit.prevent="submitRequisitionApproval">
-      <label class="talent-field">审批 Case ID<input v-model="form.approvalCaseId" data-testid="requisition-approval-case-id" inputmode="numeric" required /></label>
-      <label class="talent-field talent-field--wide">审批意见<textarea v-model="form.approvalComment" data-testid="requisition-approval-comment" rows="3" maxlength="4000" /></label>
+      <label class="talent-field">审批 Case ID<el-input v-model="form.approvalCaseId" data-testid="requisition-approval-case-id" inputmode="numeric" required /></label>
+      <label class="talent-field talent-field--wide">审批意见<el-input v-model="form.approvalComment" data-testid="requisition-approval-comment" rows="3" maxlength="4000" type="textarea" /></label>
       <button type="submit" :disabled="submitting" data-testid="requisition-approval-submit">批准招聘需求</button>
     </form>
 
     <form v-else-if="kind === 'opening-publish'" class="talent-form" @submit.prevent="submitOpening">
-      <label class="talent-field">需求 ID<input v-model="form.openingRequisitionId" data-testid="opening-requisition-id" inputmode="numeric" required /></label>
+      <label class="talent-field">需求 ID<el-input v-model="form.openingRequisitionId" data-testid="opening-requisition-id" inputmode="numeric" required /></label>
       <label class="talent-field">
         发布渠道
-        <select v-model="form.openingChannel" data-testid="opening-channel">
-          <option value="INTERNAL">内部</option>
-          <option value="EXTERNAL">外部</option>
-          <option value="REFERRAL">内推</option>
-          <option value="AGENCY">猎头</option>
-        </select>
+        <el-select v-model="form.openingChannel" data-testid="opening-channel">
+          <el-option value="INTERNAL" label="内部" />
+          <el-option value="EXTERNAL" label="外部" />
+          <el-option value="REFERRAL" label="内推" />
+          <el-option value="AGENCY" label="猎头" />
+        </el-select>
       </label>
       <button type="submit" :disabled="submitting" data-testid="opening-submit">发布岗位</button>
     </form>
 
     <form v-else-if="kind === 'candidate-create'" class="talent-form" @submit.prevent="submitCandidate">
-      <label class="talent-field">姓名<input v-model="form.candidateName" required maxlength="120" /></label>
-      <label class="talent-field">邮箱<input v-model="form.candidateEmail" type="email" maxlength="254" /></label>
-      <label class="talent-field">手机号<input v-model="form.candidateMobile" maxlength="40" /></label>
-      <label class="talent-field">来源<input v-model="form.candidateSource" maxlength="64" /></label>
+      <label class="talent-field">姓名<el-input v-model="form.candidateName" required maxlength="120" /></label>
+      <label class="talent-field">邮箱<el-input v-model="form.candidateEmail" type="email" maxlength="254" /></label>
+      <label class="talent-field">手机号<el-input v-model="form.candidateMobile" maxlength="40" /></label>
+      <label class="talent-field">来源<el-input v-model="form.candidateSource" maxlength="64" /></label>
       <button type="submit" :disabled="submitting" data-testid="candidate-submit">创建候选人</button>
     </form>
 
     <form v-else-if="kind === 'candidate-import'" class="talent-form" @submit.prevent="submitCandidateImport">
-      <label class="talent-field">需求 ID（可选）<input v-model="form.candidateImportRequisitionId" data-testid="candidate-import-requisition-id" inputmode="numeric" /></label>
+      <label class="talent-field">需求 ID（可选）<el-input v-model="form.candidateImportRequisitionId" data-testid="candidate-import-requisition-id" inputmode="numeric" /></label>
       <label class="talent-field talent-field--wide">
         候选人行（每行：姓名,邮箱,手机,来源）
-        <textarea v-model="form.candidateImportRows" data-testid="candidate-import-rows" rows="5" required />
+        <el-input v-model="form.candidateImportRows" data-testid="candidate-import-rows" rows="5" required type="textarea" />
       </label>
       <button type="submit" :disabled="submitting" data-testid="candidate-import-submit">导入候选人</button>
-      <table v-if="importReport.length > 0" class="talent-table" data-testid="candidate-import-report">
-        <thead>
-          <tr><th>row_number</th><th>status</th><th>reason</th><th>candidate_id</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in importReport" :key="`import-${importReportCell(row, 'row_number')}`">
-            <td>{{ importReportCell(row, 'row_number') }}</td>
-            <td>{{ importReportCell(row, 'status') }}</td>
-            <td>{{ importReportCell(row, 'reason') }}</td>
-            <td>{{ importReportCell(row, 'candidate_id') }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <DataTable
+        v-if="importReport.length > 0"
+        :columns="importReportColumns"
+        :rows="importReport as unknown as Array<Record<string, unknown>>"
+        :total="importReport.length"
+        :page="1"
+        :page-size="Math.max(1, importReport.length)"
+        data-testid="candidate-import-report"
+        empty-title="没有导入结果"
+      >
+        <template #cell-row_number="{ row }">{{ importReportCell(row as unknown as TalentRow, 'row_number') }}</template>
+        <template #cell-status="{ row }">{{ importReportCell(row as unknown as TalentRow, 'status') }}</template>
+        <template #cell-reason="{ row }">{{ importReportCell(row as unknown as TalentRow, 'reason') }}</template>
+        <template #cell-candidate_id="{ row }">{{ importReportCell(row as unknown as TalentRow, 'candidate_id') }}</template>
+      </DataTable>
     </form>
 
     <form v-else-if="kind === 'evaluation-create'" class="talent-form" @submit.prevent="submitEvaluation">
-      <label class="talent-field">候选人 ID<input v-model="form.evaluationCandidateId" data-testid="evaluation-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
-      <label class="talent-field">面试 ID（可选）<input v-model="form.evaluationInterviewId" inputmode="numeric" /></label>
-      <label class="talent-field">评分（1-5）<input v-model="form.evaluationRating" data-testid="evaluation-rating" inputmode="numeric" min="1" max="5" required /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.evaluationCandidateId" data-testid="evaluation-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">面试 ID（可选）<el-input v-model="form.evaluationInterviewId" inputmode="numeric" /></label>
+      <label class="talent-field">评分（1-5）<el-input v-model="form.evaluationRating" data-testid="evaluation-rating" inputmode="numeric" min="1" max="5" required /></label>
       <label class="talent-field">
         录用建议
-        <select v-model="form.evaluationRecommendation" data-testid="evaluation-recommendation">
-          <option value="STRONG_YES">强烈推荐</option>
-          <option value="YES">推荐</option>
-          <option value="NO">不推荐</option>
-          <option value="STRONG_NO">强烈不推荐</option>
-        </select>
+        <el-select v-model="form.evaluationRecommendation" data-testid="evaluation-recommendation">
+          <el-option value="STRONG_YES" label="强烈推荐" />
+          <el-option value="YES" label="推荐" />
+          <el-option value="NO" label="不推荐" />
+          <el-option value="STRONG_NO" label="强烈不推荐" />
+        </el-select>
       </label>
-      <label class="talent-field">优势<input v-model="form.evaluationStrengths" maxlength="4000" /></label>
-      <label class="talent-field">顾虑<input v-model="form.evaluationConcerns" maxlength="4000" /></label>
-      <label class="talent-field talent-field--wide">评语<textarea v-model="form.evaluationComments" rows="3" maxlength="4000" /></label>
+      <label class="talent-field">优势<el-input v-model="form.evaluationStrengths" maxlength="4000" /></label>
+      <label class="talent-field">顾虑<el-input v-model="form.evaluationConcerns" maxlength="4000" /></label>
+      <label class="talent-field talent-field--wide">评语<el-input v-model="form.evaluationComments" rows="3" maxlength="4000" type="textarea" /></label>
       <button type="submit" :disabled="submitting" data-testid="evaluation-submit">保存面试评价</button>
     </form>
 
     <form v-else-if="kind === 'communication-create'" class="talent-form" @submit.prevent="submitCommunication">
-      <label class="talent-field">候选人 ID<input v-model="form.communicationCandidateId" data-testid="communication-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.communicationCandidateId" data-testid="communication-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
       <label class="talent-field">
         渠道
-        <select v-model="form.communicationChannel" data-testid="communication-channel">
-          <option value="EMAIL">邮件</option>
-          <option value="PHONE">电话</option>
-          <option value="SMS">短信</option>
-          <option value="WECHAT">微信</option>
-          <option value="IN_PERSON">当面</option>
-          <option value="OTHER">其他</option>
-        </select>
+        <el-select v-model="form.communicationChannel" data-testid="communication-channel">
+          <el-option value="EMAIL" label="邮件" />
+          <el-option value="PHONE" label="电话" />
+          <el-option value="SMS" label="短信" />
+          <el-option value="WECHAT" label="微信" />
+          <el-option value="IN_PERSON" label="当面" />
+          <el-option value="OTHER" label="其他" />
+        </el-select>
       </label>
       <label class="talent-field">
         方向
-        <select v-model="form.communicationDirection" data-testid="communication-direction">
-          <option value="OUTBOUND">去电/发出</option>
-          <option value="INBOUND">来电/收到</option>
-        </select>
+        <el-select v-model="form.communicationDirection" data-testid="communication-direction">
+          <el-option value="OUTBOUND" label="去电/发出" />
+          <el-option value="INBOUND" label="来电/收到" />
+        </el-select>
       </label>
-      <label class="talent-field">主题<input v-model="form.communicationSubject" maxlength="200" /></label>
-      <label class="talent-field talent-field--wide">内容<textarea v-model="form.communicationBody" data-testid="communication-body" rows="3" maxlength="10000" required /></label>
-      <label class="talent-field">同意基础<input v-model="form.communicationConsentBasis" data-testid="communication-consent-basis" maxlength="64" required /></label>
+      <label class="talent-field">主题<el-input v-model="form.communicationSubject" maxlength="200" /></label>
+      <label class="talent-field talent-field--wide">内容<el-input v-model="form.communicationBody" data-testid="communication-body" rows="3" maxlength="10000" required type="textarea" /></label>
+      <label class="talent-field">同意基础<el-input v-model="form.communicationConsentBasis" data-testid="communication-consent-basis" maxlength="64" required /></label>
       <button type="submit" :disabled="submitting" data-testid="communication-submit">保存沟通记录</button>
     </form>
 
     <form v-else-if="kind === 'talent-pool-tag'" class="talent-form" @submit.prevent="submitTalentPoolTag">
-      <label class="talent-field">候选人 ID<input v-model="form.talentPoolCandidateId" data-testid="talent-pool-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
-      <label class="talent-field">标签<input v-model="form.talentPoolTag" data-testid="talent-pool-tag" maxlength="64" required /></label>
-      <label class="talent-field">原因<input v-model="form.talentPoolReason" maxlength="500" /></label>
-      <label class="talent-field">留存截止日<input v-model="form.talentPoolRetentionUntil" type="date" /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.talentPoolCandidateId" data-testid="talent-pool-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">标签<el-input v-model="form.talentPoolTag" data-testid="talent-pool-tag" maxlength="64" required /></label>
+      <label class="talent-field">原因<el-input v-model="form.talentPoolReason" maxlength="500" /></label>
+      <label class="talent-field">留存截止日<el-input v-model="form.talentPoolRetentionUntil" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="talent-pool-submit">加入人才库</button>
     </form>
 
     <form v-else-if="kind === 'candidate-convert'" class="talent-form" @submit.prevent="submitConvertCandidate">
-      <label class="talent-field">候选人 ID<input v-model="form.convertCandidateId" data-testid="convert-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
-      <label class="talent-field">法人 ID<input v-model="form.convertLegalEntityId" data-testid="convert-legal-entity-id" inputmode="numeric" required /></label>
-      <label class="talent-field">组织单元 ID<input v-model="form.convertOrgUnitId" data-testid="convert-org-unit-id" inputmode="numeric" required /></label>
-      <label class="talent-field">员工编号<input v-model="form.convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" required /></label>
-      <label class="talent-field">入职日期<input v-model="form.convertHireDate" type="date" /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.convertCandidateId" data-testid="convert-candidate-id" :placeholder="routeId ?? '候选人 ID'" inputmode="numeric" required /></label>
+      <label class="talent-field">组织单元 ID<el-input v-model="form.convertOrgUnitId" data-testid="convert-org-unit-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工编号<el-input v-model="form.convertEmployeeNo" data-testid="convert-employee-no" maxlength="64" required /></label>
+      <label class="talent-field">入职日期<el-input v-model="form.convertHireDate" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="convert-submit">转为员工任职</button>
     </form>
 
     <form v-else-if="kind === 'interview-schedule'" class="talent-form" @submit.prevent="submitInterview">
-      <label class="talent-field">候选人 ID<input v-model="form.interviewCandidateId" inputmode="numeric" required /></label>
-      <label class="talent-field">需求 ID<input v-model="form.interviewRequisitionId" inputmode="numeric" required /></label>
-      <label class="talent-field">面试时间<input v-model="form.interviewScheduledAt" type="datetime-local" required /></label>
-      <label class="talent-field">时长（分钟）<input v-model="form.interviewDuration" inputmode="numeric" /></label>
-      <label class="talent-field">面试官<input v-model="form.interviewInterviewer" required maxlength="120" /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.interviewCandidateId" inputmode="numeric" required /></label>
+      <label class="talent-field">需求 ID<el-input v-model="form.interviewRequisitionId" inputmode="numeric" required /></label>
+      <label class="talent-field">面试时间<el-input v-model="form.interviewScheduledAt" type="datetime-local" required /></label>
+      <label class="talent-field">时长（分钟）<el-input v-model="form.interviewDuration" inputmode="numeric" /></label>
+      <label class="talent-field">面试官<el-input v-model="form.interviewInterviewer" required maxlength="120" /></label>
       <label class="talent-field">
         方式
-        <select v-model="form.interviewMode">
-          <option value="VIDEO">视频</option>
-          <option value="ONSITE">现场</option>
-          <option value="PHONE">电话</option>
-        </select>
+        <el-select v-model="form.interviewMode">
+          <el-option value="VIDEO" label="视频" />
+          <el-option value="ONSITE" label="现场" />
+          <el-option value="PHONE" label="电话" />
+        </el-select>
       </label>
       <button type="submit" :disabled="submitting" data-testid="interview-submit">安排面试</button>
     </form>
 
     <form v-else-if="kind === 'offer-create'" class="talent-form" @submit.prevent="submitOffer">
-      <label class="talent-field">候选人 ID<input v-model="form.offerCandidateId" inputmode="numeric" required /></label>
-      <label class="talent-field">需求 ID<input v-model="form.offerRequisitionId" inputmode="numeric" required /></label>
-      <label class="talent-field">基本薪资（最小货币单位）<input v-model="form.offerSalary" inputmode="numeric" required /></label>
-      <label class="talent-field">币种<input v-model="form.offerCurrency" required maxlength="3" /></label>
-      <label class="talent-field">入职日期<input v-model="form.offerStartDate" type="date" required /></label>
+      <label class="talent-field">候选人 ID<el-input v-model="form.offerCandidateId" inputmode="numeric" required /></label>
+      <label class="talent-field">需求 ID<el-input v-model="form.offerRequisitionId" inputmode="numeric" required /></label>
+      <label class="talent-field">基本薪资（最小货币单位）<el-input v-model="form.offerSalary" inputmode="numeric" required /></label>
+      <label class="talent-field">币种<el-input v-model="form.offerCurrency" required maxlength="3" /></label>
+      <label class="talent-field">入职日期<el-input v-model="form.offerStartDate" type="date" required /></label>
       <button type="submit" :disabled="submitting" data-testid="offer-submit">创建 Offer</button>
     </form>
 
     <form v-else-if="kind === 'offer-accept'" class="talent-form" @submit.prevent="submitAcceptOffer">
-      <label class="talent-field">Offer ID<input v-model="form.offerId" :disabled="Boolean(routeId)" :value="routeId ?? form.offerId" inputmode="numeric" required /></label>
-      <label class="talent-field">法人 ID<input v-model="form.acceptLegalEntityId" inputmode="numeric" required /></label>
-      <label class="talent-field">组织单元 ID<input v-model="form.acceptOrgUnitId" inputmode="numeric" required /></label>
-      <label class="talent-field">员工编号<input v-model="form.acceptEmployeeNo" required maxlength="64" /></label>
-      <label class="talent-field">入职日期<input v-model="form.acceptHireDate" type="date" /></label>
+      <label class="talent-field">Offer ID<el-input v-model="form.offerId" :disabled="Boolean(routeId)" :value="routeId ?? form.offerId" inputmode="numeric" required /></label>
+      <label class="talent-field">组织单元 ID<el-input v-model="form.acceptOrgUnitId" inputmode="numeric" required /></label>
+      <label class="talent-field">员工编号<el-input v-model="form.acceptEmployeeNo" required maxlength="64" /></label>
+      <label class="talent-field">入职日期<el-input v-model="form.acceptHireDate" type="date" /></label>
       <button type="submit" :disabled="submitting" data-testid="offer-accept-submit">接受 Offer</button>
     </form>
 
     <form v-else-if="kind === 'program-create'" class="talent-form" @submit.prevent="submitProgram">
-      <label class="talent-field">项目编码<input v-model="form.programCode" required maxlength="64" /></label>
-      <label class="talent-field">项目名称<input v-model="form.programTitle" required maxlength="160" /></label>
-      <label class="talent-field">默认容量<input v-model="form.programCapacity" inputmode="numeric" /></label>
+      <label class="talent-field">项目编码<el-input v-model="form.programCode" required maxlength="64" /></label>
+      <label class="talent-field">项目名称<el-input v-model="form.programTitle" required maxlength="160" /></label>
+      <label class="talent-field">默认容量<el-input v-model="form.programCapacity" inputmode="numeric" /></label>
       <button type="submit" :disabled="submitting" data-testid="program-submit">创建培训项目</button>
     </form>
 
     <form v-else-if="kind === 'session-create'" class="talent-form" @submit.prevent="submitSession">
-      <label class="talent-field">培训项目 ID<input v-model="form.sessionProgramId" data-testid="session-program-id" inputmode="numeric" required /></label>
-      <label class="talent-field">开始日期<input v-model="form.sessionStartsOn" data-testid="session-starts-on" type="date" required /></label>
-      <label class="talent-field">结束日期<input v-model="form.sessionEndsOn" data-testid="session-ends-on" type="date" required /></label>
-      <label class="talent-field">开始时间<input v-model="form.sessionStartsAt" data-testid="session-starts-at" type="datetime-local" required /></label>
-      <label class="talent-field">结束时间<input v-model="form.sessionEndsAt" data-testid="session-ends-at" type="datetime-local" required /></label>
-      <label class="talent-field">容量<input v-model="form.sessionCapacity" data-testid="session-capacity" inputmode="numeric" required /></label>
-      <label class="talent-field">地点<input v-model="form.sessionLocation" maxlength="160" /></label>
+      <label class="talent-field">培训项目 ID<el-input v-model="form.sessionProgramId" data-testid="session-program-id" inputmode="numeric" required /></label>
+      <label class="talent-field">开始日期<el-input v-model="form.sessionStartsOn" data-testid="session-starts-on" type="date" required /></label>
+      <label class="talent-field">结束日期<el-input v-model="form.sessionEndsOn" data-testid="session-ends-on" type="date" required /></label>
+      <label class="talent-field">开始时间<el-input v-model="form.sessionStartsAt" data-testid="session-starts-at" type="datetime-local" required /></label>
+      <label class="talent-field">结束时间<el-input v-model="form.sessionEndsAt" data-testid="session-ends-at" type="datetime-local" required /></label>
+      <label class="talent-field">容量<el-input v-model="form.sessionCapacity" data-testid="session-capacity" inputmode="numeric" required /></label>
+      <label class="talent-field">地点<el-input v-model="form.sessionLocation" maxlength="160" /></label>
       <button type="submit" :disabled="submitting" data-testid="session-submit">创建场次</button>
     </form>
 
     <form v-else-if="kind === 'plan-create'" class="talent-form" @submit.prevent="submitPlan">
-      <label class="talent-field">计划编码<input v-model="form.planCode" data-testid="plan-code" required maxlength="64" /></label>
-      <label class="talent-field">计划名称<input v-model="form.planTitle" data-testid="plan-title" required maxlength="160" /></label>
-      <label class="talent-field">年度<input v-model="form.planYear" data-testid="plan-year" inputmode="numeric" required /></label>
-      <label class="talent-field">预算（整数分）<input v-model="form.planBudgetCents" data-testid="plan-budget-cents" inputmode="numeric" /></label>
-      <label class="talent-field">币种<input v-model="form.planCurrency" required maxlength="3" /></label>
+      <label class="talent-field">计划编码<el-input v-model="form.planCode" data-testid="plan-code" required maxlength="64" /></label>
+      <label class="talent-field">计划名称<el-input v-model="form.planTitle" data-testid="plan-title" required maxlength="160" /></label>
+      <label class="talent-field">年度<el-input v-model="form.planYear" data-testid="plan-year" inputmode="numeric" required /></label>
+      <label class="talent-field">预算（整数分）<el-input v-model="form.planBudgetCents" data-testid="plan-budget-cents" inputmode="numeric" /></label>
+      <label class="talent-field">币种<el-input v-model="form.planCurrency" required maxlength="3" /></label>
       <button type="submit" :disabled="submitting" data-testid="plan-submit">创建培训计划</button>
     </form>
 
     <form v-else-if="kind === 'course-create'" class="talent-form" @submit.prevent="submitCourse">
-      <label class="talent-field">计划 ID<input v-model="form.coursePlanId" data-testid="course-plan-id" inputmode="numeric" /></label>
-      <label class="talent-field">课程编码<input v-model="form.courseCode" data-testid="course-code" required maxlength="64" /></label>
-      <label class="talent-field">课程名称<input v-model="form.courseTitle" data-testid="course-title" required maxlength="160" /></label>
-      <label class="talent-field">讲师<input v-model="form.courseInstructor" data-testid="course-instructor" maxlength="120" /></label>
+      <label class="talent-field">计划 ID<el-input v-model="form.coursePlanId" data-testid="course-plan-id" inputmode="numeric" /></label>
+      <label class="talent-field">课程编码<el-input v-model="form.courseCode" data-testid="course-code" required maxlength="64" /></label>
+      <label class="talent-field">课程名称<el-input v-model="form.courseTitle" data-testid="course-title" required maxlength="160" /></label>
+      <label class="talent-field">讲师<el-input v-model="form.courseInstructor" data-testid="course-instructor" maxlength="120" /></label>
       <label class="talent-field">
         形式
-        <select v-model="form.courseDeliveryMode" data-testid="course-delivery-mode">
-          <option value="ONSITE">现场</option>
-          <option value="ONLINE">线上</option>
-          <option value="HYBRID">混合</option>
-        </select>
+        <el-select v-model="form.courseDeliveryMode" data-testid="course-delivery-mode">
+          <el-option value="ONSITE" label="现场" />
+          <el-option value="ONLINE" label="线上" />
+          <el-option value="HYBRID" label="混合" />
+        </el-select>
       </label>
-      <label class="talent-field">时长（分钟）<input v-model="form.courseDurationMinutes" data-testid="course-duration-minutes" inputmode="numeric" /></label>
-      <label class="talent-field">成本（整数分）<input v-model="form.courseCostCents" data-testid="course-cost-cents" inputmode="numeric" /></label>
+      <label class="talent-field">时长（分钟）<el-input v-model="form.courseDurationMinutes" data-testid="course-duration-minutes" inputmode="numeric" /></label>
+      <label class="talent-field">成本（整数分）<el-input v-model="form.courseCostCents" data-testid="course-cost-cents" inputmode="numeric" /></label>
       <button type="submit" :disabled="submitting" data-testid="course-submit">创建课程</button>
     </form>
 
     <form v-else-if="kind === 'checkin-create'" class="talent-form" @submit.prevent="submitCheckin">
-      <label class="talent-field">场次 ID<input v-model="form.checkinSessionId" data-testid="checkin-session-id" inputmode="numeric" required /></label>
-      <label class="talent-field">员工任职 ID<input v-model="form.checkinEmploymentId" data-testid="checkin-employment-id" inputmode="numeric" required /></label>
-      <label class="talent-field">签到时间<input v-model="form.checkinInTime" data-testid="checkin-in-time" type="datetime-local" /></label>
-      <label class="talent-field">签退时间<input v-model="form.checkinOutTime" data-testid="checkin-out-time" type="datetime-local" /></label>
+      <label class="talent-field">场次 ID<el-input v-model="form.checkinSessionId" data-testid="checkin-session-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<el-input v-model="form.checkinEmploymentId" data-testid="checkin-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">签到时间<el-input v-model="form.checkinInTime" data-testid="checkin-in-time" type="datetime-local" /></label>
+      <label class="talent-field">签退时间<el-input v-model="form.checkinOutTime" data-testid="checkin-out-time" type="datetime-local" /></label>
       <button type="submit" :disabled="submitting" data-testid="checkin-submit">记录签到</button>
     </form>
 
     <form v-else-if="kind === 'exam-create'" class="talent-form" @submit.prevent="submitExam">
-      <label class="talent-field">课程 ID<input v-model="form.examCourseId" data-testid="exam-course-id" inputmode="numeric" /></label>
-      <label class="talent-field">考试编码<input v-model="form.examCode" data-testid="exam-code" required maxlength="64" /></label>
-      <label class="talent-field">考试名称<input v-model="form.examTitle" data-testid="exam-title" required maxlength="200" /></label>
-      <label class="talent-field">合格分<input v-model="form.examPassingScore" data-testid="exam-passing-score" inputmode="numeric" required /></label>
-      <label class="talent-field">满分<input v-model="form.examMaxScore" data-testid="exam-max-score" inputmode="numeric" required /></label>
+      <label class="talent-field">课程 ID<el-input v-model="form.examCourseId" data-testid="exam-course-id" inputmode="numeric" /></label>
+      <label class="talent-field">考试编码<el-input v-model="form.examCode" data-testid="exam-code" required maxlength="64" /></label>
+      <label class="talent-field">考试名称<el-input v-model="form.examTitle" data-testid="exam-title" required maxlength="200" /></label>
+      <label class="talent-field">合格分<el-input v-model="form.examPassingScore" data-testid="exam-passing-score" inputmode="numeric" required /></label>
+      <label class="talent-field">满分<el-input v-model="form.examMaxScore" data-testid="exam-max-score" inputmode="numeric" required /></label>
       <button type="submit" :disabled="submitting" data-testid="exam-submit">保存考试草稿</button>
     </form>
 
     <form v-else-if="kind === 'exam-publish'" class="talent-form" @submit.prevent="submitExamPublish">
-      <label class="talent-field">考试版本 ID<input v-model="form.examPublishId" data-testid="exam-publish-id" inputmode="numeric" required /></label>
+      <label class="talent-field">考试版本 ID<el-input v-model="form.examPublishId" data-testid="exam-publish-id" inputmode="numeric" required /></label>
       <button type="submit" :disabled="submitting" data-testid="exam-publish-submit">发布并冻结版本</button>
     </form>
 
     <form v-else-if="kind === 'training-feedback-create'" class="talent-form" @submit.prevent="submitTrainingFeedback">
-      <label class="talent-field">报名 ID<input v-model="form.trainingFeedbackEnrollmentId" data-testid="training-feedback-enrollment-id" inputmode="numeric" required /></label>
-      <label class="talent-field">满意度<input v-model="form.trainingFeedbackRating" data-testid="training-feedback-rating" inputmode="numeric" min="1" max="5" /></label>
-      <label class="talent-field talent-field--wide">反馈内容<textarea v-model="form.trainingFeedbackComments" data-testid="training-feedback-comments" rows="3" required maxlength="10000" /></label>
+      <label class="talent-field">报名 ID<el-input v-model="form.trainingFeedbackEnrollmentId" data-testid="training-feedback-enrollment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">满意度<el-input v-model="form.trainingFeedbackRating" data-testid="training-feedback-rating" inputmode="numeric" min="1" max="5" /></label>
+      <label class="talent-field talent-field--wide">反馈内容<el-input v-model="form.trainingFeedbackComments" data-testid="training-feedback-comments" rows="3" required maxlength="10000" type="textarea" /></label>
       <button type="submit" :disabled="submitting" data-testid="training-feedback-submit">追加反馈</button>
     </form>
 
     <div v-else-if="kind === 'enrollment-create'" class="talent-form">
-      <label class="talent-field">场次 ID<input v-model="form.enrollmentSessionId" data-testid="enrollment-session-id" inputmode="numeric" required /></label>
-      <label class="talent-field">员工任职 ID<input v-model="form.enrollmentEmploymentId" data-testid="enrollment-employment-id" inputmode="numeric" required /></label>
+      <label class="talent-field">场次 ID<el-input v-model="form.enrollmentSessionId" data-testid="enrollment-session-id" inputmode="numeric" required /></label>
+      <label class="talent-field">员工任职 ID<el-input v-model="form.enrollmentEmploymentId" data-testid="enrollment-employment-id" inputmode="numeric" required /></label>
       <button type="button" :disabled="submitting" data-testid="enrollment-submit" @click="submitEnrollment">报名</button>
     </div>
 
     <div v-else-if="kind === 'enrollment-complete'" class="talent-form">
-      <label class="talent-field">报名 ID<input v-model="form.completionEnrollmentId" inputmode="numeric" required /></label>
+      <label class="talent-field">报名 ID<el-input v-model="form.completionEnrollmentId" inputmode="numeric" required /></label>
       <label class="talent-field">
         完成结果
-        <select v-model="form.completionResult">
-          <option value="PASS">通过</option>
-          <option value="FAIL">未通过</option>
-          <option value="ATTENDED">已参加</option>
-        </select>
+        <el-select v-model="form.completionResult">
+          <el-option value="PASS" label="通过" />
+          <el-option value="FAIL" label="未通过" />
+          <el-option value="ATTENDED" label="已参加" />
+        </el-select>
       </label>
-      <label class="talent-field">成绩<input v-model="form.completionScore" inputmode="numeric" /></label>
-      <label class="talent-checkbox"><input v-model="form.completedAttended" type="checkbox" /> 已到场</label>
+      <label class="talent-field">成绩<el-input v-model="form.completionScore" inputmode="numeric" /></label>
+      <label class="talent-checkbox"><el-checkbox v-model="form.completedAttended">已到场</el-checkbox></label>
       <button type="button" :disabled="submitting" data-testid="completion-submit" @click="submitCompletion">保存完成记录</button>
     </div>
 

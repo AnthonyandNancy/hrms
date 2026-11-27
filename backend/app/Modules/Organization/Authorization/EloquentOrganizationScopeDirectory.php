@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Organization\Authorization;
 
-use App\Modules\Organization\Models\LegalEntity;
 use App\Modules\Organization\Models\OrgUnit;
+use App\Modules\Organization\Models\OrgUnitClosure;
 use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Time\AsOfQuery;
+use App\Shared\Time\CompanyBusinessDate;
 
 /**
  * Production Organization scope adapter for IAM. IAM depends on the Shared
@@ -15,75 +16,44 @@ use App\Shared\Time\AsOfQuery;
  */
 final class EloquentOrganizationScopeDirectory implements OrganizationScopeDirectory
 {
-    public function isUnitInTenant(int $tenantId, int $orgUnitId, string $businessDate): bool
+    public function __construct(private readonly CompanyBusinessDate $businessDates) {}
+
+    public function orgUnitExists(int $orgUnitId): bool
     {
+        $on = $this->businessDates->today()->value();
+
         return OrgUnit::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($orgUnitId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
+            ->where('status', 'ACTIVE')
+            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
             ->exists();
     }
 
-    public function legalEntityForUnit(int $tenantId, int $orgUnitId, string $businessDate): ?int
-    {
-        $legalEntityId = OrgUnit::query()
-            ->where('tenant_id', $tenantId)
-            ->whereKey($orgUnitId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
-            ->value('legal_entity_id');
-
-        return $legalEntityId === null ? null : (int) $legalEntityId;
-    }
-
     /** @return list<int> */
-    public function descendantUnitIds(int $tenantId, int $orgUnitId, string $businessDate): array
+    public function orgUnitAncestors(int $orgUnitId): array
     {
-        $visited = [];
-        $queue = [$orgUnitId];
+        $on = $this->businessDates->today()->value();
 
-        while ($queue !== []) {
-            $current = array_shift($queue);
-
-            if (isset($visited[$current])) {
-                continue;
-            }
-
-            $visited[$current] = true;
-
-            $children = OrgUnit::query()
-                ->where('tenant_id', $tenantId)
-                ->where('parent_id', $current)
-                ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
-                ->pluck('id')
-                ->map(static fn (mixed $id): int => (int) $id)
-                ->all();
-
-            foreach ($children as $child) {
-                $queue[] = $child;
-            }
-        }
-
-        return array_keys($visited);
-    }
-
-    /** @return list<int> */
-    public function unitIdsForLegalEntity(int $tenantId, int $legalEntityId, string $businessDate): array
-    {
-        return OrgUnit::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $legalEntityId)
-            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $businessDate))
-            ->orderBy('id')
-            ->pluck('id')
+        return OrgUnitClosure::query()
+            ->where('descendant_id', $orgUnitId)
+            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
+            ->orderBy('ancestor_id')
+            ->pluck('ancestor_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
     }
 
-    public function legalEntityExists(int $tenantId, int $legalEntityId): bool
+    /** @return list<int> */
+    public function descendantOrgUnitIds(int $orgUnitId): array
     {
-        return LegalEntity::query()
-            ->where('tenant_id', $tenantId)
-            ->whereKey($legalEntityId)
-            ->exists();
+        $on = $this->businessDates->today()->value();
+
+        return OrgUnitClosure::query()
+            ->where('ancestor_id', $orgUnitId)
+            ->tap(fn ($query) => AsOfQuery::whereValidOn($query, $on))
+            ->orderBy('descendant_id')
+            ->pluck('descendant_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
     }
 }

@@ -22,18 +22,14 @@ final class AttendanceClosingTest extends TimeHttpTestCase
 
         $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-11',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-2026-11'])->assertCreated();
 
         $this->assertDatabaseHas('attendance_period_closures', [
-            'tenant_id' => 1,
-            'legal_entity_id' => 1,
             'month' => '2026-11',
         ]);
 
         $this->postJson('/v1/time/attendance/recalculate', [
             'month' => '2026-11',
-            'legal_entity_id' => 1,
             'employment_id' => 1,
         ], ['Idempotency-Key' => 'recalc-closed'])
             ->assertConflict()
@@ -52,12 +48,10 @@ final class AttendanceClosingTest extends TimeHttpTestCase
 
         $first = $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-10',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-2026-10-a'])->assertCreated();
 
         $second = $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-10',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-2026-10-b'])->assertCreated();
 
         $this->assertSame($first->json('data.closure_id'), $second->json('data.closure_id'));
@@ -77,7 +71,6 @@ final class AttendanceClosingTest extends TimeHttpTestCase
 
         $closure = $this->postJson('/v1/time/attendance/closings', [
             'month' => '2026-09',
-            'legal_entity_id' => 1,
         ], ['Idempotency-Key' => 'close-2026-09'])->assertCreated();
 
         $id = (int) $closure->json('data.closure_id');

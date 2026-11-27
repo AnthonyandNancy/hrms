@@ -27,7 +27,6 @@ final class PeopleToPayrollIntegrationTest extends PayrollTestCase
         $current->forceFill(['effective_to' => '2026-07-01'])->save();
 
         \App\Modules\People\Models\EmploymentTerms::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => $employment->id,
             'version' => 2,
             'effective_from' => '2026-07-01',
@@ -61,7 +60,6 @@ final class PeopleToPayrollIntegrationTest extends PayrollTestCase
         // The employee leaves after 15 days. Time reports only the scheduled
         // minutes that were actually due before termination.
         \App\Modules\Time\Models\AttendanceDay::query()->create([
-            'tenant_id' => $this->tenantId,
             'employment_id' => $employmentId,
             'business_date' => '2026-08-03',
             'shift_template_id' => null,
@@ -88,8 +86,8 @@ final class PeopleToPayrollIntegrationTest extends PayrollTestCase
     private function calculateGross(array $base, string $period): int
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return (int) $run->refresh()->gross_cents;

@@ -21,7 +21,6 @@ final class TaskController
         $today = $this->clock->now();
 
         $tasks = WorkflowTask::query()
-            ->where('tenant_id', $principal->tenantId)
             ->where('assignee_user_id', $principal->userId)
             ->where('status', \App\Modules\Workflow\Enums\TaskStatus::PENDING->value)
             ->with(['case'])

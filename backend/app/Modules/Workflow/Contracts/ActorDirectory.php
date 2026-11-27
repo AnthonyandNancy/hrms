@@ -6,9 +6,9 @@ namespace App\Modules\Workflow\Contracts;
 
 /**
  * Narrow read contract to IAM/user data. Workflow never queries IAM models;
- * Task 2 later binds a real implementation, tests use a fake.
+ * the IAM adapter supplies the implementation, tests use a fake.
  */
 interface ActorDirectory
 {
-    public function snapshot(int $tenantId, int $userId): ?ActorSnapshot;
+    public function snapshot(int $userId): ?ActorSnapshot;
 }

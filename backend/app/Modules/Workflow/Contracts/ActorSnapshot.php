@@ -15,7 +15,6 @@ final readonly class ActorSnapshot
      * @param  list<string>  $capabilities
      */
     public function __construct(
-        public int $tenantId,
         public int $userId,
         public ?int $employmentId,
         public int $authVersion,

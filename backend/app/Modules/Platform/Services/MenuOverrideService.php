@@ -12,10 +12,9 @@ use App\Shared\Exceptions\NotFoundOrForbiddenException;
 
 final class MenuOverrideService implements MenuOverrideReader, MenuOverrideWriter
 {
-    public function overrides(int $tenantId): array
+    public function overrides(): array
     {
         return MenuOverride::query()
-            ->where('tenant_id', $tenantId)
             ->orderBy('sort_order')
             ->orderBy('page_code')
             ->get()
@@ -23,10 +22,9 @@ final class MenuOverrideService implements MenuOverrideReader, MenuOverrideWrite
             ->all();
     }
 
-    public function create(int $tenantId, array $data): array
+    public function create(array $data): array
     {
         $exists = MenuOverride::query()
-            ->where('tenant_id', $tenantId)
             ->where('page_code', (string) $data['page_code'])
             ->exists();
 
@@ -36,7 +34,6 @@ final class MenuOverrideService implements MenuOverrideReader, MenuOverrideWrite
 
         /** @var MenuOverride $override */
         $override = MenuOverride::query()->create([
-            'tenant_id' => $tenantId,
             'page_code' => (string) $data['page_code'],
             'label' => $data['label'] ?? null,
             'visible' => (bool) ($data['visible'] ?? true),
@@ -46,11 +43,10 @@ final class MenuOverrideService implements MenuOverrideReader, MenuOverrideWrite
         return $this->row($override);
     }
 
-    public function update(int $tenantId, string $pageCode, array $data): array
+    public function update(string $pageCode, array $data): array
     {
         /** @var MenuOverride|null $override */
         $override = MenuOverride::query()
-            ->where('tenant_id', $tenantId)
             ->where('page_code', $pageCode)
             ->first();
 
@@ -67,10 +63,9 @@ final class MenuOverrideService implements MenuOverrideReader, MenuOverrideWrite
         return $this->row($override->refresh());
     }
 
-    public function delete(int $tenantId, string $pageCode): bool
+    public function delete(string $pageCode): bool
     {
         $deleted = MenuOverride::query()
-            ->where('tenant_id', $tenantId)
             ->where('page_code', $pageCode)
             ->delete();
 

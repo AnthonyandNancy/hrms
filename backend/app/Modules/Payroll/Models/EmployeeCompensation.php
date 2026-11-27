@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Models;
 
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,8 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * effective date creates a new version and never rewrites an older one.
  *
  * @property int $id
- * @property int $tenant_id
- * @property int $legal_entity_id
  * @property int $employment_id
  * @property string $effective_from
  * @property string $currency
@@ -24,16 +21,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class EmployeeCompensation extends Model
 {
-    use BelongsToTenant;
-
     public const UPDATED_AT = null;
 
     protected $table = 'employee_compensations';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
-        'legal_entity_id',
         'employment_id',
         'effective_from',
         'currency',
@@ -49,8 +42,6 @@ final class EmployeeCompensation extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'employment_id' => 'integer',
             'base_salary_cents' => 'integer',
             'created_by' => 'integer',

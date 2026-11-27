@@ -19,7 +19,6 @@ class AuthorityBindingFactory extends Factory
     public function definition(): array
     {
         return [
-            'tenant_id' => 1,
             'principal_id' => 1,
             'capability_code' => 'people.employee.read',
             'anchor_type' => AnchorType::COMPANY->value,
@@ -41,10 +40,9 @@ class AuthorityBindingFactory extends Factory
         ];
     }
 
-    public function forPrincipal(int $tenantId, int $userId, int $authVersion = 1): static
+    public function forPrincipal(int $userId, int $authVersion = 1): static
     {
         return $this->state(fn (): array => [
-            'tenant_id' => $tenantId,
             'principal_id' => $userId,
             'auth_version' => $authVersion,
         ]);

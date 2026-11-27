@@ -23,7 +23,6 @@ final class CaseDecisionService implements CaseDecisionPort
     ) {}
 
     public function decide(
-        int $tenantId,
         int $userId,
         int $caseId,
         string $action,
@@ -32,7 +31,7 @@ final class CaseDecisionService implements CaseDecisionPort
     ): array {
         $principal = $this->principals->resolve();
 
-        if ($principal === null || $principal->tenantId !== $tenantId || $principal->userId !== $userId) {
+        if ($principal === null || $principal->userId !== $userId) {
             throw new ConflictException('The workflow principal does not match the request actor.', [
                 'reason' => 'WORKFLOW_PRINCIPAL_MISMATCH',
             ]);

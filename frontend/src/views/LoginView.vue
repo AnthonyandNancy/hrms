@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { ArrowRight, Lock, Setting } from '@element-plus/icons-vue'
 import { useSessionStore } from '@/stores/session'
 import { loginSchema, totpSchema, validate } from '@/utils/validation'
 import { errorCopy } from '@/api/errors'
-import MfaEnrollmentDialog from '@/components/MfaEnrollmentDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,10 +23,9 @@ const totpError = ref('')
 const submitting = ref(false)
 const totpSubmitting = ref(false)
 const expiredVisible = ref(route.query.expired === '1')
-const enrollmentOpen = ref(false)
 
 const mfaRequired = computed(() => session.status === 'mfa_required')
-const tenantLabel = computed(() => session.principal?.legalEntityName ?? session.principal?.tenantName ?? 'HRMS')
+const companyLabel = computed(() => session.principal?.companyName ?? 'HRMS')
 
 function clearErrors(): void {
   for (const key of Object.keys(errors)) delete errors[key]
@@ -87,17 +84,9 @@ function backToPassword(): void {
   clearErrors()
 }
 
-function onMfaEnabled(): void {
-  enrollmentOpen.value = false
-  ElMessage.success('MFA 已启用，请在下次登录时输入动态验证码。')
-}
-
 onMounted(() => {
   if (route.query.expired === '1') {
     expiredVisible.value = true
-  }
-  if (route.query.mfa === 'enroll') {
-    enrollmentOpen.value = true
   }
 })
 </script>
@@ -109,7 +98,7 @@ onMounted(() => {
         <span class="login-brand__mark" aria-hidden="true">澄</span>
         <div>
           <p class="login-brand__name">澄明 HR</p>
-          <p class="login-brand__tenant">{{ tenantLabel }}</p>
+          <p class="login-brand__tenant">{{ companyLabel }}</p>
         </div>
       </div>
 
@@ -144,7 +133,7 @@ onMounted(() => {
           <div class="login-card__heading">
             <p class="login-card__eyebrow">安全登录</p>
             <h2>欢迎回来</h2>
-            <p>使用公司账号进入人事工作台。会话使用 HttpOnly Cookie，不在浏览器存储中保存访问令牌。</p>
+            <p>使用公司账号和密码进入人事工作台。会话使用 HttpOnly Cookie，不在浏览器存储中保存访问令牌。</p>
           </div>
 
           <el-alert
@@ -256,8 +245,6 @@ onMounted(() => {
         </p>
       </div>
     </main>
-
-    <MfaEnrollmentDialog v-model="enrollmentOpen" @enabled="onMfaEnabled" />
 
     <el-dialog
       v-model="expiredVisible"

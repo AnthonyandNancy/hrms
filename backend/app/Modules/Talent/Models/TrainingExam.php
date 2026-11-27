@@ -12,7 +12,6 @@ final class TrainingExam extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'course_id',
         'code',
         'title',
@@ -30,7 +29,6 @@ final class TrainingExam extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'course_id' => 'integer',
             'version' => 'integer',
             'passing_score' => 'integer',

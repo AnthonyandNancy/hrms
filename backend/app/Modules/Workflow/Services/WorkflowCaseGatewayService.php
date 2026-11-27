@@ -20,7 +20,6 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
     ) {}
 
     public function createCase(
-        int $tenantId,
         int $requesterUserId,
         string $type,
         string $subjectType,
@@ -31,14 +30,13 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         string $businessDate,
         bool $submit,
     ): WorkflowCaseRecord {
-        $templateId = $this->latestTemplateId($tenantId, $templateCode);
+        $templateId = $this->latestTemplateId($templateCode);
 
         if ($templateId === null) {
             throw new NotFoundException("No published workflow template exists for {$templateCode}.");
         }
 
         $principal = new WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: $requesterUserId,
             employmentId: null,
             authVersion: 1,
@@ -60,10 +58,9 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         return $this->record($case);
     }
 
-    public function ensureTemplate(int $tenantId, string $code, string $name, array $definition): int
+    public function ensureTemplate(string $code, string $name, array $definition): int
     {
         $existing = WorkflowTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', $code)
             ->where('status', 'PUBLISHED')
             ->orderByDesc('version')
@@ -74,11 +71,10 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         }
 
         $version = ((int) WorkflowTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', $code)
             ->max('version')) + 1;
 
-        $template = $this->templates->create($tenantId, 0, [
+        $template = $this->templates->create(0, [
             'code' => $code,
             'name' => $name,
             'version' => max(1, $version),
@@ -89,20 +85,18 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         return (int) $template->id;
     }
 
-    public function caseForTenant(int $tenantId, int $caseId): ?WorkflowCaseRecord
+    public function caseFor(int $caseId): ?WorkflowCaseRecord
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($caseId)
             ->first();
 
         return $case !== null ? $this->record($case) : null;
     }
 
-    public function projection(int $tenantId, int $caseId): ?array
+    public function projection(int $caseId): ?array
     {
         $case = CaseModel::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey($caseId)
             ->first();
 
@@ -111,7 +105,6 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         }
 
         $principal = new WorkflowPrincipal(
-            tenantId: $tenantId,
             userId: (int) $case->requester_user_id,
             employmentId: null,
             authVersion: 1,
@@ -122,10 +115,9 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
         return $this->queries->detail($principal, $caseId);
     }
 
-    private function latestTemplateId(int $tenantId, string $code): ?int
+    private function latestTemplateId(string $code): ?int
     {
         $id = WorkflowTemplate::query()
-            ->where('tenant_id', $tenantId)
             ->where('code', $code)
             ->where('status', 'PUBLISHED')
             ->orderByDesc('version')
@@ -138,7 +130,6 @@ final class WorkflowCaseGatewayService implements WorkflowCaseGateway
     {
         return new WorkflowCaseRecord(
             id: (int) $case->id,
-            tenantId: (int) $case->tenant_id,
             caseNo: (string) $case->case_no,
             type: (string) $case->type,
             subjectType: (string) $case->subject_type,

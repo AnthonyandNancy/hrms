@@ -40,7 +40,6 @@ export function useTimePayrollLoad(definition: TimePayrollPageDefinition) {
       const runsPayload = await resourceGet('/payroll/runs', {
         page: 1,
         page_size: 20,
-        legal_entity_id: 1,
       })
       const runs = recordList(runsPayload)
       const first = runs[0]

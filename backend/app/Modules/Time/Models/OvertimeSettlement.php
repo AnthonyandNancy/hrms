@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
  * unique overtime_record_id is the database-level guard against double pay.
  *
  * @property int $id
- * @property int $tenant_id
  * @property int $overtime_record_id
  * @property int $employment_id
  * @property string $method
@@ -25,7 +24,6 @@ final class OvertimeSettlement extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'overtime_record_id',
         'employment_id',
         'method',
@@ -44,7 +42,6 @@ final class OvertimeSettlement extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'overtime_record_id' => 'integer',
             'employment_id' => 'integer',
             'minutes' => 'integer',

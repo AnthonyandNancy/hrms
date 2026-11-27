@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Models;
 
 use App\Modules\Payroll\Enums\PayrollReceiptType;
-use App\Modules\Payroll\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $run_id
  * @property PayrollReceiptType $type
  * @property string|null $file_hash
@@ -21,15 +19,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class PayrollReceipt extends Model
 {
-    use BelongsToTenant;
-
     public const UPDATED_AT = null;
 
     protected $table = 'payroll_receipts';
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'run_id',
         'type',
         'file_hash',

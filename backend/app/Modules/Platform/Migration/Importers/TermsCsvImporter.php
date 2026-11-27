@@ -32,7 +32,6 @@ final class TermsCsvImporter extends AbstractCsvImporter
         ReferenceData $references,
         MappingSet $mappings,
         array &$issues,
-        int $tenantId,
     ): array {
         $this->validator->requireString($values, 'employment_no', $sourceRow, $issues);
         $this->validator->requireString($values, 'salary_scheme_code', $sourceRow, $issues);
@@ -94,7 +93,6 @@ final class TermsCsvImporter extends AbstractCsvImporter
         array $rows,
         ReferenceData $references,
         MappingSet $mappings,
-        int $tenantId,
     ): void {
         /** @var array<string, list<ValidatedRow>> $byEmploymentVersion */
         $byEmploymentVersion = [];

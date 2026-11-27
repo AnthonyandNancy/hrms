@@ -19,7 +19,6 @@ final class TemplateController
         $principal = WorkflowPrincipalContext::from($request);
 
         $query = \App\Modules\Workflow\Models\WorkflowTemplate::query()
-            ->where('tenant_id', $principal->tenantId)
             ->when(is_string($request->query('code')), fn ($builder) => $builder->where('code', $request->query('code')))
             ->orderBy('code')
             ->orderBy('version');
@@ -50,7 +49,7 @@ final class TemplateController
             'definition' => ['required', 'array'],
         ]);
 
-        $template = $this->templates->create($principal->tenantId, $principal->userId, $validated);
+        $template = $this->templates->create($principal->userId, $validated);
 
         return ApiResponse::created([
             'id' => $template->id,

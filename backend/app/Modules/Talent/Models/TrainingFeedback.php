@@ -12,7 +12,6 @@ final class TrainingFeedback extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'enrollment_id',
         'session_id',
         'employment_id',
@@ -29,7 +28,6 @@ final class TrainingFeedback extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'enrollment_id' => 'integer',
             'session_id' => 'integer',
             'employment_id' => 'integer',

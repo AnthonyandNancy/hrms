@@ -7,7 +7,6 @@ namespace App\Modules\Organization\Http\Controllers;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Organization\Models\Position;
 use App\Modules\Organization\Services\PositionCatalogService;
-use App\Modules\Organization\Services\TenantBusinessDate;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
@@ -17,6 +16,7 @@ use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Projections\ProjectionResponder;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +27,7 @@ final class PositionCatalogController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly PositionCatalogService $catalog,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
@@ -46,10 +46,9 @@ final class PositionCatalogController
         ]);
         $asOf = isset($data['as_of'])
             ? (string) $data['as_of']
-            : $this->businessDates->today($principal->tenantId())->value();
+            : $this->businessDates->today()->value();
 
         return $this->projections->ok($this->catalog->qualificationsProjection(
-            tenantId: $principal->tenantId(),
             positionId: (int) $position->id,
             asOf: $asOf,
             page: (int) ($data['page'] ?? 1),
@@ -91,7 +90,6 @@ final class PositionCatalogController
             payload: $payload,
             operation: function () use ($principal, $payload): array {
                 $qualification = $this->catalog->versionQualification(
-                    tenantId: $principal->tenantId(),
                     positionId: (int) $payload['position_id'],
                     requirements: (array) $payload['requirements'],
                     effectiveFrom: (string) $payload['effective_from'],
@@ -117,7 +115,6 @@ final class PositionCatalogController
         $this->assertPermits($principal, 'org.position.grade.manage');
 
         $data = $request->validate([
-            'legal_entity_id' => ['sometimes', 'integer', 'min:1'],
             'as_of' => ['nullable', new BusinessDateRule],
             'active' => ['sometimes', 'in:0,1,true,false'],
             'page' => ['sometimes', 'integer', 'min:1'],
@@ -125,11 +122,9 @@ final class PositionCatalogController
         ]);
         $asOf = isset($data['as_of'])
             ? (string) $data['as_of']
-            : $this->businessDates->today($principal->tenantId())->value();
+            : $this->businessDates->today()->value();
 
         return $this->projections->ok($this->catalog->gradesProjection(
-            tenantId: $principal->tenantId(),
-            legalEntityId: $this->legalEntityId($request, $data),
             asOf: $asOf,
             active: isset($data['active']) ? filter_var($data['active'], FILTER_VALIDATE_BOOLEAN) : null,
             page: (int) ($data['page'] ?? 1),
@@ -143,7 +138,6 @@ final class PositionCatalogController
         $this->assertPermits($principal, 'org.position.grade.manage');
 
         $data = $request->validate([
-            'legal_entity_id' => ['sometimes', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:32'],
             'name' => ['required', 'string', 'max:120'],
             'level' => ['required', 'integer', 'min:0', 'max:9999'],
@@ -151,7 +145,6 @@ final class PositionCatalogController
         ]);
 
         $payload = [
-            'legal_entity_id' => $this->legalEntityId($request, $data),
             'code' => (string) $data['code'],
             'name' => (string) $data['name'],
             'level' => (int) $data['level'],
@@ -173,8 +166,6 @@ final class PositionCatalogController
             payload: $payload,
             operation: function () use ($principal, $payload): array {
                 $grade = $this->catalog->upsertGrade(
-                    $principal->tenantId(),
-                    (int) $payload['legal_entity_id'],
                     $payload,
                     $principal->userId(),
                 );
@@ -204,44 +195,17 @@ final class PositionCatalogController
         ]);
         $asOf = isset($data['as_of'])
             ? (string) $data['as_of']
-            : $this->businessDates->today($principal->tenantId())->value();
+            : $this->businessDates->today()->value();
 
         return $this->projections->ok($this->catalog->staffProjection(
-            tenantId: $principal->tenantId(),
             position: $position,
             asOf: $asOf,
         ));
     }
 
-    /**
-     * The legal-entity anchor may arrive as a query/body field or as the
-     * standard X-Legal-Entity-Id scoping header; the middleware already used
-     * the same value to authorize the route.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function legalEntityId(Request $request, array $data): int
-    {
-        if (isset($data['legal_entity_id'])) {
-            return (int) $data['legal_entity_id'];
-        }
-
-        $header = $request->header('X-Legal-Entity-Id');
-
-        if (is_numeric($header) && (int) $header > 0) {
-            return (int) $header;
-        }
-
-        throw new \App\Shared\Exceptions\ValidationException(
-            ['legal_entity_id' => ['The legal_entity_id field is required.']],
-            'The given data was invalid.',
-            ['reason' => 'COMPANY_REQUIRED'],
-        );
-    }
-
     private function position(Principal $principal, int $id): Position
     {
-        $position = $this->catalog->findPosition($principal->tenantId(), $id);
+        $position = $this->catalog->findPosition($id);
 
         if (! $position instanceof Position) {
             throw new NotFoundOrForbiddenException;
@@ -251,13 +215,13 @@ final class PositionCatalogController
     }
 
     /**
-     * Position sub-resources have no legal-entity id in the path. The anchor is
+     * Position sub-resources have no company id in the path. The anchor is
      * derived from the position row, never from client input, so a caller
-     * without a grant covering that entity gets 403 even with a valid id.
+     * without a grant covering that scope gets 403 even with a valid id.
      */
     private function assertPositionPermits(Principal $principal, string $capability, Position $position): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         $allowed = $this->authorizer->allows(
             $principal,
@@ -279,7 +243,7 @@ final class PositionCatalogController
 
     private function assertPermits(Principal $principal, string $capability): void
     {
-        $today = $this->businessDates->today($principal->tenantId())->value();
+        $today = $this->businessDates->today()->value();
 
         if (! $this->authorizer->permits($principal, $capability, $today)) {
             throw new AuthorizationException('Forbidden.');

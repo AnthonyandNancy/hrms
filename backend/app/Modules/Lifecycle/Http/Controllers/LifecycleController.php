@@ -16,7 +16,7 @@ use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +29,7 @@ final class LifecycleController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
         private readonly LifecycleService $lifecycle,
         private readonly LifecycleProjectionService $projection,
         private readonly LifecycleCaseListService $caseList,
@@ -40,7 +40,7 @@ final class LifecycleController
     public function onboarding(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.onboarding.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -51,7 +51,6 @@ final class LifecycleController
             'person.mobile' => ['nullable', 'string', 'max:40'],
             'person.id_type' => ['nullable', 'string', 'max:32'],
             'person.id_number' => ['nullable', 'string', 'max:80'],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'employee_no' => ['required', 'string', 'max:64'],
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'position_id' => ['nullable', 'integer', 'min:1'],
@@ -79,7 +78,7 @@ final class LifecycleController
     public function probationConfirmation(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.probation.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -95,7 +94,7 @@ final class LifecycleController
     public function transfer(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.transfer.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -103,8 +102,6 @@ final class LifecycleController
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'position_id' => ['nullable', 'integer', 'min:1'],
             'manager_assignment_id' => ['nullable', 'integer', 'min:1'],
-            'legal_entity_id' => ['nullable', 'integer', 'min:1'],
-            'employee_no' => ['nullable', 'string', 'max:64'],
             'effective_date' => ['required', new BusinessDateRule],
             'reason' => ['required', 'string', 'max:500'],
             'salary_scheme_code' => ['nullable', 'string', 'max:64'],
@@ -118,7 +115,7 @@ final class LifecycleController
     public function salaryChange(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.terms.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -137,7 +134,7 @@ final class LifecycleController
     public function offboarding(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.offboard.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -160,7 +157,7 @@ final class LifecycleController
     public function contractRenewal(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.contract.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -180,13 +177,12 @@ final class LifecycleController
     public function rehire(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.rehire.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
             'person_id' => ['required', 'integer', 'min:1'],
             'previous_employment_id' => ['required', 'integer', 'min:1'],
-            'legal_entity_id' => ['required', 'integer', 'min:1'],
             'employee_no' => ['required', 'string', 'max:64'],
             'org_unit_id' => ['required', 'integer', 'min:1'],
             'position_id' => ['nullable', 'integer', 'min:1'],
@@ -209,7 +205,7 @@ final class LifecycleController
     public function cases(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
         $data = $request->validate([
             'case_type' => ['nullable', 'string', 'max:64'],
@@ -221,7 +217,6 @@ final class LifecycleController
         ]);
 
         return ApiResponse::ok($this->caseList->paginate(
-            $principal->tenantId(),
             [
                 'case_type' => $data['case_type'] ?? null,
                 'status' => $data['status'] ?? null,
@@ -236,9 +231,9 @@ final class LifecycleController
     public function showCase(Request $request, int $caseId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
-        $data = $this->projection->detail($principal->tenantId(), $caseId);
+        $data = $this->projection->detail($caseId);
 
         return ApiResponse::ok($data);
     }
@@ -246,9 +241,9 @@ final class LifecycleController
     public function onboardingChecklist(Request $request, int $employmentId): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
-        $items = $this->projection->checklistForEmployment($principal->tenantId(), $employmentId);
+        $items = $this->projection->checklistForEmployment($employmentId);
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
     }
@@ -256,7 +251,7 @@ final class LifecycleController
     public function updateChecklistTask(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $today = $this->businessDates->today($principal->tenantId());
+        $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.checklist.manage', AnchorRef::company(), $today->value());
 
         $data = $request->validate([
@@ -271,14 +266,12 @@ final class LifecycleController
         }
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: "PATCH:/v1/onboarding-tasks/{$id}",
             key: $key,
             payload: $data,
             operation: function () use ($principal, $id, $data): array {
                 $updated = $this->checklists->update(
-                    $principal->tenantId(),
                     $id,
                     $principal->userId(),
                     (string) $data['status'],
@@ -310,14 +303,12 @@ final class LifecycleController
         }
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            tenantId: $principal->tenantId(),
             principalId: $principal->userId(),
             scope: "POST:/v1/lifecycle/{$path}",
             key: $key,
             payload: $data,
             operation: function () use ($principal, $data, $type, $businessDate): array {
                 $created = $this->lifecycle->createCase(
-                    tenantId: $principal->tenantId(),
                     requesterUserId: $principal->userId(),
                     type: $type,
                     payload: $data,
@@ -337,7 +328,6 @@ final class LifecycleController
                         'effect_status' => $case->effectStatus,
                         'draft_employment_intent' => [
                             'person_id' => $data['person_id'] ?? null,
-                            'legal_entity_id' => $data['legal_entity_id'] ?? null,
                             'employee_no' => $data['employee_no'] ?? null,
                             'hire_date' => $data['hire_date'] ?? null,
                         ],

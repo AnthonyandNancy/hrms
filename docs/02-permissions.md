@@ -52,7 +52,7 @@ Page visibility is a separate authorization layer from action capability:
 - A page is visible only when the caller has at least one effective role granting that page; the page's `required_capability` is then checked for its read action.
 - Action endpoints still require their own capability middleware. A page grant never authorizes a write/export/approval API.
 - Every non-GET action button must be declared by `PageActionSpec` and rendered through `Can` or `ActionGate`. The button's `capability` must equal the endpoint's `x-capability`.
-- `SUPER_ADMIN`/`SYSTEM_ADMIN` receive all 160 `role_pages` rows and all capabilities. `iam:verify-superadmin` fails if either side is incomplete.
+- `SUPER_ADMIN`/`SYSTEM_ADMIN` receive all catalogued `role_pages` rows and all capabilities. `iam:verify-superadmin` fails if either side is incomplete.
 - The role editor has four tabs: pages, buttons, data scope, field profile. Parent menu selection does not implicitly grant child pages.
 
 ## Seven anchors

@@ -30,7 +30,6 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
         [, $headers] = $this->viewer(true);
         $target = User::factory()->create(['auth_version' => 1]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $target->id,
             'role_code' => 'HR_SPECIALIST',
             'valid_from' => '2026-01-01 00:00:00',
@@ -66,7 +65,6 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
         [, $headers] = $this->viewer(true);
         $target = User::factory()->create(['auth_version' => 1]);
         UserRole::query()->create([
-            'tenant_id' => 1,
             'user_id' => (int) $target->id,
             'role_code' => 'HR_SPECIALIST',
             'valid_from' => '2026-01-01 00:00:00',
@@ -117,7 +115,6 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
             $this->grant($actor, 'iam.user.read', FieldProfile::P1_INTERNAL);
         }
         $this->people->employmentByUser[(int) $actor->id] = [1];
-        $this->organization->knownLegalEntities = [1];
         $this->enableMfa($actor);
         $auth = $this->loginAs($actor);
         $this->stepUp();
@@ -128,7 +125,7 @@ final class PermissionPreviewApiTest extends AuthorizationTestSupport
     private function grant(User $target, string $capability, FieldProfile $profile): void
     {
         AuthorityBinding::factory()
-            ->forPrincipal(1, (int) $target->id, (int) $target->auth_version)
+            ->forPrincipal((int) $target->id, (int) $target->auth_version)
             ->anchor(AnchorType::COMPANY, null, $profile)
             ->create([
                 'capability_code' => $capability,

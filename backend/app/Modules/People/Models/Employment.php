@@ -8,9 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property int $tenant_id
  * @property int $person_id
- * @property int $legal_entity_id
  * @property string $employee_no
  * @property string $employment_type
  * @property string $status
@@ -29,9 +27,7 @@ final class Employment extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'person_id',
-        'legal_entity_id',
         'employee_no',
         'employment_type',
         'status',
@@ -55,9 +51,7 @@ final class Employment extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id' => 'integer',
             'person_id' => 'integer',
-            'legal_entity_id' => 'integer',
             'recorded_at' => 'immutable_datetime',
             'superseded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',

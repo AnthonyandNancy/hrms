@@ -13,12 +13,10 @@ final class UatOnboardingToFirstPayrollPreparationTest extends LifecycleTestCase
     public function test_onboarding_produces_payroll_preparation_inputs_from_contracts(): void
     {
         $scenario = $this->peopleScenario;
-        $entity = $scenario->legalEntity();
-        $org = $scenario->orgUnit($entity, 'PAY-PREP-ORG');
+        $org = $scenario->orgUnit('PAY-PREP-ORG');
 
         $created = $this->createLifecycleCase('onboarding', [
             'person' => ['legal_name' => 'Payroll Prep Person'],
-            'legal_entity_id' => $entity->id,
             'employee_no' => 'PAY-PREP-1',
             'org_unit_id' => $org->id,
             'hire_date' => '2026-12-01',
@@ -37,15 +35,14 @@ final class UatOnboardingToFirstPayrollPreparationTest extends LifecycleTestCase
 
         $employment = Employment::query()->firstOrFail();
         $directory = app(EmploymentLifecycleDirectory::class);
-        $terms = $directory->termsAsOf(1, $employment->id, '2026-12-01');
-        $assignment = $directory->assignmentAsOf(1, $employment->id, '2026-12-01');
+        $terms = $directory->termsAsOf($employment->id, '2026-12-01');
+        $assignment = $directory->assignmentAsOf($employment->id, '2026-12-01');
 
         $this->assertNotNull($terms);
         $this->assertNotNull($assignment);
         $this->assertSame(2_345_600, $terms->baseSalaryMinor);
         $this->assertSame('CNY', $terms->salaryCurrency);
         $this->assertSame('PAY-SCHEME-1', $terms->salarySchemeCode);
-        $this->assertSame($entity->id, $employment->legal_entity_id);
         $this->assertSame($org->id, $assignment->orgUnitId);
         $this->assertDatabaseHas('outbox_events', ['event_type' => 'employment.created.v1']);
     }

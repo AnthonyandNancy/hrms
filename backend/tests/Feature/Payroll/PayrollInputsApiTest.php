@@ -14,7 +14,7 @@ use Tests\Support\PayrollTestCase;
 
 final class PayrollInputsApiTest extends PayrollTestCase
 {
-    public function test_run_inputs_return_snapshot_rows_for_the_tenant(): void
+    public function test_run_inputs_return_snapshot_rows_for_the_company(): void
     {
         $base = $this->seedPayrollBase();
         $run = $this->calculatedRun($base, '2026-04');
@@ -50,7 +50,7 @@ final class PayrollInputsApiTest extends PayrollTestCase
         }
     }
 
-    public function test_run_inputs_are_tenant_scoped(): void
+    public function test_run_inputs_are_run_scoped(): void
     {
         $base = $this->seedPayrollBase();
         $run = $this->calculatedRun($base, '2026-06');
@@ -64,8 +64,8 @@ final class PayrollInputsApiTest extends PayrollTestCase
     private function calculatedRun(array $base, string $period): \App\Modules\Payroll\Models\PayrollRun
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return $run->refresh();
@@ -76,6 +76,6 @@ final class PayrollInputsApiTest extends PayrollTestCase
      */
     private function headers(): array
     {
-        return ['X-Legal-Entity-Id' => (string) $this->legalEntityId];
+        return [];
     }
 }

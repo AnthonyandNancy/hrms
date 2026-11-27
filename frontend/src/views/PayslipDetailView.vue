@@ -45,7 +45,7 @@ onMounted(load)
           <p class="payslip-header__eyebrow">工资条 · {{ formatMonthLabel(slip.period) }}</p>
           <h1>{{ slip.employeeName }} <span class="mono">{{ slip.employeeNo }}</span></h1>
           <p class="payslip-header__meta">
-            {{ slip.orgName }} · {{ slip.legalEntity }} · 发放日 {{ formatBusinessDate(slip.payDate) }}
+            {{ slip.orgName }} · 发放日 {{ formatBusinessDate(slip.payDate) }}
           </p>
         </div>
         <div class="payslip-header__net">

@@ -5,6 +5,7 @@ import type { PeopleForm, PeopleRow } from '../types'
 import { peopleErrorInfo, type PeopleErrorInfo } from '../peopleErrors'
 import { patchRow, postRow } from '../write'
 import { rowNumber, rowText } from '../peopleRead'
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 
 const props = defineProps<{
   form: PeopleForm
@@ -15,7 +16,6 @@ const props = defineProps<{
 const emit = defineEmits<{ saved: [] }>()
 
 type Draft = {
-  legal_entity_id: string
   org_unit_id: string
   code: string
   title: string
@@ -36,10 +36,10 @@ type Draft = {
 }
 
 const defaults: Record<string, Partial<Draft>> = {
-  'position-editor': { legal_entity_id: '1', org_unit_id: '', code: '', title: '', grade: '', headcount_limit: '', valid_from: '', valid_to: '' },
-  'position-headcount': { position_id: '', headcount_limit: '', title: '', grade: '', status: 'ACTIVE' },
-  'position-requirement': { legal_entity_id: '1', position_id: '', requirement_education: '', requirement_years: '', requirement_notes: '', requirement_effective_from: '' },
-  'position-grade': { legal_entity_id: '1', grade_code: '', grade_name: '', grade_level: '', grade_active: 'true' },
+  'position-editor': { org_unit_id: '', code: '', title: '', grade: '', headcount_limit: '', valid_from: '', valid_to: '' },
+  'position-headcount': { position_id: '', headcount_limit: '', title: '', grade: '', status: DISPLAY_CODES.positionStatus.active },
+  'position-requirement': { position_id: '', requirement_education: '', requirement_years: '', requirement_notes: '', requirement_effective_from: '' },
+  'position-grade': { grade_code: '', grade_name: '', grade_level: '', grade_active: 'true' },
 }
 
 const draft = reactive<Draft>({ ...(defaults[props.form] ?? {}) } as Draft)
@@ -74,11 +74,11 @@ const formTitle = computed(() => {
 })
 
 const formSubtitle = computed(() => {
-  if (props.form === 'position-requirement') return '每次提交都会追加新的资格版本（POST /v1/positions/{id}/requirements），已有版本不被覆盖。'
-  if (props.form === 'position-grade') return '职级按法人维护（POST /v1/positions/grades）；同一法人内职级代码唯一，可停用而不删除。'
+  if (props.form === 'position-requirement') return '每次提交都会追加新的资格版本，已有版本不被覆盖。'
+  if (props.form === 'position-grade') return '职级按公司维护；公司内职级代码唯一，可停用而不删除。'
   return props.form === 'position-editor'
     ? '岗位目录当前不提供编辑既有岗位的完整字段；请新建岗位，或使用编制页更新。'
-    : '编制上限通过 PATCH /v1/positions/{id} 提交；服务端拒绝给有在岗人员的岗位停用。'
+    : '编制上限通过岗位更新提交；服务端拒绝给有在岗人员的岗位停用。'
 })
 
 const positionOptions = computed(() => props.rows.filter((row) => row.id !== undefined && row.id !== null))
@@ -112,16 +112,15 @@ function choosePosition(): void {
   draft['grade'] = rowText(position, 'grade', '')
   const limit = rowNumber(position, 'headcount_limit')
   draft['headcount_limit'] = limit === null ? '' : String(limit)
-  const status = rowText(position, 'status', 'ACTIVE')
-  draft['status'] = status === 'DISABLED' ? 'DISABLED' : 'ACTIVE'
+  const status = rowText(position, 'status', DISPLAY_CODES.positionStatus.active)
+  draft['status'] = status === DISPLAY_CODES.positionStatus.disabled ? DISPLAY_CODES.positionStatus.disabled : DISPLAY_CODES.positionStatus.active
 }
 
 async function submit(): Promise<void> {
   formError.value = null
   if (props.form === 'position-editor') {
-    const legalEntityId = numeric(draft.legal_entity_id)
-    if (legalEntityId === null || draft.code.trim() === '' || draft.title.trim() === '') {
-      validation('请填写法人编号、岗位编码与岗位名称。')
+    if (draft.code.trim() === '' || draft.title.trim() === '') {
+      validation('请填写岗位编码与岗位名称。')
       return
     }
     submitting.value = true
@@ -129,7 +128,6 @@ async function submit(): Promise<void> {
       await postRow(
         '/v1/positions',
         {
-          legal_entity_id: legalEntityId,
           org_unit_id: numeric(draft.org_unit_id),
           code: draft.code.trim(),
           title: draft.title.trim(),
@@ -201,7 +199,6 @@ async function submit(): Promise<void> {
       await postRow(
         '/v1/positions/grades',
         {
-          legal_entity_id: numeric(draft.legal_entity_id) ?? 1,
           code: draft.grade_code.trim(),
           name: draft.grade_name.trim(),
           level,
@@ -209,7 +206,7 @@ async function submit(): Promise<void> {
         },
         'position-grade',
       )
-      ElMessage.success('职级已保存；同一法人内职级代码唯一。')
+      ElMessage.success('职级已保存；公司内职级代码唯一。')
       draft.grade_code = ''
       draft.grade_name = ''
       draft.grade_level = ''
@@ -261,7 +258,6 @@ async function submit(): Promise<void> {
       <form class="people-form" @submit.prevent="submit">
         <div class="people-form__grid">
           <template v-if="form === 'position-editor'">
-            <label class="people-field"><span>法人编号 *</span><input v-model="draft.legal_entity_id" data-testid="position-legal-entity" inputmode="numeric" /></label>
             <label class="people-field"><span>组织编号</span><input v-model="draft.org_unit_id" data-testid="position-org-unit" inputmode="numeric" /></label>
             <label class="people-field"><span>岗位编码 *</span><input v-model="draft.code" data-testid="position-code" /></label>
             <label class="people-field"><span>岗位名称 *</span><input v-model="draft.title" data-testid="position-title" /></label>
@@ -278,7 +274,6 @@ async function submit(): Promise<void> {
           </template>
 
           <template v-else-if="form === 'position-grade'">
-            <label class="people-field"><span>法人编号 *</span><input v-model="draft.legal_entity_id" data-testid="position-grade-legal-entity" inputmode="numeric" /></label>
             <label class="people-field"><span>职级代码 *</span><input v-model="draft.grade_code" data-testid="position-grade-code" /></label>
             <label class="people-field"><span>职级名称 *</span><input v-model="draft.grade_name" data-testid="position-grade-name" /></label>
             <label class="people-field"><span>职等 *</span><input v-model="draft.grade_level" data-testid="position-grade-level" inputmode="numeric" /></label>
@@ -293,7 +288,7 @@ async function submit(): Promise<void> {
             <label class="people-field"><span>岗位名称</span><input v-model="draft.title" data-testid="position-title" /></label>
             <label class="people-field"><span>职级</span><input v-model="draft.grade" data-testid="position-grade" /></label>
             <label class="people-field"><span>核定编制</span><input v-model="draft.headcount_limit" data-testid="position-headcount-limit" inputmode="numeric" /></label>
-            <label class="people-field"><span>状态</span><select v-model="draft.status" data-testid="position-status"><option value="ACTIVE">启用</option><option value="DISABLED">停用</option></select></label>
+            <label class="people-field"><span>状态</span><select v-model="draft.status" data-testid="position-status"><option :value="DISPLAY_CODES.positionStatus.active">启用</option><option :value="DISPLAY_CODES.positionStatus.disabled">停用</option></select></label>
           </template>
         </div>
 

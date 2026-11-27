@@ -21,7 +21,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
 
     public function test_punch_import_is_idempotent_by_payload_hash(): void
     {
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY'));
 
         $payload = [
             'employment_id' => 1,
@@ -45,7 +45,6 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $this->actAsHttp(TimeTestFixtures::actor());
 
         AttendanceDay::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-23',
             'scheduled_minutes' => 480,
@@ -69,9 +68,8 @@ final class TimeEndpointsTest extends TimeHttpTestCase
 
     public function test_attendance_scoped_read_returns_projection_rows(): void
     {
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY'));
         AttendanceDay::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'business_date' => '2026-11-23',
             'scheduled_minutes' => 480,
@@ -105,7 +103,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
 
         $caseId = (int) $response->json('data.caseId');
         $this->assertGreaterThan(0, $caseId);
-        $this->assertSame('SUBMITTED', $this->workflow->case(1, $caseId)?->status);
+        $this->assertSame('SUBMITTED', $this->workflow->case($caseId)?->status);
         $this->assertSame(0, PunchRecord::query()->count());
     }
 
@@ -113,7 +111,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
     {
         $type = $this->leaveType();
         $this->leaveAccount($type);
-        app(LeaveLedgerService::class)->grant(1, 1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        app(LeaveLedgerService::class)->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 
         $this->actAsHttp(TimeTestFixtures::actor());
 
@@ -138,7 +136,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
     {
         $type = $this->leaveType();
         $this->leaveAccount($type);
-        app(LeaveLedgerService::class)->grant(1, 1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        app(LeaveLedgerService::class)->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 
         $this->actAsHttp(TimeTestFixtures::actor());
 
@@ -165,7 +163,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
             ->assertJsonPath('data.releasedMinutes', 0);
 
         $this->assertSame(1, \App\Modules\Time\Models\LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RELEASE')->count());
-        $this->assertSame(4800, app(LeaveBalanceService::class)->available(1, 1, $type->id, '2026-11-23'));
+        $this->assertSame(4800, app(LeaveBalanceService::class)->available(1, $type->id, '2026-11-23'));
     }
 
     public function test_leave_ledger_drilldown_matches_balance_equation(): void
@@ -173,13 +171,13 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $type = $this->leaveType();
         $this->leaveAccount($type);
         $ledger = app(LeaveLedgerService::class);
-        $ledger->grant(1, 1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
-        $ledger->reserve(1, 1, $type->id, 960, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Leave');
-        $ledger->consume(1, 1, $type->id, 960, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Approved');
+        $ledger->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        $ledger->reserve(1, $type->id, 960, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Leave');
+        $ledger->consume(1, $type->id, 960, '2026-11-23', 'LEAVE_REQUEST', 'case-1', 'Approved');
 
         $this->actAsHttp(TimeTestFixtures::actor());
 
-        $balance = app(LeaveBalanceService::class)->forType(1, 1, $type->id, '2026-11-23');
+        $balance = app(LeaveBalanceService::class)->forType(1, $type->id, '2026-11-23');
         $response = $this->getJson('/v1/time/leave/ledger?leave_type=ANNUAL&as_of=2026-11-23')
             ->assertOk()
             ->assertJsonPath('data.leave_type_code', 'ANNUAL')
@@ -190,12 +188,12 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $this->assertSame([4800, 3840, 4800, 3840], $response->json('data.balance_after'));
     }
 
-    public function test_calendar_and_shift_reads_are_tenant_scoped(): void
+    public function test_calendar_and_shift_reads_are_company_scoped(): void
     {
         $shift = $this->shift();
         $this->actAsHttp(TimeTestFixtures::actor());
 
-        $this->getJson('/v1/time/calendars/1?year=2026')
+        $this->getJson('/v1/time/calendars?year=2026')
             ->assertOk()
             ->assertJsonPath('data.timezone', 'Asia/Shanghai')
             ->assertJsonPath('data.standard_day_minutes', 480);
@@ -206,22 +204,22 @@ final class TimeEndpointsTest extends TimeHttpTestCase
             ->assertJsonPath('data.items.0.id', $shift->id);
     }
 
-    public function test_brief_leave_alias_routes_are_tenant_scoped(): void
+    public function test_brief_leave_alias_routes_are_company_scoped(): void
     {
         $type = $this->leaveType();
         $this->leaveAccount($type);
-        app(LeaveLedgerService::class)->grant(1, 1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        app(LeaveLedgerService::class)->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
+        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY'));
 
         $this->getJson('/v1/leave/balances/1?as_of=2026-11-23')->assertOk()->assertJsonPath('data.0.leaveTypeCode', 'ANNUAL');
         $this->getJson('/v1/leave/ledger/1?leave_type_id='.$type->id.'&as_of=2026-11-23')->assertOk()->assertJsonPath('data.leave_type_code', 'ANNUAL');
     }
 
-    public function test_other_tenant_balance_is_not_visible_as_404(): void
+    public function test_out_of_scope_employment_balance_is_not_visible_as_404(): void
     {
-        $this->people->add(TimeTestFixtures::employment(2, 88, 8));
-        $this->actAsHttp(TimeTestFixtures::actor(scope: 'COMPANY', legalEntityIds: [1]));
+        $this->people->add(TimeTestFixtures::employment(88));
+        $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, scope: 'SELF'));
 
         $this->getJson('/v1/leave/balances/88?as_of=2026-11-23')->assertNotFound();
     }

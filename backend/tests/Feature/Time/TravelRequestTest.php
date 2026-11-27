@@ -27,7 +27,6 @@ final class TravelRequestTest extends TimeHttpTestCase
         $id = (int) $created->json('data.travel_id');
         $this->assertDatabaseHas('business_trip_records', [
             'id' => $id,
-            'tenant_id' => 1,
             'employment_id' => 1,
             'status' => 'PENDING_APPROVAL',
         ]);
@@ -45,7 +44,6 @@ final class TravelRequestTest extends TimeHttpTestCase
             'time.travel.request',
         ]));
         BusinessTripRecord::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 1,
             'from_date' => '2026-12-05',
             'to_date' => '2026-12-08',
@@ -70,7 +68,6 @@ final class TravelRequestTest extends TimeHttpTestCase
             'time.travel.request',
         ]));
         $other = BusinessTripRecord::query()->create([
-            'tenant_id' => 1,
             'employment_id' => 2,
             'from_date' => '2026-12-05',
             'to_date' => '2026-12-06',

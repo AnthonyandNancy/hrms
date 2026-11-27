@@ -9,10 +9,9 @@ use App\Modules\IAM\Models\User;
 
 final class EloquentUserDirectory implements UserDirectory
 {
-    public function userIdForPerson(int $tenantId, int $personId): ?int
+    public function userIdForPerson(int $personId): ?int
     {
         $id = User::query()
-            ->where('tenant_id', $tenantId)
             ->where('person_id', $personId)
             ->orderBy('id')
             ->value('id');
@@ -20,10 +19,9 @@ final class EloquentUserDirectory implements UserDirectory
         return $id !== null ? (int) $id : null;
     }
 
-    public function userIdsForPerson(int $tenantId, int $personId): array
+    public function userIdsForPerson(int $personId): array
     {
         return User::query()
-            ->where('tenant_id', $tenantId)
             ->where('person_id', $personId)
             ->orderBy('id')
             ->pluck('id')

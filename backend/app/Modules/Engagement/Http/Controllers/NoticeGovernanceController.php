@@ -129,7 +129,7 @@ final class NoticeGovernanceController
         return $this->projections->ok($this->notices->projection(
             $items,
             count($items),
-            $this->notices->businessDate($principal->tenantId()),
+            $this->notices->businessDate(),
             1,
             100,
             'notice_templates',

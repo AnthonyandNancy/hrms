@@ -41,9 +41,9 @@ final class NoticeAccessPolicy
     public function canManageAudience(Principal $principal, array $audience, string $businessDate): bool
     {
         $employmentId = $principal->employmentId()
-            ?? $this->people->employmentForUser($principal->tenantId(), $principal->userId());
+            ?? $this->people->employmentForUser($principal->userId());
         $snapshot = $employmentId !== null
-            ? $this->people->employmentSnapshot($principal->tenantId(), $employmentId, $businessDate)
+            ? $this->people->employmentSnapshot($employmentId, $businessDate)
             : null;
 
         if ($snapshot !== null
@@ -77,17 +77,17 @@ final class NoticeAccessPolicy
         $audience = (array) $notice->audience_json;
         $type = strtoupper((string) ($audience['type'] ?? ''));
         $employmentId = $principal->employmentId()
-            ?? $this->people->employmentForUser($principal->tenantId(), $principal->userId());
+            ?? $this->people->employmentForUser($principal->userId());
 
         return match ($type) {
             'ALL' => true,
             'ROLE' => array_intersect(
                 array_map(static fn (mixed $code): string => (string) $code, (array) ($audience['role_codes'] ?? [])),
-                $this->users->roleCodesForUser($principal->tenantId(), $principal->userId(), $businessDate),
+                $this->users->roleCodesForUser($principal->userId(), $businessDate),
             ) !== [],
             'ORG' => $employmentId !== null
                 && array_intersect(
-                    $this->audience->employmentOrgUnitIds($principal->tenantId(), $employmentId, $businessDate),
+                    $this->audience->employmentOrgUnitIds($employmentId, $businessDate),
                     array_map('intval', (array) ($audience['org_unit_ids'] ?? [])),
                 ) !== [],
             default => false,

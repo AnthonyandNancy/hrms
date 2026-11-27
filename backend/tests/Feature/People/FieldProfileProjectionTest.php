@@ -28,7 +28,6 @@ final class FieldProfileProjectionTest extends PeopleTestCase
     public function test_identity_ciphertext_and_plaintext_are_absent_from_every_profile(string $profile): void
     {
         $person = Person::query()->create([
-            'tenant_id' => 1,
             'legal_name' => 'Projection Person',
             'id_type' => 'NATIONAL_ID',
             'id_number_ciphertext' => 'SECRET-IDENTITY',

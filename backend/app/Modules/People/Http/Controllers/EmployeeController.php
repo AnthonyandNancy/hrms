@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace App\Modules\People\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\People\Http\Requests\CreateEmployeeRequest;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
+use App\Modules\People\Services\CreateEmployeeService;
 use App\Modules\People\Services\EmploymentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
-use App\Shared\Time\TenantBusinessDate;
+use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +26,7 @@ final class EmployeeController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly TenantBusinessDate $businessDates,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     public function index(Request $request, AsOfEmployeeQuery $query): JsonResponse
@@ -38,7 +40,7 @@ final class EmployeeController
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
             'include_archived' => ['nullable', 'boolean'],
         ]);
-        $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId());
+        $asOf = $this->businessDates->resolve($data['as_of'] ?? null);
 
         $result = $query->paginate(
             $principal,
@@ -61,12 +63,11 @@ final class EmployeeController
     {
         $principal = $this->principals->resolve();
         $data = $request->validate(['as_of' => ['nullable', new BusinessDateRule]]);
-        $asOf = $this->businessDates->resolve($data['as_of'] ?? null, $principal->tenantId());
+        $asOf = $this->businessDates->resolve($data['as_of'] ?? null);
         $this->assertPermits($principal, 'people.employee.read', $asOf->value());
 
         $asOfValue = $asOf->value();
         $employment = Employment::query()
-            ->where('tenant_id', $principal->tenantId())
             ->whereKey($employmentId)
             ->where('valid_from', '<=', $asOfValue)
             ->where('valid_to', '>', $asOfValue)
@@ -79,7 +80,6 @@ final class EmployeeController
         $visible = $this->authorizer
             ->constrain(
                 Employment::query()
-                    ->where('tenant_id', $principal->tenantId())
                     ->whereKey($employmentId)
                     ->where('valid_from', '<=', $asOfValue)
                     ->where('valid_to', '>', $asOfValue),
@@ -96,7 +96,6 @@ final class EmployeeController
         $projection = $query->detail($employment, $asOf->value());
         $contracts = [];
         $documents = Document::query()
-            ->where('tenant_id', $principal->tenantId())
             ->where('owner_type', 'EMPLOYMENT')
             ->where('owner_id', $employmentId)
             ->where('category', 'CONTRACT')
@@ -131,7 +130,6 @@ final class EmployeeController
         ]);
 
         $employment = $service->archive(
-            $principal->tenantId(),
             $employmentId,
             (string) $data['reason'],
             $principal->userId(),
@@ -148,7 +146,7 @@ final class EmployeeController
     public function restore(Request $request, int $employmentId, EmploymentService $service): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $employment = $service->restore($principal->tenantId(), $employmentId, $principal->userId());
+        $employment = $service->restore($employmentId, $principal->userId());
 
         return ApiResponse::ok([
             'employment_id' => (int) $employment->id,
@@ -163,15 +161,24 @@ final class EmployeeController
             'from' => ['nullable', new BusinessDateRule],
             'to' => ['nullable', new BusinessDateRule],
         ]);
-        $this->businessDates->resolve($data['from'] ?? null, $principal->tenantId(), 'from');
-        $this->businessDates->resolve($data['to'] ?? null, $principal->tenantId(), 'to');
-        $this->assertPermits($principal, 'people.employee.read', $this->businessDates->today($principal->tenantId())->value());
+        $this->businessDates->resolve($data['from'] ?? null, 'from');
+        $this->businessDates->resolve($data['to'] ?? null, 'to');
+        $this->assertPermits($principal, 'people.employee.read', $this->businessDates->today()->value());
 
-        $employment = Employment::query()->where('tenant_id', $principal->tenantId())->whereKey($employmentId)->first();
+        $visible = $this->authorizer
+            ->constrain(
+                Employment::query()->whereKey($employmentId),
+                $principal,
+                'people.employee.read',
+                $this->businessDates->today()->value(),
+            )
+            ->first();
 
-        if ($employment === null) {
+        if ($visible === null) {
             throw new NotFoundOrForbiddenException;
         }
+
+        $employment = Employment::query()->whereKey($employmentId)->firstOrFail();
 
         $from = $data['from'] ?? '0001-01-01';
         $to = $data['to'] ?? '9999-12-31';
@@ -179,15 +186,15 @@ final class EmployeeController
 
         $events[] = $this->event('EMPLOYMENT', (int) $employment->id, 'EMPLOYMENT_CREATED', (string) $employment->valid_from, ['status' => (string) $employment->status]);
 
-        foreach ($employment->newQuery()->getConnection()->table('assignments')->where('tenant_id', $principal->tenantId())->where('employment_id', $employmentId)->orderBy('valid_from')->get() as $assignment) {
+        foreach ($employment->newQuery()->getConnection()->table('assignments')->where('employment_id', $employmentId)->orderBy('valid_from')->get() as $assignment) {
             $events[] = $this->event('ASSIGNMENT', (int) $assignment->id, 'ASSIGNMENT_STARTED', (string) $assignment->valid_from, ['org_unit_id' => (int) $assignment->org_unit_id, 'assignment_type' => (string) $assignment->assignment_type]);
         }
 
-        foreach ($employment->newQuery()->getConnection()->table('employment_terms')->where('tenant_id', $principal->tenantId())->where('employment_id', $employmentId)->orderBy('version')->get() as $terms) {
+        foreach ($employment->newQuery()->getConnection()->table('employment_terms')->where('employment_id', $employmentId)->orderBy('version')->get() as $terms) {
             $events[] = $this->event('TERMS', (int) $terms->id, 'TERMS_VERSION', (string) $terms->effective_from, ['version' => (int) $terms->version]);
         }
 
-        foreach ($employment->newQuery()->getConnection()->table('documents')->where('tenant_id', $principal->tenantId())->where('owner_type', 'EMPLOYMENT')->where('owner_id', $employmentId)->orderBy('id')->get() as $document) {
+        foreach ($employment->newQuery()->getConnection()->table('documents')->where('owner_type', 'EMPLOYMENT')->where('owner_id', $employmentId)->orderBy('id')->get() as $document) {
             $events[] = $this->event('DOCUMENT', (int) $document->id, 'DOCUMENT_ATTACHED', (string) ($document->signed_at ?? $document->created_at), ['category' => (string) $document->category]);
         }
 
@@ -211,5 +218,21 @@ final class EmployeeController
     private function event(string $type, int $id, string $event, string $date, array $metadata): array
     {
         return ['type' => $type, 'id' => $id, 'event' => $event, 'effective_date' => $date, 'metadata' => $metadata];
+    }
+
+    /**
+     * Atomic onboarding: person, employment, assignment and first terms version
+     * are created in one transaction (see CreateEmployeeService).
+     */
+    public function onboard(CreateEmployeeRequest $request, CreateEmployeeService $employees): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $result = $employees->onboard(
+            input: $request->validated(),
+            actorUserId: $principal->userId(),
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return ApiResponse::ok($result, $result['replayed'] ? 200 : 201);
     }
 }

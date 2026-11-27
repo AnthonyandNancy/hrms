@@ -16,7 +16,6 @@ use App\Shared\ApiResponse;
 use App\Shared\Exceptions\NoActiveEmploymentException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
-use App\Shared\Time\BusinessDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,27 +26,22 @@ final class TimeCatalogController
         private readonly BusinessCalendar $calendar,
     ) {}
 
-    public function calendar(Request $request, int $legalEntityId): JsonResponse
+    public function calendar(Request $request): JsonResponse
     {
-        $actor = $this->scope->actor($request);
+        $this->scope->actor($request);
         $year = (int) $request->query('year', 0);
 
         if ($year < 1970 || $year > 9999) {
             throw new ValidationException(['year' => ['A four-digit calendar year is required.']]);
         }
 
-        $asOf = $year.'-01-01';
-        $this->scope->assertLegalEntity($actor, $legalEntityId, $asOf);
-
-        $calendar = $this->calendar->calendar($actor->tenantId, $legalEntityId);
+        $calendar = $this->calendar->calendar();
 
         if ($calendar === null) {
             throw new NotFoundOrForbiddenException;
         }
 
         $holidays = Holiday::query()
-            ->where('tenant_id', $actor->tenantId)
-            ->where('legal_entity_id', $legalEntityId)
             ->where('date', '>=', $year.'-01-01')
             ->where('date', '<', ($year + 1).'-01-01')
             ->orderBy('date')
@@ -61,7 +55,6 @@ final class TimeCatalogController
             ->all();
 
         return ApiResponse::ok([
-            'legal_entity_id' => $legalEntityId,
             'year' => $year,
             'timezone' => (string) $calendar->timezone,
             'workweek' => array_values((array) $calendar->workweek_json),
@@ -73,27 +66,14 @@ final class TimeCatalogController
 
     public function shifts(Request $request): JsonResponse
     {
-        $actor = $this->scope->actor($request);
-        $ids = $this->scope->legalEntityIds($actor, BusinessDate::today((string) config('hrms.default_timezone', 'Asia/Shanghai'), app(\App\Shared\Time\Clock::class))->value());
+        $this->scope->actor($request);
 
         $items = ShiftTemplate::query()
-            ->where('tenant_id', $actor->tenantId)
-            ->where(function ($query) use ($ids): void {
-                if ($ids === []) {
-                    $query->whereRaw('1 = 0');
-
-                    return;
-                }
-
-                $query->whereIn('legal_entity_id', $ids);
-            })
-            ->orderBy('legal_entity_id')
             ->orderBy('code')
             ->orderByDesc('version')
             ->get()
             ->map(static fn (ShiftTemplate $shift): array => [
                 'id' => (int) $shift->id,
-                'legal_entity_id' => (int) $shift->legal_entity_id,
                 'code' => (string) $shift->code,
                 'name' => (string) $shift->name,
                 'start_local_time' => (string) $shift->start_local_time,
@@ -117,9 +97,8 @@ final class TimeCatalogController
 
     public function leaveTypes(Request $request): JsonResponse
     {
-        $actor = $this->scope->actor($request);
+        $this->scope->actor($request);
         $items = LeaveType::query()
-            ->where('tenant_id', $actor->tenantId)
             ->orderBy('code')
             ->get()
             ->map(static fn (LeaveType $type): array => [
@@ -142,9 +121,8 @@ final class TimeCatalogController
 
     public function leavePolicies(Request $request): JsonResponse
     {
-        $actor = $this->scope->actor($request);
+        $this->scope->actor($request);
         $items = LeaveType::query()
-            ->where('tenant_id', $actor->tenantId)
             ->orderBy('code')
             ->get()
             ->map(static fn (LeaveType $type): array => [
@@ -163,14 +141,12 @@ final class TimeCatalogController
         $actor = $this->scope->actor($request);
         $employmentId = $this->selfEmploymentId($actor);
         $items = OvertimeRecord::query()
-            ->where('tenant_id', $actor->tenantId)
             ->where('employment_id', $employmentId)
             ->orderByDesc('business_date')
             ->orderByDesc('id')
             ->get()
-            ->map(function (OvertimeRecord $record) use ($actor): array {
+            ->map(function (OvertimeRecord $record): array {
                 $settlement = OvertimeSettlement::query()
-                    ->where('tenant_id', $actor->tenantId)
                     ->where('overtime_record_id', (int) $record->id)
                     ->first();
 
@@ -199,7 +175,7 @@ final class TimeCatalogController
             'allow_timeoff' => true,
             'statutory_holiday_multiplier' => '3.000000',
             'source' => 'CODE_OWNED_DEFAULT',
-            'note' => 'Legal-entity policy versions override this default when configured.',
+            'note' => 'Company policy versions override this default when configured.',
         ]);
     }
 

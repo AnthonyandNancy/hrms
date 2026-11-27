@@ -20,7 +20,8 @@ final class PayrollSensitiveReadAuditTest extends PayrollTestCase
     public function test_p3_run_list_records_field_access_audit(): void
     {
         $base = $this->seedPayrollBase();
-        $this->calculatedRun($base, '2026-07');
+        $run = $this->calculatedRun($base, '2026-07');
+        $this->registerRunMembership($run);
 
         /** @var AllowAllAuthorizer $authorizer */
         $authorizer = app(\App\Shared\Authorization\Authorizer::class);
@@ -53,8 +54,8 @@ final class PayrollSensitiveReadAuditTest extends PayrollTestCase
     private function calculatedRun(array $base, string $period): \App\Modules\Payroll\Models\PayrollRun
     {
         $runs = app(PayrollRunService::class);
-        $run = $runs->createRun($this->tenantId, 10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
-        $run = $runs->lockInputs($this->tenantId, (int) $run->id, 10);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => $period]);
+        $run = $runs->lockInputs((int) $run->id, 10);
         app(CalculationService::class)->calculate($run, 10);
 
         return $run->refresh();
@@ -65,6 +66,6 @@ final class PayrollSensitiveReadAuditTest extends PayrollTestCase
      */
     private function headers(): array
     {
-        return ['X-Legal-Entity-Id' => (string) $this->legalEntityId];
+        return [];
     }
 }

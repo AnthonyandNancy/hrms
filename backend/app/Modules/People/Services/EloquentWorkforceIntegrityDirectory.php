@@ -14,29 +14,17 @@ use Illuminate\Support\Facades\DB;
  */
 final class EloquentWorkforceIntegrityDirectory implements WorkforceIntegrityDirectory
 {
-    public function tenantIds(): array
-    {
-        return DB::table('employments')
-            ->distinct()
-            ->orderBy('tenant_id')
-            ->pluck('tenant_id')
-            ->map(static fn (mixed $id): int => (int) $id)
-            ->all();
-    }
-
-    public function overlappingPrimaryAssignments(int $tenantId): array
+    public function overlappingPrimaryAssignments(): array
     {
         $rows = DB::table('assignments as a')
             ->join('assignments as b', function ($join): void {
                 $join->on('a.employment_id', '=', 'b.employment_id')
-                    ->on('a.tenant_id', '=', 'b.tenant_id')
                     ->whereColumn('a.id', '<', 'b.id')
                     ->where('a.is_primary', '=', true)
                     ->where('b.is_primary', '=', true)
                     ->whereColumn('a.valid_from', '<', 'b.valid_to')
                     ->whereColumn('b.valid_from', '<', 'a.valid_to');
             })
-            ->where('a.tenant_id', $tenantId)
             ->select(['a.employment_id', 'a.id as a_id', 'b.id as b_id'])
             ->orderBy('a.employment_id')
             ->get();
@@ -61,13 +49,12 @@ final class EloquentWorkforceIntegrityDirectory implements WorkforceIntegrityDir
         return $findings;
     }
 
-    public function assignmentsOnTerminatedEmployments(int $tenantId): array
+    public function assignmentsOnTerminatedEmployments(): array
     {
         $rows = DB::table('assignments as a')
             ->join('employments as e', function ($join): void {
-                $join->on('a.employment_id', '=', 'e.id')->on('a.tenant_id', '=', 'e.tenant_id');
+                $join->on('a.employment_id', '=', 'e.id');
             })
-            ->where('a.tenant_id', $tenantId)
             ->where('e.status', 'TERMINATED')
             ->whereColumn('a.valid_to', '>', 'e.valid_to')
             ->select(['a.id as assignment_id', 'e.id as employment_id'])

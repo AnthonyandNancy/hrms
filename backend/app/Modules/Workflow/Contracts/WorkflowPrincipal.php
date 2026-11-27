@@ -15,7 +15,6 @@ final readonly class WorkflowPrincipal
      * @param  list<string>  $capabilities
      */
     public function __construct(
-        public int $tenantId,
         public int $userId,
         public ?int $employmentId,
         public int $authVersion,
@@ -32,7 +31,6 @@ final readonly class WorkflowPrincipal
     public function actorSnapshot(): ActorSnapshot
     {
         return new ActorSnapshot(
-            tenantId: $this->tenantId,
             userId: $this->userId,
             employmentId: $this->employmentId,
             authVersion: $this->authVersion,

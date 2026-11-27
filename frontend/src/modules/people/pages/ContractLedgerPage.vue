@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { peoplePageConfig } from '../catalog'
-import PeopleWorkspace from '../components/PeopleWorkspace.vue'
+import ContractWorkspacePage from '../contracts/pages/ContractWorkspacePage.vue'
 
 defineOptions({ name: 'ContractLedgerPage' })
-
-const config = peoplePageConfig('hr/contracts/index')!
 </script>
 
 <template>
-  <PeopleWorkspace :config="config" />
+  <ContractWorkspacePage />
 </template>

@@ -11,6 +11,7 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollSchemeItem;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -31,12 +32,13 @@ final class PayrollRunService
         private readonly PayrollStateMachine $stateMachine,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly PayrollRunMembershipDirectory $membership,
     ) {}
 
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createRun(int $tenantId, int $actorUserId, array $data): PayrollRun
+    public function createRun(int $actorUserId, array $data): PayrollRun
     {
         $period = (string) $data['period'];
 
@@ -45,7 +47,6 @@ final class PayrollRunService
         }
 
         $scheme = PayrollScheme::query()
-            ->where('tenant_id', $tenantId)
             ->whereKey((int) $data['scheme_id'])
             ->first();
 
@@ -69,24 +70,20 @@ final class PayrollRunService
         }
 
         $existing = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
-            ->where('legal_entity_id', $scheme->legal_entity_id)
             ->where('period', $period)
             ->where('run_type', $runType->value)
             ->whereNotIn('status', [PayrollRunStatus::CANCELLED->value])
             ->first();
 
         if ($existing !== null) {
-            throw new ConflictException('A payroll run already exists for this legal entity and period.', [
+            throw new ConflictException('A payroll run already exists for this period.', [
                 'reason' => 'PAYROLL_RUN_ALREADY_EXISTS',
                 'run_id' => (int) $existing->id,
             ]);
         }
 
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data, $scheme, $period, $start, $end, $payDate, $runType): PayrollRun {
+        return DB::transaction(function () use ($actorUserId, $data, $scheme, $period, $start, $end, $payDate, $runType): PayrollRun {
             $run = PayrollRun::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => $scheme->legal_entity_id,
                 'scheme_id' => $scheme->id,
                 'period' => $period,
                 'earning_period_start' => $start,
@@ -103,7 +100,6 @@ final class PayrollRunService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.created',
                 aggregateType: 'payroll_run',
@@ -118,10 +114,10 @@ final class PayrollRunService
     /**
      * DRAFT -> INPUT_LOCKED with immutable snapshots and a stable hash.
      */
-    public function lockInputs(int $tenantId, int $runId, int $actorUserId): PayrollRun
+    public function lockInputs(int $runId, int $actorUserId): PayrollRun
     {
-        return DB::transaction(function () use ($tenantId, $runId, $actorUserId): PayrollRun {
-            $run = $this->stateMachine->lockRun($tenantId, $runId);
+        return DB::transaction(function () use ($runId, $actorUserId): PayrollRun {
+            $run = $this->stateMachine->lockRun($runId);
             $status = $run->status instanceof PayrollRunStatus ? $run->status : PayrollRunStatus::from((string) $run->status);
 
             if ($status === PayrollRunStatus::INPUT_LOCKED) {
@@ -139,7 +135,6 @@ final class PayrollRunService
             $hash = $this->snapshots->lock($run, $actorUserId);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.run.inputs_locked',
                 aggregateType: 'payroll_run',
@@ -156,22 +151,21 @@ final class PayrollRunService
      * @param  list<int>  $runIds
      * @return list<PayrollRun>
      */
-    public function runsByIds(int $tenantId, array $runIds): array
+    public function runsByIds(array $runIds): array
     {
         if ($runIds === []) {
             return [];
         }
 
         return PayrollRun::query()
-            ->where('tenant_id', $tenantId)
             ->whereIn('id', $runIds)
             ->get()
             ->all();
     }
 
-    public function findRun(int $tenantId, int $runId): PayrollRun
+    public function findRun(int $runId): PayrollRun
     {
-        $run = PayrollRun::query()->where('tenant_id', $tenantId)->whereKey($runId)->first();
+        $run = PayrollRun::query()->whereKey($runId)->first();
 
         if ($run === null) {
             throw new NotFoundOrForbiddenException;
@@ -184,13 +178,19 @@ final class PayrollRunService
      * @param  array<string, mixed>  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
-    public function listRuns(int $tenantId, array $filters, int $page, int $pageSize): array
+    public function listRuns(int $userId, string $businessDate, array $filters, int $page, int $pageSize): array
     {
+        // Payroll runs are PAYROLL_RUN-anchored: the index may only list runs the
+        // principal is a member of (preparer, reviewer, approver or publisher).
+        // Without this constraint a COMPANY-wide route guard would expose every
+        // run to anyone holding payroll.run.read at any anchor.
+        $memberRunIds = $this->membership->runIdsForUser($userId, $businessDate);
+
         $query = PayrollRun::query()
-            ->where('tenant_id', $tenantId)
+            ->withCount('employees')
+            ->whereIn('id', $memberRunIds)
             ->when(isset($filters['period']), fn ($q) => $q->where('period', $filters['period']))
             ->when(isset($filters['status']), fn ($q) => $q->where('status', $filters['status']))
-            ->when(isset($filters['legal_entity_id']), fn ($q) => $q->where('legal_entity_id', (int) $filters['legal_entity_id']))
             ->orderByDesc('period')
             ->orderByDesc('id');
 
@@ -267,7 +267,6 @@ final class PayrollRunService
         $showAmounts = $fields->isVisible('net');
 
         return \App\Modules\Payroll\Models\PayrollInputSnapshot::query()
-            ->where('tenant_id', $run->tenant_id)
             ->where('run_id', $run->id)
             ->orderBy('employment_id')
             ->orderBy('snapshot_type')
@@ -340,12 +339,10 @@ final class PayrollRunService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createItem(int $tenantId, int $actorUserId, array $data): PayrollItem
+    public function createItem(int $actorUserId, array $data): PayrollItem
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data): PayrollItem {
+        return DB::transaction(function () use ($actorUserId, $data): PayrollItem {
             $item = PayrollItem::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $data['legal_entity_id'],
                 'code' => strtoupper((string) $data['code']),
                 'name' => (string) $data['name'],
                 'type' => (string) $data['type'],
@@ -358,7 +355,6 @@ final class PayrollRunService
             ]);
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.item.created',
                 aggregateType: 'payroll_item',
@@ -373,17 +369,14 @@ final class PayrollRunService
     /**
      * @return list<array<string, mixed>>
      */
-    public function items(int $tenantId, ?int $legalEntityId): array
+    public function items(): array
     {
         return PayrollItem::query()
-            ->where('tenant_id', $tenantId)
-            ->when($legalEntityId !== null, fn ($q) => $q->where('legal_entity_id', $legalEntityId))
             ->orderBy('sort_order')
             ->orderBy('code')
             ->get()
             ->map(fn (PayrollItem $item): array => [
                 'id' => (int) $item->id,
-                'legal_entity_id' => (int) $item->legal_entity_id,
                 'code' => (string) $item->code,
                 'name' => (string) $item->name,
                 'type' => $item->type->value,
@@ -399,12 +392,10 @@ final class PayrollRunService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createScheme(int $tenantId, int $actorUserId, array $data): PayrollScheme
+    public function createScheme(int $actorUserId, array $data): PayrollScheme
     {
-        return DB::transaction(function () use ($tenantId, $actorUserId, $data): PayrollScheme {
+        return DB::transaction(function () use ($actorUserId, $data): PayrollScheme {
             $scheme = PayrollScheme::query()->create([
-                'tenant_id' => $tenantId,
-                'legal_entity_id' => (int) $data['legal_entity_id'],
                 'code' => strtoupper((string) $data['code']),
                 'name' => (string) $data['name'],
                 'frequency' => 'MONTHLY',
@@ -423,7 +414,6 @@ final class PayrollRunService
             foreach ((array) ($data['items'] ?? []) as $position => $itemData) {
                 $itemData = (array) $itemData;
                 PayrollSchemeItem::query()->create([
-                    'tenant_id' => $tenantId,
                     'scheme_id' => $scheme->id,
                     'payroll_item_id' => isset($itemData['payroll_item_id']) ? (int) $itemData['payroll_item_id'] : null,
                     'item_code' => strtoupper((string) $itemData['item_code']),
@@ -439,7 +429,6 @@ final class PayrollRunService
             }
 
             $this->audit->record(
-                tenantId: $tenantId,
                 actorUserId: $actorUserId,
                 action: 'payroll.scheme.created',
                 aggregateType: 'payroll_scheme',
@@ -454,18 +443,15 @@ final class PayrollRunService
     /**
      * @return list<array<string, mixed>>
      */
-    public function schemes(int $tenantId, ?int $legalEntityId): array
+    public function schemes(): array
     {
         return PayrollScheme::query()
-            ->where('tenant_id', $tenantId)
-            ->when($legalEntityId !== null, fn ($q) => $q->where('legal_entity_id', $legalEntityId))
             ->with('items')
             ->orderBy('code')
             ->orderByDesc('version')
             ->get()
             ->map(fn (PayrollScheme $scheme): array => [
                 'id' => (int) $scheme->id,
-                'legal_entity_id' => (int) $scheme->legal_entity_id,
                 'code' => (string) $scheme->code,
                 'name' => (string) $scheme->name,
                 'currency' => (string) $scheme->currency,
@@ -503,12 +489,12 @@ final class PayrollRunService
     {
         $summary = [
             'id' => (int) $run->id,
-            'legal_entity_id' => (int) $run->legal_entity_id,
             'period' => (string) $run->period,
             'run_type' => $run->run_type->value,
             'status' => $run->status->value,
             'correction_of_run_id' => $run->correction_of_run_id,
             'pay_date' => $this->dateOnly($run->pay_date),
+            'employee_count' => $this->employeeCount($run),
             'created_at' => $run->created_at->toIso8601ZuluString(),
         ];
 
@@ -520,5 +506,20 @@ final class PayrollRunService
         }
 
         return $summary;
+    }
+
+    /**
+     * The list query eager-loads the employee count; detail rendering falls
+     * back to one bounded count when the run is not part of a list query.
+     */
+    private function employeeCount(PayrollRun $run): int
+    {
+        $loaded = $run->getAttribute('employees_count');
+
+        if (is_numeric($loaded)) {
+            return (int) $loaded;
+        }
+
+        return PayrollRunEmployee::query()->where('run_id', $run->id)->count();
     }
 }
