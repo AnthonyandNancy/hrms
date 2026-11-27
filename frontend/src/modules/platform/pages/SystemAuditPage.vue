@@ -3,13 +3,10 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
+import { ApiError } from '@/api/errors'
 import { formatDateTimeInTimezone } from '@/utils/format'
-import {
-  isForbidden,
-  listAuthEvents,
-  platformErrorCopy,
-  type AuthEvent,
-} from '../api'
+import { isForbidden, platformErrorCopy } from '../api'
+import { listAuthEvents, type AuthEvent } from '../api/audit'
 import {
   authEventLabel,
   authEventResource,
@@ -47,7 +44,7 @@ const filters = reactive({
 const visibleEvents = computed(() =>
   events.value.filter((event) => {
     if (filters.actor !== '' && String(event.actorUserId ?? '') !== filters.actor.trim()) return false
-    if (filters.action !== '' && event.eventType !== filters.action) return false
+    if (filters.action !== '' && !authEventLabel(event.eventType).includes(filters.action.trim())) return false
     if (filters.result !== '' && event.result !== filters.result) return false
     if (filters.from !== '' && event.occurredAt.slice(0, 10) < filters.from) return false
     if (filters.to !== '' && event.occurredAt.slice(0, 10) > filters.to) return false
@@ -62,13 +59,25 @@ const rows = computed(() =>
     resourceLabel: authEventResource(event.eventType),
     resultLabel: authResultLabel(event.result),
     resultTone: `plain-chip--${authResultTone(event.result)}`,
-    actorLabel: event.actorUserId === null ? '系统' : `用户 #${event.actorUserId}`,
+    actorLabel: event.actorUserId === null ? '系统' : `用户 ${event.actorUserId}`,
     requestLabel: event.requestId ?? '—',
     timeLabel: formatDateTimeInTimezone(event.occurredAt),
   })),
 )
 
-const isEmpty = computed(() => !loading.value && loadError.value === null && rows.value.length === 0)
+const isEmpty = computed(
+  () => !loading.value && loadError.value === null && (events.value.length === 0 || rows.value.length === 0),
+)
+
+const emptyTitle = computed(() =>
+  events.value.length === 0 ? '当前没有审计事件' : '当前筛选下没有审计事件',
+)
+
+const errorRequestId = computed(() => {
+  const error = loadError.value
+  const requestId = error instanceof ApiError ? error.requestId : null
+  return requestId === null || requestId === '' ? '' : requestId
+})
 
 const columns: DataTableColumn[] = [
   { key: 'timeLabel', label: '发生时间', width: '150px' },
@@ -79,6 +88,7 @@ const columns: DataTableColumn[] = [
   { key: 'requestLabel', label: '请求编号', minWidth: '170px' },
   { key: 'actions', label: '明细', width: '80px' },
 ]
+
 const selectedMetadata = computed(() => (selected.value === null ? [] : metadataRows(selected.value.metadata)))
 
 function resetFilters(): void {
@@ -93,11 +103,13 @@ async function loadEvents(): Promise<void> {
   loading.value = true
   loadError.value = null
   try {
-    // The endpoint exposes page/page_size only. Bounded server pagination is
-    // read once; filters below operate on the loaded projection and say so.
-    const result = await listAuthEvents()
+    // The endpoint exposes page/page_size only. The server owns pagination;
+    // the filters below operate on the loaded page and the page says so.
+    const result = await listAuthEvents({ page: page.value, pageSize: pageSize.value })
     events.value = result.items
     total.value = result.total
+    page.value = result.page
+    pageSize.value = result.pageSize
   } catch (error) {
     events.value = []
     total.value = 0
@@ -113,6 +125,19 @@ function inspect(event: AuthEvent): void {
 
 function closeDetail(): void {
   selected.value = null
+}
+
+function changePage(next: number): void {
+  page.value = next
+  selected.value = null
+  void loadEvents()
+}
+
+function changePageSize(next: number): void {
+  pageSize.value = next
+  page.value = 1
+  selected.value = null
+  void loadEvents()
 }
 
 function retry(): void {
@@ -132,7 +157,7 @@ onMounted(() => {
   <PageShell
     data-testid="system-audit-page"
     title="日志审计与运维"
-    description="查阅账号与授权安全事件，包括操作人、动作、资源、结果与请求编号；审计记录不可修改或删除。"
+    description="查阅账号与授权安全事件，包括发生时间、操作人、动作、资源、结果与请求编号；审计记录只读且不可修改或删除。"
   >
     <template #actions>
       <el-button plain :disabled="loading" @click="retry">刷新</el-button>
@@ -150,7 +175,7 @@ onMounted(() => {
         <div class="panel__header">
           <div>
             <h2 class="panel__title">事件筛选</h2>
-            <p class="panel__subtitle">服务端当前仅按分页返回最近 100 条；筛选仅作用于已加载记录，明细固定显示请求编号。</p>
+            <p class="panel__subtitle">服务端按页返回审计事件；筛选只作用于当前已加载的这一页，跨页筛选和审计导出暂未开放。</p>
           </div>
           <el-button text @click="resetFilters">清除筛选</el-button>
         </div>
@@ -161,7 +186,7 @@ onMounted(() => {
           </label>
           <label class="audit-field">
             <span>动作</span>
-            <el-input v-model="filters.action" data-testid="audit-filter-action" placeholder="搜索动作" clearable />
+            <el-input v-model="filters.action" data-testid="audit-filter-action" placeholder="按中文动作名称筛选" clearable />
           </label>
           <div class="audit-field" role="group" aria-label="按结果筛选">
             <span>结果</span>
@@ -192,7 +217,7 @@ onMounted(() => {
       </section>
 
       <p v-if="!loading && loadError === null" class="inline-warning" data-testid="audit-partial">
-        筛选仅作用于已加载的 {{ events.length }} 条审计记录；服务端当前未开放日期、操作人与动作筛选，跨页筛选需等待接口补齐。
+        筛选仅作用于已加载的 {{ events.length }} 条审计记录；服务端当前只开放分页、未开放日期、操作人与动作筛选，审计导出暂未开放，跨页检索需等待接口补齐。
       </p>
 
       <section v-if="loading" class="panel" data-testid="audit-loading">
@@ -217,14 +242,19 @@ onMounted(() => {
         <div class="panel__body">
           <h2 class="panel__title">审计日志加载失败</h2>
           <p class="muted">{{ platformErrorCopy(loadError) }}</p>
+          <p v-if="errorRequestId" class="muted small">问题反馈编号：<span class="mono">{{ errorRequestId }}</span></p>
           <el-button type="primary" plain @click="retry">重试</el-button>
         </div>
       </section>
 
       <section v-else-if="isEmpty" class="panel" data-testid="audit-empty">
         <div class="panel__body">
-          <h2 class="panel__title">当前筛选下没有审计事件</h2>
-          <p class="muted">调整日期、操作人或动作筛选后重试；已加载记录数 {{ events.length }}。</p>
+          <h2 class="panel__title">{{ emptyTitle }}</h2>
+          <p class="muted">
+            {{ events.length === 0
+              ? '系统尚未记录可查看的安全事件，或当前分页没有数据。'
+              : `本页共 ${events.length} 条记录，调整日期、操作人、动作或结果筛选后重试。` }}
+          </p>
         </div>
       </section>
 
@@ -232,19 +262,22 @@ onMounted(() => {
         <div class="panel__header">
           <div>
             <h2 class="panel__title">安全审计事件</h2>
-            <p class="panel__subtitle">共 {{ total }} 条记录；当前筛选可见 {{ rows.length }} 条。</p>
+            <p class="panel__subtitle">共 {{ total }} 条记录；当前页 {{ events.length }} 条，筛选后可见 {{ rows.length }} 条。</p>
           </div>
         </div>
         <DataTable
           :columns="columns"
           :rows="rows as unknown as Array<Record<string, unknown>>"
-          :total="rows.length"
+          :total="total"
           :page="page"
           :page-size="pageSize"
+          :loading="loading"
           row-key="id"
           :row-test-id="(row) => `audit-row-${row.id}`"
           data-testid="audit-table"
           empty-title="当前筛选下没有审计事件"
+          @update:page="changePage"
+          @update:page-size="changePageSize"
         >
           <template #cell-timeLabel="{ row }">
             <span class="mono">{{ row.timeLabel }}</span>
@@ -261,9 +294,6 @@ onMounted(() => {
             </el-button>
           </template>
         </DataTable>
-        <div class="audit-pagination">
-          <span class="muted small">第 {{ page }} 页 · 每页 {{ pageSize }} 条 · 共 {{ total }} 条</span>
-        </div>
       </section>
 
       <el-dialog
@@ -277,13 +307,16 @@ onMounted(() => {
           <el-descriptions :column="1" border>
             <el-descriptions-item label="发生时间">{{ formatDateTimeInTimezone(selected.occurredAt) }}</el-descriptions-item>
             <el-descriptions-item label="操作人">
-              {{ selected.actorUserId === null ? '系统' : `用户 #${selected.actorUserId}` }}
+              {{ selected.actorUserId === null ? '系统' : `用户 ${selected.actorUserId}` }}
             </el-descriptions-item>
             <el-descriptions-item label="动作">{{ authEventLabel(selected.eventType) }}</el-descriptions-item>
             <el-descriptions-item label="资源">{{ authEventResource(selected.eventType) }}</el-descriptions-item>
             <el-descriptions-item label="结果">{{ authResultLabel(selected.result) }}</el-descriptions-item>
             <el-descriptions-item label="请求编号">
-              <span class="mono">{{ selected.requestId ?? '—' }}</span>
+              <span class="mono" data-testid="audit-detail-request-id">{{ selected.requestId ?? '—' }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="事件代码">
+              <span class="mono" data-testid="audit-detail-event-code">{{ selected.eventType }}</span>
             </el-descriptions-item>
           </el-descriptions>
           <h3 class="panel__title">上下文</h3>
@@ -338,11 +371,6 @@ onMounted(() => {
   gap: 5px;
   font-size: 12px;
   font-weight: 600;
-}
-.audit-pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 16px;
 }
 .audit-detail {
   display: flex;
