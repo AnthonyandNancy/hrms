@@ -34,6 +34,7 @@ final class LeaveEquation
      * @return array{
      *   granted: int,
      *   reserved: int,
+     *   pending: int,
      *   consumed: int,
      *   released: int,
      *   expired: int,
@@ -49,6 +50,7 @@ final class LeaveEquation
         $summary = [
             'granted' => 0,
             'reserved' => 0,
+            'pending' => 0,
             'consumed' => 0,
             'released' => 0,
             'expired' => 0,
@@ -90,6 +92,7 @@ final class LeaveEquation
             + $summary['adjusted']
             + $summary['reversed'];
 
+        $summary['pending'] = max(0, $summary['reserved'] - $summary['released']);
         $summary['available'] = $summary['balance'];
         $summary['unexplained_difference'] = $summary['balance'] - $reconstructed;
 

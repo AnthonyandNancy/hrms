@@ -315,6 +315,13 @@ export function createHttpAdapter(): ApiAdapter {
     const me = await loadMe()
     if (me === null) return anonymous()
 
+    if (csrfToken === null) {
+      const csrf = await unwrap<{ csrf_token: string }>(
+        client.get<ApiEnvelope<{ csrf_token: string }>>('/auth/csrf'),
+      )
+      csrfToken = csrf.csrf_token
+    }
+
     let capabilities: string[] = []
     try {
       const caps = await unwrap<BackendCapabilities>(

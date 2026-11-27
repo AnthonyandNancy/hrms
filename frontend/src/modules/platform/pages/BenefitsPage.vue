@@ -731,18 +731,18 @@ onMounted(() => {
             </div>
           </section>
 
-          <section v-else-if="tabEmpty" class="panel" data-testid="benefit-empty">
-            <div class="panel__body">
-              <h2 class="panel__title">尚未配置福利方案</h2>
-              <p class="muted">
-                服务端当前没有可展示的福利方案。
-                <template v-if="canManage">具备福利管理能力时可创建第一个方案版本。</template>
-              </p>
-            </div>
-          </section>
-
           <template v-else>
-            <section class="panel" data-testid="benefit-plans-panel">
+            <section v-if="tabEmpty" class="panel" data-testid="benefit-empty">
+              <div class="panel__body">
+                <h2 class="panel__title">尚未配置福利方案</h2>
+                <p class="muted">
+                  服务端当前没有可展示的福利方案。
+                  <template v-if="canManage">可在下方创建第一个方案版本。</template>
+                </p>
+              </div>
+            </section>
+
+            <section v-else class="panel" data-testid="benefit-plans-panel">
               <div class="panel__header">
                 <div>
                   <h2 class="panel__title">福利方案版本</h2>
@@ -857,86 +857,90 @@ onMounted(() => {
             </div>
           </section>
 
-          <section v-else-if="tabEmpty" class="panel" data-testid="benefit-enrollment-empty">
-            <div class="panel__body">
-              <h2 class="panel__title">尚无员工参保登记</h2>
-              <p class="muted">员工参保记录来自真实福利方案与在职任职；当前服务端没有返回参保版本。</p>
-            </div>
-          </section>
-
-          <section v-else class="panel" data-testid="benefit-enrollments-panel">
-            <div class="panel__header">
-              <div>
-                <h2 class="panel__title">参保登记</h2>
-                <p class="panel__subtitle">基数变更按生效日追加版本；员工来自真实任职，缴费金额由服务端按方案比例计算。</p>
+          <template v-else>
+            <section v-if="tabEmpty" class="panel" data-testid="benefit-enrollment-empty">
+              <div class="panel__body">
+                <h2 class="panel__title">尚无员工参保登记</h2>
+                <p class="muted">员工参保记录来自真实福利方案与在职任职；当前服务端没有返回参保版本。</p>
               </div>
-              <span class="muted small">{{ enrollmentTotal }} 条参保记录</span>
-            </div>
-            <p v-if="enrollmentMessage" class="inline-success" data-testid="benefit-enrollment-message">{{ enrollmentMessage }}</p>
-            <p v-if="enrollmentError" class="inline-error" role="alert" data-testid="benefit-enrollment-error">{{ enrollmentError }}</p>
-            <div class="panel__body benefit-filter">
-              <label class="benefit-field benefit-field--filter">
-                <span>按员工筛选</span>
-                <el-input
-                  v-model="enrollmentFilter"
-                  data-testid="benefit-enrollment-filter"
-                  clearable
-                  placeholder="输入任职编号、方案编号或名称"
-                />
-              </label>
-            </div>
-            <DataTable
-              :columns="enrollmentColumns"
-              :rows="enrollmentRows as unknown as Array<Record<string, unknown>>"
-              :total="enrollmentRows.length"
-              :page="1"
-              :page-size="100"
-              row-key="id"
-              data-testid="benefit-enrollment-table"
-              empty-title="当前没有参保版本"
-            />
-            <div v-if="canManage" class="panel__body benefit-form" data-testid="benefit-enrollment-editor">
-              <label class="benefit-field">
-                <span>福利方案</span>
-                <el-select v-model="enrollmentForm.planId" data-testid="benefit-enrollment-plan" aria-label="福利方案">
-                  <el-option v-for="option in planOptions" :key="option.value" :label="option.label" :value="option.value" />
-                </el-select>
-              </label>
-              <label class="benefit-field">
-                <span>员工任职编号</span>
-                <el-input v-model="enrollmentForm.employmentId" data-testid="benefit-enrollment-employment" inputmode="numeric" />
-              </label>
-              <label class="benefit-field">
-                <span>参保基数（元）</span>
-                <el-input v-model="enrollmentForm.baseYuan" data-testid="benefit-enrollment-base" inputmode="decimal" placeholder="0.00" />
-              </label>
-              <label class="benefit-field">
-                <span>生效日</span>
-                <el-date-picker
-                  v-model="enrollmentForm.effectiveFrom"
-                  class="benefit-field__date"
-                  data-testid="benefit-enrollment-effective-from"
-                  type="date"
-                  value-format="YYYY-MM-DD"
-                  aria-label="参保生效日"
-                />
-              </label>
-              <label class="benefit-field">
-                <span>失效日（可选）</span>
-                <el-date-picker
-                  v-model="enrollmentForm.effectiveTo"
-                  class="benefit-field__date"
-                  data-testid="benefit-enrollment-effective-to"
-                  type="date"
-                  value-format="YYYY-MM-DD"
-                  aria-label="参保失效日"
-                />
-              </label>
-              <el-button type="primary" :loading="enrollmentSaving" data-testid="benefit-enrollment-submit" @click="submitEnrollment">
-                登记参保版本
-              </el-button>
-            </div>
-          </section>
+            </section>
+
+            <section v-else class="panel" data-testid="benefit-enrollments-panel">
+              <div class="panel__header">
+                <div>
+                  <h2 class="panel__title">参保登记</h2>
+                  <p class="panel__subtitle">基数变更按生效日追加版本；员工来自真实任职，缴费金额由服务端按方案比例计算。</p>
+                </div>
+                <span class="muted small">{{ enrollmentTotal }} 条参保记录</span>
+              </div>
+              <p v-if="enrollmentMessage" class="inline-success" data-testid="benefit-enrollment-message">{{ enrollmentMessage }}</p>
+              <p v-if="enrollmentError" class="inline-error" role="alert" data-testid="benefit-enrollment-error">{{ enrollmentError }}</p>
+              <div class="panel__body benefit-filter">
+                <label class="benefit-field benefit-field--filter">
+                  <span>按员工筛选</span>
+                  <el-input
+                    v-model="enrollmentFilter"
+                    data-testid="benefit-enrollment-filter"
+                    clearable
+                    placeholder="输入任职编号、方案编号或名称"
+                  />
+                </label>
+              </div>
+              <DataTable
+                :columns="enrollmentColumns"
+                :rows="enrollmentRows as unknown as Array<Record<string, unknown>>"
+                :total="enrollmentRows.length"
+                :page="1"
+                :page-size="100"
+                row-key="id"
+                data-testid="benefit-enrollment-table"
+                empty-title="当前没有参保版本"
+              />
+            </section>
+            <section v-if="canManage" class="panel" data-testid="benefit-enrollment-editor-panel">
+              <div v-if="canManage" class="panel__body benefit-form" data-testid="benefit-enrollment-editor">
+                <label class="benefit-field">
+                  <span>福利方案</span>
+                  <el-select v-model="enrollmentForm.planId" data-testid="benefit-enrollment-plan" aria-label="福利方案">
+                    <el-option v-for="option in planOptions" :key="option.value" :label="option.label" :value="option.value" />
+                  </el-select>
+                </label>
+                <label class="benefit-field">
+                  <span>员工任职编号</span>
+                  <el-input v-model="enrollmentForm.employmentId" data-testid="benefit-enrollment-employment" inputmode="numeric" />
+                </label>
+                <label class="benefit-field">
+                  <span>参保基数（元）</span>
+                  <el-input v-model="enrollmentForm.baseYuan" data-testid="benefit-enrollment-base" inputmode="decimal" placeholder="0.00" />
+                </label>
+                <label class="benefit-field">
+                  <span>生效日</span>
+                  <el-date-picker
+                    v-model="enrollmentForm.effectiveFrom"
+                    class="benefit-field__date"
+                    data-testid="benefit-enrollment-effective-from"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    aria-label="参保生效日"
+                  />
+                </label>
+                <label class="benefit-field">
+                  <span>失效日（可选）</span>
+                  <el-date-picker
+                    v-model="enrollmentForm.effectiveTo"
+                    class="benefit-field__date"
+                    data-testid="benefit-enrollment-effective-to"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    aria-label="参保失效日"
+                  />
+                </label>
+                <el-button type="primary" :loading="enrollmentSaving" data-testid="benefit-enrollment-submit" @click="submitEnrollment">
+                  登记参保版本
+                </el-button>
+              </div>
+            </section>
+          </template>
         </template>
 
         <template v-else>
@@ -963,54 +967,59 @@ onMounted(() => {
             </div>
           </section>
 
-          <section v-else-if="tabEmpty" class="panel" data-testid="benefit-transaction-empty">
-            <div class="panel__body">
-              <h2 class="panel__title">尚无缴费台账</h2>
-              <p class="muted">月度缴费是只读登记事实；当前服务端没有返回缴费记录。</p>
-            </div>
-          </section>
-
-          <section v-else class="panel" data-testid="benefit-transactions-panel">
-            <div class="panel__header">
-              <div>
-                <h2 class="panel__title">缴费台账</h2>
-                <p class="panel__subtitle">金额为整数分；工资批次只显示关联编号与期间，台账状态登记后只读。</p>
+          <template v-else>
+            <section v-if="tabEmpty" class="panel" data-testid="benefit-transaction-empty">
+              <div class="panel__body">
+                <h2 class="panel__title">尚无缴费台账</h2>
+                <p class="muted">月度缴费是只读登记事实；当前服务端没有返回缴费记录。</p>
               </div>
-              <span class="muted small">{{ transactionTotal }} 条台账</span>
-            </div>
-            <DataTable
-              :columns="transactionColumns"
-              :rows="transactionRows as unknown as Array<Record<string, unknown>>"
-              :total="transactionRows.length"
-              :page="1"
-              :page-size="100"
-              row-key="id"
-              data-testid="benefit-transaction-table"
-              empty-title="当前没有月度缴费台账"
-            />
-            <p v-if="transactionMessage" class="inline-success" data-testid="benefit-transaction-message">{{ transactionMessage }}</p>
-            <p v-if="transactionError" class="inline-error" role="alert" data-testid="benefit-transaction-error">{{ transactionError }}</p>
-            <div v-if="canManage" class="panel__body benefit-form" data-testid="benefit-transaction-editor">
-              <label class="benefit-field">
-                <span>参保编号</span>
-                <el-input v-model="transactionForm.enrollmentId" data-testid="benefit-transaction-enrollment" inputmode="numeric" />
-              </label>
-              <label class="benefit-field">
-                <span>计费期间</span>
-                <el-input v-model="transactionForm.period" data-testid="benefit-transaction-period" placeholder="YYYY-MM" maxlength="7" />
-              </label>
-              <label class="benefit-field">
-                <span>工资批次编号（可选）</span>
-                <el-input v-model="transactionForm.payrollRunId" data-testid="benefit-transaction-payroll-run" inputmode="numeric" />
-              </label>
-              <el-button type="primary" :loading="transactionSaving" data-testid="benefit-transaction-submit" @click="submitTransaction">
-                登记缴费台账
-              </el-button>
-            </div>
-            <p class="muted small statutory-hint">
-              已发布、已发放或已关闭的工资批次处于冻结状态；登记新台账时会由服务端拒绝并提示联系工资管理员通过更正批次处理。
-            </p>
-          </section>
+            </section>
+
+            <section v-else class="panel" data-testid="benefit-transactions-panel">
+              <div class="panel__header">
+                <div>
+                  <h2 class="panel__title">缴费台账</h2>
+                  <p class="panel__subtitle">金额为整数分；工资批次只显示关联编号与期间，台账状态登记后只读。</p>
+                </div>
+                <span class="muted small">{{ transactionTotal }} 条台账</span>
+              </div>
+              <DataTable
+                :columns="transactionColumns"
+                :rows="transactionRows as unknown as Array<Record<string, unknown>>"
+                :total="transactionRows.length"
+                :page="1"
+                :page-size="100"
+                row-key="id"
+                data-testid="benefit-transaction-table"
+                empty-title="当前没有月度缴费台账"
+              />
+              <p v-if="transactionMessage" class="inline-success" data-testid="benefit-transaction-message">{{ transactionMessage }}</p>
+              <p v-if="transactionError" class="inline-error" role="alert" data-testid="benefit-transaction-error">{{ transactionError }}</p>
+
+              <p class="muted small statutory-hint">
+                已发布、已发放或已关闭的工资批次处于冻结状态；登记新台账时会由服务端拒绝并提示联系工资管理员通过更正批次处理。
+              </p>
+            </section>
+            <section v-if="canManage" class="panel" data-testid="benefit-transaction-editor-panel">
+              <div v-if="canManage" class="panel__body benefit-form" data-testid="benefit-transaction-editor">
+                <label class="benefit-field">
+                  <span>参保编号</span>
+                  <el-input v-model="transactionForm.enrollmentId" data-testid="benefit-transaction-enrollment" inputmode="numeric" />
+                </label>
+                <label class="benefit-field">
+                  <span>计费期间</span>
+                  <el-input v-model="transactionForm.period" data-testid="benefit-transaction-period" placeholder="YYYY-MM" maxlength="7" />
+                </label>
+                <label class="benefit-field">
+                  <span>工资批次编号（可选）</span>
+                  <el-input v-model="transactionForm.payrollRunId" data-testid="benefit-transaction-payroll-run" inputmode="numeric" />
+                </label>
+                <el-button type="primary" :loading="transactionSaving" data-testid="benefit-transaction-submit" @click="submitTransaction">
+                  登记缴费台账
+                </el-button>
+              </div>
+            </section>
+          </template>
         </template>
       </template>
     </template>

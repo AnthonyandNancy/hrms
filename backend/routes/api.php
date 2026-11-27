@@ -116,6 +116,7 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::get('/me/capabilities', [MeController::class, 'capabilities'])->middleware('capability:iam.session.manage,SELF')->name('me.capabilities');
     Route::get('/me/permissions', [MeController::class, 'permissions'])->middleware('capability:iam.session.manage,SELF')->name('me.permissions');
 
+    Route::get('/auth/csrf', [AuthController::class, 'csrf'])->middleware('capability:iam.session.manage,SELF')->name('auth.csrf');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout');
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout-all');
     Route::post('/auth/password', [AuthController::class, 'changePassword'])->middleware('capability:iam.session.manage,SELF')->name('auth.password');

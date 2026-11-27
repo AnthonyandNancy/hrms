@@ -8428,6 +8428,40 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/auth/csrf:
+    get:
+      operationId: getSessionCsrfToken
+      tags:
+        - IAM Auth
+      summary: Recover the current session-bound CSRF token
+      description: |
+        The SPA keeps the raw token in memory only. After a full page reload it
+        calls this endpoint to recover a deterministic token bound to the same
+        server-side session; the raw token is never stored in localStorage.
+      responses:
+        "200":
+          description: Current session CSRF token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [csrf_token]
+                        properties:
+                          csrf_token:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 恢复会话安全令牌
   /v1/auth/logout:
     post:
       operationId: logout

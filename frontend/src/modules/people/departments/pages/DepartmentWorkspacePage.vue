@@ -295,7 +295,7 @@ async function loadWorkspace(): Promise<void> {
     }
 
     if (selectedId.value !== null) {
-      if (activeTab.value === 'members') await loadMembers(selectedId.value)
+      if (activeTab.value === 'members' || activeTab.value === 'overview') await loadMembers(selectedId.value)
       if (activeTab.value === 'staffing') await loadStaffing(selectedId.value)
     } else {
       members.value = null
@@ -350,7 +350,7 @@ async function selectDepartment(id: number): Promise<void> {
   selectedId.value = id
   closeMove()
   writeQuery()
-  if (activeTab.value === 'members') await loadMembers(id)
+  if (activeTab.value === 'members' || activeTab.value === 'overview') await loadMembers(id)
   if (activeTab.value === 'staffing') await loadStaffing(id)
 }
 
@@ -462,7 +462,7 @@ async function confirmMove(): Promise<void> {
     moveOpen.value = false
     await loadWorkspace()
     if (selectedId.value !== null) {
-      if (activeTab.value === 'members') await loadMembers(selectedId.value)
+      if (activeTab.value === 'members' || activeTab.value === 'overview') await loadMembers(selectedId.value)
       if (activeTab.value === 'staffing') await loadStaffing(selectedId.value)
     }
   } catch (error) {

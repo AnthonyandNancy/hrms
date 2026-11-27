@@ -299,7 +299,7 @@ final class NoticeService
             'id' => (int) $notice->id,
             'title' => (string) $notice->title,
             'summary' => mb_substr(trim(preg_replace('/\s+/', ' ', (string) $notice->body) ?? ''), 0, 120),
-            'body' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $notice->body) ?: []))),
+            'body' => array_values(array_filter(array_map('trim', preg_split('/\R/u', (string) $notice->body) ?: []))),
             'status' => (string) $notice->status,
             'audience' => (string) ($audience['type'] ?? 'ALL'),
             'audienceLabel' => (string) ($audience['label'] ?? ''),

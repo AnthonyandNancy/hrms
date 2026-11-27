@@ -13,6 +13,8 @@ use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\TotpService;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Payroll\Contracts\PayrollRunDirectory;
+use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Crypt;
@@ -42,14 +44,23 @@ final class SeedDemoCommand extends Command
         app(DemoOrganizationSeeder::class)->seedDemo();
 
         $users = [
-            ['demo.admin', true, ['SYSTEM_ADMIN']],
-            ['demo.hr', false, ['HR_ADMIN']],
-            ['demo.manager', false, ['LINE_MANAGER']],
+            ['demo.admin', true, ['SYSTEM_ADMIN', 'EMPLOYEE']],
+            ['demo.hr', false, ['HR_ADMIN', 'EMPLOYEE']],
+            ['demo.manager', false, ['LINE_MANAGER', 'EMPLOYEE']],
             ['demo.employee', false, ['EMPLOYEE']],
-            ['demo.payroll', false, ['PAYROLL_SPECIALIST']],
+            ['demo.payroll', false, ['PAYROLL_SPECIALIST', 'EMPLOYEE']],
         ];
 
         $payrollRunId = app(PayrollRunDirectory::class)->latestRunId();
+        $people = app(PeopleDirectory::class);
+        $employmentWriter = app(PeopleEmploymentWriter::class);
+        $demoEmployments = [
+            'demo.hr' => 'E003',
+            'demo.manager' => 'E001',
+            'demo.employee' => 'E002',
+            'demo.payroll' => 'E004',
+            'demo.admin' => 'E005',
+        ];
 
         foreach ($users as [$username, $privileged, $roles]) {
             $user = User::query()->firstOrCreate(
@@ -77,6 +88,14 @@ final class SeedDemoCommand extends Command
             if ((int) $user->auth_version < 1) {
                 $user->forceFill(['auth_version' => 1])->save();
                 $user->refresh();
+            }
+
+            $employeeNo = $demoEmployments[$username] ?? null;
+            $employmentId = $employeeNo !== null ? $people->employmentIdByEmployeeNo($employeeNo) : null;
+            if ($employmentId !== null) {
+                // Stable start date makes repeated demo seeds idempotent while
+                // giving every synthetic operator a real self-service identity.
+                $employmentWriter->linkUser((int) $user->id, $employmentId, '2026-01-01', null, null);
             }
 
             // Every demo user whose role grants P2/P3 (including self-service

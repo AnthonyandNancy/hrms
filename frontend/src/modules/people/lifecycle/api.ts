@@ -837,6 +837,17 @@ export async function submitMovementDecision(
   )
 }
 
+export async function submitMovementDraft(
+  caseId: number,
+  idempotencyKey: string,
+): Promise<void> {
+  await resourcePost<unknown>(
+    `/v1/cases/${caseId}/submit`,
+    {},
+    { idempotencyKey },
+  )
+}
+
 export async function submitMovementWithdraw(
   caseId: number,
   comment: string,

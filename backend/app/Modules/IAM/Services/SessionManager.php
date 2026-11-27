@@ -303,9 +303,28 @@ final class SessionManager
             && $session->mfa_verified_until->greaterThan($this->clock->now());
     }
 
+    /**
+     * Deterministic, session-bound token that lets a page reload recover CSRF
+     * protection without storing the raw token in browser-readable storage.
+     * It is derived from server-only material (session hash + application key).
+     */
+    public function csrfTokenForSession(Session $session): string
+    {
+        return hash_hmac(
+            'sha256',
+            (string) $session->id.'|'.$session->csrf_hash,
+            (string) config('app.key'),
+        );
+    }
+
     public function csrfMatches(Session $session, ?string $token): bool
     {
-        return is_string($token) && $token !== '' && hash_equals($session->csrf_hash, hash('sha256', $token));
+        if (! is_string($token) || $token === '') {
+            return false;
+        }
+
+        return hash_equals($session->csrf_hash, hash('sha256', $token))
+            || hash_equals($this->csrfTokenForSession($session), $token);
     }
 
     /**

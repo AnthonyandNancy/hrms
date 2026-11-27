@@ -12,6 +12,8 @@ interface PeopleDirectory
 {
     public function employmentForUser(int $userId): ?int;
 
+    public function employmentIdByEmployeeNo(string $employeeNo): ?int;
+
     /**
      * @return list<int>
      */

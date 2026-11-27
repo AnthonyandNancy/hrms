@@ -94,7 +94,7 @@ final class LeaveOpeningMigrationTest extends TestCase
 
         $first = $target->apply($this->stagingRow($base + [
             'quantity_minutes' => 4800,
-            'effective_on' => '2026-12-31',
+            'effective_on' => '2026-01-01',
         ], 1), 1);
         $second = $target->apply($this->stagingRow($base + [
             'quantity_minutes' => 2400,
@@ -118,7 +118,7 @@ final class LeaveOpeningMigrationTest extends TestCase
             'leave_type' => 'ANNUAL',
             'quantity_minutes' => 4800,
             'business_date' => '2026-01-01',
-            'effective_on' => '2026-12-31',
+            'effective_on' => '2026-01-01',
         ], 1), 1);
 
         $metrics = $target->metrics();

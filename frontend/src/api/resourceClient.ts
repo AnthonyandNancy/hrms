@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosInstance } from 'axios'
 import { ApiError } from '@/api/errors'
 import type { ApiEnvelope } from '@/api/contracts'
+import { useSessionStore } from '@/stores/session'
 
 /**
  * Contract-driven resource client for registry pages.
@@ -21,6 +22,15 @@ function http(): AxiosInstance {
 
   client.interceptors.request.use((config) => {
     config.headers.set('X-Requested-With', 'XMLHttpRequest')
+
+    const method = (config.method ?? 'get').toLowerCase()
+    if (!['get', 'head', 'options'].includes(method)) {
+      const csrfToken = useSessionStore().csrfToken
+      if (csrfToken !== null && csrfToken !== '') {
+        config.headers.set('X-CSRF-Token', csrfToken)
+      }
+    }
+
     return config
   })
 

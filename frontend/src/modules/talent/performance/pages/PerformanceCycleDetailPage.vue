@@ -188,6 +188,11 @@ const saving = ref(false)
 const actionError = ref('')
 const actionSuccess = ref('')
 
+const participantOpen = ref(false)
+const participantSaving = ref(false)
+const participantError = ref('')
+const participantForm = ref({ employmentId: '', managerEmploymentId: '' })
+
 const publishConfirmOpen = ref(false)
 const publishing = ref(false)
 const calibrationOpen = ref(false)
@@ -537,6 +542,53 @@ watch(
   },
 )
 
+function openParticipantDialog(): void {
+  participantForm.value = { employmentId: '', managerEmploymentId: '' }
+  participantError.value = ''
+  participantOpen.value = true
+}
+
+async function createParticipantReview(): Promise<void> {
+  participantError.value = ''
+  const employmentId = Number(participantForm.value.employmentId)
+  const managerEmploymentId = participantForm.value.managerEmploymentId === ''
+    ? null
+    : Number(participantForm.value.managerEmploymentId)
+
+  if (!Number.isSafeInteger(employmentId) || employmentId <= 0) {
+    participantError.value = '请输入有效的员工关系编号。'
+    return
+  }
+  if (managerEmploymentId !== null && (!Number.isSafeInteger(managerEmploymentId) || managerEmploymentId <= 0)) {
+    participantError.value = '主管关系编号必须为正整数，或留空。'
+    return
+  }
+  if (cycleId.value === null) {
+    participantError.value = '绩效周期编号无效。'
+    return
+  }
+
+  participantSaving.value = true
+  try {
+    await savePerformanceReview({
+      cycleId: cycleId.value,
+      employmentId,
+      managerEmploymentId,
+      selfRating: '',
+      selfAssessment: '',
+      managerRating: '',
+      managerAssessment: '',
+      goals: [],
+    })
+    participantOpen.value = false
+    await load()
+  } catch (reason) {
+    participantError.value = performanceActionErrorCopy(reason)
+  } finally {
+    participantSaving.value = false
+  }
+}
+
 onMounted(() => {
   void load()
   void loadTab(activeTab.value)
@@ -762,6 +814,15 @@ onMounted(() => {
                   : `共 ${reviewPageTotal} 条评估 · 每条评估显示目标与评分状态` }}
               </p>
             </div>
+            <button
+              v-if="activeTab === 'reviews' && canManage && !readOnlyCycle"
+              type="button"
+              class="performance-detail__primary"
+              data-testid="performance-participant-create"
+              @click="openParticipantDialog"
+            >
+              添加参与者
+            </button>
           </header>
 
           <EmptyState
@@ -912,6 +973,24 @@ onMounted(() => {
         </template>
       </el-dialog>
 
+      <el-dialog v-model="participantOpen" title="添加绩效参与者" width="520px" data-testid="performance-participant-dialog">
+        <div class="performance-create-form">
+          <label>
+            <span>员工关系编号 *</span>
+            <el-input v-model="participantForm.employmentId" data-testid="performance-participant-employment" inputmode="numeric" />
+          </label>
+          <label>
+            <span>主管关系编号（可选）</span>
+            <el-input v-model="participantForm.managerEmploymentId" data-testid="performance-participant-manager" inputmode="numeric" />
+          </label>
+          <p v-if="participantError" class="inline-error" role="alert" data-testid="performance-participant-error">{{ participantError }}</p>
+        </div>
+        <template #footer>
+          <el-button @click="participantOpen = false">取消</el-button>
+          <el-button type="primary" :loading="participantSaving" data-testid="performance-participant-submit" @click="createParticipantReview">添加</el-button>
+        </template>
+      </el-dialog>
+
       <PerformanceScoreDrawer
         v-model="drawerOpen"
         :cycle-name="cycle.name"
@@ -928,6 +1007,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.performance-create-form { display: grid; gap: 14px; }
+.performance-create-form label { display: grid; gap: 6px; }
+.performance-create-form .inline-error { color: #b42318; margin: 0; }
+
 .performance-detail__tabs {
   display: flex;
   flex-wrap: wrap;

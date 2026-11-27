@@ -8,6 +8,7 @@ import LoadingState from '@/components/LoadingState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
+  createPerformanceCycle,
   listPerformanceCycles,
   performanceCycleStage,
   type PerformanceCycleSummary,
@@ -18,6 +19,7 @@ defineOptions({ name: 'PerformanceWorkspacePage' })
 const session = useSessionStore()
 
 const canRead = computed(() => session.can('performance.cycle.read'))
+const canManage = computed(() => session.can('performance.cycle.manage'))
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -33,6 +35,10 @@ const partial = ref(false)
 
 const statusFilter = ref('')
 const nameFilter = ref('')
+const createOpen = ref(false)
+const createSaving = ref(false)
+const createError = ref('')
+const cycleForm = ref({ name: '', periodFrom: '', periodTo: '' })
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: '全部状态' },
@@ -144,6 +150,38 @@ function stageTone(cycle: PerformanceCycleSummary): string {
   }
 }
 
+function openCreateCycle(): void {
+  createError.value = ''
+  cycleForm.value = { name: '', periodFrom: '', periodTo: '' }
+  createOpen.value = true
+}
+
+async function submitCreateCycle(): Promise<void> {
+  createError.value = ''
+  const form = cycleForm.value
+
+  if (form.name.trim() === '' || form.periodFrom === '' || form.periodTo === '') {
+    createError.value = '请填写周期名称、开始日期和结束日期。'
+    return
+  }
+  if (form.periodTo <= form.periodFrom) {
+    createError.value = '结束日期必须晚于开始日期。'
+    return
+  }
+
+  createSaving.value = true
+  try {
+    await createPerformanceCycle(form)
+    createOpen.value = false
+    page.value = 1
+    await load()
+  } catch (reason) {
+    createError.value = errorCopy(reason)
+  } finally {
+    createSaving.value = false
+  }
+}
+
 onMounted(() => {
   void load()
 })
@@ -160,6 +198,15 @@ onMounted(() => {
         </p>
       </div>
       <div class="performance-workspace__header-actions">
+        <button
+          v-if="canManage"
+          type="button"
+          class="performance-workspace__primary"
+          data-testid="performance-cycle-create"
+          @click="openCreateCycle"
+        >
+          创建周期
+        </button>
         <button type="button" class="performance-workspace__secondary" :disabled="loading" @click="load">
           刷新
         </button>
@@ -292,10 +339,36 @@ onMounted(() => {
         </section>
       </template>
     </template>
+
+    <el-dialog v-model="createOpen" title="创建绩效周期" width="520px" data-testid="performance-cycle-create-dialog">
+      <div class="performance-create-form">
+        <label>
+          <span>周期名称 *</span>
+          <el-input v-model="cycleForm.name" data-testid="performance-cycle-name" maxlength="120" placeholder="例如 2026 年度绩效" />
+        </label>
+        <label>
+          <span>开始日期 *</span>
+          <el-date-picker v-model="cycleForm.periodFrom" type="date" value-format="YYYY-MM-DD" data-testid="performance-cycle-from" aria-label="周期开始日期" />
+        </label>
+        <label>
+          <span>结束日期 *</span>
+          <el-date-picker v-model="cycleForm.periodTo" type="date" value-format="YYYY-MM-DD" data-testid="performance-cycle-to" aria-label="周期结束日期" />
+        </label>
+        <p v-if="createError" class="inline-error" role="alert" data-testid="performance-cycle-create-error">{{ createError }}</p>
+      </div>
+      <template #footer>
+        <el-button @click="createOpen = false">取消</el-button>
+        <el-button type="primary" :loading="createSaving" data-testid="performance-cycle-create-submit" @click="submitCreateCycle">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.performance-create-form { display: grid; gap: 14px; }
+.performance-create-form label { display: grid; gap: 6px; }
+.performance-create-form .inline-error { color: #b42318; margin: 0; }
+
 .performance-workspace {
   display: flex;
   flex-direction: column;

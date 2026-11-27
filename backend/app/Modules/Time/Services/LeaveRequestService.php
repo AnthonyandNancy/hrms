@@ -285,15 +285,18 @@ final class LeaveRequestService
                 businessDate: $fromDate,
             );
 
+            $postedOn = $this->clock->now()->toDateString();
+
             $this->ledger->reserve(
                 employmentId: $employmentId,
                 leaveTypeId: (int) $type->id,
                 minutes: $minutes,
-                businessDate: $fromDate,
+                businessDate: $postedOn,
                 sourceType: 'LEAVE_REQUEST',
                 sourceId: (string) $caseId,
                 reason: $reason,
                 caseId: $caseId,
+                effectiveOn: $postedOn,
             );
 
             $projection = LeaveRequestProjection::query()->create([
@@ -412,7 +415,7 @@ final class LeaveRequestService
                 );
             }
 
-            $businessDate = $projection->from_date->format('Y-m-d');
+            $businessDate = $this->clock->now()->toDateString();
             $minutes = (int) $projection->minutes;
             $released = 0;
             $reversed = 0;
@@ -512,7 +515,6 @@ final class LeaveRequestService
 
         $query = LeaveRequestProjection::query()
             ->where('employment_id', $employmentId)
-            ->where('from_date', '<=', $asOf)
             ->orderByDesc('id');
 
         if ($toDate !== null && $toDate !== '') {

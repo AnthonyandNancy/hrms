@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Console;
 
+use App\Modules\Time\Models\LeavePolicyVersion;
 use App\Modules\Time\Models\LeaveType;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
@@ -94,7 +95,46 @@ final class SeedLeaveTypesCommand extends Command
             $created++;
         }
 
-        $this->info("Seeded {$created} leave type(s) for the company.");
+        $policyCount = 0;
+
+        foreach (LeaveType::query()->orderBy('id')->get() as $type) {
+            $hasPolicy = LeavePolicyVersion::query()
+                ->where('leave_type_id', (int) $type->id)
+                ->exists();
+
+            if ($hasPolicy) {
+                continue;
+            }
+
+            $entitlement = $type->annual_entitlement_days;
+            $minutesPerYear = 0;
+
+            if ($entitlement !== null && is_numeric((string) $entitlement)) {
+                $minutesPerYear = (int) round((float) $entitlement * 480);
+            }
+
+            LeavePolicyVersion::query()->create([
+                'leave_type_id' => (int) $type->id,
+                'version' => 1,
+                'status' => 'PUBLISHED',
+                'effective_from' => '2026-01-01',
+                'effective_to' => '9999-12-31',
+                'applies_to_json' => ['scope' => 'COMPANY'],
+                'accrual_json' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => $minutesPerYear],
+                'carryover_json' => null,
+                'min_notice_days' => 0,
+                'max_consecutive_days' => null,
+                'requires_attachment_over_days' => $type->requires_attachment ? 1 : null,
+                'allow_half_day' => true,
+                'legal_basis' => $type->legal_basis,
+                'published_at' => $clock->now(),
+                'published_by' => 1,
+                'created_at' => $clock->now(),
+            ]);
+            $policyCount++;
+        }
+
+        $this->info("Seeded {$created} leave type(s) and {$policyCount} default policy version(s) for the company.");
 
         if ($created > 0 && $annualDays === null) {
             $this->warn('ANNUAL was created without an entitlement. Set it per jurisdiction (S-02) before granting balances.');

@@ -20,13 +20,13 @@ final class DemoOrganizationSeederService implements DemoOrganizationSeeder
     public function seedDemo(): array
     {
         $ids = [];
-        $root = $this->orgUnit('DEMO-HQ', null, 'Demo Headquarters', 'COMPANY');
+        $root = $this->orgUnit('ORG-HQ', null, 'Demo Headquarters', 'COMPANY');
         $ids['root'] = (int) $root->id;
-        $engineering = $this->orgUnit('DEMO-ENG', $root, 'Engineering', 'DIVISION');
+        $engineering = $this->orgUnit('ORG-ENG', $root, 'Demo Engineering', 'DEPARTMENT');
         $ids['engineering'] = (int) $engineering->id;
-        $platform = $this->orgUnit('DEMO-PLATFORM', $engineering, 'Platform', 'TEAM');
+        $platform = $this->orgUnit('ORG-PLATFORM', $root, 'Demo Platform', 'DEPARTMENT');
         $ids['platform'] = (int) $platform->id;
-        $sales = $this->orgUnit('DEMO-SALES', $root, 'Sales', 'DIVISION');
+        $sales = $this->orgUnit('ORG-SALES', $root, 'Demo Sales', 'DEPARTMENT');
         $ids['sales'] = (int) $sales->id;
 
         return ['org_unit_ids' => $ids];

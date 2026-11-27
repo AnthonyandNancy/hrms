@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Console;
 
+use App\Modules\IAM\Contracts\DemoUserDirectory;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\StatutoryParameter;
@@ -25,7 +26,7 @@ final class SeedDemoPayrollRunCommand extends Command
 {
     protected $signature = 'payroll:seed-demo-run
         {--period=2026-11 : Payroll period YYYY-MM}
-        {--actor=1 : Acting user id recorded as the preparer}';
+        {--actor= : Acting user id; defaults to demo.payroll when available}';
 
     protected $description = 'Create one synthetic CALCULATED DEMO payroll run (no approvals are auto-recorded)';
 
@@ -34,9 +35,13 @@ final class SeedDemoPayrollRunCommand extends Command
         CalculationService $calculator,
         PeopleDirectory $people,
         EmploymentTermsDirectory $terms,
+        DemoUserDirectory $demoUsers,
     ): int {
         $period = (string) $this->option('period');
-        $actor = max(1, (int) $this->option('actor'));
+        $actorOption = $this->option('actor');
+        $actor = $actorOption !== null && $actorOption !== ''
+            ? max(1, (int) $actorOption)
+            : ($demoUsers->userIdForUsername('demo.payroll') ?? 1);
 
         if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $period) !== 1) {
             $this->error('--period must be YYYY-MM.');

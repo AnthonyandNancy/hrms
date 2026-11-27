@@ -22,6 +22,13 @@ final class PeopleDirectoryService implements PeopleDirectory
         private readonly OrganizationFacts $organization,
     ) {}
 
+    public function employmentIdByEmployeeNo(string $employeeNo): ?int
+    {
+        $id = Employment::query()->where('employee_no', $employeeNo)->value('id');
+
+        return $id === null ? null : (int) $id;
+    }
+
     public function employmentForUser(int $userId): ?int
     {
         $on = (new CompanyBusinessDate($this->clock, app(\App\Modules\Organization\Contracts\CompanyProfileReader::class)))->today()->value();

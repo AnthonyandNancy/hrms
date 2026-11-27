@@ -263,6 +263,25 @@ export async function listPerformanceCycles(
   )
 }
 
+export async function createPerformanceCycle(input: {
+  name: string
+  periodFrom: string
+  periodTo: string
+  idempotencyKey?: string
+}): Promise<number> {
+  const raw = await resourcePost<Record<string, unknown>>(
+    '/v1/performance/cycles',
+    {
+      name: input.name.trim(),
+      period_from: input.periodFrom,
+      period_to: input.periodTo,
+    },
+    { idempotencyKey: input.idempotencyKey ?? newPerformanceIdempotencyKey('cycle-create') },
+  )
+
+  return Number(raw.cycle_id ?? 0)
+}
+
 export async function listPerformanceReviews(
   filters: { cycleId?: number; status?: string },
   pageNumber = 1,

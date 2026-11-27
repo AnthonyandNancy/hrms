@@ -23,6 +23,7 @@ type Draft = {
   termsSummary: string
   reason: string
   effectiveDate: string
+  activateImmediately: boolean
 }
 
 type EditChanges = {
@@ -74,6 +75,7 @@ const blankDraft = (): Draft => ({
   termsSummary: '',
   reason: '',
   effectiveDate: '',
+  activateImmediately: false,
 })
 
 const draft = reactive<Draft>(blankDraft())
@@ -278,7 +280,7 @@ function submit(): void {
     work_location: draft.workLocation.trim() === '' ? null : draft.workLocation.trim(),
     signed_on: draft.signedOn === '' ? null : draft.signedOn,
     terms_summary: draft.termsSummary.trim() === '' ? null : draft.termsSummary.trim(),
-    status: 'DRAFT',
+    status: draft.activateImmediately && props.mode === 'create' ? 'ACTIVE' : 'DRAFT',
     reason: props.mode === 'renew' ? draft.reason.trim() : null,
     renewal_of_contract_id: props.mode === 'renew' ? props.renewalSource?.id ?? null : null,
   })
@@ -437,10 +439,17 @@ function submit(): void {
       </p>
       <p v-else-if="idempotencyHint !== ''" class="contract-form__hint">{{ idempotencyHint }}</p>
 
+      <label v-if="mode === 'create'" class="contract-field contract-field--wide">
+        <el-checkbox v-model="draft.activateImmediately" data-testid="contract-activate-immediately">
+          保存后立即生效（不保留草稿）
+        </el-checkbox>
+        <span class="contract-field__hint">生效合同会进入有效期与到期管理；草稿不会。</span>
+      </label>
+
       <div class="contract-form__actions">
         <el-button @click="open = false">取消</el-button>
         <el-button type="primary" :loading="saving" data-testid="contract-save" @click="submit">
-          {{ mode === 'edit' ? '追加变更版本' : mode === 'renew' ? '确认续签' : '保存草稿' }}
+          {{ mode === 'edit' ? '追加变更版本' : mode === 'renew' ? '确认续签' : draft.activateImmediately ? '保存并生效' : '保存草稿' }}
         </el-button>
       </div>
     </form>

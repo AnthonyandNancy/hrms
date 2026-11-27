@@ -27,6 +27,7 @@ import {
   stableSubmissionKey,
   statusLabel,
   submitMovementDecision,
+  submitMovementDraft,
   submitMovementWithdraw,
   terminationTypeLabel,
   type EmployeeOption,
@@ -58,7 +59,7 @@ const employees = ref<EmployeeOption[]>([])
 const orgUnits = ref<OrgUnitOption[]>([])
 
 const comment = ref('')
-const decisionSubmitting = ref<'APPROVE' | 'REJECT' | 'WITHDRAW' | null>(null)
+const decisionSubmitting = ref<'APPROVE' | 'REJECT' | 'WITHDRAW' | 'SUBMIT' | null>(null)
 const decisionError = ref('')
 const decisionSuccess = ref('')
 const decisionKey = ref<StableSubmissionKey | null>(null)
@@ -120,6 +121,14 @@ const canWithdraw = computed(
     && isOpenApplicationStatus(applicationStatus.value)
     && applicationStatus.value !== 'IN_REVIEW',
 )
+const canSubmitDraft = computed(
+  () =>
+    secondment.value === null
+    && lifecycle.value !== null
+    && lifecycle.value.isMine
+    && applicationStatus.value === 'DRAFT',
+)
+
 const currentNodeKey = computed(() => workflow.value?.currentNodeKey ?? null)
 const requesterUserId = computed(() => workflow.value?.requesterUserId ?? null)
 const initiatorLabel = computed(() => {
@@ -341,6 +350,27 @@ async function decide(action: 'APPROVE' | 'REJECT'): Promise<void> {
     } else {
       decisionError.value = reason instanceof Error ? reason.message : '审批决定未提交，请稍后重试。'
     }
+  } finally {
+    decisionSubmitting.value = null
+  }
+}
+
+async function submitDraft(): Promise<void> {
+  const caseId = lifecycle.value?.caseId ?? null
+  if (caseId === null || !canSubmitDraft.value) return
+
+  decisionKey.value = stableSubmissionKey(decisionKey.value, 'movement-submit', { caseId })
+  decisionSubmitting.value = 'SUBMIT'
+  decisionError.value = ''
+  decisionSuccess.value = ''
+  try {
+    await submitMovementDraft(caseId, decisionKey.value.key)
+    await load()
+    decisionSuccess.value = '草稿已提交审批。'
+  } catch (reason) {
+    decisionError.value = reason instanceof ApiError && reason.code === 'CONFLICT'
+      ? '案例状态已变化，无法提交；请刷新后重试。'
+      : (reason instanceof Error ? reason.message : '提交未完成，请稍后重试。')
   } finally {
     decisionSubmitting.value = null
   }
@@ -574,6 +604,30 @@ onMounted(() => {
           :awaiting-decision="awaitingDecision"
           :loading="loading"
         />
+
+        <section
+          v-if="canSubmitDraft"
+          class="movement-detail__decision"
+          data-testid="movement-submit-panel"
+        >
+          <header>
+            <h2>提交审批</h2>
+            <p>草稿保存后不会自动进入审批；提交后由当前审批链处理。</p>
+          </header>
+          <p v-if="decisionError !== ''" class="movement-detail__error" role="alert">{{ decisionError }}</p>
+          <p v-if="decisionSuccess !== ''" class="movement-detail__success" role="status">{{ decisionSuccess }}</p>
+          <div class="movement-detail__decision-actions">
+            <button
+              type="button"
+              class="movement-detail__approve"
+              :disabled="decisionSubmitting !== null"
+              data-testid="movement-submit"
+              @click="submitDraft"
+            >
+              {{ decisionSubmitting === 'SUBMIT' ? '提交中…' : '提交审批' }}
+            </button>
+          </div>
+        </section>
 
         <section
           v-if="canWithdraw"

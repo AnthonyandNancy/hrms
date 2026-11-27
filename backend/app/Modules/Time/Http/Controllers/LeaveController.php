@@ -442,7 +442,7 @@ final class LeaveController
             // exposed separately below for calculations and reconciliation.
             'granted' => $display((int) $balance['granted']),
             'used' => $display((int) $balance['consumed']),
-            'pending' => $display((int) $balance['reserved']),
+            'pending' => $display((int) $balance['pending']),
             'available' => $display((int) $balance['available']),
             'asOf' => (string) $balance['as_of'],
             'standardDayMinutes' => $standardDayMinutes,

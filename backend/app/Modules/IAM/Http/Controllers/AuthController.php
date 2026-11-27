@@ -115,6 +115,21 @@ final class AuthController
         return $this->sessionResponse($issued, $user, 'Login successful.');
     }
 
+    public function csrf(): JsonResponse
+    {
+        $principal = $this->context->requirePrincipal();
+        $sessionId = $principal->sessionId();
+        $session = $sessionId !== null ? Session::query()->whereKey($sessionId)->first() : null;
+
+        if ($session === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        return ApiResponse::ok([
+            'csrf_token' => $this->sessions->csrfTokenForSession($session),
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $principal = $this->context->requirePrincipal();

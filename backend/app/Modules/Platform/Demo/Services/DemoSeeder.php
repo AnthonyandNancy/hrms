@@ -15,6 +15,7 @@ use App\Modules\Platform\Migration\Models\StagingRow;
 use App\Modules\Platform\Migration\Services\MigrationRunner;
 use App\Modules\Platform\Migration\Services\MigrationTargetRegistry;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -63,6 +64,15 @@ final class DemoSeeder
         }
 
         $useLive = $allowLive && $liveAvailable;
+
+        if ($useLive) {
+            // leave_openings requires both leave types and an effective policy
+            // version. Run the idempotent Time seed before the migration import.
+            Artisan::call('time:seed-leave-types', [
+                '--annual-days' => '10',
+                '--legal-basis' => 'Synthetic demo policy',
+            ]);
+        }
 
         foreach (self::BUSINESS_DOMAINS as $domainValue) {
             $domain = MigrationDomain::from($domainValue);

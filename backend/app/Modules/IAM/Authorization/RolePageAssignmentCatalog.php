@@ -175,6 +175,18 @@ final class RolePageAssignmentCatalog
             '仪表盘', '报表中心',
         ], ['/notifications']);
 
+        $workflowCode = $byPath['/workflow'] ?? null;
+        $workflowDetailCode = $byPath['/workflow/cases/:id'] ?? null;
+
+        if ($workflowCode !== null && $workflowDetailCode !== null) {
+            foreach ($rolePages as &$codes) {
+                if (in_array($workflowCode, $codes, true)) {
+                    $codes[] = $workflowDetailCode;
+                }
+            }
+            unset($codes);
+        }
+
         $assignments = [];
 
         foreach (RoleTemplateCatalog::templates() as $template) {
