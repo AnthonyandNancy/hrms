@@ -24,4 +24,12 @@ node deploy/scripts/openapi-lint.mjs
 pnpm openapi:validate
 ```
 
+The authoritative, fail-fast full matrix is one command from the repository root:
+
+```bash
+pnpm gate:all
+```
+
+It runs the backend gates with `.tools/php/php.exe -d memory_limit=1G vendor/bin/phpunit` (never `artisan test`, which OOMs at the 128 MB php.ini limit), then the contract, frontend, product and Playwright-collection gates in order. It stops at the first non-zero exit and has no `|| true`.
+
 10. **UTC storage, explicit business time.** Timestamps are stored in UTC. Business dates are computed from the single company profile's timezone and calendar through the shared clock/calendar contracts.

@@ -4,10 +4,10 @@
 > **不是**手工清单。`kernel` 由“控制器是否引用 CommandRunner/ProjectionResponder”判定，
 > 不依赖人工声明，因此新端点一旦使用内核就会自动升级。
 
-- v1 操作总数：**314**
-- 有能力的操作：**308**
+- v1 操作总数：**338**
+- 有能力的操作：**332**
 - 公共白名单操作：**6**
-- kernel 操作：**145**
+- kernel 操作：**169**
 
 ## 1. 台账
 
@@ -25,6 +25,10 @@
 | 10 | `POST` | `/v1/auth/mfa/totp/confirm` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 11 | `POST` | `/v1/auth/mfa/totp/enroll` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 12 | `POST` | `/v1/auth/password` | `iam.session.manage` | `SELF` | legacy | E3 |
+| 324 | `GET` | `/v1/auth/mfa/status` | `iam.session.manage` | `SELF` | kernel | — |
+| 325 | `POST` | `/v1/auth/mfa/totp/disable` | `iam.session.manage` | `SELF` | kernel | — |
+| 326 | `GET` | `/v1/auth/sessions` | `iam.session.manage` | `SELF` | kernel | — |
+| 327 | `DELETE` | `/v1/auth/sessions/{id}` | `iam.session.manage` | `SELF` | kernel | — |
 | 13 | `POST` | `/v1/auth/webauthn/assert/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 14 | `POST` | `/v1/auth/webauthn/register/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 15 | `GET` | `/v1/benefits/enrollments` | `benefit.read` | `SELF` | kernel | — |
@@ -341,6 +345,7 @@
 | 现有端点族 | 为何归 E3 | 迁移方式 |
 |---|---|---|
 | `/v1/auth/*`、`/v1/me/*`、`/v1/bindings` | IAM 会话与身份治理 | D1 完成后改 ProjectionResponder；会话路由保持专用中间件 |
+| `/v1/auth/sessions*`、`/v1/auth/mfa/status`、`/v1/auth/mfa/totp/disable`（V4 Task 2 新增） | 账号安全与会话自助管理 | 直接使用 IAM `SessionManager`/`MfaService`/`AuthorizationSnapshot`，登记为 kernel；无迁移 Task |
 | `/v1/cases*`、`/v1/delegations*`、`/v1/tasks/my`、`/v1/effects` | Workflow 既有端点 | E3 统一改 ProjectionResponder/CommandRunner |
 | `/v1/cases` (`view=my_decided`) | V4 Task 3 adds the caller's decision-history view to the existing list route; no new path | Existing E3 list route extended; OpenAPI parameter + endpoint matrix row updated |
 | `/v1/cases/{caseId}/decisions` (assignee-only / decided 409) | V4 Task 3 pins the existing decision route's assignee guard and immutable-state conflict | Existing E3 command route; OpenAPI description + endpoint matrix denial rows updated |

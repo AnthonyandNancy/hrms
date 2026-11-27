@@ -21,7 +21,7 @@ final class NotificationAuditWorkspaceTest extends PeopleTestCase
         $mine = $this->notification(10, 'APPROVAL_PENDING', ['case_id' => 71], false);
         $this->notification(11, 'NOTICE_PUBLISHED', ['notice_id' => 42], false);
 
-        $this->actingAsUserWithCapabilities(['engagement.notification.read']);
+        $this->actingAsUserWithCapabilities(['notification.read']);
 
         $response = $this->getJson('/v1/engagement/notifications')->assertOk();
 
@@ -36,7 +36,7 @@ final class NotificationAuditWorkspaceTest extends PeopleTestCase
         $mine = $this->notification(10, 'CASE_APPROVED', ['case_id' => 71], false);
         $other = $this->notification(11, 'CASE_REJECTED', ['case_id' => 72], false);
 
-        $this->actingAsUserWithCapabilities(['engagement.notification.read']);
+        $this->actingAsUserWithCapabilities(['notification.read']);
 
         $this->postJson('/v1/engagement/notifications/'.$mine->id.'/read')
             ->assertOk()

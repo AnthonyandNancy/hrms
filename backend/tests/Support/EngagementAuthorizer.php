@@ -37,7 +37,7 @@ final class EngagementAuthorizer implements Authorizer
             return $principal->userId() === $this->managerUserId;
         }
 
-        return in_array($capability, ['engagement.notice.read', 'engagement.notification.read'], true);
+        return in_array($capability, ['engagement.notice.read', 'notification.read'], true);
     }
 
     public function fields(Principal $principal, string $capability, ResourceRef $row): FieldSet

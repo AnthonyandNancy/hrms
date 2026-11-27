@@ -22,6 +22,38 @@ return [
     'endpoints' => [
         [
             'method' => 'GET',
+            'path' => '/v1/auth/sessions',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'low',
+            'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
+        ],
+        [
+            'method' => 'DELETE',
+            'path' => '/v1/auth/sessions/{id}',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'medium',
+            'denials' => ['unauthenticated', 'csrf_missing', 'csrf_invalid', 'idor'],
+        ],
+        [
+            'method' => 'GET',
+            'path' => '/v1/auth/mfa/status',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'low',
+            'denials' => ['unauthenticated', 'stale_auth_version', 'session_revoked'],
+        ],
+        [
+            'method' => 'POST',
+            'path' => '/v1/auth/mfa/totp/disable',
+            'capability' => 'iam.session.manage',
+            'anchor' => 'SELF',
+            'risk' => 'medium',
+            'denials' => ['unauthenticated', 'csrf_missing', 'csrf_invalid', 'mfa_code_invalid'],
+        ],
+        [
+            'method' => 'GET',
             'path' => '/v1/me',
             'capability' => 'iam.session.manage',
             'anchor' => 'SELF',

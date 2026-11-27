@@ -31,6 +31,19 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "account-mfa",
+      "key": "account.mfa.disable",
+      "label": "停用双因素认证",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/mfa/totp/disable",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "account-mfa",
       "key": "account.mfa.enroll",
       "label": "绑定动态口令",
       "capability": "iam.session.manage",
@@ -44,6 +57,19 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     }
   ],
   "account-sessions": [
+    {
+      "pageCode": "account-sessions",
+      "key": "account.sessions.revoke",
+      "label": "撤销会话",
+      "capability": "iam.session.manage",
+      "api": "DELETE /v1/auth/sessions/{id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
     {
       "pageCode": "account-sessions",
       "key": "account.sessions.revoke.all",

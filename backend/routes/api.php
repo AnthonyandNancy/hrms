@@ -108,6 +108,12 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout');
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll'])->middleware('capability:iam.session.manage,SELF')->name('auth.logout-all');
     Route::post('/auth/password', [AuthController::class, 'changePassword'])->middleware('capability:iam.session.manage,SELF')->name('auth.password');
+    Route::get('/auth/sessions', [AuthController::class, 'sessions'])->middleware('capability:iam.session.manage,SELF')->name('auth.sessions.index');
+    // Session ids are ULIDs, not integers.
+    Route::delete('/auth/sessions/{id}', [AuthController::class, 'revokeSession'])->where('id', '[0-9A-Za-z]{26}')->middleware('capability:iam.session.manage,SELF')->name('auth.sessions.revoke');
+    // The deployment's MFA posture is served by the API so the UI never guesses.
+    Route::get('/auth/mfa/status', [MfaController::class, 'status'])->middleware('capability:iam.session.manage,SELF')->name('auth.mfa.status');
+    Route::post('/auth/mfa/totp/disable', [MfaController::class, 'disableTotp'])->middleware('capability:iam.session.manage,SELF')->name('auth.mfa.totp.disable');
     Route::post('/auth/mfa/totp/enroll', [MfaController::class, 'enrollTotp'])->middleware('capability:iam.session.manage,SELF')->name('auth.mfa.totp.enroll');
     Route::post('/auth/mfa/totp/confirm', [MfaController::class, 'confirmTotp'])->middleware('capability:iam.session.manage,SELF')->name('auth.mfa.totp.confirm');
     Route::post('/auth/mfa/step-up', [MfaController::class, 'stepUp'])->middleware('capability:iam.session.manage,SELF')->name('auth.mfa.step-up');
@@ -755,11 +761,11 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
         ->name('engagement.notices.restore');
 
     Route::get('/notifications', [NotificationController::class, 'index'])
-        ->middleware('capability:engagement.notification.read')
+        ->middleware('capability:notification.read')
         ->name('engagement.notifications.index');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])
         ->whereNumber('notification')
-        ->middleware('capability:engagement.notification.read')
+        ->middleware('capability:notification.read')
         ->name('engagement.notifications.read');
 });
 

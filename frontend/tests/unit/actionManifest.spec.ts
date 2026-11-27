@@ -31,10 +31,18 @@ describe('page action manifest', () => {
     const sessions = PAGE_REGISTRY.find((page) => page.name === 'account-sessions')
 
     // Order comes from the generated manifest, so assert the set not the order.
+    // Volume 4 Task 2 added the optional-MFA status/disable pair and the
+    // per-session revoke, so the derived action sets grew with them.
     expect(new Set(mfa?.actions.map((action) => action.api))).toEqual(
-      new Set(['POST /v1/auth/mfa/totp/enroll', 'POST /v1/auth/mfa/totp/confirm']),
+      new Set([
+        'POST /v1/auth/mfa/totp/enroll',
+        'POST /v1/auth/mfa/totp/confirm',
+        'POST /v1/auth/mfa/totp/disable',
+      ]),
     )
-    expect(sessions?.actions.map((action) => action.api)).toEqual(['POST /v1/auth/logout-all'])
+    expect(new Set(sessions?.actions.map((action) => action.api))).toEqual(
+      new Set(['POST /v1/auth/logout-all', 'DELETE /v1/auth/sessions/{id}']),
+    )
     expect(new Set([...mfa!.actions, ...sessions!.actions].map((action) => action.capability))).toEqual(
       new Set(['iam.session.manage']),
     )

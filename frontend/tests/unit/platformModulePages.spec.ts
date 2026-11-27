@@ -48,6 +48,10 @@ const platformRegistryKeys = PAGE_REGISTRY.map((page) => page.componentKey)
 // Pages that have a purpose-built module implementation instead of the shared
 // config-driven workspace. They must not regress into the generic shell.
 const DEDICATED_PAGES = new Set([
+  // Volume 4 Task 2: account security is its own purpose-built workspace.
+  'account',
+  // Volume 4 Task 5: benefits is a purpose-built plan/rate workspace.
+  'benefits',
   'system/system-users',
   'system/system-roles',
   // Volume 2 Task 8 replaced the generic workspace with purpose-built

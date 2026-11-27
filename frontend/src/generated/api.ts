@@ -208,6 +208,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the caller's live server-side sessions
+         * @description Only sessions owned by the caller are returned. The raw bearer and CSRF
+         *     hashes are never serialised; `device` is a readable label derived on the
+         *     server from the user agent and `current` marks this request's session.
+         */
+        get: operations["listAccountSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one of the caller's sessions
+         * @description Sessions belonging to another user answer 404 (not 403) so ids cannot be
+         *     enumerated. Revoking the current session ends it and clears the cookie.
+         */
+        delete: operations["revokeAccountSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deployment MFA posture for the caller
+         * @description `enabled` is the single ADR-0038 deployment switch. The SPA must hide
+         *     the MFA section when it is false and must never infer the flag locally.
+         */
+        get: operations["getMfaStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable the caller's TOTP factor after factor proof
+         * @description Requires a current TOTP code or an unused recovery code. Disabling a
+         *     factor revokes every session and requires re-authentication.
+         */
+        post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/webauthn/assert/options": {
         parameters: {
             query?: never;
@@ -6181,6 +6266,41 @@ export interface components {
         PasswordChangeData: {
             password_changed: boolean;
             reauth_required: boolean;
+            sessions_revoked: boolean;
+        };
+        AccountSessionItem: {
+            /** @description Opaque ULID session identifier. */
+            id: string;
+            /** @description Server-derived readable device label; never the raw user agent. */
+            device: string;
+            ip: string | null;
+            /** @description True only for the session authenticating this request. */
+            current: boolean;
+            mfa_verified: boolean;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            absolute_expires_at: string;
+        };
+        AccountSessionListData: {
+            items: components["schemas"]["AccountSessionItem"][];
+        };
+        AccountSessionRevokeData: {
+            revoked: boolean;
+            already_revoked: boolean;
+            current_session: boolean;
+        };
+        MfaStatusData: {
+            /** @description Deployment MFA flag (ADR-0038). False hides enrollment in the SPA; it never bypasses capability checks. */
+            enabled: boolean;
+            enrolled: boolean;
+            mfa_verified: boolean;
+        };
+        MfaDisableData: {
+            disabled: boolean;
+            reauth_required: boolean;
         };
         MeData: {
             id: number;
@@ -8286,6 +8406,11 @@ export interface operations {
                     current_password: string;
                     /** Format: password */
                     new_password: string;
+                    /**
+                     * Format: password
+                     * @description Optional client confirmation; when present it must equal new_password.
+                     */
+                    new_password_confirmation?: string;
                 };
             };
         };
@@ -8298,6 +8423,125 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
                         data?: components["schemas"]["PasswordChangeData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            419: components["responses"]["CsrfFailed"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAccountSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live sessions for the caller */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["AccountSessionListData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokeAccountSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /** @description Opaque ULID session identifier. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session revoked (idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["AccountSessionRevokeData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            419: components["responses"]["CsrfFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getMfaStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MFA posture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MfaStatusData"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    disableTotp: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    factor_type: "TOTP" | "RECOVERY_CODE";
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description TOTP factor disabled; re-authentication required */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["MfaDisableData"];
                     };
                 };
             };

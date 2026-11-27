@@ -2991,8 +2991,95 @@ components:
       required:
         - password_changed
         - reauth_required
+        - sessions_revoked
       properties:
         password_changed:
+          type: boolean
+        reauth_required:
+          type: boolean
+        sessions_revoked:
+          type: boolean
+    AccountSessionItem:
+      type: object
+      required:
+        - id
+        - device
+        - ip
+        - current
+        - mfa_verified
+        - last_seen_at
+        - created_at
+        - absolute_expires_at
+      properties:
+        id:
+          type: string
+          description: Opaque ULID session identifier.
+          minLength: 26
+          maxLength: 26
+        device:
+          type: string
+          description: Server-derived readable device label; never the raw user agent.
+        ip:
+          type:
+            - string
+            - "null"
+        current:
+          type: boolean
+          description: True only for the session authenticating this request.
+        mfa_verified:
+          type: boolean
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        absolute_expires_at:
+          type: string
+          format: date-time
+    AccountSessionListData:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountSessionItem"
+    AccountSessionRevokeData:
+      type: object
+      required:
+        - revoked
+        - already_revoked
+        - current_session
+      properties:
+        revoked:
+          type: boolean
+        already_revoked:
+          type: boolean
+        current_session:
+          type: boolean
+    MfaStatusData:
+      type: object
+      required:
+        - enabled
+        - enrolled
+        - mfa_verified
+      properties:
+        enabled:
+          type: boolean
+          description: Deployment MFA flag (ADR-0038). False hides enrollment in the SPA; it never bypasses capability checks.
+        enrolled:
+          type: boolean
+        mfa_verified:
+          type: boolean
+    MfaDisableData:
+      type: object
+      required:
+        - disabled
+        - reauth_required
+      properties:
+        disabled:
           type: boolean
         reauth_required:
           type: boolean
@@ -7375,6 +7462,11 @@ paths:
                   type: string
                   minLength: 12
                   format: password
+                new_password_confirmation:
+                  type: string
+                  minLength: 12
+                  format: password
+                  description: Optional client confirmation; when present it must equal new_password.
       responses:
         "200":
           description: Password changed; session revoked
@@ -7399,6 +7491,161 @@ paths:
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
       x-action-label: 修改密码
+  /v1/auth/sessions:
+    get:
+      operationId: listAccountSessions
+      tags:
+        - IAM Auth
+      summary: List the caller's live server-side sessions
+      description: |
+        Only sessions owned by the caller are returned. The raw bearer and CSRF
+        hashes are never serialised; `device` is a readable label derived on the
+        server from the user agent and `current` marks this request's session.
+      responses:
+        "200":
+          description: Live sessions for the caller
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccountSessionListData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 查看登录会话
+  /v1/auth/sessions/{id}:
+    delete:
+      operationId: revokeAccountSession
+      tags:
+        - IAM Auth
+      summary: Revoke one of the caller's sessions
+      description: |
+        Sessions belonging to another user answer 404 (not 403) so ids cannot be
+        enumerated. Revoking the current session ends it and clears the cookie.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          description: Opaque ULID session identifier.
+          schema:
+            type: string
+            minLength: 26
+            maxLength: 26
+      responses:
+        "200":
+          description: Session revoked (idempotent)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccountSessionRevokeData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "419":
+          $ref: "#/components/responses/CsrfFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 撤销登录会话
+  /v1/auth/mfa/status:
+    get:
+      operationId: getMfaStatus
+      tags:
+        - IAM MFA
+      summary: Deployment MFA posture for the caller
+      description: |
+        `enabled` is the single ADR-0038 deployment switch. The SPA must hide
+        the MFA section when it is false and must never infer the flag locally.
+      responses:
+        "200":
+          description: MFA posture
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MfaStatusData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 查看多因素认证状态
+  /v1/auth/mfa/totp/disable:
+    post:
+      operationId: disableTotp
+      tags:
+        - IAM MFA
+      summary: Disable the caller's TOTP factor after factor proof
+      description: |
+        Requires a current TOTP code or an unused recovery code. Disabling a
+        factor revokes every session and requires re-authentication.
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - factor_type
+                - code
+              properties:
+                factor_type:
+                  type: string
+                  enum:
+                    - TOTP
+                    - RECOVERY_CODE
+                code:
+                  type: string
+                  maxLength: 32
+      responses:
+        "200":
+          description: TOTP factor disabled; re-authentication required
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MfaDisableData"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "419":
+          $ref: "#/components/responses/CsrfFailed"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.session.manage
+      x-action-label: 停用多因素认证
   /v1/auth/webauthn/assert/options:
     post:
       operationId: webauthnAssertOptions
@@ -11889,7 +12136,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: engagement.notification.read
+      x-capability: notification.read
   /v1/engagement/notifications/{notification}/read:
     post:
       operationId: engagementNotificationsRead
@@ -11917,7 +12164,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: engagement.notification.read
+      x-capability: notification.read
       x-action-label: 标记通知已读
   /v1/health:
     get:

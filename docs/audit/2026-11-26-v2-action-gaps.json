@@ -892,15 +892,6 @@
       "reason": "No operation carries system.settings.manage; dictionaries carry system.dictionary.manage and parameters carry system.parameter.manage."
     },
     {
-      "capability": "notification.read",
-      "pages": [
-        "notifications"
-      ],
-      "missing": "GET and mark-read notification routes carry engagement.notification.read; no operation carries notification.read.",
-      "owner": "Volume 3 Task 16",
-      "reason": "GET /v1/engagement/notifications and POST /{notification}/read carry engagement.notification.read; no operation carries notification.read."
-    },
-    {
       "capability": "reporting.report.create",
       "pages": [
         "reports-builder"

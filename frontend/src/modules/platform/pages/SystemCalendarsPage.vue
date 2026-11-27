@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
@@ -12,16 +12,16 @@ import {
   publishCompanyCalendar,
   type CalendarPublishInput,
   type CompanyCalendar,
-} from '../api'
+} from '../api/settings'
 import { holidaySourceLabel, holidayTypeLabel, timezoneLabel, workweekText } from '../labels'
 import { nextIdempotencyKey } from '../platformRead'
+import { requestIdFromError } from '@/utils/renderErrors'
 
 const session = useSessionStore()
 const canRead = computed(() => session.can('time.calendar.read'))
 const canManage = computed(() => session.can('time.calendar.manage'))
 
-const currentYear = new Date().getFullYear()
-const year = ref(currentYear)
+const year = ref(new Date().getFullYear())
 const loading = ref(true)
 const loadError = ref<unknown>(null)
 const calendar = ref<CompanyCalendar | null>(null)
@@ -73,8 +73,10 @@ const rows = computed(() =>
 )
 
 const isCurrentSnapshotEmpty = computed(
-  () => !loading.value && loadError.value === null && calendar.value === null,
+  () => !loading.value && loadError.value === null
+    && (calendar.value === null || calendar.value.version <= 0),
 )
+const loadRequestId = computed(() => requestIdFromError(loadError.value))
 const yearHolidays = computed(() => calendar.value?.year === year.value ? rows.value : [])
 
 const holidayColumns: DataTableColumn[] = [
@@ -119,6 +121,12 @@ async function loadCalendar(): Promise<void> {
 
 function changeYear(delta: number): void {
   year.value = Math.min(9999, Math.max(1970, year.value + delta))
+  void loadCalendar()
+}
+
+function setYear(value: number | null | undefined): void {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value)) return
+  year.value = Math.min(9999, Math.max(1970, value))
   void loadCalendar()
 }
 
@@ -174,18 +182,10 @@ async function askPublish(): Promise<void> {
     return
   }
   confirmOpen.value = true
-  try {
-    await ElMessageBox.confirm(
-      `确认发布 ${year.value} 年工作日历吗？发布后当前版本将递增，节假日快照会被整体替换。`,
-      '发布工作日历',
-      { type: 'warning', confirmButtonText: '确认发布', cancelButtonText: '取消' },
-    )
-    await publishCalendar()
-  } catch {
-    // Cancelled by the operator; no write occurred.
-  } finally {
-    confirmOpen.value = false
-  }
+}
+
+function cancelPublish(): void {
+  confirmOpen.value = false
 }
 
 async function publishCalendar(): Promise<void> {
@@ -197,6 +197,7 @@ async function publishCalendar(): Promise<void> {
     publishMessage.value = '工作日历已发布，正在重新加载当前版本。'
     publishedAt.value = new Date().toISOString()
     ElMessage.success(publishMessage.value)
+    confirmOpen.value = false
     await loadCalendar()
   } catch (error) {
     publishError.value = platformErrorCopy(error)
@@ -246,6 +247,9 @@ onMounted(() => {
     </section>
 
     <template v-else>
+      <p v-if="calendar?.partial" class="inline-warning" data-testid="calendar-partial">
+        {{ calendar.partialReason ?? '服务端已返回部分日历数据，未返回的年度记录不会在本页补造。' }}
+      </p>
       <p v-if="publishMessage" class="inline-success" data-testid="calendar-publish-message">{{ publishMessage }}</p>
       <p v-if="publishError" class="inline-error" role="alert" data-testid="calendar-publish-error">{{ publishError }}</p>
 
@@ -267,6 +271,7 @@ onMounted(() => {
         <div class="panel__body">
           <h2 class="panel__title">工作日历加载失败</h2>
           <p class="muted">{{ platformErrorCopy(loadError) }}</p>
+          <p v-if="loadRequestId" class="muted small">请求编号：<span class="mono">{{ loadRequestId }}</span></p>
           <el-button type="primary" plain @click="retry">重试</el-button>
         </div>
       </section>
@@ -285,6 +290,16 @@ onMounted(() => {
               <el-button text :disabled="year <= 1970" aria-label="上一年" @click="changeYear(-1)">←</el-button>
               <strong data-testid="calendar-year">{{ year }} 年</strong>
               <el-button text :disabled="year >= 9999" aria-label="下一年" @click="changeYear(1)">→</el-button>
+              <el-input-number
+                v-model="year"
+                :min="1970"
+                :max="9999"
+                :controls="false"
+                size="small"
+                data-testid="calendar-year-input"
+                aria-label="日历年份"
+                @change="setYear"
+              />
             </div>
             <span class="plain-chip plain-chip--info" data-testid="calendar-version">当前版本 v{{ calendar.version }}</span>
             <span class="muted small" data-testid="calendar-timezone">{{ timezoneLabel(calendar.timezone) }}</span>
@@ -448,7 +463,7 @@ onMounted(() => {
           <p>将发布 {{ year }} 年工作日历第 {{ calendar.version + 1 }} 版；节假日快照会整体替换。</p>
           <p class="muted small">{{ workweekText(form.workweek) }} · 标准工作日 {{ form.standardDayMinutes }} 分钟 · {{ form.holidays.length }} 条节假日</p>
           <template #footer>
-            <el-button @click="confirmOpen = false">取消</el-button>
+            <el-button @click="cancelPublish">取消</el-button>
             <el-button type="primary" :loading="publishing" data-testid="calendar-publish-confirm-ok" @click="publishCalendar">
               确认发布
             </el-button>

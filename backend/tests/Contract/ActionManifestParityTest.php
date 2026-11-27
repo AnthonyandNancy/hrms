@@ -32,7 +32,6 @@ final class ActionManifestParityTest extends TestCase
         'workflow.template.manage' => 'Volume 3 Task 17',
         'notification.manage' => 'Volume 3 Task 16',
         'system.settings.manage' => 'Volume 3 Task 17',
-        'notification.read' => 'Volume 3 Task 16',
         'reporting.report.create' => 'Volume 3 Task 16',
     ];
 

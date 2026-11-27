@@ -254,7 +254,7 @@ return [
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
     ],
     'GET /v1/engagement/notifications' => [
-        'capability' => 'engagement.notification.read',
+        'capability' => 'notification.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'field_or_export'],
@@ -669,6 +669,30 @@ return [
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
     ],
+    'GET /v1/auth/sessions' => [
+        'capability' => 'iam.session.manage',
+        'anchor' => 'SELF',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'session_revoked'],
+    ],
+    'DELETE /v1/auth/sessions/{id}' => [
+        'capability' => 'iam.session.manage',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing', 'idor'],
+    ],
+    'GET /v1/auth/mfa/status' => [
+        'capability' => 'iam.session.manage',
+        'anchor' => 'SELF',
+        'risk' => 'low',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'session_revoked'],
+    ],
+    'POST /v1/auth/mfa/totp/disable' => [
+        'capability' => 'iam.session.manage',
+        'anchor' => 'SELF',
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],
+    ],
     'POST /v1/auth/mfa/step-up' => [
         'capability' => 'iam.session.manage',
         'anchor' => 'SELF',
@@ -784,7 +808,7 @@ return [
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
     'POST /v1/engagement/notifications/{notification}/read' => [
-        'capability' => 'engagement.notification.read',
+        'capability' => 'notification.read',
         'anchor' => 'SELF',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'csrf_missing'],

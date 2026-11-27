@@ -3,16 +3,20 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
+import { requestIdFromError } from '@/utils/renderErrors'
 import {
   isForbidden,
+  listDictionaries,
   listFeatureFlags,
   listSystemParameters,
   platformErrorCopy,
+  updateDictionaryEntry,
   updateFeatureFlag,
   updateSystemParameter,
+  type DictionaryEntry,
   type FeatureFlag,
   type SystemParameter,
-} from '../api'
+} from '../api/settings'
 import {
   displayValue,
   featureFlagDescription,
@@ -22,21 +26,37 @@ import {
 import { nextIdempotencyKey } from '../platformRead'
 
 const session = useSessionStore()
-const canOpen = computed(() => session.can('system.settings.manage'))
+const canOpen = computed(
+  () =>
+    session.can('system.settings.manage') ||
+    session.can('platform.feature.manage') ||
+    session.can('system.dictionary.manage') ||
+    session.can('system.parameter.manage'),
+)
 const canReadFlags = computed(() => session.can('platform.feature.manage'))
 const canManageFlags = computed(() => session.can('platform.feature.manage'))
+const canReadDictionaries = computed(() => session.can('system.dictionary.manage'))
+const canManageDictionaries = computed(() => session.can('system.dictionary.manage'))
 const canReadParameters = computed(() => session.can('system.parameter.manage'))
 const canManageParameters = computed(() => session.can('system.parameter.manage'))
 
 const flagsLoading = ref(true)
-const parametersLoading = ref(true)
 const flagsError = ref<unknown>(null)
-const parametersError = ref<unknown>(null)
+const flagsForbidden = ref(false)
 const flags = ref<FeatureFlag[]>([])
+
+const dictionariesLoading = ref(true)
+const dictionariesError = ref<unknown>(null)
+const dictionariesForbidden = ref(false)
+const dictionaries = ref<DictionaryEntry[]>([])
+const dictionaryTotal = ref(0)
+
+const parametersLoading = ref(true)
+const parametersError = ref<unknown>(null)
+const parametersForbidden = ref(false)
 const parameters = ref<SystemParameter[]>([])
 const parametersTotal = ref(0)
-const flagsForbidden = ref(false)
-const parametersForbidden = ref(false)
+
 const partial = ref(false)
 const partialReason = ref('')
 
@@ -47,13 +67,15 @@ const selectedFlag = ref<FeatureFlag | null>(null)
 const flagReason = ref('')
 const flagSaving = ref(false)
 
+const editingDictionary = ref<DictionaryEntry | null>(null)
+const dictionaryDraft = reactive({ label: '', sortOrder: 0, active: true })
+const dictionarySaving = ref(false)
+
 const editingParameter = ref<SystemParameter | null>(null)
-const parameterDraft = reactive({
-  value: '' as string,
-  sensitive: false,
-})
+const parameterDraft = reactive({ value: '', sensitive: false })
 const parameterSaving = ref(false)
-const parameterError = ref('')
+
+const fileEmploymentId = ref<number | null>(session.principal?.employmentId ?? null)
 
 const flagRows = computed(() =>
   flags.value.map((flag) => ({
@@ -64,17 +86,34 @@ const flagRows = computed(() =>
     statusTone: flag.enabled ? 'plain-chip--success' : 'plain-chip--muted',
   })),
 )
+const flagsEmpty = computed(
+  () => !flagsLoading.value && flagsError.value === null && !flagsForbidden.value && flagRows.value.length === 0,
+)
 
-const flagsEmpty = computed(() => !flagsLoading.value && flagsError.value === null && flagsForbidden.value === false && flagRows.value.length === 0)
+const dictionaryRows = computed(() =>
+  dictionaries.value.map((entry) => ({
+    ...entry,
+    statusLabel: entry.active ? '启用' : '停用',
+    statusTone: entry.active ? 'plain-chip--success' : 'plain-chip--muted',
+  })),
+)
+const dictionariesEmpty = computed(
+  () =>
+    !dictionariesLoading.value &&
+    dictionariesError.value === null &&
+    !dictionariesForbidden.value &&
+    dictionaryRows.value.length === 0,
+)
+
+type ParameterKind = 'number' | 'boolean' | 'text' | 'structured'
+
 const parametersEmpty = computed(
   () =>
     !parametersLoading.value &&
     parametersError.value === null &&
-    parametersForbidden.value === false &&
+    !parametersForbidden.value &&
     parameters.value.length === 0,
 )
-
-type ParameterKind = 'number' | 'boolean' | 'text' | 'structured'
 
 const parameterRows = computed(() =>
   parameters.value.map((parameter) => {
@@ -89,13 +128,26 @@ const parameterRows = computed(() =>
     }
   }),
 )
-
-const editingKind = computed<ParameterKind>(() => (editingParameter.value === null ? 'text' : parameterKind(editingParameter.value)))
-
+const editingKind = computed<ParameterKind>(
+  () => (editingParameter.value === null ? 'text' : parameterKind(editingParameter.value)),
+)
 const editingValueLabel = computed(() => {
   if (editingParameter.value === null) return ''
   return parameterLabel(editingParameter.value.key)
 })
+
+const filesRoute = computed(() =>
+  fileEmploymentId.value !== null && Number.isSafeInteger(fileEmploymentId.value) && fileEmploymentId.value > 0
+    ? `/hr/employees/${fileEmploymentId.value}/files`
+    : null,
+)
+
+const requestId = computed(
+  () =>
+    requestIdFromError(flagsError.value) ??
+    requestIdFromError(dictionariesError.value) ??
+    requestIdFromError(parametersError.value),
+)
 
 function parameterKind(parameter: SystemParameter): ParameterKind {
   if (parameter.sensitive || parameter.masked) return 'text'
@@ -129,21 +181,6 @@ function parameterLabel(key: string): string {
   return PARAMETER_LABELS[key] ?? '平台运行参数'
 }
 
-function syncParameterDraft(parameter: SystemParameter): void {
-  const kind = parameterKind(parameter)
-  if (kind === 'boolean') {
-    parameterDraft.value = parameter.value === true ? 'true' : 'false'
-  } else if (kind === 'number') {
-    parameterDraft.value = String(parameter.value ?? '')
-  } else if (kind === 'structured') {
-    parameterDraft.value = ''
-  } else {
-    parameterDraft.value = parameter.masked ? '' : String(parameter.value ?? '')
-  }
-  parameterDraft.sensitive = parameter.sensitive
-  parameterError.value = ''
-}
-
 async function loadFlags(): Promise<void> {
   if (!canReadFlags.value) {
     flagsLoading.value = false
@@ -161,6 +198,29 @@ async function loadFlags(): Promise<void> {
     else flagsError.value = error
   } finally {
     flagsLoading.value = false
+  }
+}
+
+async function loadDictionaries(): Promise<void> {
+  if (!canReadDictionaries.value) {
+    dictionariesLoading.value = false
+    dictionariesForbidden.value = true
+    return
+  }
+  dictionariesLoading.value = true
+  dictionariesError.value = null
+  dictionariesForbidden.value = false
+  try {
+    const result = await listDictionaries()
+    dictionaries.value = result.items
+    dictionaryTotal.value = result.total
+  } catch (error) {
+    dictionaries.value = []
+    dictionaryTotal.value = 0
+    if (isForbidden(error)) dictionariesForbidden.value = true
+    else dictionariesError.value = error
+  } finally {
+    dictionariesLoading.value = false
   }
 }
 
@@ -190,10 +250,10 @@ async function loadParameters(): Promise<void> {
 async function loadAll(): Promise<void> {
   partial.value = false
   partialReason.value = ''
-  await Promise.all([loadFlags(), loadParameters()])
-  if (flagsError.value !== null || parametersError.value !== null) {
+  await Promise.all([loadFlags(), loadDictionaries(), loadParameters()])
+  if (flagsError.value !== null || dictionariesError.value !== null || parametersError.value !== null) {
     partial.value = true
-    partialReason.value = '部分配置读取失败；失败面板显示错误与重试入口，另一面板仍可继续操作。'
+    partialReason.value = '部分配置读取失败；失败面板保留错误与重试入口，成功面板仍可继续操作。'
   }
 }
 
@@ -222,7 +282,7 @@ async function confirmFlagToggle(): Promise<void> {
   const nextEnabled = !flag.enabled
   try {
     await updateFeatureFlag(flag.flag, nextEnabled, flagReason.value.trim())
-    actionMessage.value = `${featureFlagLabel(flag.flag)}已${nextEnabled ? '启用' : '停用'}。`
+    actionMessage.value = `${featureFlagLabel(flag.flag)}已${nextEnabled ? '启用' : '停用'}，并已写入审计记录。`
     ElMessage.success(actionMessage.value)
     closeFlagToggle()
     await loadFlags()
@@ -234,6 +294,65 @@ async function confirmFlagToggle(): Promise<void> {
   }
 }
 
+function openDictionaryEdit(entry: DictionaryEntry): void {
+  if (!canManageDictionaries.value) return
+  editingDictionary.value = entry
+  dictionaryDraft.label = entry.label
+  dictionaryDraft.sortOrder = entry.sortOrder
+  dictionaryDraft.active = entry.active
+  actionError.value = ''
+}
+
+function closeDictionaryEdit(): void {
+  editingDictionary.value = null
+}
+
+async function saveDictionary(): Promise<void> {
+  if (editingDictionary.value === null) return
+  const label = dictionaryDraft.label.trim()
+  if (label === '') {
+    actionError.value = '字典名称不能为空。'
+    return
+  }
+  dictionarySaving.value = true
+  actionError.value = ''
+  actionMessage.value = ''
+  try {
+    await updateDictionaryEntry(
+      editingDictionary.value.id,
+      {
+        label,
+        sortOrder: dictionaryDraft.sortOrder,
+        active: dictionaryDraft.active,
+      },
+      nextIdempotencyKey(`dictionary-${editingDictionary.value.id}`),
+    )
+    actionMessage.value = `字典项 ${editingDictionary.value.type}.${editingDictionary.value.code} 已更新，并已写入审计记录。`
+    ElMessage.success(actionMessage.value)
+    closeDictionaryEdit()
+    await loadDictionaries()
+  } catch (error) {
+    actionError.value = platformErrorCopy(error)
+    ElMessage.error(actionError.value)
+  } finally {
+    dictionarySaving.value = false
+  }
+}
+
+function syncParameterDraft(parameter: SystemParameter): void {
+  const kind = parameterKind(parameter)
+  if (kind === 'boolean') {
+    parameterDraft.value = parameter.value === true ? 'true' : 'false'
+  } else if (kind === 'number') {
+    parameterDraft.value = String(parameter.value ?? '')
+  } else if (kind === 'structured') {
+    parameterDraft.value = ''
+  } else {
+    parameterDraft.value = parameter.masked ? '' : String(parameter.value ?? '')
+  }
+  parameterDraft.sensitive = parameter.sensitive
+}
+
 function openParameterEdit(parameter: SystemParameter): void {
   if (!canManageParameters.value) return
   editingParameter.value = parameter
@@ -243,12 +362,11 @@ function openParameterEdit(parameter: SystemParameter): void {
 
 function closeParameterEdit(): void {
   editingParameter.value = null
-  parameterError.value = ''
 }
 
 async function saveParameter(): Promise<void> {
   if (editingParameter.value === null) return
-  parameterError.value = ''
+  actionError.value = ''
 
   const kind = editingKind.value
   let value: unknown
@@ -256,13 +374,13 @@ async function saveParameter(): Promise<void> {
     value = parameterDraft.value === 'true'
   } else if (kind === 'number') {
     if (!/^-?\d+(\.\d+)?$/.test(parameterDraft.value.trim())) {
-      parameterError.value = '请输入有效数值。'
+      actionError.value = '请输入有效数值。'
       return
     }
     value = Number(parameterDraft.value.trim())
   } else {
     if (parameterDraft.value === '') {
-      parameterError.value = editingParameter.value.masked
+      actionError.value = editingParameter.value.masked
         ? '已加密参数需要填写新的值才会覆盖。'
         : '请输入参数值。'
       return
@@ -287,16 +405,21 @@ async function saveParameter(): Promise<void> {
     closeParameterEdit()
     await loadParameters()
   } catch (error) {
-    parameterError.value = platformErrorCopy(error)
-    ElMessage.error(parameterError.value)
+    actionError.value = platformErrorCopy(error)
+    ElMessage.error(actionError.value)
   } finally {
     parameterSaving.value = false
   }
 }
 
+function retryAll(): void {
+  void loadAll()
+}
+
 onMounted(() => {
   if (!canOpen.value) {
     flagsLoading.value = false
+    dictionariesLoading.value = false
     parametersLoading.value = false
     return
   }
@@ -308,10 +431,12 @@ onMounted(() => {
   <PageShell
     data-testid="system-settings-page"
     title="字典、参数与文件"
-    description="维护运行开关与已登记的类型化参数；每个开关变更都需要原因，参数值按原类型编辑并写入审计。"
+    description="只维护服务端已登记的功能开关、类型化参数和字典项；员工文件继续由员工档案的真实附件接口承载。"
   >
     <template #actions>
-      <el-button plain :disabled="flagsLoading || parametersLoading" @click="loadAll">刷新</el-button>
+      <el-button plain :disabled="flagsLoading || dictionariesLoading || parametersLoading" @click="retryAll">
+        刷新
+      </el-button>
     </template>
 
     <section v-if="!canOpen" class="panel" data-testid="settings-forbidden">
@@ -325,6 +450,9 @@ onMounted(() => {
       <p v-if="actionMessage" class="inline-success" data-testid="settings-action-message">{{ actionMessage }}</p>
       <p v-if="actionError" class="inline-error" role="alert" data-testid="settings-action-error">{{ actionError }}</p>
       <p v-if="partial" class="inline-warning" data-testid="settings-partial">{{ partialReason }}</p>
+      <p v-if="requestId" class="muted small" data-testid="settings-request-id">
+        请求编号：<span class="mono">{{ requestId }}</span>
+      </p>
 
       <section class="panel" data-testid="settings-feature-flags">
         <div class="panel__header">
@@ -342,7 +470,7 @@ onMounted(() => {
 
         <div v-else-if="flagsForbidden" class="panel__body" data-testid="settings-flags-forbidden">
           <h3 class="panel__title">功能开关不可查看</h3>
-          <p class="muted">当前账号没有平台功能管理能力。可查看系统参数（如已授权），但无法读取或变更开关。</p>
+          <p class="muted">当前账号没有平台功能管理能力。其余已授权面板仍可使用。</p>
         </div>
 
         <div v-else-if="flagsError !== null" class="panel__body" data-testid="settings-flags-error">
@@ -379,6 +507,69 @@ onMounted(() => {
                 @click="openFlagToggle(flags.find((item) => item.flag === flag.flag) ?? flag)"
               />
               <span v-if="!canManageFlags" class="muted small">只读</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel" data-testid="settings-dictionaries">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">字典项</h2>
+            <p class="panel__subtitle">
+              字典类型与代码由服务端代码目录定义；这里只修改已存在条目的名称、排序与启停，不创建任意键值。
+              共 {{ dictionaryTotal }} 项。
+            </p>
+          </div>
+        </div>
+
+        <div v-if="dictionariesLoading" class="panel__body" data-testid="settings-dictionaries-loading">
+          <el-skeleton :rows="3" animated />
+          <span class="visually-hidden">正在加载字典项</span>
+        </div>
+
+        <div v-else-if="dictionariesForbidden" class="panel__body" data-testid="settings-dictionaries-forbidden">
+          <h3 class="panel__title">字典项不可查看</h3>
+          <p class="muted">当前账号没有字典维护能力。</p>
+        </div>
+
+        <div v-else-if="dictionariesError !== null" class="panel__body" data-testid="settings-dictionaries-error">
+          <h3 class="panel__title">字典项加载失败</h3>
+          <p class="muted">{{ platformErrorCopy(dictionariesError) }}</p>
+          <el-button type="primary" plain @click="loadDictionaries">重试</el-button>
+        </div>
+
+        <div v-else-if="dictionariesEmpty" class="panel__body" data-testid="settings-dictionaries-empty">
+          <h3 class="panel__title">尚未登记字典项</h3>
+          <p class="muted">服务端当前没有可展示的字典条目；页面不会创建未登记的类型或代码。</p>
+        </div>
+
+        <ul v-else class="settings-list">
+          <li
+            v-for="entry in dictionaryRows"
+            :key="entry.id"
+            class="settings-row"
+            :data-testid="`settings-dictionary-${entry.id}`"
+          >
+            <div class="settings-row__main">
+              <div class="settings-row__heading">
+                <strong>{{ entry.label }}</strong>
+                <span class="plain-chip plain-chip--info">{{ entry.type }} · {{ entry.code }}</span>
+                <span class="plain-chip" :class="entry.statusTone">{{ entry.statusLabel }}</span>
+              </div>
+              <p class="settings-row__description">排序 {{ entry.sortOrder }}</p>
+            </div>
+            <div class="settings-row__actions">
+              <el-button
+                v-if="canManageDictionaries"
+                text
+                size="small"
+                :data-testid="`settings-dictionary-edit-${entry.id}`"
+                @click="openDictionaryEdit(entry)"
+              >
+                编辑
+              </el-button>
+              <span v-else class="muted small">只读</span>
             </div>
           </li>
         </ul>
@@ -448,6 +639,40 @@ onMounted(() => {
         </ul>
       </section>
 
+      <section class="panel" data-testid="settings-files">
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">员工文件</h2>
+            <p class="panel__subtitle">
+              文件接口按员工任职范围提供，不存在跨员工的全量文件列表；页面不伪造文件行。
+              请从员工档案的附件页查看、上传或下载。
+            </p>
+          </div>
+        </div>
+        <div class="panel__body settings-files">
+          <label class="settings-dialog__field settings-files__field">
+            <span>任职编号</span>
+            <el-input-number
+              v-model="fileEmploymentId"
+              :min="1"
+              :controls="false"
+              data-testid="settings-files-employment"
+              aria-label="任职编号"
+            />
+          </label>
+          <router-link
+            v-if="filesRoute"
+            :to="filesRoute"
+            class="settings-files__link"
+            data-testid="settings-files-link"
+          >
+            打开员工附件页
+          </router-link>
+          <span v-else class="muted small">输入有效任职编号后打开员工附件页。</span>
+          <span class="muted small">附件列表与上传都由员工附件服务提供，需先选择任职记录。</span>
+        </div>
+      </section>
+
       <el-dialog
         :model-value="selectedFlag !== null"
         title="变更功能开关"
@@ -483,6 +708,40 @@ onMounted(() => {
       </el-dialog>
 
       <el-dialog
+        :model-value="editingDictionary !== null"
+        title="编辑字典项"
+        width="480px"
+        :close-on-click-modal="false"
+        data-testid="dictionary-dialog"
+        @close="closeDictionaryEdit"
+      >
+        <div v-if="editingDictionary !== null" class="settings-dialog">
+          <p class="muted small">{{ editingDictionary.type }} · {{ editingDictionary.code }}</p>
+          <label class="settings-dialog__field">
+            <span>字典名称 *</span>
+            <el-input v-model="dictionaryDraft.label" data-testid="dictionary-label" maxlength="160" />
+          </label>
+          <label class="settings-dialog__field">
+            <span>排序</span>
+            <el-input-number v-model="dictionaryDraft.sortOrder" :min="0" :max="100000" data-testid="dictionary-sort-order" />
+          </label>
+          <el-checkbox
+            :model-value="dictionaryDraft.active"
+            data-testid="dictionary-active"
+            @change="dictionaryDraft.active = Boolean($event)"
+          >
+            启用该字典项
+          </el-checkbox>
+        </div>
+        <template #footer>
+          <el-button @click="closeDictionaryEdit">取消</el-button>
+          <el-button type="primary" :loading="dictionarySaving" data-testid="dictionary-save" @click="saveDictionary">
+            保存字典项
+          </el-button>
+        </template>
+      </el-dialog>
+
+      <el-dialog
         :model-value="editingParameter !== null"
         title="编辑系统参数"
         width="520px"
@@ -493,7 +752,6 @@ onMounted(() => {
         <div v-if="editingParameter !== null" class="settings-dialog">
           <p class="muted small">{{ editingParameter.key }} · {{ parameterScopeLabel(editingParameter.scope) }}</p>
           <p class="settings-dialog__title">{{ editingValueLabel }}</p>
-          <p v-if="parameterError" class="inline-error" role="alert" data-testid="parameter-error">{{ parameterError }}</p>
 
           <label v-if="editingKind === 'boolean'" class="settings-dialog__field">
             <span>参数值</span>
@@ -599,11 +857,23 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 650;
 }
-.settings-dialog__check {
+.settings-files {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.settings-files__field {
+  max-width: 180px;
+}
+.settings-files__link {
+  padding: 6px 10px;
+  color: var(--color-brand-deep, #0f4956);
   font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #a8d2dc;
+  border-radius: 6px;
 }
 .plain-chip--success {
   color: #146c43;
