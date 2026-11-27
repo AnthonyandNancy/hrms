@@ -391,6 +391,7 @@ final class RoleAdminService
             'code' => (string) $role->code,
             'name' => (string) $role->name,
             'is_template' => (bool) $role->is_template,
+            'version' => (int) ($role->version ?? 1),
             'purpose' => (string) $role->purpose,
             'expires_at' => $role->getAttribute('expires_at') instanceof \Carbon\CarbonInterface
                 ? $role->getAttribute('expires_at')->toIso8601ZuluString()

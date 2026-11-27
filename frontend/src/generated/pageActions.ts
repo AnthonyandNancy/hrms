@@ -414,6 +414,38 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
+  "hr-contracts-by-id": [
+    {
+      "pageCode": "hr-contracts-by-id",
+      "key": "people.contract.detail.amend",
+      "label": "新增合同变更",
+      "capability": "people.contract.amend",
+      "api": "POST /v1/employment-contracts/{id}/amendments",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-contracts-by-id",
+      "key": "people.contract.detail.terminate",
+      "label": "终止劳动合同",
+      "capability": "people.contract.terminate",
+      "api": "POST /v1/employment-contracts/{id}/terminate",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
   "hr-departments": [
     {
       "pageCode": "hr-departments",
@@ -1104,6 +1136,148 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "label": "新建薪酬方案",
       "capability": "payroll.run.prepare",
       "api": "POST /v1/payroll/schemes",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "payroll-run-detail": [
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.approve",
+      "label": "审批工资批次",
+      "capability": "payroll.run.approve",
+      "api": "POST /v1/payroll/runs/{id}/approve",
+      "ui": "primary",
+      "confirm": "sod",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.calculate",
+      "label": "试算工资批次",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs/{id}/calculate",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.cancel",
+      "label": "取消工资批次",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs/{id}/cancel",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.close",
+      "label": "关闭工资批次",
+      "capability": "payroll.run.close",
+      "api": "POST /v1/payroll/runs/{id}/close",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.correct",
+      "label": "创建冲正批次",
+      "capability": "payroll.run.correct",
+      "api": "POST /v1/payroll/runs/{id}/corrections",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.lock-inputs",
+      "label": "锁定计薪数据",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs/{id}/lock-inputs",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.mark-paid",
+      "label": "登记工资发放",
+      "capability": "payroll.run.close",
+      "api": "POST /v1/payroll/runs/{id}/mark-paid",
+      "ui": "primary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.publish",
+      "label": "发布工资批次",
+      "capability": "payroll.run.publish",
+      "api": "POST /v1/payroll/runs/{id}/publish",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.reopen",
+      "label": "重开工资批次",
+      "capability": "payroll.run.reopen",
+      "api": "POST /v1/payroll/runs/{id}/reopen",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.review",
+      "label": "复核工资批次",
+      "capability": "payroll.run.review",
+      "api": "POST /v1/payroll/runs/{id}/review",
       "ui": "primary",
       "confirm": "none",
       "anchorTypes": [

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Authorization\PageActionCatalog;
+use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Services\AdminProtectionGuard;
 use App\Modules\IAM\Services\RoleAdminService;
 use App\Modules\IAM\Services\RolePageService;
@@ -13,6 +15,8 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
+use App\Shared\Exceptions\ConflictException;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +40,7 @@ final class RoleAuthorizationController
         private readonly RolePageService $pages,
         private readonly AdminProtectionGuard $adminProtection,
         private readonly CommandRunner $commands,
+        private readonly PageActionCatalog $actions,
     ) {}
 
     public function update(Request $request, string $id): JsonResponse
@@ -45,13 +50,15 @@ final class RoleAuthorizationController
         $data = $request->validate([
             'pages' => ['required', 'array', 'max:160'],
             'pages.*' => ['required', 'string', 'max:120'],
-            'capabilities' => ['present', 'array', 'max:64'],
+            'capabilities' => ['present', 'array', 'max:512'],
             'capabilities.*.capability' => ['required', 'string', 'max:120'],
             'capabilities.*.anchor_type' => ['required', 'string', 'max:24'],
             'capabilities.*.anchor_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'capabilities.*.field_profile' => ['required', 'string', 'max:24'],
+            'expected_version' => ['sometimes', 'integer', 'min:1'],
             'reason' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
+        $expectedVersion = isset($data['expected_version']) ? (int) $data['expected_version'] : null;
 
         $pageCodes = array_values(array_unique(array_map(
             static fn (mixed $code): string => (string) $code,
@@ -92,21 +99,39 @@ final class RoleAuthorizationController
                 auditAction: 'iam.role.authorization.changed',
             ),
             payload: $payload,
-            operation: function () use ($id, $pageCodes, $capabilities): array {
-                return DB::transaction(function () use ($id, $pageCodes, $capabilities): array {
+            operation: function () use ($id, $pageCodes, $capabilities, $expectedVersion): array {
+                return DB::transaction(function () use ($id, $pageCodes, $capabilities, $expectedVersion): array {
+                    $role = Role::query()
+                        ->whereKey(strtoupper(trim($id)))
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($role === null) {
+                        throw new NotFoundOrForbiddenException;
+                    }
+
+                    if ($expectedVersion !== null && (int) $role->version !== $expectedVersion) {
+                        throw new ConflictException('The role authorization changed since it was loaded.', [
+                            'reason' => 'ROLE_AUTHORIZATION_VERSION_CONFLICT',
+                            'expected_version' => $expectedVersion,
+                            'current_version' => (int) $role->version,
+                        ]);
+                    }
+
                     // Both services bump auth_version for every affected user
                     // inside this transaction; a failure here rolls back both.
-                    $role = $this->roles->replaceCapabilities($id, $capabilities);
+                    $rolePayload = $this->roles->replaceCapabilities($id, $capabilities);
                     $pages = $this->pages->replace($id, $pageCodes);
+                    $role->forceFill(['version' => (int) $role->version + 1])->save();
 
                     return [
                         'http_status' => 200,
                         'body' => [
-                            'role' => $role,
+                            'role' => [...$rolePayload, 'version' => (int) $role->version],
                             'pages' => $pages['page_codes'] ?? $pageCodes,
                         ],
                         'resource_type' => 'role',
-                        'resource_id' => (string) ($role['code'] ?? $id),
+                        'resource_id' => (string) ($rolePayload['code'] ?? $id),
                     ];
                 });
             },
@@ -132,11 +157,13 @@ final class RoleAuthorizationController
             }
 
             $capabilityCode = (string) ($capability['capability'] ?? '');
-            $ownedPage = self::actionPageByCapability()[$capabilityCode] ?? null;
+            $ownedPages = $this->actions->pagesForCapability($capabilityCode);
 
-            if ($ownedPage !== null) {
-                if (! isset($known[$ownedPage])) {
-                    $missing[$ownedPage] = true;
+            if ($ownedPages !== []) {
+                if (array_intersect($ownedPages, $pageCodes) === []) {
+                    foreach ($ownedPages as $ownedPage) {
+                        $missing[$ownedPage] = true;
+                    }
                 }
 
                 continue;
@@ -149,42 +176,6 @@ final class RoleAuthorizationController
         }
 
         return array_keys($missing);
-    }
-
-    /**
-     * Code-owned capability -> page map from the generated action manifest.
-     * The map is deliberately read-only and never client supplied.
-     *
-     * @return array<string, string>
-     */
-    private static function actionPageByCapability(): array
-    {
-        static $map = null;
-
-        if ($map !== null) {
-            return $map;
-        }
-
-        $path = base_path('../docs/generated/page-actions.json');
-        $payload = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
-        $map = [];
-
-        if (is_array($payload) && is_array($payload['pages'] ?? null)) {
-            foreach ($payload['pages'] as $pageCode => $actions) {
-                if (! is_array($actions)) {
-                    continue;
-                }
-
-                foreach ($actions as $action) {
-                    $capability = is_array($action) ? (string) ($action['capability'] ?? '') : '';
-                    if ($capability !== '') {
-                        $map[$capability] = (string) $pageCode;
-                    }
-                }
-            }
-        }
-
-        return $map;
     }
 
     private function respond(CommandResult $result): JsonResponse

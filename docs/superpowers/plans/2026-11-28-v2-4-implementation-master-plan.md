@@ -77,7 +77,7 @@
 |---|---|---|---|---|
 | T00 | 基线与 ADR | COMPLETE | Step 4 | `docs/implementation/v24/00-baseline/gate-all.log` |
 | T01 | 安装状态与干净初始化 | COMPLETE | Step 5 | `docs/implementation/v24/01-install/evidence.md`; gate log |
-| T02 | 权限单一目录与对象动作 | PENDING | — | — |
+| T02 | 权限单一目录与对象动作 | COMPLETE | Step 5 | `docs/implementation/v24/02-action-catalog/evidence.md`; gate log |
 | T03 | 合同约定版本 | PENDING | — | — |
 | T04 | 员工执行薪酬版本 | PENDING | — | — |
 | T05 | 单一入职与合同/薪酬待办 | PENDING | — | — |
@@ -103,6 +103,7 @@
 | 2026-11-28 | T00 planning baseline | `pnpm gate:all` | FAIL at `backend:phpunit`; 1490 tests, 8 failures | 先修 §T00 的 8 个真实契约漂移，不得绕过 |
 | 2026-11-28 | T00 Step 4 | focused PHPUnit + `pnpm gate:all` | Focused 29 tests PASS; full 22-gate matrix PASS in 238.9s; evidence at `docs/implementation/v24/00-baseline/gate-all.log` | T00 complete. Continue with T01. |
 | 2026-11-28 | T01 Step 5 | `phpunit --filter 'Install|Health|SyncCapabilities|DemoSeed'`; `pnpm gate:all` | 28 adjacent tests PASS; 22 gates PASS in 222.5s; evidence at `docs/implementation/v24/01-install/evidence.md` | T01 complete. Continue with T02; do not claim AC-02 until real-stack/MCP evidence. |
+| 2026-11-28 | T02 Step 5 | 38 backend tests + 652 frontend tests + `pnpm gate:all` | 22 gates PASS in 245.3s; generated PHP/JSON/TS action artifacts; evidence at `docs/implementation/v24/02-action-catalog/evidence.md` | T02 complete with contract/Time detail wiring explicitly carried into T03/T07/T08. Continue T03. |
 
 ---
 
@@ -259,7 +260,7 @@ pnpm actions:check
 
 ### T02：单一 Page/Action Catalog 与对象级 allowed_actions
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - 新增 `backend/app/Modules/IAM/Authorization/PageActionCatalog.php`
@@ -282,7 +283,7 @@ pnpm actions:check
 - 新增 code-owned `PageActionCatalog`，至少暴露 `all(): array`、`forPage(string): list<array>`、`forObject(string): list<array>`；动作字段为 key、label、capability、api、anchor_types、field_keys。其为唯一后端来源。
 - 修改 generator：从 PageActionCatalog 导出/生成 `action-input.json`/`pageActions.ts`；保留现有 OpenAPI 校验，删除运行时读 docs JSON 的角色授权路径。
 - 角色授权改为一个原子命令：`pages[]`、`capabilities[]`、`expected_version`、`reason`、`Idempotency-Key`；服务端校验每个 page required capability、anchor、field profile，支持 >64 动作，版本冲突 409；提升受影响用户 auth_version。
-- 新增 `AllowedActionResolver::for(Principal $p, string $objectType, int|string $id, array $state, string $businessDate): array`；用 capability + object anchor + 状态机 + page action 判断，输出 `allowed_actions`、`state`、`version`、`source_version`。先接工资批次、合同、请假、加班、出差详情；其余详情在 T17 补齐。
+- 新增 `AllowedActionResolver::for(Principal $p, string $objectType, int|string $id, array $state, string $businessDate): array`；用 capability + object anchor + 状态机 + page action 判断，输出 `allowed_actions`、`state`、`version`、`source_version`。本任务接入工资批次；合同详情在 T03、请假/加班/出差在 T07/T08 接入，T17 完成其余前端消费。
 - 前端 session 不缓存对象动作为权限真值；详情使用响应 allowed_actions，按钮不再展示内部 capability、不自行推导对象状态。
 
 **对应需求：** AC-03、AC-05、AC-18；Design 5.1.8、5.2 F、5.5 `/me/permissions`/角色授权、5.6 数据来源。
@@ -299,11 +300,11 @@ cd frontend && pnpm test:unit -- payrollAllowedActions.spec.ts
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：同 capability 多页面正确解析、expected_version 409、>64 动作、自定义角色保留、对象动作随状态变化、前端使用响应 allowed_actions。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：实现 PageActionCatalog + AllowedActionResolver + atomic role service；生成器切换到单一源。
-- [ ] Step 4：更新 `/me/permissions`、角色 API、OpenAPI、前端 session/角色页；聚焦测试 GREEN。
-- [ ] Step 5：跑 action/openapi/typecheck/frontend tests；提交 `feat(v2.4): unify action catalog and object authorization`。
+- [x] Step 1：写 failing tests：同 capability 多页面正确解析、expected_version 409、>64 动作、自定义角色保留、对象动作随状态变化、前端使用响应 allowed_actions。
+- [x] Step 2：运行确认 FAIL。
+- [x] Step 3：实现 PageActionCatalog + AllowedActionResolver + atomic role service；生成器切换到单一源。
+- [x] Step 4：更新 `/me/permissions`、角色 API、OpenAPI、前端 session/角色页；聚焦测试 GREEN。
+- [x] Step 5：跑 action/openapi/typecheck/frontend tests；提交 `feat(v2.4): unify action catalog and object authorization`。
 
 ---
 

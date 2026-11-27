@@ -82,9 +82,21 @@ const props = defineProps<{
   status: PayrollRunStatus
   period: string
   capabilities: string[]
+  allowedActions?: string[]
   submitting?: PayrollAction | null
   readOnly?: boolean
 }>()
+
+const OBJECT_ACTION_KEYS: Record<PayrollAction, string> = {
+  'lock-inputs': 'payroll.run.detail.lock-inputs',
+  calculate: 'payroll.run.detail.calculate',
+  review: 'payroll.run.detail.review',
+  approve: 'payroll.run.detail.approve',
+  publish: 'payroll.run.detail.publish',
+  'mark-paid': 'payroll.run.detail.mark-paid',
+  close: 'payroll.run.detail.close',
+  cancel: 'payroll.run.detail.cancel',
+}
 
 const emit = defineEmits<{
   action: [action: PayrollAction]
@@ -102,13 +114,18 @@ type ActionView = {
 
 const actionViews = computed<ActionView[]>(() => {
   const isReadOnly = props.readOnly === true
+  const serverActions = props.allowedActions
   return RULES.map((rule) => {
-    const permitted = props.capabilities.includes(rule.capability)
+    const permitted = serverActions !== undefined
+      ? serverActions.includes(OBJECT_ACTION_KEYS[rule.action])
+      : props.capabilities.includes(rule.capability)
     const transitionAllowed = rule.allowed(props.status)
     const disabled = isReadOnly || !permitted || !transitionAllowed || props.submitting != null
     let reason = ''
     if (isReadOnly) reason = '已发布批次为只读；导出仍可用，如需更正请新建更正批次。'
-    else if (!permitted) reason = `缺少能力 ${rule.capability}，此操作仅对应角色可执行。`
+    else if (!permitted) reason = serverActions !== undefined
+      ? '当前状态或授权不允许此操作。'
+      : `缺少能力 ${rule.capability}，此操作仅对应角色可执行。`
     else if (!transitionAllowed) reason = rule.reason(props.status)
     return {
       action: rule.action,

@@ -82,6 +82,10 @@ export type PayrollRunDetail = PayrollRunSummary & {
   inputHash: string | null
   snapshotVersion: number
   reopenCount: number
+  state?: string
+  version?: number
+  sourceVersion?: string | null
+  allowedActions?: string[]
   employees: PayrollEmployee[]
 }
 
@@ -266,6 +270,14 @@ export function normalisePayrollRunDetail(raw: unknown): PayrollRunDetail {
     inputHash: nullableText(row.input_hash, 'input_hash'),
     snapshotVersion: requiredInteger(row.snapshot_version, 'snapshot_version'),
     reopenCount: requiredInteger(row.reopen_count, 'reopen_count'),
+    state: typeof row.state === 'string' ? row.state : undefined,
+    version: typeof row.version === 'number' && Number.isSafeInteger(row.version) ? row.version : undefined,
+    sourceVersion: row.source_version === null || row.source_version === undefined
+      ? undefined
+      : nullableText(row.source_version, 'source_version'),
+    allowedActions: row.allowed_actions === undefined
+      ? undefined
+      : listOf(row.allowed_actions, 'allowed_actions').map((value, index) => text(value, `allowed_actions.${index}`)),
     employees: listOf(row.employees, 'employees').map(normalisePayrollEmployee),
   }
 }

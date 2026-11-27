@@ -5637,6 +5637,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
             actions: string[];
+            action_definitions?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
             field_capabilities: string[];
             scope_labels: {
                 anchor_type: string;
@@ -6978,6 +6983,11 @@ export interface components {
                         [key: string]: unknown;
                     }[];
                 }[];
+                action_definitions?: {
+                    [key: string]: {
+                        [key: string]: unknown;
+                    }[];
+                };
             };
             request_id: string;
         };
@@ -6990,6 +7000,7 @@ export interface components {
             code: string;
             name: string;
             is_template: boolean;
+            version: number;
             purpose: string | null;
             /** Format: date-time */
             expires_at: string | null;
@@ -7375,6 +7386,14 @@ export interface components {
             reopen_count: number;
             employee_count: number;
             employees: components["schemas"]["PayrollRunEmployee"][];
+            /** @description Server-owned payroll run state for object action projection. */
+            state?: string;
+            /** @description Optimistic object version used by detail actions. */
+            version?: number;
+            /** @description Immutable source/snapshot hash, when available. */
+            source_version?: string | null;
+            /** @description Server-computed action keys permitted for this object and principal. */
+            allowed_actions?: string[];
         };
         PayrollRunPage: {
             items: components["schemas"]["PayrollRunSummary"][];
@@ -8307,6 +8326,8 @@ export interface components {
                 /** @description Required when the capability is a page action. */
                 page_code?: string;
             }[];
+            /** @description Required by new clients; stale values return 409 ROLE_AUTHORIZATION_VERSION_CONFLICT. */
+            expected_version?: number;
             reason?: string | null;
         };
         RoleCapabilitiesRequest: {

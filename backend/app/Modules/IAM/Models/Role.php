@@ -17,7 +17,7 @@ final class Role extends Model
     protected $keyType = 'string';
 
     /** @var list<string> */
-    protected $fillable = ['code', 'name', 'is_template', 'owner', 'purpose', 'expires_at'];
+    protected $fillable = ['code', 'name', 'is_template', 'version', 'owner', 'purpose', 'expires_at'];
 
     /**
      * @return array<string, string>
@@ -26,6 +26,7 @@ final class Role extends Model
     {
         return [
             'is_template' => 'boolean',
+            'version' => 'integer',
             'owner' => 'integer',
             'expires_at' => 'immutable_datetime',
         ];

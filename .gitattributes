@@ -2,3 +2,4 @@
 docs/generated/page-actions.json text eol=lf
 frontend/src/generated/pageActions.ts text eol=lf
 frontend/src/generated/api.ts text eol=lf
+backend/app/Modules/IAM/Authorization/pageActions.generated.php text eol=lf

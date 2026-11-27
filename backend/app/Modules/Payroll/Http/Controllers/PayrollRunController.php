@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Http\Controllers;
 
+use App\Modules\IAM\Contracts\AllowedActionResolver;
+use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\CorrectionService;
@@ -35,6 +37,7 @@ final class PayrollRunController
         private readonly ExportService $exports,
         private readonly ReconciliationService $reconciliation,
         private readonly CompanyBusinessDate $businessDates,
+        private readonly AllowedActionResolver $allowedActions,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -92,8 +95,24 @@ final class PayrollRunController
         // enforces both the anchor and the profile ceiling.
         $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
         $includeAmounts = $fields->isVisible('gross') && $fields->isVisible('net');
+        $status = $run->status instanceof PayrollRunStatus
+            ? $run->status->value
+            : (string) $run->status;
+        $businessDate = $this->businessDates->today()->value();
 
-        return ApiResponse::ok($this->runs->runDetail($run, $includeAmounts));
+        return ApiResponse::ok([
+            ...$this->runs->runDetail($run, $includeAmounts),
+            'state' => $status,
+            'version' => (int) $run->snapshot_version,
+            'source_version' => $run->input_hash,
+            'allowed_actions' => $this->allowedActions->for(
+                $principal,
+                'payroll_run',
+                (int) $run->id,
+                ['status' => $status],
+                $businessDate,
+            ),
+        ]);
     }
 
     public function employees(int $id): JsonResponse

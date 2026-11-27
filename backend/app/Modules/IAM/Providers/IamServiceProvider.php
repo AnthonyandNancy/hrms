@@ -12,7 +12,10 @@ use App\Modules\IAM\Authorization\EloquentAccessSubjectStateDirectory;
 use App\Modules\IAM\Authorization\EloquentAuthorityBindingRepository;
 use App\Modules\IAM\Authorization\EloquentElevationGrantDirectory;
 use App\Modules\IAM\Authorization\EloquentPrincipalAuthorityReader;
+use App\Modules\IAM\Authorization\ObjectAllowedActionResolver;
+use App\Modules\IAM\Authorization\PageActionCatalog;
 use App\Modules\IAM\Authorization\PlatformSensitiveAccessAuditor;
+use App\Modules\IAM\Contracts\AllowedActionResolver;
 use App\Modules\IAM\Contracts\DemoUserDirectory;
 use App\Modules\IAM\Contracts\PrincipalAuthorityReader;
 use App\Modules\IAM\Contracts\SecurityAuditReader;
@@ -80,6 +83,8 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bindIf(UserAudienceDirectory::class, EloquentUserAudienceDirectory::class);
         $this->app->bind(DemoUserDirectory::class, EloquentDemoUserDirectory::class);
         $this->app->bind(ActiveAdministratorDirectory::class, EloquentActiveAdministratorDirectory::class);
+        $this->app->singleton(PageActionCatalog::class);
+        $this->app->bind(AllowedActionResolver::class, ObjectAllowedActionResolver::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);

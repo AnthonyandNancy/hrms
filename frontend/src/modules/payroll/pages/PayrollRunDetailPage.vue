@@ -406,6 +406,7 @@ onMounted(() => {
         :status="detail.status"
         :period="detail.period"
         :capabilities="session.capabilities"
+        :allowed-actions="detail.allowedActions"
         :submitting="actionSubmitting"
         :read-only="readOnly"
         @action="performAction"

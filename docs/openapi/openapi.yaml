@@ -390,6 +390,13 @@ components:
         actions:
           type: array
           items: { type: string }
+        action_definitions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              additionalProperties: true
         field_capabilities:
           type: array
           items: { type: string }
@@ -3425,6 +3432,13 @@ components:
                     items:
                       type: object
                       additionalProperties: true
+            action_definitions:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
         request_id: { type: string }
     RoleCapabilityGrant:
       type: object
@@ -3445,6 +3459,7 @@ components:
         - code
         - name
         - is_template
+        - version
         - purpose
         - expires_at
         - capabilities
@@ -3455,6 +3470,9 @@ components:
           type: string
         is_template:
           type: boolean
+        version:
+          type: integer
+          minimum: 1
         purpose:
           type:
             - string
@@ -4485,6 +4503,23 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/PayrollRunEmployee"
+            state:
+              type: string
+              description: Server-owned payroll run state for object action projection.
+            version:
+              type: integer
+              minimum: 0
+              description: Optimistic object version used by detail actions.
+            source_version:
+              type:
+                - string
+                - "null"
+              description: Immutable source/snapshot hash, when available.
+            allowed_actions:
+              type: array
+              items:
+                type: string
+              description: Server-computed action keys permitted for this object and principal.
     PayrollRunPage:
       type: object
       required:
@@ -6498,7 +6533,7 @@ components:
             type: string
         capabilities:
           type: array
-          maxItems: 64
+          maxItems: 512
           items:
             type: object
             required: [capability, anchor_type, field_profile]
@@ -6514,6 +6549,10 @@ components:
               page_code:
                 type: string
                 description: Required when the capability is a page action.
+        expected_version:
+          type: integer
+          minimum: 1
+          description: Required by new clients; stale values return 409 ROLE_AUTHORIZATION_VERSION_CONFLICT.
         reason:
           type: [string, "null"]
           maxLength: 255
