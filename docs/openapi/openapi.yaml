@@ -15926,12 +15926,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [stage]
+              required: [status]
               properties:
-                stage:
+                status:
                   type: string
-                  enum: [NEW, SCREENING, INTERVIEW, OFFER, HIRED, REJECTED]
-                reason: { type: [string, "null"], maxLength: 255 }
+                  description: Movable pipeline stage. HIRED is reached only through conversion, not by a manual move.
+                  enum: [NEW, SCREENING, INTERVIEW, OFFER, OFFER_ACCEPTED, REJECTED]
+                reason: { type: [string, "null"], maxLength: 500 }
       responses:
         "200":
           description: Candidate stage updated

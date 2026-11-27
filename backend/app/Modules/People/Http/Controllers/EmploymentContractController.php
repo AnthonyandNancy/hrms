@@ -65,33 +65,38 @@ final class EmploymentContractController
         $this->assertContractDates($data);
         $this->assertRenewalTarget($employmentId, $data);
 
-        // The service commits the contract row, then the ledger port appends
-        // the creation/renewal version. The ledger is append-only, so a later
-        // failure can never rewrite earlier history; the version row is the
-        // first-class evidence of this write.
-        $contract = $this->contracts->open($employmentId, $data, $principal->userId());
-        $isRenewal = ($contract['previous_contract_id'] ?? null) !== null;
+        // Atomicity: the ledger append runs INSIDE the service transaction via
+        // this callback, so a ledger failure rolls the contract row back. The
+        // controller therefore never opens a transaction of its own.
+        $contract = $this->contracts->open(
+            $employmentId,
+            $data,
+            $principal->userId(),
+            function (array $contract) use ($employmentId, $data, $principal): void {
+                $isRenewal = ($contract['previous_contract_id'] ?? null) !== null;
 
-        $this->versions->append(
-            contractId: (int) $contract['id'],
-            employmentId: $employmentId,
-            changeType: $isRenewal ? 'RENEWAL' : 'CREATION',
-            effectiveFrom: (string) $contract['start_date'],
-            effectiveTo: $contract['end_date'] !== null ? (string) $contract['end_date'] : BusinessDate::OPEN_END,
-            reason: isset($data['reason']) && is_string($data['reason']) ? $data['reason'] : null,
-            snapshot: [
-                'contract_no' => (string) $contract['contract_no'],
-                'contract_type' => (string) $contract['contract_type'],
-                'start_date' => (string) $contract['start_date'],
-                'end_date' => $contract['end_date'],
-                'signed_on' => $contract['signed_on'],
-                'status' => (string) $contract['status'],
-                'probation_end_date' => $data['probation_end_date'] ?? null,
-                'work_location' => $data['work_location'] ?? null,
-                'terms_summary' => $data['terms_summary'] ?? null,
-                'previous_contract_id' => $contract['previous_contract_id'],
-            ],
-            actorUserId: $principal->userId(),
+                $this->versions->append(
+                    contractId: (int) $contract['id'],
+                    employmentId: $employmentId,
+                    changeType: $isRenewal ? 'RENEWAL' : 'CREATION',
+                    effectiveFrom: (string) $contract['start_date'],
+                    effectiveTo: $contract['end_date'] !== null ? (string) $contract['end_date'] : BusinessDate::OPEN_END,
+                    reason: isset($data['reason']) && is_string($data['reason']) ? $data['reason'] : null,
+                    snapshot: [
+                        'contract_no' => (string) $contract['contract_no'],
+                        'contract_type' => (string) $contract['contract_type'],
+                        'start_date' => (string) $contract['start_date'],
+                        'end_date' => $contract['end_date'],
+                        'signed_on' => $contract['signed_on'],
+                        'status' => (string) $contract['status'],
+                        'probation_end_date' => $data['probation_end_date'] ?? null,
+                        'work_location' => $data['work_location'] ?? null,
+                        'terms_summary' => $data['terms_summary'] ?? null,
+                        'previous_contract_id' => $contract['previous_contract_id'],
+                    ],
+                    actorUserId: $principal->userId(),
+                );
+            },
         );
 
         return ApiResponse::created($contract);

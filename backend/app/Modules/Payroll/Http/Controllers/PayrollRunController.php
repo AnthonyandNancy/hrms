@@ -12,6 +12,7 @@ use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
@@ -27,7 +28,6 @@ final class PayrollRunController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
-        private readonly \App\Shared\Time\Clock $clock,
         private readonly PayrollRunService $runs,
         private readonly CalculationService $calculation,
         private readonly ApprovalService $approval,
@@ -41,7 +41,6 @@ final class PayrollRunController
     public function index(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $includeAmounts = $this->canSeeAmounts($principal);
         $page = max(1, (int) $request->query('page', '1'));
         $pageSize = min(100, max(1, (int) $request->query('page_size', '20')));
 
@@ -56,20 +55,28 @@ final class PayrollRunController
             $pageSize,
         );
 
-        if (! $includeAmounts) {
-            $data['items'] = array_map(static function (array $item): array {
-                unset($item['gross_cents'], $item['deductions_cents'], $item['net_cents'], $item['employer_cost_cents']);
-
-                return $item;
-            }, $data['items']);
-        } else {
-            // ADR-0024 requires P3 reads to be audited. Listing runs does not
-            // call the row-level field projection by itself, so resolve the
-            // field set per run; that path records field names (never values).
-            foreach ($this->runs->runsByIds(array_map(static fn (array $item): int => (int) $item['id'], $data['items'])) as $run) {
-                $this->moneyFields($principal, 'payroll.payslip.read', $run);
-            }
+        // Money visibility is decided PER RUN, never once per request: holding
+        // P3 on run A must not reveal run B's amounts. Resolving the field set
+        // per run also gives ADR-0024 its audited P3 read.
+        // ADR-0024: every row's payslip field set is resolved (audited, field
+        // names only), and the anchored check then decides whether THIS run's
+        // amounts may be returned.
+        $amountsByRunId = [];
+        foreach ($data['items'] as $item) {
+            $runId = (int) $item['id'];
+            $this->moneyFieldsForRunId($principal, 'payroll.payslip.read', $runId);
+            $amountsByRunId[$runId] = $this->canSeeRunAmounts($principal, $runId);
         }
+
+        $data['items'] = array_map(static function (array $item) use ($amountsByRunId): array {
+            if (($amountsByRunId[(int) $item['id']] ?? false) === true) {
+                return $item;
+            }
+
+            unset($item['gross_cents'], $item['deductions_cents'], $item['net_cents'], $item['employer_cost_cents']);
+
+            return $item;
+        }, $data['items']);
 
         return ApiResponse::ok($data);
     }
@@ -79,7 +86,10 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->runs->findRun($id);
 
-        return ApiResponse::ok($this->runs->runDetail($run, $this->canSeeAmounts($principal)));
+        // Same per-run rule as the list: P3 must be granted on THIS run.
+        $includeAmounts = $this->canSeeRunAmounts($principal, (int) $run->id);
+
+        return ApiResponse::ok($this->runs->runDetail($run, $includeAmounts));
     }
 
     public function employees(int $id): JsonResponse
@@ -98,16 +108,43 @@ final class PayrollRunController
         return ApiResponse::ok(ApiResponse::list($rows, 1, max(1, count($rows)), count($rows)));
     }
 
-    private function canSeeAmounts(\App\Modules\IAM\Contracts\Principal $principal): bool
+    /**
+     * P3 amount visibility for one specific run. A P3 grant on run A must not
+     * reveal run B, so the capability is evaluated against the run anchor
+     * rather than once per request.
+     */
+    private function canSeeRunAmounts(\App\Modules\IAM\Contracts\Principal $principal, int $runId): bool
     {
         try {
-            return $this->authorizer->permits(
+            return $this->authorizer->allows(
                 $principal,
                 'payroll.payslip.read',
-                $this->clock->now()->toDateString(),
+                AnchorRef::payrollRun($runId),
+                $this->businessDates->today()->value(),
             );
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    private function moneyFieldsForRunId(
+        \App\Modules\IAM\Contracts\Principal $principal,
+        string $capability,
+        int $runId,
+    ): FieldSet {
+        try {
+            return $this->authorizer->fields($principal, $capability, new ResourceRef(
+                resourceType: 'payslip',
+                id: $runId,
+                row: [],
+                payrollRunId: $runId,
+            ));
+        } catch (NotFoundOrForbiddenException) {
+            return new FieldSet([
+                'employment_id' => FieldProfile::P0_PUBLIC,
+                'status' => FieldProfile::P0_PUBLIC,
+                'failure_reason' => FieldProfile::P1_INTERNAL,
+            ]);
         }
     }
 

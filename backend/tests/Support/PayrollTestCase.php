@@ -66,6 +66,32 @@ abstract class PayrollTestCase extends TestCase
     /**
      * @return array{scheme: PayrollScheme, employment_id: int}
      */
+    /**
+     * The IAM provider binds a fake membership directory under `testing`, so a
+     * test that exercises run-scoped reads must declare its memberships. This
+     * mirrors the production rule: membership is the four lifecycle actors.
+     */
+    protected function registerRunMembership(\App\Modules\Payroll\Models\PayrollRun $run, int ...$userIds): void
+    {
+        /** @var \Tests\Fakes\FakePayrollRunMembershipDirectory $directory */
+        $directory = $this->app->make(\App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory::class);
+
+        $members = $userIds === [] ? [(int) $run->prepared_by] : $userIds;
+
+        foreach ($members as $userId) {
+            $directory->runsByUser[$userId] = array_values(array_unique([
+                ...($directory->runsByUser[$userId] ?? []),
+                (int) $run->id,
+            ]));
+            $directory->memberships[(int) $run->id] = array_values(array_unique([
+                ...($directory->memberships[(int) $run->id] ?? []),
+                'payroll.payslip.read',
+                'payroll.run.read',
+            ]));
+        }
+    }
+
+    /** @return array<string, mixed> */
     protected function seedPayrollBase(int $baseSalaryCents = 1_000_000): array
     {
         $employment = $this->scenario->employment('E0001', $baseSalaryCents);

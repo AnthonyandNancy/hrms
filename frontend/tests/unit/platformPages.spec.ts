@@ -526,6 +526,63 @@ describe('Wave 5 platform and business pages', () => {
     expect(retract, 'reader workspace must not offer retraction').toBeUndefined()
   })
 
+  it('archives and restores a notice from the workspace that hosts those actions', async () => {
+    const base = {
+      id: 51,
+      title: 'Synthetic archive notice',
+      summary: 'Synthetic body',
+      body: ['Synthetic body'],
+      status: 'PUBLISHED',
+      audience: 'ALL',
+      audienceLabel: '全体员工',
+      publishedAt: '2026-11-25T06:00:00Z',
+      retractedAt: null,
+      authorName: null,
+      requiresAck: false,
+      acknowledged: true,
+      acknowledgementCount: 1,
+      audienceCount: 5,
+    }
+
+    resource.get.mockImplementation((path: string) =>
+      path === '/v1/engagement/notices'
+        ? Promise.resolve([base])
+        : path === '/v1/org-units/tree'
+          ? Promise.resolve({ items: [] })
+          : Promise.resolve(base),
+    )
+    resource.post.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith('/archive')
+          ? { ...base, status: 'ARCHIVED' }
+          : { ...base, status: 'PUBLISHED' },
+      ),
+    )
+
+    const { wrapper } = await mountAt('notices/index', '/notices')
+    await flushPromises()
+
+    // V3-B5: the registered actions must have a reachable control here.
+    await wrapper.get('[data-testid="notice-archive-51"]').trigger('click')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/engagement/notices/51/archive',
+      { reason: expect.any(String) },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="notice-action-success"]').text()).toContain('已归档')
+
+    // Once archived, the same row offers restore instead of archive.
+    await wrapper.get('[data-testid="notice-restore-51"]').trigger('click')
+    await flushPromises()
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/engagement/notices/51/restore',
+      { reason: expect.any(String) },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="notice-action-success"]').text()).toContain('已恢复')
+  })
+
   it('updates user status with PATCH semantics and assigns a role using only validated fields', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/users') {

@@ -41,9 +41,16 @@ final class EmploymentContractService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function open(int $employmentId, array $data, int $actorUserId): array
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  (callable(array<string, mixed>): void)|null  $afterOpen
+     *                                                                  Invoked inside the same transaction so the contract row and its
+     *                                                                  creation version commit or roll back together.
+     * @return array<string, mixed>
+     */
+    public function open(int $employmentId, array $data, int $actorUserId, ?callable $afterOpen = null): array
     {
-        return DB::transaction(function () use ($employmentId, $data, $actorUserId): array {
+        return DB::transaction(function () use ($employmentId, $data, $actorUserId, $afterOpen): array {
             $current = EmploymentContract::query()
                 ->where('employment_id', $employmentId)
                 ->whereIn('status', ['ACTIVE', 'EXPIRING'])
@@ -83,7 +90,13 @@ final class EmploymentContractService
                 after: ['contract_no' => (string) $contract->contract_no, 'employment_id' => $employmentId],
             );
 
-            return $this->payload($contract);
+            $payload = $this->payload($contract);
+
+            if ($afterOpen !== null) {
+                $afterOpen($payload);
+            }
+
+            return $payload;
         });
     }
 

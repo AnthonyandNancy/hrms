@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import {
   acknowledgeNotice,
+  archiveNotice,
+  restoreNotice,
   audienceText,
   getNotice,
   listNotices,
@@ -28,6 +30,9 @@ const loading = ref(false)
 const loadError = ref<unknown>(null)
 const partialReason = ref('')
 const selected = ref<Notice | null>(null)
+const archivingId = ref<number | null>(null)
+const actionMessage = ref('')
+const actionError = ref('')
 const detailLoading = ref(false)
 const detailError = ref<string>('')
 const acknowledgingId = ref<number | null>(null)
@@ -66,6 +71,33 @@ async function load(): Promise<void> {
     loadError.value = reason
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Archiving and restoring are authoring actions, so they live in the same
+ * workspace that publishes notices — the page that hosts these actions must
+ * actually offer the controls (V3-B5).
+ */
+async function changeArchiveState(notice: Notice, archive: boolean): Promise<void> {
+  archivingId.value = notice.id
+  actionMessage.value = ''
+  actionError.value = ''
+
+  const reason = archive ? '公告工作台归档' : '公告工作台恢复'
+
+  try {
+    const updated = archive
+      ? await archiveNotice(notice.id, reason)
+      : await restoreNotice(notice.id, reason)
+
+    notices.value = notices.value.map((row) => (row.id === updated.id ? updated : row))
+    if (selected.value?.id === updated.id) selected.value = updated
+    actionMessage.value = archive ? '公告已归档。' : '公告已恢复。'
+  } catch (reason) {
+    actionError.value = errorCopy(reason)
+  } finally {
+    archivingId.value = null
   }
 }
 
@@ -167,6 +199,8 @@ void load()
       </div>
 
       <p v-if="successMessage" class="notice-success" role="status" data-testid="notice-list-success">{{ successMessage }}</p>
+      <p v-if="actionMessage" class="notice-success" role="status" data-testid="notice-action-success">{{ actionMessage }}</p>
+      <p v-if="actionError" class="notice-error" role="alert" data-testid="notice-action-error">{{ actionError }}</p>
 
       <LoadingState v-if="loading" :rows="6" label="正在加载公告" data-testid="notices-loading" />
 
@@ -221,6 +255,28 @@ void load()
                   @click="openDetail(notice)"
                 >
                   查看详情
+                </el-button>
+                <el-button
+                  v-if="canManage && notice.status !== 'ARCHIVED'"
+                  size="small"
+                  type="warning"
+                  plain
+                  :loading="archivingId === notice.id"
+                  :data-testid="`notice-archive-${notice.id}`"
+                  @click="changeArchiveState(notice, true)"
+                >
+                  归档
+                </el-button>
+                <el-button
+                  v-if="canManage && notice.status === 'ARCHIVED'"
+                  size="small"
+                  type="success"
+                  plain
+                  :loading="archivingId === notice.id"
+                  :data-testid="`notice-restore-${notice.id}`"
+                  @click="changeArchiveState(notice, false)"
+                >
+                  恢复
                 </el-button>
               </div>
             </article>

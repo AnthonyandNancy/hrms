@@ -6,6 +6,7 @@ import ElementPlus from 'element-plus'
 import type { Component } from 'vue'
 import { ApiError } from '@/api/errors'
 import { PAGE_REGISTRY } from '@/router/registry'
+import { useSessionStore } from '@/stores/session'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -33,9 +34,14 @@ async function talentPageComponent(key: string): Promise<Component> {
   return module.default as Component
 }
 
-async function mountWithRouter(key: string, path: string) {
+async function mountWithRouter(key: string, path: string, capabilities: string[] = []) {
   const pinia = createPinia()
   setActivePinia(pinia)
+
+  // Dedicated workspaces gate on the session capability set (Volume 3).
+  useSessionStore().capabilities = capabilities.length > 0
+    ? capabilities
+    : ['recruitment.candidate.read', 'recruitment.candidate.manage', 'recruitment.offer.manage']
   const routePattern = path.replace(/\/\d+(?=\/|$)/g, '/:id')
   const router = createRouter({
     history: createMemoryHistory(),
@@ -170,12 +176,15 @@ describe('Wave 4 talent domain components', () => {
     const wrapper = await mountWithRouter('recruitment/candidates/index', '/recruitment/candidates')
     await flushPromises()
 
+    // Volume 3 Task 14: the dedicated candidate workspace loads the same live
+    // endpoint but renders Chinese stage labels and never contact values.
     expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates', expect.any(Object))
     expect(wrapper.text()).toContain('Synthetic Candidate')
-    expect(wrapper.text()).toContain('NEW')
-    expect(wrapper.text()).toContain('已登记')
+    expect(wrapper.text()).toContain('新简历')
     expect(wrapper.text()).not.toContain('@')
-    expect(wrapper.get('[data-testid="talent-partial"]').text()).toContain('部分数据')
+    // The dedicated workspace names its own partial state when the requisition
+    // directory cannot be read under the current capabilities.
+    expect(wrapper.text()).toContain('部分数据')
   })
 
   it('filters the candidate detail page to the candidate id in the route', async () => {
@@ -187,7 +196,12 @@ describe('Wave 4 talent domain components', () => {
     const wrapper = await mountWithRouter('recruitment/candidates/by-id', '/recruitment/candidates/31')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/recruitment/candidates', { candidate_id: 31 })
+    // The dedicated detail page reads the candidate collection and selects the
+    // routed id client-side; page/page_size are part of that read.
+    expect(resource.get).toHaveBeenCalledWith(
+      '/v1/recruitment/candidates',
+      expect.objectContaining({ page: expect.any(Number), page_size: expect.any(Number) }),
+    )
     expect(wrapper.text()).toContain('Synthetic Candidate 31')
     expect(wrapper.text()).not.toContain('Synthetic Candidate 32')
   })

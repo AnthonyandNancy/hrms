@@ -14843,8 +14843,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @enum {string} */
-                    stage: "NEW" | "SCREENING" | "INTERVIEW" | "OFFER" | "HIRED" | "REJECTED";
+                    /**
+                     * @description Movable pipeline stage. HIRED is reached only through conversion, not by a manual move.
+                     * @enum {string}
+                     */
+                    status: "NEW" | "SCREENING" | "INTERVIEW" | "OFFER" | "OFFER_ACCEPTED" | "REJECTED";
                     reason?: string | null;
                 };
             };

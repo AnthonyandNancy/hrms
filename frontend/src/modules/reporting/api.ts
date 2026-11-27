@@ -807,6 +807,33 @@ export async function acknowledgeNotice(id: number): Promise<Notice> {
   return notice
 }
 
+/**
+ * Archive a notice. Terminal for readers: the notice leaves the active list but
+ * stays readable through the archived collection.
+ */
+export async function archiveNotice(id: number, reason: string): Promise<Notice> {
+  const raw = await resourcePost<unknown>(
+    `/v1/engagement/notices/${id}/archive`,
+    { reason },
+    { idempotencyKey: idempotencyKey('notice-archive') },
+  )
+  const notice = normaliseNotice(raw)
+  if (notice === null) throw new TypeError('公告归档接口未返回有效记录。')
+  return notice
+}
+
+/** Restore an archived notice to its previous status. */
+export async function restoreNotice(id: number, reason: string): Promise<Notice> {
+  const raw = await resourcePost<unknown>(
+    `/v1/engagement/notices/${id}/restore`,
+    { reason },
+    { idempotencyKey: idempotencyKey('notice-restore') },
+  )
+  const notice = normaliseNotice(raw)
+  if (notice === null) throw new TypeError('公告恢复接口未返回有效记录。')
+  return notice
+}
+
 export async function publishNotice(input: PublishNoticeInput): Promise<Notice> {
   const payload: RawRecord = {
     title: input.title,

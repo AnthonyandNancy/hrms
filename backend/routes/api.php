@@ -267,7 +267,7 @@ Route::prefix('employments/{employmentId}/contracts')->middleware('auth.session'
         ->name('employments.contracts.index');
     Route::post('/', [EmploymentContractController::class, 'store'])
         ->whereNumber('employmentId')
-        ->middleware(['mfa.enrolled', 'capability:people.contract.manage'])
+        ->middleware(['csrf.header', 'mfa.enrolled', 'capability:people.contract.manage'])
         ->name('employments.contracts.store');
     Route::get('/{id}', [EmploymentContractController::class, 'show'])
         ->whereNumber('employmentId')

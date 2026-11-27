@@ -266,4 +266,45 @@ final class PayrollWorkspaceTest extends PayrollTestCase
 
         return $approval->publish((int) $run->id, 13);
     }
+
+    /**
+     * V3-B1 regression: a member who holds P3 on run A but only P2 on run B must
+     * not receive run B's amounts from the list or from the detail endpoint.
+     */
+    public function test_p3_on_one_run_does_not_reveal_another_runs_amounts(): void
+    {
+        $base = $this->seedPayrollBase();
+        $membership = new FakePayrollRunMembershipDirectory;
+
+        $actor = User::factory()->create(['auth_version' => 1]);
+        $runs = app(PayrollRunService::class);
+        $runA = $runs->createRun((int) $actor->id, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-05']);
+        $runB = $runs->createRun((int) $actor->id, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-06']);
+
+        // Both runs: read access. Only run A carries the P3 payslip grant.
+        $this->bindRunCapability($actor, (int) $runA->id, 'payroll.run.read', FieldProfile::P2_SENSITIVE);
+        $this->bindRunCapability($actor, (int) $runA->id, 'payroll.payslip.read', FieldProfile::P3_RESTRICTED);
+        $this->bindRunCapability($actor, (int) $runB->id, 'payroll.run.read', FieldProfile::P2_SENSITIVE);
+
+        $membership->runsByUser[(int) $actor->id] = [(int) $runA->id, (int) $runB->id];
+        $membership->memberships[(int) $runA->id] = ['payroll.run.read', 'payroll.payslip.read'];
+        $membership->memberships[(int) $runB->id] = ['payroll.run.read'];
+
+        $this->useProductionAuthorization($membership);
+        $this->actAs((int) $actor->id);
+
+        /** @var array<int, array<string, mixed>> $items */
+        $items = $this->getJson('/v1/payroll/runs')->assertOk()->json('data.items');
+        $rows = [];
+        foreach ($items as $item) {
+            $rows[(int) $item['id']] = $item;
+        }
+
+        $this->assertArrayHasKey('gross_cents', $rows[(int) $runA->id], 'P3 run must expose amounts');
+        $this->assertArrayNotHasKey('gross_cents', $rows[(int) $runB->id], 'P2-only run must omit amounts');
+        $this->assertArrayNotHasKey('net_cents', $rows[(int) $runB->id], 'P2-only run must omit amounts');
+
+        $detailB = $this->getJson('/v1/payroll/runs/'.(int) $runB->id)->assertOk();
+        $this->assertArrayNotHasKey('gross_cents', $detailB->json('data'), 'P2-only run detail must omit amounts');
+    }
 }

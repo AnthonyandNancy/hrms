@@ -20,7 +20,8 @@ final class PayrollSensitiveReadAuditTest extends PayrollTestCase
     public function test_p3_run_list_records_field_access_audit(): void
     {
         $base = $this->seedPayrollBase();
-        $this->calculatedRun($base, '2026-07');
+        $run = $this->calculatedRun($base, '2026-07');
+        $this->registerRunMembership($run);
 
         /** @var AllowAllAuthorizer $authorizer */
         $authorizer = app(\App\Shared\Authorization\Authorizer::class);

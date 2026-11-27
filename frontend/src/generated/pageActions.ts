@@ -256,7 +256,7 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "capability": "engagement.notice.manage",
       "api": "POST /v1/engagement/notices/{notice}/restore",
       "ui": "secondary",
-      "confirm": "none",
+      "confirm": "danger",
       "anchorTypes": [
         "ORG_UNIT",
         "ORG_SUBTREE",

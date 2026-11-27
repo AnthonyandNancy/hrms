@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import TalentWorkspacePage from '../components/TalentWorkspacePage.vue'
-import { talentPageConfig } from '../catalog'
-
-const config = talentPageConfig('recruitment/candidates/pipeline')
-if (config === null) throw new Error('Missing Talent page config for recruitment/candidates/pipeline')
+// Volume 3 Task 14: the recruitment candidate workspace replaced this generic
+// shell. Kept as a thin re-export so the registry key stays stable.
+import CandidateWorkspacePage from '../recruiting/pages/CandidateWorkspacePage.vue'
 </script>
 
 <template>
-  <TalentWorkspacePage :config="config" />
+  <CandidateWorkspacePage />
 </template>
