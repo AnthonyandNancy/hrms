@@ -16,6 +16,7 @@ final class PeopleDirectoryFrozenSignatureTest extends TestCase
     {
         $expected = [
             'employmentForUser' => [['int'], '?int'],
+            'employmentIdByEmployeeNo' => [['string'], '?int'],
             'managedEmploymentIds' => [['int', 'string'], 'array'],
             'employmentIdsAsOf' => [['string'], 'array'],
             'employmentSnapshot' => [['int', 'string'], '?'.EmploymentSnapshot::class],

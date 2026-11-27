@@ -28,6 +28,7 @@
 | 324 | `GET` | `/v1/auth/mfa/status` | `iam.session.manage` | `SELF` | kernel | — |
 | 325 | `POST` | `/v1/auth/mfa/totp/disable` | `iam.session.manage` | `SELF` | kernel | — |
 | 326 | `GET` | `/v1/auth/sessions` | `iam.session.manage` | `SELF` | kernel | — |
+| 402 | `GET` | `/v1/auth/csrf` | `iam.session.manage` | `SELF` | kernel | — |
 | 327 | `DELETE` | `/v1/auth/sessions/{id}` | `iam.session.manage` | `SELF` | kernel | — |
 | 13 | `POST` | `/v1/auth/webauthn/assert/options` | `iam.session.manage` | `SELF` | legacy | E3 |
 | 14 | `POST` | `/v1/auth/webauthn/register/options` | `iam.session.manage` | `SELF` | legacy | E3 |

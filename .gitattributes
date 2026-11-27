@@ -1,0 +1,4 @@
+# Generated contracts must stay byte-stable across Windows and Unix checkouts.
+docs/generated/page-actions.json text eol=lf
+frontend/src/generated/pageActions.ts text eol=lf
+frontend/src/generated/api.ts text eol=lf

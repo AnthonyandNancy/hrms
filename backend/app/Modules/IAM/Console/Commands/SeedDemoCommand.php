@@ -90,8 +90,8 @@ final class SeedDemoCommand extends Command
                 $user->refresh();
             }
 
-            $employeeNo = $demoEmployments[$username] ?? null;
-            $employmentId = $employeeNo !== null ? $people->employmentIdByEmployeeNo($employeeNo) : null;
+            $employeeNo = $demoEmployments[$username];
+            $employmentId = $people->employmentIdByEmployeeNo($employeeNo);
             if ($employmentId !== null) {
                 // Stable start date makes repeated demo seeds idempotent while
                 // giving every synthetic operator a real self-service identity.

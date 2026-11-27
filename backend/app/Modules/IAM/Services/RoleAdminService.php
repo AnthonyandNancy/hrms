@@ -106,7 +106,11 @@ final class RoleAdminService
                 'field_profile' => (string) $grant->field_profile,
             ])->all();
 
-        $validated = $this->validateGrants($grants);
+        // A copy preserves the source role's authoring template. CASE and
+        // PAYROLL_RUN grants are intentionally unbound at the role layer; the
+        // concrete anchor is supplied later by AuthorityBinding. Requiring an
+        // anchor id here made every standard-role copy fail with a 422.
+        $validated = $this->validateGrants($grants, allowUnboundTemplateAnchors: true);
 
         return DB::transaction(function () use ($data, $code, $validated): array {
             /** @var Role $role */
@@ -274,7 +278,7 @@ final class RoleAdminService
      * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
      * @return list<array{capability: string, anchor_type: string, field_profile: string}>
      */
-    private function validateGrants(array $capabilities): array
+    private function validateGrants(array $capabilities, bool $allowUnboundTemplateAnchors = false): array
     {
         $validated = [];
         $seen = [];
@@ -316,7 +320,7 @@ final class RoleAdminService
             $anchorId = isset($row['anchor_id']) ? (int) $row['anchor_id'] : 0;
 
             if ($anchor->requiresAnchorId() && $anchor !== AnchorType::COMPANY) {
-                if ($anchorId < 1) {
+                if ($anchorId < 1 && ! $allowUnboundTemplateAnchors) {
                     throw new ValidationException(
                         ["capabilities.{$index}.anchor_id" => ['This capability anchor requires an anchor id.']],
                         'The given data was invalid.',
