@@ -117,6 +117,26 @@ final class PayrollRunController
      * every response that embeds a run summary, so a mutation response cannot
      * leak amounts that a read would hide (V3 NEW-P2).
      */
+    /**
+     * Drop run-level money keys from an embedded payload when the caller may not
+     * see amounts on this run.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function omitRunAmounts(array $payload, bool $visible): array
+    {
+        if ($visible) {
+            return $payload;
+        }
+
+        foreach (['gross_cents', 'deductions_cents', 'net_cents', 'employer_cost_cents'] as $key) {
+            unset($payload[$key]);
+        }
+
+        return $payload;
+    }
+
     private function amountsVisibleFor(\App\Modules\IAM\Contracts\Principal $principal, \App\Modules\Payroll\Models\PayrollRun $run): bool
     {
         $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
@@ -203,10 +223,16 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->runs->findRun($id);
         $result = $this->calculation->calculate($run, $principal->userId());
+        $refreshed = $this->runs->findRun($id);
+
+        // The calculation result carries run totals; strip them unless this
+        // principal may see amounts on THIS run (same rule as every other
+        // response that embeds a run).
+        $visible = $this->amountsVisibleFor($principal, $refreshed);
 
         return ApiResponse::ok([
-            ...$result,
-            'run' => $this->runs->runDetail($this->runs->findRun($id)),
+            ...$this->omitRunAmounts($result, $visible),
+            'run' => $this->runs->runDetail($refreshed, $visible),
         ]);
     }
 

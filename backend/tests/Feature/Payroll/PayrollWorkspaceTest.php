@@ -50,7 +50,10 @@ final class PayrollWorkspaceTest extends PayrollTestCase
         $calculated = $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/calculate')
             ->assertOk()
             ->assertJsonPath('data.run.status', 'CALCULATED');
-        $this->assertIsInt($calculated->json('data.run.gross_cents'));
+        // V3 NEW-P2: the calculator response must not leak amounts to a caller
+        // without a per-run P3 payslip grant.
+        $this->assertArrayNotHasKey('gross_cents', $calculated->json('data.run'));
+        $this->assertArrayNotHasKey('net_cents', $calculated->json('data.run'));
 
         $this->actAs(11);
         $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/review')
