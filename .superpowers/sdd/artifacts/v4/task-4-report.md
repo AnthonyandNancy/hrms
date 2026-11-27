@@ -61,7 +61,7 @@ Because the loader edit is not made this wave, the route is exercised by the uni
 ## Tests
 
 - `backend/tests/Feature/IAM/SelfServiceWorkspaceTest.php` (new, 4 tests / 41 assertions): own profile only; second user cannot read the first user's workspace even with `?employment_id`; tasks scoped to assignee; no-employee account gets an honest empty projection.
-- `frontend/tests/unit/SelfServicePage.spec.ts` (new, 9 tests): profile fields + 无权查看; task list + `/workflow/cases/88` link; missing payslip amount never becomes ¥0.00; capability-hidden entries and no task call; disabled entry with Chinese reason; loading; no-employment empty; forbidden; server error with request id; partial.
+- `frontend/tests/unit/SelfServicePage.spec.ts` (new, 10 tests): profile fields + 无权查看; task list with capability-only `/cases/88` fallback and granted `/workflow/cases/88` link; missing payslip amount never becomes ¥0.00; capability-hidden entries and no task call; disabled entry with Chinese reason; loading; no-employment empty; forbidden; server error with request id; partial.
 - `frontend/tests/e2e/real/self-service.spec.ts` (new, 1 test) — collected with `--list`. Real execution requires a seeded stack and `HRMS_DEMO_PASSWORD`; not run here.
 
 ## Gate evidence (real output)
@@ -78,12 +78,12 @@ Run from `backend` with `../.tools/php/php.exe -d memory_limit=1G`:
 
 Run from `frontend`:
 
-- `vitest run tests/unit/SelfServicePage.spec.ts` → **9 passed**.
+- `vitest run tests/unit/SelfServicePage.spec.ts` → **10 passed**.
 - `eslint src/modules/platform/self-service tests/unit/SelfServicePage.spec.ts tests/e2e/real/self-service.spec.ts` → **exit 0**.
 - `playwright test --config=playwright.real.config.ts --list tests/e2e/real/self-service.spec.ts` → **1 test collected**.
 - `pnpm typecheck` → fails on pre-existing/other-agent files: `src/modules/platform/api/settings.ts` (`whole`/`fraction` possibly undefined), `src/modules/platform/catalog.ts` (`NOTICE_DESCRIPTION` unused), `tests/unit/AccountSecurityPage.spec.ts` (`.exists` on `DOMWrapper`). None are self-service files; a temporary type probe of the new API/components compiled cleanly.
 - `pnpm lint` → fails only on `src/modules/platform/catalog.ts` `NOTICE_DESCRIPTION` (other agent's in-flight edit). Our files lint clean.
-- `pnpm test:unit` → **71 files passed / 596 tests passed; 1 failed**: `platformModulePages.spec.ts` — `account` key still expects the generic shell while `AccountSecurityPage.vue` is being rewritten by Task 2. Self-service spec passes in the same run.
+- `pnpm test:unit` → **70 files / 597 tests passed; 2 failed**: `platformModulePages.spec.ts` (`account` key still expects the generic shell while `AccountSecurityPage.vue` is being rewritten by Task 2) and a one-off `platformCatalog.spec.ts` dynamic-import timeout that passes when rerun alone. Self-service spec passes in the same run.
 
 ## Gaps / deviations
 
@@ -97,7 +97,7 @@ es reuse those existing workspaces; no ids are accepted from the self-service pa
 
 ## Commit
 
-`feat(platform): build the self-service portal` — explicit paths only:
+`feat(platform): build the self-service portal` (`b8662960b03149e8b34c88a3dddf6d801117181e`) — explicit paths only:
 `backend/app/Modules/IAM/Http/Controllers/WorkspaceController.php`,
 `backend/tests/Feature/IAM/SelfServiceWorkspaceTest.php`,
 `frontend/src/modules/platform/self-service/{api.ts,pages/SelfServicePage.vue,components/MyProfile.vue,components/MyTasks.vue}`,
