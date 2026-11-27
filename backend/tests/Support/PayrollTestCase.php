@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Modules\IAM\Auth\AuthenticationContext;
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollScheme;
+use App\Modules\Payroll\Models\StatutoryParameter;
+use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
+use App\Shared\Auth\AuthenticatedPrincipal;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Fakes\FakePayrollRunMembershipDirectory;
 use Tests\TestCase;
 
 /**
@@ -54,10 +61,10 @@ abstract class PayrollTestCase extends TestCase
     {
         $principal = new TestPrincipal($userId, $employmentId, mfa: $mfa);
         $this->app->instance(Principal::class, $principal);
-        $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
+        $this->app->instance(AuthenticatedPrincipal::class, $principal);
 
-        if ($this->app->bound(\App\Modules\IAM\Auth\AuthenticationContext::class)) {
-            $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+        if ($this->app->bound(AuthenticationContext::class)) {
+            $this->app->make(AuthenticationContext::class)->set($principal);
         }
 
         return $principal;
@@ -71,10 +78,10 @@ abstract class PayrollTestCase extends TestCase
      * test that exercises run-scoped reads must declare its memberships. This
      * mirrors the production rule: membership is the four lifecycle actors.
      */
-    protected function registerRunMembership(\App\Modules\Payroll\Models\PayrollRun $run, int ...$userIds): void
+    protected function registerRunMembership(PayrollRun $run, int ...$userIds): void
     {
-        /** @var \Tests\Fakes\FakePayrollRunMembershipDirectory $directory */
-        $directory = $this->app->make(\App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory::class);
+        /** @var FakePayrollRunMembershipDirectory $directory */
+        $directory = $this->app->make(PayrollRunMembershipDirectory::class);
 
         $members = $userIds === [] ? [(int) $run->prepared_by] : $userIds;
 
@@ -89,6 +96,10 @@ abstract class PayrollTestCase extends TestCase
                 'payroll.run.read',
             ]));
         }
+
+        // PayrollRunService is a singleton and may have captured the previous
+        // directory instance when fixtures were built.
+        $this->app->forgetInstance(PayrollRunService::class);
     }
 
     /** @return array<string, mixed> */
@@ -97,7 +108,7 @@ abstract class PayrollTestCase extends TestCase
         $employment = $this->scenario->employment('E0001', $baseSalaryCents);
         $scheme = $this->scenario->scheme();
 
-        if (\App\Modules\Payroll\Models\StatutoryParameter::query()->exists()) {
+        if (StatutoryParameter::query()->exists()) {
             return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
         }
 
@@ -140,11 +151,11 @@ abstract class PayrollTestCase extends TestCase
         return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
     }
 
-    protected function payrollRun(int $schemeId, string $period = '2026-01'): \App\Modules\Payroll\Models\PayrollRun
+    protected function payrollRun(int $schemeId, string $period = '2026-01'): PayrollRun
     {
         $start = $period.'-01';
 
-        return \App\Modules\Payroll\Models\PayrollRun::query()->create([
+        return PayrollRun::query()->create([
             'scheme_id' => $schemeId,
             'period' => $period,
             'earning_period_start' => $start,
