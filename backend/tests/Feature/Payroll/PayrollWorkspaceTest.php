@@ -71,6 +71,13 @@ final class PayrollWorkspaceTest extends PayrollTestCase
         // membership from the recorded lifecycle actors, so mirror that for the
         // publisher before listing.
         $this->allowRunMembership();
+
+        // Amounts are only returned to a P3 payslip reader; assert that path
+        // explicitly so this case still verifies the arithmetic.
+        /** @var AllowAllAuthorizer $authorizer */
+        $authorizer = app(Authorizer::class);
+        $authorizer->fieldProfiles['payroll.payslip.read'] = FieldProfile::P3_RESTRICTED;
+
         $list = $this->getJson('/v1/payroll/runs')->assertOk();
         /** @var array<string, mixed>|null $item */
         $item = null;

@@ -157,6 +157,7 @@ final class RecruitmentController
 
         $data = $request->validate([
             'requisition_id' => ['nullable', 'integer', 'min:1'],
+            'candidate_id' => ['nullable', 'integer', 'min:1'],
             'status' => ['nullable', 'string', 'max:24'],
             'search' => ['nullable', 'string', 'max:120'],
             'page' => ['nullable', 'integer', 'min:1'],
@@ -181,6 +182,9 @@ final class RecruitmentController
         }
 
         $query = Candidate::query()
+            // Direct id lookup so a detail view never depends on the candidate
+            // being inside the first page of the collection.
+            ->when(isset($data['candidate_id']), fn ($builder) => $builder->whereKey((int) $data['candidate_id']))
             ->when($candidateIdsForRequisition !== null, fn ($builder) => $builder->whereIn('id', $candidateIdsForRequisition === [] ? [-1] : $candidateIdsForRequisition))
             ->when(isset($data['status']) && $data['status'] !== '', fn ($builder) => $builder->where('status', (string) $data['status']))
             ->when(isset($data['search']) && trim((string) $data['search']) !== '', fn ($builder) => $builder->where('display_name', 'like', '%'.trim((string) $data['search']).'%'))

@@ -203,6 +203,13 @@ final class NoticeGovernanceTest extends PeopleTestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $noticeId);
 
+        // V3-B5: the manager view must still list the archived notice, otherwise
+        // the restore control disappears on reload and restore is unreachable.
+        $managed = $this->getJson('/v1/engagement/notices?filter=managed')
+            ->assertOk();
+        $managedIds = array_column($managed->json('data') ?? [], 'id');
+        $this->assertContains($noticeId, $managedIds, 'managed view must include archived notices');
+
         $this->postJson("/v1/engagement/notices/{$noticeId}/restore", [], ['Idempotency-Key' => 'notice-restore'])
             ->assertOk()
             ->assertJsonPath('data.status', 'PUBLISHED');

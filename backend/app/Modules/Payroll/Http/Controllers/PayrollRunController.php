@@ -12,7 +12,6 @@ use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\ReconciliationService;
 use App\Modules\Payroll\Services\ReopenService;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
@@ -64,8 +63,11 @@ final class PayrollRunController
         $amountsByRunId = [];
         foreach ($data['items'] as $item) {
             $runId = (int) $item['id'];
-            $this->moneyFieldsForRunId($principal, 'payroll.payslip.read', $runId);
-            $amountsByRunId[$runId] = $this->canSeeRunAmounts($principal, $runId);
+            $fields = $this->moneyFieldsForRunId($principal, 'payroll.payslip.read', $runId);
+            // The field set already applies the binding's profile ceiling (a P2
+            // payslip grant hides P3 money), so visibility comes from it rather
+            // than from capability presence alone.
+            $amountsByRunId[$runId] = $fields->isVisible('gross') && $fields->isVisible('net');
         }
 
         $data['items'] = array_map(static function (array $item) use ($amountsByRunId): array {
@@ -86,8 +88,10 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->runs->findRun($id);
 
-        // Same per-run rule as the list: P3 must be granted on THIS run.
-        $includeAmounts = $this->canSeeRunAmounts($principal, (int) $run->id);
+        // Same per-run rule as the list: the run's own field set decides, which
+        // enforces both the anchor and the profile ceiling.
+        $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
+        $includeAmounts = $fields->isVisible('gross') && $fields->isVisible('net');
 
         return ApiResponse::ok($this->runs->runDetail($run, $includeAmounts));
     }
@@ -109,22 +113,15 @@ final class PayrollRunController
     }
 
     /**
-     * P3 amount visibility for one specific run. A P3 grant on run A must not
-     * reveal run B, so the capability is evaluated against the run anchor
-     * rather than once per request.
+     * Whether this run's amounts may be returned to this principal. Used by
+     * every response that embeds a run summary, so a mutation response cannot
+     * leak amounts that a read would hide (V3 NEW-P2).
      */
-    private function canSeeRunAmounts(\App\Modules\IAM\Contracts\Principal $principal, int $runId): bool
+    private function amountsVisibleFor(\App\Modules\IAM\Contracts\Principal $principal, \App\Modules\Payroll\Models\PayrollRun $run): bool
     {
-        try {
-            return $this->authorizer->allows(
-                $principal,
-                'payroll.payslip.read',
-                AnchorRef::payrollRun($runId),
-                $this->businessDates->today()->value(),
-            );
-        } catch (\Throwable) {
-            return false;
-        }
+        $fields = $this->moneyFields($principal, 'payroll.payslip.read', $run);
+
+        return $fields->isVisible('gross') && $fields->isVisible('net');
     }
 
     private function moneyFieldsForRunId(
@@ -190,7 +187,7 @@ final class PayrollRunController
 
         $run = $this->runs->createRun($principal->userId(), $data);
 
-        return ApiResponse::created($this->runs->runDetail($run));
+        return ApiResponse::created($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function lockInputs(int $id): JsonResponse
@@ -198,7 +195,7 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->runs->lockInputs($id, $principal->userId());
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function calculate(int $id): JsonResponse
@@ -219,7 +216,7 @@ final class PayrollRunController
         $data = $request->validate(['comment' => ['nullable', 'string', 'max:1000']]);
         $run = $this->approval->review($id, $principal->userId(), (string) ($data['comment'] ?? ''));
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function approve(Request $request, int $id): JsonResponse
@@ -228,7 +225,7 @@ final class PayrollRunController
         $data = $request->validate(['comment' => ['nullable', 'string', 'max:1000']]);
         $run = $this->approval->approve($id, $principal->userId(), (string) ($data['comment'] ?? ''));
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function publish(Request $request, int $id): JsonResponse
@@ -237,7 +234,7 @@ final class PayrollRunController
         $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
         $run = $this->approval->publish($id, $principal->userId(), (string) ($data['reason'] ?? ''));
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function markPaid(Request $request, int $id): JsonResponse
@@ -254,7 +251,7 @@ final class PayrollRunController
             (string) ($data['manual_confirmation_reason'] ?? ''),
         );
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function close(int $id): JsonResponse
@@ -262,7 +259,7 @@ final class PayrollRunController
         $principal = $this->principals->resolve();
         $run = $this->approval->close($id, $principal->userId());
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function cancel(Request $request, int $id): JsonResponse
@@ -271,7 +268,7 @@ final class PayrollRunController
         $data = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:1000']]);
         $run = $this->approval->cancel($id, $principal->userId(), (string) $data['reason']);
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function reopen(Request $request, int $id): JsonResponse
@@ -289,7 +286,7 @@ final class PayrollRunController
             (string) $data['reason'],
         );
 
-        return ApiResponse::ok($this->runs->runDetail($run));
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function correction(Request $request, int $id): JsonResponse
@@ -307,7 +304,7 @@ final class PayrollRunController
             (string) $data['reason'],
         );
 
-        return ApiResponse::created($this->runs->runDetail($run));
+        return ApiResponse::created($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
     public function reconciliation(int $id): JsonResponse

@@ -14783,7 +14783,15 @@ export interface operations {
     };
     recruitmentCandidatesIndex: {
         parameters: {
-            query?: never;
+            query?: {
+                requisition_id?: number;
+                /** @description Direct id lookup for the candidate detail route. */
+                candidate_id?: number;
+                status?: string;
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14830,7 +14838,10 @@ export interface operations {
     };
     moveCandidateStage: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Direct id lookup for the candidate detail route. */
+                candidate_id?: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfToken"];
                 "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
@@ -15049,8 +15060,10 @@ export interface operations {
                     title?: string;
                     headcount?: number;
                     org_unit_id?: number;
-                    /** @enum {string} */
-                    status?: "DRAFT" | "OPEN" | "PAUSED" | "CLOSED";
+                    budget_minor?: number | null;
+                    budget_currency?: string | null;
+                    /** Format: date */
+                    target_start_date?: string | null;
                 };
             };
         };

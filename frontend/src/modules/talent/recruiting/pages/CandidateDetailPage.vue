@@ -113,7 +113,9 @@ async function load(): Promise<void> {
   offerError.value = ''
   orgError.value = ''
 
-  const candidateRead = listCandidates({}, 1, 100)
+  // Ask the server for exactly this candidate: a detail view must not depend
+  // on the candidate falling inside the first page of the collection.
+  const candidateRead = listCandidates({ candidateId: candidateId.value }, 1, 1)
   const interviewRead = listInterviews(candidateId.value)
   const offerRead = canSeeOffers.value
     ? listOffers(candidateId.value)

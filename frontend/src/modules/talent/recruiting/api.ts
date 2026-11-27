@@ -106,6 +106,8 @@ export type Candidate = {
 }
 
 export type CandidateFilters = {
+  /** Direct id lookup, used by the candidate detail route. */
+  candidateId?: number
   requisitionId?: number | null
   status?: string
   search?: string
@@ -447,6 +449,7 @@ export async function listCandidates(
 ): Promise<ListResult<Candidate>> {
   const raw = await resourceGet<unknown>('/v1/recruitment/candidates', {
     requisition_id: filters.requisitionId ?? undefined,
+    candidate_id: filters.candidateId ?? undefined,
     status: filters.status || undefined,
     search: filters.search || undefined,
     page,

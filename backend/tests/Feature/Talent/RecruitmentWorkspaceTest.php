@@ -404,4 +404,33 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
 
         return $candidate;
     }
+
+    /**
+     * NEW-P3 regression: a candidate beyond the first page must still be
+     * reachable by id, so the detail route never depends on page position.
+     */
+    public function test_candidate_detail_lookup_by_id_works_beyond_the_first_page(): void
+    {
+        $target = null;
+
+        for ($i = 0; $i < 105; $i++) {
+            $candidate = Candidate::query()->create([
+                'display_name' => '合成候选人 '.$i,
+                'status' => 'NEW',
+                'recorded_at' => $this->clock->now(),
+            ]);
+
+            $target = $candidate->getKey();
+        }
+
+        $this->assertNotNull($target);
+
+        $firstPage = $this->getJson('/v1/recruitment/workspace/candidates?page=1&page_size=100')->assertOk();
+        $firstPageIds = array_column($firstPage->json('data.items'), 'candidate_id');
+        $this->assertNotContains($target, $firstPageIds, 'the target must be outside the first page');
+
+        $found = $this->getJson('/v1/recruitment/workspace/candidates?candidate_id='.$target)->assertOk();
+        $this->assertSame(1, $found->json('data.total'));
+        $this->assertSame((int) $target, (int) $found->json('data.items.0.candidate_id'));
+    }
 }

@@ -110,6 +110,9 @@ final class NoticeService
                 Notice::STATUS_REJECTED,
                 Notice::STATUS_PUBLISHED,
                 Notice::STATUS_RETRACTED,
+                // Managers must still see archived notices: restore is an
+                // authoring action on exactly those rows (V3-B5).
+                Notice::STATUS_ARCHIVED,
             ]))
             ->orderByDesc('publish_at')
             ->orderByDesc('id');
