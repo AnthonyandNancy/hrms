@@ -48,13 +48,13 @@ final class WorkspaceController
             ?? $this->people->employmentForUser($principal->userId());
 
         if ($employmentId === null) {
-            return ApiResponse::ok($this->emptyProjection($principal->userId()));
+            return ApiResponse::ok($this->emptyProjection());
         }
 
         $profile = $this->profiles->profile($employmentId, $asOf);
 
         if ($profile === null) {
-            return ApiResponse::ok($this->emptyProjection($principal->userId()));
+            return ApiResponse::ok($this->emptyProjection());
         }
 
         $month = $this->clock->now()
@@ -100,15 +100,15 @@ final class WorkspaceController
     /**
      * @return array<string, mixed>
      */
-    private function emptyProjection(int $userId): array
+    private function emptyProjection(): array
     {
         return [
             'employment_linked' => false,
             'profile' => [
                 'employmentId' => null,
                 'employeeNo' => '',
-                'name' => 'User '.$userId,
-                'initials' => 'U',
+                'name' => '',
+                'initials' => '—',
                 'jobTitle' => null,
                 'orgName' => null,
                 'managerName' => null,
