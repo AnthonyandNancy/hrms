@@ -156,4 +156,15 @@ talentPages.spec.ts
 - The test database is SQLite in memory; the contract rollback probe therefore
   proves Laravel transaction semantics on SQLite, not MySQL-specific behavior.
 
-VERDICT: BLOCKERS_REMAIN — NEW-P1 payroll P2 field-profile disclosure; V3-B5 restore not durably reachable; V3-B4-R1 updateRequisition documents an ignored status field; NEW-P2 amount-bearing mutation responses; NEW-P3 candidate detail first-100 limit.
+## Working-tree drift after verification
+
+After the gate runs and the first report commit, a concurrent process left four
+tracked files modified in the worktree: `NoticeService.php`,
+`NoticeGovernanceTest.php`, `docs/openapi/openapi.yaml` and
+`frontend/src/generated/api.ts`. Those uncommitted edits appear to add archived
+notices to the managed list (B5) and remove the ignored requisition `status`
+from OpenAPI (B4-R1), but they are **not part of commit `3352259`**, were not
+present for the gate runs above, and were not re-run through the gates. This
+report therefore judges `3352259` and the tree as it stood during verification.
+
+VERDICT: BLOCKERS_REMAIN — NEW-P1 payroll P2 field-profile disclosure; V3-B5 restore not durably reachable in `3352259`; V3-B4-R1 updateRequisition documents an ignored status field in `3352259`; NEW-P2 amount-bearing mutation responses; NEW-P3 candidate detail first-100 limit.
