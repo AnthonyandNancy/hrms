@@ -23,7 +23,17 @@ final class EmploymentContract extends Model
 
     public const TYPES = ['FIXED_TERM', 'OPEN_ENDED', 'INTERNSHIP', 'CONSULTANT'];
 
-    public const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRING', 'RENEWED', 'TERMINATED', 'ARCHIVED'];
+    /**
+     * Stored lifecycle states plus EXPIRED, which is the effective state for a
+     * past end date and is accepted by the ledger filter. Expiry is derived
+     * from the company business date, never from the browser clock.
+     */
+    public const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRING', 'EXPIRED', 'RENEWED', 'TERMINATED', 'ARCHIVED'];
+
+    /** States that may be amended, terminated, or used as a renewal source. */
+    public const OPERATIONAL_STATUSES = ['ACTIVE', 'EXPIRING'];
+
+    public const EXPIRY_WINDOW_DAYS = 60;
 
     protected $table = 'employment_contracts';
 
@@ -42,6 +52,8 @@ final class EmploymentContract extends Model
         'renewed_by_id',
         'template_id',
         'terms_summary',
+        'work_location',
+        'probation_end_date',
         'recorded_at',
         'source_type',
         'source_id',

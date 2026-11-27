@@ -3657,6 +3657,53 @@ components:
           items:
             type: object
             additionalProperties: true
+    CompanyProfile:
+      type: object
+      required: [name, country_code, timezone, currency_code]
+      properties:
+        name: { type: string, maxLength: 160 }
+        country_code: { type: string, minLength: 2, maxLength: 2 }
+        timezone: { type: string }
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+        calendar_policy:
+          type: [object, "null"]
+          additionalProperties: true
+    CompanyProfileUpdateRequest:
+      type: object
+      required: [name, country_code, timezone, currency_code]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        country_code: { type: string, minLength: 2, maxLength: 2 }
+        timezone: { type: string, maxLength: 64 }
+        currency_code: { type: string, minLength: 3, maxLength: 3 }
+    AuditExportRequest:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+            enum: [event_type, result, user_id, request_id, occurred_at]
+        actor: { type: string, maxLength: 32 }
+        action: { type: string, maxLength: 64 }
+        result: { type: string, maxLength: 16 }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+    AuditExportResult:
+      type: object
+      required: [fields, rows]
+      properties:
+        fields:
+          type: array
+          items: { type: string }
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     AuthEvent:
       type: object
       required:
@@ -7112,6 +7159,1185 @@ paths:
           $ref: "#/components/responses/Forbidden"
       x-capability: iam.session.manage
       x-action-label: 撤销紧急授权
+  /v1/system/company-profile:
+    get:
+      operationId: getCompanyProfile
+      tags:
+        - Platform Governance
+      summary: Read the single company profile
+      responses:
+        "200":
+          description: Company profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CompanyProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.settings.manage
+    patch:
+      operationId: updateCompanyProfile
+      tags:
+        - Platform Governance
+      summary: Update the single company profile
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyProfileUpdateRequest"
+      responses:
+        "200":
+          description: Company profile updated and audited
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CompanyProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: system.settings.manage
+      x-action-label: 保存公司资料
+  /v1/audit/events:
+    get:
+      operationId: listAuditEvents
+      tags:
+        - IAM Administration
+      summary: Server-side filtered security audit events
+      parameters:
+        - name: actor
+          in: query
+          schema: { type: string, maxLength: 32 }
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 64 }
+        - name: result
+          in: query
+          schema: { type: string, maxLength: 16 }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Filtered security events
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthEventPage"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.audit.read
+  /v1/audit/events/export:
+    post:
+      operationId: exportAuditEvents
+      tags:
+        - IAM Administration
+      summary: Export allow-listed security audit fields
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditExportRequest"
+      responses:
+        "200":
+          description: Allow-listed audit export
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuditExportResult"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: iam.audit.read
+      x-action-label: 导出安全审计
+  /v1/time/shifts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateShift
+      tags:
+        - Platform Governance
+      summary: 发布班次新版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 发布班次新版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.shift.manage
+      x-action-label: 发布班次新版本
+  /v1/time/shifts/{id}/disable:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: disableShift
+      tags:
+        - Platform Governance
+      summary: 停用班次
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 停用班次
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.shift.manage
+      x-action-label: 停用班次
+  /v1/time/leave/types/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateLeaveType
+      tags:
+        - Platform Governance
+      summary: 修改假期类型
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 修改假期类型
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.type.manage
+      x-action-label: 修改假期类型
+  /v1/time/leave/policies/{id}/retire:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: retireLeavePolicyVersion
+      tags:
+        - Platform Governance
+      summary: 停用假期规则版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 停用假期规则版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.policy.manage
+      x-action-label: 停用假期规则版本
+  /v1/time/leave/requests/on-behalf:
+    post:
+      operationId: createLeaveRequestOnBehalf
+      tags:
+        - Platform Governance
+      summary: 代员工提交请假
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 代员工提交请假
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.request.on-behalf
+      x-action-label: 代员工提交请假
+  /v1/time/leave/requests/{caseId}/revoke:
+    parameters:
+      - name: caseId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: revokeLeaveRequest
+      tags:
+        - Platform Governance
+      summary: 撤销已批假期
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 撤销已批假期
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.admin
+      x-action-label: 撤销已批假期
+  /v1/time/overtime/policies/{id}/retire:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: retireOvertimePolicyVersion
+      tags:
+        - Platform Governance
+      summary: 停用加班政策版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 停用加班政策版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.manage
+      x-action-label: 停用加班政策版本
+  /v1/travel/requests/{id}/change:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: changeTravelRequest
+      tags:
+        - Platform Governance
+      summary: 提交出差变更
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 提交出差变更
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.request
+      x-action-label: 提交出差变更
+  /v1/payroll/items/{id}/versions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: createPayrollItemVersion
+      tags:
+        - Platform Governance
+      summary: 发布薪资项目新版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 发布薪资项目新版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 发布薪资项目新版本
+  /v1/payroll/items/{id}/retire:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: retirePayrollItem
+      tags:
+        - Platform Governance
+      summary: 停用薪资项目
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 停用薪资项目
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 停用薪资项目
+  /v1/recruitment/candidates/{id}/applications:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: createCandidateApplication
+      tags:
+        - Platform Governance
+      summary: 新增应聘申请
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 新增应聘申请
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: recruitment.candidate.manage
+      x-action-label: 新增应聘申请
+  /v1/training/programs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateTrainingProgram
+      tags:
+        - Platform Governance
+      summary: 修改培训项目
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 修改培训项目
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.program.manage
+      x-action-label: 修改培训项目
+  /v1/training/courses/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateTrainingCourse
+      tags:
+        - Platform Governance
+      summary: 修改培训课程
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 修改培训课程
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.course.manage
+      x-action-label: 修改培训课程
+  /v1/training/sessions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    patch:
+      operationId: updateTrainingSession
+      tags:
+        - Platform Governance
+      summary: 修改培训场次
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 修改培训场次
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.session.manage
+      x-action-label: 修改培训场次
+  /v1/training/enrollments/{id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: cancelTrainingEnrollment
+      tags:
+        - Platform Governance
+      summary: 取消培训报名
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 取消培训报名
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.enrollment.manage
+      x-action-label: 取消培训报名
+  /v1/engagement/notices/{notice}/remind:
+    parameters:
+      - name: notice
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    post:
+      operationId: remindNotice
+      tags:
+        - Platform Governance
+      summary: 催阅公告
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: 催阅公告
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+      x-action-label: 催阅公告
+  /v1/engagement/notices/audience-preview:
+    post:
+      operationId: previewNoticeAudience
+      tags:
+        - Platform Governance
+      summary: 预览公告受众
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: 预览公告受众
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: engagement.notice.manage
+      x-action-label: 预览公告受众
+  /v1/time/attendance/records:
+    get:
+      operationId: listAttendanceRecords
+      tags:
+        - Reporting
+      summary: 考勤明细
+      responses:
+        "200":
+          description: 考勤明细
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.read
+  /v1/time/punches:
+    get:
+      operationId: listRawPunches
+      tags:
+        - Reporting
+      summary: 原始打卡记录
+      responses:
+        "200":
+          description: 原始打卡记录
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.punch.read
+  /v1/time/attendance/records/export:
+    get:
+      operationId: exportAttendanceRecords
+      tags:
+        - Reporting
+      summary: 导出考勤明细
+      responses:
+        "200":
+          description: 导出考勤明细
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.attendance.export
+  /v1/time/leave/reports/summary:
+    get:
+      operationId: leaveReportSummary
+      tags:
+        - Reporting
+      summary: 假期汇总
+      responses:
+        "200":
+          description: 假期汇总
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.read
+  /v1/time/overtime/settlements:
+    get:
+      operationId: listOvertimeSettlements
+      tags:
+        - Reporting
+      summary: 加班结算记录
+      responses:
+        "200":
+          description: 加班结算记录
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.read
+  /v1/travel/reports/summary:
+    get:
+      operationId: travelReportSummary
+      tags:
+        - Reporting
+      summary: 出差汇总
+      responses:
+        "200":
+          description: 出差汇总
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.travel.read
+  /v1/payroll/reports/summary:
+    get:
+      operationId: payrollReportSummary
+      tags:
+        - Reporting
+      summary: 薪资汇总报表
+      responses:
+        "200":
+          description: 薪资汇总报表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.report.read
   /v1/auth/events:
     get:
       operationId: listAuthEvents
@@ -9267,6 +10493,93 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: people.employee.read
+  /v1/employee-imports:
+    get:
+      tags:
+        - People
+      operationId: listEmployeeImportBatches
+      summary: List company-level employee import batches
+      description: Requires capability `people.employee.manage` at COMPANY. Only persisted batches are returned; the endpoint never invents validation counts.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Employee import batch page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: "#/components/schemas/Pagination"
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: "#/components/schemas/EmployeeImportBatch"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+  /v1/employees/export:
+    get:
+      tags:
+        - People
+      operationId: exportEmployees
+      summary: Export the scoped employee projection as CSV
+      description: Requires capability `people.employee.export`. Columns are a fixed non-sensitive whitelist; client field expansion is rejected.
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: org_unit_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Employee CSV export
+          content:
+            text/csv:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.export
   /v1/employees/onboard:
     post:
       operationId: onboardEmployee
@@ -9433,6 +10746,66 @@ paths:
                     - integer
                     - "null"
   /v1/employees/{employmentId}/certificates/{id}:
+    delete:
+      operationId: retireEmployeeCertificates
+      tags:
+        - People
+      summary: Retire a versioned employee certificates row
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - effective_from
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Row retired without deleting history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 退役证照
     patch:
       operationId: updateEmployeeCertificates
       tags:
@@ -9810,6 +11183,66 @@ paths:
                 is_primary:
                   type: boolean
   /v1/employees/{employmentId}/contacts/{id}:
+    delete:
+      operationId: retireEmployeeContacts
+      tags:
+        - People
+      summary: Retire a versioned employee contacts row
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - effective_from
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Row retired without deleting history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 退役联系人
     patch:
       operationId: updateEmployeeContacts
       tags:
@@ -9990,6 +11423,66 @@ paths:
                     - string
                     - "null"
   /v1/employees/{employmentId}/education/{id}:
+    delete:
+      operationId: retireEmployeeEducation
+      tags:
+        - People
+      summary: Retire a versioned employee education row
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - effective_from
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Row retired without deleting history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 退役教育经历
     patch:
       operationId: updateEmployeeEducation
       tags:
@@ -10174,6 +11667,66 @@ paths:
                     - string
                     - "null"
   /v1/employees/{employmentId}/experiences/{id}:
+    delete:
+      operationId: retireEmployeeExperiences
+      tags:
+        - People
+      summary: Retire a versioned employee experiences row
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+                - effective_from
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                effective_from:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: Row retired without deleting history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.employee.manage
+      x-action-label: 退役工作经历
     patch:
       operationId: updateEmployeeExperiences
       tags:
@@ -10248,162 +11801,6 @@ paths:
                   type:
                     - string
                     - "null"
-  /v1/employees/{employmentId}/imports:
-    get:
-      operationId: listEmployeeImports
-      tags:
-        - People
-      summary: List employee imports
-      responses:
-        "200":
-          description: Employee imports rows
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        allOf:
-                          - $ref: "#/components/schemas/Pagination"
-                          - type: object
-                            properties:
-                              items:
-                                type: array
-                                items:
-                                  $ref: "#/components/schemas/EmployeeImportBatch"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.read
-      parameters:
-        - name: employmentId
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-    post:
-      operationId: createEmployeeImports
-      tags:
-        - People
-      summary: Create employee imports
-      responses:
-        "201":
-          description: Employee imports row created
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/EmployeeImportBatch"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationFailed"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.manage
-      x-action-label: 导入员工资料
-      parameters:
-        - name: employmentId
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - original_name
-              properties:
-                original_name:
-                  type: string
-                total_rows:
-                  type: integer
-                  minimum: 0
-                errors:
-                  type: array
-                  items: {}
-  /v1/employees/{employmentId}/imports/{id}:
-    patch:
-      operationId: updateEmployeeImports
-      tags:
-        - People
-      summary: Version an employee imports row
-      responses:
-        "200":
-          description: Employee imports row versioned
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/EmployeeImportBatch"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationFailed"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.manage
-      x-action-label: 更新导入记录
-      parameters:
-        - name: employmentId
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - original_name
-              properties:
-                original_name:
-                  type: string
-                total_rows:
-                  type: integer
-                  minimum: 0
-                errors:
-                  type: array
-                  items: {}
   /v1/employees/{employment_id}:
     get:
       tags:
@@ -15219,6 +16616,7 @@ paths:
       tags:
         - Organization
       summary: List effective-dated positions with occupancy and vacancies
+      description: Server-side catalogue query. Filters, count and paging are applied after the caller's org row scope; `partial` is always false for this live projection.
       responses:
         "200":
           description: Position rows
@@ -15256,6 +16654,35 @@ paths:
           schema:
             type: string
             maxLength: 160
+        - name: org_unit_id
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, DISABLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [code, code_desc, title, level]
+            default: code
     post:
       operationId: createPosition
       tags:
@@ -15286,7 +16713,7 @@ paths:
       x-capability: org.position.manage
       x-action-label: 新增岗位
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:
@@ -15478,6 +16905,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+        - $ref: "#/components/parameters/AsOf"
     patch:
       operationId: updatePosition
       tags:
@@ -15516,7 +16944,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:
@@ -15727,7 +17155,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: recruitment.board.read
+      x-capability: recruitment.requisition.read
   /v1/recruitment/budget:
     get:
       operationId: recruitmentBudget
@@ -15766,7 +17194,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: recruitment.budget.read
+      x-capability: recruitment.requisition.read
   /v1/recruitment/reports:
     get:
       operationId: recruitmentReports
@@ -15805,7 +17233,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: recruitment.board.read
+      x-capability: recruitment.requisition.read
   /v1/recruitment/candidates/imports:
     post:
       operationId: recruitmentCandidatesImport
@@ -19092,6 +20520,46 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.ledger.read
   /v1/time/leave/policies:
+    post:
+      operationId: createLeavePolicyVersion
+      tags:
+        - Platform Governance
+      summary: 发布假期规则版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: 发布假期规则版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.policy.manage
+      x-action-label: 发布假期规则版本
     get:
       operationId: timeLeavePoliciesIndex
       tags:
@@ -19430,6 +20898,46 @@ paths:
       x-capability: time.leave.request.cancel
       x-action-label: 撤销请假申请
   /v1/time/leave/types:
+    post:
+      operationId: createLeaveType
+      tags:
+        - Platform Governance
+      summary: 新增假期类型
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: 新增假期类型
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.leave.type.manage
+      x-action-label: 新增假期类型
     get:
       operationId: timeLeaveTypesIndex
       tags:
@@ -19462,6 +20970,46 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: time.leave.read
   /v1/time/overtime/policies:
+    post:
+      operationId: createOvertimePolicyVersion
+      tags:
+        - Platform Governance
+      summary: 发布加班政策版本
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: 发布加班政策版本
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.manage
+      x-action-label: 发布加班政策版本
     get:
       operationId: timeOvertimePoliciesShow
       tags:
@@ -19962,6 +21510,46 @@ paths:
       x-capability: time.shift.schedule.manage
       x-action-label: 安排班次
   /v1/time/shifts:
+    post:
+      operationId: createShift
+      tags:
+        - Platform Governance
+      summary: 创建班次
+      parameters:
+        - $ref: "#/components/parameters/CsrfToken"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: 创建班次
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: true
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.shift.manage
+      x-action-label: 创建班次
     get:
       operationId: timeShiftsIndex
       tags:

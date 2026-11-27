@@ -6,7 +6,6 @@ namespace App\Modules\Talent\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Contracts\PeopleDirectory;
-use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Modules\Talent\Models\PerformanceCycle;
 use App\Modules\Talent\Models\PerformanceGoal;
 use App\Modules\Talent\Models\PerformanceReview;
@@ -14,6 +13,8 @@ use App\Modules\Talent\Services\PerformanceService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Commands\CommandDefinition;
+use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
@@ -22,7 +23,6 @@ use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 final class PerformanceController
 {
@@ -31,7 +31,7 @@ final class PerformanceController
         private readonly Authorizer $authorizer,
         private readonly CompanyBusinessDate $businessDates,
         private readonly PerformanceService $performance,
-        private readonly IdempotencyRunner $idempotency,
+        private readonly CommandRunner $commands,
         private readonly PeopleDirectory $people,
         private readonly Clock $clock,
     ) {}
@@ -79,6 +79,7 @@ final class PerformanceController
             ->constrain(PerformanceReview::query()->whereIn('cycle_id', $cycleIds), $principal, 'performance.cycle.read', $today)
             ->get(['cycle_id', 'status']);
 
+        /** @var array<int, array{participant_count: int, submitted_count: int, draft_count: int}> $counts */
         $counts = [];
         foreach ($reviewRows as $review) {
             $cycleId = (int) $review->cycle_id;
@@ -107,6 +108,8 @@ final class PerformanceController
                 'submitted_count' => $submittedCount,
                 'draft_count' => (int) $count['draft_count'],
                 'progress' => $progress,
+                'published_at' => $cycle->published_at?->toIso8601ZuluString(),
+                'published_by' => $cycle->published_by !== null ? (int) $cycle->published_by : null,
             ];
         })->values()->all();
 
@@ -149,7 +152,7 @@ final class PerformanceController
             'period_to' => ['required', 'date_format:Y-m-d', 'after:period_from'],
         ]);
 
-        return $this->command($request, 'cycle', $data, fn (): array => $this->performance->createCycle($principal->userId(), $data));
+        return $this->command($request, 'cycle', $data, fn (): array => $this->performance->createCycle($principal->userId(), $data), 201, 'performance.cycle.manage');
     }
 
     public function storeReview(Request $request): JsonResponse
@@ -182,18 +185,88 @@ final class PerformanceController
         $this->assertGoalWeights($goals);
 
         $employmentId = (int) $data['employment_id'];
-        $this->assertCanActOnEmployment($principal, $employmentId, 'performance.review.manage', $today);
+
+        // A client-supplied approver can never be the subject, even when the
+        // self branch would otherwise strip manager fields (ignoring input is
+        // not enough: the request must be rejected, not silently rewritten).
+        if (isset($data['manager_employment_id']) && (int) $data['manager_employment_id'] === $employmentId) {
+            throw new ConflictException('A review subject and its approver must be different employments.', [
+                'reason' => 'SUBJECT_APPROVER_NOT_SEPARATED',
+            ]);
+        }
+
+        // Self-assessment and manager scoring are different subjects. An
+        // employee may write only their own self fields; manager/subject
+        // separation is persisted so the scorer cannot be the subject.
+        $companyScope = $this->authorizer->allows($principal, 'performance.review.manage', \App\Shared\Authorization\AnchorRef::company(), $today);
+        $principalEmploymentId = $principal->employmentId() ?? $this->people->employmentForUser($principal->userId());
+        $managedEmploymentIds = $principalEmploymentId !== null
+            ? $this->people->managedEmploymentIds((int) $principalEmploymentId, $today)
+            : [];
+        $isSelf = $principalEmploymentId !== null && (int) $principalEmploymentId === $employmentId;
+
+        if ($isSelf) {
+            // Self writes are allowed whenever the actor holds the capability
+            // at company scope (HR editing their own draft) or at SELF scope.
+            // Manager fields are stripped in both cases.
+            foreach (['manager_assessment', 'manager_rating', 'manager_employment_id'] as $managerField) {
+                if (array_key_exists($managerField, $data) && $data[$managerField] !== null && $data[$managerField] !== '') {
+                    throw new ConflictException('A subject cannot enter their own manager assessment.', [
+                        'reason' => 'SUBJECT_APPROVER_NOT_SEPARATED',
+                        'field' => $managerField,
+                    ]);
+                }
+            }
+
+            unset($data['manager_assessment'], $data['manager_rating'], $data['manager_employment_id']);
+
+            if (isset($data['goals']) && is_array($data['goals'])) {
+                $data['goals'] = array_map(static function (array $goal): array {
+                    unset($goal['manager_score']);
+
+                    return $goal;
+                }, $data['goals']);
+            }
+
+            if ($this->people->employmentSnapshot($employmentId, $today) === null) {
+                throw new NotFoundException;
+            }
+        }
+
+        if (! $isSelf) {
+            $this->assertCanActOnEmployment($principal, $employmentId, 'performance.review.manage', $today);
+        }
 
         $managerEmploymentId = $this->managerEmploymentFor($principal, $employmentId, $today);
         if (isset($data['manager_employment_id'])) {
             $managerEmploymentId = (int) $data['manager_employment_id'];
         }
+
+        if ($managerEmploymentId !== null && $managerEmploymentId === $employmentId) {
+            throw new ConflictException('A review subject and its approver must be different employments.', [
+                'reason' => 'SUBJECT_APPROVER_NOT_SEPARATED',
+            ]);
+        }
+
+        // A manager may only be named from the persisted reporting line or the
+        // acting manager's own employment; client input never invents a manager.
+        if ($managerEmploymentId !== null
+            && ! $companyScope
+            && ! $isSelf
+            && $principalEmploymentId !== null
+            && $managerEmploymentId !== (int) $principalEmploymentId
+            && ! in_array($employmentId, $managedEmploymentIds, true)) {
+            throw new ConflictException('The acting manager is not the subject reporting line.', [
+                'reason' => 'SUBJECT_APPROVER_NOT_SEPARATED',
+            ]);
+        }
+
         $data['manager_employment_id'] = $managerEmploymentId;
 
-        return $this->command($request, 'review', $data, function () use ($principal, $data, $goals, $hasGoals): array {
+        return $this->command($request, 'review', $data, function () use ($principal, $data, $goals, $hasGoals, $isSelf): array {
             $body = $this->performance->createReview($principal->userId(), $data);
             $reviewId = (int) $body['review_id'];
-            $review = PerformanceReview::query()->whereKey($reviewId)->first();
+            $review = PerformanceReview::query()->whereKey($reviewId)->lockForUpdate()->first();
 
             if ($review === null) {
                 throw NotFoundException::forResource();
@@ -209,14 +282,15 @@ final class PerformanceController
             // POST is an idempotent create-or-save for a draft review: there
             // is no PATCH review route, so a later save for the same
             // cycle/employment updates only a still-draft row. Decided
-            // reviews are never rewritten here.
+            // reviews are never rewritten here. A self writer never carries
+            // manager fields because the controller stripped them above.
             $review->forceFill([
                 'manager_employment_id' => $data['manager_employment_id'] ?? $review->manager_employment_id,
                 'goals_text' => $data['goals_text'] ?? $review->goals_text,
                 'self_assessment' => $data['self_assessment'] ?? $review->self_assessment,
                 'self_rating' => $data['self_rating'] ?? $review->self_rating,
-                'manager_assessment' => $data['manager_assessment'] ?? $review->manager_assessment,
-                'manager_rating' => $data['manager_rating'] ?? $review->manager_rating,
+                'manager_assessment' => $isSelf ? $review->manager_assessment : ($data['manager_assessment'] ?? $review->manager_assessment),
+                'manager_rating' => $isSelf ? $review->manager_rating : ($data['manager_rating'] ?? $review->manager_rating),
             ])->save();
             $review->refresh();
 
@@ -278,7 +352,7 @@ final class PerformanceController
             }
 
             return $body;
-        });
+        }, 201, 'performance.review.manage');
     }
 
     public function submitReview(Request $request, int $reviewId): JsonResponse
@@ -300,30 +374,50 @@ final class PerformanceController
             'calibrated_rating' => ['nullable', 'string', 'max:16'],
         ]);
 
-        return $this->command($request, "review-{$reviewId}-submit", $data, function () use ($principal, $reviewId, $data, $review): array {
-            $cycle = PerformanceCycle::query()->whereKey((int) $review->cycle_id)->first();
-
-            if ($cycle !== null && (string) $cycle->status !== 'PUBLISHED' && (string) $review->status !== 'DRAFT') {
-                throw new ConflictException('This review has been decided and is read-only.', [
-                    'reason' => 'REVIEW_DECIDED',
-                    'status' => (string) $review->status,
-                ]);
-            }
-
+        return $this->command($request, "review-{$reviewId}-submit", $data, function () use ($principal, $reviewId, $data): array {
+            // The service owns the authoritative cycle lock and
+            // CYCLE_PUBLISHED check. The controller must not read a stale
+            // pre-transaction cycle row and let a published edit slip through.
             return $this->performance->submitReview($principal->userId(), $reviewId, $data);
-        }, 200);
+        }, 200, 'performance.review.submit');
     }
 
     public function storeAppeal(Request $request, int $reviewId): JsonResponse
     {
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today();
-        $this->allow($principal, 'performance.appeal.manage');
         $data = $request->validate([
             'reason' => ['required', 'string', 'min:10', 'max:4000'],
         ]);
 
-        return $this->command($request, "review-{$reviewId}-appeal", $data, fn (): array => $this->performance->createAppeal($principal->userId(), $reviewId, $data, $today->value()));
+        // Company-scope appeal managers (HR) may act for an employee; SELF
+        // holders may only appeal their own review. The service repeats the
+        // boundary inside the transaction so a direct call cannot bypass it.
+        $companyScope = $this->authorizer->allows(
+            $principal,
+            'performance.appeal.manage',
+            \App\Shared\Authorization\AnchorRef::company(),
+            $today->value(),
+        );
+        $selfScope = $this->authorizer->allows(
+            $principal,
+            'performance.appeal.manage',
+            \App\Shared\Authorization\AnchorRef::self(),
+            $today->value(),
+        );
+        if (! $companyScope && ! $selfScope) {
+            throw new AuthorizationException('Forbidden.');
+        }
+        $actorEmploymentId = $principal->employmentId() ?? $this->people->employmentForUser($principal->userId());
+
+        return $this->command($request, "review-{$reviewId}-appeal", $data, fn (): array => $this->performance->createAppeal(
+            $principal->userId(),
+            $reviewId,
+            $data,
+            $today->value(),
+            $actorEmploymentId,
+            $companyScope,
+        ), 201, 'performance.appeal.manage');
     }
 
     /**
@@ -374,7 +468,9 @@ final class PerformanceController
             return;
         }
 
-        $managed = $this->people->managedEmploymentIds((int) $principalEmploymentId, $today);
+        $managed = $principalEmploymentId !== null
+            ? $this->people->managedEmploymentIds((int) $principalEmploymentId, $today)
+            : [];
         if ($principalEmploymentId !== null
             && in_array($employmentId, $managed, true)
             && $this->authorizer->allows($principal, $capability, \App\Shared\Authorization\AnchorRef::managed(), $today)) {
@@ -399,7 +495,7 @@ final class PerformanceController
             return (int) $snapshot->managerEmploymentId;
         }
 
-        $principalEmploymentId = $principal->employmentId();
+        $principalEmploymentId = $principal->employmentId() ?? $this->people->employmentForUser($principal->userId());
         if ($principalEmploymentId !== null
             && in_array($employmentId, $this->people->managedEmploymentIds($principalEmploymentId, $today), true)) {
             return $principalEmploymentId;
@@ -491,28 +587,47 @@ final class PerformanceController
      * @param  array<string, mixed>  $data
      * @param  \Closure(): array<string, mixed>  $operation
      */
-    private function command(Request $request, string $scope, array $data, \Closure $operation, int $successStatus = 201): JsonResponse
-    {
+    private function command(
+        Request $request,
+        string $scope,
+        array $data,
+        \Closure $operation,
+        int $successStatus = 201,
+        string $capability = 'performance.cycle.manage',
+    ): JsonResponse {
         $principal = $this->principals->resolve();
+        // CommandRunner owns the idempotency-key contract and returns the
+        // canonical VALIDATION_ERROR / IDEMPOTENCY_KEY_REQUIRED response.
         $key = (string) $request->header('Idempotency-Key', '');
 
-        if ($key === '') {
-            throw new ValidationException(['idempotency_key' => ['A valid Idempotency-Key header is required.']]);
-        }
+        // The capability is declared on the command as executable metadata;
+        // the route middleware is still the enforcement point.
+        $definition = new CommandDefinition(
+            name: 'talent.performance.'.$scope,
+            capability: $capability,
+            anchor: \App\Shared\Authorization\AnchorType::COMPANY,
+            idempotent: true,
+            invariants: [],
+            effect: null,
+            auditAction: 'talent.performance.'.$scope,
+        );
 
-        $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
-            principalId: $principal->userId(),
-            scope: 'POST:/v1/performance/'.$scope,
-            key: $key,
-            payload: $data,
-            operation: function () use ($operation): array {
-                $body = $operation();
-
-                return ['http_status' => 201, 'body' => $body, 'resource_type' => 'talent'];
+        $result = $this->commands->run(
+            $definition,
+            $data,
+            function () use ($operation, $successStatus): array {
+                return [
+                    'http_status' => $successStatus,
+                    'body' => $operation(),
+                    'resource_type' => 'talent.performance',
+                ];
             },
-        ));
+            $key,
+        );
 
-        $response = $result->replayed || $successStatus === 200 ? ApiResponse::ok($result->body) : ApiResponse::created($result->body);
+        $response = $result->status === 201 && ! $result->replayed
+            ? ApiResponse::created($result->body)
+            : ApiResponse::ok($result->body);
 
         if ($result->replayed) {
             $response->headers->set('Idempotency-Replayed', 'true');

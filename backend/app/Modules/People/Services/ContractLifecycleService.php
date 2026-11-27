@@ -6,6 +6,7 @@ namespace App\Modules\People\Services;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Lifecycle\Contracts\EmploymentContractVersionLedger;
+use App\Modules\People\Contracts\EmploymentContractView;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\ContractTemplate;
 use App\Modules\People\Models\Employment;
@@ -19,7 +20,7 @@ use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
-use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class ContractLifecycleService
 {
-    private const AMENDABLE_FIELDS = ['contract_type', 'end_date', 'signed_on', 'terms_summary', 'template_id'];
+    private const AMENDABLE_FIELDS = ['contract_type', 'end_date', 'signed_on', 'terms_summary', 'template_id', 'work_location', 'probation_end_date'];
 
     public function __construct(
         private readonly Clock $clock,
@@ -41,7 +42,7 @@ final class ContractLifecycleService
     ) {}
 
     /**
-     * @param  array{status?: string|null}  $filters
+     * @param  array{status?: string|null, q?: string|null, employment_id?: int|null, employee_id?: int|null, expiring_within_days?: int|null, expired?: bool|null}  $filters
      */
     public function contracts(
         Principal $principal,
@@ -51,21 +52,57 @@ final class ContractLifecycleService
         int $page,
         int $pageSize,
     ): ProjectionResult {
+        $status = $filters['status'] ?? null;
+        $employmentId = $filters['employment_id'] ?? null;
+        $expiringWithinDays = $filters['expiring_within_days'] ?? null;
+        $expiredOnly = $filters['expired'] ?? null;
+        $term = trim((string) ($filters['q'] ?? ''));
+
         $query = EmploymentContract::query()
-            ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', (string) $filters['status']));
+            ->when($status !== null && $status !== 'EXPIRED', fn ($builder) => $builder->where('status', (string) $status))
+            ->when($status === 'EXPIRED', fn ($builder) => $builder
+                ->whereIn('status', EmploymentContract::OPERATIONAL_STATUSES)
+                ->whereNotNull('end_date')
+                ->where('end_date', '<', $asOf))
+            ->when($employmentId !== null && $employmentId > 0, fn ($builder) => $builder->where('employment_id', (int) $employmentId))
+            ->when($expiredOnly === true, fn ($builder) => $builder
+                ->whereIn('status', EmploymentContract::OPERATIONAL_STATUSES)
+                ->whereNotNull('end_date')
+                ->where('end_date', '<', $asOf))
+            ->when($expiringWithinDays !== null, fn ($builder) => $builder
+                ->whereIn('status', EmploymentContract::OPERATIONAL_STATUSES)
+                ->whereNotNull('end_date')
+                ->where('end_date', '>=', $asOf)
+                ->where('end_date', '<=', BusinessDate::from($asOf)->addDays((int) $expiringWithinDays)->value()))
+            ->when($term !== '', function ($builder) use ($term): void {
+                $like = '%'.$term.'%';
+                $builder->where(function ($nested) use ($like): void {
+                    $nested->where('contract_no', 'like', $like)
+                        ->orWhereIn(
+                            'employment_id',
+                            Employment::query()->where('employee_no', 'like', $like)->select('id'),
+                        )
+                        ->orWhereIn(
+                            'employment_id',
+                            Employment::query()
+                                ->whereIn(
+                                    'person_id',
+                                    Person::query()->where('legal_name', 'like', $like)->select('id'),
+                                )
+                                ->select('id'),
+                        );
+                });
+            });
 
-        // Contracts have no org column; scope the assignment rows instead so
-        // SELF/MANAGED/ORG_UNIT/ORG_SUBTREE/COMPANY grants all reduce to a
-        // set of visible employment ids before pagination.
-        $visibleEmployments = Assignment::query()
-            ->where('valid_from', '<=', $asOf)
-            ->where('valid_to', '>', $asOf)
-            ->select('employment_id');
+        // Resolve row scope to concrete employment ids BEFORE filtering and
+        // pagination. SELF/MANAGED/COMPANY bindings can constrain Employment
+        // directly; ORG_UNIT/ORG_SUBTREE need Assignment's org_unit_id. Try the
+        // employment-keyed shape first and fall back only when that shape is
+        // invalid for the grant (e.g. an org predicate on a table without an
+        // org column). No grant is ever widened to a feature-level allow.
+        $visibleEmploymentIds = $this->visibleEmploymentIds($principal, $authorizer, $asOf);
 
-        $query->whereIn(
-            'employment_id',
-            $authorizer->constrain($visibleEmployments, $principal, 'people.contract.read', $asOf),
-        );
+        $query->whereIn('employment_id', $visibleEmploymentIds);
         $total = (int) (clone $query)->count();
         $contracts = $query->orderByDesc('start_date')->orderByDesc('id')->forPage($page, $pageSize)->get();
 
@@ -93,6 +130,38 @@ final class ContractLifecycleService
             'resource' => 'employment_contracts',
             'filters' => array_filter($filters, static fn (mixed $value): bool => $value !== null && $value !== ''),
         ], $contracts->map(static fn (EmploymentContract $row): array => [(int) $row->id, (string) $row->updated_at])->all());
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function visibleEmploymentIds(Principal $principal, Authorizer $authorizer, string $asOf): array
+    {
+        try {
+            $ids = $authorizer->constrain(
+                Employment::query()->select('id'),
+                $principal,
+                'people.contract.read',
+                $asOf,
+            )->pluck('id');
+        } catch (QueryException) {
+            $ids = $authorizer->constrain(
+                Assignment::query()
+                    ->where('valid_from', '<=', $asOf)
+                    ->where('valid_to', '>', $asOf)
+                    ->select('employment_id'),
+                $principal,
+                'people.contract.read',
+                $asOf,
+            )->pluck('employment_id');
+        }
+
+        return $ids
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->filter(static fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function amendmentHistory(int $contractId, string $asOf, int $page, int $pageSize): ProjectionResult
@@ -125,7 +194,7 @@ final class ContractLifecycleService
                 throw new NotFoundOrForbiddenException;
             }
 
-            if (! in_array((string) $contract->status, ['ACTIVE', 'EXPIRING'], true)) {
+            if (! in_array((string) $contract->status, EmploymentContract::OPERATIONAL_STATUSES, true)) {
                 throw new ConflictException('Only an active contract can be amended.', ['reason' => 'CONTRACT_NOT_AMENDABLE']);
             }
 
@@ -135,7 +204,17 @@ final class ContractLifecycleService
                 throw new ValidationException(['effective_date' => ['The effective date cannot be before the contract start date.']]);
             }
 
-            if ($contract->end_date !== null && $effective->isAfter(BusinessDate::from((string) $contract->end_date))) {
+            // A contract whose end date already passed is effectively expired
+            // even while its stored status is ACTIVE; it must not be amended or
+            // terminated as if it were still operational.
+            if ($contract->end_date !== null
+                && BusinessDate::from((string) $contract->end_date)->isBefore(BusinessDate::from($this->clock->now()->toDateString()))) {
+                throw new ConflictException('An expired contract cannot be changed.', ['reason' => 'CONTRACT_NOT_OPERATIONAL']);
+            }
+
+            if ($contract->end_date !== null
+                && ! BusinessDate::from((string) $contract->end_date)->isOpenEnd()
+                && $effective->isAfter(BusinessDate::from((string) $contract->end_date))) {
                 throw new ValidationException(['effective_date' => ['The effective date cannot be after the current contract end date.']]);
             }
 
@@ -163,9 +242,22 @@ final class ContractLifecycleService
                 }
             }
 
-            $before = $this->contractPayload($contract);
+            if (array_key_exists('probation_end_date', $changes) && $changes['probation_end_date'] !== null) {
+                $probation = BusinessDate::from((string) $changes['probation_end_date']);
+                if ($probation->isBefore(BusinessDate::from((string) $contract->start_date))) {
+                    throw new ValidationException(['changes.probation_end_date' => ['The probation end date cannot be before the contract start date.']]);
+                }
+                $end = array_key_exists('end_date', $changes) && $changes['end_date'] !== null
+                    ? BusinessDate::from((string) $changes['end_date'])
+                    : ($contract->end_date !== null ? BusinessDate::from((string) $contract->end_date) : null);
+                if ($end !== null && $probation->isAfter($end)) {
+                    throw new ValidationException(['changes.probation_end_date' => ['The probation end date must fall inside the contract.']]);
+                }
+            }
+
+            $before = $this->contractPayload($contract, $effective->value());
             $contract->forceFill($changes)->save();
-            $after = $this->contractPayload($contract);
+            $after = $this->contractPayload($contract, $effective->value());
             $effectiveTo = $contract->end_date !== null ? (string) $contract->end_date : BusinessDate::OPEN_END;
             $version = $this->versions->append(
                 contractId: (int) $contract->id,
@@ -209,7 +301,7 @@ final class ContractLifecycleService
                 throw new NotFoundOrForbiddenException;
             }
 
-            if (! in_array((string) $contract->status, ['ACTIVE', 'EXPIRING'], true)) {
+            if (! in_array((string) $contract->status, EmploymentContract::OPERATIONAL_STATUSES, true)) {
                 throw new ConflictException('Only an active contract can be terminated.', ['reason' => 'CONTRACT_NOT_TERMINABLE']);
             }
 
@@ -219,17 +311,24 @@ final class ContractLifecycleService
                 throw new ValidationException(['effective_date' => ['The termination date cannot be before the contract start date.']]);
             }
 
-            if ($contract->end_date !== null && $effective->isAfter(BusinessDate::from((string) $contract->end_date))) {
+            if ($contract->end_date !== null
+                && BusinessDate::from((string) $contract->end_date)->isBefore(BusinessDate::from($this->clock->now()->toDateString()))) {
+                throw new ConflictException('An expired contract cannot be terminated.', ['reason' => 'CONTRACT_NOT_OPERATIONAL']);
+            }
+
+            if ($contract->end_date !== null
+                && ! BusinessDate::from((string) $contract->end_date)->isOpenEnd()
+                && $effective->isAfter(BusinessDate::from((string) $contract->end_date))) {
                 throw new ConflictException('The termination date is after the contract end date.', ['reason' => 'TERMINATION_AFTER_CONTRACT_END']);
             }
 
-            $before = $this->contractPayload($contract);
+            $before = $this->contractPayload($contract, $effective->value());
             $contract->forceFill([
                 'status' => 'TERMINATED',
                 'terminated_on' => $effective->value(),
                 'end_date' => $effective->value(),
             ])->save();
-            $after = $this->contractPayload($contract);
+            $after = $this->contractPayload($contract, $effective->value());
             $version = $this->versions->append(
                 contractId: (int) $contract->id,
                 employmentId: (int) $contract->employment_id,
@@ -274,7 +373,7 @@ final class ContractLifecycleService
                 throw new NotFoundOrForbiddenException;
             }
 
-            $before = $this->contractPayload($contract);
+            $before = $this->contractPayload($contract, $this->clock->now()->toDateString());
             $contract->forceFill([
                 'deleted_by' => $actorUserId,
                 'delete_reason' => $reason,
@@ -317,7 +416,7 @@ final class ContractLifecycleService
 
             $contract->restore();
             $contract->forceFill(['deleted_by' => null, 'delete_reason' => null])->save();
-            $after = $this->contractPayload($contract);
+            $after = $this->contractPayload($contract, $this->clock->now()->toDateString());
 
             $this->audit->record(
                 actorUserId: $actorUserId,
@@ -347,9 +446,15 @@ final class ContractLifecycleService
             throw new NotFoundOrForbiddenException;
         }
 
+        $term = trim((string) ($filters['q'] ?? ''));
         $query = ContractTemplate::query()
             ->when(($filters['code'] ?? null) !== null, fn ($builder) => $builder->where('code', strtoupper(trim((string) $filters['code']))))
-            ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', strtoupper((string) $filters['status'])));
+            ->when(($filters['status'] ?? null) !== null, fn ($builder) => $builder->where('status', strtoupper((string) $filters['status'])))
+            ->when($term !== '', fn ($builder) => $builder->where(function ($nested) use ($term): void {
+                $like = '%'.$term.'%';
+                $nested->where('code', 'like', $like)
+                    ->orWhere('name', 'like', $like);
+            }));
 
         $total = (int) (clone $query)->count();
         $templates = $query->orderBy('code')->orderByDesc('version')->orderByDesc('id')->forPage($page, $pageSize)->get();
@@ -482,30 +587,7 @@ final class ContractLifecycleService
      */
     public function contractPayload(EmploymentContract $contract, ?string $asOf = null): array
     {
-        $days = null;
-
-        if ($contract->end_date !== null && $asOf !== null) {
-            $days = (int) CarbonImmutable::parse($asOf, 'UTC')
-                ->diffInDays(CarbonImmutable::parse((string) $contract->end_date, 'UTC'), false);
-        }
-
-        return [
-            'id' => (int) $contract->id,
-            'employment_id' => (int) $contract->employment_id,
-            'contract_no' => (string) $contract->contract_no,
-            'contract_type' => (string) $contract->contract_type,
-            'start_date' => (string) $contract->start_date,
-            'end_date' => $contract->end_date,
-            'signed_on' => $contract->signed_on,
-            'terminated_on' => $contract->terminated_on,
-            'status' => (string) $contract->status,
-            'version' => (int) $contract->version,
-            'previous_contract_id' => $contract->previous_contract_id !== null ? (int) $contract->previous_contract_id : null,
-            'renewed_by_id' => $contract->renewed_by_id !== null ? (int) $contract->renewed_by_id : null,
-            'template_id' => $contract->template_id !== null ? (int) $contract->template_id : null,
-            'terms_summary' => $contract->terms_summary,
-            'days_to_expiry' => $days,
-        ];
+        return EmploymentContractView::toArray($contract, $asOf ?? $this->clock->now()->toDateString());
     }
 
     /**

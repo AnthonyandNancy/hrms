@@ -789,6 +789,7 @@ export type WorkspaceAttendanceSummary = {
 }
 
 export type WorkspaceProjection = {
+  employment_linked: boolean
   profile: {
     employmentId: number | null
     name: string

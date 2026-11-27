@@ -1,0 +1,171 @@
+{
+  "module": "M12",
+  "pagesChanged": [
+    {
+      "path": "/travel",
+      "name": "travel",
+      "componentKey": "travel/index",
+      "file": "frontend/src/modules/time/travel/pages/TravelWorkspacePage.vue",
+      "capability": "time.travel.read",
+      "tabs": [
+        "mine",
+        "requests",
+        "policies",
+        "approval",
+        "reports",
+        "expenses"
+      ],
+      "status": "implemented-pending-handoff"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/travel/requests",
+      "name": "travel-requests",
+      "componentKey": "travel/requests",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelRequestsPage.vue",
+      "destination": "/travel?tab=requests"
+    },
+    {
+      "path": "/travel/policies",
+      "name": "travel-policies",
+      "componentKey": "travel/policies",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelPoliciesPage.vue",
+      "destination": "/travel?tab=policies"
+    },
+    {
+      "path": "/travel/approval",
+      "name": "travel-approval",
+      "componentKey": "travel/approval",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelApprovalPage.vue",
+      "destination": "/travel?tab=approval"
+    },
+    {
+      "path": "/travel/changes",
+      "name": "travel-changes",
+      "componentKey": "travel/changes",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelChangesPage.vue",
+      "destination": "/travel?tab=requests"
+    },
+    {
+      "path": "/travel/reports",
+      "name": "travel-reports",
+      "componentKey": "travel/reports",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelReportsPage.vue",
+      "destination": "/travel?tab=reports"
+    },
+    {
+      "path": "/travel/expenses",
+      "name": "travel-expenses",
+      "componentKey": "travel/expenses",
+      "legacyFile": "frontend/src/modules/timepay/pages/TravelExpensesPage.vue",
+      "destination": "/travel?tab=expenses"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "travel-requests",
+    "travel-policies",
+    "travel-approval",
+    "travel-changes",
+    "travel-reports",
+    "travel-expenses"
+  ],
+  "openapiOperations": [
+    "GET /v1/travel/requests",
+    "POST /v1/travel/requests",
+    "POST /v1/travel/requests/{id}/change",
+    "POST /v1/travel/requests/{id}/approve",
+    "POST /v1/travel/requests/{id}/cancel",
+    "GET /v1/travel/policies",
+    "POST /v1/travel/policies",
+    "GET /v1/travel/expenses",
+    "POST /v1/travel/expenses",
+    "GET /v1/travel/reports/summary"
+  ],
+  "routeChanges": [
+    "ADD POST /v1/travel/requests/{id}/change (capability:time.travel.request, Idempotency-Key required)",
+    "ADD GET /v1/travel/reports/summary (capability handoff: time.travel.report.read must be catalogued by lead; route middleware is forbidden IAM/routes domain)",
+    "EXTEND GET /v1/travel/requests with view/status/from/to/employment_id/department_id/page/page_size",
+    "KEEP POST /v1/travel/requests/{id}/approve and POST /v1/travel/requests/{id}/cancel; both now maintain travel_attendance_links in the same transaction"
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "travel",
+      "key": "travel.request.create",
+      "label": "申请出差",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.change",
+      "label": "申请出差变更",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests/{id}/change",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.cancel",
+      "label": "取消出差申请",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests/{id}/cancel",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.approve",
+      "label": "审批出差申请",
+      "capability": "time.travel.approve",
+      "api": "POST /v1/travel/requests/{id}/approve",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.policy.publish",
+      "label": "发布差旅政策",
+      "capability": "time.travel.policy.manage",
+      "api": "POST /v1/travel/policies",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.expense.claim",
+      "label": "登记出差费用",
+      "capability": "time.travel.expense.manage",
+      "api": "POST /v1/travel/expenses",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.report.read",
+      "label": "查看出差统计",
+      "capability": "time.travel.report.read",
+      "api": "GET /v1/travel/reports/summary",
+      "ui": "secondary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Strict file domain honored. This agent did not persist changes to routes/api.php, docs/openapi/**, docs/generated/**, frontend/src/router/**, frontend/src/modules/time/workspaces/**, frontend/src/modules/timepay/**, backend/app/Modules/Time/Providers/**, backend/app/Modules/IAM/** or Payroll. Any current worktree diffs in those paths belong to other parallel module agents and were not authored here.",
+    "Lead handoff required for wiring: add POST /v1/travel/requests/{id}/change -> TravelController@change and GET /v1/travel/reports/summary -> TravelReportController@summary in routes/api.php; extend GET /v1/travel/requests validation; register time.travel.report.read in CapabilityCatalog/RoleTemplateCatalog; add OpenAPI paths/schemas and regenerate action manifests.",
+    "Lead handoff required for frontend fold: point travel/index in frontend/src/modules/time/workspaces/index.ts to frontend/src/modules/time/travel/pages/TravelWorkspacePage.vue; keep only /travel in registry/pageComponents; remove the six legacy timepay travel pages, barrel keys, definitions and tests; no redirects.",
+    "Migration prefix 2026_11_27_001001 was used because the plan draft prefix 2026_11_27_000030 was not unique in this worktree. The migration is anonymous, forward-only and creates travel_request_changes plus travel_attendance_links.",
+    "TravelService is the only writer for trip status, changes and attendance links. Approval/rejection/cancellation and change application share one DB transaction; the link is a calendar fact only, never a punch, worked minute or payroll row.",
+    "Change command goes through CommandRunner with Idempotency-Key, same-transaction audit (time.travel.change_requested/applied/rejected/attendance_linked/attendance_retired) and stable 409 reasons TRAVEL_CHANGE_ALREADY_PENDING, TRAVEL_NOT_CHANGEABLE, TRAVEL_OVERLAP, TRAVEL_CASE_ALREADY_DECIDED, TRAVEL_EXPENSE_SETTLED.",
+    "Ledger filtering and reports use Time-owned tables; department expansion uses Shared PersonEmploymentDirectory in controllers and Time EmploymentDirectory in the report service, with no cross-module table access.",
+    "Frontend /travel has six tabs mine|requests|policies|approval|reports|expenses, server-side filtering, detail Drawer, policy publish, approval decisions and integer-cent expense entry. Invalid tabs fall back to mine; unconfigured policies and forbidden capability states are explicit.",
+    "Backend tests are under backend/tests/Feature/Time/Travel*Test.php; frontend tests are frontend/tests/unit/TravelWorkspace.spec.ts. Tests were written but NOT RUN. Only php -l was executed on new/changed PHP files. No PHPUnit, pnpm test:unit, typecheck, gate or E2E command was run.",
+    "No git commit was created.",
+    "Report route capability handoff: if the lead wires GET /v1/travel/reports/summary with time.travel.report.read, CapabilityCatalog must add that code and the shared TimeHttpTestCase test actor must include it (or the route must use time.travel.read). The module currently ships the report tests under the existing read capability seam and does not modify IAM.",
+    "Backend tests included: TravelChangeTest (pending/apply/reject/scoping/idempotency replay/403), TravelAttendanceLinkTest (approval link, cancel retirement, reader scope), TravelRequestFilterTest (server filters/scope), TravelReportTest (aggregate/scope/404), TravelChangeAttendanceMigrationTest (schema). All NOT RUN.",
+    "Frontend module handoff details are also in frontend/src/modules/time/travel/README.md."
+  ]
+}

@@ -8,14 +8,14 @@ Branch: `feat/v2.1-remediation`
 
 Volume 3 Task 16 moved dashboard, report and notice hubs into
 `frontend/src/modules/reporting`, and Volume 3 Task 17 replaced six of the
-fifteen platform registry entries with purpose-built workspaces. The shared
+ten platform registry entries with purpose-built workspaces. The shared
 `PlatformWorkspace.vue` shell still renders the remaining pages, but its `mode`
 switch must shrink deterministically and no catalog entry may outlive its
 registry page.
 
 This is the disposition record for:
 
-- the **15 platform registry entries** (`layer: 'platform'` in
+- the **10 platform registry entries** (`layer: 'platform'` in
   `frontend/src/router/registry.ts`);
 - the **20 business-registry entries** whose component keys still route through
   the platform module's dashboard/report/notice configs (`dashboard/*`,
@@ -23,13 +23,13 @@ This is the disposition record for:
 
 ## Summary
 
-- Registry entries in scope: **35** = 15 platform + 20 reporting-family.
-- Platform-owned entries: **15**; reporting-owned entries: **20**.
-- Dedicated implementations: **17**; generic `PlatformWorkspace` wrappers: **18**.
-- Generic wrappers split as **17 reporting-family** plus **1 platform-owned**
-  (`self-service`, which Volume 4 Task 4 replaces with the already-staged page
-  under `modules/platform/self-service/pages/`).
-- Catalog entries after this task: **31**. The three stale hub configs
+- Registry entries in scope: **30** = 10 platform + 20 reporting-family.
+- Platform-owned entries: **10**; reporting-owned entries: **20**.
+- Dedicated implementations: **14**; generic `PlatformWorkspace` wrappers: **16**.
+- Generic wrappers split as **17 reporting-family** plus **0 platform-owned**;
+  M01/M19 removed the last platform-owned generic shell and the four legacy IAM
+  entries now fold into dedicated pages.
+- Catalog entries after M19: **28**. The three stale hub configs
   (`dashboard/index`, `reports/index`, `notices/index`) were removed because
   those keys now resolve from `modules/reporting/pages` and no longer use a
   platform config. `workflow/cases/by-id` remains router-owned with no config.
@@ -45,18 +45,13 @@ Retirement order `0` means already off the shared shell.
 | `account` | `frontend/src/modules/platform/pages/AccountSecurityPage.vue` | dedicated | platform | 0 | `AccountSecurityPage.spec.ts`, `AccountSecurityTest` |
 | `system/system-users` | `frontend/src/modules/platform/pages/SystemUsersPage.vue` | dedicated | platform | 0 | `systemUsersPage.spec.ts`, `UserRoleAssignmentApiTest` |
 | `system/system-roles` | `frontend/src/modules/platform/pages/SystemRolesPage.vue` | dedicated | platform | 0 | `systemRolesPage.spec.ts`, `RolePagesApiTest` |
-| `system/system-menus` | `frontend/src/modules/platform/pages/SystemMenusPage.vue` | dedicated | platform | 0 | `systemGovernancePages.spec.ts`, `MenuOverrideTest` |
-| `system/system-permissions` | `frontend/src/modules/platform/pages/SystemPermissionsPage.vue` | dedicated | platform | 0 | `systemGovernancePages.spec.ts`, `MePermissionsTest` |
-| `system/system-data-scopes` | `frontend/src/modules/platform/pages/SystemDataScopesPage.vue` | dedicated | platform | 0 | `systemGovernancePages.spec.ts`, `ScopePolicyWriteTest` |
-| `system/system-field-policies` | `frontend/src/modules/platform/pages/SystemFieldPoliciesPage.vue` | dedicated | platform | 0 | `systemGovernancePages.spec.ts`, `FieldPolicyEscalationTest` |
+| `system/system-pages` | `frontend/src/modules/platform/pages/SystemPagesPage.vue` | dedicated | platform | 0 | `systemPagesPage.spec.ts`, `PageCatalogApiTest`, `MenuOverrideTest` |
 | `workflow` | `frontend/src/modules/platform/pages/WorkflowCenterPage.vue` | dedicated | platform | 0 | `WorkflowCenter.spec.ts`, `WorkflowCenterTest` |
 | `workflow/cases/by-id` | `frontend/src/modules/platform/workflow/pages/WorkflowCaseDetailPage.vue` | dedicated | platform | 0 | `WorkflowCenter.spec.ts`, `WorkflowCenterTest` |
 | `benefits` | `frontend/src/modules/platform/pages/BenefitsPage.vue` | dedicated | platform | 0 | `platformPages.spec.ts`, benefits API tests |
-| `system/system-calendars` | `frontend/src/modules/platform/pages/SystemCalendarsPage.vue` | dedicated | platform | 0 | `platformWorkspaces.spec.ts`, `CalendarAdminTest` |
 | `system/system-settings` | `frontend/src/modules/platform/pages/SystemSettingsPage.vue` | dedicated | platform | 0 | `platformWorkspaces.spec.ts`, `SettingsWorkspaceTest` |
 | `notifications` | `frontend/src/modules/platform/pages/NotificationsPage.vue` | dedicated | platform | 0 | `platformWorkspaces.spec.ts`, `NotificationAuditWorkspaceTest` |
 | `system/system-audit` | `frontend/src/modules/platform/pages/SystemAuditPage.vue` | dedicated | platform | 0 | `platformWorkspaces.spec.ts`, `NotificationAuditWorkspaceTest` |
-| `self-service` | `frontend/src/modules/platform/pages/SelfServicePage.vue` | generic | platform | 1 | pending `SelfServicePage.spec.ts`; Task 4 owns replacement |
 | `dashboard/index` | `frontend/src/modules/reporting/pages/DashboardPage.vue` | dedicated | reporting | 0 | `platformPages.spec.ts` |
 | `dashboard/departments` | `frontend/src/modules/platform/pages/DashboardDepartmentsPage.vue` | generic | reporting | 2 | `platformPages.spec.ts` |
 | `dashboard/workforce` | `frontend/src/modules/platform/pages/DashboardWorkforcePage.vue` | generic | reporting | 2 | `platformPages.spec.ts` |
@@ -119,9 +114,9 @@ shell. No new `mode` may be introduced.
 - every platform registry key resolves to an existing lazy page file;
 - no catalog entry references a page absent from the registry, and the retired
   notice form routes and the old workspace key stay absent;
-- the disposition table lists exactly the 35 registry entries in scope, with
+- the disposition table lists exactly the 30 registry entries in scope, with
   existing page files and only `dedicated`/`generic` statuses, and exactly the
-  15 platform-owned entries carry owner `platform`, and the 14 of them with a
+  10 platform-owned entries carry owner `platform`, and the 9 of them with a
   settings config match catalog entries marked `module: 'platform'` (the
   hidden workflow detail page is router-owned);
 - every catalog `mode` still exists in `PlatformWorkspace.vue`.

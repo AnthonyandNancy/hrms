@@ -9,8 +9,10 @@ use App\Modules\Organization\Contracts\OrganizationDirectory;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Services\OrgUnitService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\CompanyBusinessDate;
@@ -27,6 +29,17 @@ final class OrgUnitController
         private readonly CompanyBusinessDate $businessDates,
     ) {}
 
+    /**
+     * The /v1/org-units create writer was retired in M05. The route token is
+     * still owned by routes/api.php (outside this module's change boundary),
+     * but this action must never open a second org unit. It returns the
+     * standard not-found envelope and performs no write.
+     */
+    public function store(): JsonResponse
+    {
+        throw new NotFoundOrForbiddenException;
+    }
+
     public function tree(Request $request, OrganizationDirectory $directory): JsonResponse
     {
         $principal = $this->principals->resolve();
@@ -37,26 +50,6 @@ final class OrgUnitController
         $items = $directory->tree($asOf->value());
 
         return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
-    }
-
-    public function store(Request $request, OrgUnitService $service): JsonResponse
-    {
-        $principal = $this->principals->resolve();
-        $today = $this->businessDates->today();
-        $this->assertPermits($principal, 'org.unit.manage', $today->value());
-
-        $data = $request->validate([
-            'parent_id' => ['nullable', 'integer', 'min:1'],
-            'code' => ['required', 'string', 'max:64'],
-            'name' => ['required', 'string', 'max:160'],
-            'type' => ['required', 'string', 'in:COMPANY,DIVISION,DEPARTMENT,TEAM,COST_CENTER,SHARED_SERVICE'],
-            'valid_from' => ['nullable', new BusinessDateRule],
-            'valid_to' => ['nullable', new BusinessDateRule],
-        ]);
-
-        $unit = $service->open($data, $principal->userId());
-
-        return ApiResponse::created($this->unitPayload($unit));
     }
 
     public function move(Request $request, int $id, OrgUnitService $service): JsonResponse
@@ -91,8 +84,30 @@ final class OrgUnitController
         ]);
 
         $impact = $service->impact($id, $data, $asOf->value());
+        $newParentId = isset($data['new_parent_id']) ? (int) $data['new_parent_id'] : null;
 
-        return ApiResponse::ok($impact);
+        return ApiResponse::ok([
+            ...$impact,
+            'authorization_warning' => $this->authorizationWarning($principal, $id, $newParentId, $asOf->value()),
+        ]);
+    }
+
+    /**
+     * A move is allowed only when the caller's capability covers both the
+     * moving unit and the target unit. This is a preview warning, not a second
+     * authorization system: move() still executes behind route middleware.
+     */
+    private function authorizationWarning(Principal $principal, int $sourceId, ?int $targetId, string $on): ?string
+    {
+        $sourceAllowed = $this->authorizer->allows($principal, 'org.unit.manage', AnchorRef::orgUnit($sourceId), $on)
+            || $this->authorizer->allows($principal, 'org.unit.manage', AnchorRef::orgSubtree($sourceId), $on);
+        $targetAllowed = $targetId === null
+            || $this->authorizer->allows($principal, 'org.unit.manage', AnchorRef::orgUnit($targetId), $on)
+            || $this->authorizer->allows($principal, 'org.unit.manage', AnchorRef::orgSubtree($targetId), $on);
+
+        return $sourceAllowed && $targetAllowed
+            ? null
+            : '组织权限仅覆盖当前部门或目标部门之一；确认提交前请核对数据范围。';
     }
 
     private function asOf(Request $request): BusinessDate

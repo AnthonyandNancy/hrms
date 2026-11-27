@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "baseline": "add6d49",
+  "updatedBy": "integration",
+  "frontendRegistry": 37,
+  "backendCatalog": 37,
+  "sourceRegistry": 155,
+  "sourceBackendCatalog": 153,
+  "targetRegistry": 36,
+  "targetBackendCatalog": 149,
+  "history": [
+    {
+      "module": "baseline",
+      "frontendRegistry": 155,
+      "backendCatalog": 153
+    },
+    {
+      "module": "M01",
+      "frontendRegistry": 152,
+      "backendCatalog": 151,
+      "note": "deleted /account/mfa, /account/sessions, /self-service; merged account actions into /account"
+    },
+    {
+      "module": "M21",
+      "frontendRegistry": 151,
+      "backendCatalog": 149,
+      "note": "folded /system/calendars into /system/settings?tab=calendar; added company profile and audit query/export"
+    },
+    {
+      "module": "M19",
+      "frontendRegistry": 148,
+      "backendCatalog": 146,
+      "note": "deleted /system/menus, /system/permissions, /system/data-scopes, /system/field-policies; added /system/pages; role authorization carries anchor_id"
+    },
+    {
+      "module": "integration",
+      "frontendRegistry": 37,
+      "backendCatalog": 37,
+      "note": "folded all remaining subpages into 26 workspaces + 7 detail + 3 base result pages + performance cycle detail"
+    }
+  ],
+  "consolidated": true
+}

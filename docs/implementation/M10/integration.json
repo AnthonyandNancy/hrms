@@ -1,0 +1,330 @@
+{
+  "module": "M10",
+  "name": "请假与假期余额",
+  "status": "partial-integration-required",
+  "pagesAdded": [
+    {
+      "path": "/leave",
+      "name": "leave",
+      "componentKey": "leave/index",
+      "file": "frontend/src/modules/time/leave/pages/LeaveWorkspacePage.vue",
+      "capability": "time.leave.read",
+      "requiredApis": [
+        "GET /v1/time/leave/balances",
+        "GET /v1/time/leave/types",
+        "GET /v1/time/leave/policies",
+        "GET /v1/time/leave/requests",
+        "GET /v1/time/leave/ledger",
+        "POST /v1/time/leave/preview",
+        "POST /v1/time/leave/requests",
+        "POST /v1/time/leave/requests/on-behalf/preview",
+        "POST /v1/time/leave/requests/on-behalf",
+        "POST /v1/time/leave/requests/{caseId}/cancel",
+        "POST /v1/time/leave/requests/{caseId}/revoke",
+        "GET /v1/time/leave/reports/summary",
+        "POST /v1/time/leave/types",
+        "PATCH /v1/time/leave/types/{id}",
+        "POST /v1/time/leave/policies",
+        "POST /v1/time/leave/policies/{id}/retire"
+      ],
+      "tabs": [
+        "mine",
+        "requests",
+        "types",
+        "policies",
+        "balances",
+        "calendar",
+        "reports"
+      ],
+      "notes": "唯一 /leave 入口。?tab=mine|requests|types|policies|balances|calendar|reports 仅页面状态；非法或不授权的 tab 回落 mine。页面提供 loading|empty|unconfigured|forbidden|error|success 六态及 partial 提示；各面板有独立加载/空/错误提示。管理 tab 只有具备 time.leave.admin / time.leave.type.manage / time.leave.policy.read / time.leave.ledger.read / time.leave.report.read 时出现。"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/leave/requests",
+      "name": "leave-requests",
+      "componentKey": "leave/requests",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveRequestsPage.vue",
+      "destination": "/leave?tab=requests"
+    },
+    {
+      "path": "/leave/types",
+      "name": "leave-types",
+      "componentKey": "leave/types",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveTypesPage.vue",
+      "destination": "/leave?tab=types"
+    },
+    {
+      "path": "/leave/policies",
+      "name": "leave-policies",
+      "componentKey": "leave/policies",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeavePoliciesPage.vue",
+      "destination": "/leave?tab=policies"
+    },
+    {
+      "path": "/leave/balances",
+      "name": "leave-balances",
+      "componentKey": "leave/balances",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveBalancesPage.vue",
+      "destination": "/leave?tab=balances"
+    },
+    {
+      "path": "/leave/calendar",
+      "name": "leave-calendar",
+      "componentKey": "leave/calendar",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveCalendarPage.vue",
+      "destination": "/leave?tab=calendar"
+    },
+    {
+      "path": "/leave/cancellations",
+      "name": "leave-cancellations",
+      "componentKey": "leave/cancellations",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveCancellationsPage.vue",
+      "destination": "/leave?tab=requests"
+    },
+    {
+      "path": "/leave/reports",
+      "name": "leave-reports",
+      "componentKey": "leave/reports",
+      "legacyFile": "frontend/src/modules/timepay/pages/LeaveReportsPage.vue",
+      "destination": "/leave?tab=reports"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "leave-requests",
+    "leave-types",
+    "leave-policies",
+    "leave-balances",
+    "leave-calendar",
+    "leave-cancellations",
+    "leave-reports"
+  ],
+  "openapiOperations": [
+    "GET /v1/time/leave/types (add status, policy_version, entitlement_minutes; keep list envelope)",
+    "POST /v1/time/leave/types (201/401/403/404/409/422; Idempotency-Key required; code/unit immutable onCreate)",
+    "PATCH /v1/time/leave/types/{id} (200/401/403/404/409/422; Idempotency-Key required; rejects code/unit changes)",
+    "GET /v1/time/leave/policies (read leave_policy_versions only; no expiry_rule_json; capability time.leave.policy.read)",
+    "POST /v1/time/leave/policies (201/401/403/404/409/422; append-only; overlap 409 LEAVE_POLICY_RANGE_OVERLAP)",
+    "POST /v1/time/leave/policies/{id}/retire (200/401/403/404/409; effective version 409 LEAVE_POLICY_ALREADY_EFFECTIVE)",
+    "GET /v1/time/leave/requests (self list by default; scope=all for MANAGED/COMPANY; filters employment_id/leave_type_id/org_unit_id/state/from/to/page/page_size)",
+    "POST /v1/time/leave/preview (self only; employment_id is not a subject selector)",
+    "POST /v1/time/leave/requests (self only; supplied employment_id is validated then ignored)",
+    "POST /v1/time/leave/requests/on-behalf (201/401/403/404/409/422; explicit employment_id required and never equal to actor employment)",
+    "POST /v1/time/leave/requests/on-behalf/preview (200/401/403/404/409/422; same explicit subject rules)",
+    "POST /v1/time/leave/requests/{caseId}/cancel (200/401/403/404/409; self cancel of SUBMITTED releases reservation; body {reason, revoke?})",
+    "POST /v1/time/leave/requests/{caseId}/cancel with revoke=true (200/401/403/404/409; time.leave.admin only; frozen period 409 LEAVE_PERIOD_FROZEN) and optional admin alias POST /v1/time/leave/requests/{caseId}/revoke",
+    "GET /v1/time/leave/ledger (self by default; employment_id drill-down requires time.leave.admin and row scope)",
+    "GET /v1/time/leave/reports/summary (200/401/403/404/422; rows,total,as_of,source_hash; SELF returns only own rows)"
+  ],
+  "routeChanges": [
+    "KEEP GET /v1/time/leave/types -> LeaveTypeController@index (or TimeCatalogController@leaveTypes), capability:time.leave.read",
+    "ADD POST /v1/time/leave/types -> LeaveTypeController@store, middleware csrf.header + IdempotentCommand + capability:time.leave.type.manage, anchor COMPANY",
+    "ADD PATCH /v1/time/leave/types/{id} -> LeaveTypeController@update, middleware csrf.header + IdempotentCommand + capability:time.leave.type.manage, anchor COMPANY, whereNumber(id)",
+    "KEEP GET /v1/time/leave/policies -> LeavePolicyController@index (or TimeCatalogController@leavePolicies), capability:time.leave.policy.read; the /leave policies tab is visible to time.leave.policy.read OR time.leave.policy.manage",
+    "ADD POST /v1/time/leave/policies -> LeavePolicyController@store, middleware csrf.header + IdempotentCommand + capability:time.leave.policy.manage, anchor COMPANY",
+    "ADD POST /v1/time/leave/policies/{id}/retire -> LeavePolicyController@retire, middleware csrf.header + IdempotentCommand + capability:time.leave.policy.manage, anchor COMPANY, whereNumber(id)",
+    "KEEP GET /v1/time/leave/requests -> LeaveController@requests, capability:time.leave.read; scope=all is resolved from TimeActor and never trusts a client capability flag",
+    "KEEP POST /v1/time/leave/preview -> LeaveController@preview, capability:time.leave.read, self subject only",
+    "KEEP POST /v1/time/leave/requests -> LeaveController@request, capability:time.leave.request, self subject only; must be registered before /requests/{caseId} catch-alls",
+    "ADD POST /v1/time/leave/requests/on-behalf/preview -> LeaveOnBehalfController@preview, middleware csrf.header + capability:time.leave.request.on-behalf, anchor MANAGED|ORG_UNIT|ORG_SUBTREE|COMPANY (never SELF)",
+    "ADD POST /v1/time/leave/requests/on-behalf -> LeaveOnBehalfController@store, middleware csrf.header + IdempotentCommand + capability:time.leave.request.on-behalf, anchor MANAGED|ORG_UNIT|ORG_SUBTREE|COMPANY (never SELF)",
+    "KEEP POST /v1/time/leave/requests/{caseId}/cancel -> LeaveController@cancel, capability:time.leave.request.cancel, self-only command; approved leave can only be revoked through the admin route",
+    "ADD POST /v1/time/leave/requests/{caseId}/revoke -> LeaveAdminController@revoke OR route management revoke to LeaveController@cancel with revoke=true; capability:time.leave.admin, anchor MANAGED|ORG_UNIT|ORG_SUBTREE|COMPANY",
+    "KEEP GET /v1/time/leave/ledger -> LeaveController@ledger, capability:time.leave.ledger.read; employment_id drill-down additionally requires time.leave.admin",
+    "ADD GET /v1/time/leave/reports/summary -> LeaveReportController@summary, capability:time.leave.report.read",
+    "Route ordering: declare /v1/time/leave/requests/on-behalf/preview and /on-behalf before /v1/time/leave/requests/{caseId}/cancel and /revoke or the literal segments will not resolve."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "leave",
+      "key": "leave.type.create",
+      "label": "新增假期类型",
+      "capability": "time.leave.type.manage",
+      "api": "POST /v1/time/leave/types",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.type.update",
+      "label": "编辑假期类型",
+      "capability": "time.leave.type.manage",
+      "api": "PATCH /v1/time/leave/types/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.type.toggle",
+      "label": "启用或停用假期类型",
+      "capability": "time.leave.type.manage",
+      "api": "PATCH /v1/time/leave/types/{id}",
+      "ui": "secondary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.policy.create",
+      "label": "发布假期规则版本",
+      "capability": "time.leave.policy.manage",
+      "api": "POST /v1/time/leave/policies",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.policy.retire",
+      "label": "停用假期规则版本",
+      "capability": "time.leave.policy.manage",
+      "api": "POST /v1/time/leave/policies/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.on-behalf",
+      "label": "代员工申请请假",
+      "capability": "time.leave.request.on-behalf",
+      "api": "POST /v1/time/leave/requests/on-behalf",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.cancel",
+      "label": "撤回请假申请",
+      "capability": "time.leave.request.cancel",
+      "api": "POST /v1/time/leave/requests/{caseId}/cancel",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.revoke",
+      "label": "销假冲正",
+      "capability": "time.leave.admin",
+      "api": "POST /v1/time/leave/requests/{caseId}/revoke",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.report.summary",
+      "label": "查看假期汇总",
+      "capability": "time.leave.report.read",
+      "api": "GET /v1/time/leave/reports/summary",
+      "ui": "secondary",
+      "confirm": "none"
+    }
+  ],
+  "capabilityCatalogChanges": [
+    {
+      "capability": "time.leave.type.manage",
+      "anchor": "COMPANY",
+      "roles": [
+        "HR_ADMIN",
+        "ATTENDANCE_SPECIALIST"
+      ]
+    },
+    {
+      "capability": "time.leave.policy.read",
+      "anchor": "COMPANY",
+      "roles": [
+        "HR_ADMIN",
+        "ATTENDANCE_SPECIALIST",
+        "LINE_MANAGER"
+      ]
+    },
+    {
+      "capability": "time.leave.policy.manage",
+      "anchor": "COMPANY",
+      "roles": [
+        "HR_ADMIN",
+        "ATTENDANCE_SPECIALIST"
+      ]
+    },
+    {
+      "capability": "time.leave.request.on-behalf",
+      "anchor": "MANAGED|ORG_UNIT|ORG_SUBTREE|COMPANY (never SELF)",
+      "roles": [
+        "HR_ADMIN",
+        "ATTENDANCE_SPECIALIST",
+        "LINE_MANAGER"
+      ]
+    },
+    {
+      "capability": "time.leave.report.read",
+      "anchor": "SELF|MANAGED|ORG_UNIT|ORG_SUBTREE|COMPANY",
+      "roles": [
+        "HR_ADMIN",
+        "ATTENDANCE_SPECIALIST",
+        "LINE_MANAGER",
+        "EMPLOYEE"
+      ]
+    }
+  ],
+  "permissionCatalogChanges": [
+    {
+      "pageCode": "leave",
+      "componentKey": "leave/index",
+      "requiredCapability": "time.leave.read",
+      "addActions": [
+        "time.leave.type.manage",
+        "time.leave.policy.read",
+        "time.leave.policy.manage",
+        "time.leave.request.on-behalf",
+        "time.leave.report.read"
+      ],
+      "addRequiredApis": [
+        "POST /v1/time/leave/types",
+        "PATCH /v1/time/leave/types/{id}",
+        "POST /v1/time/leave/policies",
+        "POST /v1/time/leave/policies/{id}/retire",
+        "POST /v1/time/leave/requests/on-behalf/preview",
+        "POST /v1/time/leave/requests/on-behalf",
+        "POST /v1/time/leave/requests/{caseId}/revoke",
+        "GET /v1/time/leave/reports/summary"
+      ],
+      "status": "NOT_RUN_OUT_OF_DOMAIN"
+    }
+  ],
+  "payrollIntegration": {
+    "contract": "App\\Modules\\Time\\Contracts\\PayrollPeriodLockReader",
+    "signature": "isFrozen(int $employmentId, string $period): bool",
+    "requiredProductionBinding": "A Payroll-owned adapter (recommended App\\Modules\\Payroll\\Adapters\\TimePayrollPeriodLockReader) implementing App\\Modules\\Time\\Contracts\\PayrollPeriodLockReader, bound in backend/app/Modules/Payroll/Providers/PayrollServiceProvider.php.",
+    "adapterQuery": "Read payroll_run_employees joined to payroll_runs for the employment and period; treat PUBLISHED, PAID and CLOSED (or the project's equivalent frozen statuses) as frozen. Type the query against Payroll models/services; Time must never query payroll tables directly.",
+    "failClosed": "PayrollFreezeGuard treats an unbound contract, a container error, or a thrown reader error as 409 data.reason=LEAVE_PERIOD_FROZEN with data.failure=PAYROLL_LOCK_READER_UNAVAILABLE or PAYROLL_LOCK_READ_FAILED. A true result returns 409 data.reason=LEAVE_PERIOD_FROZEN and data.period=YYYY-MM.",
+    "appliesTo": [
+      "POST /v1/time/leave/requests/{caseId}/cancel with revoke=true",
+      "POST /v1/time/leave/requests/{caseId}/revoke (optional admin alias)"
+    ],
+    "status": "PRODUCTION_ADAPTER_AND_PROVIDER_BINDING_NOT_RUN_OUT_OF_DOMAIN"
+  },
+  "workflowIntegration": {
+    "service": "App\\Modules\\Time\\Services\\LeaveApprovalService::applyApprovedCase(int $caseId, ?int $actorUserId): array",
+    "expectedEffect": "workflow.leave.reserve",
+    "requiredChange": "Bind this Time-owned approval effect to the Workflow effect handler in the Workflow module/provider so an approved leave posts CONSUME idempotently after releasing the submit-time RESERVE. The current NullEffectHandler leaves APPROVED projections unconsumed.",
+    "idempotency": "applyApprovedCase is safe to replay: APPROVED/CONSUMED/REVOKED return replayed=true without writing a second CONSUME.",
+    "status": "NOT_RUN_OUT_OF_DOMAIN"
+  },
+  "migrationChanges": [
+    {
+      "file": "backend/database/migrations/2026_11_27_000100_create_leave_policy_versions_table.php",
+      "notes": "Adds leave_types.status; adds actor_user_id/org_unit_id/leave_policy_version_id to leave_request_projections; creates leave_policy_versions; backfills one PUBLISHED COMPANY version per existing leave type (version 1, 2026-01-01..9999-12-31, accrual minutes from annual_entitlement_days at the configured standard day, fallback 480). Forward-only; down() intentionally performs no destructive rollback."
+    }
+  ],
+  "notes": [
+    "唯一事实源：leave_types 只保留身份/展示（code,name,unit,is_statutory,is_annual,requires_attachment,allow_negative,status）；额度、carryover/expiry、applies_to、min notice、max consecutive、附件阈值、法律依据只在 leave_policy_versions。旧列保留为兼容只读列，Leave 服务不再从旧规则列读取或写入规则。",
+    "规则 append 在事务中锁定 leave_type 行后计算 max(version)+1；同类型未退休 PUBLISHED 版本区间重叠返回 409 LEAVE_POLICY_RANGE_OVERLAP；retire 只允许尚未生效且未被未来 SUBMITTED/APPROVED 申请引用的版本。",
+    "本人代申请拆分：POST /requests 与 /preview 只使用 session.employment_id（客户端 employment_id 被校验后忽略）；代申请使用独立 POST /requests/on-behalf + /preview 和独立能力，要求显式 employment_id、actor employment 与 subject 不同、先过 TimeRequestScope，越权统一 404。",
+    "workingDays 逐日走公司 BusinessCalendar（周末/节假日不计假），preview 与 submit 都调用同一规则/日历/重叠校验；overlap 查询覆盖 SUBMITTED/APPROVED/CONSUMED 并按 from_date<=to and to_date>=from 判断，不只是同起止日期。",
+    "撤销/销假：SUBMITTED 走 RELEASE + workflow withdraw + state=CANCELLED；APPROVED/CONSUMED 走 Payroll freeze guard + REVERSE CONSUME + state=REVOKED；重复终态调用返回 replay/no-op。本人 cancel 与管理员 revoke 是不同路由/能力，本人不能通过 time.leave.admin 提权。",
+    "所有写命令使用 CommandRunner + Idempotency-Key，并在 service 内写审计（type.created/updated、policy.published/retired、request.submitted/on_behalf_submitted、request.cancelled/revoked、request.approved）。",
+    "前端策略页只显示业务字段中文标签（关联假别、版本、额度、发放周期、提前申请、连续上限、附件阈值、生效/失效日期、状态、备注），不显示 technical enum 或原始 JSON；新增/停用均调用真实接口并使用新的幂等键。",
+    "Allowed-domain work only: backend/routes/api.php, docs/openapi/openapi.yaml, docs/generated/**, IAM catalogs/generated page actions, router/registry.ts, router/pageComponents.ts, frontend/src/modules/time/workspaces/**, frontend/src/modules/timepay/**, backend Time Providers and Payroll module were deliberately not edited. The lead must apply the route/OpenAPI/capability/action/removal changes listed here and regenerate derived files.",
+    "The seven legacy leave URLs must be removed without redirect from router registry/pageComponents/timepay barrel/definitions, IAM PermissionResourceCatalog/page assignments, and any OpenAPI/generated catalogs. Their behaviour now lives in the single /leave workspace tabs.",
+    "Tests authored but NOT RUN: backend/tests/Feature/Time/LeavePolicyAndOnBehalfTest.php, backend/tests/Feature/Time/LeaveRevokeFreezeTest.php, frontend/tests/unit/leaveWorkspaceTabs.spec.ts. Existing frontend/tests/unit/LeaveWorkspace.spec.ts was not modified. PHPUnit, Vitest, Playwright, pnpm typecheck, generators/openapi checks and gate:all are NOT RUN per the task's test boundary.",
+    "Syntax/type checks completed within the allowed leave domain: ../.tools/php/php.exe -l on every created/modified PHP file; targeted vue-tsc on src/modules/time/leave/**/*.{ts,vue} and frontend/tests/unit/leaveWorkspaceTabs.spec.ts; and esbuild parse checks for changed SFC <script setup> blocks. These are static checks, not behavioural proof.",
+    "Merge risk: the M09/M11/M12/M13 workers also add commands, controllers and migration prefixes under Time. Keep the leave migration prefix 2026_11_27_0001xx unique to this module and resolve route ordering (literal on-behalf/revoke before parameterized cancel) during integration."
+  ]
+}

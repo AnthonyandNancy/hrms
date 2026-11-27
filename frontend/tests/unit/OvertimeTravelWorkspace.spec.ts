@@ -28,12 +28,24 @@ vi.mock('@/api/resourceClient', () => ({
 }))
 
 const POLICY: OvertimePolicy = {
+  id: 1,
+  version: 1,
+  status: 'PUBLISHED',
+  effectiveFrom: '2026-01-01',
+  effectiveTo: '2026-12-31',
+  timeUnitMinutes: 30,
   multiplier: '1.500000',
   allowPay: true,
   allowTimeoff: true,
   statutoryHolidayMultiplier: '3.000000',
-  source: 'CODE_OWNED_DEFAULT',
-  note: 'Company policy versions override this default when configured.',
+  allocation: 'EMPLOYEE_CHOICE',
+  rounding: 'HALF_UP',
+  legalBasis: 'Synthetic policy',
+  source: 'COMPANY_VERSION',
+  note: '',
+  publishedAt: '2026-01-01T00:00:00Z',
+  retiredAt: null,
+  retireReason: null,
 }
 
 function overtimeRecordRaw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -162,9 +174,27 @@ const ALL_CAPABILITIES = [
 function installSuccessfulReads(overrides: Record<string, unknown> = {}): void {
   resource.get.mockImplementation((path: string) => {
     if (path in overrides) return Promise.resolve(overrides[path])
-    if (path === '/v1/time/overtime/policies') return Promise.resolve(POLICY)
+    if (path === '/v1/time/overtime/policies') return Promise.resolve({ items: [POLICY], total: 1, as_of: '2026-11-27', source: 'COMPANY_VERSION', current: POLICY })
     if (path === '/v1/time/overtime/records') {
       return Promise.resolve({ items: [overtimeRecordRaw()], page: 1, page_size: 20, total: 1 })
+    }
+    if (path === '/v1/time/overtime/settlements') {
+      return Promise.resolve({
+        items: [{
+          overtime_record_id: 7,
+          employment_id: 21,
+          business_date: '2026-11-20',
+          minutes: 120,
+          status: 'APPROVED',
+          settlement_id: 1,
+          method: 'TIMEOFF',
+          reason: 'Synthetic',
+          recorded_at: '2026-11-20T10:00:00Z',
+          payroll_period_frozen: false,
+        }],
+        total: 1,
+        as_of: '2026-11-27',
+      })
     }
     if (path === '/v1/time/overtime/requests') {
       return Promise.resolve(overtimeProjection([overtimeRequestRaw()]))
@@ -279,7 +309,7 @@ describe('OvertimeTravelWorkspace sections and filters', () => {
     expect(travel.text()).toContain('€1,234.56')
 
     expect(resource.get).toHaveBeenCalledWith('/v1/time/overtime/records')
-    expect(resource.get).toHaveBeenCalledWith('/v1/time/overtime/policies')
+    expect(resource.get).toHaveBeenCalledWith('/v1/time/overtime/policies', {})
     expect(resource.get).toHaveBeenCalledWith('/v1/travel/requests', {})
     expect(resource.get).toHaveBeenCalledWith('/v1/travel/expenses', {})
   })
@@ -618,7 +648,7 @@ describe('OvertimeTravelWorkspace capability guards and five states', () => {
         return new Promise((resolve) => { resolveOvertime = resolve })
       }
       if (path === '/v1/travel/requests') return Promise.resolve({ items: [], total: 0 })
-      if (path === '/v1/time/overtime/policies') return Promise.resolve(POLICY)
+      if (path === '/v1/time/overtime/policies') return Promise.resolve({ items: [POLICY], total: 1, as_of: '2026-11-27', source: 'COMPANY_VERSION', current: POLICY })
       if (path === '/v1/time/overtime/requests') return Promise.resolve(overtimeProjection([]))
       return Promise.resolve({ items: [], total: 0 })
     })
@@ -639,7 +669,7 @@ describe('OvertimeTravelWorkspace capability guards and five states', () => {
         }))
       }
       if (path === '/v1/travel/requests') return Promise.resolve({ items: [travelRequestRaw()], total: 1 })
-      if (path === '/v1/time/overtime/policies') return Promise.resolve(POLICY)
+      if (path === '/v1/time/overtime/policies') return Promise.resolve({ items: [POLICY], total: 1, as_of: '2026-11-27', source: 'COMPANY_VERSION', current: POLICY })
       if (path === '/v1/time/overtime/requests') return Promise.resolve(overtimeProjection([]))
       if (path === '/v1/travel/expenses') return Promise.resolve({ items: [travelExpenseRaw()], total: 1 })
       if (path === '/v1/travel/policies') return Promise.resolve({ items: [], total: 0 })
@@ -661,7 +691,7 @@ describe('OvertimeTravelWorkspace capability guards and five states', () => {
         })
       }
       if (path === '/v1/time/overtime/requests') return Promise.resolve(overtimeProjection([overtimeRequestRaw()]))
-      if (path === '/v1/time/overtime/policies') return Promise.resolve(POLICY)
+      if (path === '/v1/time/overtime/policies') return Promise.resolve({ items: [POLICY], total: 1, as_of: '2026-11-27', source: 'COMPANY_VERSION', current: POLICY })
       if (path === '/v1/time/overtime/timeoff-balances') return Promise.resolve({ items: [], available_minutes: 0 })
       if (path === '/v1/travel/requests') return Promise.resolve({ items: [travelRequestRaw()], total: 1 })
       if (path === '/v1/travel/expenses') {

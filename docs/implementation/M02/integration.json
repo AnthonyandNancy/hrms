@@ -1,0 +1,62 @@
+{
+  "module": "M02",
+  "pagesChanged": [
+    {
+      "path": "/dashboard",
+      "name": "dashboard",
+      "change": "唯一看板：服务端业务语义指标卡 + 部门人数/员工构成/近期动态/工作提醒/招聘进展分区 + 同口径下钻"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/dashboard/departments",
+      "name": "部门人数分析"
+    },
+    {
+      "path": "/dashboard/workforce",
+      "name": "员工构成"
+    },
+    {
+      "path": "/dashboard/changes",
+      "name": "近期人事动态"
+    },
+    {
+      "path": "/dashboard/tasks",
+      "name": "工作提醒"
+    },
+    {
+      "path": "/dashboard/recruitment",
+      "name": "招聘进展"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "dashboard-departments",
+    "dashboard-workforce",
+    "dashboard-changes",
+    "dashboard-tasks",
+    "dashboard-recruitment"
+  ],
+  "openapiOperations": [
+    "GET /v1/reporting/dashboard",
+    "GET /v1/reporting/dashboard/metrics/{metric}"
+  ],
+  "routeChanges": [
+    "frontend/src/router/registry.ts: 删除 /dashboard/departments,/dashboard/workforce,/dashboard/changes,/dashboard/tasks,/dashboard/recruitment 五条 workspace；保留唯一 /dashboard",
+    "frontend/src/router/pageComponents.ts: 删除 dashboard/departments..dashboard/recruitment 五个 componentKey 的 platform 解析；仅在 REPORTING_KEYS 保留 dashboard/index",
+    "frontend/src/modules/platform/pages/index.ts: 删除五个 Dashboard*Page.vue 的 loader",
+    "backend/routes/api.php: 无变更；继续使用 GET /v1/reporting/dashboard 与 GET /v1/reporting/dashboard/metrics/{metric}",
+    "旧 URL 不重定向；任何直接访问应由路由 404/not-found 处理"
+  ],
+  "actionInputAdds": [],
+  "notes": [
+    "旧五个 Dashboard*Page.vue 由主代理按本 integration 执行删除；本分支未删除 router/registry、platform catalog/config、PlatformWorkspace dashboard 分支，避免越权修改冻结文件域。",
+    "backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php 中 dashboard-departments..dashboard-recruitment 五条 page_code 由主代理删除并同步角色/页面种子；本分支不得修改 IAM。",
+    "docs/openapi/openapi.yaml 的 DashboardMetric/DashboardData 需要主代理同步为 serviced DTO（unitLabel/availability/scope/period/asOf/drilldown/sections/freshnessState；status 枚举 AVAILABLE/UNCONFIGURED/FORBIDDEN/UNAVAILABLE），并删除 trendDirection/drilldownLabel/greeting。当前文档文件在冻结区，本分支未改。",
+    "根 frontend/src/api/contracts.ts、frontend/src/api/http.ts、frontend/src/views/DashboardView.vue、frontend/src/mocks/adapter.ts 仍为 legacy dashboard 契约；主代理需与 OpenAPI 生成一起清理，避免双 DTO。",
+    "frontend/src/modules/platform/catalog.ts 的五个 dashboard 配置与 PlatformWorkspace.vue 的 mode=dashboard 分支（含 metricKey/dashboard config 特判）待主代理删除；reporting/pages/DashboardPage.vue 已不依赖 platform。",
+    "frontend/tests/unit/platformPages.spec.ts 与 frontend/tests/unit/platformCatalog.spec.ts 已改为单看板分区断言；frontend/tests/unit/dashboard.spec.ts 仍验证 legacy /api/http normaliseDashboard，需随旧 /dashboard 视图删除。",
+    "所有指标查询均经 Authorizer::constrain()，卡片与 metrics/{metric} 共用 MetricQueryBuilder；金额 unit=CNY_CENT，前端 formatMetric 使用 formatMoney 转元，禁止输出 MINOR_UNITS/最小货币单位。",
+    "测试编写但 NOT RUN；仅执行 .tools/php/php.exe -l。",
+    "已同步更新 frontend/tests/unit/platformPages.spec.ts、platformCatalog.spec.ts、ReportingWorkspace.spec.ts 的看板 fixture 与断言；新增 dashboardSections.spec.ts、metricFormat.spec.ts。frontend/tests/unit/dashboard.spec.ts 仍断言 legacy normaliseDashboard，属主代理删除 /dashboard 旧视图时一并清理。"
+  ]
+}

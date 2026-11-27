@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -10,43 +10,52 @@ import PageShell from '@/shared/ui/PageShell.vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { requestIdFromError } from '@/utils/renderErrors'
-import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
+import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import ContractFormDrawer from '../components/ContractFormDrawer.vue'
 import {
   CONTRACT_STATUS_TONES,
   contractTypeLabel,
   createContract,
+  createContractTemplate,
   isForbidden,
+  listContractTemplates,
   listContracts,
   listEmployeeOptions,
+  listExpiringContracts,
+  publishContractTemplate,
   type Contract,
   type ContractFormInput,
   type ContractPage,
+  type ContractTemplate,
+  type ContractTemplatePage,
   type EmployeeOption,
 } from '../api'
 
 defineOptions({ name: 'ContractWorkspacePage' })
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
-type ExpiryFilter = 'ALL' | '60' | '30' | '7' | 'EXPIRED'
+type ContractTab = 'ledger' | 'expiry' | 'templates'
+type ExpiryWindow = '60' | '30' | '7'
 
 const router = useRouter()
+const route = useRoute()
 const session = useSessionStore()
 
 const canRead = computed(() => session.can('people.contract.read'))
 const canManage = computed(() => session.can('people.contract.manage'))
 const canAmend = computed(() => session.can('people.contract.amend'))
 const canTerminate = computed(() => session.can('people.contract.terminate'))
+const canManageTemplates = computed(() => session.can('people.contract.template.manage'))
 
 const asOf = ref(todayBusinessDate())
 const page = ref(1)
-const pageSize = 20
+const pageSize = ref(20)
 const state = ref<LoadState>('idle')
 const result = ref<ContractPage>({
   items: [],
   total: 0,
   page: 1,
-  page_size: pageSize,
+  page_size: pageSize.value,
   partial: false,
   partial_reason: null,
   as_of: asOf.value,
@@ -55,7 +64,22 @@ const pageError = ref<unknown>(null)
 const employees = ref<EmployeeOption[]>([])
 const employeeLookupError = ref('')
 const search = ref('')
-const expiryFilter = ref<ExpiryFilter>('ALL')
+const appliedSearch = ref('')
+const expiryWindow = ref<ExpiryWindow>('60')
+
+const templates = ref<ContractTemplatePage>({
+  items: [],
+  total: 0,
+  partial: false,
+  partial_reason: null,
+})
+const templatesState = ref<LoadState>('idle')
+const templatesError = ref<unknown>(null)
+const templateSearch = ref('')
+const templateDialogOpen = ref(false)
+const templateSaving = ref(false)
+const templateError = ref<ApiError | null>(null)
+const templateDraft = ref({ code: '', name: '', body: '' })
 
 const drawerOpen = ref(false)
 const drawerMode = ref<'create' | 'renew'>('create')
@@ -64,19 +88,32 @@ const saving = ref(false)
 const saveError = ref<ApiError | null>(null)
 
 let requestSequence = 0
+let templateSequence = 0
+
+const activeTab = computed<ContractTab>(() => {
+  const raw = route.query.tab
+  return raw === 'expiry' || raw === 'templates' ? raw : 'ledger'
+})
 
 const loading = computed(() => state.value === 'loading')
 const forbidden = computed(() => !canRead.value || state.value === 'forbidden')
-const isEmpty = computed(() => state.value === 'ready' && filteredRows.value.length === 0)
-const isPartial = computed(() => state.value === 'ready' && result.value.partial)
+const isEmpty = computed(() =>
+  state.value === 'ready' && (activeTab.value === 'templates' ? templates.value.items.length === 0 : result.value.items.length === 0),
+)
+const isPartial = computed(() =>
+  state.value === 'ready' && (activeTab.value === 'templates' ? templates.value.partial : result.value.partial),
+)
 const errorMessage = computed(() =>
   pageError.value === null ? '劳动合同台账暂时无法加载。' : errorCopy(pageError.value),
 )
 const errorRequestId = computed(() =>
   pageError.value === null ? null : requestIdFromError(pageError.value),
 )
+const templatesErrorMessage = computed(() =>
+  templatesError.value === null ? '合同模板暂时无法加载。' : errorCopy(templatesError.value),
+)
 
-const columns: DataTableColumn[] = [
+const contractColumns: DataTableColumn[] = [
   { key: 'employee_name', label: '员工', minWidth: '150px' },
   { key: 'contract_no', label: '合同编号', minWidth: '150px' },
   { key: 'contract_type_label', label: '合同类型', width: '110px' },
@@ -86,6 +123,21 @@ const columns: DataTableColumn[] = [
   { key: 'expiry_label', label: '到期提醒', width: '120px' },
   { key: 'actions', label: '操作', width: '168px' },
 ]
+
+const templateColumns: DataTableColumn[] = [
+  { key: 'code', label: '模板编码', minWidth: '130px' },
+  { key: 'name', label: '模板名称', minWidth: '180px' },
+  { key: 'version', label: '版本', width: '80px' },
+  { key: 'status_label', label: '状态', width: '100px' },
+  { key: 'published_at', label: '发布时间', minWidth: '150px' },
+  { key: 'actions', label: '操作', width: '110px' },
+]
+
+const TEMPLATE_STATUS_LABELS: Readonly<Record<string, string>> = {
+  DRAFT: '草稿',
+  PUBLISHED: '已发布',
+  ARCHIVED: '已归档',
+}
 
 function expiryLabel(contract: Contract): string {
   if (contract.display_status_label === '已终止') return '已终止'
@@ -99,28 +151,8 @@ function expiryLabel(contract: Contract): string {
   return `${contract.days_to_expiry} 天后到期`
 }
 
-function matchesExpiry(contract: Contract): boolean {
-  const days = contract.days_to_expiry
-  if (expiryFilter.value === 'ALL') return true
-  if (expiryFilter.value === 'EXPIRED') return contract.display_status === 'EXPIRED'
-  if (contract.end_date === null || days === null) return false
-  if (contract.display_status_label === '已终止' || contract.display_status_label === '已续签') return false
-  const window = Number(expiryFilter.value)
-  return days >= 0 && days <= window
-}
-
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return result.value.items.filter((contract) => {
-    if (!matchesExpiry(contract)) return false
-    if (term === '') return true
-    return [contract.employee_name, contract.employee_no, contract.contract_no, contractTypeLabel(contract.contract_type)]
-      .some((value) => value !== null && value.toLowerCase().includes(term))
-  })
-})
-
-const rows = computed<Array<Record<string, unknown>>>(() =>
-  filteredRows.value.map((contract) => ({
+const contractRows = computed<Array<Record<string, unknown>>>(() =>
+  result.value.items.map((contract) => ({
     ...contract,
     employee_name: contract.employee_name ?? `员工 #${contract.employment_id}`,
     contract_type_label: contractTypeLabel(contract.contract_type),
@@ -133,6 +165,29 @@ const rows = computed<Array<Record<string, unknown>>>(() =>
   })),
 )
 
+const templateRows = computed<Array<Record<string, unknown>>>(() =>
+  templates.value.items.map((template) => ({
+    ...template,
+    version: `第 ${template.version} 版`,
+    status_label: TEMPLATE_STATUS_LABELS[template.status] ?? '未知状态',
+    published_at: formatDateTimeInTimezone(template.published_at),
+  })),
+)
+
+function setTab(tab: ContractTab): void {
+  page.value = 1
+  if (route.query.tab === tab) {
+    if (tab === 'templates') {
+      void loadTemplates()
+    } else {
+      void load()
+    }
+    return
+  }
+  // The route watcher performs the single load for this tab change.
+  void router.replace({ query: { ...route.query, tab } })
+}
+
 async function load(): Promise<void> {
   if (!canRead.value) {
     state.value = 'forbidden'
@@ -144,8 +199,17 @@ async function load(): Promise<void> {
   pageError.value = null
   employeeLookupError.value = ''
 
+  const ledgerPromise = activeTab.value === 'expiry'
+    ? listExpiringContracts(Number(expiryWindow.value) as 60 | 30 | 7, asOf.value)
+    : listContracts({
+        asOf: asOf.value,
+        page: page.value,
+        pageSize: pageSize.value,
+        q: appliedSearch.value,
+      })
+
   const [ledger, employeePage] = await Promise.allSettled([
-    listContracts(asOf.value, page.value, pageSize),
+    ledgerPromise,
     listEmployeeOptions(asOf.value),
   ])
 
@@ -155,7 +219,7 @@ async function load(): Promise<void> {
     employees.value = employeePage.value
   } else {
     employees.value = []
-    employeeLookupError.value = '员工下拉加载失败；仍可查看到期合同，新建合同需先恢复员工目录。'
+    employeeLookupError.value = '员工下拉加载失败；仍可查看合同台账，新建合同需先恢复员工目录。'
   }
 
   if (ledger.status === 'rejected') {
@@ -175,8 +239,43 @@ async function load(): Promise<void> {
   state.value = 'ready'
 }
 
+async function loadTemplates(): Promise<void> {
+  const sequence = ++templateSequence
+  templatesState.value = 'loading'
+  templatesError.value = null
+
+  try {
+    const pageResult = await listContractTemplates({ asOf: asOf.value, q: templateSearch.value })
+    if (sequence !== templateSequence) return
+    templates.value = pageResult
+    templatesState.value = 'ready'
+  } catch (error) {
+    if (sequence !== templateSequence) return
+    templates.value = { items: [], total: 0, partial: false, partial_reason: null }
+    templatesError.value = error
+    templatesState.value = isForbidden(error) ? 'forbidden' : 'error'
+  }
+}
+
+function submitSearch(): void {
+  appliedSearch.value = search.value.trim()
+  page.value = 1
+  void load()
+}
+
+function setExpiryWindow(window: ExpiryWindow): void {
+  expiryWindow.value = window
+  void load()
+}
+
 function onPageChange(next: number): void {
   page.value = next
+  void load()
+}
+
+function onPageSizeChange(next: number): void {
+  pageSize.value = next
+  page.value = 1
   void load()
 }
 
@@ -200,9 +299,17 @@ async function save(input: ContractFormInput): Promise<void> {
   saving.value = true
   saveError.value = null
   try {
-    await createContract(input.employment_id, input)
-    ElMessage.success(input.renewal_of_contract_id === null ? '劳动合同草稿已保存。' : '续签已生成新版本，原版本保留。')
+    const created = await createContract(input.employment_id, input)
     drawerOpen.value = false
+    if (input.renewal_of_contract_id !== null && created !== null) {
+      ElMessage.success('续签已生成新版本，已打开新合同详情。')
+      void router.push({
+        path: `/hr/contracts/${created.id}`,
+        query: { employment_id: String(created.employment_id) },
+      })
+      return
+    }
+    ElMessage.success('劳动合同草稿已保存。')
     page.value = 1
     await load()
   } catch (error) {
@@ -213,34 +320,104 @@ async function save(input: ContractFormInput): Promise<void> {
   }
 }
 
+function openTemplateDialog(): void {
+  if (!canManageTemplates.value) return
+  templateDraft.value = { code: '', name: '', body: '' }
+  templateError.value = null
+  templateDialogOpen.value = true
+}
+
+async function saveTemplate(): Promise<void> {
+  if (!canManageTemplates.value) return
+  const { code, name, body } = templateDraft.value
+  if (code.trim() === '' || name.trim() === '' || body.trim() === '') {
+    ElMessage.warning('请填写模板编码、名称和正文。')
+    return
+  }
+
+  templateSaving.value = true
+  templateError.value = null
+  try {
+    await createContractTemplate({ code, name, body })
+    ElMessage.success('合同模板草稿已创建，发布后新合同可引用。')
+    templateDialogOpen.value = false
+    await loadTemplates()
+  } catch (error) {
+    templateError.value = error instanceof ApiError ? error : null
+    if (templateError.value === null) ElMessage.error(errorCopy(error))
+  } finally {
+    templateSaving.value = false
+  }
+}
+
+async function publishTemplate(template: ContractTemplate): Promise<void> {
+  if (!canManageTemplates.value || template.status !== 'DRAFT') return
+  try {
+    await publishContractTemplate(template.id)
+    ElMessage.success('模板已发布；同编码的旧发布版本归档，历史保留。')
+    await loadTemplates()
+  } catch (error) {
+    ElMessage.error(errorCopy(error))
+  }
+}
+
 function view(contract: Contract): void {
   void router.push({ path: `/hr/contracts/${contract.id}`, query: { employment_id: String(contract.employment_id) } })
 }
 
-function setExpiryFilter(filter: ExpiryFilter): void {
-  expiryFilter.value = filter
-}
+watch(
+  () => route.query.tab,
+  () => {
+    asOf.value = todayBusinessDate()
+    if (activeTab.value === 'templates') {
+      void loadTemplates()
+    } else {
+      void load()
+    }
+  },
+)
 
-onMounted(load)
+onMounted(() => {
+  if (activeTab.value === 'templates') {
+    void loadTemplates()
+  } else {
+    void load()
+  }
+})
 onBeforeUnmount(() => {
   requestSequence += 1
+  templateSequence += 1
 })
 </script>
 
 <template>
   <PageShell
     title="劳动合同"
-    description="按员工维护劳动合同版本、续签链与到期预警；签订、续签、变更和终止均保留历史。"
+    description="按员工维护劳动合同版本、续签链、到期预警与合同模板；签订、续签、变更和终止均保留历史。"
   >
     <template #actions>
-      <el-button :disabled="loading" data-testid="contract-refresh" @click="load">刷新</el-button>
       <el-button
-        v-if="canManage && !forbidden"
+        :disabled="loading"
+        data-testid="contract-refresh"
+        @click="activeTab === 'templates' ? loadTemplates() : load()"
+      >
+        刷新
+      </el-button>
+      <el-button
+        v-if="canManage && !forbidden && activeTab !== 'templates'"
         type="primary"
         data-testid="contract-create"
         @click="openCreate"
       >
         新建合同
+      </el-button>
+      <el-button
+        v-if="canManageTemplates && !forbidden && activeTab === 'templates'"
+        type="primary"
+        data-testid="contract-template-create"
+        @click="openTemplateDialog"
+      >
+        新建模板
       </el-button>
     </template>
 
@@ -259,184 +436,268 @@ onBeforeUnmount(() => {
       <el-button type="primary" plain @click="load">重试</el-button>
     </section>
 
-    <ErrorState
-      v-else-if="state === 'error'"
-      data-testid="contracts-error"
-      title="劳动合同台账暂时无法加载"
-      :description="errorMessage"
-      :request-id="errorRequestId"
-      @retry="load"
-    />
-
-    <LoadingState v-else-if="loading || state === 'idle'" :rows="6" label="正在加载劳动合同台账" />
-
     <template v-else>
-      <el-alert
-        v-if="isPartial"
-        type="warning"
-        :closable="false"
-        show-icon
-        data-testid="contracts-partial"
-      >
-        <template #title>
-          部分数据：{{ result.partial_reason ?? '服务端只返回了部分合同，请刷新后重试。' }}
-        </template>
-      </el-alert>
+      <nav class="contract-tabs" aria-label="劳动合同工作区">
+        <button
+          type="button"
+          class="contract-tab"
+          :class="{ 'contract-tab--active': activeTab === 'ledger' }"
+          data-testid="contract-tab-ledger"
+          @click="setTab('ledger')"
+        >
+          合同台账
+        </button>
+        <button
+          type="button"
+          class="contract-tab"
+          :class="{ 'contract-tab--active': activeTab === 'expiry' }"
+          data-testid="contract-tab-expiry"
+          @click="setTab('expiry')"
+        >
+          到期管理
+        </button>
+        <button
+          type="button"
+          class="contract-tab"
+          :class="{ 'contract-tab--active': activeTab === 'templates' }"
+          data-testid="contract-tab-templates"
+          @click="setTab('templates')"
+        >
+          合同模板
+        </button>
+      </nav>
 
-      <el-alert v-if="employeeLookupError !== ''" type="warning" :closable="false" show-icon>
-        <template #title>{{ employeeLookupError }}</template>
-      </el-alert>
-
-      <section class="panel contract-toolbar" aria-label="合同筛选">
-        <div class="panel__body contract-toolbar__body">
-          <label class="contract-toolbar__search">
-            <span>搜索</span>
-            <el-input
-              v-model="search"
-              clearable
-              placeholder="员工、工号或合同编号"
-              aria-label="搜索劳动合同"
-            />
-          </label>
-          <div class="contract-toolbar__filters">
-            <span class="contract-toolbar__label">到期窗口</span>
-            <button
-              type="button"
-              class="contract-filter"
-              :class="{ 'contract-filter--active': expiryFilter === 'ALL' }"
-              data-testid="contract-expiry-filter-all"
-              @click="setExpiryFilter('ALL')"
-            >
-              全部
-            </button>
-            <button
-              type="button"
-              class="contract-filter"
-              :class="{ 'contract-filter--active': expiryFilter === '60' }"
-              data-testid="contract-expiry-filter"
-              @click="setExpiryFilter('60')"
-            >
-              60 天内
-            </button>
-            <button
-              type="button"
-              class="contract-filter"
-              :class="{ 'contract-filter--active': expiryFilter === '30' }"
-              data-testid="contract-expiry-30"
-              @click="setExpiryFilter('30')"
-            >
-              30 天内
-            </button>
-            <button
-              type="button"
-              class="contract-filter"
-              :class="{ 'contract-filter--active': expiryFilter === '7' }"
-              data-testid="contract-expiry-7"
-              @click="setExpiryFilter('7')"
-            >
-              7 天内
-            </button>
-            <button
-              type="button"
-              class="contract-filter"
-              :class="{ 'contract-filter--active': expiryFilter === 'EXPIRED' }"
-              data-testid="contract-expiry-expired"
-              @click="setExpiryFilter('EXPIRED')"
-            >
-              已到期
-            </button>
-          </div>
-          <span class="contract-toolbar__asof">业务日期 {{ asOf }}</span>
-        </div>
-      </section>
-
-      <EmptyState
-        v-if="isEmpty && result.items.length === 0"
-        data-testid="contracts-empty"
-        title="暂无劳动合同"
-        description="当前业务日期下没有可读取的劳动合同。可以新建草稿，或调整员工数据范围后重试。"
-      />
-      <EmptyState
-        v-else-if="isEmpty"
-        data-testid="contracts-filter-empty"
-        title="筛选条件下没有合同"
-        description="当前到期窗口或搜索条件没有匹配项。调整筛选后再试。"
+      <ErrorState
+        v-if="activeTab !== 'templates' && state === 'error'"
+        data-testid="contracts-error"
+        title="劳动合同台账暂时无法加载"
+        :description="errorMessage"
+        :request-id="errorRequestId"
+        @retry="load"
       />
 
-      <DataTable
-        v-else
-        data-testid="contract-table"
-        :columns="columns"
-        :rows="rows"
-        :total="result.total"
-        :page="page"
-        :page-size="pageSize"
-        row-key="id"
-        search-placeholder="员工、工号或合同编号"
-        @update:page="onPageChange"
-      >
-        <template #cell-employee_name="{ row }">
-          <div class="contract-employee">
-            <strong>{{ row.employee_name }}</strong>
-            <small v-if="row.employee_no">{{ row.employee_no }}</small>
+      <LoadingState
+        v-else-if="activeTab !== 'templates' && (loading || state === 'idle')"
+        :rows="6"
+        label="正在加载劳动合同台账"
+      />
+
+      <ErrorState
+        v-else-if="activeTab === 'templates' && templatesState === 'error'"
+        data-testid="contract-templates-error"
+        title="合同模板暂时无法加载"
+        :description="templatesErrorMessage"
+        @retry="loadTemplates"
+      />
+
+      <LoadingState
+        v-else-if="activeTab === 'templates' && (templatesState === 'loading' || templatesState === 'idle')"
+        :rows="4"
+        label="正在加载合同模板"
+      />
+
+      <template v-else>
+        <el-alert
+          v-if="isPartial"
+          type="warning"
+          :closable="false"
+          show-icon
+          data-testid="contracts-partial"
+        >
+          <template #title>
+            部分数据：{{ activeTab === 'templates' ? templates.partial_reason : result.partial_reason ?? '服务端只返回了部分记录，请刷新后重试。' }}
+          </template>
+        </el-alert>
+
+        <el-alert v-if="employeeLookupError !== '' && activeTab !== 'templates'" type="warning" :closable="false" show-icon>
+          <template #title>{{ employeeLookupError }}</template>
+        </el-alert>
+
+        <section v-if="activeTab !== 'templates'" class="panel contract-toolbar" aria-label="合同筛选">
+          <div class="panel__body contract-toolbar__body">
+            <form v-if="activeTab === 'ledger'" class="contract-toolbar__search" @submit.prevent="submitSearch">
+              <span>搜索</span>
+              <div class="contract-toolbar__search-row">
+                <el-input
+                  v-model="search"
+                  clearable
+                  placeholder="员工姓名、工号或合同编号"
+                  aria-label="搜索劳动合同"
+                  data-testid="contract-search"
+                />
+                <button type="submit" class="contract-filter" data-testid="contract-search-submit">搜索</button>
+              </div>
+              <small>筛选由服务端执行，翻页后仍保持。</small>
+            </form>
+            <div v-if="activeTab === 'expiry'" class="contract-toolbar__filters">
+              <span class="contract-toolbar__label">到期窗口</span>
+              <button
+                v-for="window in (['7', '30', '60'] as ExpiryWindow[])"
+                :key="window"
+                type="button"
+                class="contract-filter"
+                :class="{ 'contract-filter--active': expiryWindow === window }"
+                :data-testid="`contract-expiry-${window}`"
+                @click="setExpiryWindow(window)"
+              >
+                {{ window }} 天内
+              </button>
+            </div>
+            <span class="contract-toolbar__asof">业务日期 {{ asOf }}</span>
           </div>
-        </template>
-        <template #cell-contract_no="{ row }">
-          <button type="button" class="contract-link mono" @click="view(row as unknown as Contract)">
-            {{ row.contract_no }}
-          </button>
-        </template>
-        <template #cell-status_label="{ row }">
-          <span
-            class="status-badge status-badge--sm"
-            :class="`status-badge--${CONTRACT_STATUS_TONES[(row as unknown as Contract).display_status]}`"
-          >
-            {{ row.status_label }}
-          </span>
-        </template>
-        <template #cell-expiry_label="{ row }">
-          <span
-            :class="{
-              'contract-expiry--warning': (row as unknown as Contract).display_status === 'EXPIRING',
-              'contract-expiry--danger': (row as unknown as Contract).display_status === 'EXPIRED',
-            }"
-          >
-            {{ row.expiry_label }}
-          </span>
-        </template>
-        <template #cell-actions="{ row }">
-          <div class="contract-actions">
-            <button type="button" class="contract-action" @click="view(row as unknown as Contract)">详情</button>
+        </section>
+
+        <section v-else class="panel contract-toolbar" aria-label="模板筛选">
+          <div class="panel__body contract-toolbar__body">
+            <form class="contract-toolbar__search" @submit.prevent="loadTemplates">
+              <span>搜索模板</span>
+              <div class="contract-toolbar__search-row">
+                <el-input
+                  v-model="templateSearch"
+                  clearable
+                  placeholder="模板编码或名称"
+                  aria-label="搜索合同模板"
+                  data-testid="contract-template-search"
+                />
+                <button type="submit" class="contract-filter" data-testid="contract-template-search-submit">搜索</button>
+              </div>
+            </form>
+            <span class="contract-toolbar__asof">业务日期 {{ asOf }}</span>
+          </div>
+        </section>
+
+        <EmptyState
+          v-if="isEmpty && activeTab === 'ledger' && appliedSearch === ''"
+          data-testid="contracts-empty"
+          title="暂无劳动合同"
+          description="当前业务日期下没有可读取的劳动合同。可以新建草稿，或调整员工数据范围后重试。"
+        />
+        <EmptyState
+          v-else-if="isEmpty && activeTab === 'ledger'"
+          data-testid="contracts-filter-empty"
+          title="没有匹配的劳动合同"
+          description="服务端按员工姓名、工号或合同编号未找到匹配项。调整关键词后再试。"
+        />
+        <EmptyState
+          v-else-if="isEmpty && activeTab === 'expiry'"
+          data-testid="contracts-expiry-empty"
+          title="到期窗口内没有合同"
+          description="当前业务日期和到期窗口内没有即将到期的合同。切换窗口或回到台账查看全部。"
+        />
+        <EmptyState
+          v-else-if="isEmpty && activeTab === 'templates'"
+          data-testid="contract-templates-empty"
+          title="暂无合同模板"
+          description="尚未创建合同模板。具备模板管理权限的账号可新建草稿并发布。"
+        />
+
+        <DataTable
+          v-else-if="activeTab !== 'templates'"
+          data-testid="contract-table"
+          :columns="contractColumns"
+          :rows="contractRows"
+          :total="activeTab === 'expiry' ? result.items.length : result.total"
+          :page="page"
+          :page-size="pageSize"
+          row-key="id"
+          @update:page="onPageChange"
+          @update:page-size="onPageSizeChange"
+        >
+          <template #cell-employee_name="{ row }">
+            <div class="contract-employee">
+              <strong>{{ row.employee_name }}</strong>
+              <small v-if="row.employee_no">{{ row.employee_no }}</small>
+            </div>
+          </template>
+          <template #cell-contract_no="{ row }">
+            <button type="button" class="contract-link mono" @click="view(row as unknown as Contract)">
+              {{ row.contract_no }}
+            </button>
+          </template>
+          <template #cell-status_label="{ row }">
+            <span
+              class="status-badge status-badge--sm"
+              :class="`status-badge--${CONTRACT_STATUS_TONES[(row as unknown as Contract).display_status]}`"
+            >
+              {{ row.status_label }}
+            </span>
+          </template>
+          <template #cell-expiry_label="{ row }">
+            <span
+              :class="{
+                'contract-expiry--warning': (row as unknown as Contract).display_status === 'EXPIRING',
+                'contract-expiry--danger': (row as unknown as Contract).display_status === 'EXPIRED',
+              }"
+            >
+              {{ row.expiry_label }}
+            </span>
+          </template>
+          <template #cell-actions="{ row }">
+            <div class="contract-actions">
+              <button type="button" class="contract-action" @click="view(row as unknown as Contract)">详情</button>
+              <button
+                v-if="
+                  canManage &&
+                    (row as unknown as Contract).display_status_label !== '已终止' &&
+                    (row as unknown as Contract).display_status_label !== '已续签'
+                "
+                type="button"
+                class="contract-action"
+                :data-testid="`contract-renew-${(row as unknown as Contract).id}`"
+                @click="openRenew(row as unknown as Contract)"
+              >
+                续签
+              </button>
+              <button
+                v-if="canTerminate && (row as unknown as Contract).display_status_label !== '已终止'"
+                type="button"
+                class="contract-action contract-action--danger"
+                :data-testid="`contract-terminate-${(row as unknown as Contract).id}`"
+                @click="view(row as unknown as Contract)"
+              >
+                终止
+              </button>
+            </div>
+          </template>
+        </DataTable>
+
+        <DataTable
+          v-else
+          data-testid="contract-template-table"
+          :columns="templateColumns"
+          :rows="templateRows"
+          :total="templates.total"
+          :page="1"
+          :page-size="50"
+          row-key="id"
+        >
+          <template #cell-code="{ row }">
+            <span class="mono">{{ row.code }}</span>
+          </template>
+          <template #cell-actions="{ row }">
             <button
-              v-if="
-                canManage &&
-                  (row as unknown as Contract).display_status_label !== '已终止' &&
-                  (row as unknown as Contract).display_status_label !== '已续签'
-              "
+              v-if="canManageTemplates && (row as unknown as ContractTemplate).status === 'DRAFT'"
               type="button"
               class="contract-action"
-              :data-testid="`contract-renew-${(row as unknown as Contract).id}`"
-              @click="openRenew(row as unknown as Contract)"
+              :data-testid="`contract-template-publish-${(row as unknown as ContractTemplate).id}`"
+              @click="publishTemplate(row as unknown as ContractTemplate)"
             >
-              续签
+              发布
             </button>
-            <button
-              v-if="canTerminate && (row as unknown as Contract).display_status_label !== '已终止'"
-              type="button"
-              class="contract-action contract-action--danger"
-              :data-testid="`contract-terminate-${(row as unknown as Contract).id}`"
-              @click="view(row as unknown as Contract)"
-            >
-              终止
-            </button>
-          </div>
-        </template>
-      </DataTable>
+            <span v-else class="contract-archive-note">只读</span>
+          </template>
+        </DataTable>
 
-      <p v-if="canAmend" class="contract-workspace__note">
-        合同变更从详情页追加版本；历史版本与附件只读保留。
-      </p>
-      <p v-else class="contract-workspace__note">只读账号可查看合同、版本与附件，不显示写入动作。</p>
+        <p v-if="canAmend && activeTab !== 'templates'" class="contract-workspace__note">
+          合同变更从详情页追加版本；历史版本与附件只读保留。
+        </p>
+        <p v-else-if="activeTab !== 'templates'" class="contract-workspace__note">
+          只读账号可查看合同、版本与附件，不显示写入动作。
+        </p>
+        <p v-else class="contract-workspace__note">
+          模板发布是版本化动作：发布新版本会归档同编码的旧发布版本，历史模板不删除。
+        </p>
+      </template>
     </template>
 
     <ContractFormDrawer
@@ -448,10 +709,78 @@ onBeforeUnmount(() => {
       :server-error="saveError"
       @save="save"
     />
+
+    <el-dialog
+      v-model="templateDialogOpen"
+      title="新建合同模板草稿"
+      width="560px"
+      :close-on-click-modal="false"
+      data-testid="contract-template-dialog"
+    >
+      <div class="contract-template-form">
+        <label>
+          <span>模板编码 *</span>
+          <el-input v-model="templateDraft.code" data-testid="contract-template-code" maxlength="64" placeholder="例如 CN-FIXED" />
+        </label>
+        <label>
+          <span>模板名称 *</span>
+          <el-input v-model="templateDraft.name" data-testid="contract-template-name" maxlength="160" placeholder="例如 固定期限劳动合同" />
+        </label>
+        <label>
+          <span>模板正文 *</span>
+          <el-input
+            v-model="templateDraft.body"
+            data-testid="contract-template-body"
+            type="textarea"
+            :rows="8"
+            maxlength="20000"
+            placeholder="输入合同条款正文"
+          />
+        </label>
+        <p v-if="templateError !== null" class="contract-form__error" role="alert">
+          {{ templateError.message }}
+          <span v-if="templateError.requestId">（请求编号 {{ templateError.requestId }}）</span>
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="templateDialogOpen = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="templateSaving"
+          data-testid="contract-template-save"
+          @click="saveTemplate"
+        >
+          保存草稿
+        </el-button>
+      </template>
+    </el-dialog>
   </PageShell>
 </template>
 
 <style scoped>
+.contract-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 12px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  width: fit-content;
+}
+.contract-tab {
+  padding: 6px 14px;
+  color: var(--color-ink-secondary);
+  font-size: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.contract-tab--active {
+  color: #fff;
+  background: var(--color-brand);
+}
 .contract-toolbar__body {
   display: flex;
   flex-wrap: wrap;
@@ -462,9 +791,17 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: min(300px, 100%);
+  min-width: min(360px, 100%);
   color: var(--color-ink-muted);
   font-size: 11px;
+}
+.contract-toolbar__search-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.contract-toolbar__search-row :deep(.el-input) {
+  flex: 1;
 }
 .contract-toolbar__filters {
   display: flex;
@@ -533,8 +870,25 @@ onBeforeUnmount(() => {
 .contract-action--danger {
   color: var(--color-danger);
 }
+.contract-archive-note {
+  color: var(--color-ink-muted);
+  font-size: 11px;
+}
 .contract-workspace__note {
   margin: 2px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 11px;
+}
+.contract-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+.contract-template-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   color: var(--color-ink-muted);
   font-size: 11px;
 }

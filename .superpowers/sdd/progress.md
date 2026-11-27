@@ -188,3 +188,69 @@ Task 8: complete (commit 6750ccf, fixture tests green; real-repo gates exit 1 wi
 - Registry 162 pages (1 new payroll run detail, 1 new workflow case detail, 7 form routes pending conversion to actions by the page-model gate fix).
 - Real defects fixed along the way: PAYROLL_SPECIALIST run scope (listRuns now membership-filtered), role rename/delete endpoints, department write endpoints, 4 recruitment write routes, contract transaction moved out of the controller (arch rule), 8 page actions registered with their required APIs.
 - Three product gates still red at start of cleanup: page_model 12, ui_primitives 49, user_copy 32 -> three parallel agents assigned.
+
+# Plan 4: FactoryHR V2.3 module closure
+
+Plan source:
+- docs/superpowers/specs/2026-11-27-factoryhr-v2-3-module-closure-design.md
+- docs/superpowers/plans/2026-11-27-v2-3-remediation-master-plan.md
+- 21 approved module plans M01-M21
+
+## Execution boundary (user instruction, 2026-11-27)
+
+Approved: all 21 plans. Implement code + functional modules in dependency order.
+Tests, real-stack E2E, UAT and acceptance are deferred until the user asks.
+Every unexecuted test/evidence item stays NOT RUN; do not claim PASS or GO.
+
+## Baseline
+
+- Branch: feat/v2.3-module-closure
+- Base commit: add6d49
+- No business code existed for V2.3 before this ledger.
+- Static checks used during implementation: generated manifests, page/route/product
+  audits, vue-tsc, PHP lint, capability:audit, arch:test. These are code/contract
+  checks, not the deferred test suite.
+
+## Module ledger
+
+M01: code complete (frontend 152 registry, backend 151 catalog; tests NOT RUN).
+  - deleted /account/mfa, /account/sessions, /self-service and their shells
+  - /account merges profile, sessions, password and optional MFA actions
+  - workspace now renders personal tasks, quick actions and no-employment state
+  - workspace contract localizes employment type/contract status and returns
+    employment_linked
+  - repaired dead links in workspace and payroll legacy views
+  - static green: page-components 152/152, action manifest 37 actions,
+    route coverage 0 failures, page model, frontend modules, single company,
+    ui primitives, user copy, vue-tsc, capability:audit, arch:test
+  - deferred: backend PHPUnit, Vitest, Playwright, gate:all, all evidence = NOT RUN
+
+M21: code complete (frontend 151 registry, backend 149 catalog; focused tests green; full suite/E2E NOT RUN as instructed).
+  - NEW GET/PATCH /v1/system/company-profile (Organization writer + CommandRunner + audit)
+  - audit query moved into IAM (SecurityAuditReader port) to preserve module boundaries
+  - NEW GET /v1/audit/events and POST /v1/audit/events/export (server filters, field allow-list, export audit)
+  - /system/calendars deleted; calendar editing folded into /system/settings?tab=calendar
+  - /system/settings is a five-tab workspace: company, calendar, dictionary, parameter, file
+  - /system/audit now has real readiness panel and explicit backup-status gap
+  - static green: actions:check 43 actions, page-components 151/151, route coverage, vue-tsc,
+    capability:audit, arch:test, phpstan, pint, openapi-lint
+  - focused tests green: CompanyProfileApiTest + AuditQueryTest (5 tests/25 assertions);
+    SettingsWorkspace + NotificationAuditWorkspace + platformWorkspaces (25 tests)
+  - deferred: full PHPUnit, full Vitest, Playwright real stack, gate:all, UAT, evidence = NOT RUN
+
+M19: dispatched to subagent m19-iam (implementing page catalogue + role authorization tabs, destructive fold of four IAM pages).
+  - expected actual counts: frontend 148, backend 146 (based on M01+M21 151/149, delete 4 add 1)
+  - tests/acceptance remain deferred; subagent may run static + focused checks only
+
+## Parallel implementation wave (2026-11-27 ~15:40)
+
+User authorized parallel subagents for independent code/functional work.
+Dispatched with non-overlapping file domains; shared contracts (routes, OpenAPI,
+registry, generated manifests, IAM catalogs, providers) are integrated only by
+the lead afterwards.
+
+Modules in flight: M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12,
+M13, M14, M15, M16, M17, M18, M19, M20. Each writes
+docs/implementation/MXX/integration.json for lead merge.
+
+Boundary: tests/acceptance remain deferred; subagents run only php -l/static.

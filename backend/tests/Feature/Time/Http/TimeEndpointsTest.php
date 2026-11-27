@@ -8,6 +8,7 @@ use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\PunchRecord;
 use App\Modules\Time\Services\LeaveBalanceService;
 use App\Modules\Time\Services\LeaveLedgerService;
+use App\Modules\Time\Services\LeavePolicyService;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 
@@ -112,6 +113,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $type = $this->leaveType();
         $this->leaveAccount($type);
         app(LeaveLedgerService::class)->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        $this->ensureLeavePolicy((int) $type->id);
 
         $this->actAsHttp(TimeTestFixtures::actor());
 
@@ -137,6 +139,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $type = $this->leaveType();
         $this->leaveAccount($type);
         app(LeaveLedgerService::class)->grant(1, $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+        $this->ensureLeavePolicy((int) $type->id);
 
         $this->actAsHttp(TimeTestFixtures::actor());
 
@@ -146,18 +149,18 @@ final class TimeEndpointsTest extends TimeHttpTestCase
             'endDate' => '2026-11-25',
             'halfDay' => false,
             'reason' => 'Family trip',
-        ])->assertOk();
+        ], ['Idempotency-Key' => 'leave-request-1'])->assertCreated();
 
         $caseId = (int) $response->json('data.caseId');
         $this->assertGreaterThan(0, $caseId);
         $this->assertDatabaseHas('leave_ledger_entries', ['case_id' => $caseId, 'account' => 'RESERVE', 'quantity_minutes' => -960]);
 
-        $this->postJson("/v1/time/leave/requests/{$caseId}/cancel", ['reason' => 'Plans changed'])
+        $this->postJson("/v1/time/leave/requests/{$caseId}/cancel", ['reason' => 'Plans changed'], ['Idempotency-Key' => 'leave-cancel-1'])
             ->assertOk()
             ->assertJsonPath('data.state', 'CANCELLED')
             ->assertJsonPath('data.replayed', false);
 
-        $this->postJson("/v1/time/leave/requests/{$caseId}/cancel", ['reason' => 'Plans changed'])
+        $this->postJson("/v1/time/leave/requests/{$caseId}/cancel", ['reason' => 'Plans changed'], ['Idempotency-Key' => 'leave-cancel-2'])
             ->assertOk()
             ->assertJsonPath('data.replayed', true)
             ->assertJsonPath('data.releasedMinutes', 0);
@@ -222,5 +225,17 @@ final class TimeEndpointsTest extends TimeHttpTestCase
         $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, scope: 'SELF'));
 
         $this->getJson('/v1/leave/balances/88?as_of=2026-11-23')->assertNotFound();
+    }
+
+    private function ensureLeavePolicy(int $leaveTypeId): void
+    {
+        app(LeavePolicyService::class)->append([
+            'leave_type_id' => $leaveTypeId,
+            'effective_from' => '2026-01-01',
+            'effective_to' => '2026-12-31',
+            'accrual' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'min_notice_days' => 0,
+            'allow_half_day' => true,
+        ], 10);
     }
 }

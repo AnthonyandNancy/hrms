@@ -36,17 +36,12 @@ export const SERVICE_REFERENCE_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][
 export const WORKBENCH_PAGES = Object.freeze({
   'system-users': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 6' }),
   'system-roles': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 7' }),
-  'system-menus': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
-  'system-permissions': Object.freeze({ mode: 'read-only', owner: 'Volume 2 Task 8' }),
-  'system-data-scopes': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
-  'system-field-policies': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
+  'system-pages': Object.freeze({ mode: 'writable', owner: 'Volume 2 Task 8' }),
 })
 
 /** Pages whose actions must declare the backend services they invoke. */
 export const SERVICE_MANDATORY_PAGES = Object.freeze([
-  'system-menus',
-  'system-data-scopes',
-  'system-field-policies',
+  'system-pages',
 ])
 
 /**

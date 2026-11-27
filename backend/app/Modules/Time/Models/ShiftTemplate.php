@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $break_minutes
  * @property \Carbon\CarbonImmutable $valid_from
  * @property \Carbon\CarbonImmutable $valid_to
+ * @property \Carbon\CarbonImmutable|null $recorded_at
+ * @property \Carbon\CarbonImmutable|null $superseded_at
  */
 final class ShiftTemplate extends Model
 {
@@ -51,6 +53,8 @@ final class ShiftTemplate extends Model
             'version' => 'integer',
             'valid_from' => 'immutable_date:Y-m-d',
             'valid_to' => 'immutable_date:Y-m-d',
+            'recorded_at' => 'immutable_datetime',
+            'superseded_at' => 'immutable_datetime',
         ];
     }
 }

@@ -8,6 +8,6 @@
 export const PAGE_COMPONENTS = {
   'attendance/index': () => import('../attendance/pages/AttendanceWorkspacePage.vue'),
   'leave/index': () => import('../leave/pages/LeaveWorkspacePage.vue'),
-  'overtime/index': () => import('../overtime/pages/OvertimeTravelWorkspacePage.vue'),
-  'travel/index': () => import('../overtime/pages/OvertimeTravelWorkspacePage.vue'),
+  'overtime/index': () => import('../overtime/pages/OvertimeWorkspacePage.vue'),
+  'travel/index': () => import('../travel/pages/TravelWorkspacePage.vue'),
 }

@@ -204,102 +204,6 @@ final class TrainingLifecycleService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createExam(int $actorUserId, array $input): array
-    {
-        return DB::transaction(function () use ($actorUserId, $input): array {
-            $code = (string) $input['code'];
-            $courseId = isset($input['course_id']) ? (int) $input['course_id'] : null;
-
-            if ($courseId !== null && ! TrainingCourse::query()->whereKey($courseId)->exists()) {
-                throw new ValidationException(['course_id' => ['The training course does not exist.']]);
-            }
-
-            $latest = TrainingExam::query()
-                ->where('code', $code)
-                ->orderByDesc('version')
-                ->lockForUpdate()
-                ->first();
-
-            $publish = (bool) ($input['publish'] ?? false);
-            $version = $latest === null ? 1 : (int) $latest->version + 1;
-
-            // A draft is still mutable and must not multiply versions when an
-            // author saves it again; a published version is frozen, so any new
-            // save creates the next immutable version instead.
-            if ($latest !== null && (string) $latest->status === 'DRAFT') {
-                $latest->forceFill([
-                    'course_id' => $courseId,
-                    'title' => (string) $input['title'],
-                    'passing_score' => (int) $input['passing_score'],
-                    'max_score' => (int) $input['max_score'],
-                    'status' => $publish ? 'PUBLISHED' : 'DRAFT',
-                    'published_at' => $publish ? $this->clock->now() : null,
-                ])->save();
-
-                $this->audit->record($actorUserId, 'talent.training_exam.updated', 'training_exam', (int) $latest->id, after: [
-                    'code' => $code,
-                    'version' => (int) $latest->version,
-                    'status' => (string) $latest->status,
-                ]);
-
-                return $this->examData($latest);
-            }
-
-            $exam = TrainingExam::query()->create([
-                'course_id' => $courseId,
-                'code' => $code,
-                'title' => (string) $input['title'],
-                'version' => $version,
-                'passing_score' => (int) $input['passing_score'],
-                'max_score' => (int) $input['max_score'],
-                'status' => $publish ? 'PUBLISHED' : 'DRAFT',
-                'published_at' => $publish ? $this->clock->now() : null,
-                'recorded_at' => $this->clock->now(),
-            ]);
-
-            $this->audit->record($actorUserId, 'talent.training_exam.created', 'training_exam', (int) $exam->id, after: [
-                'code' => $code,
-                'version' => (int) $exam->version,
-                'status' => (string) $exam->status,
-            ]);
-
-            return $this->examData($exam);
-        });
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function publishExam(int $actorUserId, int $examId): array
-    {
-        return DB::transaction(function () use ($actorUserId, $examId): array {
-            $exam = TrainingExam::query()->whereKey($examId)->lockForUpdate()->first();
-
-            if ($exam === null) {
-                throw NotFoundException::forResource();
-            }
-
-            if ((string) $exam->status === 'PUBLISHED') {
-                throw new ConflictException('The exam version is already published and immutable.', [
-                    'reason' => 'EXAM_ALREADY_PUBLISHED',
-                    'exam_id' => $examId,
-                ]);
-            }
-
-            $exam->forceFill(['status' => 'PUBLISHED', 'published_at' => $this->clock->now()])->save();
-
-            $this->audit->record($actorUserId, 'talent.training_exam.published', 'training_exam', (int) $exam->id, after: [
-                'version' => (int) $exam->version,
-            ]);
-
-            return $this->examData($exam);
-        });
-    }
-
-    /**
-     * @param  array<string, mixed>  $input
-     * @return array<string, mixed>
-     */
     public function createFeedback(int $actorUserId, array $input): array
     {
         return DB::transaction(function () use ($actorUserId, $input): array {
@@ -364,18 +268,6 @@ final class TrainingLifecycleService
             ->orderByDesc('id')
             ->get()
             ->map(fn (TrainingCheckin $checkin): array => $this->checkinData($checkin))
-            ->values()
-            ->all();
-
-        return $this->projection($items, $asOf);
-    }
-
-    public function exams(string $asOf): ProjectionResult
-    {
-        $items = TrainingExam::query()
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (TrainingExam $exam): array => $this->examData($exam))
             ->values()
             ->all();
 
@@ -640,25 +532,6 @@ final class TrainingLifecycleService
             'checked_out_at' => $this->iso($checkin->checked_out_at),
             'study_minutes' => $this->studyMinutes($checkin),
             'recorded_at' => $this->iso($checkin->recorded_at),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function examData(TrainingExam $exam): array
-    {
-        return [
-            'exam_id' => (int) $exam->id,
-            'course_id' => $exam->course_id !== null ? (int) $exam->course_id : null,
-            'code' => (string) $exam->code,
-            'title' => (string) $exam->title,
-            'version' => (int) $exam->version,
-            'passing_score' => (int) $exam->passing_score,
-            'max_score' => (int) $exam->max_score,
-            'status' => (string) $exam->status,
-            'published_at' => $this->iso($exam->published_at),
-            'recorded_at' => $this->iso($exam->recorded_at),
         ];
     }
 

@@ -13,7 +13,6 @@ use App\Modules\Talent\Models\Offer;
 use App\Modules\Talent\Models\Requisition;
 use App\Modules\Talent\Models\RequisitionOpening;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
-use Illuminate\Support\Facades\DB;
 use Tests\Fakes\SpySensitiveAccessAuditor;
 use Tests\Support\TalentTestCase;
 
@@ -37,15 +36,18 @@ final class RecruitmentFunnelTest extends TalentTestCase
         $first = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
             'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0001',
-        ], ['Idempotency-Key' => 'conv-1'])->assertCreated();
+        ], ['Idempotency-Key' => 'conv-1'])->assertStatus(202)
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
         $second = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
             'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0001',
-        ], ['Idempotency-Key' => 'conv-1'])->assertOk();
+        ], ['Idempotency-Key' => 'conv-1'])->assertOk()
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
-        $this->assertSame($first->json('data.employment_id'), $second->json('data.employment_id'));
-        $this->assertSame(1, Employment::query()->where('employee_no', 'CONV-0001')->count());
+        $this->assertSame($first->json('data.onboarding_case_id'), $second->json('data.onboarding_case_id'));
+        $this->assertSame(0, Employment::query()->where('employee_no', 'CONV-0001')->count());
+        $this->assertSame(0, CandidateConversion::query()->where('candidate_id', $candidate->id)->count());
     }
 
     public function test_candidate_conversion_is_business_idempotent_with_a_new_key_and_unique_candidate_constraint(): void
@@ -56,29 +58,33 @@ final class RecruitmentFunnelTest extends TalentTestCase
         $first = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
             'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0002',
-        ], ['Idempotency-Key' => 'conv-new-key-1'])->assertCreated();
+        ], ['Idempotency-Key' => 'conv-new-key-1'])->assertStatus(202)
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
         $second = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
             'org_unit_id' => $org->id,
             'employee_no' => 'CONV-0002',
-        ], ['Idempotency-Key' => 'conv-new-key-2'])->assertOk();
+        ], ['Idempotency-Key' => 'conv-new-key-2'])->assertStatus(202)
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
-        $this->assertSame($first->json('data.employment_id'), $second->json('data.employment_id'));
-        $this->assertSame(1, CandidateConversion::query()->where('candidate_id', $candidate->id)->count());
+        $this->assertSame($first->json('data.onboarding_case_id'), $second->json('data.onboarding_case_id'));
+        $this->assertSame(0, CandidateConversion::query()->where('candidate_id', $candidate->id)->count());
 
-        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
-        DB::table('candidate_conversions')->insert([
-            'candidate_id' => $candidate->id,
-            'employment_id' => $first->json('data.employment_id'),
-            'person_id' => $first->json('data.person_id'),
-            'offer_id' => $first->json('data.offer_id'),
-            'org_unit_id' => $org->id,
+        $conversion = [
+            'candidate_id' => (int) $candidate->id,
+            'employment_id' => 77,
+            'person_id' => 88,
+            'offer_id' => (int) $first->json('data.offer_id'),
+            'org_unit_id' => (int) $org->id,
             'employee_no' => 'CONV-0002',
+            'onboarding_case_id' => (int) $first->json('data.onboarding_case_id'),
             'status' => 'COMPLETED',
             'recorded_at' => $this->clock->now(),
-            'created_at' => $this->clock->now(),
-            'updated_at' => $this->clock->now(),
-        ]);
+        ];
+        CandidateConversion::query()->create($conversion);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        CandidateConversion::query()->create($conversion);
     }
 
     public function test_a_requisition_must_be_approved_before_an_opening_can_be_published(): void
@@ -191,23 +197,24 @@ final class RecruitmentFunnelTest extends TalentTestCase
         $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", [
             'org_unit_id' => $org->id,
             'employee_no' => 'CONV-BOARD-1',
-        ], ['Idempotency-Key' => 'conv-board-1'])->assertCreated();
+        ], ['Idempotency-Key' => 'conv-board-1'])->assertStatus(202)
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
         $board = $this->getJson('/v1/recruitment/board')->assertOk()->assertJsonPath('data.freshness', 'LIVE');
         $board->assertJsonPath('data.items.0.requisition_no', 'REQ-FUNNEL-BOARD')
-            ->assertJsonPath('data.items.0.hired_count', 1)
+            ->assertJsonPath('data.items.0.hired_count', 0)
             ->assertJsonPath('data.items.0.headcount', 1);
 
         $budget = $this->getJson('/v1/recruitment/budget')->assertOk();
         $budget->assertJsonPath('data.items.0.budget_minor', 18000000)
             ->assertJsonPath('data.items.0.committed_offer_minor', 18000000)
             ->assertJsonPath('data.items.0.budget_variance_minor', 0)
-            ->assertJsonPath('data.items.0.filled_headcount', 1)
-            ->assertJsonPath('data.items.0.vacancy_count', 0);
+            ->assertJsonPath('data.items.0.filled_headcount', 0)
+            ->assertJsonPath('data.items.0.vacancy_count', 1);
 
         $reports = $this->getJson('/v1/recruitment/reports')->assertOk();
         $reports->assertJsonPath('data.items.0.requisition_no', 'REQ-FUNNEL-BOARD')
-            ->assertJsonPath('data.items.0.fill_rate_bps', 10000)
+            ->assertJsonPath('data.items.0.fill_rate_bps', 0)
             ->assertJsonPath('data.items.0.accepted_offers', 1)
             ->assertJsonPath('data.items.0.openings_count', 1);
     }

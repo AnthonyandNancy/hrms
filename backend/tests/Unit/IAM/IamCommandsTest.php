@@ -63,12 +63,12 @@ final class IamCommandsTest extends TestCase
         $this->artisan('iam:seed-demo')->assertSuccessful();
         $this->artisan('iam:seed-demo')->assertSuccessful();
 
-        $this->assertSame(4, User::query()->count());
+        $this->assertSame(5, User::query()->count());
         $this->assertDatabaseHas('users', ['username' => 'demo.admin', 'is_privileged' => true]);
         $this->assertGreaterThan(0, AuthorityBinding::query()->count());
 
         // ADR-0034 §10B: seeding must write user_roles as well as bindings.
-        foreach (['demo.admin', 'demo.hr', 'demo.manager', 'demo.employee'] as $username) {
+        foreach (['demo.admin', 'demo.hr', 'demo.manager', 'demo.employee', 'demo.payroll'] as $username) {
             $user = User::query()->where('username', $username)->firstOrFail();
             $this->assertGreaterThan(
                 0,
@@ -78,7 +78,6 @@ final class IamCommandsTest extends TestCase
         }
 
         $this->assertGreaterThan(0, RolePage::query()->count());
-
     }
 
     public function test_reap_sessions_revokes_only_expired_sessions(): void

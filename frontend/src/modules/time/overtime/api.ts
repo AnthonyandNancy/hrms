@@ -10,13 +10,51 @@ import { resourceGet, resourcePost } from '@/api/resourceClient'
  * formatting is a render-only concern and never feeds back into a model.
  */
 
+/**
+ * One company overtime policy version. The business date fields are server
+ * dates; multipliers remain exact decimal strings end to end and are never
+ * parsed into JavaScript numbers.
+ */
 export type OvertimePolicy = {
+  id: number | null
+  version: number | null
+  status: string
+  effectiveFrom: string | null
+  effectiveTo: string | null
+  timeUnitMinutes: number | null
   multiplier: string
   allowPay: boolean
   allowTimeoff: boolean
   statutoryHolidayMultiplier: string
+  allocation: string
+  rounding: string
+  legalBasis: string | null
   source: string
   note: string
+  publishedAt: string | null
+  retiredAt: string | null
+  retireReason: string | null
+}
+
+export type OvertimePoliciesResult = {
+  items: OvertimePolicy[]
+  total: number
+  asOf: string
+  source: string
+  current: OvertimePolicy | null
+}
+
+export type OvertimePolicyInput = {
+  effectiveFrom: string
+  effectiveTo: string
+  timeUnitMinutes: number
+  multiplier: string
+  statutoryHolidayMultiplier: string
+  allowPay: boolean
+  allowTimeoff: boolean
+  allocation: string
+  rounding: string
+  legalBasis?: string
 }
 
 export type OvertimeRequestStatus = 'SUBMITTED' | 'APPROVED' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | string
@@ -31,6 +69,16 @@ export type OvertimeRequest = {
   reason: string
   caseId: number | null
   overtimeRecordId: number | null
+  policyVersionId: number | null
+  policySnapshot: Record<string, unknown> | null
+  employeeNo: string | null
+  employeeName: string | null
+  settlementMethod: 'PAY' | 'TIMEOFF' | null
+  settlementId: number | null
+  attendanceStatus: string | null
+  attendanceWorkedMinutes: number | null
+  attendanceOvertimeMinutes: number | null
+  payrollPeriodFrozen: boolean | null
   recordedAt: string | null
 }
 
@@ -44,6 +92,18 @@ export type OvertimeRequestProjection = {
   sourceHash: string
   partial: boolean
   partialReason: string | null
+  view?: 'self' | 'team'
+}
+
+export type OvertimeRequestQuery = {
+  view?: 'self' | 'team'
+  employmentId?: number | null
+  status?: string | null
+  from?: string | null
+  to?: string | null
+  page?: number
+  pageSize?: number
+  asOf?: string | null
 }
 
 export type OvertimeRecord = {
@@ -80,6 +140,7 @@ export type TimeoffBalancesResult = {
   availableMinutes: number
   settlementCount: number
   total: number
+  asOf: string
   partial: boolean
   partialReason: string | null
 }
@@ -91,6 +152,25 @@ export type OvertimeSettlement = {
   method: 'PAY' | 'TIMEOFF'
   minutes: number
   replayed: boolean
+}
+
+export type OvertimeSettlementRow = {
+  overtimeRecordId: number
+  employmentId: number
+  businessDate: string
+  minutes: number
+  status: string
+  settlementId: number
+  method: 'PAY' | 'TIMEOFF'
+  reason: string | null
+  recordedAt: string | null
+  payrollPeriodFrozen: boolean | null
+}
+
+export type OvertimeSettlementsResult = {
+  items: OvertimeSettlementRow[]
+  total: number
+  asOf: string
 }
 
 export type OvertimeRequestInput = {
@@ -269,12 +349,24 @@ function listMeta(raw: unknown): {
 function normaliseOvertimePolicy(raw: unknown): OvertimePolicy {
   const payload = isRecord(raw) ? raw : {}
   return {
+    id: optionalInteger(payload.id),
+    version: optionalInteger(payload.version),
+    status: text(payload.status),
+    effectiveFrom: nullableText(firstValue(payload, ['effective_from', 'effectiveFrom'])),
+    effectiveTo: nullableText(firstValue(payload, ['effective_to', 'effectiveTo'])),
+    timeUnitMinutes: optionalInteger(firstValue(payload, ['time_unit_minutes', 'timeUnitMinutes'])),
     multiplier: text(payload.multiplier),
     allowPay: payload.allow_pay !== false,
     allowTimeoff: payload.allow_timeoff !== false,
-    statutoryHolidayMultiplier: text(payload.statutory_holiday_multiplier),
+    statutoryHolidayMultiplier: text(firstValue(payload, ['statutory_holiday_multiplier', 'statutoryHolidayMultiplier'])),
+    allocation: text(payload.allocation),
+    rounding: text(payload.rounding),
+    legalBasis: nullableText(firstValue(payload, ['legal_basis', 'legalBasis'])),
     source: text(payload.source),
     note: text(payload.note),
+    publishedAt: nullableText(firstValue(payload, ['published_at', 'publishedAt'])),
+    retiredAt: nullableText(firstValue(payload, ['retired_at', 'retiredAt'])),
+    retireReason: nullableText(firstValue(payload, ['retire_reason', 'retireReason'])),
   }
 }
 
@@ -289,6 +381,25 @@ function normaliseOvertimeRequest(raw: RawRecord): OvertimeRequest {
     reason: text(raw.reason),
     caseId: optionalInteger(firstValue(raw, ['case_id', 'caseId'])),
     overtimeRecordId: optionalInteger(firstValue(raw, ['overtime_record_id', 'overtimeRecordId'])),
+    policyVersionId: optionalInteger(firstValue(raw, ['policy_version_id', 'policyVersionId'])),
+    policySnapshot: isRecord(raw.policy_snapshot ?? raw.policySnapshot)
+      ? (raw.policy_snapshot ?? raw.policySnapshot) as Record<string, unknown>
+      : null,
+    employeeNo: nullableText(firstValue(raw, ['employee_no', 'employeeNo'])),
+    employeeName: nullableText(firstValue(raw, ['employee_name', 'employeeName'])),
+    settlementMethod: (() => {
+      const method = text(firstValue(raw, ['settlement_method', 'settlementMethod'])).toUpperCase()
+      return method === 'PAY' || method === 'TIMEOFF' ? method : null
+    })(),
+    settlementId: optionalInteger(firstValue(raw, ['settlement_id', 'settlementId'])),
+    attendanceStatus: nullableText(firstValue(raw, ['attendance_status', 'attendanceStatus'])),
+    attendanceWorkedMinutes: optionalInteger(firstValue(raw, ['attendance_worked_minutes', 'attendanceWorkedMinutes'])),
+    attendanceOvertimeMinutes: optionalInteger(firstValue(raw, ['attendance_overtime_minutes', 'attendanceOvertimeMinutes'])),
+    payrollPeriodFrozen: typeof raw.payroll_period_frozen === 'boolean'
+      ? raw.payroll_period_frozen
+      : typeof raw.payrollPeriodFrozen === 'boolean'
+        ? raw.payrollPeriodFrozen
+        : null,
     recordedAt: nullableText(firstValue(raw, ['recorded_at', 'recordedAt'])),
   }
 }
@@ -435,6 +546,49 @@ export const SETTLEMENT_METHOD_LABELS: Record<'PAY' | 'TIMEOFF', string> = {
   TIMEOFF: '调休',
 }
 
+export const OVERTIME_POLICY_STATUS_LABELS: Record<string, string> = {
+  PUBLISHED: '已发布',
+  RETIRED: '已停用',
+}
+
+export const OVERTIME_ALLOCATION_LABELS: Record<string, string> = {
+  EMPLOYEE_CHOICE: '员工选择',
+  PAY: '仅折算加班费',
+  TIMEOFF: '仅调休',
+  EMPLOYER_DECIDES: '公司决定',
+}
+
+export const OVERTIME_ROUNDING_LABELS: Record<string, string> = {
+  HALF_UP: '四舍五入',
+  HALF_EVEN: '银行家舍入',
+  DOWN: '向下取整',
+  UP: '向上取整',
+}
+
+export function overtimePolicyStatusLabel(status: string): string {
+  return OVERTIME_POLICY_STATUS_LABELS[status] ?? '未知状态'
+}
+
+export function overtimeAllocationLabel(allocation: string): string {
+  return OVERTIME_ALLOCATION_LABELS[allocation] ?? '未配置'
+}
+
+export function overtimeRoundingLabel(rounding: string): string {
+  return OVERTIME_ROUNDING_LABELS[rounding] ?? '未配置'
+}
+
+/** Format integer minutes without ever rendering a monetary amount. */
+export function formatMinutes(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined || !Number.isSafeInteger(minutes)) return '—'
+  const sign = minutes < 0 ? '-' : ''
+  const absolute = Math.abs(minutes)
+  const hours = Math.floor(absolute / 60)
+  const rest = absolute % 60
+  if (hours === 0) return `${sign}${rest} 分钟`
+  if (rest === 0) return `${sign}${hours} 小时`
+  return `${sign}${hours} 小时 ${rest} 分钟`
+}
+
 export const COMPENSATION_PREFERENCE_LABELS: Record<'PAY' | 'TIMEOFF', string> = {
   PAY: '加班费',
   TIMEOFF: '调休',
@@ -561,8 +715,114 @@ export function parseMinorUnitsInput(value: string): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null
 }
 
-export async function getOvertimePolicy(): Promise<OvertimePolicy> {
-  return normaliseOvertimePolicy(await resourceGet<unknown>('/v1/time/overtime/policies'))
+function normaliseOvertimeSettlementRow(raw: RawRecord): OvertimeSettlementRow {
+  const method = text(firstValue(raw, ['method', 'settlement_method', 'settlementMethod'])).toUpperCase()
+  if (method !== 'PAY' && method !== 'TIMEOFF') {
+    throw new TypeError('加班结算记录缺少有效的结算方式。')
+  }
+  const frozen = firstValue(raw, ['payroll_period_frozen', 'payrollPeriodFrozen'])
+  return {
+    overtimeRecordId: requiredInteger(firstValue(raw, ['overtime_record_id', 'overtimeRecordId']), 'overtime_record_id'),
+    employmentId: requiredInteger(firstValue(raw, ['employment_id', 'employmentId']), 'employment_id'),
+    businessDate: requiredText(firstValue(raw, ['business_date', 'businessDate']), 'business_date'),
+    minutes: optionalInteger(raw.minutes) ?? 0,
+    status: text(raw.status),
+    settlementId: requiredInteger(firstValue(raw, ['settlement_id', 'settlementId']), 'settlement_id'),
+    method,
+    reason: nullableText(raw.reason),
+    recordedAt: nullableText(firstValue(raw, ['recorded_at', 'recordedAt'])),
+    payrollPeriodFrozen: typeof frozen === 'boolean' ? frozen : null,
+  }
+}
+
+function overtimeQueryParams(query: OvertimeRequestQuery = {}): Record<string, unknown> {
+  const params: Record<string, unknown> = {}
+  if (query.view !== undefined) params.view = query.view
+  if (query.employmentId !== null && query.employmentId !== undefined) params.employment_id = query.employmentId
+  if (query.status !== null && query.status !== undefined && query.status !== '') params.status = query.status
+  if (query.from !== null && query.from !== undefined && query.from !== '') params.from = query.from
+  if (query.to !== null && query.to !== undefined && query.to !== '') params.to = query.to
+  if (query.page !== undefined) params.page = query.page
+  if (query.pageSize !== undefined) params.page_size = query.pageSize
+  if (query.asOf !== null && query.asOf !== undefined && query.asOf !== '') params.as_of = query.asOf
+  return params
+}
+
+export async function getOvertimePolicies(asOf: string | null = null): Promise<OvertimePoliciesResult> {
+  const raw = await resourceGet<unknown>(
+    '/v1/time/overtime/policies',
+    asOf !== null && asOf !== '' ? { as_of: asOf } : {},
+  )
+  const payload = isRecord(raw) ? raw : {}
+  const current = payload.current
+  return {
+    items: readRows(raw).map(normaliseOvertimePolicy),
+    total: optionalInteger(payload.total) ?? readRows(raw).length,
+    asOf: text(firstValue(payload, ['as_of', 'asOf'])),
+    source: text(payload.source, 'COMPANY_VERSION'),
+    current: isRecord(current) ? normaliseOvertimePolicy(current) : null,
+  }
+}
+
+/** Backward-compatible single-policy helper; never invents a default. */
+export async function getOvertimePolicy(asOf: string | null = null): Promise<OvertimePolicy | null> {
+  return (await getOvertimePolicies(asOf)).current
+}
+
+export async function createOvertimePolicy(
+  input: OvertimePolicyInput,
+  idempotencyKey: string,
+): Promise<OvertimePolicy> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveTo)) {
+    throw new ApiError('VALIDATION_FAILED', '加班规则生效日期格式必须为 YYYY-MM-DD。', { status: 422 })
+  }
+  if (input.effectiveTo < input.effectiveFrom) {
+    throw new ApiError('VALIDATION_FAILED', '加班规则结束日期不得早于开始日期。', { status: 422 })
+  }
+  if (![1, 5, 10, 15, 30, 60].includes(input.timeUnitMinutes)) {
+    throw new ApiError('VALIDATION_FAILED', '加班时间单位必须为 1/5/10/15/30/60 分钟。', { status: 422 })
+  }
+  // The service validates too; this client check keeps decimals as strings and
+  // prevents an accidental Number() conversion at the transport edge.
+  if (!/^\d{1,6}\.\d{6,18}$/.test(input.multiplier) || !/^\d{1,6}\.\d{6,18}$/.test(input.statutoryHolidayMultiplier)) {
+    throw new ApiError('VALIDATION_FAILED', '加班倍率必须是至少 6 位小数的定点字符串。', { status: 422 })
+  }
+  return normaliseOvertimePolicy(await resourcePost<RawRecord>(
+    '/v1/time/overtime/policies',
+    {
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+      time_unit_minutes: input.timeUnitMinutes,
+      multiplier: input.multiplier,
+      statutory_holiday_multiplier: input.statutoryHolidayMultiplier,
+      allow_pay: input.allowPay,
+      allow_timeoff: input.allowTimeoff,
+      allocation: input.allocation,
+      rounding: input.rounding,
+      ...(input.legalBasis !== undefined && input.legalBasis.trim() !== ''
+        ? { legal_basis: input.legalBasis.trim() }
+        : {}),
+    },
+    { idempotencyKey },
+  ))
+}
+
+export async function retireOvertimePolicy(
+  policyId: number,
+  reason: string,
+  idempotencyKey: string,
+): Promise<OvertimePolicy> {
+  if (!Number.isSafeInteger(policyId) || policyId < 1) {
+    throw new ApiError('VALIDATION_FAILED', '请选择有效的加班规则版本。', { status: 422 })
+  }
+  if (reason.trim().length < 3) {
+    throw new ApiError('VALIDATION_FAILED', '停用原因至少需要 3 个字符。', { status: 422 })
+  }
+  return normaliseOvertimePolicy(await resourcePost<RawRecord>(
+    `/v1/time/overtime/policies/${policyId}/retire`,
+    { reason: reason.trim() },
+    { idempotencyKey },
+  ))
 }
 
 export async function getOvertimeRecords(): Promise<OvertimeRecordsResult> {
@@ -575,10 +835,11 @@ export async function getOvertimeRecords(): Promise<OvertimeRecordsResult> {
   }
 }
 
-export async function getOvertimeRequests(): Promise<OvertimeRequestProjection> {
-  const raw = await resourceGet<unknown>('/v1/time/overtime/requests')
+export async function getOvertimeRequests(query: OvertimeRequestQuery = {}): Promise<OvertimeRequestProjection> {
+  const raw = await resourceGet<unknown>('/v1/time/overtime/requests', overtimeQueryParams(query))
   const payload = isRecord(raw) ? raw : {}
   const meta = listMeta(raw)
+  const view = text(payload.view).toLowerCase()
   return {
     items: readRows(raw).map(normaliseOvertimeRequest),
     page: meta.page,
@@ -589,6 +850,23 @@ export async function getOvertimeRequests(): Promise<OvertimeRequestProjection> 
     sourceHash: text(firstValue(payload, ['source_hash', 'sourceHash'])),
     partial: meta.partial,
     partialReason: meta.partialReason,
+    view: view === 'team' || view === 'self' ? view : undefined,
+  }
+}
+
+export async function getOvertimeSettlements(
+  employmentId: number | null = null,
+  asOf: string | null = null,
+): Promise<OvertimeSettlementsResult> {
+  const params: Record<string, unknown> = {}
+  if (employmentId !== null && employmentId > 0) params.employment_id = employmentId
+  if (asOf !== null && asOf !== '') params.as_of = asOf
+  const raw = await resourceGet<unknown>('/v1/time/overtime/settlements', params)
+  const payload = isRecord(raw) ? raw : {}
+  return {
+    items: readRows(raw).map(normaliseOvertimeSettlementRow),
+    total: optionalInteger(payload.total) ?? readRows(raw).length,
+    asOf: text(firstValue(payload, ['as_of', 'asOf'])),
   }
 }
 
@@ -601,6 +879,7 @@ export async function getTimeoffBalances(): Promise<TimeoffBalancesResult> {
     availableMinutes: optionalInteger(firstValue(payload, ['available_minutes', 'availableMinutes'])) ?? 0,
     settlementCount: optionalInteger(firstValue(payload, ['settlement_count', 'settlementCount'])) ?? 0,
     total: meta.total,
+    asOf: text(firstValue(payload, ['as_of', 'asOf'])),
     partial: meta.partial,
     partialReason: meta.partialReason,
   }

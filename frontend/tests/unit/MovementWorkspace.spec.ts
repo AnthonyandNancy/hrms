@@ -69,24 +69,6 @@ function workflowCaseRaw(overrides: Record<string, unknown> = {}): Record<string
   }
 }
 
-function lifecycleCaseRaw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    case_id: 31,
-    case_no: 'CASE-2026-0031',
-    case_type: 'ASSIGNMENT_CHANGE',
-    domain_status: 'DRAFT',
-    application_status: 'SUBMITTED',
-    effect_status: 'NONE',
-    subject_type: 'employment',
-    subject_id: 21,
-    employment_id: 21,
-    result_employment_id: null,
-    effective_at: null,
-    recorded_at: '2026-11-20T01:00:00Z',
-    ...overrides,
-  }
-}
-
 function employeeRaw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     employment_id: 21,
@@ -143,6 +125,48 @@ function secondmentRaw(overrides: Record<string, unknown> = {}): Record<string, 
   }
 }
 
+function ledgerRowRaw(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    row_id: 'case-31',
+    case_id: 31,
+    case_no: 'CASE-2026-0031',
+    title: 'Assignment change for employment 21',
+    case_type: 'ASSIGNMENT_CHANGE',
+    kind: 'transfer',
+    employee_id: 21,
+    employee_name: 'Synthetic Employee',
+    employee_no: 'E-1001',
+    effective_date: '2026-12-01',
+    planned_effective_on: '2026-12-01',
+    lane: 'PENDING_APPROVAL',
+    requester_user_id: 10,
+    requester_display_name: 'Synthetic HR',
+    current_assignee_user_id: 10,
+    current_assignee_display_name: 'Synthetic HR',
+    application_status: 'SUBMITTED',
+    effect_status: 'NONE',
+    is_awaiting_me: true,
+    submitted_at: '2026-11-20T01:00:00Z',
+    assignment_id: null,
+    valid_to: null,
+    partial: false,
+    ...overrides,
+  }
+}
+
+function ledgerPage(items: unknown[], overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    items,
+    page: 1,
+    page_size: 10,
+    total: items.length,
+    partial: false,
+    partial_reason: null,
+    as_of: '2026-11-23',
+    ...overrides,
+  }
+}
+
 function timelineResponse(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     case_id: 31,
@@ -177,8 +201,8 @@ function timelineResponse(overrides: Record<string, unknown> = {}): Record<strin
 function installWorkspaceReads(overrides: Record<string, unknown> = {}): void {
   resource.get.mockImplementation((path: string) => {
     if (path in overrides) return Promise.resolve(overrides[path])
+    if (path === '/v1/lifecycle/cases') return Promise.resolve(ledgerPage([ledgerRowRaw()]))
     if (path === '/v1/cases') return Promise.resolve(page([workflowCaseRaw()]))
-    if (path === '/v1/lifecycle/cases') return Promise.resolve(page([lifecycleCaseRaw()]))
     if (path === '/v1/lifecycle/secondments') {
       return Promise.resolve({
         ...page([secondmentRaw()]),
@@ -371,9 +395,11 @@ describe('MovementWorkspacePage', () => {
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith(
-      '/v1/cases',
-      expect.objectContaining({ type: 'ASSIGNMENT_CHANGE', page: 1, page_size: 100 }),
+      '/v1/lifecycle/cases',
+      expect.objectContaining({ page: 1, page_size: 10 }),
     )
+    const firstLedgerCall = resource.get.mock.calls.find(([path]) => path === '/v1/lifecycle/cases')
+    expect(firstLedgerCall?.[1]).not.toHaveProperty('kind')
     expect(wrapper.text()).toContain('调岗/调部门')
     expect(wrapper.text()).toContain('CASE-2026-0031')
     expect(wrapper.text()).toContain('Synthetic Employee')
@@ -382,40 +408,36 @@ describe('MovementWorkspacePage', () => {
     expect(wrapper.text()).toContain('已提交')
     expect(wrapper.find('[data-testid="movement-table"]').exists()).toBe(true)
 
-    await wrapper.findComponent('[data-testid="movement-type-filter"]').setValue('salary')
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/lifecycle/cases') return Promise.resolve(ledgerPage([]))
+      if (path === '/v1/employees') return Promise.resolve(page([employeeRaw()]))
+      if (path === '/v1/users') return Promise.resolve(page([userRaw()]))
+      if (path === '/v1/departments') return Promise.resolve(page([orgRaw()]))
+      return Promise.resolve(page([]))
+    })
+    await wrapper.get('[data-testid="movement-tab-salary"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).not.toContain('CASE-2026-0031')
     expect(wrapper.text()).toContain('暂无员工异动')
   })
 
-  it('paginates the loaded movement projection and shows a partial note when a source is incomplete', async () => {
-    const workflowCases = Array.from({ length: 11 }, (_, index) =>
-      workflowCaseRaw({
-        id: index + 1,
-        case_no: `CASE-2026-${String(index + 1).padStart(4, '0')}`,
-        payload: {
-          employment_id: 21,
-          org_unit_id: 4,
-          effective_date: '2026-12-01',
-          reason: 'Synthetic pagination transfer',
-        },
-      }),
-    )
-    const lifecycleCases = Array.from({ length: 11 }, (_, index) =>
-      lifecycleCaseRaw({ case_id: index + 1, case_no: `CASE-2026-${String(index + 1).padStart(4, '0')}` }),
-    )
-
-    installWorkspaceReads({
-      '/v1/cases': page(workflowCases),
-      '/v1/lifecycle/cases': page(lifecycleCases),
-    })
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/cases') return Promise.resolve(page(workflowCases))
-      if (path === '/v1/lifecycle/cases') return Promise.resolve(page(lifecycleCases))
+  it('requests server pages and shows a partial note when a source is incomplete', async () => {
+    resource.get.mockImplementation((path: string, params?: Record<string, unknown>) => {
+      if (path === '/v1/lifecycle/cases') {
+        const pageNumber = Number(params?.page ?? 1)
+        return Promise.resolve(ledgerPage(
+          [ledgerRowRaw({
+            case_id: pageNumber === 1 ? 1 : 2,
+            row_id: `case-${pageNumber === 1 ? 1 : 2}`,
+            case_no: `CASE-2026-000${pageNumber}`,
+            partial: pageNumber === 1,
+          })],
+          { page: pageNumber, total: 11, partial: pageNumber === 1, partial_reason: '借调任职暂不可读' },
+        ))
+      }
       if (path === '/v1/employees') return Promise.resolve(page([employeeRaw()]))
       if (path === '/v1/users') return Promise.resolve(page([userRaw()]))
       if (path === '/v1/departments') return Promise.resolve(page([orgRaw()]))
-      if (path === '/v1/lifecycle/secondments') return Promise.reject(new ApiError('FORBIDDEN', 'Forbidden', { status: 403 }))
       return Promise.resolve(page([]))
     })
 
@@ -423,14 +445,34 @@ describe('MovementWorkspacePage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('部分数据')
-    expect(wrapper.text()).toContain('借调')
+    expect(wrapper.text()).toContain('第 1 / 2 页')
     expect(wrapper.find('[data-testid="movement-next-page"]').exists()).toBe(true)
 
     await wrapper.get('[data-testid="movement-next-page"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.text()).toContain('第 2 / 2 页')
-    expect(wrapper.text()).toContain('CASE-2026-0001')
+    expect(resource.get).toHaveBeenLastCalledWith(
+      '/v1/lifecycle/cases',
+      expect.objectContaining({ page: 2, page_size: 10 }),
+    )
+  })
+
+  it('toggles a calendar from the same ledger endpoint without a second data source', async () => {
+    installWorkspaceReads()
+    const { wrapper } = await mountWorkspace()
+    await flushPromises()
+
+    const ledgerCalls = resource.get.mock.calls.filter(([path]) => path === '/v1/lifecycle/cases')
+    expect(ledgerCalls).toHaveLength(1)
+
+    await wrapper.get('[data-testid="movement-view-calendar"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="movement-calendar"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('待审批')
+    expect(resource.get.mock.calls.filter(([path]) => path === '/v1/lifecycle/cases')).toHaveLength(2)
+    expect(resource.get).not.toHaveBeenCalledWith('/v1/cases', expect.anything())
   })
 
   it('renders loading, empty and retryable error states without inventing rows', async () => {

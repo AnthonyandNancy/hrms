@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import {
   getDashboard,
   getMetricDrilldown,
+  formatMetric,
+  metricAvailabilityLabel,
   metricLabel,
+  metricReasonText,
   statusText,
-  unavailableMetricReason,
   type DashboardSnapshot,
   type MetricCardMetric,
   type MetricDrilldown,
@@ -14,12 +17,29 @@ import {
 import { errorCopy, ApiError } from '@/api/errors'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
 import { requestIdFromError } from '@/utils/renderErrors'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import MetricCard from '../components/MetricCard.vue'
+import DashboardSections from '../components/DashboardSections.vue'
+
+const drilldownColumns = computed<DataTableColumn[]>(() =>
+  (drilldown.value?.columns ?? []).map((column) => ({ key: column.key, label: column.label })),
+)
+
+const drilldownRows = computed<Array<Record<string, unknown>>>(() =>
+  (drilldown.value?.rows ?? []).map((row, index) => {
+    const output: Record<string, unknown> = { id: row.id ?? index }
+    for (const column of drilldown.value?.columns ?? []) {
+      output[column.key] = drillValue(row, column.key)
+    }
+    return output
+  }),
+)
 
 const session = useSessionStore()
+const router = useRouter()
 const asOf = ref(todayBusinessDate())
 const loading = ref(false)
 const loadError = ref<unknown>(null)
@@ -35,23 +55,27 @@ const errorMessage = computed(() => (loadError.value === null ? '' : errorCopy(l
 const errorRequestId = computed(() => (loadError.value === null ? null : requestIdFromError(loadError.value)))
 const drillErrorMessage = computed(() => (drillError.value === null ? '' : errorCopy(drillError.value)))
 const metrics = computed(() => snapshot.value?.metrics ?? [])
+const availableMetrics = computed(() => metrics.value.filter((metric) => metric.status === 'AVAILABLE'))
+const unavailableMetrics = computed(() => metrics.value.filter((metric) => metric.status !== 'AVAILABLE'))
+const empty = computed(() => snapshot.value !== null && metrics.value.length === 0)
 const freshnessText = computed(() => {
-  const value = snapshot.value?.freshness ?? ''
-  if (value === 'LIVE') return '实时快照'
+  const value = snapshot.value?.freshnessState ?? 'LIVE'
   if (value === 'MATERIALIZED') return '缓存快照'
   if (value === 'STALE') return '过期快照'
-  // The dashboard endpoint returns the snapshot's computed timestamp rather
-  // than a projection freshness enum. Every request recomputes the metrics, so
-  // the honest presentation is a live snapshot at that timestamp.
-  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return '实时快照'
+  if (value === 'LIVE') return '实时快照'
   return '快照状态未知'
 })
-const unavailableMetrics = computed(() => metrics.value.filter((metric) => metric.status !== 'AVAILABLE'))
-const partialReasons = computed(() => unavailableMetrics.value.map((metric) => ({
-  code: metric.code,
-  label: metricLabel(metric.code, metric.label),
-  reason: metric.reason !== null && metric.reason !== '' ? unavailableMetricReason(metric.code) : unavailableMetricReason(metric.code),
-})))
+const drillTotalText = computed(() => {
+  if (drilldown.value === null) return ''
+  const formatted = formatMetric({
+    code: drilldown.value.metric,
+    unit: drilldown.value.unit,
+    unitLabel: drilldown.value.unitLabel,
+    value: drilldown.value.total,
+    status: drilldown.value.status,
+  })
+  return formatted.unit === '' ? formatted.value : `${formatted.value}${formatted.unit}`
+})
 
 async function load(): Promise<void> {
   if (!canRead.value) return
@@ -69,11 +93,41 @@ async function load(): Promise<void> {
   }
 }
 
+function metricDrilldownRoute(metric: MetricCardMetric): string | null {
+  const route = metric.drilldown?.route
+  if (route === undefined || route === '') return null
+  if (route === '/recruitment/candidates') return session.can('recruitment.candidate.read') ? route : null
+  if (route === '/payroll') return session.can('payroll.run.read') ? route : null
+  if (route === '/workflow') return session.can('workflow.case.read') ? route : null
+  if (route === '/leave') return session.can('time.leave.read') ? route : null
+  if (route === '/hr/contracts') return session.can('people.contract.read') ? route : null
+  if (route === '/hr/employees') return session.can('people.employee.read') ? route : null
+  return route
+}
+
 async function drill(metric: MetricCardMetric): Promise<void> {
   if (!canRead.value) return
   selectedMetric.value = metric
-  drillLoading.value = true
   drillError.value = null
+
+  // An unavailable metric has no rows. Show its Chinese reason instead of
+  // calling the drill-down endpoint and rendering a misleading empty zero.
+  if (metric.status !== 'AVAILABLE') {
+    drilldown.value = null
+    drillLoading.value = false
+    return
+  }
+
+  const externalRoute = metric.drilldown?.route
+  const reachable = metricDrilldownRoute(metric)
+
+  if (externalRoute !== undefined && externalRoute !== '' && externalRoute !== '/dashboard' && reachable !== null) {
+    const query = metric.drilldown?.query ?? {}
+    await router.push({ path: reachable, query })
+    return
+  }
+
+  drillLoading.value = true
   drilldown.value = null
   try {
     drilldown.value = await getMetricDrilldown(metric.code, snapshot.value?.asOf ?? asOf.value)
@@ -90,8 +144,8 @@ async function drill(metric: MetricCardMetric): Promise<void> {
 function drillValue(row: MetricDrilldown['rows'][number], columnKey: string): string {
   const value = row[columnKey]
   if (value === null || value === undefined || value === '') return '—'
-  if (typeof value === 'number') return new Intl.NumberFormat('zh-CN').format(value)
   if (columnKey === 'status') return statusText(String(value))
+  if (typeof value === 'number') return new Intl.NumberFormat('zh-CN').format(value)
   return String(value)
 }
 
@@ -106,10 +160,10 @@ void load()
   <div class="page dashboard-page" data-testid="dashboard-page">
     <header class="page-header">
       <div class="page-header__copy">
-        <p class="page-header__breadcrumb">仪表盘</p>
+        <p class="page-header__breadcrumb">工作台 / 首页看板</p>
         <h1 class="page-header__title">人力仪表盘</h1>
         <p class="page-header__description">
-          指标来自 Reporting 的同一授权投影；卡片数值、下钻列表和导出不会各算一套口径。
+          部门人数、员工构成、近期动态、工作提醒与招聘进展在本页统一展示；指标、单位、口径与不可用原因均由服务端提供。
         </p>
       </div>
       <div class="page-header__actions dashboard-actions">
@@ -120,6 +174,14 @@ void load()
         <el-button :disabled="loading" @click="load">刷新快照</el-button>
       </div>
     </header>
+
+    <nav class="dashboard-anchors" aria-label="看板分区">
+      <a href="#dashboard-departments">部门人数</a>
+      <a href="#dashboard-workforce">员工构成</a>
+      <a href="#dashboard-changes">近期动态</a>
+      <a href="#dashboard-tasks">工作提醒</a>
+      <a href="#dashboard-recruitment">招聘进展</a>
+    </nav>
 
     <section v-if="!canRead" class="panel dashboard-forbidden" data-testid="dashboard-forbidden">
       <h2 class="panel__title">无权查看仪表盘</h2>
@@ -137,25 +199,25 @@ void load()
       @retry="load"
     />
 
-    <section v-else-if="snapshot === null || metrics.length === 0" class="panel" data-testid="dashboard-empty">
+    <section v-else-if="empty" class="panel" data-testid="dashboard-empty">
       <EmptyState
         title="当前没有可展示的真实指标"
         description="仪表盘接口没有返回任何指标；页面不会使用静态占位数字或示例数据。"
       />
     </section>
 
-    <template v-else>
+    <template v-else-if="snapshot">
       <div class="dashboard-meta">
         <span>截至 {{ formatBusinessDate(snapshot.asOf) }}</span>
         <span class="plain-chip">{{ freshnessText }}</span>
         <span>数据更新于 {{ formatDateTimeInTimezone(snapshot.freshness) }}</span>
-        <span class="plain-chip">共 {{ metrics.length }} 个指标</span>
+        <span class="plain-chip">可用指标 {{ availableMetrics.length }} / {{ metrics.length }}</span>
       </div>
 
-      <el-alert v-if="partialReasons.length > 0" type="warning" :closable="false" show-icon data-testid="dashboard-partial">
+      <el-alert v-if="unavailableMetrics.length > 0" type="warning" :closable="false" show-icon data-testid="dashboard-partial">
         <template #title>
-          <span v-for="reason in partialReasons" :key="reason.code" class="dashboard-partial__line">
-            {{ reason.label }}：{{ reason.reason }}
+          <span v-for="metric in unavailableMetrics" :key="metric.code" class="dashboard-partial__line">
+            {{ metricLabel(metric.code, metric.label) }}（{{ metricAvailabilityLabel(metric.status) }}）：{{ metricReasonText(metric) }}
           </span>
         </template>
       </el-alert>
@@ -166,12 +228,21 @@ void load()
           :key="metric.code"
           :metric="metric"
           :as-of="snapshot.asOf"
-          :freshness="freshnessText === '缓存快照' ? 'MATERIALIZED' : freshnessText === '过期快照' ? 'STALE' : 'LIVE'"
+          :freshness="snapshot.freshnessState || 'LIVE'"
           :freshness-at="snapshot.freshness"
-          :partial-reason="metric.status === 'AVAILABLE' ? null : metric.reason"
+          :partial-reason="metric.reason"
           @drill="drill"
         />
       </section>
+
+      <DashboardSections
+        :sections="snapshot.sections ?? { departments: [], workforce: [], recruitment: [] }"
+        :metrics="metrics"
+        :pending-approvals="snapshot.pendingApprovals ?? []"
+        :contract-alerts="snapshot.contractAlerts ?? []"
+        :recent-notices="snapshot.recentNotices ?? []"
+        :as-of="snapshot.asOf"
+      />
 
       <section v-if="drillLoading" data-testid="dashboard-drilldown-loading">
         <LoadingState :rows="4" label="正在加载指标下钻列表" />
@@ -188,31 +259,36 @@ void load()
       <section v-else-if="drilldown" class="panel" data-testid="dashboard-drilldown">
         <div class="panel__header">
           <div>
-            <h2 class="panel__title">{{ selectedMetric ? metricLabel(selectedMetric.code, selectedMetric.label) : drilldown.label }}下钻</h2>
-            <p class="panel__subtitle">
-              与卡片使用同一截至日期与授权范围；共 {{ drilldown.total }} 条。
-            </p>
+            <h2 class="panel__title">{{ selectedMetric ? metricLabel(selectedMetric.code, selectedMetric.label) : drilldown.label }}明细</h2>
+            <p class="panel__subtitle">与指标卡使用同一截至日期与授权范围；合计 {{ drillTotalText }}。</p>
           </div>
           <span class="plain-chip">截至 {{ formatBusinessDate(drilldown.asOf) }}</span>
         </div>
 
         <EmptyState
           v-if="drilldown.rows.length === 0"
-          title="当前条件下没有下钻记录"
+          title="当前条件下没有明细记录"
           description="指标为 0 或授权范围为空时列表同步为空。"
         />
-        <div v-else class="drilldown-table-wrap">
-          <el-table :data="drilldown.rows" class="drilldown-table" data-testid="dashboard-drilldown-table">
-            <el-table-column
-              v-for="column in drilldown.columns"
-              :key="column.key"
-              :label="column.label"
-              :min-width="140"
-            >
-              <template #default="{ row }">{{ drillValue(row as unknown as MetricDrilldown['rows'][number], column.key) }}</template>
-            </el-table-column>
-          </el-table>
+        <DataTable
+          v-else
+          :columns="drilldownColumns"
+          :rows="drilldownRows"
+          :total="drilldownRows.length"
+          :page="1"
+          :page-size="Math.max(1, drilldownRows.length)"
+          row-key="id"
+          data-testid="dashboard-drilldown-table"
+          empty-title="当前条件下没有明细记录"
+        />
+      </section>
+
+      <section v-else-if="selectedMetric && selectedMetric.status !== 'AVAILABLE'" class="panel" data-testid="dashboard-selected-unavailable">
+        <div class="panel__header">
+          <h2 class="panel__title">{{ metricLabel(selectedMetric.code, selectedMetric.label) }}</h2>
+          <span class="plain-chip">{{ metricAvailabilityLabel(selectedMetric.status) }}</span>
         </div>
+        <p class="panel__body">{{ metricReasonText(selectedMetric) }}</p>
       </section>
     </template>
   </div>
@@ -234,13 +310,6 @@ void load()
   font-size: 11px;
 }
 
-.dashboard-as-of input {
-  padding: 7px 9px;
-  font: inherit;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-}
-
 .dashboard-meta {
   display: flex;
   flex-wrap: wrap;
@@ -248,6 +317,24 @@ void load()
   gap: 8px 18px;
   color: var(--color-ink-muted);
   font-size: 11.5px;
+}
+
+.dashboard-anchors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding-bottom: 4px;
+  font-size: 12px;
+}
+
+.dashboard-anchors a {
+  color: var(--color-ink-secondary);
+  text-decoration: none;
+}
+
+.dashboard-anchors a:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
 }
 
 .dashboard-partial__line {

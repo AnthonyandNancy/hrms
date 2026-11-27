@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Http\Controllers;
 
+use App\Modules\Workflow\Http\Controllers\Concerns\RespondsToWorkflowCommands;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
 use App\Modules\Workflow\Models\Effect;
 use App\Modules\Workflow\Services\CaseQueryService;
-use App\Modules\Workflow\Services\EffectExecutor;
-use App\Shared\ApiResponse;
+use App\Modules\Workflow\Services\WorkflowCommandService;
 use App\Shared\Exceptions\NotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class EffectController
 {
+    use RespondsToWorkflowCommands;
+
     public function __construct(
-        private readonly EffectExecutor $executor,
+        private readonly WorkflowCommandService $commands,
         private readonly CaseQueryService $queries,
     ) {}
 
@@ -36,24 +38,18 @@ final class EffectController
             throw NotFoundException::forResource();
         }
 
-        // Authorization is also enforced inside the executor; reading first
-        // here keeps 404 semantics for unreadable cases.
+        // Reading first keeps 404 semantics for an unreadable case. The
+        // executor repeats the administrative capability check so a direct
+        // service caller cannot bypass it.
         $this->queries->detail($principal, $effect->case_id);
 
-        $result = $this->executor->retry($effect->id, $principal, (string) $validated['reason']);
-        $fresh = $effect->fresh() ?? $effect;
+        $result = $this->commands->retryEffect(
+            $principal,
+            $effect,
+            (string) $validated['reason'],
+            $this->workflowIdempotencyKey($request),
+        );
 
-        $data = [
-            'effect_id' => $fresh->id,
-            'case_id' => $fresh->case_id,
-            'effect_status' => $fresh->status->value,
-            'attempts' => $fresh->attempts,
-            'requires_escalation' => $fresh->requires_escalation,
-            'reason' => $validated['reason'],
-        ];
-
-        return $result->status === \App\Modules\Workflow\Enums\EffectStatus::APPLIED
-            ? ApiResponse::ok($data)
-            : ApiResponse::accepted($data);
+        return $this->commandResponse($result);
     }
 }

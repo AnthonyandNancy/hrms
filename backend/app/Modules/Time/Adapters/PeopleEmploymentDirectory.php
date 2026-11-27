@@ -33,6 +33,7 @@ final class PeopleEmploymentDirectory implements EmploymentDirectory
             seniorityStartDate: '0001-01-01',
             managerEmploymentId: $snapshot->managerEmploymentId,
             orgUnitId: $snapshot->orgUnitId,
+            employeeName: (string) ($snapshot->personName ?? ''),
         );
     }
 

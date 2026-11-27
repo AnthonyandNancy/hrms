@@ -6,7 +6,10 @@ namespace App\Modules\Engagement\Http\Controllers;
 
 use App\Modules\Engagement\Services\NoticeGovernanceService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\PrincipalResolver;
+use App\Shared\Commands\CommandDefinition;
+use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +26,7 @@ final class NoticeGovernanceController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly NoticeGovernanceService $notices,
+        private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
     ) {}
 
@@ -31,14 +35,42 @@ final class NoticeGovernanceController
         $data = $request->validate([
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
-
-        return ApiResponse::created(
-            $this->notices->submit(
-                $this->principals->resolve(),
-                $notice,
-                (string) ($data['business_date'] ?? ''),
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.submit',
+                capability: 'engagement.notice.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.submitted',
             ),
+            ['notice_id' => $notice, 'business_date' => $businessDate],
+            function () use ($notice, $businessDate): array {
+                $payload = $this->notices->submit(
+                    $this->principals->resolve(),
+                    $notice,
+                    $businessDate,
+                );
+
+                return [
+                    'http_status' => 201,
+                    'body' => $payload,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            $this->idempotencyKey($request),
         );
+
+        // Fresh submit remains 201; an idempotent replay is a 200.
+        $response = ApiResponse::ok($result->body, $result->status);
+        if ($result->replayed) {
+            $response->headers->set('Idempotency-Replayed', 'true');
+        }
+
+        return $response;
     }
 
     public function decision(Request $request, int $notice): JsonResponse
@@ -48,14 +80,40 @@ final class NoticeGovernanceController
             'comment' => ['nullable', 'string', 'max:4000'],
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
+        $action = (string) $data['action'];
+        $comment = (string) ($data['comment'] ?? '');
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.decision',
+                capability: 'engagement.notice.publish',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.decision',
+            ),
+            ['notice_id' => $notice, 'action' => $action, 'comment' => $comment, 'business_date' => $businessDate],
+            function () use ($notice, $action, $comment, $businessDate): array {
+                $payload = $this->notices->decide(
+                    $this->principals->resolve(),
+                    $notice,
+                    $action,
+                    $comment,
+                    $businessDate,
+                );
 
-        return ApiResponse::ok($this->notices->decide(
-            $this->principals->resolve(),
-            $notice,
-            (string) $data['action'],
-            (string) ($data['comment'] ?? ''),
-            (string) ($data['business_date'] ?? ''),
-        ));
+                return [
+                    'http_status' => 200,
+                    'body' => $payload,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
     }
 
     public function publish(Request $request, int $notice): JsonResponse
@@ -63,12 +121,36 @@ final class NoticeGovernanceController
         $data = $request->validate([
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.publish',
+                capability: 'engagement.notice.publish',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.published',
+            ),
+            ['notice_id' => $notice, 'business_date' => $businessDate],
+            function () use ($notice, $businessDate): array {
+                $payload = $this->notices->publish(
+                    $this->principals->resolve(),
+                    $notice,
+                    $businessDate,
+                );
 
-        return ApiResponse::ok($this->notices->publish(
-            $this->principals->resolve(),
-            $notice,
-            (string) ($data['business_date'] ?? ''),
-        ));
+                return [
+                    'http_status' => 200,
+                    'body' => $payload,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
     }
 
     public function audience(Request $request, int $notice): JsonResponse
@@ -102,7 +184,60 @@ final class NoticeGovernanceController
             $page,
             $pageSize,
             'notice_acknowledgements',
-        ));
+        ), [
+            'read_user_ids' => $result['read_user_ids'],
+            'unread_user_ids' => $result['unread_user_ids'],
+            'read_count' => $result['read_count'],
+            'unread_count' => $result['unread_count'],
+        ]);
+    }
+
+    /**
+     * Remind unread audience recipients. This is a CommandRunner command so a
+     * retry with the same Idempotency-Key returns the exact stored response;
+     * the service still enforces status and audience invariants on a fresh key.
+     */
+    public function remind(Request $request, int $notice): JsonResponse
+    {
+        $data = $request->validate([
+            'business_date' => ['nullable', new BusinessDateRule],
+        ]);
+        $key = $request->header('Idempotency-Key');
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.remind',
+                capability: 'engagement.notice.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.reminded',
+            ),
+            ['notice_id' => $notice, 'business_date' => $businessDate],
+            function () use ($notice, $businessDate): array {
+                $reminders = $this->notices->remind(
+                    $this->principals->resolve(),
+                    $notice,
+                    $businessDate,
+                );
+
+                return [
+                    'http_status' => 200,
+                    'body' => $reminders,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            is_string($key) ? $key : '',
+        );
+        $response = ApiResponse::ok($result->body, $result->status);
+
+        if ($result->replayed) {
+            $response->headers->set('Idempotency-Replayed', 'true');
+        }
+
+        return $response;
     }
 
     public function exportReads(Request $request, int $notice): JsonResponse
@@ -145,8 +280,31 @@ final class NoticeGovernanceController
             'variables' => ['nullable', 'array'],
             'variables.*' => ['string', 'regex:/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/'],
         ]);
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice_template.publish',
+                capability: 'engagement.notice.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice_template.published',
+            ),
+            $data,
+            function () use ($data): array {
+                $payload = $this->notices->createTemplate($this->principals->resolve(), $data);
 
-        return ApiResponse::created($this->notices->createTemplate($this->principals->resolve(), $data));
+                return [
+                    'http_status' => 201,
+                    'body' => $payload,
+                    'resource_type' => 'notice_template',
+                    'resource_id' => (string) $payload['id'],
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
     }
 
     public function archiveIndex(Request $request): JsonResponse
@@ -176,13 +334,38 @@ final class NoticeGovernanceController
             'reason' => ['nullable', 'string', 'max:500'],
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
+        $reason = (string) ($data['reason'] ?? '');
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.archive',
+                capability: 'engagement.notice.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.archived',
+            ),
+            ['notice_id' => $notice, 'reason' => $reason, 'business_date' => $businessDate],
+            function () use ($notice, $reason, $businessDate): array {
+                $payload = $this->notices->archive(
+                    $this->principals->resolve(),
+                    $notice,
+                    $reason,
+                    $businessDate,
+                );
 
-        return ApiResponse::ok($this->notices->archive(
-            $this->principals->resolve(),
-            $notice,
-            (string) ($data['reason'] ?? ''),
-            (string) ($data['business_date'] ?? ''),
-        ));
+                return [
+                    'http_status' => 200,
+                    'body' => $payload,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
     }
 
     public function restore(Request $request, int $notice): JsonResponse
@@ -190,11 +373,56 @@ final class NoticeGovernanceController
         $data = $request->validate([
             'business_date' => ['nullable', new BusinessDateRule],
         ]);
+        $businessDate = (string) ($data['business_date'] ?? '');
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'engagement.notice.restore',
+                capability: 'engagement.notice.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'engagement.notice.restored',
+            ),
+            ['notice_id' => $notice, 'business_date' => $businessDate],
+            function () use ($notice, $businessDate): array {
+                $payload = $this->notices->restore(
+                    $this->principals->resolve(),
+                    $notice,
+                    $businessDate,
+                );
 
-        return ApiResponse::ok($this->notices->restore(
-            $this->principals->resolve(),
-            $notice,
-            (string) ($data['business_date'] ?? ''),
-        ));
+                return [
+                    'http_status' => 200,
+                    'body' => $payload,
+                    'resource_type' => 'notice',
+                    'resource_id' => (string) $notice,
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
+    }
+
+    private function idempotencyKey(Request $request): string
+    {
+        $key = $request->header('Idempotency-Key');
+
+        return is_string($key) ? $key : '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function commandResponse(int $status, array $body, bool $replayed): JsonResponse
+    {
+        $response = ApiResponse::ok($body, $status);
+
+        if ($replayed) {
+            $response->headers->set('Idempotency-Replayed', 'true');
+        }
+
+        return $response;
     }
 }

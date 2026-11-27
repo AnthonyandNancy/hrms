@@ -1,143 +1,291 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError, errorCode, errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import { formatMoney } from '@/utils/format'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
-import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
+import PageShell from '@/shared/ui/PageShell.vue'
 import TrainingProgramDrawer from '../components/TrainingProgramDrawer.vue'
-import { DISPLAY_CODES } from '@/shared/display/dictionary'
+import TrainingPlansPanel from '../components/TrainingPlansPanel.vue'
+import TrainingCoursesPanel from '../components/TrainingCoursesPanel.vue'
+import TrainingSessionsPanel from '../components/TrainingSessionsPanel.vue'
+import TrainingEnrollmentPanel from '../components/TrainingEnrollmentPanel.vue'
+import TrainingCheckinPanel from '../components/TrainingCheckinPanel.vue'
+import TrainingExamPanel from '../components/TrainingExamPanel.vue'
+import TrainingFeedbackPanel from '../components/TrainingFeedbackPanel.vue'
+import TrainingRecordsPanel from '../components/TrainingRecordsPanel.vue'
+import TrainingReportsPanel from '../components/TrainingReportsPanel.vue'
+import SessionOperationDrawer from '../components/SessionOperationDrawer.vue'
 import {
+  businessDate,
   createProgram,
-  deliveryModeLabel,
+  listPlans,
   listPrograms,
+  listSessions,
   programStatusLabel,
   trainingActionErrorCopy,
   type ProgramDraft,
+  type TrainingPlan,
   type TrainingProgram,
-  type DeliveryMode,
-  type ProgramStatus,
+  type TrainingSession,
 } from '../api'
 
 defineOptions({ name: 'TrainingWorkspacePage' })
 
+const tabs: Array<{ name: WorkspaceTab; label: string }> = [
+  { name: 'plans', label: '计划' },
+  { name: 'courses', label: '课程' },
+  { name: 'sessions', label: '场次' },
+  { name: 'enrollments', label: '报名' },
+  { name: 'checkins', label: '签到' },
+  { name: 'exams', label: '考试' },
+  { name: 'feedback', label: '反馈' },
+  { name: 'records', label: '档案' },
+  { name: 'reports', label: '报表' },
+]
+
+type WorkspaceTab =
+  | 'plans'
+  | 'courses'
+  | 'sessions'
+  | 'enrollments'
+  | 'checkins'
+  | 'exams'
+  | 'feedback'
+  | 'records'
+  | 'reports'
+
+const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
 const canRead = computed(() => session.can('training.program.read'))
-const canManage = computed(() => session.can('training.program.manage'))
-const canManageEnrollments = computed(() => session.can('training.enrollment.manage'))
+const canManageProgram = computed(() => session.can('training.program.manage'))
 
+const activeTab = ref<WorkspaceTab>(
+  // A deep link that names a real session opens the session operation center
+  // directly. Without this, ?program=..&session=.. silently lands on plans and
+  // the drawer can never open.
+  route.query.tab === undefined && parseId(route.query.session) !== null
+    ? 'sessions'
+    : parseTab(route.query.tab),
+)
 const loading = ref(false)
-const loaded = ref(false)
 const errorMessage = ref('')
-const errorRequestId = ref<string | null>(null)
 const errorCodeValue = ref('')
-
-const programColumns: DataTableColumn[] = [
-  { key: 'title', label: '培训项目', minWidth: '200px' },
-  { key: 'category', label: '分类', minWidth: '110px' },
-  { key: 'deliveryMode', label: '形式', width: '90px' },
-  { key: 'capacity', label: '报名 / 容量', minWidth: '150px' },
-  { key: 'status', label: '状态', width: '100px' },
-  { key: 'cost', label: '成本', minWidth: '110px' },
-  { key: 'actions', label: '操作', minWidth: '200px' },
-]
-
-const programs = ref<TrainingProgram[]>([])
+const errorRequestId = ref<string | null>(null)
 const successMessage = ref('')
 
-const drawerOpen = ref(false)
+const plans = ref<TrainingPlan[]>([])
+const programs = ref<TrainingProgram[]>([])
+const sessions = ref<TrainingSession[]>([])
+const selectedProgramId = ref<number | null>(parseId(route.query.program))
+const selectedSessionId = ref<number | null>(parseId(route.query.session))
+
+const drawerOpen = computed({
+  get: () => activeTab.value === 'sessions' && selectedSessionId.value !== null,
+  set: (value: boolean) => { if (!value) closeDrawer() },
+})
 const drawerMode = ref<'create' | 'edit'>('create')
-const drawerProgram = ref<TrainingProgram | null>(null)
 const drawerSubmitting = ref(false)
 const drawerError = ref('')
-const editNoticeProgram = ref<TrainingProgram | null>(null)
-const editNotice = ref('')
+const createOpen = ref(false)
 
-const confirmOpen = ref(false)
-const pendingAction = ref<'publish' | 'close' | null>(null)
-const pendingProgram = ref<TrainingProgram | null>(null)
-const unsupportedRoute = ref('')
-
-const isEmpty = computed(
-  () => loaded.value && !loading.value && errorMessage.value === '' && programs.value.length === 0,
+const selectedProgram = computed(
+  () => programs.value.find((row) => row.id === selectedProgramId.value) ?? null,
 )
+const selectedSession = computed(
+  () => sessions.value.find((row) => row.id === selectedSessionId.value) ?? null,
+)
+const needsSession = computed(() =>
+  ['enrollments', 'checkins', 'exams', 'feedback'].includes(activeTab.value),
+)
+
+function parseId(value: unknown): number | null {
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function parseTab(value: unknown): WorkspaceTab {
+  const candidate = typeof value === 'string' ? value : ''
+  return tabs.some((tab) => tab.name === candidate) ? (candidate as WorkspaceTab) : 'plans'
+}
+
+function defaultTabForCapabilities(): WorkspaceTab {
+  if (session.can('training.plan.manage')) return 'plans'
+  if (session.can('training.course.manage')) return 'courses'
+  if (session.can('training.session.manage')) return 'sessions'
+  if (session.can('training.enrollment.manage')) return 'enrollments'
+  if (session.can('training.checkin.manage')) return 'checkins'
+  if (session.can('training.exam.manage')) return 'exams'
+  if (session.can('training.feedback.manage')) return 'feedback'
+  if (session.can('training.record.read')) return 'records'
+  if (session.can('training.report.read')) return 'reports'
+  return 'plans'
+}
+
+function tabVisible(tab: WorkspaceTab): boolean {
+  switch (tab) {
+    case 'plans':
+      return session.can('training.plan.manage')
+    case 'courses':
+      return session.can('training.course.manage')
+    case 'sessions':
+      return session.can('training.session.manage')
+    case 'enrollments':
+      return session.can('training.enrollment.manage')
+    case 'checkins':
+      return session.can('training.checkin.manage')
+    case 'exams':
+      return session.can('training.exam.manage')
+    case 'feedback':
+      return session.can('training.feedback.manage')
+    case 'records':
+      return session.can('training.record.read')
+    case 'reports':
+      return session.can('training.report.read')
+  }
+}
+
+const visibleTabs = computed(() => tabs.filter((tab) => tabVisible(tab.name)))
+
+function syncQuery(): void {
+  const query: Record<string, string | undefined> = {
+    ...(route.query.tab === undefined ? {} : { tab: String(route.query.tab) }),
+  }
+  if (activeTab.value !== 'plans') query.tab = activeTab.value
+  else delete query.tab
+  query.program = selectedProgramId.value === null ? undefined : String(selectedProgramId.value)
+  query.session = selectedSessionId.value === null ? undefined : String(selectedSessionId.value)
+  const current = typeof route.query.tab === 'string' ? route.query.tab : ''
+  const currentProgram = parseId(route.query.program)
+  const currentSession = parseId(route.query.session)
+  if (
+    current === (query.tab ?? '') &&
+    currentProgram === selectedProgramId.value &&
+    currentSession === selectedSessionId.value
+  ) {
+    return
+  }
+  void router.replace({ path: '/training', query }).catch(() => undefined)
+}
 
 function captureError(reason: unknown): void {
   errorCodeValue.value = errorCode(reason)
-  if (reason instanceof ApiError) {
-    errorRequestId.value = reason.requestId
-    errorMessage.value =
-      reason.code === 'FORBIDDEN'
-        ? '无权读取培训项目。请确认已获得 training.program.read 能力。'
-        : reason.message || errorCopy(reason)
-  } else {
-    errorRequestId.value = null
-    errorMessage.value = reason instanceof Error ? reason.message : '培训工作台暂时无法加载。'
-  }
+  errorRequestId.value = reason instanceof ApiError ? reason.requestId : null
+  errorMessage.value =
+    reason instanceof ApiError && reason.code === 'FORBIDDEN'
+      ? '无权读取培训项目。请确认已获得 training.program.read 能力。'
+      : trainingActionErrorCopy(reason) || errorCopy(reason)
 }
 
 async function load(): Promise<void> {
   if (!canRead.value) {
-    loaded.value = true
     return
   }
 
   loading.value = true
-  loaded.value = false
   errorMessage.value = ''
-  errorRequestId.value = null
-  errorCodeValue.value = ''
 
   try {
-    programs.value = await listPrograms()
+    const [planRows, programRows] = await Promise.all([
+      session.can('training.plan.manage') ? listPlans(businessDate()).catch(() => []) : Promise.resolve([] as TrainingPlan[]),
+      listPrograms(businessDate()),
+    ])
+    plans.value = planRows
+    programs.value = programRows
+
+    if (selectedProgramId.value === null && programRows.length > 0) {
+      selectedProgramId.value = programRows[0]?.id ?? null
+    }
+
+    if (selectedProgramId.value !== null && session.can('training.session.manage')) {
+      sessions.value = await listSessions(selectedProgramId.value, undefined, businessDate())
+    } else {
+      sessions.value = []
+    }
+
+    if (
+      session.can('training.session.manage') &&
+      selectedSessionId.value !== null &&
+      !sessions.value.some((row) => row.id === selectedSessionId.value)
+    ) {
+      selectedSessionId.value = sessions.value[0]?.id ?? null
+    }
+
   } catch (reason) {
+    plans.value = []
     programs.value = []
+    sessions.value = []
     captureError(reason)
   } finally {
     loading.value = false
-    loaded.value = true
   }
+}
+
+async function reloadSessions(): Promise<void> {
+  if (selectedProgramId.value === null || !session.can('training.session.manage')) {
+    sessions.value = []
+    return
+  }
+  try {
+    sessions.value = await listSessions(selectedProgramId.value, undefined, businessDate())
+  } catch (reason) {
+    sessions.value = []
+    captureError(reason)
+  }
+}
+
+function selectProgram(id: number | null): void {
+  selectedProgramId.value = id
+  sessions.value = []
+  if (activeTab.value === 'plans' || activeTab.value === 'courses' || activeTab.value === 'records' || activeTab.value === 'reports') {
+    syncQuery()
+    return
+  }
+  void reloadSessions().then(() => {
+    if (selectedSessionId.value === null) {
+      selectedSessionId.value = sessions.value[0]?.id ?? null
+    }
+    syncQuery()
+  })
+}
+
+function openSession(row: TrainingSession): void {
+  selectedProgramId.value = row.programId
+  selectedSessionId.value = row.id
+  activeTab.value = 'sessions'
+  syncQuery()
+}
+
+function closeDrawer(): void {
+  selectedSessionId.value = null
+  syncQuery()
 }
 
 function openCreate(): void {
+  if (!canManageProgram.value) return
   drawerMode.value = 'create'
-  drawerProgram.value = null
   drawerError.value = ''
-  drawerOpen.value = true
+  createOpen.value = true
 }
 
-function openEdit(program: TrainingProgram): void {
-  drawerMode.value = 'edit'
-  drawerProgram.value = program
-  drawerError.value = ''
-  editNoticeProgram.value = program
-  editNotice.value =
-    '服务端尚未提供培训项目更新接口，编辑内容不会保存。'
-  drawerOpen.value = true
-}
-
-async function save(draft: ProgramDraft): Promise<void> {
-  if (drawerMode.value === 'edit') {
-    // There is no program update route yet. Never issue a guessed PATCH.
-    editNoticeProgram.value = drawerProgram.value
-    editNotice.value =
-      '服务端尚未提供培训项目更新接口，本次修改未提交。'
-    drawerOpen.value = false
-    return
-  }
-
+async function saveProgram(draft: ProgramDraft): Promise<void> {
   drawerSubmitting.value = true
   drawerError.value = ''
   try {
-    await createProgram(draft)
-    drawerOpen.value = false
+    const created = await createProgram(draft)
+    createOpen.value = false
     successMessage.value = '培训项目已创建，列表已按服务端最新数据刷新。'
     await load()
+    if (created.id > 0) {
+      selectedProgramId.value = created.id
+      await reloadSessions()
+      syncQuery()
+    }
   } catch (reason) {
     drawerError.value = trainingActionErrorCopy(reason)
   } finally {
@@ -145,91 +293,64 @@ async function save(draft: ProgramDraft): Promise<void> {
   }
 }
 
-function requestLifecycle(action: 'publish' | 'close', program: TrainingProgram): void {
-  pendingAction.value = action
-  pendingProgram.value = program
-  unsupportedRoute.value = ''
-  confirmOpen.value = true
+function changeTab(name: string | number): void {
+  const next = parseTab(String(name))
+  if (!tabVisible(next)) return
+  activeTab.value = next
+  syncQuery()
 }
 
-function confirmLifecycle(): void {
-  const program = pendingProgram.value
-  const action = pendingAction.value
-  if (program === null || action === null) return
 
-  // The confirmation is real; the mutation is not invented. Publishing and
-  // closing have no backend route, so the page reports the exact missing
-  // contract instead of faking a status transition.
-  unsupportedRoute.value = `/v1/training/programs/${program.id}/${action}`
-  successMessage.value = ''
-  confirmOpen.value = false
-  pendingAction.value = null
-  pendingProgram.value = null
-}
+watch(activeTab, () => syncQuery())
+watch(
+  () => route.query.tab,
+  (value) => {
+    const next = parseTab(value)
+    if (tabVisible(next)) activeTab.value = next
+  },
+)
+watch(
+  () => route.query.session,
+  (value) => {
+    const next = parseId(value)
+    if (next !== selectedSessionId.value) selectedSessionId.value = next
+  },
+)
 
-function cancelLifecycle(): void {
-  confirmOpen.value = false
-  pendingAction.value = null
-  pendingProgram.value = null
-}
-
-function openDetail(program: TrainingProgram): void {
-  void router.push(`/training/programs/${program.id}`)
-}
-
-function lifecycleLabel(action: 'publish' | 'close'): string {
-  return action === 'publish' ? '发布' : '关闭'
-}
-
-onMounted(() => {
-  void load()
+onMounted(async () => {
+  if (!canRead.value) {
+    return
+  }
+  if (!tabVisible(activeTab.value)) activeTab.value = defaultTabForCapabilities()
+  await load()
 })
 </script>
 
 <template>
-  <div class="training-workspace" data-page="training-workspace">
-    <header class="training-workspace__header">
-      <div>
-        <p class="training-workspace__breadcrumb">人才发展 · 培训管理</p>
-        <h1 class="training-workspace__title">培训工作台</h1>
-        <p class="training-workspace__description">
-          按培训项目查看交付方式、容量与实时报名人数。名额与完成状态全部来自服务端投影，
-          页面不生成任何示例行；金额以整数最小单位返回，仅在此处格式化。
-        </p>
-      </div>
-      <div class="training-workspace__header-actions">
-        <button type="button" class="training-workspace__secondary" :disabled="loading" @click="load">
-          刷新
-        </button>
-        <button
-          v-if="canManage"
-          type="button"
-          class="training-workspace__primary"
-          data-testid="training-program-create"
-          @click="openCreate"
-        >
-          新建培训项目
-        </button>
-      </div>
-    </header>
+  <PageShell
+    title="培训工作台"
+    description="计划、课程、场次、报名、签到、考试、反馈、档案与报表的唯一入口；场次详情在工作区内以查询参数打开的抽屉呈现。"
+  >
+    <template #actions>
+      <button type="button" class="training-workspace__secondary" :disabled="loading" @click="load">刷新</button>
+      <button
+        v-if="canManageProgram"
+        type="button"
+        class="training-workspace__primary"
+        data-testid="training-program-create"
+        @click="openCreate"
+      >
+        新建培训项目
+      </button>
+    </template>
 
     <section v-if="!canRead" class="training-workspace__state" role="alert" data-testid="training-forbidden">
       <h2>无权访问培训工作台</h2>
-      <p>当前账号缺少 training.program.read 能力，页面不会发起任何培训项目读取请求。</p>
+      <p>当前账号缺少 training.program.read 能力，页面不会发起任何培训读取请求。</p>
     </section>
 
     <template v-else>
-      <p v-if="successMessage !== ''" class="training-workspace__success" role="status">
-        {{ successMessage }}
-      </p>
-      <p v-if="unsupportedRoute !== ''" class="training-workspace__warning" role="alert" data-testid="training-unsupported-action">
-        服务端尚未提供培训项目发布/关闭接口，未提交任何状态变更。缺少的路由：<strong>{{ unsupportedRoute }}</strong>。
-        请联系后端补充受能力保护的命令接口后再试。
-      </p>
-      <p v-if="editNotice !== '' && editNoticeProgram !== null" class="training-workspace__warning" role="alert" data-testid="training-program-unsupported-edit">
-        服务端尚未提供培训项目更新接口，无法保存对「{{ editNoticeProgram.title }}」的修改。
-        期望路由：<strong>/v1/training/programs/{{ editNoticeProgram.id }}</strong>。
-      </p>
+      <p v-if="successMessage !== ''" class="training-workspace__success" role="status">{{ successMessage }}</p>
 
       <ErrorState
         v-if="errorMessage !== ''"
@@ -239,207 +360,101 @@ onMounted(() => {
         :request-id="errorRequestId"
         @retry="load"
       />
-      <LoadingState v-else-if="loading" :rows="6" label="正在加载培训项目" />
+      <LoadingState v-else-if="loading" :rows="6" label="正在加载培训工作台" />
 
-      <EmptyState
-        v-else-if="isEmpty"
-        title="还没有培训项目"
-        description="当前数据范围内没有培训项目。具备 training.program.manage 的账号可以新建第一个项目。"
-      />
+      <template v-else>
+        <section class="training-workspace__filters" aria-label="培训筛选">
+          <label>
+            <span>培训项目</span>
+            <el-select
+              :model-value="selectedProgramId === null ? '' : String(selectedProgramId)"
+              data-testid="training-program-filter"
+              @update:model-value="(value: string | number) => selectProgram(value === '' ? null : Number(value))"
+            >
+              <el-option value="" label="全部项目" />
+              <el-option v-for="program in programs" :key="program.id" :value="String(program.id)" :label="`${program.code} · ${program.title}`" />
+            </el-select>
+          </label>
+          <label>
+            <span>培训计划</span>
+            <el-select :model-value="selectedProgram?.code ?? ''" disabled placeholder="项目关联的计划由课程与场次事实派生">
+              <el-option :value="selectedProgram?.code ?? ''" :label="selectedProgram === null ? '未选择项目' : `${selectedProgram.code} · ${programStatusLabel(selectedProgram.status)}`" />
+            </el-select>
+          </label>
+        </section>
 
-      <section v-else class="training-programs panel" aria-label="培训项目列表">
-        <DataTable
-          :columns="programColumns"
-          :rows="programs as unknown as Array<Record<string, unknown>>"
-          :total="programs.length"
-          :page="1"
-          :page-size="Math.max(1, programs.length)"
-          row-key="id"
-          :row-test-id="(row) => `training-program-row-${String(row.id)}`"
-          data-testid="training-program-table"
-          empty-title="还没有培训项目"
-        >
-          <template #cell-title="{ row }">
-            <button type="button" class="training-programs__link" @click="openDetail(row as unknown as TrainingProgram)">
-              {{ row.title }}
-            </button>
-            <span class="training-programs__meta">{{ row.code }} · {{ row.sessionCount }} 个场次</span>
-          </template>
-          <template #cell-category="{ row }">{{ row.category ?? '未分类' }}</template>
-          <template #cell-deliveryMode="{ row }">{{ deliveryModeLabel(row.deliveryMode as DeliveryMode | null) }}</template>
-          <template #cell-capacity="{ row }">
-            <span class="training-programs__capacity">{{ row.enrolledCount }} / {{ row.capacity }}</span>
-            <span class="training-programs__meta">
-              {{ Number(row.remainingSeats) > 0 ? `剩余 ${row.remainingSeats} 个名额` : '名额已满' }}
-            </span>
-          </template>
-          <template #cell-status="{ row }">
-            <span class="training-programs__chip" :class="`is-${String(row.status).toLowerCase()}`">
-              {{ programStatusLabel(row.status as ProgramStatus) }}
-            </span>
-          </template>
-          <template #cell-cost="{ row }">
-            <template v-if="row.trainingCostCents === undefined">已按字段权限隐藏</template>
-            <template v-else>{{ formatMoney(Number(row.trainingCostCents)) }}</template>
-          </template>
-          <template #cell-actions="{ row }">
-            <div class="training-programs__actions">
-              <button type="button" class="training-programs__button" @click="openDetail(row as unknown as TrainingProgram)">
-                查看详情
-              </button>
-              <template v-if="canManage">
-                <button
-                  type="button"
-                  class="training-programs__button"
-                  :data-testid="`training-program-edit-${String(row.id)}`"
-                  @click="openEdit(row as unknown as TrainingProgram)"
-                >
-                  编辑
-                </button>
-                <button
-                  v-if="row.status === DISPLAY_CODES.trainingProgramStatus.active"
-                  type="button"
-                  class="training-programs__button"
-                  :data-testid="`training-program-publish-${String(row.id)}`"
-                  @click="requestLifecycle('publish', row as unknown as TrainingProgram)"
-                >
-                  发布
-                </button>
-                <button
-                  v-else
-                  type="button"
-                  class="training-programs__button is-danger"
-                  :data-testid="`training-program-close-${String(row.id)}`"
-                  @click="requestLifecycle('close', row as unknown as TrainingProgram)"
-                >
-                  关闭
-                </button>
-              </template>
-            </div>
-          </template>
-        </DataTable>
-      </section>
+        <el-tabs :model-value="activeTab" data-testid="training-workspace-tabs" @tab-change="changeTab">
+          <el-tab-pane v-for="tab in visibleTabs" :key="tab.name" :label="tab.label" :name="tab.name" />
+        </el-tabs>
 
-      <p v-if="!canManageEnrollments" class="training-workspace__hint" role="note">
-        当前账号可以查看培训项目，但没有 training.enrollment.manage 能力，报名与完成操作不可用。
-      </p>
+        <EmptyState
+          v-if="programs.length === 0 && activeTab !== 'plans' && activeTab !== 'courses' && activeTab !== 'records' && activeTab !== 'reports'"
+          title="还没有培训项目"
+          description="课程和场次需要先有培训项目；具备 training.program.manage 的账号可以在右上角新建第一个项目。"
+        />
+        <TrainingPlansPanel v-if="activeTab === 'plans'" />
+        <TrainingCoursesPanel v-else-if="activeTab === 'courses'" />
+        <TrainingSessionsPanel
+          v-else-if="activeTab === 'sessions'"
+          :program-id="selectedProgramId"
+          :selected-session-id="selectedSessionId"
+          @open-session="openSession"
+        />
+        <EmptyState
+          v-else-if="needsSession && selectedSessionId === null"
+          title="请选择培训场次"
+          description="报名、签到、考试与反馈都按场次加载；请先在场次 Tab 选择或新建场次。"
+        />
+        <TrainingEnrollmentPanel
+          v-else-if="activeTab === 'enrollments' && selectedSessionId !== null"
+          :session-id="selectedSessionId"
+          :selected-program-id="selectedProgramId"
+        />
+        <TrainingCheckinPanel v-else-if="activeTab === 'checkins' && selectedSessionId !== null" :session-id="selectedSessionId" />
+        <TrainingExamPanel
+          v-else-if="activeTab === 'exams' && selectedSessionId !== null"
+          :session-id="selectedSessionId"
+          :course-id="selectedSession?.courseId ?? null"
+        />
+        <TrainingFeedbackPanel v-else-if="activeTab === 'feedback' && selectedSessionId !== null" :session-id="selectedSessionId" />
+        <TrainingRecordsPanel v-else-if="activeTab === 'records'" />
+        <TrainingReportsPanel v-else-if="activeTab === 'reports'" />
+
+        <SessionOperationDrawer
+          :open="drawerOpen"
+          :program-id="selectedProgramId"
+          :session-id="selectedSessionId"
+          :session-row="selectedSession"
+          @update:open="(value) => { if (!value) closeDrawer() }"
+        />
+      </template>
     </template>
 
     <TrainingProgramDrawer
-      v-model="drawerOpen"
+      v-model="createOpen"
       :mode="drawerMode"
-      :program="drawerProgram"
       :submitting="drawerSubmitting"
       :server-error="drawerError"
-      @save="save"
+      @save="saveProgram"
     />
-
-    <el-dialog
-      v-model="confirmOpen"
-      :title="pendingAction === 'publish' ? '发布培训项目' : '关闭培训项目'"
-      width="460px"
-      :close-on-click-modal="false"
-      data-testid="training-program-confirm"
-    >
-      <p class="training-programs__confirm">
-        确认{{ pendingAction === null ? '' : lifecycleLabel(pendingAction) }}培训项目
-        「{{ pendingProgram?.title ?? '' }}」？此操作会改变该项目的可用状态。
-      </p>
-      <p class="training-programs__confirm-meta">
-        该动作需要 training.program.manage 能力，服务端会再次校验。
-      </p>
-      <template #footer>
-        <el-button data-testid="training-program-confirm-cancel" @click="cancelLifecycle">取消</el-button>
-        <el-button type="primary" data-testid="training-program-confirm-submit" @click="confirmLifecycle">
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
-  </div>
+  </PageShell>
 </template>
 
 <style scoped>
-.training-workspace {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px 48px;
-}
-
-.training-workspace__header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.training-workspace__breadcrumb {
-  margin: 0 0 4px;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.training-workspace__title {
-  margin: 0 0 6px;
-  font-size: 22px;
-  color: #0f172a;
-}
-
-.training-workspace__description {
-  margin: 0;
-  max-width: 760px;
-  color: #475569;
-  font-size: 12.5px;
-  line-height: 1.65;
-}
-
-.training-workspace__header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .training-workspace__primary,
 .training-workspace__secondary {
   padding: 8px 14px;
   border-radius: 8px;
-  font-size: 12.5px;
-  cursor: pointer;
   border: 1px solid #cbd5e1;
   background: #fff;
-  color: #0f172a;
+  font-size: 12.5px;
+  cursor: pointer;
 }
-
 .training-workspace__primary {
   background: #1d4ed8;
   border-color: #1d4ed8;
   color: #fff;
 }
-
-.training-workspace__success,
-.training-workspace__warning,
-.training-workspace__hint {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
-.training-workspace__success {
-  background: #ecfdf5;
-  color: #166534;
-}
-
-.training-workspace__warning {
-  background: #fffbeb;
-  color: #92400e;
-}
-
-.training-workspace__hint {
-  background: #f8fafc;
-  color: #475569;
-}
-
 .training-workspace__state {
   padding: 24px;
   border: 1px solid #fecaca;
@@ -447,91 +462,31 @@ onMounted(() => {
   background: #fef2f2;
   color: #991b1b;
 }
-
-.training-programs table {
-  width: 100%;
-  border-collapse: collapse;
+.training-workspace__state h2 { margin: 0 0 6px; font-size: 16px; }
+.training-workspace__state p { margin: 0; font-size: 12.5px; }
+.training-workspace__success {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #166534;
   font-size: 12.5px;
 }
-
-.training-programs th,
-.training-programs td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid #e2e8f0;
-  vertical-align: top;
-}
-
-.training-programs th {
-  background: #f8fafc;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.training-programs__link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: #1d4ed8;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.training-programs__meta {
-  display: block;
-  color: #94a3b8;
-  font-size: 11px;
-  margin-top: 2px;
-}
-
-.training-programs__capacity {
-  font-weight: 600;
-}
-
-.training-programs__chip {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: #dcfce7;
-  color: #166534;
-}
-
-.training-programs__chip.is-archived {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.training-programs__actions {
-  min-width: 210px;
-}
-
-.training-programs__button {
-  margin-right: 6px;
-  margin-bottom: 4px;
-  padding: 4px 9px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+.training-workspace__filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background: #fff;
-  font-size: 11.5px;
-  cursor: pointer;
 }
-
-.training-programs__button.is-danger {
-  color: #b91c1c;
-  border-color: #fecaca;
-}
-
-.training-programs__confirm {
-  margin: 0 0 8px;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.training-programs__confirm-meta {
-  margin: 0;
-  color: #64748b;
+.training-workspace__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 220px;
   font-size: 12px;
+  color: #334155;
 }
 </style>

@@ -133,12 +133,12 @@ final class RolePageAssignmentCatalog
             '劳动合同', '考勤打卡', '请假管理', '加班管理', '出差管理',
             '绩效考核', '招聘需求', '候选人', '培训管理', '公告通知',
         ], [
-            '/workflow', '/notifications', '/benefits', '/system/calendars',
+            '/workflow', '/notifications', '/benefits', '/system/settings',
         ]);
         $rolePages['HR_SPECIALIST'] = $this->select($pages, [
             '仪表盘', '报表中心', '员工档案', '部门管理', '岗位管理', '员工异动',
             '劳动合同', '考勤打卡', '请假管理', '加班管理', '出差管理', '公告通知',
-        ], ['/notifications', '/system/calendars']);
+        ], ['/notifications', '/system/settings']);
         $rolePages['RECRUITER'] = $this->select($pages, [
             '仪表盘', '报表中心', '招聘需求', '候选人', '公告通知',
         ], ['/workflow', '/notifications']);
@@ -151,25 +151,20 @@ final class RolePageAssignmentCatalog
         $rolePages['ATTENDANCE_SPECIALIST'] = $this->select($pages, [
             '仪表盘', '报表中心', '考勤打卡', '请假管理', '加班管理', '出差管理',
             '公告通知',
-        ], ['/notifications', '/system/calendars']);
+        ], ['/notifications', '/system/settings']);
         $rolePages['LINE_MANAGER'] = $this->select($pages, [
             '仪表盘', '报表中心', '员工档案', '考勤打卡', '请假管理', '加班管理',
             '出差管理', '绩效考核', '培训管理', '公告通知',
         ], ['/workflow', '/notifications']);
         $rolePages['EMPLOYEE'] = $this->selectPaths($pages, [
-            '/workspace', '/account/mfa', '/account/sessions', '/self-service',
+            '/workspace', '/account',
             '/hr/employees', '/hr/employees/:id', '/hr/contracts',
-            '/attendance', '/attendance/punches', '/attendance/calendar',
-            '/attendance/corrections', '/leave', '/leave/requests', '/leave/balances',
-            '/leave/calendar', '/leave/cancellations', '/overtime', '/overtime/requests',
-            '/overtime/timeoff', '/travel', '/travel/requests', '/travel/changes',
-            '/travel/expenses', '/payroll/payslips', '/performance/reviews',
-            '/performance/appeals', '/training', '/training/records',
-            '/training/enrollments', '/notices', '/notifications', '/benefits',
+            '/attendance', '/leave', '/overtime', '/travel',
+            '/performance', '/training', '/notices', '/notifications', '/benefits',
         ]);
         $rolePages['AUDITOR'] = $this->select($pages, [
             '仪表盘', '报表中心', '公告通知',
-        ], ['/system/audit', '/system/permissions', '/workflow', '/notifications']);
+        ], ['/system/audit', '/system/pages', '/workflow', '/notifications']);
         $rolePages['TRAINING_ADMIN'] = $this->select($pages, [
             '仪表盘', '报表中心', '培训管理', '公告通知',
         ], ['/notifications']);
@@ -220,10 +215,10 @@ final class RolePageAssignmentCatalog
         $codes = [];
 
         // Every authenticated role lands on /workspace and must be able to
-        // manage its own MFA and sessions. These three pages form the
-        // "工作台与安全" group, which is not a business menu group and is
-        // therefore never listed explicitly by role.
-        $baseSecurityPaths = ['/workspace', '/account/mfa', '/account/sessions'];
+        // manage its own password, sessions and optional MFA. These two pages
+        // form the "工作台与安全" group, which is not a business menu group and
+        // is therefore never listed explicitly by role.
+        $baseSecurityPaths = ['/workspace', '/account'];
 
         foreach ($pages as $page) {
             $isBaseSecurity = in_array($page['path'], $baseSecurityPaths, true);

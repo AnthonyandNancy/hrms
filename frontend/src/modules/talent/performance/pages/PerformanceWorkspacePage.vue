@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { ApiError, errorCode, errorCopy } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
-import PerformanceCycleDetailPage from './PerformanceCycleDetailPage.vue'
 import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
   listPerformanceCycles,
@@ -17,24 +15,9 @@ import {
 
 defineOptions({ name: 'PerformanceWorkspacePage' })
 
-const route = useRoute()
-const router = useRouter()
 const session = useSessionStore()
 
 const canRead = computed(() => session.can('performance.cycle.read'))
-
-/**
- * Cycle detail is reachable through the existing registered /performance
- * route. The lead-owned router registry does not yet carry a
- * /performance/cycles/:id entry, so the workspace selects a cycle with the
- * cycle_id query parameter instead of inventing a router edit.
- */
-const detailCycleId = computed<number | null>(() => {
-  const value = route.query.cycle_id
-  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
-})
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -141,10 +124,6 @@ function changePage(next: number): void {
   void load()
 }
 
-function openCycle(cycle: PerformanceCycleSummary): void {
-  void router.push({ path: '/performance', query: { cycle_id: String(cycle.id) } })
-}
-
 function periodLabel(cycle: PerformanceCycleSummary): string {
   return `${cycle.periodFrom} 至 ${cycle.periodTo}`
 }
@@ -165,23 +144,13 @@ function stageTone(cycle: PerformanceCycleSummary): string {
   }
 }
 
-watch(detailCycleId, (id) => {
-  if (id === null) {
-    void load()
-  }
-})
-
 onMounted(() => {
-  if (detailCycleId.value === null) {
-    void load()
-  }
+  void load()
 })
 </script>
 
 <template>
-  <PerformanceCycleDetailPage v-if="detailCycleId !== null" :cycle-id-override="detailCycleId" />
-
-  <div v-else class="performance-workspace" data-page="performance-workspace">
+  <div class="performance-workspace" data-page="performance-workspace">
     <header class="performance-workspace__header">
       <div>
         <p class="performance-workspace__breadcrumb">人才 · 绩效考核</p>
@@ -302,9 +271,13 @@ onMounted(() => {
                   </div>
                 </template>
                 <template #cell-actions="{ row }">
-                  <button type="button" class="performance-table__link" @click="openCycle(row as unknown as PerformanceCycleSummary)">
+                  <router-link
+                    class="performance-table__link"
+                    :to="`/performance/cycles/${(row as unknown as PerformanceCycleSummary).id}`"
+                    data-testid="performance-open-cycle"
+                  >
                     查看详情
-                  </button>
+                  </router-link>
                 </template>
               </DataTable>
             </div>

@@ -8,8 +8,10 @@ use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Contracts\WorkflowCaseSnapshot;
 use App\Modules\Time\Models\BusinessTripRecord;
+use App\Modules\Time\Models\TravelAttendanceLink;
 use App\Modules\Time\Models\TravelExpense;
 use App\Modules\Time\Models\TravelPolicy;
+use App\Modules\Time\Models\TravelRequestChange;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -17,6 +19,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\Clock;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -150,18 +153,19 @@ final class TravelService
         $fromDate = (string) $input['from_date'];
         $toDate = (string) $input['to_date'];
 
-        $overlap = BusinessTripRecord::query()
-            ->where('employment_id', $employmentId)
-            ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
-            ->where('from_date', '<=', $toDate)
-            ->where('to_date', '>=', $fromDate)
-            ->exists();
-
-        if ($overlap) {
-            throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
-        }
-
         return DB::transaction(function () use ($employmentId, $fromDate, $toDate, $input, $actorUserId): array {
+            $overlap = BusinessTripRecord::query()
+                ->where('employment_id', $employmentId)
+                ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
+                ->where('from_date', '<=', $toDate)
+                ->where('to_date', '>=', $fromDate)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($overlap) {
+                throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
+            }
+
             $caseId = $this->workflow->createCase(
                 requesterUserId: $actorUserId,
                 type: 'TRAVEL_REQUEST',
@@ -248,19 +252,45 @@ final class TravelService
                 ]);
             }
 
-            if (! in_array((string) $trip->status, ['PENDING_APPROVAL', 'APPROVED', 'REJECTED'], true)) {
+            if (! in_array((string) $trip->status, ['PENDING_APPROVAL', 'APPROVED'], true)) {
                 throw new ConflictException('This travel request cannot be decided in its current state.', [
                     'reason' => 'TRAVEL_NOT_DECIDABLE',
                     'status' => (string) $trip->status,
                 ]);
             }
 
-            $case = $this->workflow->case((int) $trip->case_id);
+            $pendingChange = TravelRequestChange::query()
+                ->where('travel_id', (int) $trip->id)
+                ->where('status', TravelRequestChange::STATUS_PENDING)
+                ->lockForUpdate()
+                ->first();
+
+            $applicationCaseId = (int) $trip->case_id;
+            $changeCaseId = $pendingChange?->case_id !== null ? (int) $pendingChange->case_id : null;
+
+            /*
+             * An approved trip cannot be decided again. Its pending change has
+             * its own Workflow case, which becomes the decision target. A still
+             * pending trip keeps its original case as the primary approval and
+             * the change case (when present) is decided in the same command so
+             * no orphaned SUBMITTED task survives the trip decision.
+             */
+            $decideApplication = (string) $trip->status === 'PENDING_APPROVAL';
+            $decisionCaseId = $decideApplication ? $applicationCaseId : $changeCaseId;
+
+            if ($decisionCaseId === null) {
+                throw new ConflictException('The travel request has no pending approval case.', [
+                    'reason' => 'TRAVEL_CASE_ALREADY_DECIDED',
+                    'travel_id' => $travelId,
+                ]);
+            }
+
+            $case = $this->workflow->case($decisionCaseId);
 
             if ($case === null) {
                 throw new ConflictException('The travel approval case was not found.', [
                     'reason' => 'TRAVEL_CASE_MISSING',
-                    'case_id' => (int) $trip->case_id,
+                    'case_id' => $decisionCaseId,
                 ]);
             }
 
@@ -271,21 +301,100 @@ final class TravelService
                 ]);
             }
 
-            $this->workflow->decide(
-                (int) $trip->case_id,
-                $action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-                $comment,
-            );
+            $decideChangeCase = $pendingChange !== null
+                && $changeCaseId !== null
+                && $changeCaseId !== $applicationCaseId;
 
-            $decided = $this->workflow->case((int) $trip->case_id);
+            if ($decideChangeCase && $changeCaseId !== $decisionCaseId) {
+                $changeCase = $this->workflow->case($changeCaseId);
 
-            if ($decided === null || ! in_array($decided->status, ['APPROVED', 'REJECTED'], true)) {
+                if ($changeCase === null) {
+                    throw new ConflictException('The travel change case was not found.', [
+                        'reason' => 'TRAVEL_CHANGE_CASE_MISSING',
+                        'case_id' => $changeCaseId,
+                    ]);
+                }
+
+                if (in_array($changeCase->status, ['APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELLED'], true)) {
+                    throw new ConflictException('The travel change case has already been decided.', [
+                        'reason' => 'TRAVEL_CHANGE_CASE_ALREADY_DECIDED',
+                        'application_status' => $changeCase->status,
+                    ]);
+                }
+            }
+
+            $workflowDecision = $action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+            $this->workflow->decide($decisionCaseId, $action, $comment);
+
+            $decided = $this->workflow->case($decisionCaseId);
+
+            if ($decided === null || $decided->status !== $workflowDecision) {
                 throw new ConflictException('The workflow decision was not recorded.', [
                     'reason' => 'TRAVEL_DECISION_NOT_RECORDED',
                 ]);
             }
 
-            $trip->forceFill(['status' => $action === 'APPROVE' ? 'APPROVED' : 'REJECTED'])->save();
+            if ($decideChangeCase && $changeCaseId !== $decisionCaseId) {
+                $this->workflow->decide($changeCaseId, $action, $comment);
+                $changeDecision = $this->workflow->case($changeCaseId);
+
+                if ($changeDecision === null || $changeDecision->status !== $workflowDecision) {
+                    throw new ConflictException('The travel change workflow decision was not recorded.', [
+                        'reason' => 'TRAVEL_CHANGE_DECISION_NOT_RECORDED',
+                    ]);
+                }
+            } elseif ($changeCaseId === $decisionCaseId) {
+                $changeDecision = $decided;
+            }
+
+            if ($action === 'APPROVE') {
+                if ($pendingChange !== null) {
+                    $this->applyChangeToTrip($trip, $pendingChange);
+                    $pendingChange->forceFill([
+                        'status' => TravelRequestChange::STATUS_APPLIED,
+                        'applied_at' => $this->clock->now(),
+                    ])->save();
+
+                    $this->audit->record(
+                        $actorUserId,
+                        'time.travel.change_applied',
+                        'business_trip',
+                        (int) $trip->id,
+                        before: $pendingChange->original_json,
+                        after: $pendingChange->proposed_json,
+                        metadata: ['change_id' => (int) $pendingChange->id, 'case_id' => (int) $trip->case_id],
+                    );
+                }
+
+                $trip->forceFill(['status' => 'APPROVED'])->save();
+                $link = $this->upsertAttendanceLink($trip, $actorUserId);
+            } else {
+                /*
+                 * A rejected change belongs to an already-approved trip: the
+                 * original plan stays APPROVED and its attendance link stays
+                 * ACTIVE. Only a rejected initial application changes the trip
+                 * status to REJECTED.
+                 */
+                if ($decideApplication) {
+                    $trip->forceFill(['status' => 'REJECTED'])->save();
+                }
+
+                $link = $this->activeAttendanceLink($trip);
+
+                if ($pendingChange !== null) {
+                    $pendingChange->forceFill([
+                        'status' => TravelRequestChange::STATUS_REJECTED,
+                    ])->save();
+
+                    $this->audit->record(
+                        $actorUserId,
+                        'time.travel.change_rejected',
+                        'business_trip',
+                        (int) $trip->id,
+                        after: ['change_id' => (int) $pendingChange->id, 'case_id' => (int) $trip->case_id],
+                    );
+                }
+            }
 
             $this->audit->record(
                 $actorUserId,
@@ -296,11 +405,12 @@ final class TravelService
                 after: [
                     'status' => (string) $trip->status,
                     'application_status' => $decided->status,
-                    'case_id' => (int) $trip->case_id,
+                    'case_id' => $decisionCaseId,
+                    'change_applied' => $pendingChange !== null && $action === 'APPROVE',
                 ],
             );
 
-            return $this->requestPayload($trip->refresh(), $decided);
+            return $this->requestPayload($trip->refresh(), $decided, $pendingChange, $link);
         });
     }
 
@@ -454,6 +564,59 @@ final class TravelService
     }
 
     /**
+     * @param  array{view?: string|null, status?: string|null, from?: string|null, to?: string|null, employment_id?: int|null, department_id?: int|null, employment_ids?: list<int>|null}  $filters
+     * @param  list<int>  $managedEmploymentIds
+     * @param  list<int>|null  $employmentScope
+     */
+    public function requestProjection(
+        int $selfEmploymentId,
+        array $managedEmploymentIds,
+        ?array $employmentScope,
+        array $filters,
+        int $page,
+        int $pageSize,
+        string $asOf,
+    ): ProjectionResult {
+        $query = $this->requestQuery($selfEmploymentId, $managedEmploymentIds, $employmentScope, $filters);
+        $total = (clone $query)->count();
+        /** @var \Illuminate\Database\Eloquent\Collection<int, BusinessTripRecord> $records */
+        $records = $query
+            ->orderByDesc('from_date')
+            ->orderByDesc('id')
+            ->forPage($page, $pageSize)
+            ->get();
+        $items = $records
+            ->map(fn (BusinessTripRecord $record): array => $this->requestPayload(
+                $record,
+                $record->case_id !== null ? $this->workflow->case((int) $record->case_id) : null,
+            ))
+            ->all();
+
+        return new ProjectionResult(
+            items: $items,
+            page: $page,
+            pageSize: $pageSize,
+            total: $total,
+            asOf: $asOf,
+            freshness: ProjectionResult::FRESHNESS_LIVE,
+            sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
+            partial: false,
+            partialReason: null,
+            drilldown: [
+                'resource' => 'business_trip_records',
+                'filters' => [
+                    'view' => $filters['view'] ?? null,
+                    'status' => $filters['status'] ?? null,
+                    'from' => $filters['from'] ?? null,
+                    'to' => $filters['to'] ?? null,
+                    'employment_id' => $filters['employment_id'] ?? null,
+                    'department_id' => $filters['department_id'] ?? null,
+                ],
+            ],
+        );
+    }
+
+    /**
      * @param  list<int>  $managedEmploymentIds
      * @return list<array<string, mixed>>
      */
@@ -480,47 +643,443 @@ final class TravelService
     }
 
     /**
-     * @return array<string, mixed>
+     * @param  array{view?: string|null, status?: string|null, from?: string|null, to?: string|null, employment_id?: int|null, department_id?: int|null, employment_ids?: list<int>|null}  $filters
+     * @param  list<int>  $managedEmploymentIds
+     * @param  list<int>|null  $employmentScope
+     * @return Builder<BusinessTripRecord>
      */
-    public function cancel(int $employmentId, int $id, string $reason, int $actorUserId): array
-    {
-        $record = BusinessTripRecord::query()
-            ->where('employment_id', $employmentId)
-            ->whereKey($id)
-            ->first();
+    private function requestQuery(
+        int $selfEmploymentId,
+        array $managedEmploymentIds,
+        ?array $employmentScope,
+        array $filters,
+    ): Builder {
+        $query = BusinessTripRecord::query();
+        $view = strtolower((string) ($filters['view'] ?? 'my'));
+        $companyWide = $employmentScope === null;
 
-        if ($record === null) {
-            throw new NotFoundOrForbiddenException;
+        if ($view === 'my') {
+            $query->where('employment_id', $selfEmploymentId);
+        } elseif ($view === 'my_approvals') {
+            if (! $companyWide) {
+                $query->whereIn('employment_id', $managedEmploymentIds);
+            }
+            $query->where('status', 'PENDING_APPROVAL');
+        } elseif ($view === 'team') {
+            if (! $companyWide) {
+                $query->whereIn('employment_id', $managedEmploymentIds);
+            }
         }
 
-        if (in_array((string) $record->status, ['CANCELLED', 'COMPLETED'], true)) {
-            throw new ConflictException('This travel request cannot be cancelled in its current state.', [
-                'reason' => 'TRAVEL_NOT_CANCELLABLE',
-                'status' => (string) $record->status,
-            ]);
+        if ($employmentScope !== null) {
+            $query->whereIn('employment_id', $employmentScope);
         }
 
-        $record->forceFill([
-            'status' => 'CANCELLED',
-            'cancel_reason' => $reason,
-            'cancelled_at' => $this->clock->now(),
-        ])->save();
+        if (($filters['employment_id'] ?? null) !== null) {
+            $query->where('employment_id', (int) $filters['employment_id']);
+        }
 
-        $this->audit->record($actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
-            'reason' => $reason,
-        ]);
+        if (($filters['employment_ids'] ?? null) !== null) {
+            $query->whereIn('employment_id', (array) $filters['employment_ids']);
+        }
 
-        return $this->requestPayload(
-            $record,
-            $record->case_id !== null ? $this->workflow->case((int) $record->case_id) : null,
-        );
+        if (($filters['status'] ?? null) !== null && $filters['status'] !== '') {
+            $query->where('status', (string) $filters['status']);
+        }
+
+        if (($filters['from'] ?? null) !== null && $filters['from'] !== '') {
+            $query->where('to_date', '>=', (string) $filters['from']);
+        }
+
+        if (($filters['to'] ?? null) !== null && $filters['to'] !== '') {
+            $query->where('from_date', '<=', (string) $filters['to']);
+        }
+
+        if (($filters['department_id'] ?? null) !== null && ($filters['employment_ids'] ?? null) === null) {
+            // Department membership lives in People. Time must not read the
+            // People assignment table directly; the controller expands the
+            // department through the Shared authorization directory and passes
+            // the resulting employment IDs in `employment_ids`.
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function requestPayload(BusinessTripRecord $record, ?WorkflowCaseSnapshot $case): array
+    public function cancel(int $employmentId, int $id, string $reason, int $actorUserId): array
     {
+        return DB::transaction(function () use ($employmentId, $id, $reason, $actorUserId): array {
+            $record = BusinessTripRecord::query()
+                ->where('employment_id', $employmentId)
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($record === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if (in_array((string) $record->status, ['CANCELLED', 'COMPLETED'], true)) {
+                throw new ConflictException('This travel request cannot be cancelled in its current state.', [
+                    'reason' => 'TRAVEL_NOT_CANCELLABLE',
+                    'status' => (string) $record->status,
+                ]);
+            }
+
+            $this->assertExpensesCancellable((int) $record->id);
+
+            $record->forceFill([
+                'status' => 'CANCELLED',
+                'cancel_reason' => $reason,
+                'cancelled_at' => $this->clock->now(),
+            ])->save();
+
+            $pendingChanges = TravelRequestChange::query()
+                ->where('travel_id', (int) $record->id)
+                ->where('status', TravelRequestChange::STATUS_PENDING)
+                ->get();
+
+            foreach ($pendingChanges as $pendingChange) {
+                $pendingChange->forceFill(['status' => TravelRequestChange::STATUS_CANCELLED])->save();
+            }
+
+            $this->retireAttendanceLink((int) $record->id, $reason, $actorUserId);
+
+            $this->audit->record($actorUserId, 'time.travel.cancelled', 'business_trip', (int) $record->id, after: [
+                'reason' => $reason,
+                'cancelled_change_ids' => $pendingChanges->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all(),
+            ]);
+
+            return $this->requestPayload(
+                $record->refresh(),
+                $record->case_id !== null ? $this->workflow->case((int) $record->case_id) : null,
+            );
+        });
+    }
+
+    /**
+     * Request a business-trip change. The original trip is never mutated until
+     * the linked Workflow case is approved and approve() applies proposed_json.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function requestChange(int $employmentId, int $travelId, array $input, int $actorUserId): array
+    {
+        $fromDate = (string) $input['from_date'];
+        $toDate = (string) $input['to_date'];
+        $reason = trim((string) $input['reason']);
+
+        if ($reason === '') {
+            throw new ValidationException(['reason' => ['A change reason is required.']]);
+        }
+
+        return DB::transaction(function () use ($employmentId, $travelId, $input, $actorUserId, $fromDate, $toDate, $reason): array {
+            $trip = BusinessTripRecord::query()
+                ->where('employment_id', $employmentId)
+                ->whereKey($travelId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($trip === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if (! in_array((string) $trip->status, ['PENDING_APPROVAL', 'APPROVED'], true)) {
+                throw new ConflictException('This travel request cannot be changed in its current state.', [
+                    'reason' => 'TRAVEL_NOT_CHANGEABLE',
+                    'status' => (string) $trip->status,
+                ]);
+            }
+
+            $pending = TravelRequestChange::query()
+                ->where('travel_id', $travelId)
+                ->where('status', TravelRequestChange::STATUS_PENDING)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($pending) {
+                throw new ConflictException('A travel change is already pending approval.', [
+                    'reason' => 'TRAVEL_CHANGE_ALREADY_PENDING',
+                    'travel_id' => $travelId,
+                ]);
+            }
+
+            $overlap = BusinessTripRecord::query()
+                ->where('employment_id', $employmentId)
+                ->whereKeyNot($travelId)
+                ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
+                ->where('from_date', '<=', $toDate)
+                ->where('to_date', '>=', $fromDate)
+                ->exists();
+
+            if ($overlap) {
+                throw new ConflictException('An active travel request overlaps the proposed period.', [
+                    'reason' => 'TRAVEL_OVERLAP',
+                ]);
+            }
+
+            $original = $this->tripSnapshot($trip);
+            $proposed = [
+                'from_date' => $fromDate,
+                'to_date' => $toDate,
+                'destination' => (string) $input['destination'],
+                'purpose' => (string) $input['purpose'],
+            ];
+
+            $caseId = $this->workflow->createCase(
+                requesterUserId: $actorUserId,
+                type: 'TRAVEL_REQUEST',
+                subjectType: 'employment',
+                subjectId: $employmentId,
+                payload: [
+                    'title' => 'Travel request change',
+                    'employment_id' => $employmentId,
+                    'travel_id' => $travelId,
+                    'change' => true,
+                    'original' => $original,
+                    'proposed' => $proposed,
+                    'reason' => $reason,
+                ],
+                businessDate: $fromDate,
+            );
+
+            /** @var TravelRequestChange $change */
+            $change = TravelRequestChange::query()->create([
+                'travel_id' => $travelId,
+                'employment_id' => $employmentId,
+                'case_id' => $caseId,
+                'original_json' => $original,
+                'proposed_json' => $proposed,
+                'reason' => $reason,
+                'status' => TravelRequestChange::STATUS_PENDING,
+                'recorded_at' => $this->clock->now(),
+                'created_at' => $this->clock->now(),
+                'updated_at' => $this->clock->now(),
+            ]);
+
+            $this->audit->record(
+                $actorUserId,
+                'time.travel.change_requested',
+                'business_trip',
+                $travelId,
+                before: $original,
+                after: $proposed,
+                metadata: [
+                    'change_id' => (int) $change->id,
+                    'case_id' => $caseId,
+                    'reason' => $reason,
+                ],
+            );
+
+            return [
+                'change_id' => (int) $change->id,
+                'travel_id' => $travelId,
+                'case_id' => $caseId,
+                'change_status' => TravelRequestChange::STATUS_PENDING,
+                'original' => $original,
+                'proposed' => $proposed,
+                'reason' => $reason,
+            ];
+        });
+    }
+
+    /**
+     * Apply the pending change whose Workflow case was just approved.
+     */
+    public function applyPendingChange(BusinessTripRecord $trip, ?TravelRequestChange $change = null): ?TravelRequestChange
+    {
+        $change ??= TravelRequestChange::query()
+            ->where('travel_id', (int) $trip->id)
+            ->where('case_id', (int) $trip->case_id)
+            ->where('status', TravelRequestChange::STATUS_PENDING)
+            ->lockForUpdate()
+            ->first();
+
+        if ($change === null) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($trip, $change): TravelRequestChange {
+            $this->applyChangeToTrip($trip, $change);
+            $change->forceFill([
+                'status' => TravelRequestChange::STATUS_APPLIED,
+                'applied_at' => $this->clock->now(),
+            ])->save();
+
+            return $change->refresh();
+        });
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function activeAttendanceLink(BusinessTripRecord $trip): ?array
+    {
+        $link = TravelAttendanceLink::query()
+            ->where('travel_id', (int) $trip->id)
+            ->first();
+
+        return $link === null ? null : $this->attendanceLinkPayload($link);
+    }
+
+    private function applyChangeToTrip(BusinessTripRecord $trip, TravelRequestChange $change): void
+    {
+        $proposed = $change->proposed_json;
+
+        $trip->forceFill([
+            'from_date' => (string) $proposed['from_date'],
+            'to_date' => (string) $proposed['to_date'],
+            'destination' => (string) $proposed['destination'],
+            'purpose' => (string) $proposed['purpose'],
+        ])->save();
+    }
+
+    /**
+     * Create or refresh the calendar-only link for an APPROVED trip.
+     *
+     * @return array<string, mixed>
+     */
+    private function upsertAttendanceLink(BusinessTripRecord $trip, int $actorUserId): array
+    {
+        if ($trip->case_id === null) {
+            throw new ConflictException('Travel attendance links require an approved workflow case.', [
+                'reason' => 'TRIP_APPROVAL_EVIDENCE_MISSING',
+                'travel_id' => (int) $trip->id,
+            ]);
+        }
+
+        /** @var TravelAttendanceLink $link */
+        $link = TravelAttendanceLink::query()
+            ->where('travel_id', (int) $trip->id)
+            ->first();
+
+        if ($link === null) {
+            /** @var TravelAttendanceLink $link */
+            $link = TravelAttendanceLink::query()->create([
+                'travel_id' => (int) $trip->id,
+                'employment_id' => (int) $trip->employment_id,
+                'from_date' => $trip->from_date->format('Y-m-d'),
+                'to_date' => $trip->to_date->format('Y-m-d'),
+                'source_case_id' => (int) $trip->case_id,
+                'status' => TravelAttendanceLink::STATUS_ACTIVE,
+                'created_at' => $this->clock->now(),
+                'updated_at' => $this->clock->now(),
+            ]);
+        } else {
+            $link->forceFill([
+                'employment_id' => (int) $trip->employment_id,
+                'from_date' => $trip->from_date->format('Y-m-d'),
+                'to_date' => $trip->to_date->format('Y-m-d'),
+                'source_case_id' => (int) $trip->case_id,
+                'status' => TravelAttendanceLink::STATUS_ACTIVE,
+                'retired_at' => null,
+                'retire_reason' => null,
+                'updated_at' => $this->clock->now(),
+            ])->save();
+        }
+
+        $this->audit->record(
+            $actorUserId,
+            'time.travel.attendance_linked',
+            'business_trip',
+            (int) $trip->id,
+            after: $this->attendanceLinkPayload($link),
+        );
+
+        return $this->attendanceLinkPayload($link);
+    }
+
+    private function retireAttendanceLink(int $travelId, string $reason, int $actorUserId): void
+    {
+        $link = TravelAttendanceLink::query()
+            ->where('travel_id', $travelId)
+            ->where('status', TravelAttendanceLink::STATUS_ACTIVE)
+            ->lockForUpdate()
+            ->first();
+
+        if ($link === null) {
+            return;
+        }
+
+        $link->forceFill([
+            'status' => TravelAttendanceLink::STATUS_RETIRED,
+            'retired_at' => $this->clock->now(),
+            'retire_reason' => $reason,
+        ])->save();
+
+        $this->audit->record(
+            $actorUserId,
+            'time.travel.attendance_retired',
+            'business_trip',
+            $travelId,
+            after: $this->attendanceLinkPayload($link),
+        );
+    }
+
+    /**
+     * Expenses are CLAIM_ONLY in this module. A settled payment does not exist
+     * yet, so only an unexpected persisted status is treated as blocking.
+     */
+    private function assertExpensesCancellable(int $travelId): void
+    {
+        $settled = TravelExpense::query()
+            ->where('travel_id', $travelId)
+            ->whereNotIn('status', [TravelExpense::STATUS_CLAIMED])
+            ->exists();
+
+        if ($settled) {
+            throw new ConflictException('A travel request with settled expenses cannot be cancelled.', [
+                'reason' => 'TRAVEL_EXPENSE_SETTLED',
+                'travel_id' => $travelId,
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function tripSnapshot(BusinessTripRecord $trip): array
+    {
+        return [
+            'from_date' => $trip->from_date->format('Y-m-d'),
+            'to_date' => $trip->to_date->format('Y-m-d'),
+            'destination' => (string) $trip->destination,
+            'purpose' => (string) $trip->purpose,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attendanceLinkPayload(TravelAttendanceLink $link): array
+    {
+        return [
+            'id' => (int) $link->id,
+            'travel_id' => (int) $link->travel_id,
+            'employment_id' => (int) $link->employment_id,
+            'from_date' => $link->from_date->format('Y-m-d'),
+            'to_date' => $link->to_date->format('Y-m-d'),
+            'source_case_id' => (int) $link->source_case_id,
+            'status' => (string) $link->status,
+            'retired_at' => $link->retired_at?->toIso8601ZuluString(),
+            'retire_reason' => $link->retire_reason,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $attendanceLink
+     * @return array<string, mixed>
+     */
+    public function requestPayload(
+        BusinessTripRecord $record,
+        ?WorkflowCaseSnapshot $case,
+        ?TravelRequestChange $change = null,
+        ?array $attendanceLink = null,
+    ): array {
         return [
             'travel_id' => (int) $record->id,
             'employment_id' => (int) $record->employment_id,
@@ -532,6 +1091,13 @@ final class TravelService
             'case_id' => $record->case_id !== null ? (int) $record->case_id : null,
             'case_no' => $case?->caseNo,
             'application_status' => $case?->status,
+            'change' => $change === null ? null : [
+                'change_id' => (int) $change->id,
+                'status' => (string) $change->status,
+                'case_id' => $change->case_id !== null ? (int) $change->case_id : null,
+                'reason' => (string) $change->reason,
+            ],
+            'attendance_link' => $attendanceLink,
         ];
     }
 

@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace App\Modules\People\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
-use App\Modules\People\Models\Assignment;
+use App\Modules\People\Contracts\ContractAccess;
+use App\Modules\People\Contracts\ContractFieldPolicy;
 use App\Modules\People\Models\EmploymentContract;
 use App\Modules\People\Services\ContractLifecycleService;
 use App\Shared\ApiResponse;
-use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
-use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
 use Closure;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -38,6 +36,8 @@ final class ContractLifecycleController
         private readonly ContractLifecycleService $contracts,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
+        private readonly ContractAccess $access,
+        private readonly ContractFieldPolicy $fields,
     ) {}
 
     public function contracts(Request $request): JsonResponse
@@ -46,28 +46,40 @@ final class ContractLifecycleController
         $data = $request->validate([
             'as_of' => ['nullable', new BusinessDateRule],
             'status' => ['nullable', Rule::in(EmploymentContract::STATUSES)],
+            'q' => ['nullable', 'string', 'max:120'],
+            'employment_id' => ['nullable', 'integer', 'min:1'],
+            'expiry_window' => ['nullable', Rule::in(['30', '60', '7', 'EXPIRED'])],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $asOf = $this->businessDates->resolve($data['as_of'] ?? null);
+        $window = isset($data['expiry_window'])
+            ? (string) $data['expiry_window']
+            : null;
 
-        return $this->projections->ok($this->contracts->contracts(
+        $result = $this->contracts->contracts(
             $principal,
             $this->authorizer,
             $asOf->value(),
             [
                 'status' => $data['status'] ?? null,
+                'q' => $data['q'] ?? null,
+                'employment_id' => isset($data['employment_id']) ? (int) $data['employment_id'] : null,
+                'expiring_within_days' => $window !== null && $window !== 'EXPIRED' ? (int) $window : null,
+                'expired' => $window === 'EXPIRED' ? true : null,
             ],
             (int) ($data['page'] ?? 1),
             (int) ($data['page_size'] ?? 20),
-        ));
+        );
+
+        return $this->projections->ok($this->projectRows($result, $principal, $asOf->value()));
     }
 
     public function amendments(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
         $asOf = $this->businessDates->today();
-        $this->assertContractAccess($principal, $id, 'people.contract.read', $asOf->value());
+        $contract = $this->access->contract($principal, $id, 'people.contract.read', $asOf->value());
 
         $data = $request->validate([
             'as_of' => ['nullable', new BusinessDateRule],
@@ -76,11 +88,16 @@ final class ContractLifecycleController
         ]);
         $resolvedAsOf = $this->businessDates->resolve($data['as_of'] ?? null);
 
-        return $this->projections->ok($this->contracts->amendmentHistory(
-            $id,
+        return $this->projections->ok($this->projectHistory(
+            $this->contracts->amendmentHistory(
+                $id,
+                $resolvedAsOf->value(),
+                (int) ($data['page'] ?? 1),
+                (int) ($data['page_size'] ?? 20),
+            ),
+            $principal,
+            $contract,
             $resolvedAsOf->value(),
-            (int) ($data['page'] ?? 1),
-            (int) ($data['page_size'] ?? 20),
         ));
     }
 
@@ -88,7 +105,7 @@ final class ContractLifecycleController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->businessDates->today();
-        $this->assertContractAccess($principal, $id, 'people.contract.amend', $asOf->value());
+        $this->access->contract($principal, $id, 'people.contract.amend', $asOf->value());
 
         $data = $request->validate([
             'effective_date' => ['required', new BusinessDateRule],
@@ -99,6 +116,8 @@ final class ContractLifecycleController
             'changes.signed_on' => ['sometimes', 'nullable', new BusinessDateRule],
             'changes.terms_summary' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'changes.template_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'changes.work_location' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'changes.probation_end_date' => ['sometimes', 'nullable', new BusinessDateRule],
         ]);
 
         // Laravel drops unvalidated nested keys from validated(), which would
@@ -118,7 +137,7 @@ final class ContractLifecycleController
                 auditAction: 'people.contract.amended',
             ),
             ['contract_id' => $id, ...$data],
-            fn (): array => $this->contracts->amend($id, $data, $principal->userId()),
+            fn (): array => $this->projectMutation($this->contracts->amend($id, $data, $principal->userId()), $principal, (string) $data['effective_date']),
             201,
             'employment_contract',
             (string) $id,
@@ -129,7 +148,7 @@ final class ContractLifecycleController
     {
         $principal = $this->principals->resolve();
         $asOf = $this->businessDates->today();
-        $this->assertContractAccess($principal, $id, 'people.contract.terminate', $asOf->value());
+        $this->access->contract($principal, $id, 'people.contract.terminate', $asOf->value());
 
         $data = $request->validate([
             'effective_date' => ['required', new BusinessDateRule],
@@ -148,7 +167,7 @@ final class ContractLifecycleController
                 auditAction: 'people.contract.terminated',
             ),
             ['contract_id' => $id, ...$data],
-            fn (): array => $this->contracts->terminate($id, $data, $principal->userId()),
+            fn (): array => $this->projectMutation($this->contracts->terminate($id, $data, $principal->userId()), $principal, (string) $data['effective_date']),
             200,
             'employment_contract',
             (string) $id,
@@ -210,6 +229,7 @@ final class ContractLifecycleController
         $data = $request->validate([
             'as_of' => ['nullable', new BusinessDateRule],
             'code' => ['nullable', 'string', 'max:64'],
+            'q' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', Rule::in(['DRAFT', 'PUBLISHED', 'ARCHIVED'])],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -222,6 +242,7 @@ final class ContractLifecycleController
             $asOf->value(),
             [
                 'code' => $data['code'] ?? null,
+                'q' => $data['q'] ?? null,
                 'status' => $data['status'] ?? null,
             ],
             (int) ($data['page'] ?? 1),
@@ -281,6 +302,77 @@ final class ContractLifecycleController
     }
 
     /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function projectMutation(array $result, Principal $principal, string $asOf): array
+    {
+        $contract = EmploymentContract::query()->whereKey((int) ($result['contract']['id'] ?? 0))->first();
+
+        if ($contract instanceof EmploymentContract && isset($result['contract']) && is_array($result['contract'])) {
+            $result['contract'] = $this->fields->project($principal, $contract, $result['contract'], $asOf);
+        }
+
+        if (isset($result['version']) && is_array($result['version'])) {
+            $result['version'] = $this->fields->projectSnapshot($principal, $contract, $result['version'], $asOf);
+        }
+
+        return $result;
+    }
+
+    private function projectHistory(
+        \App\Shared\Projections\ProjectionResult $result,
+        Principal $principal,
+        EmploymentContract $contract,
+        string $asOf,
+    ): \App\Shared\Projections\ProjectionResult {
+        $items = array_map(function (array $item) use ($principal, $contract, $asOf): array {
+            if (isset($item['snapshot']) && is_array($item['snapshot'])) {
+                $item['snapshot'] = $this->fields->projectSnapshot($principal, $contract, $item['snapshot'], $asOf);
+            }
+
+            return $item;
+        }, $result->items);
+
+        return new \App\Shared\Projections\ProjectionResult(
+            items: $items,
+            page: $result->page,
+            pageSize: $result->pageSize,
+            total: $result->total,
+            asOf: $result->asOf,
+            freshness: $result->freshness,
+            sourceHash: $result->sourceHash,
+            partial: $result->partial,
+            partialReason: $result->partialReason,
+            drilldown: $result->drilldown,
+        );
+    }
+
+    private function projectRows(\App\Shared\Projections\ProjectionResult $result, Principal $principal, string $asOf): \App\Shared\Projections\ProjectionResult
+    {
+        $items = array_map(function (array $item) use ($principal, $asOf): array {
+            $contract = EmploymentContract::query()->whereKey((int) ($item['id'] ?? 0))->first();
+
+            return $contract instanceof EmploymentContract
+                ? $this->fields->project($principal, $contract, $item, $asOf)
+                : $item;
+        }, $result->items);
+
+        return new \App\Shared\Projections\ProjectionResult(
+            items: $items,
+            page: $result->page,
+            pageSize: $result->pageSize,
+            total: $result->total,
+            asOf: $result->asOf,
+            freshness: $result->freshness,
+            sourceHash: $result->sourceHash,
+            partial: $result->partial,
+            partialReason: $result->partialReason,
+            drilldown: $result->drilldown,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @param  Closure(): array<string, mixed>  $operation
      */
@@ -318,43 +410,5 @@ final class ContractLifecycleController
         }
 
         return $response;
-    }
-
-    private function assertContractAccess(Principal $principal, int $contractId, string $capability, string $on): void
-    {
-        $contract = EmploymentContract::query()
-            ->whereKey($contractId)
-            ->first();
-
-        if ($contract === null) {
-            throw new NotFoundOrForbiddenException;
-        }
-
-        $checks = [
-            AnchorRef::self(),
-            AnchorRef::managed(),
-            AnchorRef::company(),
-        ];
-
-        $assignment = Assignment::query()
-            ->where('employment_id', $contract->employment_id)
-            ->where('valid_from', '<=', $on)
-            ->where('valid_to', '>', $on)
-            ->orderByDesc('is_primary')
-            ->orderBy('id')
-            ->first();
-
-        if ($assignment !== null) {
-            $checks[] = AnchorRef::orgUnit((int) $assignment->org_unit_id);
-            $checks[] = AnchorRef::orgSubtree((int) $assignment->org_unit_id);
-        }
-
-        foreach ($checks as $anchor) {
-            if ($this->authorizer->allows($principal, $capability, $anchor, $on)) {
-                return;
-            }
-        }
-
-        throw new AuthorizationException('Forbidden.');
     }
 }

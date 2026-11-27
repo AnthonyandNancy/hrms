@@ -4,18 +4,17 @@ import { RouterLink } from 'vue-router'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTimeInTimezone } from '@/utils/format'
+import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
 import {
+  errorCopy,
   isForbidden,
   listMyWorkflowTasks,
   listWorkflowCases,
-  platformErrorCopy,
-  WORKFLOW_CASE_TYPE_OPTIONS,
   type WorkflowCaseStatus,
   type WorkflowCaseSummary,
   type WorkflowCaseView,
   type WorkflowTask,
-} from '../api'
+} from '../workflow/api'
 import {
   caseTypeLabel,
   effectStatusLabel,
@@ -25,8 +24,9 @@ import {
   workflowStatusLabel,
   workflowStatusTone,
 } from '../labels'
+import WorkflowTemplatePanel from '../workflow/components/WorkflowTemplatePanel.vue'
 
-type ViewKey = WorkflowCaseView | 'all'
+type ViewKey = WorkflowCaseView | 'templates'
 
 const session = useSessionStore()
 const canRead = computed(() => session.can('workflow.case.read'))
@@ -41,10 +41,11 @@ const pageSize = ref(20)
 const partial = ref(false)
 const partialReason = ref('')
 
-const filters = reactive<{ view: ViewKey; status: WorkflowCaseStatus | ''; type: string }>({
-  view: 'all',
+const filters = reactive<{ view: ViewKey; status: WorkflowCaseStatus | ''; type: string; businessDate: string }>({
+  view: 'my_approvals',
   status: '',
   type: '',
+  businessDate: '',
 })
 
 const STATUS_FILTERS: Array<{ value: WorkflowCaseStatus | ''; label: string }> = [
@@ -58,30 +59,56 @@ const STATUS_FILTERS: Array<{ value: WorkflowCaseStatus | ''; label: string }> =
   { value: 'CANCELLED', label: '已取消' },
 ]
 
-const CASE_TYPES = WORKFLOW_CASE_TYPE_OPTIONS
-
-const VIEWS: ReadonlyArray<{ key: ViewKey; label: string }> = [
-  { key: 'my_approvals', label: '待我审批' },
-  { key: 'my_decided', label: '我审批的' },
-  { key: 'my_requests', label: '我发起的' },
-  { key: 'all', label: '全部可见' },
+const CASE_TYPES: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'LEAVE_REQUEST', label: '请假申请' },
+  { value: 'ATTENDANCE_CORRECTION', label: '考勤更正' },
+  { value: 'TRAVEL_REQUEST', label: '出差申请' },
+  { value: 'ONBOARDING', label: '入职办理' },
+  { value: 'PROBATION_CONFIRM', label: '转正办理' },
+  { value: 'ASSIGNMENT_CHANGE', label: '调岗/调部门' },
+  { value: 'TERMS_CHANGE', label: '雇佣条款变更' },
+  { value: 'CONTRACT_RENEW', label: '合同续签' },
+  { value: 'OFFBOARD', label: '离职办理' },
+  { value: 'REHIRE', label: '返聘办理' },
+  { value: 'NOTICE_APPROVAL', label: '公告审批' },
+  { value: 'PAYROLL_APPROVAL', label: '薪资审批' },
+  { value: 'REQUISITION_APPROVAL', label: '招聘需求审批' },
+  { value: 'OFFER_APPROVAL', label: 'Offer 审批' },
+  { value: 'PERFORMANCE_APPEAL', label: '绩效申诉' },
 ]
+
+/**
+ * The four final business views. There is no "all visible" shortcut: broader
+ * administrative reading belongs in filters or the template tab, not in a
+ * fifth queue that silently changes the data scope.
+ */
+const VIEWS: ReadonlyArray<{ key: ViewKey; label: string }> = [
+  { key: 'my_approvals', label: '我的待办' },
+  { key: 'my_requests', label: '我发起的' },
+  { key: 'my_decided', label: '我审批的' },
+  { key: 'my_cc', label: '抄送我的' },
+  { key: 'templates', label: '模板设置' },
+]
+
+const templatesView = computed(() => filters.view === 'templates')
 
 const emptyCopy = computed(() => {
   if (filters.view === 'my_approvals') return '当前没有指派给你的待办审批。'
   if (filters.view === 'my_decided') return '你还没有提交过审批决定。'
   if (filters.view === 'my_requests') return '你还没有发起过审批事项。'
+  if (filters.view === 'my_cc') return '当前没有抄送给你的审批案例。'
   return '当前条件下没有审批案例。'
 })
 
 const columns = computed<DataTableColumn[]>(() => [
   { key: 'caseNo', label: '案例编号', minWidth: '170px' },
   { key: 'type', label: '事项类型', width: '120px' },
-  { key: 'title', label: '申请主题', minWidth: '190px' },
-  { key: 'requester', label: '发起人', width: '110px' },
+  { key: 'title', label: '申请主题', minWidth: '180px' },
+  { key: 'requester', label: '申请人', width: '130px' },
   { key: 'status', label: '申请状态', width: '100px' },
   { key: 'effect', label: '生效状态', width: '110px' },
   { key: 'currentNode', label: '当前环节', width: '130px' },
+  { key: 'assignee', label: '当前处理人', width: '130px' },
   { key: 'sla', label: '时限', width: '110px' },
   { key: 'dueAt', label: '截止时间', width: '150px' },
   { key: 'actions', label: '操作', width: '90px' },
@@ -101,7 +128,8 @@ const rows = computed(() =>
       caseNo: item.caseNo,
       type: item.type,
       title: item.title,
-      requester: `用户 #${item.requesterUserId}`,
+      requester: item.requesterDisplayName ?? '未命名申请人',
+      assignee: item.currentAssigneeDisplayName ?? (item.currentAssigneeUserId === null ? '—' : '未命名处理人'),
       duty: task ?? null,
     }
   }),
@@ -142,6 +170,16 @@ function currentNode(row: Record<string, unknown>): string {
 }
 
 async function loadCases(): Promise<void> {
+  if (filters.view === 'templates') {
+    loading.value = false
+    loadError.value = null
+    partial.value = false
+    cases.value = []
+    tasks.value = []
+    total.value = 0
+    return
+  }
+
   loading.value = true
   loadError.value = null
   partial.value = false
@@ -150,33 +188,28 @@ async function loadCases(): Promise<void> {
     const result = await listWorkflowCases({
       page: page.value,
       pageSize: pageSize.value,
-      view: filters.view === 'all' ? undefined : filters.view,
+      view: filters.view,
       status: filters.status,
       type: filters.type,
+      businessDate: filters.businessDate,
     })
     cases.value = result.items
     total.value = result.total
-    // The list projection never claims partial; detail pagination does not add
-    // evidence. Keep the five-state flag false unless a task read degrades.
     await loadTasks()
   } catch (error) {
-    if (isForbidden(error)) {
-      cases.value = []
-      total.value = 0
-    }
     loadError.value = error
     cases.value = []
     total.value = 0
+    tasks.value = []
   } finally {
     loading.value = false
   }
 }
 
 async function loadTasks(): Promise<void> {
-  // Only the pending approval view is joined against the personal task
-  // projection. For the decided/requested views a task read would add SLA
-  // values for cases that are not the caller's current tasks.
-  if (filters.view !== 'my_approvals' && filters.view !== 'all') {
+  // Only "my_cc" and "my_requests"/"my_decided" have no task semantics. The
+  // pending queue is enriched with the real SLA rows from /v1/tasks/my.
+  if (filters.view !== 'my_approvals') {
     tasks.value = []
     return
   }
@@ -184,8 +217,6 @@ async function loadTasks(): Promise<void> {
   try {
     tasks.value = await listMyWorkflowTasks()
   } catch (error) {
-    // The case list is still useful when the personal task projection is
-    // unavailable; disclose the partial state instead of inventing SLA values.
     tasks.value = []
     partial.value = true
     partialReason.value = isForbidden(error)
@@ -243,7 +274,7 @@ onMounted(() => {
   <PageShell
     data-testid="workflow-center-page"
     title="审批流程中心"
-    description="按待办、我发起与全部可见范围查看审批案例；时限来自当前审批任务，状态与决策由流程服务端判定。"
+    description="我的待办、我发起的、我审批的与抄送我的四个业务视图；时限来自当前审批任务，申请状态与生效状态分别展示。"
   >
     <section v-if="!canRead" class="panel" data-testid="workflow-forbidden">
       <div class="panel__body">
@@ -256,10 +287,10 @@ onMounted(() => {
       <section class="panel" data-testid="workflow-filters">
         <div class="panel__header">
           <div>
-            <h2 class="panel__title">案例筛选</h2>
-            <p class="panel__subtitle">筛选条件由流程服务端执行；“待我审批”只返回当前指派给我的待办案例。</p>
+            <h2 class="panel__title">审批工作台</h2>
+            <p class="panel__subtitle">“我的待办”只返回服务端指派给我的待办；查看申请人/处理人显示名由服务端投影返回。</p>
           </div>
-          <el-button plain :loading="loading" @click="retry">刷新</el-button>
+          <el-button v-if="!templatesView" plain :loading="loading" @click="retry">刷新</el-button>
         </div>
         <div class="workspace-filters">
           <div class="workspace-filter-tabs" role="group" aria-label="案例范围">
@@ -276,149 +307,169 @@ onMounted(() => {
               {{ view.label }}
             </button>
           </div>
-          <div class="workspace-filter-group" data-testid="workflow-status-filter" role="group" aria-label="按申请状态筛选">
-            <span class="workspace-filter-label">状态</span>
-            <button
-              v-for="option in STATUS_FILTERS"
-              :key="option.value"
-              type="button"
-              class="workspace-filter-chip"
-              :class="{ 'workspace-filter-chip--active': filters.status === option.value }"
-              :aria-pressed="filters.status === option.value"
-              :data-testid="`workflow-status-${option.value || 'all'}`"
-              @click="setStatus(option.value)"
-            >
-              {{ option.label }}
-            </button>
+          <template v-if="!templatesView">
+            <div class="workspace-filter-group" data-testid="workflow-status-filter" role="group" aria-label="按申请状态筛选">
+              <span class="workspace-filter-label">状态</span>
+              <button
+                v-for="option in STATUS_FILTERS"
+                :key="option.value"
+                type="button"
+                class="workspace-filter-chip"
+                :class="{ 'workspace-filter-chip--active': filters.status === option.value }"
+                :aria-pressed="filters.status === option.value"
+                :data-testid="`workflow-status-${option.value || 'all'}`"
+                @click="setStatus(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <div class="workspace-filter-group" data-testid="workflow-type-filter" role="group" aria-label="按事项类型筛选">
+              <span class="workspace-filter-label">类型</span>
+              <button
+                type="button"
+                class="workspace-filter-chip"
+                :class="{ 'workspace-filter-chip--active': filters.type === '' }"
+                :aria-pressed="filters.type === ''"
+                data-testid="workflow-type-all"
+                @click="setType('')"
+              >
+                全部
+              </button>
+              <button
+                v-for="type in CASE_TYPES"
+                :key="type.value"
+                type="button"
+                class="workspace-filter-chip"
+                :class="{ 'workspace-filter-chip--active': filters.type === type.value }"
+                :aria-pressed="filters.type === type.value"
+                :data-testid="`workflow-type-${type.value}`"
+                @click="setType(type.value)"
+              >
+                {{ type.label }}
+              </button>
+            </div>
+            <label class="workspace-filter-date">
+              <span class="workspace-filter-label">业务日期</span>
+              <el-date-picker
+                v-model="filters.businessDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                placeholder="按业务日期筛选"
+                data-testid="workflow-business-date"
+                @change="applyFilters"
+              />
+            </label>
+          </template>
+        </div>
+      </section>
+
+      <WorkflowTemplatePanel v-if="templatesView" />
+
+      <template v-else>
+        <p v-if="partial" class="inline-warning" data-testid="workflow-partial">
+          {{ partialReason }}
+        </p>
+
+        <section v-if="loading" class="panel" data-testid="workflow-loading">
+          <div class="panel__body">
+            <el-skeleton :rows="5" animated />
+            <span class="visually-hidden">正在加载审批案例</span>
           </div>
-          <div class="workspace-filter-group" data-testid="workflow-type-filter" role="group" aria-label="按事项类型筛选">
-            <span class="workspace-filter-label">类型</span>
-            <button
-              type="button"
-              class="workspace-filter-chip"
-              :class="{ 'workspace-filter-chip--active': filters.type === '' }"
-              :aria-pressed="filters.type === ''"
-              data-testid="workflow-type-all"
-              @click="setType('')"
-            >
-              全部
-            </button>
-            <button
-              v-for="type in CASE_TYPES"
-              :key="type.value"
-              type="button"
-              class="workspace-filter-chip"
-              :class="{ 'workspace-filter-chip--active': filters.type === type.value }"
-              :aria-pressed="filters.type === type.value"
-              :data-testid="`workflow-type-${type.value}`"
-              @click="setType(type.value)"
-            >
-              {{ type.label }}
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <p v-if="partial" class="inline-warning" data-testid="workflow-partial">
-        {{ partialReason }}
-      </p>
-
-      <section v-if="loading" class="panel" data-testid="workflow-loading">
-        <div class="panel__body">
-          <el-skeleton :rows="5" animated />
-          <span class="visually-hidden">正在加载审批案例</span>
-        </div>
-      </section>
-
-      <section
-        v-else-if="loadError !== null && isForbidden(loadError)"
-        class="panel"
-        data-testid="workflow-forbidden"
-      >
-        <div class="panel__body">
-          <h2 class="panel__title">无权查看这些审批案例</h2>
-          <p class="muted">案例可能不在你的数据范围内，或流程查看权限已被收回。请联系系统管理员确认授权范围。</p>
-        </div>
-      </section>
-
-      <section v-else-if="loadError !== null" class="panel" data-testid="workflow-error">
-        <div class="panel__body">
-          <h2 class="panel__title">审批案例加载失败</h2>
-          <p class="muted">{{ platformErrorCopy(loadError) }}</p>
-          <el-button type="primary" plain @click="retry">重试</el-button>
-        </div>
-      </section>
-
-      <section v-else-if="isEmpty" class="panel" data-testid="workflow-empty">
-        <div class="panel__body">
-          <h2 class="panel__title">{{ emptyCopy }}</h2>
-          <p class="muted">可以切换视图或调整状态与事项类型后重试。</p>
-        </div>
-      </section>
-
-      <section v-else class="panel">
-        <div class="panel__header">
-          <div>
-            <h2 class="panel__title">审批案例</h2>
-            <p class="panel__subtitle">共 {{ total }} 条可见案例；待办时限按当前指派任务展示。</p>
-          </div>
-        </div>
-        <DataTable
-          :columns="columns"
-          :rows="rows as unknown as Array<Record<string, unknown>>"
-          :total="total"
-          :page="page"
-          :page-size="pageSize"
-          :row-test-id="(row) => `workflow-case-row-${row.id}`"
-          data-testid="workflow-case-table"
-          empty-title="当前条件下没有审批案例"
-          @update:page="changePage"
-          @update:page-size="changePageSize"
+        <section
+          v-else-if="loadError !== null && isForbidden(loadError)"
+          class="panel"
+          data-testid="workflow-forbidden"
         >
-          <template #cell-caseNo="{ row }">
-            <span class="mono">{{ row.caseNo }}</span>
-          </template>
-          <template #cell-type="{ row }">
-            {{ caseTypeLabel(String(row.type)) }}
-          </template>
-          <template #cell-title="{ row }">
-            <span>
-              {{ row.title }} · {{ row.caseNo }} · {{ caseTypeLabel(String(row.type)) }} ·
-              {{ workflowStatusLabel(String(row.applicationStatus)) }} · {{ effectStatusLabel(String(row.effectStatus)) }}
-            </span>
-          </template>
-          <template #cell-status="{ row }">
-            <span class="plain-chip" :class="statusTone(String(row.applicationStatus))">
-              {{ workflowStatusLabel(String(row.applicationStatus)) }}
-            </span>
-          </template>
-          <template #cell-effect="{ row }">
-            <span class="plain-chip" :class="effectTone(String(row.effectStatus))">
-              {{ effectStatusLabel(String(row.effectStatus)) }}
-            </span>
-          </template>
-          <template #cell-currentNode="{ row }">
-            {{ currentNode(row as unknown as Record<string, unknown>) }}
-          </template>
-          <template #cell-sla="{ row }">
-            <span class="plain-chip" :class="slaFor(row as unknown as Record<string, unknown>).tone">
-              {{ slaFor(row as unknown as Record<string, unknown>).label }}
-            </span>
-          </template>
-          <template #cell-dueAt="{ row }">
-            {{ dueFor(row as unknown as Record<string, unknown>) }}
-          </template>
-          <template #cell-actions="{ row }">
-            <RouterLink
-              :to="`/workflow/cases/${row.id}`"
-              class="workspace-link"
-              :data-testid="`workflow-case-link-${row.id}`"
-            >
-              查看详情
-            </RouterLink>
-          </template>
-        </DataTable>
-      </section>
+          <div class="panel__body">
+            <h2 class="panel__title">无权查看这些审批案例</h2>
+            <p class="muted">案例可能不在你的数据范围内，或流程查看权限已被收回。请联系系统管理员确认授权范围。</p>
+          </div>
+        </section>
+
+        <section v-else-if="loadError !== null" class="panel" data-testid="workflow-error">
+          <div class="panel__body">
+            <h2 class="panel__title">审批案例加载失败</h2>
+            <p class="muted">{{ errorCopy(loadError) }}</p>
+            <el-button type="primary" plain @click="retry">重试</el-button>
+          </div>
+        </section>
+
+        <section v-else-if="isEmpty" class="panel" data-testid="workflow-empty">
+          <div class="panel__body">
+            <h2 class="panel__title">{{ emptyCopy }}</h2>
+            <p class="muted">可以切换视图或调整状态与事项类型后重试。</p>
+          </div>
+        </section>
+
+        <section v-else class="panel">
+          <div class="panel__header">
+            <div>
+              <h2 class="panel__title">审批案例</h2>
+              <p class="panel__subtitle">共 {{ total }} 条可见案例；业务日期 {{ filters.businessDate === '' ? '不限' : formatBusinessDate(filters.businessDate) }}。</p>
+            </div>
+          </div>
+          <DataTable
+            :columns="columns"
+            :rows="rows as unknown as Array<Record<string, unknown>>"
+            :total="total"
+            :page="page"
+            :page-size="pageSize"
+            :row-test-id="(row) => `workflow-case-row-${row.id}`"
+            data-testid="workflow-case-table"
+            empty-title="当前条件下没有审批案例"
+            @update:page="changePage"
+            @update:page-size="changePageSize"
+          >
+            <template #cell-caseNo="{ row }">
+              <span class="mono">{{ row.caseNo }}</span>
+            </template>
+            <template #cell-type="{ row }">
+              {{ caseTypeLabel(String(row.type)) }}
+            </template>
+            <template #cell-title="{ row }">
+              <span>{{ row.title }}</span>
+            </template>
+            <template #cell-requester="{ row }">
+              <span>{{ row.requester }}</span>
+            </template>
+            <template #cell-status="{ row }">
+              <span class="plain-chip" :class="statusTone(String(row.applicationStatus))">
+                {{ workflowStatusLabel(String(row.applicationStatus)) }}
+              </span>
+            </template>
+            <template #cell-effect="{ row }">
+              <span class="plain-chip" :class="effectTone(String(row.effectStatus))">
+                {{ effectStatusLabel(String(row.effectStatus)) }}
+              </span>
+            </template>
+            <template #cell-currentNode="{ row }">
+              {{ currentNode(row as unknown as Record<string, unknown>) }}
+            </template>
+            <template #cell-assignee="{ row }">
+              {{ row.assignee }}
+            </template>
+            <template #cell-sla="{ row }">
+              <span class="plain-chip" :class="slaFor(row as unknown as Record<string, unknown>).tone">
+                {{ slaFor(row as unknown as Record<string, unknown>).label }}
+              </span>
+            </template>
+            <template #cell-dueAt="{ row }">
+              {{ dueFor(row as unknown as Record<string, unknown>) }}
+            </template>
+            <template #cell-actions="{ row }">
+              <RouterLink
+                :to="`/workflow/cases/${row.id}`"
+                class="workspace-link"
+                :data-testid="`workflow-case-link-${row.id}`"
+              >
+                查看详情
+              </RouterLink>
+            </template>
+          </DataTable>
+        </section>
+      </template>
     </template>
   </PageShell>
 </template>
@@ -433,6 +484,7 @@ onMounted(() => {
 }
 .workspace-filter-tabs {
   display: inline-flex;
+  flex-wrap: wrap;
   padding: 3px;
   background: var(--color-canvas);
   border: 1px solid var(--color-line);
@@ -481,6 +533,11 @@ onMounted(() => {
   background: #eaf4f7;
   border-color: #a8d2dc;
 }
+.workspace-filter-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .workspace-link {
   color: var(--color-brand);
   font-size: 12px;
@@ -515,6 +572,7 @@ onMounted(() => {
 }
 .inline-warning {
   padding: 9px 12px;
+  margin: 0;
   color: #8a5a00;
   font-size: 12px;
   background: #fff6e5;

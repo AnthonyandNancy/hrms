@@ -7,6 +7,8 @@ namespace App\Modules\Engagement\Services;
 use App\Modules\Engagement\Contracts\NoticeApprovalPort;
 use App\Modules\Engagement\Models\Notice;
 use App\Modules\Engagement\Models\NoticeAcknowledgement;
+use App\Modules\Engagement\Models\NoticeAudienceSnapshot;
+use App\Modules\Engagement\Models\NoticeReminder;
 use App\Modules\Engagement\Models\NoticeTemplate;
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
@@ -46,6 +48,7 @@ final class NoticeGovernanceService
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
         private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
+        private readonly ?NoticeRecipientDirectory $recipientDirectory = null,
     ) {}
 
     public function approvalTemplate(): void
@@ -210,11 +213,23 @@ final class NoticeGovernanceService
         $recipients = $this->audience->recipientsForSnapshot($audience, $today);
 
         DB::transaction(function () use ($notice, $principal, $recipients): void {
+            $publishedAt = $this->clock->now();
             $notice->forceFill([
                 'status' => Notice::STATUS_PUBLISHED,
-                'publish_at' => $this->clock->now(),
+                'publish_at' => $publishedAt,
                 'audience_count' => count($recipients),
             ])->save();
+
+            // Freeze the recipient IDs once. Later reads/reminders/exports use
+            // this set instead of re-resolving a live audience.
+            NoticeAudienceSnapshot::query()->where('notice_id', (int) $notice->id)->delete();
+            foreach (array_values(array_unique($recipients)) as $userId) {
+                NoticeAudienceSnapshot::query()->create([
+                    'notice_id' => (int) $notice->id,
+                    'user_id' => (int) $userId,
+                    'recorded_at' => $publishedAt,
+                ]);
+            }
 
             $this->notifications->notify(
                 userIds: $recipients,
@@ -264,7 +279,21 @@ final class NoticeGovernanceService
     /**
      * Read-detail projection. The export variant is whitelisted and audited.
      *
-     * @return array{items: list<array<string, mixed>>, total: int, as_of: string}
+     * Read and unread counts are derived from the current audience snapshot,
+     * not from notifications: a notification marked read is not a notice
+     * acknowledgement. Receipt rows stay the immutable acknowledgement ledger,
+     * while the counts describe who in the live audience has not acknowledged
+     * the notice yet.
+     *
+     * @return array{
+     *     items: list<array<string, mixed>>,
+     *     total: int,
+     *     as_of: string,
+     *     read_user_ids: list<int>,
+     *     unread_user_ids: list<int>,
+     *     read_count: int,
+     *     unread_count: int
+     * }
      */
     public function reads(Principal $principal, int $noticeId, int $page, int $pageSize): array
     {
@@ -277,12 +306,149 @@ final class NoticeGovernanceService
             ->orderBy('id');
 
         $total = (int) (clone $query)->count();
-        $items = $query->forPage($page, $pageSize)->get()->map(fn (NoticeAcknowledgement $ack): array => [
-            'user_id' => (int) $ack->user_id,
-            'acknowledged_at' => $ack->acknowledged_at?->toIso8601ZuluString(),
-        ])->all();
+        $acks = $query->forPage($page, $pageSize)->get();
+        $profiles = $this->recipientProfiles(
+            $acks->map(static fn (NoticeAcknowledgement $ack): int => (int) $ack->user_id)->all(),
+            $today,
+        );
 
-        return ['items' => $items, 'total' => $total, 'as_of' => $today];
+        $items = $acks->map(static function (NoticeAcknowledgement $ack) use ($profiles): array {
+            $profile = $profiles[(int) $ack->user_id] ?? [
+                'employment_id' => null,
+                'employee_no' => null,
+                'display_name' => null,
+            ];
+
+            return [
+                'user_id' => (int) $ack->user_id,
+                'acknowledged_at' => $ack->acknowledged_at?->toIso8601ZuluString(),
+                'employment_id' => $profile['employment_id'],
+                'employee_no' => $profile['employee_no'],
+                'display_name' => $profile['display_name'],
+            ];
+        })->all();
+
+        $recipients = $this->snapshotRecipients($notice, $today);
+        $acknowledgedUserIds = NoticeAcknowledgement::query()
+            ->where('notice_id', (int) $notice->id)
+            ->whereIn('user_id', $recipients === [] ? [-1] : $recipients)
+            ->orderBy('user_id')
+            ->pluck('user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+        $acknowledged = array_fill_keys($acknowledgedUserIds, true);
+        $readUserIds = array_values(array_filter(
+            $recipients,
+            static fn (int $userId): bool => isset($acknowledged[$userId]),
+        ));
+        $unreadUserIds = array_values(array_filter(
+            $recipients,
+            static fn (int $userId): bool => ! isset($acknowledged[$userId]),
+        ));
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'as_of' => $today,
+            'read_user_ids' => array_values(array_map('intval', $readUserIds)),
+            'unread_user_ids' => array_values(array_map('intval', $unreadUserIds)),
+            'read_count' => count($readUserIds),
+            'unread_count' => count($unreadUserIds),
+        ];
+    }
+
+    /**
+     * Remind every current audience recipient who has not acknowledged the
+     * notice. Reminder delivery evidence is separate from the acknowledgement
+     * ledger and from notification read state.
+     *
+     * The controller runs this inside CommandRunner, so the same idempotency
+     * key replays the stored result. The per-(notice,user,requester) unique row
+     * additionally prevents a different retry from duplicating notifications.
+     *
+     * @return array{reminded_count: int, notification_ids: list<int>}
+     */
+    public function remind(Principal $principal, int $noticeId, string $businessDate): array
+    {
+        $today = $this->businessDates->resolve($businessDate !== '' ? $businessDate : null)->value();
+        $notice = $this->manageable($principal, $noticeId, $today);
+
+        if ($notice->status !== Notice::STATUS_PUBLISHED) {
+            throw new ConflictException('Only a published notice can be reminded.', [
+                'reason' => 'NOTICE_NOT_PUBLISHED',
+                'status' => (string) $notice->status,
+            ]);
+        }
+
+        $recipients = $this->snapshotRecipients($notice, $today);
+        $acknowledged = NoticeAcknowledgement::query()
+            ->where('notice_id', (int) $notice->id)
+            ->whereIn('user_id', $recipients === [] ? [-1] : $recipients)
+            ->pluck('user_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+        $acknowledgedSet = array_fill_keys($acknowledged, true);
+        $unread = array_values(array_filter(
+            $recipients,
+            static fn (int $userId): bool => ! isset($acknowledgedSet[$userId]),
+        ));
+
+        $remindedCount = 0;
+        $notificationIds = [];
+
+        DB::transaction(function () use ($principal, $notice, $unread, $today, &$remindedCount, &$notificationIds): void {
+            foreach ($unread as $userId) {
+                $reminder = NoticeReminder::query()->firstOrCreate(
+                    [
+                        'notice_id' => (int) $notice->id,
+                        'user_id' => (int) $userId,
+                        'requested_by' => $principal->userId(),
+                    ],
+                    [
+                        'recorded_at' => $this->clock->now(),
+                    ],
+                );
+
+                if ($reminder->notification_id === null) {
+                    $ids = $this->notifications->notify(
+                        userIds: [(int) $userId],
+                        type: 'NOTICE_REMINDER',
+                        payload: [
+                            'notice_id' => (int) $notice->id,
+                            'requires_ack' => (bool) $notice->requires_ack,
+                        ],
+                    );
+
+                    $notificationId = $ids[0] ?? null;
+                    $reminder->forceFill(['notification_id' => $notificationId])->save();
+                }
+
+                if ($reminder->notification_id !== null) {
+                    $notificationIds[] = (int) $reminder->notification_id;
+                    $remindedCount += 1;
+                }
+            }
+
+            $this->audit->record(
+                actorUserId: $principal->userId(),
+                action: 'engagement.notice.reminded',
+                aggregateType: 'notice',
+                aggregateId: (int) $notice->id,
+                after: [
+                    'unread_count' => count($unread),
+                    'reminded_count' => $remindedCount,
+                    'notification_ids' => $notificationIds,
+                ],
+                metadata: ['business_date' => $today],
+            );
+        });
+
+        return [
+            'reminded_count' => $remindedCount,
+            'notification_ids' => array_values(array_map('intval', $notificationIds)),
+        ];
     }
 
     /**
@@ -308,18 +474,29 @@ final class NoticeGovernanceService
             );
         }
 
-        $rows = NoticeAcknowledgement::query()
+        $acks = NoticeAcknowledgement::query()
             ->where('notice_id', (int) $notice->id)
             ->orderBy('acknowledged_at')
             ->orderBy('id')
-            ->get()
-            ->map(static function (NoticeAcknowledgement $ack) use ($fields): array {
-                $row = [
-                    'user_id' => (int) $ack->user_id,
-                    'acknowledged_at' => $ack->acknowledged_at?->toIso8601ZuluString(),
+            ->get();
+        $profiles = $this->recipientProfiles(
+            $acks->map(static fn (NoticeAcknowledgement $ack): int => (int) $ack->user_id)->all(),
+            $today,
+        );
+
+        $rows = $acks
+            ->map(static function (NoticeAcknowledgement $ack) use ($fields, $profiles): array {
+                $profile = $profiles[(int) $ack->user_id] ?? [
                     'employment_id' => null,
                     'employee_no' => null,
                     'display_name' => null,
+                ];
+                $row = [
+                    'user_id' => (int) $ack->user_id,
+                    'acknowledged_at' => $ack->acknowledged_at?->toIso8601ZuluString(),
+                    'employment_id' => $profile['employment_id'],
+                    'employee_no' => $profile['employee_no'],
+                    'display_name' => $profile['display_name'],
                     'notice_id' => (int) $ack->notice_id,
                 ];
 
@@ -538,6 +715,26 @@ final class NoticeGovernanceService
         ];
     }
 
+    /** @return list<int> */
+    private function snapshotRecipients(Notice $notice, string $today): array
+    {
+        if ((string) $notice->status === Notice::STATUS_PUBLISHED) {
+            $snapshot = NoticeAudienceSnapshot::query()
+                ->where('notice_id', (int) $notice->id)
+                ->orderBy('user_id')
+                ->pluck('user_id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->values()
+                ->all();
+
+            if ($snapshot !== []) {
+                return $snapshot;
+            }
+        }
+
+        return $this->audience->recipientsForSnapshot((array) $notice->audience_json, $today);
+    }
+
     private function manageable(Principal $principal, int $noticeId, string $today): Notice
     {
         $notice = $this->noticeOrFail($noticeId);
@@ -591,6 +788,17 @@ final class NoticeGovernanceService
             'templateCode' => $notice->template_code !== null ? (string) $notice->template_code : null,
             'templateVersion' => $notice->template_version !== null ? (int) $notice->template_version : null,
         ];
+    }
+
+    /**
+     * @param  list<int>  $userIds
+     * @return array<int, array{employment_id: int|null, employee_no: string|null, display_name: string|null}>
+     */
+    private function recipientProfiles(array $userIds, string $businessDate): array
+    {
+        $directory = $this->recipientDirectory ?? app(NoticeRecipientDirectory::class);
+
+        return $directory->profilesForUsers($userIds, $businessDate);
     }
 
     private function workflowPrincipal(Principal $principal): \App\Modules\Workflow\Contracts\WorkflowPrincipal

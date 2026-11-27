@@ -4,16 +4,13 @@ import { nextIdempotencyKey } from '@/modules/people/peopleRead'
 /**
  * Position workspace API boundary.
  *
- * The live contract is deliberately narrow:
- *   GET /v1/positions accepts only `as_of` and `q`.
- *   PATCH /v1/positions/{id} accepts only title, grade, headcount_limit and status.
- *
- * Filtering by status / organisation, paging and grade-label resolution are
- * therefore done over the rows the server actually returned. No sort, page or
- * page_size parameter is invented client-side.
+ * `GET /v1/positions` is the single catalogue query. Filtering, sorting and
+ * pagination are server-side; the page never re-filters a returned page.
  */
 
 export type PositionStatus = 'ACTIVE' | 'DISABLED' | 'UNKNOWN'
+
+export type PositionSort = 'code' | 'code_desc' | 'title' | 'level'
 
 export type Position = {
   id: number
@@ -32,8 +29,20 @@ export type Position = {
 export type PositionPage = {
   items: Position[]
   total: number
+  page: number
+  page_size: number
   partial: boolean
   partial_reason: string | null
+}
+
+export type PositionQuery = {
+  asOf: string
+  q?: string
+  orgUnitId?: number | null
+  status?: 'ACTIVE' | 'DISABLED' | null
+  page?: number
+  pageSize?: number
+  sort?: PositionSort
 }
 
 export type OrgUnitOption = {
@@ -48,6 +57,35 @@ export type PositionGrade = {
   name: string
   level: number
   active: boolean
+}
+
+export type PositionGradeInput = {
+  code: string
+  name: string
+  level: number
+  active: boolean
+}
+
+export type PositionStaff = {
+  assignment_id: number
+  employment_id: number
+  employee_no: string
+  person_name: string
+  org_unit_id: number | null
+  position_id: number | null
+  position_code: string
+  position_title: string
+  assignment_type: string
+  is_primary: boolean
+  valid_from: string
+  valid_to: string
+}
+
+export type PositionStaffPage = {
+  items: PositionStaff[]
+  total: number
+  partial: boolean
+  partial_reason: string | null
 }
 
 export type PositionRequirementVersion = {
@@ -83,6 +121,10 @@ export type PositionUpdateInput = {
   status: 'ACTIVE' | 'DISABLED'
 }
 
+export type PositionStatusInput = {
+  status: 'ACTIVE' | 'DISABLED'
+}
+
 export type RequirementPayload = {
   requirements: Record<string, string>
   effectiveFrom: string
@@ -106,6 +148,10 @@ function integer(value: unknown, fallback: number | null = null): number | null 
   if (typeof value === 'number' && Number.isSafeInteger(value)) return value
   if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
   return fallback
+}
+
+function boolean(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
 }
 
 function listItems(value: unknown): UnknownRecord[] {
@@ -158,7 +204,28 @@ function normalizeGrade(row: UnknownRecord): PositionGrade | null {
     code,
     name: text(row.name, code),
     level: integer(row.level, 0) ?? 0,
-    active: row.active === true,
+    active: boolean(row.active),
+  }
+}
+
+function normalizeStaff(row: UnknownRecord): PositionStaff | null {
+  const assignmentId = integer(row.assignment_id)
+  const employmentId = integer(row.employment_id)
+  if (assignmentId === null || employmentId === null) return null
+
+  return {
+    assignment_id: assignmentId,
+    employment_id: employmentId,
+    employee_no: text(row.employee_no),
+    person_name: text(row.person_name),
+    org_unit_id: integer(row.org_unit_id),
+    position_id: integer(row.position_id),
+    position_code: text(row.position_code),
+    position_title: text(row.position_title),
+    assignment_type: text(row.assignment_type, 'PRIMARY'),
+    is_primary: boolean(row.is_primary),
+    valid_from: text(row.valid_from),
+    valid_to: text(row.valid_to),
   }
 }
 
@@ -178,13 +245,36 @@ function normalizeRequirement(row: UnknownRecord): PositionRequirementVersion | 
   }
 }
 
+function pageEnvelope(data: unknown, items: Position[]): PositionPage {
+  return {
+    items,
+    total: isRecord(data) ? integer(data.total, items.length) ?? items.length : items.length,
+    page: isRecord(data) ? integer(data.page, 1) ?? 1 : 1,
+    page_size: isRecord(data) ? integer(data.page_size, Math.max(1, items.length)) ?? Math.max(1, items.length) : Math.max(1, items.length),
+    partial: isRecord(data) && data.partial === true,
+    partial_reason:
+      isRecord(data) && typeof data.partial_reason === 'string' ? data.partial_reason : null,
+  }
+}
+
 export const POSITION_STATUS_LABELS: Readonly<Record<string, string>> = {
   ACTIVE: '启用',
   DISABLED: '停用',
 }
 
+export const POSITION_ASSIGNMENT_TYPE_LABELS: Readonly<Record<string, string>> = {
+  PRIMARY: '主任职',
+  SECONDMENT: '借调',
+  MATRIX: '矩阵任职',
+  PROJECT: '项目任职',
+}
+
 export function positionStatusLabel(value: string): string {
   return POSITION_STATUS_LABELS[value] ?? '未知状态'
+}
+
+export function assignmentTypeLabel(value: string): string {
+  return POSITION_ASSIGNMENT_TYPE_LABELS[value] ?? value
 }
 
 /**
@@ -209,24 +299,30 @@ export function orgUnitName(
   return orgUnits.find((unit) => unit.id === orgUnitId)?.name ?? `组织 #${orgUnitId}`
 }
 
-/** GET /v1/positions supports as_of and q only. The endpoint returns all rows. */
-export async function listPositions(asOf: string, q = ''): Promise<PositionPage> {
-  const trimmed = q.trim()
+/** Server-side catalogue query. No status/org/page filtering happens locally. */
+export async function listPositions(query: PositionQuery): Promise<PositionPage> {
+  const q = query.q?.trim() ?? ''
   const data: unknown = await resourceGet('/v1/positions', {
-    as_of: asOf,
-    ...(trimmed === '' ? {} : { q: trimmed }),
+    as_of: query.asOf,
+    ...(q === '' ? {} : { q }),
+    ...(query.orgUnitId === null || query.orgUnitId === undefined
+      ? {}
+      : { org_unit_id: query.orgUnitId }),
+    ...(query.status === null || query.status === undefined ? {} : { status: query.status }),
+    page: query.page ?? 1,
+    page_size: query.pageSize ?? 20,
+    sort: query.sort ?? 'code',
   })
   const items = listItems(data)
     .map(normalizePosition)
     .filter((row): row is Position => row !== null)
 
-  return {
-    items,
-    total: items.length,
-    partial: isRecord(data) && data.partial === true,
-    partial_reason:
-      isRecord(data) && typeof data.partial_reason === 'string' ? data.partial_reason : null,
-  }
+  return pageEnvelope(data, items)
+}
+
+export async function getPosition(positionId: number, asOf: string): Promise<Position | null> {
+  const data: unknown = await resourceGet(`/v1/positions/${positionId}`, { as_of: asOf })
+  return isRecord(data) ? normalizePosition(data) : null
 }
 
 export async function listOrgUnits(asOf: string): Promise<OrgUnitOption[]> {
@@ -237,12 +333,15 @@ export async function listOrgUnits(asOf: string): Promise<OrgUnitOption[]> {
     .sort((left, right) => left.code.localeCompare(right.code))
 }
 
-export async function listPositionGrades(asOf: string): Promise<PositionGrade[]> {
+export async function listPositionGrades(
+  asOf: string,
+  options: { active?: boolean; pageSize?: number } = {},
+): Promise<PositionGrade[]> {
   const data: unknown = await resourceGet('/v1/positions/grades', {
     as_of: asOf,
-    active: true,
+    ...(options.active === undefined ? {} : { active: options.active }),
     page: 1,
-    page_size: 100,
+    page_size: options.pageSize ?? 100,
   })
   return listItems(data)
     .map(normalizeGrade)
@@ -250,8 +349,22 @@ export async function listPositionGrades(asOf: string): Promise<PositionGrade[]>
     .sort((left, right) => left.level - right.level || left.code.localeCompare(right.code))
 }
 
-export async function createPosition(input: PositionCreateInput): Promise<void> {
-  await resourcePost(
+export async function upsertPositionGrade(input: PositionGradeInput): Promise<PositionGrade | null> {
+  const data: unknown = await resourcePost(
+    '/v1/positions/grades',
+    {
+      code: input.code.trim(),
+      name: input.name.trim(),
+      level: input.level,
+      active: input.active,
+    },
+    { idempotencyKey: nextIdempotencyKey('position-grade') },
+  )
+  return isRecord(data) ? normalizeGrade(data) : null
+}
+
+export async function createPosition(input: PositionCreateInput): Promise<Position | null> {
+  const data: unknown = await resourcePost(
     '/v1/positions',
     {
       org_unit_id: input.org_unit_id,
@@ -264,13 +377,14 @@ export async function createPosition(input: PositionCreateInput): Promise<void> 
     },
     { idempotencyKey: nextIdempotencyKey('position-create') },
   )
+  return isRecord(data) ? normalizePosition(data) : null
 }
 
 export async function updatePosition(
   positionId: number,
   input: PositionUpdateInput,
-): Promise<void> {
-  await resourcePatch(
+): Promise<Position | null> {
+  const data: unknown = await resourcePatch(
     `/v1/positions/${positionId}`,
     {
       title: input.title,
@@ -280,6 +394,38 @@ export async function updatePosition(
     },
     { idempotencyKey: nextIdempotencyKey('position-update') },
   )
+  return isRecord(data) ? normalizePosition(data) : null
+}
+
+/** Dedicated disable/enable action: one status field, one audited command. */
+export async function updatePositionStatus(
+  positionId: number,
+  status: 'ACTIVE' | 'DISABLED',
+): Promise<Position | null> {
+  const data: unknown = await resourcePatch(
+    `/v1/positions/${positionId}`,
+    { status },
+    { idempotencyKey: nextIdempotencyKey(`position-${status.toLowerCase()}`) },
+  )
+  return isRecord(data) ? normalizePosition(data) : null
+}
+
+export async function listPositionStaff(
+  positionId: number,
+  asOf: string,
+): Promise<PositionStaffPage> {
+  const data: unknown = await resourceGet(`/v1/positions/${positionId}/staff`, { as_of: asOf })
+  const items = listItems(data)
+    .map(normalizeStaff)
+    .filter((row): row is PositionStaff => row !== null)
+
+  return {
+    items,
+    total: isRecord(data) ? integer(data.total, items.length) ?? items.length : items.length,
+    partial: isRecord(data) && data.partial === true,
+    partial_reason:
+      isRecord(data) && typeof data.partial_reason === 'string' ? data.partial_reason : null,
+  }
 }
 
 export async function listPositionRequirements(
@@ -298,7 +444,7 @@ export async function listPositionRequirements(
 
   return {
     items,
-    total: items.length,
+    total: isRecord(data) ? integer(data.total, items.length) ?? items.length : items.length,
     partial: isRecord(data) && data.partial === true,
     partial_reason:
       isRecord(data) && typeof data.partial_reason === 'string' ? data.partial_reason : null,
@@ -306,22 +452,24 @@ export async function listPositionRequirements(
 }
 
 /**
- * Qualification history is append-only. The live API has no per-version
- * PATCH, so saving submits a new version containing the changed requirement
- * rows and then reloads the projection.
+ * Qualification history is append-only. Saving submits a new version
+ * containing only the changed requirement rows. The backend idempotency ledger
+ * owns replay semantics for the same Idempotency-Key.
  */
 export async function versionPositionRequirements(
   positionId: number,
   payload: RequirementPayload,
-): Promise<void> {
-  await resourcePost(
+  idempotencyKey?: string,
+): Promise<PositionRequirementVersion | null> {
+  const data: unknown = await resourcePost(
     `/v1/positions/${positionId}/requirements`,
     {
       requirements: payload.requirements,
       effective_from: payload.effectiveFrom,
     },
-    { idempotencyKey: nextIdempotencyKey('position-requirements') },
+    { idempotencyKey: idempotencyKey ?? nextIdempotencyKey('position-requirements') },
   )
+  return isRecord(data) ? normalizeRequirement(data) : null
 }
 
 export const REQUIRED_REQUIREMENT_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
@@ -344,17 +492,9 @@ export function requirementValueText(value: unknown): string {
   }
 }
 
-/**
- * The live PATCH contract has no fields for these catalogue columns. They are
- * shown read-only so the operator is never led to believe they were saved.
- */
+/** Catalogue identity and dates are immutable through the update command. */
 export const POSITION_EDIT_READONLY_NOTE =
-  '岗位编码、组织、生效/失效日期不在 PATCH /v1/positions/{id} 的可写字段中，本抽屉仅展示只读值；' +
-  '如需调整这些目录字段，需要后端新增带生效日期的版本命令。'
-
-export const POSITION_LIST_CAPABILITY_NOTE =
-  'GET /v1/positions 仅支持 as_of 与 q，未提供 status、org_unit_id、page、page_size 或 sort 查询参数；' +
-  '本页在服务端 as_of/q 结果上做状态与组织筛选及分页。'
+  '岗位编码、部门与生效日期在创建后不可修改；如需调整这些目录事实，请新建岗位并停用旧岗位。'
 
 export const POSITION_DUPLICATE_REASON = 'POSITION_CODE_DUPLICATE'
 

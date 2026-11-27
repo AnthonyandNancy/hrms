@@ -12,14 +12,13 @@ use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Dashboard snapshots are rebuildable projections. The source hash is derived
- * from the projection rows used to compute the metric so a reader can tell
- * whether the snapshot is stale.
+ * Dashboard snapshots are rebuildable Reporting projections. Business labels,
+ * units, predicates and Chinese availability reasons come from
+ * MetricDefinition; this service never emits English debug copy.
  *
- * The preview panels deliberately reuse the metric query result instead of
- * running a second count with a different predicate. Each list is capped before
- * it leaves the service; the full list remains available through the metric
- * drill-down endpoint under the same authorization constraint.
+ * Panel previews reuse the metric query so cards and drill-downs cannot
+ * diverge. Department and workforce section aggregates are also computed here
+ * from authorized rows; the frontend only renders the returned semantics.
  */
 final class DashboardService
 {
@@ -39,28 +38,38 @@ final class DashboardService
      */
     public function dashboard(Principal $principal, string $asOf): array
     {
-        $codes = ['headcount', 'probation', 'contract_expiring', 'pending_approvals', 'leave_liability', 'payroll_cost_by_entity', 'recruitment_funnel'];
         $metrics = [];
+        $metricResults = [];
         $contractAlerts = [];
 
-        foreach ($codes as $code) {
+        foreach (MetricDefinition::dashboardCodes() as $code) {
             $filters = $code === 'contract_expiring' ? ['window' => self::CONTRACT_WINDOW_DAYS] : [];
             $result = $this->metrics->query($principal, $code, $asOf, $filters);
+            $metricResults[$code] = $result;
             $snapshot = $this->snapshot($principal, $result);
+            $computedAt = $snapshot->computed_at instanceof \Carbon\CarbonInterface
+                ? $snapshot->computed_at->toIso8601ZuluString()
+                : (string) $snapshot->computed_at;
+
             $metrics[] = [
                 'code' => $code,
                 'label' => $result['label'],
                 'value' => $result['total'],
                 'unit' => $result['unit'],
+                'unitLabel' => $result['unitLabel'],
                 'status' => $result['status'],
+                'availability' => $result['status'],
                 'reason' => $result['reason'],
+                'scope' => $result['scope'],
+                'scopeLabel' => $result['scopeLabel'],
+                'period' => $result['period'],
+                'predicate' => $result['predicate'],
+                'asOf' => $result['asOf'],
+                'drilldown' => MetricDefinition::drilldown($code, $result['asOf']),
                 'trend' => null,
-                'trendDirection' => 'FLAT',
-                'drilldownLabel' => 'View details',
                 'sourceHash' => $snapshot->source_hash,
-                'computedAt' => $snapshot->computed_at instanceof \Carbon\CarbonInterface
-                    ? $snapshot->computed_at->toIso8601ZuluString()
-                    : (string) $snapshot->computed_at,
+                'computedAt' => $computedAt,
+                'preview' => $this->previewRows($result, $code),
             ];
 
             if ($code === 'contract_expiring') {
@@ -78,8 +87,13 @@ final class DashboardService
         return [
             'asOf' => $asOf,
             'freshness' => $this->clock->now()->toIso8601ZuluString(),
-            'greeting' => 'Welcome back',
+            'freshnessState' => 'LIVE',
             'metrics' => $metrics,
+            'sections' => [
+                'departments' => $this->departmentBreakdown($metricResults['headcount']),
+                'workforce' => $this->workforceBreakdown($metricResults['headcount']),
+                'recruitment' => $this->recruitmentBreakdown($metricResults['recruitment_funnel']),
+            ],
             'pendingApprovals' => $this->pendingApprovals($pendingApprovals),
             'recentNotices' => $this->recentNotices($principal, $asOf),
             'contractAlerts' => $contractAlerts,
@@ -88,31 +102,138 @@ final class DashboardService
 
     /**
      * @param  array<string, mixed>  $result
-     * @return list<array{id: int, caseNo: string, title: string, status: string, ageDays: int, dueAt: string|null}>
+     * @return list<array<string, mixed>>
      */
-    private function pendingApprovals(array $result): array
+    private function previewRows(array $result, string $code): array
     {
-        if (($result['status'] ?? 'UNAVAILABLE') !== 'AVAILABLE') {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
             return [];
         }
 
-        // ReportingApprovalDirectory is company-wide and exposes no assignee
-        // field, so this preview is not "assigned to me" at the source. Scope
-        // is enforced on the Reporting projection by Authorizer::constrain():
-        // SELF/MANAGED/COMPANY narrow employment_id and ORG_* narrow
-        // org_unit_id. Workflow rows without an employment subject therefore
-        // have no anchor and are excluded unless a caller's grant would admit
-        // them through the same projection predicate as the metric.
+        if (! in_array($code, ['headcount', 'probation', 'recruitment_funnel'], true)) {
+            return [];
+        }
+
+        return array_slice((array) ($result['items'] ?? []), 0, 20);
+    }
+
+    /**
+     * Department headcount is aggregated from authorized headcount rows, not
+     * from an organization directory or a second SQL count.
+     *
+     * @param  array<string, mixed>  $result
+     * @return list<array{label: string, count: int}>
+     */
+    private function departmentBreakdown(array $result): array
+    {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
+            return [];
+        }
+
+        $groups = [];
+
+        foreach ((array) ($result['items'] ?? []) as $item) {
+            /** @var array<string, mixed> $item */
+            $orgPath = trim((string) ($item['org_path'] ?? ''));
+
+            if ($orgPath === '') {
+                $secondary = (string) ($item['secondary'] ?? '');
+                $orgPath = trim(explode(' · ', $secondary, 2)[0]);
+            }
+
+            $label = $orgPath !== '' ? $orgPath : '未返回组织';
+            $groups[$label] = ($groups[$label] ?? 0) + 1;
+        }
+
+        arsort($groups);
+
+        return array_map(
+            static fn (string $label, int $count): array => ['label' => $label, 'count' => $count],
+            array_keys($groups),
+            array_values($groups),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    private function workforceBreakdown(array $result): array
+    {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
+            return [];
+        }
+
+        $groups = [];
+
+        foreach ((array) ($result['items'] ?? []) as $item) {
+            /** @var array<string, mixed> $item */
+            $status = (string) ($item['status'] ?? '');
+            $label = MetricDefinition::statusLabel($status);
+            $groups[$status] = ($groups[$status] ?? 0) + 1;
+        }
+
+        $rows = [];
+
+        foreach ($groups as $status => $count) {
+            $rows[] = [
+                'key' => $status,
+                'label' => MetricDefinition::statusLabel((string) $status),
+                'count' => $count,
+            ];
+        }
+
+        usort($rows, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return list<array{stage: string, label: string, count: int}>
+     */
+    private function recruitmentBreakdown(array $result): array
+    {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ((array) ($result['items'] ?? []) as $item) {
+            /** @var array<string, mixed> $item */
+            $stage = (string) ($item['stage'] ?? $item['status'] ?? '');
+            $rows[] = [
+                'stage' => $stage,
+                'label' => MetricDefinition::stageLabel($stage),
+                'count' => (int) ($item['value'] ?? $item['count'] ?? 0),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return list<array{id: int, caseNo: string, title: string, status: string, statusLabel: string, ageDays: int, dueAt: string|null}>
+     */
+    private function pendingApprovals(array $result): array
+    {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
+            return [];
+        }
 
         $rows = [];
 
         foreach (array_slice((array) ($result['items'] ?? []), 0, self::PANEL_LIMIT) as $item) {
             /** @var array<string, mixed> $item */
+            $status = (string) ($item['status'] ?? '');
             $rows[] = [
                 'id' => (int) ($item['id'] ?? 0),
                 'caseNo' => (string) ($item['case_no'] ?? $item['secondary'] ?? ''),
                 'title' => (string) ($item['title'] ?? $item['primary'] ?? ''),
-                'status' => (string) ($item['status'] ?? ''),
+                'status' => $status,
+                'statusLabel' => MetricDefinition::statusLabel($status),
                 'ageDays' => (int) ($item['value'] ?? $item['age_days'] ?? 0),
                 'dueAt' => isset($item['due_at']) && is_string($item['due_at']) ? $item['due_at'] : null,
             ];
@@ -127,7 +248,7 @@ final class DashboardService
      */
     private function contractAlerts(array $result): array
     {
-        if (($result['status'] ?? 'UNAVAILABLE') !== 'AVAILABLE') {
+        if (($result['status'] ?? 'UNCONFIGURED') !== 'AVAILABLE') {
             return [];
         }
 

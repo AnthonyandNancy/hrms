@@ -25,6 +25,8 @@ import {
 import EmployeeFilter, { type EmployeeFilterValue } from '../components/EmployeeFilter.vue'
 import EmployeeTable from '../components/EmployeeTable.vue'
 import EmployeeCreateDrawer from '../components/EmployeeCreateDrawer.vue'
+import EmployeeImportDrawer from '../components/EmployeeImportDrawer.vue'
+import { exportEmployees, saveEmployeeExport } from '../listActionsApi'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
 
@@ -50,6 +52,8 @@ const result = ref<EmployeeListResult>({
 const pageError = ref<unknown>(null)
 const forbiddenRequestId = ref<string | null>(null)
 const createOpen = ref(false)
+const importsOpen = ref(false)
+const exporting = ref(false)
 const orgUnits = ref<OrgUnitOption[]>([])
 const positions = ref<PositionOption[]>([])
 const successMessage = ref('')
@@ -85,6 +89,7 @@ const tableRows = computed(() =>
 const errorMessage = computed(() => (pageError.value === null ? '' : errorCopy(pageError.value)))
 const errorRequestId = computed(() => (pageError.value === null ? null : requestIdFromError(pageError.value)))
 const canManage = computed(() => session.can('people.employee.manage'))
+const canExport = computed(() => session.can('people.employee.export'))
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
 
@@ -233,6 +238,34 @@ function resetFilters(): void {
   void load()
 }
 
+function openImports(): void {
+  importsOpen.value = true
+}
+
+/**
+ * Export reuses the exact current list filters. The button is capability
+ * guarded; the server still re-authorizes and applies its own row cap and
+ * fixed non-sensitive column whitelist.
+ */
+async function onExport(): Promise<void> {
+  if (!canExport.value || exporting.value) return
+  exporting.value = true
+  try {
+    const file = await exportEmployees({
+      as_of: asOf.value,
+      org_unit_id: orgUnitId.value,
+      q: q.value,
+      include_archived: includeArchived.value,
+    })
+    saveEmployeeExport(file)
+    successMessage.value = `员工导出已生成（${file.filename}）。`
+  } catch (error) {
+    ElMessageBox.alert(errorCopy(error), '导出未完成', { confirmButtonText: '知道了' }).catch(() => undefined)
+  } finally {
+    exporting.value = false
+  }
+}
+
 watch(
   () => asOf.value,
   () => {
@@ -255,7 +288,18 @@ onBeforeUnmount(() => {
     <template #actions>
       <el-button :disabled="loading" @click="load">刷新</el-button>
       <ActionGate capability="people.employee.manage">
+        <el-button data-testid="employee-imports" @click="openImports">导入结果</el-button>
         <el-button type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
+      </ActionGate>
+      <ActionGate capability="people.employee.export">
+        <el-button
+          data-testid="employee-export"
+          :loading="exporting"
+          :disabled="loading || exporting"
+          @click="onExport"
+        >
+          导出
+        </el-button>
       </ActionGate>
     </template>
 
@@ -331,6 +375,11 @@ onBeforeUnmount(() => {
       :org-units="orgUnits"
       :positions="positions"
       @created="onCreated"
+    />
+
+    <EmployeeImportDrawer
+      v-if="canManage"
+      v-model="importsOpen"
     />
   </PageShell>
 </template>

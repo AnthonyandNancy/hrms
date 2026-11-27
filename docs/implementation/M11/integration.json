@@ -1,0 +1,109 @@
+{
+  "module": "M11",
+  "pagesChanged": [
+    {
+      "path": "/overtime",
+      "name": "加班工作台",
+      "component": "frontend/src/modules/time/overtime/pages/OvertimeWorkspacePage.vue",
+      "status": "implemented"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/overtime/requests",
+      "name": "加班台账"
+    },
+    {
+      "path": "/overtime/policies",
+      "name": "加班规则"
+    },
+    {
+      "path": "/overtime/confirm",
+      "name": "加班确认"
+    },
+    {
+      "path": "/overtime/timeoff",
+      "name": "调休余额"
+    },
+    {
+      "path": "/overtime/settlement",
+      "name": "加班结算"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "overtime-requests",
+    "overtime-policies",
+    "overtime-confirm",
+    "overtime-timeoff",
+    "overtime-settlement"
+  ],
+  "openapiOperations": [
+    "GET /v1/time/overtime/policies",
+    "POST /v1/time/overtime/policies",
+    "POST /v1/time/overtime/policies/{id}/retire",
+    "GET /v1/time/overtime/requests",
+    "POST /v1/time/overtime/requests",
+    "POST /v1/time/overtime/requests/{id}/confirm",
+    "GET /v1/time/overtime/timeoff-balances",
+    "GET /v1/time/overtime/settlements",
+    "POST /v1/overtime/records/{recordId}/settlements"
+  ],
+  "routeChanges": [
+    "Keep GET /v1/time/overtime/policies and change its capability to time.overtime.read with as_of query; response is {items,total,as_of,source:'COMPANY_VERSION',current}.",
+    "Add POST /v1/time/overtime/policies -> TimeCatalogController@storeOvertimePolicy with csrf.header, IdempotentCommand, capability:time.overtime.manage,COMPANY.",
+    "Add POST /v1/time/overtime/policies/{id}/retire -> TimeCatalogController@retireOvertimePolicy with csrf.header, IdempotentCommand, capability:time.overtime.manage,COMPANY and whereNumber('id').",
+    "Extend GET /v1/time/overtime/requests with view=team, employment_id, status, from, to, page and page_size; keep capability:time.overtime.read.",
+    "Keep POST /v1/time/overtime/requests/{id}/confirm with capability:time.overtime.confirm; response now includes policy_version_id and policy_snapshot.",
+    "Add GET /v1/time/overtime/settlements -> OvertimeController@settlements with capability:time.overtime.read (self/employment-scoped settlement read model).",
+    "Change POST /v1/overtime/records/{recordId}/settlements to run through CommandRunner with Idempotency-Key, keep capability:time.overtime.settle, and document 409 PAYROLL_PERIOD_FROZEN.",
+    "Remove the five legacy overtime registry entries; do not add redirects."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "overtime",
+      "key": "overtime.policy.create",
+      "label": "新建加班规则版本",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/policies",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.policy.retire",
+      "label": "停用加班规则版本",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/policies/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.request.confirm",
+      "label": "确认加班时长",
+      "capability": "time.overtime.confirm",
+      "api": "POST /v1/time/overtime/requests/{id}/confirm",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.settlement.create",
+      "label": "结算加班",
+      "capability": "time.overtime.settle",
+      "api": "POST /v1/overtime/records/{recordId}/settlements",
+      "ui": "primary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Strict module file domain excluded routes/api.php, docs/openapi/**, docs/generated/**, providers, frontend/src/router/**, timepay pages/barrel/definitions and Payroll. The controller, service, model, migration, allowed tests and integration metadata are complete; the route/OpenAPI/action/provider/router wiring below must be applied by the main agent.",
+    "frontend/src/modules/time/workspaces/index.ts maps overtime/index to OvertimeWorkspacePage.vue. travel/index still maps to the old shared OvertimeTravelWorkspacePage.vue until M12 replaces it; this follows the module boundary and avoids deleting travel capability prematurely.",
+    "Delete frontend/src/modules/timepay/pages/OvertimeRequestsPage.vue, OvertimePoliciesPage.vue, OvertimeConfirmPage.vue, OvertimeTimeoffPage.vue and OvertimeSettlementPage.vue; remove their five keys from frontend/src/modules/timepay/pages/index.ts and their definitions from frontend/src/views/timepay/definitions.ts; remove the five registry rows from frontend/src/router/registry.ts. Do not remove OvertimeMyPage.vue/travel pages in this module.",
+    "Payroll freeze dependency: Time consumes the existing the Time-owned PayrollPeriodLockReader contract contract and never reads payroll_runs/payroll_run_employees. Payroll must implement a read-only adapter (target employment + YYYY-MM, statuses PUBLISHED/PAID/CLOSED) and bind it in PayrollServiceProvider. Until that binding exists, PAY settlement intentionally fails closed with 409 PAYROLL_PERIOD_FROZEN while TIMEOFF remains allowed.",
+    "OpenAPI must add POST /v1/time/overtime/policies (201/200/401/403/409/422), POST /v1/time/overtime/policies/{id}/retire (200/401/403/404/409/422), GET /v1/time/overtime/settlements, extend the request query parameters, and document PAYROLL_PERIOD_FROZEN. Regenerate docs/generated/action-input.json and page-actions.json with pnpm actions:generate/actions:check.",
+    "Backend implementation: overtime_policy_versions append/retire is locked and overlap-validated; version=max(version)+1 and client version is ignored; confirmation resolves the effective company policy, rejects OVERTIME_POLICY_UNCONFIGURED without a version, and atomically writes policy_version_id/policy_snapshot_json with one overtime_record; settlement keeps the unique overtime_record_id guard and rejects a new PAY settlement when the frozen contract reports true.",
+    "Tests were written but NOT RUN per the task instruction. No full test suite, pnpm typecheck, OpenAPI generator or repository scripts were executed. Only php -l was run on changed/new PHP files.",
+    "No git commit was created."
+  ]
+}

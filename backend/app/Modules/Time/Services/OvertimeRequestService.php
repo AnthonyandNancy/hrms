@@ -4,34 +4,52 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Contracts\EmploymentDirectory;
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
+use App\Modules\Time\Models\AttendanceDay;
+use App\Modules\Time\Models\OvertimePolicyVersion;
 use App\Modules\Time\Models\OvertimeRecord;
 use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Exceptions\ValidationException;
+use App\Shared\Money\Decimal;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
+use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
- * Overtime application and confirmation are deliberately two commands:
+ * Overtime application, policy and confirmation facts.
  *
  *  - apply() stores the employee declaration in `declared_minutes` only;
- *  - confirm() requires an APPROVED request, stores the actual minutes in
- *    `confirmed_minutes`, and materialises exactly one `overtime_records` row.
+ *  - confirm() requires an APPROVED request, resolves the company policy in
+ *    force on the business date, stores a snapshot and materialises exactly one
+ *    `overtime_records` row;
+ *  - policy rows are append-only company facts. No code-owned default is
+ *    returned when the company has not configured a version.
  *
- * The record is then the only compensation key. `overtime_settlements` has a
- * unique `overtime_record_id`, so PAY and TIMEOFF can never both happen even
- * under a race. Time-off balances are always derived from TIMEOFF settlements;
- * no balance row is written or cached here.
+ * The record is the only compensation key. `overtime_settlements` has a unique
+ * `overtime_record_id`, so PAY and TIMEOFF can never both happen even under a
+ * race. Time-off balances are always derived from TIMEOFF settlements; no
+ * balance row is written or cached here.
  */
 final class OvertimeRequestService
 {
+    public const POLICY_SOURCE = 'COMPANY_VERSION';
+
+    public const MULTIPLIER_PATTERN = '/^\d{1,6}\.\d{6,18}$/D';
+
     public function __construct(
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly EmploymentDirectory $employments,
+        private readonly Container $container,
     ) {}
 
     public function apply(
@@ -72,6 +90,8 @@ final class OvertimeRequestService
                     'reason' => $reason,
                     'case_id' => null,
                     'overtime_record_id' => null,
+                    'policy_version_id' => null,
+                    'policy_snapshot_json' => null,
                     'recorded_at' => $this->clock->now(),
                 ]);
             } catch (UniqueConstraintViolationException) {
@@ -92,8 +112,8 @@ final class OvertimeRequestService
 
     /**
      * Move APPROVED -> CONFIRMED exactly once and materialise the overtime
-     * record used by the settlement command. A second confirmation is a state
-     * conflict even with a fresh idempotency key.
+     * record used by the settlement command. The policy snapshot is written in
+     * the same transaction as the state transition and record.
      */
     public function confirm(
         int $overtimeRequestId,
@@ -132,6 +152,19 @@ final class OvertimeRequestService
             }
 
             $businessDate = $request->business_date->format('Y-m-d');
+            $policy = $this->effectiveFor($businessDate);
+
+            if ($policy === null) {
+                throw new ConflictException(
+                    'No company overtime policy is effective on this business date.',
+                    [
+                        'reason' => 'OVERTIME_POLICY_UNCONFIGURED',
+                        'business_date' => $businessDate,
+                    ],
+                );
+            }
+
+            $snapshot = $this->snapshot($policy);
 
             /** @var OvertimeRecord $record */
             $record = OvertimeRecord::query()->create([
@@ -147,6 +180,8 @@ final class OvertimeRequestService
                 'confirmed_minutes' => $confirmedMinutes,
                 'status' => OvertimeRequest::STATUS_CONFIRMED,
                 'overtime_record_id' => (int) $record->id,
+                'policy_version_id' => (int) $policy->id,
+                'policy_snapshot_json' => $snapshot,
                 'updated_at' => $this->clock->now(),
             ])->save();
 
@@ -158,17 +193,321 @@ final class OvertimeRequestService
                 before: [
                     'status' => OvertimeRequest::STATUS_APPROVED,
                     'confirmed_minutes' => null,
+                    'policy_version_id' => null,
+                    'policy_snapshot' => null,
                 ],
                 after: [
                     'status' => OvertimeRequest::STATUS_CONFIRMED,
                     'declared_minutes' => (int) $request->declared_minutes,
                     'confirmed_minutes' => $confirmedMinutes,
                     'overtime_record_id' => (int) $record->id,
+                    'policy_version_id' => (int) $policy->id,
+                    'policy_snapshot' => $snapshot,
                 ],
             );
 
             return $request->refresh();
         });
+    }
+
+    public function policyVersion(int $policyId): ?OvertimePolicyVersion
+    {
+        return OvertimePolicyVersion::query()->whereKey($policyId)->first();
+    }
+
+    /**
+     * Effective company policy. No fallback to config or a code-owned default.
+     */
+    public function effectiveFor(string $businessDate): ?OvertimePolicyVersion
+    {
+        $date = BusinessDate::from($businessDate)->value();
+
+        return OvertimePolicyVersion::query()
+            ->where('status', OvertimePolicyVersion::STATUS_PUBLISHED)
+            ->whereNull('retired_at')
+            ->where('effective_from', '<=', $date)
+            ->where('effective_to', '>=', $date)
+            ->orderByDesc('version')
+            ->first();
+    }
+
+    /**
+     * @return array{items: list<array<string, mixed>>, total: int, as_of: string, source: string, current: array<string, mixed>|null}
+     */
+    public function policyList(string $asOf): array
+    {
+        $items = OvertimePolicyVersion::query()
+            ->orderByDesc('version')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (OvertimePolicyVersion $policy): array => $this->policyPayload($policy))
+            ->all();
+
+        $current = $this->effectiveFor($asOf);
+
+        return [
+            'items' => $items,
+            'total' => count($items),
+            'as_of' => $asOf,
+            'source' => self::POLICY_SOURCE,
+            'current' => $current !== null ? $this->policyPayload($current) : null,
+        ];
+    }
+
+    /**
+     * Append a company policy version. The caller cannot supply `version`.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function appendPolicy(array $input, int $actorUserId): array
+    {
+        $effectiveFrom = BusinessDate::from((string) $input['effective_from'])->value();
+        $effectiveTo = BusinessDate::from((string) $input['effective_to'])->value();
+
+        if ($effectiveTo < $effectiveFrom) {
+            throw new ValidationException(
+                ['effective_to' => ['The policy end date must not precede the start date.']],
+                'The given data was invalid.',
+                ['reason' => 'OVERTIME_POLICY_RANGE_INVALID'],
+            );
+        }
+
+        $timeUnitMinutes = (int) ($input['time_unit_minutes'] ?? 30);
+
+        if (! in_array($timeUnitMinutes, OvertimePolicyVersion::TIME_UNITS, true)) {
+            throw new ValidationException([
+                'time_unit_minutes' => ['The time unit must be one of 1, 5, 10, 15, 30 or 60 minutes.'],
+            ]);
+        }
+
+        $multiplier = $this->multiplier($input['multiplier'] ?? '1.500000', 'multiplier');
+        $statutoryMultiplier = $this->multiplier(
+            $input['statutory_holiday_multiplier'] ?? '3.000000',
+            'statutory_holiday_multiplier',
+        );
+        $allowPay = (bool) ($input['allow_pay'] ?? true);
+        $allowTimeoff = (bool) ($input['allow_timeoff'] ?? true);
+
+        if (! $allowPay && ! $allowTimeoff) {
+            throw new ValidationException([
+                'allow_pay' => ['At least one compensation method must be enabled.'],
+            ]);
+        }
+
+        $allocation = strtoupper((string) ($input['allocation'] ?? 'EMPLOYEE_CHOICE'));
+
+        if (! in_array($allocation, OvertimePolicyVersion::ALLOCATIONS, true)) {
+            throw new ValidationException(['allocation' => ['Unsupported overtime allocation mode.']]);
+        }
+
+        $rounding = strtoupper((string) ($input['rounding'] ?? 'HALF_UP'));
+
+        if (! in_array($rounding, ['HALF_UP', 'HALF_EVEN', 'DOWN', 'UP'], true)) {
+            throw new ValidationException(['rounding' => ['Unsupported overtime rounding mode.']]);
+        }
+
+        $legalBasis = isset($input['legal_basis']) && trim((string) $input['legal_basis']) !== ''
+            ? trim((string) $input['legal_basis'])
+            : null;
+
+        if ($legalBasis !== null && mb_strlen($legalBasis) > 255) {
+            throw new ValidationException(['legal_basis' => ['The legal basis may not exceed 255 characters.']]);
+        }
+
+        return DB::transaction(function () use (
+            $effectiveFrom,
+            $effectiveTo,
+            $timeUnitMinutes,
+            $multiplier,
+            $statutoryMultiplier,
+            $allowPay,
+            $allowTimeoff,
+            $allocation,
+            $rounding,
+            $legalBasis,
+            $actorUserId,
+        ): array {
+            // Lock every existing policy row so version allocation and overlap
+            // validation cannot observe different snapshots in one transaction.
+            $existing = OvertimePolicyVersion::query()
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $overlap = $existing->first(static function (OvertimePolicyVersion $policy) use ($effectiveFrom, $effectiveTo): bool {
+                if ($policy->retired_at !== null || (string) $policy->status !== OvertimePolicyVersion::STATUS_PUBLISHED) {
+                    return false;
+                }
+
+                return $policy->effective_from->format('Y-m-d') <= $effectiveTo
+                    && $policy->effective_to->format('Y-m-d') >= $effectiveFrom;
+            });
+
+            if ($overlap !== null) {
+                throw new ConflictException(
+                    'A live overtime policy version already overlaps the requested effective window.',
+                    [
+                        'reason' => 'OVERTIME_POLICY_RANGE_OVERLAP',
+                        'overlapping_version' => (int) $overlap->version,
+                    ],
+                );
+            }
+
+            $version = ((int) $existing->max('version')) + 1;
+
+            try {
+                /** @var OvertimePolicyVersion $policy */
+                $policy = OvertimePolicyVersion::query()->create([
+                    'version' => $version,
+                    'status' => OvertimePolicyVersion::STATUS_PUBLISHED,
+                    'effective_from' => $effectiveFrom,
+                    'effective_to' => $effectiveTo,
+                    'time_unit_minutes' => $timeUnitMinutes,
+                    'multiplier' => $multiplier,
+                    'statutory_holiday_multiplier' => $statutoryMultiplier,
+                    'allow_pay' => $allowPay,
+                    'allow_timeoff' => $allowTimeoff,
+                    'allocation' => $allocation,
+                    'rounding' => $rounding,
+                    'legal_basis' => $legalBasis,
+                    'published_at' => $this->clock->now(),
+                    'published_by' => $actorUserId,
+                    'created_at' => $this->clock->now(),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                throw new ConflictException(
+                    'Another overtime policy version was appended concurrently; retry the command.',
+                    ['reason' => 'OVERTIME_POLICY_VERSION_CONFLICT'],
+                );
+            }
+
+            $after = $this->policyPayload($policy);
+
+            $this->audit->record(
+                $actorUserId,
+                'time.overtime.policy.published',
+                'overtime_policy_version',
+                (int) $policy->id,
+                after: $after,
+            );
+
+            return $after;
+        });
+    }
+
+    /**
+     * Retire a future, not-yet-effective policy version. Confirmed requests keep
+     * their immutable snapshot and are never rewritten.
+     *
+     * @return array<string, mixed>
+     */
+    public function retirePolicy(int $policyId, string $reason, int $actorUserId): array
+    {
+        $today = BusinessDate::today(
+            (string) config('hrms.default_timezone', 'Asia/Shanghai'),
+            $this->clock,
+        )->value();
+
+        return DB::transaction(function () use ($policyId, $reason, $actorUserId, $today): array {
+            /** @var OvertimePolicyVersion|null $policy */
+            $policy = OvertimePolicyVersion::query()
+                ->whereKey($policyId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($policy === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            $before = $this->policyPayload($policy);
+
+            if ($policy->retired_at !== null || (string) $policy->status === OvertimePolicyVersion::STATUS_RETIRED) {
+                return $before;
+            }
+
+            if ($policy->effective_from->format('Y-m-d') <= $today) {
+                throw new ConflictException(
+                    'An overtime policy that has already taken effect cannot be retired; append a later version instead.',
+                    [
+                        'reason' => 'OVERTIME_POLICY_ALREADY_EFFECTIVE',
+                        'effective_from' => $policy->effective_from->format('Y-m-d'),
+                        'today' => $today,
+                    ],
+                );
+            }
+
+            $policy->forceFill([
+                'status' => OvertimePolicyVersion::STATUS_RETIRED,
+                'retired_at' => $this->clock->now(),
+                'retired_by' => $actorUserId,
+                'retire_reason' => trim($reason) !== '' ? trim($reason) : 'Retired by administrator',
+            ])->save();
+
+            $after = $this->policyPayload($policy->refresh());
+
+            $this->audit->record(
+                $actorUserId,
+                'time.overtime.policy.retired',
+                'overtime_policy_version',
+                (int) $policy->id,
+                before: $before,
+                after: $after,
+            );
+
+            return $after;
+        });
+    }
+
+    /**
+     * Immutable confirmation snapshot. Multipliers remain exact decimal strings.
+     *
+     * @return array<string, mixed>
+     */
+    public function snapshot(OvertimePolicyVersion $policy): array
+    {
+        return [
+            'policy_version_id' => (int) $policy->id,
+            'version' => (int) $policy->version,
+            'effective_from' => $policy->effective_from->format('Y-m-d'),
+            'effective_to' => $policy->effective_to->format('Y-m-d'),
+            'time_unit_minutes' => (int) $policy->time_unit_minutes,
+            'multiplier' => (string) $policy->multiplier,
+            'statutory_holiday_multiplier' => (string) $policy->statutory_holiday_multiplier,
+            'allow_pay' => (bool) $policy->allow_pay,
+            'allow_timeoff' => (bool) $policy->allow_timeoff,
+            'allocation' => (string) $policy->allocation,
+            'rounding' => (string) $policy->rounding,
+            'legal_basis' => $policy->legal_basis,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function policyPayload(OvertimePolicyVersion $policy): array
+    {
+        return [
+            'id' => (int) $policy->id,
+            'version' => (int) $policy->version,
+            'status' => (string) $policy->status,
+            'effective_from' => $policy->effective_from->format('Y-m-d'),
+            'effective_to' => $policy->effective_to->format('Y-m-d'),
+            'time_unit_minutes' => (int) $policy->time_unit_minutes,
+            'multiplier' => (string) $policy->multiplier,
+            'statutory_holiday_multiplier' => (string) $policy->statutory_holiday_multiplier,
+            'allow_pay' => (bool) $policy->allow_pay,
+            'allow_timeoff' => (bool) $policy->allow_timeoff,
+            'allocation' => (string) $policy->allocation,
+            'rounding' => (string) $policy->rounding,
+            'legal_basis' => $policy->legal_basis,
+            'source' => self::POLICY_SOURCE,
+            'published_at' => $policy->published_at->toIso8601ZuluString(),
+            'published_by' => (int) $policy->published_by,
+            'retired_at' => $policy->retired_at?->toIso8601ZuluString(),
+            'retired_by' => $policy->retired_by !== null ? (int) $policy->retired_by : null,
+            'retire_reason' => $policy->retire_reason,
+        ];
     }
 
     public function find(int $overtimeRequestId): ?OvertimeRequest
@@ -178,19 +517,39 @@ final class OvertimeRequestService
             ->first();
     }
 
+    /**
+     * @param  list<int>|null  $employmentIds  null means the whole company;
+     *                                         an empty list means no employments.
+     */
     public function project(
-        int $employmentId,
+        ?int $employmentId,
+        ?array $employmentIds,
         string $asOf,
         ?string $status,
+        ?string $from,
+        ?string $to,
         int $page,
         int $pageSize,
     ): ProjectionResult {
         $query = OvertimeRequest::query()
-            ->where('employment_id', $employmentId)
             ->where('business_date', '<=', $asOf);
+
+        if ($employmentId !== null) {
+            $query->where('employment_id', $employmentId);
+        } elseif ($employmentIds !== null) {
+            $query->whereIn('employment_id', $employmentIds === [] ? [-1] : array_values($employmentIds));
+        }
 
         if ($status !== null && $status !== '') {
             $query->where('status', $status);
+        }
+
+        if ($from !== null && $from !== '') {
+            $query->where('business_date', '>=', $from);
+        }
+
+        if ($to !== null && $to !== '') {
+            $query->where('business_date', '<=', $to);
         }
 
         $total = (clone $query)->count();
@@ -216,7 +575,10 @@ final class OvertimeRequestService
                 'resource' => 'overtime_requests',
                 'filters' => [
                     'employment_id' => $employmentId,
+                    'employment_ids' => $employmentIds,
                     'status' => $status,
+                    'from' => $from,
+                    'to' => $to,
                 ],
             ],
         );
@@ -255,8 +617,10 @@ final class OvertimeRequestService
                 'employment_id' => (int) $settlement->employment_id,
                 'business_date' => $record instanceof OvertimeRecord ? $record->business_date->format('Y-m-d') : null,
                 'method' => (string) $settlement->method,
+                'entry_type' => 'EARNED',
                 'minutes' => (int) $settlement->minutes,
                 'reason' => (string) $settlement->reason,
+                'expires_at' => null,
                 'recorded_at' => $settlement->recorded_at?->toIso8601String(),
             ];
         }
@@ -289,9 +653,26 @@ final class OvertimeRequestService
      */
     public function payload(OvertimeRequest $request): array
     {
+        $employment = $this->employments->snapshot(
+            (int) $request->employment_id,
+            $request->business_date->format('Y-m-d'),
+        );
+        $settlement = $request->overtime_record_id !== null
+            ? OvertimeSettlement::query()
+                ->where('overtime_record_id', (int) $request->overtime_record_id)
+                ->first()
+            : null;
+        $attendance = AttendanceDay::query()
+            ->where('employment_id', (int) $request->employment_id)
+            ->where('business_date', $request->business_date->format('Y-m-d'))
+            ->first();
+        $policySnapshot = $request->policy_snapshot_json;
+
         return [
             'id' => (int) $request->id,
             'employment_id' => (int) $request->employment_id,
+            'employee_no' => $employment?->employeeNo,
+            'employee_name' => $employment !== null && $employment->employeeName !== '' ? $employment->employeeName : null,
             'business_date' => $request->business_date->format('Y-m-d'),
             'declared_minutes' => (int) $request->declared_minutes,
             'confirmed_minutes' => $request->confirmed_minutes !== null ? (int) $request->confirmed_minutes : null,
@@ -299,7 +680,56 @@ final class OvertimeRequestService
             'reason' => (string) $request->reason,
             'case_id' => $request->case_id !== null ? (int) $request->case_id : null,
             'overtime_record_id' => $request->overtime_record_id !== null ? (int) $request->overtime_record_id : null,
+            'policy_version_id' => $request->policy_version_id !== null ? (int) $request->policy_version_id : null,
+            'policy_snapshot' => is_array($policySnapshot) ? $policySnapshot : null,
+            'settlement_method' => $settlement?->method,
+            'settlement_id' => $settlement?->id !== null ? (int) $settlement->id : null,
+            'attendance_status' => $attendance?->status,
+            'attendance_worked_minutes' => $attendance !== null ? (int) $attendance->worked_minutes : null,
+            'attendance_overtime_minutes' => $attendance !== null ? (int) $attendance->overtime_minutes : null,
+            'payroll_period_frozen' => $this->payrollFrozen(
+                (int) $request->employment_id,
+                $request->business_date->format('Y-m'),
+            ),
             'recorded_at' => $request->recorded_at?->toIso8601String(),
         ];
+    }
+
+    private function multiplier(mixed $value, string $field): string
+    {
+        $multiplier = is_string($value) ? trim($value) : '';
+
+        if (preg_match(self::MULTIPLIER_PATTERN, $multiplier) !== 1) {
+            throw new ValidationException([
+                $field => ['The multiplier must be a fixed-point string with 6-18 decimal places.'],
+            ]);
+        }
+
+        if (Decimal::fromString($multiplier)->compare(Decimal::fromString('0')) <= 0) {
+            throw new ValidationException([$field => ['The multiplier must be greater than zero.']]);
+        }
+
+        return $multiplier;
+    }
+
+    private function payrollFrozen(int $employmentId, string $period): ?bool
+    {
+        if (! $this->container->bound(PayrollPeriodLockReader::class)) {
+            return null;
+        }
+
+        try {
+            $reader = $this->container->make(PayrollPeriodLockReader::class);
+
+            if (! $reader instanceof PayrollPeriodLockReader) {
+                return null;
+            }
+
+            return $reader->isFrozen($employmentId, $period);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 }

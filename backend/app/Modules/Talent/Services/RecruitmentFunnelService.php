@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Talent\Services;
 
 use App\Modules\Organization\Contracts\OrganizationFacts;
-use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Modules\Talent\Models\Candidate;
+use App\Modules\Talent\Models\CandidateApplication;
 use App\Modules\Talent\Models\CandidateCommunication;
 use App\Modules\Talent\Models\CandidateConversion;
 use App\Modules\Talent\Models\CandidateEvaluation;
@@ -22,7 +22,6 @@ use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
-use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +43,9 @@ final class RecruitmentFunnelService
         private readonly AuditRecorder $audit,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
         private readonly OrganizationFacts $organization,
-        private readonly PeopleEmploymentWriter $people,
+        private readonly CandidateApplicationService $applications,
+        private readonly RecruitmentOnboardingStateService $onboardingState,
+        private readonly \App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort $onboarding,
     ) {}
 
     public function board(string $asOf): ProjectionResult
@@ -138,25 +139,97 @@ final class RecruitmentFunnelService
         return $this->projection($items, $asOf);
     }
 
-    public function candidates(int $actorUserId, string $asOf): ProjectionResult
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function candidates(int $actorUserId, string $asOf, array $filters = []): ProjectionResult
     {
-        $items = Candidate::query()
-            ->orderBy('id')
-            ->get()
-            ->map(function (Candidate $candidate) use ($actorUserId): array {
-                $this->auditCandidateRead($actorUserId, $candidate, 'recruitment.candidate.read', ['email', 'mobile']);
+        $candidateQuery = Candidate::query()->orderBy('id');
 
-                return [
-                    'candidate_id' => (int) $candidate->id,
-                    'display_name' => (string) $candidate->display_name,
-                    'status' => (string) $candidate->status,
-                    'has_email' => $candidate->email_hash !== null,
-                    'has_mobile' => $candidate->mobile_hash !== null,
-                    'source' => $candidate->source,
-                ];
-            })
-            ->values()
-            ->all();
+        if (isset($filters['candidate_id']) && (int) $filters['candidate_id'] > 0) {
+            $candidateQuery->whereKey((int) $filters['candidate_id']);
+        }
+
+        $requisitionId = isset($filters['requisition_id']) && (int) $filters['requisition_id'] > 0
+            ? (int) $filters['requisition_id']
+            : null;
+
+        if ($requisitionId !== null) {
+            $candidateQuery->whereIn('id', CandidateApplication::query()
+                ->where('requisition_id', $requisitionId)
+                ->select('candidate_id'));
+        }
+
+        $candidates = $candidateQuery->get();
+        $candidateIds = $candidates->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+
+        $applications = CandidateApplication::query()
+            ->whereIn('candidate_id', $candidateIds)
+            ->when($requisitionId !== null, fn ($query) => $query->where('requisition_id', $requisitionId))
+            ->orderByDesc('id')
+            ->get()
+            ->unique('candidate_id')
+            ->keyBy('candidate_id');
+        $offers = Offer::query()
+            ->whereIn('candidate_id', $candidateIds)
+            ->orderByDesc('version')
+            ->get()
+            ->unique('candidate_id')
+            ->keyBy('candidate_id');
+        $conversions = CandidateConversion::query()
+            ->whereIn('candidate_id', $candidateIds)
+            ->get()
+            ->keyBy('candidate_id');
+        $interviews = Interview::query()
+            ->whereIn('candidate_id', $candidateIds)
+            ->orderByDesc('id')
+            ->get()
+            ->unique('candidate_id')
+            ->keyBy('candidate_id');
+
+        $items = $candidates->map(function (Candidate $candidate) use (
+            $actorUserId,
+            $applications,
+            $offers,
+            $conversions,
+            $interviews,
+        ): array {
+            $this->auditCandidateRead($actorUserId, $candidate, 'recruitment.candidate.read', ['email', 'mobile']);
+
+            $application = $applications->get((int) $candidate->id);
+            $offer = $offers->get((int) $candidate->id);
+            $conversion = $conversions->get((int) $candidate->id);
+            $interview = $interviews->get((int) $candidate->id);
+
+            return [
+                'candidate_id' => (int) $candidate->id,
+                'display_name' => (string) $candidate->display_name,
+                'status' => (string) $candidate->status,
+                'application_id' => $application instanceof CandidateApplication ? (int) $application->id : null,
+                'application_stage' => $application instanceof CandidateApplication ? (string) $application->stage : null,
+                'has_email' => $candidate->email_hash !== null,
+                'has_mobile' => $candidate->mobile_hash !== null,
+                'source' => $candidate->source,
+                'requisition_id' => $application instanceof CandidateApplication
+                    ? (int) $application->requisition_id
+                    : ($offer instanceof Offer ? (int) $offer->requisition_id : null),
+                'onboarding_case_id' => $offer instanceof Offer && $offer->onboarding_case_id !== null
+                    ? (int) $offer->onboarding_case_id
+                    : null,
+                'conversion_status' => $conversion instanceof CandidateConversion
+                    ? 'CONVERTED'
+                    : ($offer instanceof Offer && $offer->onboarding_case_id !== null ? 'PENDING_ONBOARDING' : null),
+                'offer_id' => $offer instanceof Offer ? (int) $offer->id : null,
+                'offer_status' => $offer instanceof Offer ? (string) $offer->status : null,
+                'base_salary_minor' => $offer instanceof Offer ? (int) $offer->base_salary_minor : null,
+                'salary_currency' => $offer instanceof Offer ? (string) $offer->salary_currency : null,
+                'offer_start_date' => $offer instanceof Offer ? (string) $offer->start_date : null,
+                'next_interview_at' => $interview instanceof Interview ? $this->iso($interview->getAttribute('scheduled_at')) : null,
+                'converted_employment_id' => $conversion instanceof CandidateConversion ? (int) $conversion->employment_id : null,
+                'converted_employee_no' => $conversion instanceof CandidateConversion ? (string) $conversion->employee_no : null,
+                'recorded_at' => $this->iso($candidate->getAttribute('recorded_at')),
+            ];
+        })->values()->all();
 
         return $this->projection($items, $asOf);
     }
@@ -253,10 +326,34 @@ final class RecruitmentFunnelService
     public function createEvaluation(int $actorUserId, int $candidateId, array $input): array
     {
         $this->candidateOrFail($candidateId);
+        $interviewId = isset($input['interview_id']) ? (int) $input['interview_id'] : null;
+
+        if ($interviewId !== null) {
+            $interview = Interview::query()
+                ->whereKey($interviewId)
+                ->where('candidate_id', $candidateId)
+                ->first();
+
+            if ($interview === null) {
+                throw new ValidationException(['interview_id' => ['The interview must belong to the candidate.']]);
+            }
+
+            $application = CandidateApplication::query()
+                ->where('candidate_id', $candidateId)
+                ->where('requisition_id', (int) $interview->requisition_id)
+                ->first();
+            $requisition = Requisition::query()->whereKey((int) $interview->requisition_id)->first();
+
+            if ($application === null || $requisition === null || (string) $requisition->status !== 'APPROVED') {
+                throw new ConflictException('Evaluations require an application to an approved requisition.', [
+                    'reason' => 'APPLICATION_NOT_APPROVED',
+                ]);
+            }
+        }
 
         $evaluation = CandidateEvaluation::query()->create([
             'candidate_id' => $candidateId,
-            'interview_id' => isset($input['interview_id']) ? (int) $input['interview_id'] : null,
+            'interview_id' => $interviewId,
             'evaluator_user_id' => $actorUserId,
             'rating' => (int) $input['rating'],
             'recommendation' => (string) $input['recommendation'],
@@ -380,10 +477,10 @@ final class RecruitmentFunnelService
     }
 
     /**
-     * Convert an accepted candidate into exactly one Person, Employment,
-     * primary Assignment and conversion record. The conversion row is the
-     * business idempotency key: a new Idempotency-Key still returns the same
-     * employment and never creates a second row.
+     * Register the employee that Lifecycle already created for an accepted
+     * offer. Talent never creates a Person, Employment or Assignment here: the
+     * onboarding case is the only path that creates employees, and this method
+     * only records the stable IDs returned through the Lifecycle directory.
      *
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
@@ -406,7 +503,19 @@ final class RecruitmentFunnelService
                 ->first();
 
             if ($existing !== null) {
-                return $this->conversionData($existing, true);
+                $data = $this->conversionData($existing, true);
+
+                $caseId = $existing->onboarding_case_id;
+                if ($caseId === null) {
+                    $offerCaseId = Offer::query()->whereKey((int) $existing->offer_id)->value('onboarding_case_id');
+                    $caseId = $offerCaseId !== null ? (int) $offerCaseId : null;
+                }
+
+                return [
+                    ...$data,
+                    'status' => 'CONVERTED',
+                    'onboarding_case_id' => $caseId,
+                ];
             }
 
             $offer = Offer::query()
@@ -431,35 +540,63 @@ final class RecruitmentFunnelService
                 ? (string) $input['hire_date']
                 : (string) $offer->start_date;
 
-            $personId = $candidate->linked_person_id !== null
-                ? (int) $candidate->linked_person_id
-                : $this->people->createPerson(array_filter([
-                    'legal_name' => (string) $candidate->display_name,
-                    'email' => $candidate->email,
-                    'mobile' => $candidate->mobile_ciphertext,
-                ], static fn (mixed $value): bool => $value !== null && $value !== ''), $actorUserId);
+            $application = CandidateApplication::query()
+                ->where('candidate_id', $candidateId)
+                ->where('requisition_id', (int) $offer->requisition_id)
+                ->first();
 
-            $employmentId = $this->people->createEmployment([
-                'person_id' => $personId,
-                'employee_no' => (string) $input['employee_no'],
-                'employment_type' => 'FULL_TIME',
-                'status' => 'PROBATION',
-                'valid_from' => $hireDate,
-                'valid_to' => BusinessDate::OPEN_END,
-                'hire_date' => $hireDate,
-                'source_type' => 'CANDIDATE_CONVERSION',
-                'source_id' => $candidateId,
-            ], $actorUserId);
+            if ($application !== null) {
+                $this->applications->markOfferAccepted($actorUserId, $application);
+            }
 
-            $this->people->createAssignment($employmentId, [
-                'org_unit_id' => $orgUnitId,
-                'assignment_type' => 'PRIMARY',
-                'is_primary' => true,
-                'valid_from' => $hireDate,
-                'valid_to' => BusinessDate::OPEN_END,
-                'source_type' => 'CANDIDATE_CONVERSION',
-                'source_id' => $candidateId,
-            ], $actorUserId);
+            $state = $this->onboardingState->onboardingStateForOffer((int) $offer->id, $hireDate);
+            $caseId = $state['case_id'];
+
+            if ($caseId === null) {
+                try {
+                    $draft = $this->onboarding->createDraftFromAcceptedOffer([
+                        'actor_user_id' => $actorUserId,
+                        'candidate_id' => $candidateId,
+                        'person' => $this->onboardingPerson($candidate),
+                        'offer_id' => (int) $offer->id,
+                        'org_unit_id' => $orgUnitId,
+                        'employee_no' => (string) $input['employee_no'],
+                        'hire_date' => $hireDate,
+                        'business_date' => $hireDate,
+                    ]);
+                } catch (ValidationException $exception) {
+                    if (($exception->details()['reason'] ?? null) === 'EMPLOYEE_NO_DUPLICATE') {
+                        throw new ConflictException('Employee number must be unique.', [
+                            'reason' => 'EMPLOYEE_NO_DUPLICATE',
+                        ]);
+                    }
+                    throw $exception;
+                }
+
+                $offer->forceFill(['onboarding_case_id' => $draft['case_id']])->save();
+                $state = $this->onboardingState->onboardingStateForOffer((int) $offer->id, $hireDate);
+                $caseId = (int) $draft['case_id'];
+            }
+
+            if ($state['status'] !== 'APPLIED' || $state['employment_id'] === null || $state['person_id'] === null) {
+                return [
+                    'conversion_id' => null,
+                    'candidate_id' => $candidateId,
+                    'employment_id' => null,
+                    'person_id' => null,
+                    'offer_id' => (int) $offer->id,
+                    'org_unit_id' => $orgUnitId,
+                    'employee_no' => (string) $input['employee_no'],
+                    'status' => 'PENDING_ONBOARDING',
+                    'onboarding_case_id' => $caseId,
+                    'onboarding_status' => $state['status'],
+                    'converted_at' => null,
+                    'business_replayed' => false,
+                ];
+            }
+
+            $employmentId = (int) $state['employment_id'];
+            $personId = (int) $state['person_id'];
 
             $candidate->forceFill([
                 'status' => 'CONVERTED',
@@ -473,18 +610,27 @@ final class RecruitmentFunnelService
                 'offer_id' => (int) $offer->id,
                 'org_unit_id' => $orgUnitId,
                 'employee_no' => (string) $input['employee_no'],
+                'onboarding_case_id' => $caseId,
                 'status' => 'COMPLETED',
                 'recorded_at' => $this->clock->now(),
             ]);
+
+            if ($application !== null) {
+                $this->applications->markConverted($actorUserId, $application);
+            }
 
             $this->audit->record($actorUserId, 'talent.candidate.converted', 'candidate_conversion', (int) $conversion->id, after: [
                 'candidate_id' => $candidateId,
                 'employment_id' => $employmentId,
                 'person_id' => $personId,
                 'offer_id' => (int) $offer->id,
+                'onboarding_case_id' => $caseId,
             ]);
 
-            return $this->conversionData($conversion, false);
+            return [
+                ...$this->conversionData($conversion, false),
+                'status' => 'CONVERTED',
+            ];
         });
     }
 
@@ -513,8 +659,9 @@ final class RecruitmentFunnelService
                 ->whereIn('offer_id', $offerIds)
                 ->get();
 
-        $candidateIds = $interviews->pluck('candidate_id')
-            ->merge($offers->pluck('candidate_id'))
+        $candidateIds = CandidateApplication::query()
+            ->where('requisition_id', $requisitionId)
+            ->pluck('candidate_id')
             ->unique()
             ->count();
 
@@ -794,6 +941,7 @@ final class RecruitmentFunnelService
             'org_unit_id' => (int) $conversion->org_unit_id,
             'employee_no' => (string) $conversion->employee_no,
             'status' => (string) $conversion->status,
+            'onboarding_case_id' => $conversion->onboarding_case_id !== null ? (int) $conversion->onboarding_case_id : null,
             'converted_at' => $this->iso($conversion->recorded_at),
             'business_replayed' => $businessReplayed,
         ];
@@ -843,5 +991,19 @@ final class RecruitmentFunnelService
         }
 
         return trim($value);
+    }
+
+    /**
+     * @return array{legal_name:string,email?:string}
+     */
+    private function onboardingPerson(Candidate $candidate): array
+    {
+        $person = ['legal_name' => (string) $candidate->display_name];
+
+        if (is_string($candidate->email) && $candidate->email !== '') {
+            $person['email'] = $candidate->email;
+        }
+
+        return $person;
     }
 }

@@ -18,23 +18,43 @@ use App\Modules\Workflow\Models\Effect;
  */
 final class DomainEffectHandlerAdapter implements EffectHandler
 {
-    public function __construct(private readonly DomainEffectHandler $handler) {}
+    private ?DomainEffectHandler $resolved = null;
+
+    public function __construct(
+        private readonly DomainEffectHandler|string $handler,
+        private readonly ?string $declaredType = null,
+    ) {}
+
+    private function handler(): DomainEffectHandler
+    {
+        if ($this->resolved !== null) {
+            return $this->resolved;
+        }
+
+        return $this->resolved = $this->handler instanceof DomainEffectHandler
+            ? $this->handler
+            : app($this->handler);
+    }
 
     public function supports(string $effectType): bool
     {
-        return $this->handler->supports($effectType);
+        if ($this->declaredType !== null) {
+            return $this->declaredType === $effectType;
+        }
+
+        return $this->handler()->supports($effectType);
     }
 
     public function apply(Effect $effect): EffectResult
     {
-        $result = $this->handler->apply($this->command($effect));
+        $result = $this->handler()->apply($this->command($effect));
 
         return new EffectResult($this->status($result->status), $result->outboxEvents);
     }
 
     public function reverse(Effect $effect): EffectResult
     {
-        $result = $this->handler->reverse($this->command($effect));
+        $result = $this->handler()->reverse($this->command($effect));
 
         return new EffectResult($this->status($result->status), $result->outboxEvents);
     }

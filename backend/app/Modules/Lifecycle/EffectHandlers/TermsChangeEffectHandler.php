@@ -67,6 +67,12 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                 throw new ConflictException('Cannot append terms without a current terms version.', ['reason' => 'TERMS_VERSION_MISSING']);
             }
 
+            $this->support->freezeBefore($command->caseId, [
+                'employment_id' => $employmentId,
+                'employment_status' => $employment->status,
+                'terms' => $this->termsPayload($before),
+            ]);
+
             $termsId = $this->people->appendTerms($employmentId, [
                 'effective_from' => $effectiveDate,
                 'effective_to' => $payload['effective_to'] ?? null,
@@ -92,12 +98,14 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                 }
             }
 
+            $contractVersionId = null;
+
             if ($command->effectType === LifecycleCaseType::CONTRACT_RENEW->effectType()) {
                 $previousContractVersion = (int) \App\Modules\Lifecycle\Models\EmploymentContractVersion::query()
                     ->where('employment_id', $employmentId)
                     ->max('document_version');
 
-                \App\Modules\Lifecycle\Models\EmploymentContractVersion::query()->create([
+                $contractVersion = \App\Modules\Lifecycle\Models\EmploymentContractVersion::query()->create([
                     'employment_id' => $employmentId,
                     'terms_version' => $terms instanceof \App\Modules\People\Contracts\EmploymentTermsSnapshot ? $terms->version : 1,
                     'document_version' => $previousContractVersion + 1,
@@ -109,9 +117,26 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                     'source_type' => 'CONTRACT_RENEW',
                     'source_id' => $command->caseId,
                 ]);
+                $contractVersionId = (int) $contractVersion->id;
             }
 
-            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $after = [
+                'employment_id' => $employmentId,
+                'terms_id' => $termsId,
+                'terms_version' => $terms instanceof \App\Modules\People\Contracts\EmploymentTermsSnapshot ? $terms->version : null,
+                'effective_from' => $effectiveDate,
+                'base_salary_minor' => (int) ($payload['base_salary_minor'] ?? $before->baseSalaryMinor),
+                'salary_currency' => (string) ($payload['salary_currency'] ?? $before->salaryCurrency),
+                'contract_version_id' => $contractVersionId,
+            ];
+            $this->support->markEffective(
+                caseId: $command->caseId,
+                employmentId: $employmentId,
+                resultEmploymentId: $employmentId,
+                effectiveAt: $effectiveDate,
+                after: $after,
+                result: $after,
+            );
 
             return DomainEffectResult::appliedWithOutbox(
                 $command->effectType === LifecycleCaseType::CONTRACT_RENEW->effectType() ? 'employment.contract.renewed.v1' : 'employment.terms.changed.v1',
@@ -122,6 +147,23 @@ final class TermsChangeEffectHandler implements DomainEffectHandler
                 ],
             );
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function termsPayload(\App\Modules\People\Contracts\EmploymentTermsSnapshot $terms): array
+    {
+        return [
+            'terms_id' => $terms->id,
+            'version' => $terms->version,
+            'effective_from' => $terms->effectiveFrom,
+            'effective_to' => $terms->effectiveTo,
+            'salary_scheme_code' => $terms->salarySchemeCode,
+            'base_salary_minor' => $terms->baseSalaryMinor,
+            'salary_currency' => $terms->salaryCurrency,
+            'notice_period_days' => $terms->noticePeriodDays,
+        ];
     }
 
     public function reverse(DomainEffectCommand $command): DomainEffectResult

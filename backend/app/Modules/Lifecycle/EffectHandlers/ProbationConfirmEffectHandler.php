@@ -75,8 +75,28 @@ final class ProbationConfirmEffectHandler implements DomainEffectHandler
                     ->withReason('PROBATION_MAX_EXCEEDED');
             }
 
+            $this->support->freezeBefore($command->caseId, [
+                'employment_id' => $employmentId,
+                'employment_status' => $employment->status,
+                'hire_date' => $employment->hireDate,
+            ]);
             $this->people->setEmploymentStatus($employmentId, 'ACTIVE', null);
-            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $this->support->markEffective(
+                caseId: $command->caseId,
+                employmentId: $employmentId,
+                resultEmploymentId: $employmentId,
+                effectiveAt: $effectiveDate,
+                after: [
+                    'employment_id' => $employmentId,
+                    'employment_status' => 'ACTIVE',
+                    'effective_date' => $effectiveDate,
+                ],
+                result: [
+                    'employment_id' => $employmentId,
+                    'employment_status' => 'ACTIVE',
+                    'effective_date' => $effectiveDate,
+                ],
+            );
 
             return DomainEffectResult::appliedWithOutbox('employment.probation.confirmed.v1', [
                 'employment_id' => $employmentId,

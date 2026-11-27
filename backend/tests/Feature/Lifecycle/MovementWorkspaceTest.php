@@ -58,7 +58,9 @@ final class MovementWorkspaceTest extends LifecycleTestCase
             ->assertOk()
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.case_id', $caseId)
-            ->assertJsonPath('data.items.0.employment_id', $employment->id);
+            ->assertJsonPath('data.items.0.employment_id', $employment->id)
+            ->assertJsonPath('data.items.0.effective_date', '2026-12-01')
+            ->assertJsonPath('data.items.0.kind', 'transfer');
 
         $this->approveCase($caseId, 'mw-transfer-approve')
             ->assertOk()
@@ -163,7 +165,7 @@ final class MovementWorkspaceTest extends LifecycleTestCase
 
         $this->postJson("/v1/cases/{$caseId}/withdraw", [
             'comment' => 'Attempt to withdraw an approved movement.',
-        ])->assertStatus(409)
+        ], ['Idempotency-Key' => 'mw-readonly-withdraw'])->assertStatus(409)
             ->assertJsonPath('code', 'CONFLICT')
             ->assertJsonPath('data.reason', 'CASE_NOT_WITHDRAWABLE');
 

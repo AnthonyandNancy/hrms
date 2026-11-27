@@ -73,12 +73,25 @@ final class TransferEffectHandler implements DomainEffectHandler
             }
 
             $current = $this->employments->assignmentAsOf($employmentId, $effective->addDays(-1)->value());
+            $this->support->freezeBefore($command->caseId, [
+                'employment_id' => $employmentId,
+                'assignment' => $current !== null ? [
+                    'assignment_id' => $current->id,
+                    'org_unit_id' => $current->orgUnitId,
+                    'position_id' => $current->positionId,
+                    'assignment_type' => $current->assignmentType,
+                    'is_primary' => $current->isPrimary,
+                    'valid_from' => $current->validFrom,
+                    'valid_to' => $current->validTo,
+                ] : null,
+                'employment_status' => $employment->status,
+            ]);
 
             if ($current !== null) {
                 $this->people->endAssignment($current->id, (string) $effectiveDate, null, 'TRANSFER', $command->caseId);
             }
 
-            $this->people->createAssignment($employmentId, [
+            $newAssignmentId = $this->people->createAssignment($employmentId, [
                 'org_unit_id' => $org->id,
                 'position_id' => $payload['position_id'] ?? null,
                 'manager_assignment_id' => $payload['manager_assignment_id'] ?? null,
@@ -112,7 +125,24 @@ final class TransferEffectHandler implements DomainEffectHandler
                 ], null);
             }
 
-            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $effectiveDate);
+            $this->support->markEffective(
+                caseId: $command->caseId,
+                employmentId: $employmentId,
+                resultEmploymentId: $employmentId,
+                effectiveAt: $effectiveDate,
+                after: [
+                    'employment_id' => $employmentId,
+                    'assignment_id' => $newAssignmentId,
+                    'org_unit_id' => $org->id,
+                    'position_id' => $payload['position_id'] ?? null,
+                    'valid_from' => $effectiveDate,
+                ],
+                result: [
+                    'employment_id' => $employmentId,
+                    'assignment_id' => $newAssignmentId,
+                    'effective_date' => $effectiveDate,
+                ],
+            );
 
             return DomainEffectResult::appliedWithOutbox('employment.assignment.changed.v1', [
                 'employment_id' => $employmentId,

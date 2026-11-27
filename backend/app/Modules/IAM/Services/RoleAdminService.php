@@ -102,6 +102,7 @@ final class RoleAdminService
             ->map(static fn (RoleCapability $grant): array => [
                 'capability' => (string) $grant->capability_code,
                 'anchor_type' => (string) $grant->anchor_type,
+                'anchor_id' => $grant->anchor_id === null ? null : (int) $grant->anchor_id,
                 'field_profile' => (string) $grant->field_profile,
             ])->all();
 
@@ -229,7 +230,7 @@ final class RoleAdminService
     }
 
     /**
-     * @param  list<array{capability: string, anchor_type: string, field_profile: string}>  $capabilities
+     * @param  list<array{capability: string, anchor_type: string, anchor_id?: int|null, field_profile: string}>  $capabilities
      * @return array<string, mixed>
      */
     public function replaceCapabilities(string $roleCode, array $capabilities): array
@@ -312,7 +313,25 @@ final class RoleAdminService
                 );
             }
 
-            $key = $code.'|'.$anchor->value;
+            $anchorId = isset($row['anchor_id']) ? (int) $row['anchor_id'] : 0;
+
+            if ($anchor->requiresAnchorId() && $anchor !== AnchorType::COMPANY) {
+                if ($anchorId < 1) {
+                    throw new ValidationException(
+                        ["capabilities.{$index}.anchor_id" => ['This capability anchor requires an anchor id.']],
+                        'The given data was invalid.',
+                        ['reason' => 'CAPABILITY_ANCHOR_ID_REQUIRED'],
+                    );
+                }
+            } elseif ($anchorId > 0) {
+                throw new ValidationException(
+                    ["capabilities.{$index}.anchor_id" => ['This capability anchor must not carry an anchor id.']],
+                    'The given data was invalid.',
+                    ['reason' => 'CAPABILITY_ANCHOR_ID_NOT_ALLOWED'],
+                );
+            }
+
+            $key = $code.'|'.$anchor->value.'|'.$anchorId;
 
             if (isset($seen[$key])) {
                 throw new ValidationException(
@@ -326,6 +345,7 @@ final class RoleAdminService
             $validated[] = [
                 'capability' => $code,
                 'anchor_type' => $anchor->value,
+                'anchor_id' => $anchorId,
                 'field_profile' => $profile->value,
             ];
         }
@@ -345,6 +365,7 @@ final class RoleAdminService
                 'role_code' => $roleCode,
                 'capability_code' => $grant['capability'],
                 'anchor_type' => $grant['anchor_type'],
+                'anchor_id' => $grant['anchor_id'] ?? null,
                 'field_profile' => $grant['field_profile'],
             ]);
         }
@@ -377,6 +398,7 @@ final class RoleAdminService
                 ->map(static fn (RoleCapability $grant): array => [
                     'capability' => (string) $grant->capability_code,
                     'anchor_type' => (string) $grant->anchor_type,
+                    'anchor_id' => $grant->anchor_id === null ? null : (int) $grant->anchor_id,
                     'field_profile' => (string) $grant->field_profile,
                 ])->all(),
         ];

@@ -7,6 +7,7 @@ namespace App\Modules\Organization\Services;
 use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\Organization\Models\OrgUnitClosure;
 use App\Modules\People\Contracts\OrgAssignmentImpactDirectory;
+use App\Modules\People\Contracts\PeopleDirectory;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -18,6 +19,13 @@ use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Time\DateRange;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * The single Organization writer for `org_units` and its versioned closure.
+ *
+ * `open()` creates the stable unit identity; `revise()` changes non-temporal
+ * facts; `move()` only ends and appends closure paths. Department endpoints are
+ * the only HTTP create/update surface.
+ */
 final class OrgUnitService
 {
     public function __construct(
@@ -26,6 +34,7 @@ final class OrgUnitService
         private readonly AuditRecorder $audit,
         private readonly OutboxRecorder $outbox,
         private readonly OrgAssignmentImpactDirectory $assignmentImpact,
+        private readonly PeopleDirectory $people,
     ) {}
 
     /**
@@ -35,7 +44,9 @@ final class OrgUnitService
     {
         return DB::transaction(function () use ($input, $actorUserId): OrgUnit {
             $parentId = (int) ($input['parent_id'] ?? 0) ?: null;
-            if (OrgUnit::query()->where('code', (string) $input['code'])->exists()) {
+            $code = trim((string) $input['code']);
+
+            if (OrgUnit::query()->where('code', $code)->exists()) {
                 throw new ConflictException(
                     'Organization unit code must be unique within the company.',
                     ['reason' => 'ORG_UNIT_CODE_DUPLICATE'],
@@ -44,27 +55,40 @@ final class OrgUnitService
 
             $now = $this->clock->now();
             $validFrom = (string) ($input['valid_from'] ?? $this->businessDates->today()->value());
-            $range = new DateRange($validFrom, (string) ($input['valid_to'] ?? BusinessDate::OPEN_END));
+            $validTo = (string) ($input['valid_to'] ?? BusinessDate::OPEN_END);
+            $range = new DateRange($validFrom, $validTo);
+            $managerEmploymentId = isset($input['manager_employment_id'])
+                ? (int) $input['manager_employment_id']
+                : null;
 
             if ($parentId !== null) {
-                $parent = OrgUnit::query()->whereKey($parentId)->first();
+                $parent = OrgUnit::query()
+                    ->whereKey($parentId)
+                    ->where('status', 'ACTIVE')
+                    ->where('valid_from', '<=', $range->validFrom()->value())
+                    ->where('valid_to', '>', $range->validFrom()->value())
+                    ->first();
 
                 if ($parent === null) {
-                    throw new ValidationException(['parent_id' => ['The parent organization does not exist.']]);
+                    throw new ValidationException(['parent_id' => ['The parent organization is not active on the effective date.']]);
                 }
             }
 
-            $unit = OrgUnit::query()->create([
+            $this->assertManager($managerEmploymentId, $range->validFrom()->value());
+
+            $unit = new OrgUnit;
+            $unit->forceFill([
+                'manager_employment_id' => $managerEmploymentId,
                 'parent_id' => $parentId,
-                'code' => (string) $input['code'],
-                'name' => (string) $input['name'],
+                'code' => $code,
+                'name' => trim((string) $input['name']),
                 'type' => (string) $input['type'],
                 'status' => (string) ($input['status'] ?? 'ACTIVE'),
                 'valid_from' => $range->validFrom()->value(),
                 'valid_to' => $range->validTo()->value(),
                 'recorded_at' => $now,
                 'source_type' => 'API',
-            ]);
+            ])->save();
 
             $this->appendClosure($unit, $range, $now);
 
@@ -76,6 +100,7 @@ final class OrgUnitService
                 after: [
                     'code' => (string) $unit->code,
                     'parent_id' => $parentId,
+                    'manager_employment_id' => $managerEmploymentId,
                     'valid_from' => (string) $unit->valid_from,
                 ],
             );
@@ -92,6 +117,102 @@ final class OrgUnitService
             );
 
             return $unit;
+        });
+    }
+
+    /**
+     * Revise basic department facts. Temporal validity and parent changes are
+     * deliberately not rewritten here: the closure is the effective-dated
+     * hierarchy fact and a parent change must go through move().
+     *
+     * @param  array<string, mixed>  $input
+     */
+    public function revise(int $orgUnitId, array $input, ?int $actorUserId): OrgUnit
+    {
+        return DB::transaction(function () use ($orgUnitId, $input, $actorUserId): OrgUnit {
+            /** @var OrgUnit|null $unit */
+            $unit = OrgUnit::query()
+                ->whereKey($orgUnitId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($unit === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            $before = [
+                'code' => (string) $unit->code,
+                'name' => (string) $unit->name,
+                'type' => (string) $unit->type,
+                'status' => (string) $unit->status,
+                'manager_employment_id' => $unit->getAttribute('manager_employment_id') !== null
+                    ? (int) $unit->getAttribute('manager_employment_id')
+                    : null,
+            ];
+
+            $requestedValidFrom = array_key_exists('valid_from', $input)
+                ? (string) $input['valid_from']
+                : (string) $unit->valid_from;
+            $requestedValidTo = array_key_exists('valid_to', $input)
+                ? (string) ($input['valid_to'] ?? BusinessDate::OPEN_END)
+                : (string) $unit->valid_to;
+
+            if ($requestedValidFrom !== (string) $unit->valid_from || $requestedValidTo !== (string) $unit->valid_to) {
+                throw new ValidationException([
+                    'valid_from' => ['The department validity window is immutable after creation; move the department instead.'],
+                ]);
+            }
+
+            if (array_key_exists('code', $input)) {
+                $code = trim((string) $input['code']);
+
+                if (OrgUnit::query()->where('code', $code)->whereKeyNot($orgUnitId)->exists()) {
+                    throw new ConflictException(
+                        'Organization unit code must be unique within the company.',
+                        ['reason' => 'ORG_UNIT_CODE_DUPLICATE'],
+                    );
+                }
+            }
+
+            $managerEmploymentId = $unit->getAttribute('manager_employment_id') !== null
+                ? (int) $unit->getAttribute('manager_employment_id')
+                : null;
+
+            if (array_key_exists('manager_employment_id', $input)) {
+                $managerEmploymentId = $input['manager_employment_id'] !== null
+                    ? (int) $input['manager_employment_id']
+                    : null;
+                $this->assertManager($managerEmploymentId, $this->managerValidationDate($unit));
+            }
+
+            $changes = ['manager_employment_id' => $managerEmploymentId];
+
+            foreach (['code', 'name', 'type', 'status'] as $field) {
+                if (array_key_exists($field, $input)) {
+                    $changes[$field] = is_string($input[$field]) ? trim($input[$field]) : $input[$field];
+                }
+            }
+
+            $unit->forceFill($changes)->save();
+
+            $after = [
+                'code' => (string) $unit->code,
+                'name' => (string) $unit->name,
+                'type' => (string) $unit->type,
+                'status' => (string) $unit->status,
+                'manager_employment_id' => $managerEmploymentId,
+            ];
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'org.unit.updated',
+                aggregateType: 'org_unit',
+                aggregateId: (int) $unit->id,
+                before: $before,
+                after: $after,
+            );
+
+            return $unit->refresh();
         });
     }
 
@@ -127,7 +248,11 @@ final class OrgUnitService
             }
 
             if ($newParentId === $orgUnitId) {
-                throw new ValidationException(['new_parent_id' => ['An organization cannot be its own parent.']]);
+                throw new ValidationException(
+                    ['new_parent_id' => ['An organization cannot be its own parent.']],
+                    'The move would create an organization cycle.',
+                    ['reason' => 'ORG_CYCLE'],
+                );
             }
 
             if ($newParentId !== null) {
@@ -141,8 +266,12 @@ final class OrgUnitService
                     throw new ValidationException(['new_parent_id' => ['The new parent is not active on the effective date.']]);
                 }
 
-                if (in_array($orgUnitId, $this->ancestorIds($newParentId, $effectiveFrom->value()), true)) {
-                    throw new ValidationException(['new_parent_id' => ['The move would create an organization cycle.']]);
+                if ($this->wouldCycle($orgUnitId, $newParentId, $effectiveFrom->value())) {
+                    throw new ValidationException(
+                        ['new_parent_id' => ['The move would create an organization cycle.']],
+                        'The move would create an organization cycle.',
+                        ['reason' => 'ORG_CYCLE'],
+                    );
                 }
             }
 
@@ -170,8 +299,7 @@ final class OrgUnitService
                 ->where('valid_to', '>', $effectiveFrom->value())
                 ->update(['valid_to' => $effectiveFrom->value(), 'superseded_at' => $now]);
 
-            $unit->parent_id = $newParentId;
-            $unit->save();
+            $unit->forceFill(['parent_id' => $newParentId])->save();
 
             $range = new DateRange($effectiveFrom->value(), $currentTo->value());
             $this->appendClosure($unit, $range, $now);
@@ -198,13 +326,13 @@ final class OrgUnitService
                 ],
             );
 
-            return ['org_unit' => $unit, 'moved' => true, 'old_id' => $unit->id];
+            return ['org_unit' => $unit->refresh(), 'moved' => true, 'old_id' => (int) $unit->id];
         });
     }
 
     /**
      * @param  array<string, mixed>  $input
-     * @return array{affected_employee_count: int, affected_manager_count: int, payroll_cost_center_count: int, cross_entity_warning: bool}
+     * @return array{affected_employee_count: int, affected_manager_count: int, payroll_cost_center_count: int, cross_entity_warning: bool, cycle_refused: bool}
      */
     public function impact(int $orgUnitId, array $input, string $on): array
     {
@@ -238,7 +366,54 @@ final class OrgUnitService
             'affected_manager_count' => $impact->managerCount,
             'payroll_cost_center_count' => 0,
             'cross_entity_warning' => false,
+            'cycle_refused' => $this->wouldCycle($orgUnitId, $newParentId, $on),
         ];
+    }
+
+    /**
+     * Shared preflight used by both impact preview and move confirmation.
+     */
+    public function wouldCycle(int $orgUnitId, ?int $newParentId, string $on): bool
+    {
+        if ($newParentId === null) {
+            return false;
+        }
+
+        if ($newParentId === $orgUnitId) {
+            return true;
+        }
+
+        return in_array($orgUnitId, $this->ancestorIds($newParentId, $on), true);
+    }
+
+    private function assertManager(?int $managerEmploymentId, string $on): void
+    {
+        if ($managerEmploymentId === null) {
+            return;
+        }
+
+        if ($this->people->employmentSnapshot($managerEmploymentId, $on) === null) {
+            throw new ValidationException([
+                'manager_employment_id' => ['The manager employment must be active on the effective date.'],
+            ]);
+        }
+    }
+
+    private function managerValidationDate(OrgUnit $unit): string
+    {
+        $today = $this->businessDates->today()->value();
+        $from = (string) $unit->valid_from;
+        $to = (string) $unit->valid_to;
+
+        if ($today < $from) {
+            return $from;
+        }
+
+        if ($today >= $to) {
+            return $from;
+        }
+
+        return $today;
     }
 
     private function appendClosure(OrgUnit $unit, DateRange $range, \Carbon\CarbonImmutable $now): void

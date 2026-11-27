@@ -3,7 +3,6 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/errors'
 import {
   DEPARTMENT_TYPES,
-  MISSING_MANAGER_ENDPOINT,
   type Department,
   type DepartmentCreateInput,
   type DepartmentType,
@@ -14,8 +13,8 @@ const props = defineProps<{
   modelValue: boolean
   mode: 'create' | 'edit'
   department: Department | null
-  departments: readonly Department[]
   parentOptions: readonly Department[]
+  preselectedParentId?: number | null
   saving: boolean
   serverError: ApiError | null
 }>()
@@ -93,7 +92,7 @@ function hydrate(): void {
 
   draft.name = ''
   draft.code = ''
-  draft.parentId = ''
+  draft.parentId = props.preselectedParentId == null ? '' : String(props.preselectedParentId)
   draft.type = 'DEPARTMENT'
   draft.validFrom = ''
   draft.validTo = ''
@@ -219,8 +218,8 @@ function submit(): void {
             inputmode="numeric"
             placeholder="按员工关系编号指定负责人"
           />
-          <small class="department-field__hint" data-testid="department-manager-gap">
-            {{ MISSING_MANAGER_ENDPOINT }}
+          <small class="department-field__hint" data-testid="department-manager-hint">
+            按员工关系编号保存负责人；服务端校验该员工关系在生效日有效。
           </small>
           <small
             v-if="firstFieldError('manager_employment_id')"

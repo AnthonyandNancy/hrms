@@ -1,0 +1,112 @@
+{
+  "module": "M20",
+  "pagesChanged": [
+    {
+      "path": "/workflow",
+      "name": "workflow",
+      "file": "frontend/src/modules/platform/pages/WorkflowCenterPage.vue",
+      "change": "Four server-backed business views: my_approvals (我的待办, default), my_requests (我发起的), my_decided (我审批的), my_cc (抄送我的), plus templates (模板设置). Removed the default and visible all view.",
+      "requiredApis": [
+        "GET /v1/cases",
+        "GET /v1/tasks/my",
+        "GET /v1/workflow/templates",
+        "POST /v1/workflow/templates"
+      ]
+    },
+    {
+      "path": "/workflow/cases/:id",
+      "name": "workflow-case-detail",
+      "file": "frontend/src/modules/platform/workflow/pages/WorkflowCaseDetailPage.vue",
+      "change": "Applicant/approver display names, explicit decision_context and admin override reason, requester withdrawal, failed-effect retry by effect_id, partial timeline state.",
+      "requiredApis": [
+        "GET /v1/cases/{id}",
+        "GET /v1/cases/{id}/timeline",
+        "POST /v1/cases/{caseId}/decisions",
+        "POST /v1/cases/{id}/withdraw",
+        "POST /v1/effects/{id}/retry"
+      ]
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/cases",
+      "name": "cases"
+    },
+    {
+      "path": "/cases/:id",
+      "name": "case-detail"
+    }
+  ],
+  "backendCatalogRemoved": [],
+  "openapiOperations": [
+    "GET /v1/cases",
+    "GET /v1/cases/{id}",
+    "GET /v1/cases/{id}/timeline",
+    "POST /v1/cases",
+    "POST /v1/cases/{id}/submit",
+    "POST /v1/cases/{id}/withdraw",
+    "POST /v1/cases/{caseId}/decisions",
+    "GET /v1/tasks/my",
+    "GET /v1/workflow/templates",
+    "POST /v1/workflow/templates",
+    "POST /v1/effects/{id}/retry"
+  ],
+  "routeChanges": [
+    "KEEP backend GET /v1/cases; add explicit view whitelist my_approvals|my_requests|my_decided|my_cc and return 422 data.reason=INVALID_CASE_VIEW for anything else.",
+    "KEEP backend POST /v1/cases, POST /v1/cases/{id}/submit and POST /v1/cases/{id}/withdraw; route through WorkflowCommandService -> CommandRunner with required Idempotency-Key and audit.",
+    "KEEP backend POST /v1/cases/{caseId}/decisions; route through WorkflowCommandService -> CommandRunner while preserving DecisionService assignment/delegation/admin-override rules.",
+    "KEEP backend POST /v1/effects/{id}/retry; route through WorkflowCommandService -> CommandRunner and retain EffectExecutor retry/idempotency semantics.",
+    "KEEP backend GET/POST /v1/workflow/templates; POST now requires Idempotency-Key and records audit.",
+    "REMOVE frontend legacy /cases and /cases/:id route registrations from frontend/src/router/index.ts (out of this agent file domain; no redirect).",
+    "DELETE frontend/src/views/CaseCenterView.vue and frontend/src/views/CaseDetailView.vue (out of this agent file domain; no redirect).",
+    "FIX frontend/src/views/DashboardView.vue link from /cases to /workflow (out of this agent file domain)."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "workflow",
+      "key": "workflow.case.decide",
+      "label": "提交审批决定",
+      "capability": "workflow.case.decide",
+      "api": "POST /v1/cases/{caseId}/decisions",
+      "ui": "primary",
+      "confirm": "sod"
+    },
+    {
+      "pageCode": "workflow",
+      "key": "workflow.case.withdraw",
+      "label": "撤回审批申请",
+      "capability": "workflow.case.create",
+      "api": "POST /v1/cases/{id}/withdraw",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "workflow",
+      "key": "workflow.template.version.create",
+      "label": "新建流程模板版本",
+      "capability": "workflow.case.admin",
+      "api": "POST /v1/workflow/templates",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "workflow-case-detail",
+      "key": "workflow.effect.retry",
+      "label": "重试失败的业务效果",
+      "capability": "workflow.case.admin",
+      "api": "POST /v1/effects/{id}/retry",
+      "ui": "danger",
+      "confirm": "danger"
+    }
+  ],
+  "notes": [
+    "Tests are written but NOT RUN: backend/tests/Feature/Workflow/CaseProjectionNamesTest.php, backend/tests/Feature/Workflow/DecisionAssignmentNegativesTest.php, frontend/tests/unit/WorkflowCenter.spec.ts, frontend/tests/unit/WorkflowTemplatePanel.spec.ts, frontend/tests/unit/WorkflowEffectRetry.spec.ts. No PHPUnit, Vitest, vue-tsc, Playwright or full repository gate was run.",
+    "Strict file domain: frontend/src/modules/platform/api/index.ts was NOT modified. The final views/actions consume the workflow-local adapter frontend/src/modules/platform/workflow/api.ts.",
+    "Strict file domain: routes/api.php, docs/openapi/openapi.yaml, docs/generated/** and frontend/src/router/** were NOT modified. OpenAPI must be updated by the lead for the new required CaseSummary fields requester_display_name/current_assignee_display_name/decided_by_display_name, decision_context, CaseEffect failure_summary/failed_at, timeline display-name/admin fields, the my_cc view, IdempotencyKeyRequired on POST /v1/effects/{id}/retry, minLength 10 for retry reason and the documented 202 response.",
+    "Strict file domain: backend/app/Modules/IAM/** was NOT modified. CaseQueryService depends on App\\Modules\\IAM\\Contracts\\UserAudienceDirectory::displayName(); IAM already binds the production EloquentUserAudienceDirectory and tests inject a fake.",
+    "No new migration was required: the existing cases, workflow_tasks, decisions, effects, case_events, case_members and workflow_templates schema already stores every fact used. CC recipients reuse case_members role=OBSERVER.",
+    "No approval assignee or effect success is synthesized. Direct assignment, delegation and admin-override remain server-authoritative; FAILED stays FAILED until a successful retry and an APPLIED retry is an attempts-preserving no-op.",
+    "Potential test-impact for the lead: workflow POST /v1/cases, /submit, /withdraw, /decisions, /effects/{id}/retry and /workflow/templates now require an Idempotency-Key; older callers that omitted it will receive 422 data.reason=IDEMPOTENCY_KEY_REQUIRED. Tests already sending headers remain compatible.",
+    "Potential test-impact for the lead: frontend/src/views/CaseCenterView.vue still calls the legacy case API barrel and /cases routes. It must be removed rather than kept as a hidden debug entry, as required by the plan."
+  ]
+}

@@ -15,5 +15,6 @@ final readonly class EmploymentSnapshot
         public string $seniorityStartDate,
         public ?int $managerEmploymentId = null,
         public ?int $orgUnitId = null,
+        public string $employeeName = '',
     ) {}
 }

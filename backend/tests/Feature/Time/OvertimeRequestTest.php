@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
+use App\Modules\Time\Models\OvertimePolicyVersion;
 use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -11,6 +13,37 @@ use Tests\Support\Time\TimeTestCase;
 
 final class OvertimeRequestTest extends TimeTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->app->instance(PayrollPeriodLockReader::class, new class implements PayrollPeriodLockReader
+        {
+            public function isFrozen(int $employmentId, string $period): bool
+            {
+                return false;
+            }
+        });
+
+        OvertimePolicyVersion::query()->create([
+            'version' => 1,
+            'status' => OvertimePolicyVersion::STATUS_PUBLISHED,
+            'effective_from' => '2026-01-01',
+            'effective_to' => '2026-12-31',
+            'time_unit_minutes' => 30,
+            'multiplier' => '1.500000',
+            'statutory_holiday_multiplier' => '3.000000',
+            'allow_pay' => true,
+            'allow_timeoff' => true,
+            'allocation' => 'EMPLOYEE_CHOICE',
+            'rounding' => 'HALF_UP',
+            'legal_basis' => 'Synthetic overtime rule',
+            'published_at' => $this->clock->now(),
+            'published_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+    }
+
     public function test_confirmation_is_separate_from_application_and_settlement_is_unique(): void
     {
         $this->actingAsTimeEmployee();

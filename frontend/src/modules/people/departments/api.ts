@@ -1,6 +1,8 @@
+import axios, { type AxiosError } from 'axios'
 import { ApiError } from '@/api/errors'
 import { resourceGet, resourcePatch, resourcePost } from '@/api/resourceClient'
 import { nextIdempotencyKey } from '@/modules/people/peopleRead'
+import { useSessionStore } from '@/stores/session'
 
 export type DepartmentType =
   | 'COMPANY'
@@ -56,10 +58,51 @@ export type DepartmentCreateInput = {
 
 export type DepartmentUpdateInput = DepartmentCreateInput
 
+/** Session-bound CSRF is required by the department route middleware. */
+function departmentWriteHeaders(): Record<string, string> {
+  try {
+    const token = useSessionStore().csrfToken
+    return token !== null && token !== '' ? { 'X-CSRF-Token': token } : {}
+  } catch {
+    return {}
+  }
+}
+
 export type DepartmentMemberInput = {
   employment_id: number
   effective_from: string
   reason: string
+}
+
+export type DepartmentMemberRemovalInput = {
+  effective_from: string
+  reason: string
+}
+
+export type DepartmentStaffing = {
+  org_unit_id: number
+  code: string
+  name: string
+  headcount_limit: number | null
+  staffed: number
+  vacancies: number | null
+  overstaffed: boolean
+  version: number | null
+  effective_from: string | null
+}
+
+export type DepartmentHeadcountInput = {
+  headcount_limit: number
+  effective_from: string
+}
+
+export type DepartmentMoveImpact = {
+  affected_employee_count: number
+  affected_manager_count: number
+  payroll_cost_center_count: number
+  cross_entity_warning: boolean
+  cycle_refused: boolean
+  authorization_warning: string | null
 }
 
 export type DepartmentPage = {
@@ -85,6 +128,7 @@ export type MemberPage = {
 export type DepartmentMoveInput = {
   parent_id: number | null
   effective_from: string
+  idempotencyKey?: string
 }
 
 export const DEPARTMENT_TYPES: ReadonlyArray<{ value: DepartmentType; label: string }> = [
@@ -262,12 +306,12 @@ export async function fetchDepartmentMembers(
 /**
  * Department create/edit are department-scoped commands, per the task
  * interface (`POST /v1/departments`, `PATCH /v1/departments/{id}`). The
- * manager is submitted as `manager_employment_id`; if the deployed backend
- * does not declare that field yet, it must return 422 rather than the client
- * persisting an unsaved value locally.
+ * manager is submitted as `manager_employment_id` and persisted by the
+ * Organization writer; an invalid or inactive employment is rejected by the
+ * server instead of being stored locally.
  */
-export async function createDepartment(input: DepartmentCreateInput): Promise<void> {
-  await resourcePost(
+export async function createDepartment(input: DepartmentCreateInput): Promise<number> {
+  const data = await resourcePost<unknown>(
     '/v1/departments',
     {
       parent_id: input.parent_id,
@@ -278,15 +322,21 @@ export async function createDepartment(input: DepartmentCreateInput): Promise<vo
       valid_to: input.valid_to,
       manager_employment_id: input.manager_employment_id,
     },
-    { idempotencyKey: nextIdempotencyKey('department-create') },
+    { idempotencyKey: nextIdempotencyKey('department-create'), headers: departmentWriteHeaders() },
   )
+  return isRecord(data) && integer(data.id) !== null ? integer(data.id)! : 0
 }
 
+/**
+ * Basic department fields and hierarchy moves share PATCH. This helper is the
+ * basic-fact path only; use moveDepartment() for a controlled parent change.
+ * `valid_from`/`valid_to` are included for contract compatibility and must be
+ * the unchanged current window.
+ */
 export async function updateDepartment(id: number, input: DepartmentUpdateInput): Promise<void> {
   await resourcePatch(
     `/v1/departments/${id}`,
     {
-      parent_id: input.parent_id,
       code: input.code,
       name: input.name,
       type: input.type,
@@ -294,7 +344,7 @@ export async function updateDepartment(id: number, input: DepartmentUpdateInput)
       valid_to: input.valid_to,
       manager_employment_id: input.manager_employment_id,
     },
-    { idempotencyKey: nextIdempotencyKey('department-update') },
+    { idempotencyKey: nextIdempotencyKey('department-update'), headers: departmentWriteHeaders() },
   )
 }
 
@@ -309,8 +359,29 @@ export async function addDepartmentMember(
       effective_from: input.effective_from,
       reason: input.reason,
     },
-    { idempotencyKey: nextIdempotencyKey('department-member') },
+    { idempotencyKey: nextIdempotencyKey('department-member'), headers: departmentWriteHeaders() },
   )
+}
+
+export async function previewDepartmentMove(
+  departmentId: number,
+  parentId: number | null,
+  asOf: string,
+): Promise<DepartmentMoveImpact> {
+  const data: unknown = await resourceGet(`/v1/org-units/${departmentId}/impact`, {
+    new_parent_id: parentId,
+    as_of: asOf,
+  })
+  if (!isRecord(data)) throw new ApiError('INTERNAL', '迁移影响预览格式无效', { status: 500 })
+  const warning = typeof data.authorization_warning === 'string' ? data.authorization_warning : null
+  return {
+    affected_employee_count: integer(data.affected_employee_count) ?? 0,
+    affected_manager_count: integer(data.affected_manager_count) ?? 0,
+    payroll_cost_center_count: integer(data.payroll_cost_center_count) ?? 0,
+    cross_entity_warning: data.cross_entity_warning === true,
+    cycle_refused: data.cycle_refused === true,
+    authorization_warning: warning,
+  }
 }
 
 export async function moveDepartment(
@@ -323,20 +394,90 @@ export async function moveDepartment(
       new_parent_id: input.parent_id,
       effective_from: input.effective_from,
     },
-    { idempotencyKey: nextIdempotencyKey('department-move') },
+    { idempotencyKey: input.idempotencyKey ?? nextIdempotencyKey('department-move') },
   )
 }
 
-/**
- * The member-removal command named by the workspace requirements has no
- * backend route yet. This constant is rendered as an explicit blocker after
- * the destructive confirmation; no request is invented.
- */
-export const MISSING_MEMBER_REMOVAL_ENDPOINT =
-  '缺少后端接口：移除部门成员需要按 effective_from 结束任职的 DELETE/PATCH 命令（当前仅支持 POST /v1/departments/{id}/members 调入）。'
+export async function removeDepartmentMember(
+  departmentId: number,
+  employmentId: number,
+  input: DepartmentMemberRemovalInput,
+): Promise<void> {
+  const token = departmentWriteHeaders()['X-CSRF-Token'] ?? null
+  const client = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL ?? '/v1',
+    withCredentials: true,
+    timeout: 20_000,
+    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+  })
 
-export const MISSING_MANAGER_ENDPOINT =
-  '后端尚未在部门创建/更新契约与查询投影中声明负责人字段；负责人编号不会凭空保存，需先补齐后端契约。'
+  try {
+    await client.delete(`/departments/${departmentId}/members/${employmentId}`, {
+      data: {
+        effective_from: input.effective_from,
+        reason: input.reason,
+      },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': nextIdempotencyKey('department-member-remove'),
+        ...(token ? { 'X-CSRF-Token': token } : {}),
+      },
+    })
+  } catch (error) {
+    const axiosError = error as AxiosError<{
+      code?: string
+      message?: string
+      request_id?: string
+      data?: { fields?: Record<string, string[]>; reason?: string }
+    }>
+    if (!axiosError.response) throw new ApiError('NETWORK_ERROR', '网络连接失败', { status: 0 })
+    const status = axiosError.response.status
+    const code = axiosError.response.data?.code ?? (status === 403 ? 'FORBIDDEN' : 'INTERNAL')
+    throw new ApiError(code as ApiError['code'], axiosError.response.data?.message ?? '请求未完成', {
+      status,
+      requestId: axiosError.response.data?.request_id ?? null,
+      fieldErrors: axiosError.response.data?.data?.fields ?? {},
+      details: axiosError.response.data?.data ?? {},
+    })
+  }
+}
+
+export async function fetchDepartmentStaffing(
+  departmentId: number,
+  asOf: string,
+): Promise<DepartmentStaffing | null> {
+  const data: unknown = await resourceGet('/v1/departments/staffing', {
+    as_of: asOf,
+    org_unit_id: departmentId,
+  })
+  const row = listItems(data)[0]
+  if (row === undefined) return null
+  return {
+    org_unit_id: integer(row.org_unit_id) ?? departmentId,
+    code: text(row.code),
+    name: text(row.name),
+    headcount_limit: integer(row.headcount_limit),
+    staffed: integer(row.staffed) ?? 0,
+    vacancies: integer(row.vacancies),
+    overstaffed: row.overstaffed === true,
+    version: integer(row.version),
+    effective_from: typeof row.effective_from === 'string' ? row.effective_from : null,
+  }
+}
+
+export async function publishDepartmentHeadcount(
+  departmentId: number,
+  input: DepartmentHeadcountInput,
+): Promise<void> {
+  await resourcePatch(
+    `/v1/departments/${departmentId}`,
+    {
+      headcount_limit: input.headcount_limit,
+      headcount_effective_from: input.effective_from,
+    },
+    { idempotencyKey: nextIdempotencyKey('department-headcount'), headers: departmentWriteHeaders() },
+  )
+}
 
 export function buildDepartmentTree(
   treeRows: readonly OrgTreeNode[],

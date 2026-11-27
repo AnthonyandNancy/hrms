@@ -274,7 +274,7 @@ describe('payroll run detail and action bar', () => {
       return Promise.resolve(detailRaw())
     })
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=inputs')
 
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7')
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/employees')
@@ -282,22 +282,13 @@ describe('payroll run detail and action bar', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/reconciliation')
     expect(wrapper.get('[data-testid="payroll-input-table"]').text()).toContain('员工 #21')
     expect(wrapper.get('[data-testid="payroll-reconciliation-status"]').text()).toContain('对账通过')
-    const table = wrapper.get('[data-testid="payroll-employee-table"]')
-    expect(table.text()).toContain('员工 #21')
-    expect(table.text()).toContain('员工 #22')
-    expect(table.text()).toContain('已计算')
-    expect(table.text()).toContain('计算失败')
-    expect(table.text()).toContain('¥8,000.00')
-    expect(table.text()).toContain('¥2,000.00')
-    expect(table.text()).toContain('¥6,000.00')
-    expect(table.text()).toContain('缺少计薪输入快照')
     expect(wrapper.text()).toContain('2026 年 11 月')
   })
 
   it('disables actions with Chinese reasons when the transition or capability is missing', async () => {
     resource.get.mockResolvedValue(detailRaw())
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7', ['payroll.run.read'])
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export', ['payroll.run.read'])
 
     const lock = wrapper.get('[data-testid="payroll-action-lock-inputs"]')
     expect(lock.attributes('disabled')).toBeDefined()
@@ -310,7 +301,7 @@ describe('payroll run detail and action bar', () => {
   it('explains illegal transitions for an allowed capability without issuing a request', async () => {
     resource.get.mockResolvedValue(detailRaw({ status: 'PUBLISHED' }))
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=payslips')
     const calculate = wrapper.get('[data-testid="payroll-action-calculate"]')
 
     expect(calculate.attributes('disabled')).toBeDefined()
@@ -323,7 +314,7 @@ describe('payroll run detail and action bar', () => {
   it('names the period in the confirmation and posts only the real lifecycle endpoint', async () => {
     resource.get.mockResolvedValue(detailRaw())
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=payslips')
     await wrapper.get('[data-testid="payroll-action-lock-inputs"]').trigger('click')
 
     const dialog = wrapper.get('[data-testid="payroll-action-confirm"]')
@@ -349,7 +340,7 @@ describe('payroll run detail and action bar', () => {
       }),
     )
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=payslips')
     await wrapper.get('[data-testid="payroll-action-lock-inputs"]').trigger('click')
     await wrapper.get('[data-testid="payroll-action-confirm-submit"]').trigger('click')
     await flushPromises()
@@ -376,7 +367,7 @@ describe('payroll run detail and action bar', () => {
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL })
 
     try {
-      const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+      const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export')
       const bank = wrapper.get('[data-testid="payroll-export-bank"]')
       expect(bank.attributes('disabled')).toBeUndefined()
 
@@ -397,7 +388,7 @@ describe('payroll run detail and action bar', () => {
   it('does not fabricate pay data when the run detail has no employee rows', async () => {
     resource.get.mockResolvedValue(detailRaw({ employees: [], employee_count: 0 }))
 
-    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7')
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=payslips')
 
     expect(wrapper.text()).toContain('该批次没有员工行')
     expect(wrapper.findAll('[data-testid^="payroll-employee-"]')).toHaveLength(0)

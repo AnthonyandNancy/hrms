@@ -91,18 +91,23 @@ final class WorkflowServiceProvider extends ServiceProvider
             $handlers = [];
 
             foreach (self::DEFAULT_EFFECT_HANDLERS as $handlerClass) {
-                $handlers[] = $app->make($handlerClass);
+                $handlers[] = static fn (): EffectHandler => $app->make($handlerClass);
             }
 
             foreach ((array) config('workflow.effect_handlers', []) as $handlerClass) {
                 if (is_string($handlerClass) && ! in_array($handlerClass, self::DEFAULT_EFFECT_HANDLERS, true)) {
-                    $handlers[] = $app->make($handlerClass);
+                    $handlers[] = static fn (): EffectHandler => $app->make($handlerClass);
                 }
             }
 
-            foreach ((array) config('workflow.domain_effect_handlers', []) as $handlerClass) {
+            foreach ((array) config('workflow.domain_effect_handlers', []) as $key => $handlerClass) {
                 if (is_string($handlerClass)) {
-                    $handlers[] = new DomainEffectHandlerAdapter($app->make($handlerClass));
+                    // Lazy: resolving a domain handler here would construct the
+                    // People profile service while Workflow itself is being
+                    // resolved, creating a container cycle. The declared type
+                    // lets the registry validate ownership without resolving.
+                    $declaredType = is_string($key) ? $key : null;
+                    $handlers[] = static fn (): EffectHandler => new DomainEffectHandlerAdapter($handlerClass, $declaredType);
                 }
             }
 

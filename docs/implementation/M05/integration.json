@@ -1,0 +1,111 @@
+{
+  "module": "M05",
+  "pagesChanged": [
+    "/hr/departments"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/hr/departments/list",
+      "name": "部门列表"
+    },
+    {
+      "path": "/hr/departments/members",
+      "name": "部门成员"
+    },
+    {
+      "path": "/hr/departments/move",
+      "name": "部门迁移"
+    },
+    {
+      "path": "/hr/departments/staffing",
+      "name": "部门编制"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "hr-departments-list",
+    "hr-departments-members",
+    "hr-departments-move",
+    "hr-departments-staffing"
+  ],
+  "openapiOperations": [
+    "GET /v1/org-units/tree",
+    "POST /v1/departments",
+    "PATCH /v1/departments/{id}",
+    "GET /v1/departments/{id}/members",
+    "POST /v1/departments/{id}/members",
+    "DELETE /v1/departments/{id}/members/{employmentId}",
+    "GET /v1/departments/staffing",
+    "GET /v1/org-units/{id}/impact",
+    "POST /v1/org-units/{id}/move"
+  ],
+  "routeChanges": [
+    "POST /v1/org-units create semantics retired; the registered route token now returns 404 and performs no write. The M05 owner must delete the route line in routes/api.php.",
+    "PATCH /v1/departments/{id} accepts basic department fields, manager_employment_id, new_parent_id/effective_from for a controlled move, or headcount_limit/headcount_effective_from for an append-only headcount version.",
+    "GET /v1/departments/staffing accepts an optional org_unit_id filter and returns versioned headcount_limit plus live staffed/vacancies/overstaffed.",
+    "DELETE /v1/departments/{id}/members/{employmentId} now has a real frontend invocation with effective_from and reason; the old fake blocker was removed."
+  ],
+  "actionInputAdds": [
+    {
+      "page": "hr-departments",
+      "action": "org.departments.create",
+      "field": "manager_employment_id",
+      "type": "integer|null"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.update",
+      "field": "manager_employment_id",
+      "type": "integer|null"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.move",
+      "field": "new_parent_id",
+      "type": "integer|null"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.move",
+      "field": "effective_from",
+      "type": "date"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.headcount.version",
+      "field": "headcount_limit",
+      "type": "integer"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.headcount.version",
+      "field": "headcount_effective_from",
+      "type": "date"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.remove.member",
+      "field": "effective_from",
+      "type": "date"
+    },
+    {
+      "page": "hr-departments",
+      "action": "org.departments.remove.member",
+      "field": "reason",
+      "type": "string"
+    }
+  ],
+  "notes": [
+    "Strict file domain prevented edits to frontend/src/router/registry.ts, frontend/src/modules/people/catalog.ts, frontend/src/modules/people/pages/index.ts, backend/routes/api.php, docs/openapi/**, backend/app/Modules/IAM/**, and Organization Providers. The M05 owner must remove the four legacy page registrations and the POST /v1/org-units route, and update OpenAPI/action manifests accordingly.",
+    "New migrations are 2026_11_27_000201_add_manager_employment_id_to_org_units.php and 2026_11_27_000202_create_org_unit_headcount_versions.php.",
+    "Headcount versions are append-only and stored independently from People assignment projections. GET /v1/departments/staffing reads headcount_limit from org_unit_headcount_versions and staffed from DepartmentStaffingDirectory; it never writes staffed into the headcount ledger.",
+    "The headcount write is exposed through the existing department PATCH action because adding a new /headcount route would require forbidden routes/api.php and OpenAPI changes. The intended external operation name is org.departments.headcount.version (PATCH /v1/departments/{id} with headcount_limit/headcount_effective_from).",
+    "POST /v1/org-units remains physically registered only because routes/api.php is forbidden; OrgUnitController::store() returns 404 with no write.",
+    "Tests were authored but NOT RUN per instruction. Only php -l was executed for changed PHP files.",
+    "Frontend route/catalog deletions and backend permission catalog removals are reported here for the M05 owner; integration must not be treated as complete until those forbidden files are updated and all gates are actually run.",
+    "Backend DTO additions the lead must mirror in docs/openapi/openapi.yaml: Department.manager_employment_id (integer|null); DepartmentStaffing.version (integer|null) and effective_from (date|null); impact.cycle_refused (boolean) and impact.authorization_warning (string|null).",
+    "Backend catalog action input additions also need docs/generated/action-input.json and frontend/src/generated/pageActions.ts regeneration; those files are forbidden to this worker.",
+    "Contract parity risk: backend/tests/Authorization/endpoint_matrix.php and legacy-routes.frozen.txt remain untouched (outside allowed domain) and still contain POST /v1/org-units; the inert controller action keeps that token from creating data until the route is removed during integration.",
+    "Frontend API unit tests assert that basic PATCH excludes parent_id (parent changes go only through the controlled move command) and that staffing reads never submit staffed.",
+    "PHP lint: .tools/php/php.exe -l passed for all changed/new backend PHP files (16 files); JSON validation passed for this manifest. No PHPUnit, Vitest, vue-tsc, pnpm typecheck, OpenAPI lint, or gate:all was run."
+  ]
+}

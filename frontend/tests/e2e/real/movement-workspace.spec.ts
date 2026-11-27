@@ -56,7 +56,7 @@ test.describe('@real employee movement workspace', () => {
     await login(page)
     await page.goto('/hr/movements')
 
-    await expect(page.locator('h1').first()).toContainText('员工异动工作台')
+    await expect(page.locator('h1').first()).toContainText('异动列表')
     await expect(page.getByText('页面暂时无法渲染')).toHaveCount(0)
     await expect(page.getByTestId('open-movement-drawer')).toBeVisible()
 

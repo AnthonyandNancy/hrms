@@ -79,11 +79,11 @@ final class WorkspaceController
             ],
             'contract' => $profile->termsVersion !== null ? [
                 'contractNo' => 'TERMS-'.$profile->employeeNo.'-V'.$profile->termsVersion,
-                'type' => $profile->employmentType,
+                'type' => $this->employmentTypeLabel($profile->employmentType),
                 'startDate' => $profile->termsEffectiveFrom ?? $profile->validFrom,
                 'endDate' => $this->finiteDate($profile->termsEffectiveTo),
                 'daysToExpiry' => $this->daysToExpiry($profile->termsEffectiveTo, $asOf),
-                'status' => $this->contractStatus($profile->termsEffectiveTo, $asOf),
+                'status' => $this->contractStatusLabel($profile->termsEffectiveTo, $asOf),
             ] : null,
             'businessDate' => $asOf,
             'attendanceSummary' => $attendance['summary'],
@@ -142,6 +142,28 @@ final class WorkspaceController
             'leaveDays' => 0,
             'remoteDays' => 0,
         ];
+    }
+
+    private function employmentTypeLabel(?string $type): string
+    {
+        return match ($type) {
+            'FULL_TIME' => '全职',
+            'PART_TIME' => '兼职',
+            'FIXED_TERM' => '固定期限',
+            'CONTRACT' => '合同制',
+            'INTERN' => '实习',
+            'CONTRACTOR' => '外包/顾问',
+            default => '未知用工类型',
+        };
+    }
+
+    private function contractStatusLabel(?string $date, string $asOf): string
+    {
+        return match ($this->contractStatus($date, $asOf)) {
+            'EXPIRING' => '即将到期',
+            'ACTIVE' => '生效中',
+            default => '未知状态',
+        };
     }
 
     private function finiteDate(?string $date): ?string

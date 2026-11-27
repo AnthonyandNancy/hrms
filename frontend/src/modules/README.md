@@ -41,12 +41,9 @@ Rules enforced by `node scripts/audit_page_components.mjs`:
 - Every registry key owned by the module must appear exactly once, and every
   manifest key must exist in `frontend/src/router/registry.ts` (no stale keys).
 - The mapped file must exist and end in `.vue`.
-- Two `page_code`s must not map to the same `.vue` file. The only documented
-  exception is `base/AccountMfaView` and `base/AccountSessionsView`, which share
-  `frontend/src/views/AccountSecurityView.vue` because MFA and session
-  management are two sections of one account-security screen. That exception is
-  registered with a reason in `DEFAULT_SHARED_ALLOWLIST`; a third page or any
-  other shared file fails the gate.
+- Two `page_code`s must not map to the same `.vue` file. `DEFAULT_SHARED_ALLOWLIST`
+  is intentionally empty: M01 merged MFA and session management into the
+  single `/account` page, so no shared page component is permitted.
 
 Base pages (`base/*`) remain in `frontend/src/views/` and are resolved from
 `BASE_VIEWS` in `frontend/src/router/pageComponents.ts`. They are part of the

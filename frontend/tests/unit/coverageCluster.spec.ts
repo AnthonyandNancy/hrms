@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { PAGE_REGISTRY, pagesInCluster, type ClusterCode } from '@/router/registry'
 
 const CLUSTERS = {
-  K1: 4, K2: 2, K3: 1, K4: 4, K5: 4, K6: 3,
-  K7: 2, K8: 6, K9: 10, K10: 7, K11: 14, K12: 5,
-} as const satisfies Record<ClusterCode, number>
+  K5: 1, K8: 1, K10: 1, K11: 6,
+} as const satisfies Partial<Record<ClusterCode, number>>
 
 describe('cluster coverage', () => {
-  it('declares exactly 62 gap pages across K1–K12', () => {
+  it('retains only the V2.3 detail-page cluster markers', () => {
     const clustered = PAGE_REGISTRY.filter((page) => page.cluster !== undefined)
 
-    // ADR-0035: notices/archive became a workspace action, so K11 drops to 14.
-    expect(clustered).toHaveLength(62)
+    // M19 deletes four IAM entries and adds /system/pages, so K11 drops to 10.
+    expect(clustered).toHaveLength(9)
   })
 
   it('matches the documented page count for every cluster', () => {

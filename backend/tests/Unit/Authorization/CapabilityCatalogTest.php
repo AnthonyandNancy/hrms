@@ -139,7 +139,7 @@ class CapabilityCatalogTest extends TestCase
     {
         $catalog = new CapabilityCatalog;
 
-        $this->assertCount(163, $catalog->codes(), '159 existing codes + employee archive/restore and contract soft-delete/restore.');
+        $this->assertCount(170, $catalog->codes(), 'V2.3 closure catalog includes module-specific lifecycle/training/benefits capabilities.');
     }
 
     public function test_no_template_grant_exceeds_its_capability_field_profile(): void

@@ -209,8 +209,13 @@ final class LifecycleController
         $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
         $data = $request->validate([
             'case_type' => ['nullable', 'string', 'max:64'],
+            'type' => ['nullable', 'string', 'max:64'],
+            'kind' => ['nullable', 'string', 'max:32'],
             'status' => ['nullable', 'string', 'max:24'],
             'employment_id' => ['nullable', 'integer', 'min:1'],
+            'effective_from' => ['nullable', new BusinessDateRule],
+            'effective_to' => ['nullable', new BusinessDateRule],
+            'as_of' => ['nullable', new BusinessDateRule],
             'q' => ['nullable', 'string', 'max:120'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -219,12 +224,18 @@ final class LifecycleController
         return ApiResponse::ok($this->caseList->paginate(
             [
                 'case_type' => $data['case_type'] ?? null,
+                'type' => $data['type'] ?? null,
+                'kind' => $data['kind'] ?? null,
                 'status' => $data['status'] ?? null,
                 'employment_id' => $data['employment_id'] ?? null,
+                'effective_from' => $data['effective_from'] ?? null,
+                'effective_to' => $data['effective_to'] ?? null,
                 'q' => $data['q'] ?? null,
             ],
             (int) ($data['page'] ?? 1),
             (int) ($data['page_size'] ?? 20),
+            $data['as_of'] ?? null,
+            $principal->userId(),
         ));
     }
 
@@ -233,7 +244,7 @@ final class LifecycleController
         $principal = $this->principals->resolve();
         $today = $this->businessDates->today();
         $this->assertAllows($principal, 'lifecycle.case.read', AnchorRef::company(), $today->value());
-        $data = $this->projection->detail($caseId);
+        $data = $this->projection->detail($caseId, $principal->userId());
 
         return ApiResponse::ok($data);
     }

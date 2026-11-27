@@ -95,15 +95,17 @@ function resultLabel(row: EnrollmentDisplayRow): string {
             >
               {{ completionReason(row) }}
             </p>
-            <button
-              type="button"
-              class="training-enrollment-table__button is-danger"
-              :disabled="cancelReason(row) !== ''"
-              :data-testid="`training-enrollment-cancel-${row.id}`"
-              @click="emit('cancel', row)"
-            >
-              取消报名
-            </button>
+            <span data-testid="training-cancel-enrollment">
+              <button
+                type="button"
+                class="training-enrollment-table__button is-danger"
+                :disabled="cancelReason(row) !== ''"
+                :data-testid="`training-enrollment-cancel-${row.id}`"
+                @click="emit('cancel', row)"
+              >
+                取消报名
+              </button>
+            </span>
           </td>
         </tr>
       </tbody>

@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { peoplePageConfig } from '../catalog'
-import PeopleWorkspace from '../components/PeopleWorkspace.vue'
-
-defineOptions({ name: 'ContractDetailPage' })
-
-const config = peoplePageConfig('hr/contracts/by-id')!
+// M08: contract detail is a purpose-built page backed by the real contract and
+// version endpoints. The generic PeopleWorkspace shell must not be reintroduced.
+import ContractDetailPage from '../contracts/pages/ContractDetailPage.vue'
 </script>
 
 <template>
-  <PeopleWorkspace :config="config" />
+  <ContractDetailPage />
 </template>

@@ -97,7 +97,8 @@ function onFieldProfile(action: PageActionSpec, event: Event): void {
 <template>
   <section class="role-action-matrix" data-testid="role-action-matrix">
     <p class="muted small">
-      动作来自只读页面注册表（ADR-0036）。勾选动作会自动补选其所属页面；取消页面时会询问是否同时清除动作。
+      动作来自只读页面目录。勾选动作会同时补选其所属页面；取消页面时会询问是否同时清除动作。
+      动作授权与页面授权相互独立，必须在此单独勾选。
     </p>
 
     <p v-if="props.pageCode === ''" class="empty-inline">请选择页面后查看可授权的动作。</p>
@@ -109,8 +110,7 @@ function onFieldProfile(action: PageActionSpec, event: Event): void {
         <thead>
           <tr>
             <th scope="col">动作</th>
-            <th scope="col">能力码</th>
-            <th scope="col">数据锚点</th>
+            <th scope="col">适用数据范围</th>
             <th scope="col">字段档位</th>
           </tr>
         </thead>
@@ -127,9 +127,12 @@ function onFieldProfile(action: PageActionSpec, event: Event): void {
                 />
                 {{ action.label }}
               </label>
-              <div class="small muted">{{ action.ui }} · {{ action.api }}</div>
+              <el-collapse class="small muted">
+                <el-collapse-item title="管理员技术明细">
+                  <span class="mono">{{ action.capability }}</span>
+                </el-collapse-item>
+              </el-collapse>
             </td>
-            <td class="mono">{{ action.capability }}</td>
             <td>
               <select
                 :value="anchorOf(action.capability)"

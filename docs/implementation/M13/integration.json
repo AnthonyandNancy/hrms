@@ -1,0 +1,375 @@
+{
+  "module": "M13",
+  "name": "薪资核算与工资项目版本",
+  "status": "implementation-ready-integration-required",
+  "pagesAdded": [
+    {
+      "pageCode": "payroll",
+      "path": "/payroll",
+      "file": "frontend/src/modules/payroll/pages/PayrollWorkspacePage.vue",
+      "kind": "four-tab-workspace",
+      "tabs": ["batches", "components", "payslips", "reports"],
+      "queryAliases": {
+        "batches": "batches",
+        "components": "components",
+        "plans": "components",
+        "employee-plans": "components",
+        "adjustments": "components",
+        "payslips": "payslips",
+        "reports": "reports"
+      },
+      "notes": "默认批次 Tab 保留原测试 id（payroll-period-filter/payroll-status-filter/payroll-run-table）。无效 tab 回退到首个可见 Tab；工资条需 payroll.payslip.read.self，报表需 payroll.report.read。首页只读取批次；配置/工资条/报表按 Tab 懒挂载，不会在一次进入时请求全部接口。"
+    },
+    {
+      "pageCode": "payroll",
+      "path": "/payroll?tab=components",
+      "file": "frontend/src/modules/payroll/components/PayrollConfigPanel.vue",
+      "kind": "new-component",
+      "subTabs": ["items", "plans", "compensations"],
+      "notes": "薪资项目展示版本历史；复制新版本/停用仅在 payroll.run.prepare 时出现。金额只以整数分展示；费率/倍率为十进制字符串输入，不用浮点。员工薪资档案与调薪历史需 payroll.compensation.read，归档写入需 payroll.compensation.manage。"
+    },
+    {
+      "pageCode": "payroll",
+      "path": "/payroll?tab=batches",
+      "file": "frontend/src/modules/payroll/components/PayrollBatchesPanel.vue",
+      "kind": "new-component",
+      "notes": "读取 /v1/payroll/runs 与 /v1/payroll/schemes；创建批次使用 Idempotency-Key 调用 POST /v1/payroll/runs。金额键缺失保持缺失并显示字段策略隐藏，绝不补 0。"
+    },
+    {
+      "pageCode": "payroll",
+      "path": "/payroll?tab=payslips",
+      "file": "frontend/src/modules/payroll/components/PayrollPayslipsPanel.vue",
+      "kind": "new-component",
+      "notes": "只调用 GET /v1/payroll/payslips 读取本人已发布工资条；发布者还可读取已发布批次列表跳转到批次工资条。未授权能力时不发请求。"
+    },
+    {
+      "pageCode": "payroll",
+      "path": "/payroll?tab=reports",
+      "file": "frontend/src/modules/payroll/components/PayrollReportsPanel.vue",
+      "kind": "new-component",
+      "notes": "只调用 GET /v1/payroll/reports/summary；仅整数分合计与部门/期间分组，不渲染员工级工资。导出仍从批次详情发起并单独授权。"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "path": "/payroll/runs/:id",
+      "file": "frontend/src/modules/payroll/pages/PayrollRunDetailPage.vue",
+      "kind": "detail-tabs",
+      "tabs": ["inputs", "review", "disbursement", "payslips", "export"],
+      "notes": "新增五个详情 Tab；动作栏仍按状态机和 capability 显示。导出只从 /v1/payroll/runs/{id}/exports/{bank|tax} 生成并下载服务端返回内容；不拼接下载 URL。"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "pageCode": "payroll-components",
+      "path": "/payroll/components",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollItemsPage.vue",
+      "replacement": "/payroll?tab=components",
+      "requiredChanges": [
+        "删除 router/registry.ts 中的 payroll-components 条目",
+        "删除 modules/timepay/pages/index.ts 中 payroll/components 的 loader",
+        "删除 views/timepay/definitions.ts 中 payroll/components 的 definition",
+        "删除 PayrollItemsPage.vue"
+      ]
+    },
+    {
+      "pageCode": "payroll-plans",
+      "path": "/payroll/plans",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollSchemesPage.vue",
+      "replacement": "/payroll?tab=plans",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/plans", "删除 timepay definition", "删除 PayrollSchemesPage.vue"]
+    },
+    {
+      "pageCode": "payroll-employee-plans",
+      "path": "/payroll/employee-plans",
+      "legacyFile": "frontend/src/modules/timepay/pages/EmployeeCompensationPage.vue",
+      "replacement": "/payroll?tab=employee-plans",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/employee-plans", "删除 timepay definition", "删除 EmployeeCompensationPage.vue"]
+    },
+    {
+      "pageCode": "payroll-statutory",
+      "path": "/payroll/statutory",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollStatutoryPage.vue",
+      "replacement": "/benefits?tab=statutory",
+      "redirect": false,
+      "requiredChanges": [
+        "删除 registry 条目与 timepay barrel/definition",
+        "删除 PayrollStatutoryPage.vue",
+        "不创建重定向；社保公积金参数只由 /benefits?tab=statutory 承载"
+      ]
+    },
+    {
+      "pageCode": "payroll-inputs",
+      "path": "/payroll/inputs",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollInputsPage.vue",
+      "replacement": "/payroll/runs/:id?tab=inputs",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/inputs", "删除 timepay definition", "删除 PayrollInputsPage.vue"]
+    },
+    {
+      "pageCode": "payroll-batches",
+      "path": "/payroll/batches",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollRunsPage.vue",
+      "replacement": "/payroll?tab=batches",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/batches", "删除 timepay definition", "删除 PayrollRunsPage.vue"]
+    },
+    {
+      "pageCode": "payroll-reviews",
+      "path": "/payroll/reviews",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollReviewsPage.vue",
+      "replacement": "/payroll/runs/:id?tab=review",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/reviews", "删除 timepay definition", "删除 PayrollReviewsPage.vue"]
+    },
+    {
+      "pageCode": "payroll-disbursement",
+      "path": "/payroll/disbursement",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollDisbursementPage.vue",
+      "replacement": "/payroll/runs/:id?tab=disbursement",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/disbursement", "删除 timepay definition", "删除 PayrollDisbursementPage.vue"]
+    },
+    {
+      "pageCode": "payroll-payslips",
+      "path": "/payroll/payslips",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayslipsPage.vue",
+      "replacement": "/payroll?tab=payslips",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/payslips", "删除 timepay definition", "删除 PayslipsPage.vue"]
+    },
+    {
+      "pageCode": "payroll-adjustments",
+      "path": "/payroll/adjustments",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollAdjustmentsPage.vue",
+      "replacement": "/payroll?tab=employee-plans",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/adjustments", "删除 timepay definition", "删除 PayrollAdjustmentsPage.vue"]
+    },
+    {
+      "pageCode": "payroll-reports",
+      "path": "/payroll/reports",
+      "legacyFile": "frontend/src/modules/timepay/pages/PayrollReportsPage.vue",
+      "replacement": "/payroll?tab=reports",
+      "requiredChanges": ["删除 registry 条目", "删除 timepay barrel 的 payroll/reports", "删除 timepay definition", "删除 PayrollReportsPage.vue"]
+    }
+  ],
+  "backendCatalogRemoved": [
+    {
+      "file": "backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php",
+      "removedPageCodes": [
+        "payroll-components",
+        "payroll-plans",
+        "payroll-employee-plans",
+        "payroll-statutory",
+        "payroll-inputs",
+        "payroll-batches",
+        "payroll-reviews",
+        "payroll-disbursement",
+        "payroll-payslips",
+        "payroll-adjustments",
+        "payroll-reports"
+      ],
+      "retainedPageCodes": ["payroll", "payroll-run-detail"],
+      "requiredChanges": [
+        "payroll 页 required_apis/actions 扩展为配置、批次、工资条、报表所需操作，但保留 payroll.run.read 为进页能力",
+        "新增 payroll.report.read 到 CapabilityCatalog（COMPANY/ORG_SUBTREE，P2）与 PAYROLL_SPECIALIST/PAYROLL_APPROVER 角色模板",
+        "Payroll 页动作 pageCode 不得再引用被删除的 11 个 pageCode",
+        "同步 PagePermissionCoverageTest 的页面总数与 payroll 路径清单"
+      ],
+      "status": "NOT_RUN_OUT_OF_DOMAIN"
+    },
+    {
+      "file": "backend/app/Modules/IAM/Authorization/RolePageAssignmentCatalog.php",
+      "requiredChanges": [
+        "EMPLOYEE 角色若仍含 /payroll/payslips，改为 /payroll?tab=payslips 对应页面代码或保留 /payroll 自助入口",
+        "PAYROLL_SPECIALIST/PAYROLL_APPROVER 仍映射 /payroll 与 /payroll/runs/:id"
+      ],
+      "status": "NOT_RUN_OUT_OF_DOMAIN"
+    }
+  ],
+  "openapiOperations": [
+    {
+      "operation": "POST /v1/payroll/items/{id}/versions",
+      "status": "new",
+      "capability": "payroll.run.prepare",
+      "anchor": "COMPANY",
+      "idempotency": "required",
+      "request": {
+        "name": "string?",
+        "type": "EARNING|DEDUCTION|EMPLOYER_COST|INFO?",
+        "taxable": "boolean?",
+        "insurable": "boolean?",
+        "calculation": "FIXED|ATTENDANCE_PRORATE|PERCENT|FORMULA_LIMITED?",
+        "formula_json": "object?",
+        "sort_order": "integer?",
+        "effective_from": "date (required)",
+        "effective_to": "date?"
+      },
+      "response": "201 single envelope PayrollItemVersion; replay 200 + Idempotency-Replayed: true",
+      "notes": "version is server-owned; client-sent version is ignored. Overlap/retired/frozen are 409 with stable reasons."
+    },
+    {
+      "operation": "POST /v1/payroll/items/{id}/retire",
+      "status": "new",
+      "capability": "payroll.run.prepare",
+      "anchor": "COMPANY",
+      "idempotency": "required",
+      "request": {"reason": "string (2..500)"},
+      "response": "200 single envelope PayrollItem with RETIRED status; repeated command replay is 200",
+      "notes": "History is retained; PAYROLL_ITEM_IN_USE when a future scheme references the item; PAYROLL_RUN_FROZEN when the current/version period is sealed."
+    },
+    {
+      "operation": "GET /v1/payroll/reports/summary",
+      "status": "new",
+      "capability": "payroll.report.read",
+      "anchor": "COMPANY",
+      "query": {
+        "period": "YYYY-MM?",
+        "from": "date?",
+        "to": "date?",
+        "group_by": "period|department?"
+      },
+      "response": "as_of, source, group_by, currency, items[], trend[], totals{gross_cents,deductions_cents,net_cents,employer_cost_cents}",
+      "security": "Aggregate only over PUBLISHED|PAID|CLOSED runs; no employee identifiers or employee wage rows; mixed-currency rows are 409 PAYROLL_REPORT_MIXED_CURRENCY.",
+      "statusDetail": "Controller/service implemented in M13; route/OpenAPI registration is owned by the lead."
+    },
+    {
+      "operation": "GET /v1/payroll/items",
+      "status": "changed",
+      "requiredChange": "Response items now include one row per effective version: id,item_version_id,code,version,status,version_status,name,type,taxable,insurable,calculation,formula_json,sort_order,effective_from,effective_to,retired_at,retire_reason,is_current,is_retired. Prior name/type rows were one per identity item."
+    },
+    {
+      "operation": "POST /v1/payroll/items",
+      "status": "changed",
+      "requiredChange": "Creates identity + server version 1. amount_cents/base_salary_cents are prohibited (422); response uses the versioned item schema."
+    },
+    {
+      "operation": "POST /v1/payroll/schemes",
+      "status": "changed",
+      "requiredChange": "Server owns version=max+1 under lock; client version is ignored. items[].rate accepts an exact decimal string (scale >= 6) as well as rate_scaled integer; frozen valid_from periods return 409 PAYROLL_RUN_FROZEN."
+    },
+    {
+      "operation": "GET /v1/payroll/runs/{id}/reconciliation",
+      "status": "existing",
+      "requiredChange": "Run detail review/inputs tabs consume the existing operation; no contract change."
+    },
+    {
+      "operation": "GET /v1/payroll/runs/{id}/exports/bank|tax",
+      "status": "existing",
+      "requiredChange": "Export tab uses the existing audited operations; no client-side URL assembly."
+    }
+  ],
+  "routeChanges": [
+    {
+      "file": "backend/routes/api.php",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "requiredRoutes": [
+        {
+          "method": "POST",
+          "path": "/v1/payroll/items/{id}/versions",
+          "controller": "App\\Modules\\Payroll\\Http\\Controllers\\PayrollCatalogController@storeVersion",
+          "middleware": ["IdempotentCommand", "capability:payroll.run.prepare,COMPANY"],
+          "name": "payroll.items.versions.store"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/payroll/items/{id}/retire",
+          "controller": "App\\Modules\\Payroll\\Http\\Controllers\\PayrollCatalogController@retire",
+          "middleware": ["IdempotentCommand", "capability:payroll.run.prepare,COMPANY"],
+          "name": "payroll.items.retire"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/payroll/reports/summary",
+          "controller": "App\\Modules\\Payroll\\Http\\Controllers\\PayrollReportController@summary",
+          "middleware": ["capability:payroll.report.read,COMPANY"],
+          "name": "payroll.reports.summary"
+        }
+      ],
+      "notes": "M13 did not edit backend/routes/api.php. PayrollReportController and PayrollCatalogController methods exist and pass php -l; the lead must register them together with OpenAPI, capability catalog and action manifest changes."
+    },
+    {
+      "file": "frontend/src/router/registry.ts",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "requiredChanges": [
+        "/payroll 保持为单一 workspace（componentKey payroll/workspace），requiredApis 增加 GET /v1/payroll/items、GET /v1/payroll/schemes、GET /v1/payroll/payslips、GET /v1/payroll/reports/summary 与配置写操作",
+        "/payroll/runs/:id 保持 detail（componentKey payroll/runs/by-id），补充 reconciliation/inputs/exports 的 requiredApis",
+        "删除 11 条 FOLD 路由：/payroll/components、/payroll/plans、/payroll/employee-plans、/payroll/statutory、/payroll/inputs、/payroll/batches、/payroll/reviews、/payroll/disbursement、/payroll/payslips、/payroll/adjustments、/payroll/reports"
+      ]
+    },
+    {
+      "file": "frontend/src/modules/timepay/pages/index.ts",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "requiredChanges": ["删除 11 个 payroll/* barrel keys；保留 payroll/workspace 与 payroll/runs/by-id 在 modules/payroll/pages/index.ts"]
+    },
+    {
+      "file": "frontend/src/views/timepay/definitions.ts",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "requiredChanges": ["删除 11 个 payroll definition；/payroll/statutory 不建 redirect"]
+    }
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.create",
+      "label": "新增薪资项目",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items",
+      "ui": "primary",
+      "confirm": "none",
+      "notes": "Amount fields prohibited; server assigns version 1."
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.version",
+      "label": "复制薪资项目为新版本",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items/{id}/versions",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.retire",
+      "label": "停用薪资项目",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.scheme.create",
+      "label": "新建薪酬方案",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/schemes",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.compensation.create",
+      "label": "新增薪资档案版本",
+      "capability": "payroll.compensation.manage",
+      "api": "POST /v1/payroll/employee-plans",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.run.create",
+      "label": "创建工资批次",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs",
+      "ui": "primary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Allowed file domain respected: only backend/app/Modules/Payroll/**, backend/database/migrations/2026_11_27_000150_add_payroll_item_versions.php, backend/tests/Feature/Payroll/**, frontend/src/modules/payroll/**, frontend/tests/unit/ payroll tests, and docs/implementation/M13/integration.json were written. backend/routes/api.php, docs/openapi/openapi.yaml, docs/generated/**, scripts/**, frontend/src/router/**, frontend/src/modules/payroll/pages/index.ts, frontend/src/views/timepay/**, IAM/Payroll Providers, BenefitController and BenefitService were not edited by M13.",
+    "Backend: payroll_items is identity-only after migration; payroll_item_versions is append-only with server-owned max(version)+1, structural effective_to closure, retirement stamps, no deletes. Model hooks reject business-field rewrites and deletes. Frozen PUBLISHED/PAID/CLOSED periods reject item/version/retire/scheme changes with PAYROLL_RUN_FROZEN.",
+    "Money is always integer cents; rates (overtime multiplier and scheme item rates) are exact decimal strings scaled at >= 1e6. No float money path was added.",
+    "Frontend: /payroll is a four-tab workspace (批次/配置/工资条/报表). Default /payroll remains the batches tab retaining payroll-period-filter, payroll-status-filter and payroll-run-table for existing tests. query aliases components|plans|employee-plans|adjustments map into the configuration tab; invalid tab falls back to the first visible tab.",
+    "The payroll configuration tab links to /benefits?tab=statutory and never renders or posts statutory parameters. It is the only payroll-side statutory affordance.",
+    "Run detail exposes inputs, review, disbursement, payslips and export tabs while preserving PayrollActionBar state/capability behaviour and the audited export operations.",
+    "Reports tab uses payroll.report.read only and only GET /v1/payroll/reports/summary; it lacks employee-level wage fields. The run-scoped exports remain gated by payroll.export and P3 field policy.",
+    "Tests were written but NOT RUN: backend/tests/Feature/Payroll/PayrollItemVersionTest.php, PayrollCatalogHttpTest.php; frontend/tests/unit/PayrollWorkspaceTabs.spec.ts, payrollItemVersion.spec.ts. Also updated existing frontend/tests/unit/PayrollWorkspace.spec.ts tab-aware expectations.",
+    "Syntax checks completed: php -l on every changed/created PHP file (migration, models, services, controllers, tests) and isolated vue-tsc type checks for payroll API/components/pages and the two new Vitest specs. PHPUnit, Vitest, Playwright, pnpm typecheck, openapi:generate, actions:generate and gate:all are NOT RUN per task instructions.",
+    "Lead integration checklist: (1) register the three routes; (2) add payroll.report.read to CapabilityCatalog and payroll role templates; (3) add OpenAPI operations/schemas and x-action-label values; (4) add action-input entries and regenerate page-actions; (5) extend checkpoint PermissionResourceCatalog to the two retained page codes; (6) delete the 11 legacy page entries/components and update PagePermissionCoverageTest/timePayModulePages.spec.ts/routeRegistry.spec.ts counts; (7) update payroll/workspace and payroll/run-detail requiredApis/actions in registry.ts; (8) add payroll_item_versions to ModuleBoundaryScanner's Payroll-owned table list.",
+    "Forward-only migration caveat: down() drops payroll_item_versions only and intentionally does not recreate the legacy payroll_items columns; restore from a database snapshot if a rollback is truly required."
+  ]
+}

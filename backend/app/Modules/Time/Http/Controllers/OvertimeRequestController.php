@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
+use App\Modules\Time\Contracts\TimeActor;
 use App\Modules\Time\Http\TimeRequestScope;
 use App\Modules\Time\Services\OvertimeRequestService;
 use App\Shared\ApiResponse;
@@ -12,6 +13,7 @@ use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Exceptions\ValidationException;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Validation\BusinessDateRule;
 use Illuminate\Http\JsonResponse;
@@ -34,25 +36,48 @@ final class OvertimeRequestController
         );
 
         $data = $request->validate([
+            'view' => ['sometimes', 'nullable', 'string', 'in:team'],
             'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'status' => ['sometimes', 'nullable', 'string', 'in:SUBMITTED,APPROVED,CONFIRMED,REJECTED,CANCELLED'],
+            'from' => ['sometimes', 'nullable', new BusinessDateRule],
+            'to' => ['sometimes', 'nullable', new BusinessDateRule],
             'page' => ['sometimes', 'integer', 'min:1'],
             'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
-        $employmentId = isset($data['employment_id'])
-            ? $this->scope->employment($actor, (int) $data['employment_id'], $asOf)->employmentId
-            : $this->scope->selfEmployment($actor, $asOf)->employmentId;
+        $page = (int) ($data['page'] ?? 1);
+        $pageSize = (int) ($data['page_size'] ?? 20);
+        $status = isset($data['status']) ? (string) $data['status'] : null;
+        $from = isset($data['from']) ? (string) $data['from'] : null;
+        $to = isset($data['to']) ? (string) $data['to'] : null;
+
+        if (($data['view'] ?? null) === 'team') {
+            [$employmentId, $employmentIds] = $this->teamScope($actor, $data);
+        } else {
+            $employmentId = isset($data['employment_id'])
+                ? $this->scope->employment($actor, (int) $data['employment_id'], $asOf)->employmentId
+                : $this->scope->selfEmployment($actor, $asOf)->employmentId;
+            $employmentIds = null;
+        }
+
+        if ($from !== null && $to !== null && $to < $from) {
+            throw new ValidationException(['to' => ['The end date must not precede the start date.']]);
+        }
 
         $result = $this->requests->project(
             employmentId: $employmentId,
+            employmentIds: $employmentIds,
             asOf: $asOf,
-            status: isset($data['status']) ? (string) $data['status'] : null,
-            page: (int) ($data['page'] ?? 1),
-            pageSize: (int) ($data['page_size'] ?? 20),
+            status: $status,
+            from: $from,
+            to: $to,
+            page: $page,
+            pageSize: $pageSize,
         );
 
-        return $this->projections->ok($result);
+        return $this->projections->ok($result, [
+            'view' => ($data['view'] ?? null) === 'team' ? 'team' : 'self',
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -193,6 +218,43 @@ final class OvertimeRequestController
             'available_minutes' => $available,
             'settlement_count' => count($result->items),
         ]);
+    }
+
+    /**
+     * Team scopes are derived from the resolved Time actor, never a client
+     * scope flag. SELF callers cannot use the team queue.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{0: int|null, 1: list<int>|null}
+     */
+    private function teamScope(TimeActor $actor, array $data): array
+    {
+        $scope = strtoupper($actor->scope);
+
+        if ($scope === 'SELF') {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if ($scope === 'MANAGED') {
+            $ids = array_values(array_unique(array_map('intval', $actor->managedEmploymentIds)));
+            $employmentId = null;
+
+            if (isset($data['employment_id'])) {
+                $requested = (int) $data['employment_id'];
+
+                if (! in_array($requested, $ids, true)) {
+                    throw new NotFoundOrForbiddenException;
+                }
+
+                $employmentId = $requested;
+            }
+
+            return [$employmentId, $employmentId === null ? $ids : [$employmentId]];
+        }
+
+        $employmentId = isset($data['employment_id']) ? (int) $data['employment_id'] : null;
+
+        return [$employmentId, $employmentId === null ? null : [$employmentId]];
     }
 
     private function respond(CommandResult $result, bool $created): JsonResponse

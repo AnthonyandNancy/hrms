@@ -13,6 +13,7 @@ final class TrainingExam extends Model
     /** @var list<string> */
     protected $fillable = [
         'course_id',
+        'session_id',
         'code',
         'title',
         'version',
@@ -30,6 +31,7 @@ final class TrainingExam extends Model
     {
         return [
             'course_id' => 'integer',
+            'session_id' => 'integer',
             'version' => 'integer',
             'passing_score' => 'integer',
             'max_score' => 'integer',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { filterLabel, type OrgUnitOption, type ReportDefinition } from '../api'
+import { filterLabel, reportDomainLabel, type OrgUnitOption, type ReportDefinition } from '../api'
 
 const props = withDefaults(
   defineProps<{
@@ -46,7 +46,10 @@ function optionsFor(type: string, options: string[]): Array<{ value: string; lab
         <h2 class="panel__title">{{ definition.name }}</h2>
         <p class="panel__subtitle">{{ definition.description }}</p>
       </div>
-      <span class="plain-chip">{{ definition.fields.length }} 个字段</span>
+      <div class="report-runner__chips">
+        <span class="plain-chip">{{ reportDomainLabel(definition.domain ?? '') }}</span>
+        <span class="plain-chip">{{ definition.fields.length }} 个字段</span>
+      </div>
     </div>
 
     <div class="panel__body report-parameters">
@@ -84,14 +87,26 @@ function optionsFor(type: string, options: string[]): Array<{ value: string; lab
         />
       </label>
 
-      <el-button type="primary" :loading="running" data-testid="report-run" @click="emit('run')">
-        运行报表
+      <el-button
+        type="primary"
+        :loading="running"
+        :disabled="running"
+        data-testid="report-run"
+        @click="emit('run')"
+      >
+        {{ running ? '正在查询' : '运行报表' }}
       </el-button>
     </div>
   </section>
 </template>
 
 <style scoped>
+.report-runner__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .report-parameters {
   display: flex;
   flex-wrap: wrap;

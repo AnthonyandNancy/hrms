@@ -21,10 +21,10 @@ final class RolePagesTest extends TestCase
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
-        $this->assertSame(153, RolePage::query()->where('role_code', 'SYSTEM_ADMIN')->count());
-        $this->assertSame(153, RolePage::query()->where('role_code', 'SUPER_ADMIN')->count());
+        $this->assertSame(37, RolePage::query()->where('role_code', 'SYSTEM_ADMIN')->count());
+        $this->assertSame(37, RolePage::query()->where('role_code', 'SUPER_ADMIN')->count());
         $this->assertGreaterThan(0, RolePage::query()->where('role_code', 'HR_ADMIN')->count());
-        $this->assertLessThan(153, RolePage::query()->where('role_code', 'HR_ADMIN')->count());
+        $this->assertLessThan(37, RolePage::query()->where('role_code', 'HR_ADMIN')->count());
         $this->assertGreaterThan(0, RolePage::query()->where('role_code', 'EMPLOYEE')->count());
         $this->assertSame(
             (int) RolePage::query()->count(),
@@ -40,7 +40,7 @@ final class RolePagesTest extends TestCase
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
         foreach (['SYSTEM_ADMIN', 'HR_ADMIN', 'HR_SPECIALIST', 'EMPLOYEE', 'LINE_MANAGER', 'PAYROLL_SPECIALIST'] as $role) {
-            foreach (['workspace', 'account-mfa', 'account-sessions'] as $page) {
+            foreach (['workspace', 'account'] as $page) {
                 $this->assertDatabaseHas('role_pages', ['role_code' => $role, 'page_code' => $page]);
             }
         }

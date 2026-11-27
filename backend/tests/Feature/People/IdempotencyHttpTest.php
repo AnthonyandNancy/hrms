@@ -15,10 +15,10 @@ final class IdempotencyHttpTest extends PeopleTestCase
         $headers = ['Idempotency-Key' => 'people-idem-0001'];
 
         $first = $this->postJson('/v1/persons', $payload, $headers)->assertCreated();
-        $second = $this->postJson('/v1/persons', $payload, $headers)->assertCreated();
+        $second = $this->postJson('/v1/persons', $payload, $headers)->assertOk();
 
         $this->assertSame($first->json('data.id'), $second->json('data.id'));
-        $this->assertSame('true', $second->headers->get('Idempotent-Replayed'));
+        $this->assertSame('true', $second->headers->get('Idempotency-Replayed'));
         $this->assertSame(1, Person::query()->count());
     }
 

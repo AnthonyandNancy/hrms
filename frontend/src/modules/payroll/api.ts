@@ -413,6 +413,372 @@ export async function runPayrollAction(
 }
 
 /* ------------------------------------------------------------------ */
+/* Versioned payroll catalogue and workspace tabs.                     */
+/* ------------------------------------------------------------------ */
+
+export type PayrollItemType = 'EARNING' | 'DEDUCTION' | 'EMPLOYER_COST' | 'INFO'
+export type PayrollCalculation = 'FIXED' | 'ATTENDANCE_PRORATE' | 'PERCENT' | 'FORMULA_LIMITED'
+
+export type PayrollItemRecord = {
+  id: number
+  itemVersionId: number
+  code: string
+  version: number
+  status: string
+  versionStatus: string
+  name: string
+  type: PayrollItemType
+  taxable: boolean
+  insurable: boolean
+  calculation: PayrollCalculation
+  formulaJson: Record<string, unknown> | null
+  sortOrder: number
+  effectiveFrom: string
+  effectiveTo: string
+  retiredAt: string | null
+  retireReason: string | null
+  isCurrent: boolean
+  isRetired: boolean
+}
+
+export type PayrollSchemeRecord = {
+  id: number
+  code: string
+  name: string
+  currency: string
+  version: number
+  status: string
+  prorationDivisor: string
+  roundingMode: string
+  overtimeMultiplier: string
+  baseSalaryCents: number
+  items: Array<{
+    itemCode: string
+    label: string
+    category: string
+    amountCents: number
+    sortOrder: number
+    taxable: boolean
+  }>
+}
+
+export type EmployeeCompensationRecord = {
+  id: number
+  employmentId: number
+  effectiveFrom: string
+  currency: string
+  salarySchemeCode: string | null
+  createdBy: number
+  createdAt: string | null
+  baseSalaryCents?: number
+}
+
+export type SalaryAdjustmentRecord = EmployeeCompensationRecord & {
+  caseId: number
+  compensationId: number
+  reason: string
+}
+
+export type MyPayslip = {
+  id: number
+  runId: number
+  employmentId: number
+  version: number
+  publishedAt: string | null
+  grossCents?: number
+  deductionsCents?: number
+  netCents?: number
+  employerCostCents?: number
+}
+
+export type PayrollReportGroupRow = {
+  period: string | null
+  departmentId: number | null
+  departmentName: string | null
+  runCount: number
+  employeeCount: number
+  grossCents: number
+  deductionsCents: number
+  netCents: number
+  employerCostCents: number
+}
+
+export type PayrollReportSummary = {
+  asOf: string
+  source: string
+  groupBy: 'period' | 'department'
+  currency: string
+  items: PayrollReportGroupRow[]
+  trend: PayrollReportGroupRow[]
+  totals: {
+    grossCents: number
+    deductionsCents: number
+    netCents: number
+    employerCostCents: number
+  }
+}
+
+function optionalMoney(row: Raw, key: string, field: string): number | undefined {
+  return row[key] === undefined ? undefined : requiredInteger(row[key], field)
+}
+
+export function normalisePayrollItem(raw: unknown): PayrollItemRecord {
+  const row = record(raw, 'payroll_item')
+  const type = text(row.type, 'item.type') as PayrollItemType
+  const calculation = text(row.calculation, 'item.calculation') as PayrollCalculation
+
+  if (!['EARNING', 'DEDUCTION', 'EMPLOYER_COST', 'INFO'].includes(type)) contractError('item.type')
+  if (!['FIXED', 'ATTENDANCE_PRORATE', 'PERCENT', 'FORMULA_LIMITED'].includes(calculation)) {
+    contractError('item.calculation')
+  }
+
+  return {
+    id: requiredInteger(row.id, 'item.id'),
+    itemVersionId: requiredInteger(row.item_version_id, 'item.item_version_id'),
+    code: text(row.code, 'item.code'),
+    version: requiredInteger(row.version, 'item.version'),
+    status: text(row.status, 'item.status'),
+    versionStatus: text(row.version_status ?? row.status, 'item.version_status'),
+    name: text(row.name, 'item.name'),
+    type,
+    taxable: row.taxable !== false,
+    insurable: row.insurable !== false,
+    calculation,
+    formulaJson: isRecord(row.formula_json) ? row.formula_json : null,
+    sortOrder: nullableInteger(row.sort_order, 'item.sort_order') ?? 0,
+    effectiveFrom: text(row.effective_from, 'item.effective_from'),
+    effectiveTo: nullableText(row.effective_to, 'item.effective_to') ?? '9999-12-31',
+    retiredAt: nullableText(row.retired_at, 'item.retired_at'),
+    retireReason: nullableText(row.retire_reason, 'item.retire_reason'),
+    // Write responses return a single version without the list-only flags;
+    // derive them from status so a fresh create/append remains renderable.
+    isCurrent: row.is_current === true || row.is_current === undefined,
+    isRetired: row.is_retired === true || row.status === 'RETIRED',
+  }
+}
+
+export async function listPayrollItems(): Promise<PayrollItemRecord[]> {
+  const payload = record(await resourceGet<unknown>('/v1/payroll/items'), 'payroll_items')
+  return listOf(payload.items, 'payroll_items.items').map(normalisePayrollItem)
+}
+
+export async function createPayrollItem(
+  input: Record<string, unknown>,
+  idempotencyKey = newPayrollIdempotencyKey('item'),
+): Promise<PayrollItemRecord> {
+  return normalisePayrollItem(
+    await resourcePost<unknown>('/v1/payroll/items', input, { idempotencyKey }),
+  )
+}
+
+export async function createPayrollItemVersion(
+  itemId: number,
+  input: Record<string, unknown>,
+  idempotencyKey = newPayrollIdempotencyKey('item-version'),
+): Promise<PayrollItemRecord> {
+  return normalisePayrollItem(
+    await resourcePost<unknown>(`/v1/payroll/items/${itemId}/versions`, input, { idempotencyKey }),
+  )
+}
+
+export async function retirePayrollItem(
+  itemId: number,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('item-retire'),
+): Promise<PayrollItemRecord> {
+  return normalisePayrollItem(
+    await resourcePost<unknown>(`/v1/payroll/items/${itemId}/retire`, { reason }, { idempotencyKey }),
+  )
+}
+
+export function normalisePayrollScheme(raw: unknown): PayrollSchemeRecord {
+  const row = record(raw, 'scheme')
+  const items = listOf(row.items ?? [], 'scheme.items')
+
+  return {
+    id: requiredInteger(row.id, 'scheme.id'),
+    code: text(row.code, 'scheme.code'),
+    name: text(row.name, 'scheme.name'),
+    currency: text(row.currency, 'scheme.currency'),
+    version: requiredInteger(row.version, 'scheme.version'),
+    status: text(row.status, 'scheme.status'),
+    prorationDivisor: text(row.proration_divisor, 'scheme.proration_divisor'),
+    roundingMode: text(row.rounding_mode, 'scheme.rounding_mode'),
+    overtimeMultiplier: text(row.overtime_multiplier, 'scheme.overtime_multiplier'),
+    baseSalaryCents: requiredInteger(row.base_salary_cents, 'scheme.base_salary_cents'),
+    items: items.map((candidate) => {
+      const item = record(candidate, 'scheme.item')
+      return {
+        itemCode: text(item.item_code, 'scheme.item.item_code'),
+        label: text(item.label, 'scheme.item.label'),
+        category: text(item.category, 'scheme.item.category'),
+        amountCents: requiredInteger(item.amount_cents, 'scheme.item.amount_cents'),
+        sortOrder: nullableInteger(item.sort_order, 'scheme.item.sort_order') ?? 0,
+        taxable: item.taxable !== false,
+      }
+    }),
+  }
+}
+
+export async function listPayrollSchemes(): Promise<PayrollSchemeRecord[]> {
+  const payload = record(await resourceGet<unknown>('/v1/payroll/schemes'), 'payroll_schemes')
+  return listOf(payload.items, 'payroll_schemes.items').map(normalisePayrollScheme)
+}
+
+export async function createPayrollScheme(
+  input: Record<string, unknown>,
+  idempotencyKey = newPayrollIdempotencyKey('scheme'),
+): Promise<PayrollSchemeRecord> {
+  const payload = await resourcePost<Record<string, unknown>>('/v1/payroll/schemes', input, { idempotencyKey })
+  return normalisePayrollScheme({
+    ...payload,
+    items: [],
+    proration_divisor: payload.proration_divisor ?? 'ANNUAL_DAYS_365',
+    rounding_mode: payload.rounding_mode ?? 'HALF_UP',
+    overtime_multiplier: payload.overtime_multiplier ?? '1.500000',
+    base_salary_cents: payload.base_salary_cents ?? 0,
+    status: payload.status ?? 'ACTIVE',
+  })
+}
+
+export function normaliseCompensation(raw: unknown): EmployeeCompensationRecord {
+  const row = record(raw, 'employee_compensation')
+  return {
+    id: requiredInteger(row.id, 'compensation.id'),
+    employmentId: requiredInteger(row.employment_id, 'compensation.employment_id'),
+    effectiveFrom: text(row.effective_from, 'compensation.effective_from'),
+    currency: text(row.currency, 'compensation.currency'),
+    salarySchemeCode: nullableText(row.salary_scheme_code, 'compensation.salary_scheme_code'),
+    createdBy: requiredInteger(row.created_by, 'compensation.created_by'),
+    createdAt: nullableText(row.created_at, 'compensation.created_at'),
+    baseSalaryCents: optionalMoney(row, 'base_salary_cents', 'compensation.base_salary_cents'),
+  }
+}
+
+export function normaliseSalaryAdjustment(raw: unknown): SalaryAdjustmentRecord {
+  const row = record(raw, 'salary_adjustment')
+  return {
+    ...normaliseCompensation(row),
+    caseId: requiredInteger(row.case_id, 'adjustment.case_id'),
+    compensationId: requiredInteger(row.compensation_id, 'adjustment.compensation_id'),
+    reason: text(row.reason, 'adjustment.reason'),
+  }
+}
+
+export async function listEmployeeCompensations(employmentId?: number): Promise<EmployeeCompensationRecord[]> {
+  const payload = record(
+    await resourceGet<unknown>('/v1/payroll/employee-plans', {
+      page: 1,
+      page_size: 100,
+      ...(employmentId !== undefined ? { employment_id: employmentId } : {}),
+    }),
+    'employee_compensations',
+  )
+  return listOf(payload.items, 'employee_compensations.items').map(normaliseCompensation)
+}
+
+export async function listSalaryAdjustments(employmentId?: number): Promise<SalaryAdjustmentRecord[]> {
+  const payload = record(
+    await resourceGet<unknown>('/v1/payroll/adjustments', {
+      page: 1,
+      page_size: 100,
+      ...(employmentId !== undefined ? { employment_id: employmentId } : {}),
+    }),
+    'salary_adjustments',
+  )
+  return listOf(payload.items, 'salary_adjustments.items').map(normaliseSalaryAdjustment)
+}
+
+/**
+ * CompensationController currently returns its write body as a nested
+ * envelope. Unwrap exactly one `data` layer at the API boundary so the page
+ * never has to know about the legacy transport quirk.
+ */
+export async function createEmployeeCompensation(
+  input: Record<string, unknown>,
+  idempotencyKey = newPayrollIdempotencyKey('compensation'),
+): Promise<EmployeeCompensationRecord> {
+  const response = record(
+    await resourcePost<unknown>('/v1/payroll/employee-plans', input, { idempotencyKey }),
+    'employee_compensation_write',
+  )
+  const row = isRecord(response.data) ? response.data : response
+  return normaliseCompensation(row)
+}
+
+export function normaliseMyPayslip(raw: unknown): MyPayslip {
+  const row = record(raw, 'payslip')
+  return {
+    id: requiredInteger(row.id, 'payslip.id'),
+    runId: requiredInteger(row.run_id, 'payslip.run_id'),
+    employmentId: requiredInteger(row.employment_id, 'payslip.employment_id'),
+    version: requiredInteger(row.version, 'payslip.version'),
+    publishedAt: nullableText(row.published_at, 'payslip.published_at'),
+    grossCents: optionalMoney(row, 'gross_cents', 'payslip.gross_cents'),
+    deductionsCents: optionalMoney(row, 'deductions_cents', 'payslip.deductions_cents'),
+    netCents: optionalMoney(row, 'net_cents', 'payslip.net_cents'),
+    employerCostCents: optionalMoney(row, 'employer_cost_cents', 'payslip.employer_cost_cents'),
+  }
+}
+
+export async function listMyPayslips(period?: string): Promise<MyPayslip[]> {
+  const payload = record(
+    await resourceGet<unknown>('/v1/payroll/payslips', period ? { period } : undefined),
+    'my_payslips',
+  )
+  return listOf(payload.items, 'my_payslips.items').map(normaliseMyPayslip)
+}
+
+export function normalisePayrollReportSummary(raw: unknown): PayrollReportSummary {
+  const payload = record(raw, 'payroll_report')
+  const rows = (candidate: unknown): PayrollReportGroupRow[] =>
+    listOf(candidate, 'payroll_report.items').map((entry) => {
+      const row = record(entry, 'payroll_report.row')
+      return {
+        period: nullableText(row.period, 'report.period'),
+        departmentId: nullableInteger(row.department_id, 'report.department_id'),
+        departmentName: nullableText(row.department_name, 'report.department_name'),
+        runCount: requiredInteger(row.run_count, 'report.run_count'),
+        employeeCount: requiredInteger(row.employee_count, 'report.employee_count'),
+        grossCents: requiredInteger(row.gross_cents, 'report.gross_cents'),
+        deductionsCents: requiredInteger(row.deductions_cents, 'report.deductions_cents'),
+        netCents: requiredInteger(row.net_cents, 'report.net_cents'),
+        employerCostCents: requiredInteger(row.employer_cost_cents, 'report.employer_cost_cents'),
+      }
+    })
+  const totals = record(payload.totals, 'payroll_report.totals')
+
+  return {
+    asOf: text(payload.as_of, 'report.as_of'),
+    source: text(payload.source, 'report.source'),
+    groupBy: payload.group_by === 'department' ? 'department' : 'period',
+    currency: text(payload.currency, 'report.currency'),
+    items: rows(payload.items),
+    trend: rows(payload.trend ?? []),
+    totals: {
+      grossCents: requiredInteger(totals.gross_cents, 'report.totals.gross_cents'),
+      deductionsCents: requiredInteger(totals.deductions_cents, 'report.totals.deductions_cents'),
+      netCents: requiredInteger(totals.net_cents, 'report.totals.net_cents'),
+      employerCostCents: requiredInteger(totals.employer_cost_cents, 'report.totals.employer_cost_cents'),
+    },
+  }
+}
+
+export async function getPayrollReportSummary(params: {
+  period?: string
+  from?: string
+  to?: string
+  groupBy?: 'period' | 'department'
+}): Promise<PayrollReportSummary> {
+  const query: Record<string, unknown> = {}
+  if (params.period) query.period = params.period
+  if (params.from) query.from = params.from
+  if (params.to) query.to = params.to
+  if (params.groupBy) query.group_by = params.groupBy
+  return normalisePayrollReportSummary(await resourceGet<unknown>('/v1/payroll/reports/summary', query))
+}
+
+/* ------------------------------------------------------------------ */
 /* Render-only Chinese copy. Values never feed back into a money model. */
 /* ------------------------------------------------------------------ */
 

@@ -75,10 +75,10 @@ final class IdempotentCommand
             },
         );
 
-        $response = new JsonResponse($result->body, $result->status);
+        $response = new JsonResponse($result->body, $result->replayed ? 200 : $result->status);
 
         if ($result->replayed) {
-            $response->headers->set('Idempotent-Replayed', 'true');
+            $response->headers->set('Idempotency-Replayed', 'true');
         }
 
         return $response;

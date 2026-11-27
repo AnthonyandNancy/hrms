@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Organization;
 
-use App\Modules\Organization\Models\OrgUnit;
 use App\Modules\People\Models\Assignment;
 use Tests\Support\PeopleTestCase;
 
@@ -43,7 +42,7 @@ final class DepartmentApiTest extends PeopleTestCase
         $org = $scenario->orgUnit('STAFF-001');
         $employment = $scenario->employment($scenario->person(), 'STAFF-EMP');
         $scenario->assignment($employment, $org);
-        OrgUnit::query()->whereKey($org->id)->update(['headcount_limit' => 3]);
+        app(\App\Modules\Organization\Services\DepartmentStaffingService::class)->publish((int) $org->id, 3, '2026-11-01', 10);
 
         $this->getJson('/v1/departments/staffing?as_of=2026-11-23')
             ->assertOk()
@@ -73,7 +72,7 @@ final class DepartmentApiTest extends PeopleTestCase
             'employment_id' => $employment->id,
             'effective_from' => '2026-12-01',
             'reason' => 'Synthetic department move.',
-        ])->assertCreated();
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-member-move-1'])->assertCreated();
 
         $old = Assignment::query()->findOrFail($assignment->id);
         $this->assertSame('2026-12-01', (string) $old->valid_to);

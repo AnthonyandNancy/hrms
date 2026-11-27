@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
         </button>
         <div class="topbar__context">
           <p class="topbar__eyebrow">澄明科技 · 人力资源</p>
-          <h1 class="topbar__title">{{ pageTitle }}</h1>
+          <span class="topbar__title">{{ pageTitle }}</span>
         </div>
         <div class="topbar__spacer" />
         <RouterLink to="/notices" class="topbar__notice" aria-label="查看未读公告">

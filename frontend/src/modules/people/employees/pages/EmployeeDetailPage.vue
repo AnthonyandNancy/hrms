@@ -46,6 +46,7 @@ const TAB_ALIASES: Record<string, EmployeeTabKey> = {
   files: 'credentials',
   education: 'education',
   experience: 'experience',
+  history: 'employment',
   'work-history': 'experience',
   contacts: 'contacts',
   changes: 'changes',
@@ -82,15 +83,6 @@ const activeTab = computed<EmployeeTabKey>(() => {
 })
 
 const canEdit = computed(() => session.can('people.employee.manage'))
-const profileResource = computed<'education' | 'experiences' | 'contacts' | null>(() => {
-  if (activeTab.value === 'education') return 'education'
-  if (activeTab.value === 'experience') return 'experiences'
-  if (activeTab.value === 'contacts') return 'contacts'
-  return null
-})
-const hasProfileWorkspace = computed(() =>
-  ['credentials', 'education', 'experience', 'contacts', 'changes'].includes(activeTab.value),
-)
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
 
@@ -326,22 +318,45 @@ watch(
       />
 
       <!--
-        Same-object sub-profile workspaces. EmployeeTabs keeps the page/tab
-        shell; these components add the capability-guarded write and file flows
-        owned by Task 4 without changing the existing tab component.
+        Sub-profile tabs render their editable workspace once, after the tabs
+        shell, and EmployeeTabs only shows read-only summaries. This prevents
+        the duplicate education/experience/contact/certificate/change tables
+        that appeared when the same resource was mounted twice.
       -->
-      <section v-if="hasProfileWorkspace" class="employee-detail__profile" data-testid="employee-profile-workspace">
-        <EmployeeProfileSection
-          v-if="profileResource !== null"
-          :employment-id="employee.employment_id"
-          :resource="profileResource"
-        />
-        <template v-if="activeTab === 'credentials'">
-          <EmployeeProfileSection :employment-id="employee.employment_id" resource="certificates" />
-          <EmployeeFileList :employment-id="employee.employment_id" />
-        </template>
-        <EmployeeChangeList v-if="activeTab === 'changes'" :employment-id="employee.employment_id" />
-      </section>
+      <EmployeeProfileSection
+        v-if="activeTab === 'education'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+        resource="education"
+      />
+      <EmployeeProfileSection
+        v-else-if="activeTab === 'experience'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+        resource="experiences"
+      />
+      <EmployeeProfileSection
+        v-else-if="activeTab === 'contacts'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+        resource="contacts"
+      />
+      <EmployeeProfileSection
+        v-else-if="activeTab === 'credentials'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+        resource="certificates"
+      />
+      <EmployeeFileList
+        v-if="activeTab === 'credentials'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+      />
+      <EmployeeChangeList
+        v-if="activeTab === 'changes'"
+        class="employee-detail__profile"
+        :employment-id="employee.employment_id"
+      />
     </template>
   </PageShell>
 </template>

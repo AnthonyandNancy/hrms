@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError, errorCopy } from '@/api/errors'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
@@ -8,6 +10,7 @@ import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
 import { requestIdFromError } from '@/utils/renderErrors'
 import CandidatePipeline from '../components/CandidatePipeline.vue'
+import CandidateImportDrawer from '../components/CandidateImportDrawer.vue'
 import {
   isForbidden,
   listCandidates,
@@ -24,10 +27,28 @@ defineOptions({ name: 'CandidateWorkspacePage' })
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
 
+const route = useRoute()
+const router = useRouter()
 const session = useSessionStore()
 const canRead = computed(() => session.can('recruitment.candidate.read'))
 const canManage = computed(() => session.can('recruitment.candidate.manage'))
 const canReadRequisitions = computed(() => session.can('recruitment.requisition.read'))
+const canImport = computed(() => session.can('recruitment.candidate.import'))
+
+const CANDIDATE_LIST_COLUMNS: DataTableColumn[] = [
+  { key: 'displayName', label: '候选人', minWidth: '160px' },
+  { key: 'statusLabel', label: '阶段', width: '120px' },
+  { key: 'requisitionLabel', label: '关联需求', width: '130px' },
+  { key: 'source', label: '来源', width: '120px' },
+  { key: 'contactLabel', label: '联系方式', minWidth: '180px' },
+]
+
+const candidateListRows = computed(() => visibleCandidates.value.map((row) => ({
+  ...row,
+  requisitionLabel: row.requisitionId === null ? '未关联' : `需求 #${row.requisitionId}`,
+  source: row.source ?? '未登记',
+  contactLabel: `${row.hasEmail ? '邮箱已登记' : '无邮箱'} · ${row.hasMobile ? '手机已登记' : '无手机'}`,
+})))
 
 const state = ref<LoadState>('idle')
 const candidates = ref<Candidate[]>([])
@@ -37,6 +58,9 @@ const pageError = ref<unknown>(null)
 const requisitionFilter = ref('')
 const search = ref('')
 const movingId = ref<number | null>(null)
+const viewMode = ref<'list' | 'pipeline'>('pipeline')
+const talentPoolOnly = ref(false)
+const importOpen = ref(false)
 
 const moveTarget = ref<Candidate | null>(null)
 const moveStatus = ref('')
@@ -49,6 +73,9 @@ let requestSequence = 0
 const loading = computed(() => state.value === 'idle' || state.value === 'loading')
 const forbidden = computed(() => !canRead.value || state.value === 'forbidden')
 const isEmpty = computed(() => state.value === 'ready' && candidates.value.length === 0)
+const visibleCandidates = computed(() =>
+  viewMode.value === 'pipeline' ? candidates.value : candidates.value,
+)
 const partial = computed(() => requisitionLookupError.value !== '' && state.value === 'ready')
 const errorMessage = computed(() => {
   if (pageError.value === null) return '候选人看板暂时无法加载。'
@@ -80,6 +107,7 @@ async function load(): Promise<void> {
     listCandidates({
       requisitionId: requisitionFilter.value === '' ? null : Number(requisitionFilter.value),
       search: search.value,
+      talentPool: talentPoolOnly.value,
     }),
   ])
 
@@ -176,6 +204,30 @@ async function confirmMove(): Promise<void> {
   }
 }
 
+function applyViewMode(value: string | null): void {
+  viewMode.value = value === 'list' ? 'list' : 'pipeline'
+}
+
+function setViewMode(value: 'list' | 'pipeline'): void {
+  viewMode.value = value
+  void router.replace({ query: { ...route.query, view: value } })
+}
+
+function openImport(): void {
+  if (!canImport.value) return
+  importOpen.value = true
+}
+
+function onImported(): void {
+  void load()
+}
+
+watch(
+  () => route.query.view,
+  (value) => applyViewMode(typeof value === 'string' ? value : null),
+  { immediate: true },
+)
+
 onMounted(load)
 onBeforeUnmount(() => {
   requestSequence += 1
@@ -188,6 +240,35 @@ onBeforeUnmount(() => {
     description="按真实招聘阶段查看候选人；阶段移动需二次确认并携带幂等键，已入职由录用转入职动作产生。"
   >
     <template #actions>
+      <div class="candidate-workspace__views" role="group" aria-label="候选人视图">
+        <button
+          type="button"
+          class="candidate-workspace__secondary"
+          :class="{ 'candidate-workspace__secondary--active': viewMode === 'pipeline' }"
+          data-testid="candidate-view-pipeline"
+          @click="setViewMode('pipeline')"
+        >
+          流程看板
+        </button>
+        <button
+          type="button"
+          class="candidate-workspace__secondary"
+          :class="{ 'candidate-workspace__secondary--active': viewMode === 'list' }"
+          data-testid="candidate-view-list"
+          @click="setViewMode('list')"
+        >
+          列表
+        </button>
+      </div>
+      <button
+        v-if="canImport"
+        type="button"
+        class="candidate-workspace__primary"
+        data-testid="candidate-import-open"
+        @click="openImport"
+      >
+        导入简历
+      </button>
       <button type="button" class="candidate-workspace__secondary" :disabled="loading" @click="load">刷新</button>
     </template>
 
@@ -238,6 +319,10 @@ onBeforeUnmount(() => {
             @keyup.enter="applyFilters"
           />
         </label>
+        <label class="candidate-workspace__checkbox">
+          <el-checkbox v-model="talentPoolOnly" data-testid="candidate-talent-pool-filter" @change="applyFilters">只看人才库</el-checkbox>
+          <span>仅看人才库</span>
+        </label>
         <button type="button" class="candidate-workspace__secondary" @click="applyFilters">查询</button>
       </section>
 
@@ -248,17 +333,41 @@ onBeforeUnmount(() => {
       />
 
       <CandidatePipeline
-        v-else
-        :candidates="candidates"
+        v-else-if="viewMode === 'pipeline'"
+        :candidates="visibleCandidates"
         :can-move="canManage"
         :moving-id="movingId"
         @move="askMove"
       />
 
+      <section v-else class="candidate-workspace__list" data-testid="candidate-list-view">
+        <DataTable
+          :columns="CANDIDATE_LIST_COLUMNS"
+          :rows="candidateListRows as unknown as Array<Record<string, unknown>>"
+          :total="candidateListRows.length"
+          :page="1"
+          :page-size="Math.max(1, candidateListRows.length)"
+          row-key="id"
+          data-testid="candidate-list-table"
+          empty-title="当前筛选下没有候选人"
+        >
+          <template #cell-displayName="{ row }">
+            <router-link :to="`/recruitment/candidates/${row.id}`">{{ row.displayName }}</router-link>
+          </template>
+        </DataTable>
+      </section>
+
       <p v-if="canManage" class="candidate-workspace__note">
         移动阶段会记录审计；“已入职”不能手工设置，必须通过候选人详情的“录用转入职”完成。
       </p>
     </template>
+
+    <CandidateImportDrawer
+      v-model="importOpen"
+      :requisitions="requisitions"
+      :can-import="canImport"
+      @imported="onImported"
+    />
 
     <div v-if="moveTarget !== null" class="candidate-workspace__modal" data-testid="candidate-stage-dialog">
       <section role="dialog" aria-modal="true" aria-labelledby="candidate-stage-title">
@@ -423,4 +532,12 @@ onBeforeUnmount(() => {
   color: #b91c1c;
   font-size: 12.5px;
 }
+.candidate-workspace__views { display: inline-flex; gap: 6px; }
+.candidate-workspace__secondary--active { border-color: #1d4ed8; color: #1d4ed8; background: #eff6ff; }
+.candidate-workspace__checkbox { flex-direction: row !important; align-items: center; gap: 6px !important; height: 32px; }
+.candidate-workspace__checkbox input { width: 14px; height: 14px; }
+.candidate-workspace__list { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+.candidate-workspace__list table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.candidate-workspace__list th, .candidate-workspace__list td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.candidate-workspace__list a { color: #1d4ed8; text-decoration: none; }
 </style>

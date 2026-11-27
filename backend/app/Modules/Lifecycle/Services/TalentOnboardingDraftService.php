@@ -34,6 +34,7 @@ final class TalentOnboardingDraftService implements TalentOnboardingDraftPort
                 payload: [
                     'candidate_id' => (int) $input['candidate_id'],
                     'offer_id' => (int) $input['offer_id'],
+                    'person' => is_array($input['person'] ?? null) ? $input['person'] : [],
                     'org_unit_id' => (int) $input['org_unit_id'],
                     'employee_no' => (string) $input['employee_no'],
                     'hire_date' => (string) $input['hire_date'],

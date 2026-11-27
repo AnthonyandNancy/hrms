@@ -2,11 +2,11 @@
 import { computed } from 'vue'
 import { formatBusinessDate, formatDateTimeInTimezone } from '@/utils/format'
 import {
-  formatMetricValue,
+  formatMetric,
   freshnessLabel,
+  metricAvailabilityLabel,
   metricLabel,
-  metricUnitText,
-  unavailableMetricReason,
+  metricReasonText,
   type MetricCardMetric,
 } from '../api'
 
@@ -26,13 +26,23 @@ const emit = defineEmits<{
 }>()
 
 const label = computed(() => metricLabel(props.metric.code, props.metric.label))
-const unit = computed(() => metricUnitText(props.metric))
+const formatted = computed(() => formatMetric(props.metric))
+const availability = computed(() => metricAvailabilityLabel(props.metric.status))
 const unavailable = computed(() => props.metric.status !== 'AVAILABLE')
-const valueText = computed(() => (unavailable.value ? '—' : formatMetricValue(props.metric.value)))
+const showAlert = computed(() => unavailable.value || (props.partialReason?.trim() ?? '') !== '')
 const computedAtText = computed(() => formatDateTimeInTimezone(props.freshnessAt ?? props.metric.computedAt))
-const displayPartialReason = computed(() =>
-  unavailable.value ? unavailableMetricReason(props.metric.code) : props.partialReason,
-)
+const displayPartialReason = computed(() => unavailable.value ? metricReasonText(props.metric) : (props.partialReason ?? ''))
+const scopeLabel = computed(() => props.metric.scopeLabel?.trim() || '按当前授权范围')
+const drillLabel = computed(() => {
+  if (unavailable.value) return '查看不可用原因'
+  if (props.metric.code === 'headcount' || props.metric.code === 'probation') return '查看员工明细 →'
+  if (props.metric.code === 'contract_expiring') return '查看合同明细 →'
+  if (props.metric.code === 'pending_approvals') return '进入流程中心 →'
+  if (props.metric.code === 'leave_liability') return '查看假期余额 →'
+  if (props.metric.code === 'payroll_cost_by_entity') return '进入薪资核算 →'
+  if (props.metric.code === 'recruitment_funnel') return '进入候选人 →'
+  return '查看明细 →'
+})
 </script>
 
 <template>
@@ -40,25 +50,27 @@ const displayPartialReason = computed(() =>
     type="button"
     class="metric-card metric-card--reporting"
     :data-testid="`metric-card-${metric.code}`"
-    :aria-label="`${label}，${valueText}${unit}，${formatBusinessDate(asOf)}，查看下钻`"
+    :aria-label="`${label}，${formatted.value}${formatted.unit}，${formatBusinessDate(asOf)}，${drillLabel}`"
     @click="emit('drill', metric)"
   >
     <span class="metric-card__top">
       <span class="metric-card__label">{{ label }}</span>
-      <span class="plain-chip">{{ freshnessLabel(freshness) }}</span>
+      <span class="plain-chip" :class="{ 'plain-chip--warning': unavailable }">{{ availability }}</span>
     </span>
 
     <span class="metric-card__value" data-testid="metric-value">
-      {{ valueText }}<span v-if="unit && !unavailable" class="metric-card__unit">{{ unit }}</span>
+      {{ formatted.value }}<span v-if="formatted.unit && !unavailable" class="metric-card__unit">{{ formatted.unit }}</span>
     </span>
 
     <span class="metric-card__meta">
       <span>截至 {{ formatBusinessDate(asOf) }}</span>
+      <span>{{ scopeLabel }}</span>
       <span v-if="freshnessAt || metric.computedAt" class="small muted">计算于 {{ computedAtText }}</span>
+      <span class="small muted">{{ freshnessLabel(freshness) }}</span>
     </span>
 
     <el-alert
-      v-if="unavailable || displayPartialReason"
+      v-if="showAlert"
       type="warning"
       :closable="false"
       show-icon
@@ -66,14 +78,13 @@ const displayPartialReason = computed(() =>
       data-testid="metric-partial"
     >
       <template #title>
-        <span v-if="unavailable">该指标当前不可用，未以 0 或估算值替代。</span>
-        <span v-if="displayPartialReason" class="metric-card__reason">{{ displayPartialReason }}</span>
+        <span v-if="unavailable">{{ availability }}：{{ displayPartialReason }}</span>
+        <span v-else>{{ displayPartialReason }}</span>
       </template>
     </el-alert>
 
     <span class="metric-card__footer">
-      <span v-if="!unavailable" class="metric-card__drill">{{ metric.drilldownLabel || '查看明细 →' }}</span>
-      <span v-else class="metric-card__drill">查看不可用原因 →</span>
+      <span class="metric-card__drill">{{ drillLabel }}</span>
     </span>
   </button>
 </template>
@@ -107,18 +118,16 @@ const displayPartialReason = computed(() =>
 }
 
 .metric-card__alert :deep(.el-alert__title) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   font-size: 11px;
   line-height: 1.45;
 }
 
-.metric-card__reason {
-  color: #8a5a12;
-}
-
 .metric-card__footer {
   padding-top: 12px;
+}
+
+.plain-chip--warning {
+  color: #8a5a12;
+  background: #fdf3e2;
 }
 </style>

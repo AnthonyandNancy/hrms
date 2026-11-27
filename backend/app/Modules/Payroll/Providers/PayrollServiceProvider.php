@@ -11,15 +11,18 @@ use App\Modules\Payroll\Console\SeedDemoPayrollRunCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
 use App\Modules\Payroll\Contracts\PayrollApprovalEffectPort;
 use App\Modules\Payroll\Contracts\PayrollCostDirectory;
+use App\Modules\Payroll\Contracts\PayrollRunDirectory;
 use App\Modules\Payroll\Contracts\PayslipWorkspaceDirectory;
 use App\Modules\Payroll\Domain\PayrollCalculator;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\CorrectionService;
+use App\Modules\Payroll\Services\EloquentPayrollRunDirectory;
 use App\Modules\Payroll\Services\EloquentPayslipWorkspaceDirectory;
 use App\Modules\Payroll\Services\ExportService;
 use App\Modules\Payroll\Services\PayrollApprovalEffectService;
 use App\Modules\Payroll\Services\PayrollParallelCheckService;
+use App\Modules\Payroll\Services\PayrollPeriodLockReaderService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\PayrollYtdService;
 use App\Modules\Payroll\Services\ReceiptReconciliationService;
@@ -28,6 +31,7 @@ use App\Modules\Payroll\Services\ReopenService;
 use App\Modules\Payroll\Services\SnapshotService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
 use App\Modules\Payroll\Services\UnavailablePayrollCostDirectory;
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use Illuminate\Support\ServiceProvider;
 
@@ -43,8 +47,10 @@ final class PayrollServiceProvider extends ServiceProvider
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
         $this->app->bindIf(PayrollCostDirectory::class, UnavailablePayrollCostDirectory::class);
         $this->app->bind(PayslipWorkspaceDirectory::class, EloquentPayslipWorkspaceDirectory::class);
+        $this->app->bindIf(PayrollRunDirectory::class, EloquentPayrollRunDirectory::class);
         if (! $this->app->environment('testing')) {
             $this->app->bind(PayrollRunMembershipDirectory::class, EloquentPayrollRunMembershipDirectory::class);
+            $this->app->bind(PayrollPeriodLockReader::class, PayrollPeriodLockReaderService::class);
         }
         $this->app->singleton(PayrollCalculator::class);
         $this->app->singleton(TaxParameterResolver::class);

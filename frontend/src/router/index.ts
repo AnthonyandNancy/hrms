@@ -13,9 +13,14 @@ import { matureView } from '@/router/pageComponents'
  */
 function registryRoute(page: PageSpec, nested = true): RouteRecordRaw {
   const loader = matureView(page.componentKey)
+  // Numeric ids only. String.raw is required: a plain TS string would turn
+  // \d into d and Vue Router would treat (d+) as a literal path segment.
+  const pathWithIdConstraint = /:[A-Za-z_][A-Za-z0-9_]*/.test(page.path)
+    ? page.path.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (_match, name: string) => String.raw`${':'}${name}(\d+)`)
+    : page.path
 
   return {
-    path: nested ? page.path.replace(/^\//, '') : page.path,
+    path: nested ? pathWithIdConstraint.replace(/^\//, '') : pathWithIdConstraint,
     name: page.name,
     component: loader ?? (() => import('@/components/ResourcePage.vue')),
     props: loader ? (page.path.includes(':id') ? true : false) : { page },
@@ -52,31 +57,6 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   registryRoute(notFoundPage, false),
-  {
-    path: '/employees',
-    redirect: '/hr/employees',
-  },
-  {
-    path: '/organization',
-    redirect: '/hr/departments',
-  },
-  {
-    path: '/cases',
-    name: 'cases',
-    component: () => import('@/views/CaseCenterView.vue'),
-    meta: { title: '审批中心', capability: 'workflow.case.read' },
-  },
-  {
-    path: '/cases/:id',
-    name: 'case-detail',
-    component: () => import('@/views/CaseDetailView.vue'),
-    meta: { title: '案例详情', capability: 'workflow.case.read' },
-    props: true,
-  },
-  {
-    path: '/admin',
-    redirect: '/system/users',
-  },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found-catchall',

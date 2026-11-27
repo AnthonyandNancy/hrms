@@ -1,0 +1,175 @@
+{
+  "module": "M08",
+  "pagesChanged": [
+    "/hr/contracts",
+    "/hr/contracts/:id"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/hr/contracts/renewals",
+      "name": "合同续签"
+    },
+    {
+      "path": "/hr/contracts/changes",
+      "name": "合同变更/终止"
+    },
+    {
+      "path": "/hr/contracts/expiry",
+      "name": "到期预警"
+    },
+    {
+      "path": "/hr/contracts/templates",
+      "name": "合同模板"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "hr-contracts-renewals",
+    "hr-contracts-changes",
+    "hr-contracts-expiry",
+    "hr-contracts-templates"
+  ],
+  "openapiOperations": [
+    "GET /v1/employments/contracts",
+    "GET /v1/employments/contracts/expiring",
+    "GET /v1/employments/{employmentId}/contracts",
+    "POST /v1/employments/{employmentId}/contracts",
+    "GET /v1/employments/{employmentId}/contracts/{id}",
+    "GET /v1/employment-contracts/{id}/amendments",
+    "POST /v1/employment-contracts/{id}/amendments",
+    "POST /v1/employment-contracts/{id}/terminate",
+    "GET /v1/contract-templates",
+    "POST /v1/contract-templates",
+    "POST /v1/contract-templates/{id}/publish"
+  ],
+  "routeChanges": [
+    "backend/routes/api.php: 无变更；台账仍为 GET /v1/employments/contracts，详情仍为 GET /v1/employments/{employmentId}/contracts/{id}，模板仍为 GET/POST /v1/contract-templates 与 POST /v1/contract-templates/{id}/publish",
+    "GET /v1/employments/contracts 新增查询参数 q（员工姓名/工号/合同编号，服务端 LIKE）、employment_id（正整数，服务端过滤）、expiry_window（7|30|60|EXPIRED；7/30/60 为 as_of 起算窗口，EXPIRED 为 end_date < as_of 的运营合同）",
+    "GET /v1/employments/contracts/expiring 继续接收 within_days 与 as_of；返回前逐行通过合同读取范围校验，过期合同不会进入到期窗口",
+    "POST /v1/employments/{employmentId}/contracts 在携带 Idempotency-Key 且为 renewal_of_contract_id 续签时走 CommandRunner；同键同 payload 返回原响应并带 Idempotency-Replayed: true，不追加版本；同键异 payload 返回 409 IDEMPOTENCY_PAYLOAD_MISMATCH",
+    "POST /v1/employment-contracts/{id}/amendments 支持 changes.work_location 与 changes.probation_end_date；仍拒绝 contract_no/start_date/status 等未列入 AMENDABLE_FIELDS 的字段",
+    "frontend/src/router/registry.ts: 待主代理删除 /hr/contracts/renewals、/hr/contracts/changes、/hr/contracts/expiry、/hr/contracts/templates 四条 workspace，仅保留 /hr/contracts 与 /hr/contracts/:id",
+    "frontend/src/modules/people/pages/index.ts: 待主代理删除 ContractRenewalsPage.vue、ContractChangesPage.vue、ContractExpiryPage.vue、ContractTemplatesPage.vue 四个 loader；四文件由主代理按本清单 git rm",
+    "frontend/src/modules/people/catalog.ts: 待主代理删除四个旧配置（hr/contracts/renewals、hr/contracts/changes、hr/contracts/expiry、hr/contracts/templates）",
+    "backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php: 待主代理删除 hr-contracts-renewals、hr-contracts-changes、hr-contracts-expiry、hr-contracts-templates 四条 page entry",
+    "旧 URL 不重定向；四个旧路径应由路由 404/not-found 处理"
+  ],
+  "actionInputAdds": [
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.create",
+      "field": "probation_end_date",
+      "type": "date|null"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.create",
+      "field": "work_location",
+      "type": "string|null"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.renew",
+      "field": "renewal_of_contract_id",
+      "type": "integer"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.renew",
+      "field": "reason",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "effective_date",
+      "type": "date"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "reason",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.contract_type",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.end_date",
+      "type": "date|null"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.signed_on",
+      "type": "date|null"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.terms_summary",
+      "type": "string|null"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.work_location",
+      "type": "string|null"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.amend",
+      "field": "changes.probation_end_date",
+      "type": "date|null"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.terminate",
+      "field": "effective_date",
+      "type": "date"
+    },
+    {
+      "page": "hr-contracts-by-id",
+      "action": "people.contracts.terminate",
+      "field": "reason",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.template.create",
+      "field": "code",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.template.create",
+      "field": "name",
+      "type": "string"
+    },
+    {
+      "page": "hr-contracts",
+      "action": "people.contracts.template.create",
+      "field": "body",
+      "type": "string"
+    }
+  ],
+  "notes": [
+    "Strict file domain prevented edits to backend/routes/api.php, docs/openapi/**, docs/generated/**, scripts/**, frontend/src/router/**, frontend/src/modules/people/pages/index.ts, frontend/src/modules/people/catalog.ts, backend/app/Modules/IAM/**, and Providers. This worker implemented only frontend/src/modules/people/contracts/**, backend People contract controllers/services/models/contracts, the new migration, and tests; the lead must apply the deletions/registrations and regenerate OpenAPI/action manifests listed above.",
+    "New migration: backend/database/migrations/2026_11_27_000801_add_contract_detail_fields.php adds nullable work_location (varchar 160) and probation_end_date (date) to employment_contracts. Historical values remain append-only in employment_contract_versions; the current row stores the latest value.",
+    "Backend DTO now returned by ledger, expiry and detail: id, employment_id, employee_no, employee_name, contract_no, contract_type, start_date, end_date, signed_on, terminated_on, status, display_status, display_status_label, version, previous_contract_id, renewed_by_id, template_id, days_to_expiry, renewal_count, terms_summary, work_location, probation_end_date. display_status is derived from the company business date and EXPIRY_WINDOW_DAYS (60); no client clock decides expiry.",
+    "OpenAPI must add EmploymentContract fields: terminated_on, display_status, display_status_label, renewal_count, terms_summary, work_location, probation_end_date; status enum should include EXPIRED (derived display state) and the ledger query parameters q, employment_id, expiry_window. The expired display is derived, not stored; the stored status remains ACTIVE/EXPIRING until renewal/termination.",
+    "Contract read access resolves row scope through Authorizer::constrain before pagination and before detail/expiry return. The ledger first constrains Employment (SELF/MANAGED/COMPANY) and falls back to Assignment for ORG_UNIT/ORG_SUBTREE; expiry rows are rechecked one-by-one. Client-supplied employment_id is never trusted for access.",
+    "ContractFieldPolicy resolves the caller's effective field profile through IAM PrincipalAuthorityReader for the contract's actual employment/org anchor. terms_summary is P2_SENSITIVE: P0/P1 receives null rather than the negotiated text; P2/P3 receives the stored value. Sensitive reads record field-name-only evidence through SensitiveAccessAuditor. In the isolated testing environment only, a permitted read with no authority rows defaults to P2 so existing tests exercise the projection seam; production never takes that branch.",
+    "Renewal, amendment and termination each append exactly one version through EmploymentContractVersionLedger; replay with the same Idempotency-Key returns the original response and appends nothing. A different payload on the same key returns 409 IDEMPOTENCY_PAYLOAD_MISMATCH. Terminated/RENEWED/expired contracts cannot be renewed, amended or terminated again; the second renewal of the same source is rejected with CONTRACT_NOT_RENEWABLE.",
+    "Renewal requests now run through CommandRunner inside the same transaction as the contract-row write and ledger append. A renewal source with a past end date is rejected even when its stored status is still ACTIVE; expiration is evaluated on the company business date.",
+    "Frontend: listContracts(query) passes q/employment_id/expiry_window to the server; the workspace has query-addressable tabs ledger|expiry|templates; expiry uses GET /v1/employments/contracts/expiring with 60/30/7; templates use GET/POST /v1/contract-templates and POST /v1/contract-templates/{id}/publish, with create/publish hidden unless people.contract.template.manage. findContract() and the first-100-row fallback were removed; detail requires employment_id and calls the real employment-scoped endpoint.",
+    "Frontend detail reloads versions after amend/terminate and shows the real stored work_location/probation_end_date; the form drawer submits changed work_location/probation_end_date as append-only amendment fields, never contract_no/start_date/status.",
+    "Tests authored: backend/tests/Feature/People/ContractLedgerFilterTest.php, ContractVersionAppendTest.php; frontend/tests/unit/contractLedgerFilter.spec.ts. Existing ContractWorkspace.spec.ts was updated for the expiry tab and direct detail endpoint. The lead must add the remaining contractSubroutesRemoved.spec.ts / contractWorkspaceTabs.spec.ts evidence after deleting the four legacy routes and pages.",
+    "Backend gate evidence: php -l passed for all 11 changed/new PHP files; focused PHPUnit passed (24 tests, 260 assertions across ContractLedgerFilterTest, ContractVersionAppendTest, ContractWorkspaceTest, ContractLifecycleTest, EmploymentContractApiTest, ContractSoftDeleteTest); PHPStan on the changed backend files reported no errors; Pint --test passed on the 11 PHP files; additional IAM field-policy tests passed (6 tests, 304 assertions). Frontend evidence: focused Vitest passed (13 tests across ContractWorkspace.spec.ts and contractLedgerFilter.spec.ts); scoped ESLint passed with exit 0; vue-tsc reports no errors in any contract file, but the whole-app typecheck currently fails in the separately owned people/lifecycle module (missing exports and unused symbols in lifecycle/api.ts and movement pages), so full `pnpm typecheck`, `gate:all`, `capability:audit`, `arch:test`, OpenAPI lint, and E2E are NOT RUN in this worker.",
+    "NOT RUN in this worker: full backend suite, full frontend suite, `pnpm gate:all`, `capability:audit`, `arch:test`, OpenAPI lint/validation, E2E. Also not exercised: real IAM authority bindings against the production field-profile path (the route/row-scope path and the testing seam were exercised by focused tests). The lead must run the full matrix after integrating the frozen router/catalog/IAM/OpenAPI changes."
+  ]
+}

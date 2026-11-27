@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Reporting\Http\Controllers;
 
+use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Services\ExportService;
 use App\Modules\Reporting\Services\ReportDefinitionCatalog;
 use App\Modules\Reporting\Services\ReportService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Time\CompanyBusinessDate;
 use App\Shared\Validation\BusinessDateRule;
@@ -20,6 +23,8 @@ final class ReportingController
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly CompanyBusinessDate $businessDates,
+        private readonly \App\Shared\Authorization\Authorizer $authorizer,
+        private readonly AuthorityBindingRepository $bindings,
         private readonly ReportDefinitionCatalog $catalog,
         private readonly ReportService $reports,
         private readonly ExportService $exports,
@@ -36,7 +41,10 @@ final class ReportingController
         ]);
         $page = (int) ($data['page'] ?? 1);
         $pageSize = (int) ($data['page_size'] ?? 20);
-        $all = $this->catalog->allActive();
+        $all = array_map(
+            fn (array $definition): array => $this->businessDefinition($definition, $principal),
+            $this->catalog->allActive(),
+        );
         $total = count($all);
         $items = array_slice($all, max(0, ($page - 1) * $pageSize), $pageSize);
 
@@ -119,7 +127,7 @@ final class ReportingController
 
     public function createExport(Request $request): JsonResponse
     {
-        $principal = $this->principals->resolve();
+        $this->principals->resolve();
         $data = $request->validate([
             'reportCode' => ['required_without:report_code', 'string', 'max:80'],
             'report_code' => ['required_without:reportCode', 'string', 'max:80'],
@@ -139,15 +147,24 @@ final class ReportingController
             effect: null,
             auditAction: 'reporting.export.requested',
         );
+        $commandPayload = [
+            'reportCode' => (string) ($data['reportCode'] ?? $data['report_code'] ?? ''),
+            'purpose' => (string) $data['purpose'],
+            'fields' => (array) $data['fields'],
+            'filters' => (array) ($data['filters'] ?? []),
+            'asOf' => $data['asOf'] ?? $data['as_of'] ?? null,
+        ];
         $result = $this->commands->run(
             $definition,
-            ['reportCode' => (string) ($data['reportCode'] ?? $data['report_code'] ?? ''), 'purpose' => (string) $data['purpose'], 'fields' => (array) $data['fields'], 'filters' => (array) ($data['filters'] ?? []), 'asOf' => $data['asOf'] ?? $data['as_of'] ?? null],
-            function () use ($principal, $data): array {
-                $created = $this->exports->create($principal, $data);
+            $commandPayload,
+            function () use ($data): array {
+                // Re-resolve at execution time so a replayed idempotent
+                // command always uses the current principal context.
+                $created = $this->exports->create($this->principals->resolve(), $data);
 
                 return [
                     'http_status' => 202,
-                    'body' => $created,
+                    'body' => $this->exportResponse($created),
                     'resource_type' => 'export_job',
                     'resource_id' => (string) $created['id'],
                 ];
@@ -190,5 +207,95 @@ final class ReportingController
             'Content-Disposition' => 'attachment; filename="'.$result['filename'].'"',
             'Cache-Control' => 'no-store, private',
         ]);
+    }
+
+    /**
+     * Business-facing report definition. Internal projection names stay on the
+     * server; the UI groups by the localized business domain instead.
+     *
+     * @param  array<string, mixed>  $definition
+     * @return array<string, mixed>
+     */
+    private function businessDefinition(array $definition, Principal $principal): array
+    {
+        unset($definition['sourceProjection'], $definition['source_projection']);
+
+        $businessDate = $this->businessDates->today()->value();
+        $canExport = $this->authorizer->permits($principal, 'reporting.export', $businessDate);
+        $exportProfile = $canExport ? $this->effectiveExportProfile($principal, $businessDate) : null;
+
+        $definition['fields'] = array_map(static function (mixed $field) use ($exportProfile): array {
+            /** @var array<string, mixed> $field */
+            $field = (array) $field;
+            $profile = FieldProfile::tryFrom((string) ($field['profile'] ?? '')) ?? FieldProfile::P3_RESTRICTED;
+            $exportable = (bool) ($field['exportable'] ?? false)
+                && ! $profile->isHidden()
+                && $exportProfile !== null
+                && $profile->rank() <= $exportProfile->rank();
+
+            return [
+                'key' => (string) ($field['key'] ?? ''),
+                'label' => (string) ($field['label'] ?? ''),
+                'profile' => $profile->value,
+                'exportable' => $exportable,
+            ];
+        }, (array) ($definition['fields'] ?? []));
+        $definition['filters'] = array_map(static function (mixed $filter): array {
+            /** @var array<string, mixed> $filter */
+            $filter = (array) $filter;
+
+            return [
+                'key' => (string) ($filter['key'] ?? ''),
+                'label' => (string) ($filter['label'] ?? ''),
+                'type' => (string) ($filter['type'] ?? 'SELECT'),
+                'options' => array_values(array_map('strval', (array) ($filter['options'] ?? []))),
+            ];
+        }, (array) ($definition['filters'] ?? []));
+
+        return $definition;
+    }
+
+    private function effectiveExportProfile(Principal $principal, string $asOf): ?FieldProfile
+    {
+        $effective = null;
+
+        foreach ($this->bindings->effectiveBindings(
+            $principal->userId(),
+            'reporting.export',
+            $principal->authVersion(),
+            $asOf,
+        ) as $grant) {
+            if ($effective === null || $grant->fieldProfile->rank() > $effective->rank()) {
+                $effective = $grant->fieldProfile;
+            }
+        }
+
+        return $effective;
+    }
+
+    /**
+     * Creation returns the one-time raw token plus the short-lived signed URL.
+     * History and job payloads expose only the signed URL.
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    private function exportResponse(array $body): array
+    {
+        $downloadUrl = $body['downloadUrl'] ?? null;
+
+        if (! is_string($downloadUrl) || $downloadUrl === '') {
+            $downloadUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'reporting.exports.download',
+                \Carbon\CarbonImmutable::now('UTC')->addHours(24),
+                ['jobId' => (int) ($body['id'] ?? 0)],
+            );
+        }
+
+        return [
+            ...$body,
+            'id' => (string) ($body['id'] ?? ''),
+            'downloadUrl' => $downloadUrl,
+        ];
     }
 }

@@ -7,6 +7,7 @@ namespace Tests\Feature\Talent;
 use App\Modules\People\Models\Person;
 use App\Modules\Talent\Http\Controllers\RecruitmentController;
 use App\Modules\Talent\Models\Candidate;
+use App\Modules\Talent\Models\CandidateApplication;
 use App\Modules\Talent\Models\CandidateConversion;
 use App\Modules\Talent\Models\Interview;
 use App\Modules\Talent\Models\Offer;
@@ -140,6 +141,24 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
             'status' => 'NEW',
             'recorded_at' => $this->clock->now(),
         ]);
+        $org = $this->peopleScenario->orgUnit('WORKSPACE-STAGE-ORG');
+        $requisition = Requisition::query()->create([
+            'org_unit_id' => (int) $org->id,
+            'requisition_no' => 'REQ-WORKSPACE-STAGE',
+            'title' => '合成管道岗位',
+            'status' => 'APPROVED',
+            'headcount' => 1,
+            'recorded_at' => $this->clock->now(),
+        ]);
+        CandidateApplication::query()->create([
+            'candidate_id' => (int) $candidate->id,
+            'requisition_id' => (int) $requisition->id,
+            'opening_id' => null,
+            'stage' => 'NEW',
+            'status' => 'ACTIVE',
+            'source' => 'TEST',
+            'recorded_at' => $this->clock->now(),
+        ]);
 
         $this->patchJson("/v1/recruitment/candidates/{$candidate->id}/stage", [
             'status' => 'SCREENING',
@@ -165,8 +184,8 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
         $this->patchJson("/v1/recruitment/candidates/{$candidate->id}/stage", [
             'status' => 'CONVERTED',
         ], ['Idempotency-Key' => 'workspace-stage-converted'])
-            ->assertStatus(422)
-            ->assertJsonPath('data.reason', 'INVALID_CANDIDATE_STAGE');
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'INVALID_APPLICATION_TRANSITION');
 
         $this->authorizer->deniedCapabilities = ['recruitment.candidate.manage'];
         $this->patchJson("/v1/recruitment/candidates/{$candidate->id}/stage", [
@@ -189,6 +208,15 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
         $linked = Candidate::query()->create([
             'display_name' => '已关联需求候选人',
             'status' => 'INTERVIEW',
+            'recorded_at' => $this->clock->now(),
+        ]);
+        CandidateApplication::query()->create([
+            'candidate_id' => (int) $linked->id,
+            'requisition_id' => (int) $requisition->id,
+            'opening_id' => null,
+            'stage' => 'INTERVIEW',
+            'status' => 'ACTIVE',
+            'source' => 'TEST',
             'recorded_at' => $this->clock->now(),
         ]);
         Candidate::query()->create([
@@ -239,9 +267,12 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
 
         $first = $this->postJson("/v1/recruitment/candidates/{$candidate->id}/convert", $payload, [
             'Idempotency-Key' => 'workspace-convert-1',
-        ])->assertCreated();
+        ])->assertStatus(202)
+            ->assertJsonPath('data.status', 'PENDING_ONBOARDING');
 
         $first->assertJsonPath('data.employee_no', 'CONV-WORKSPACE-0001');
+        $caseId = (int) $first->json('data.onboarding_case_id');
+        $this->assertGreaterThan(0, $caseId);
         $this->assertArrayNotHasKey('legal_entity_id', (array) $first->json('data'));
         $this->assertArrayNotHasKey('tenant_id', (array) $first->json('data'));
 
@@ -249,9 +280,9 @@ final class RecruitmentWorkspaceTest extends TalentTestCase
             'Idempotency-Key' => 'workspace-convert-1',
         ])->assertOk();
 
-        $this->assertSame($first->json('data.employment_id'), $second->json('data.employment_id'));
-        $this->assertSame(1, CandidateConversion::query()->where('candidate_id', $candidate->id)->count());
-        $this->assertSame(1, Person::query()->count());
+        $this->assertSame($caseId, (int) $second->json('data.onboarding_case_id'));
+        $this->assertSame(0, CandidateConversion::query()->where('candidate_id', $candidate->id)->count());
+        $this->assertSame(0, Person::query()->count());
     }
 
     public function test_duplicate_employee_no_returns_409_and_rolls_back_the_conversion(): void

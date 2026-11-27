@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getApi } from '@/api'
+import { useSessionStore } from '@/stores/session'
+import { resourceGet } from '@/api/resourceClient'
+import { ApiError } from '@/api/errors'
 import type { WorkspaceProjection } from '@/api/contracts'
 import { usePageError } from '@/composables/usePageError'
 import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
@@ -9,22 +11,66 @@ import { formatBusinessDate, formatDateTimeInTimezone, formatMonthLabel } from '
 import MoneyText from '@/components/MoneyText.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import FreshnessNote from '@/components/FreshnessNote.vue'
+import MyTasks from '@/modules/platform/self-service/components/MyTasks.vue'
+import { loadMyTasks, type SelfServiceTask } from '@/modules/platform/self-service/api'
+import { translate } from '@/shared/display/dictionary'
+import { INTERNAL_DETAIL_ROUTES, INTERNAL_ROUTES } from '@/shared/navigation/internalRoutes'
 
 const router = useRouter()
+const session = useSessionStore()
 const loading = ref(true)
 const pageError = usePageError()
 const data = ref<WorkspaceProjection | null>(null)
+const tasks = ref<SelfServiceTask[]>([])
+const tasksLoading = ref(false)
+const tasksError = ref<{ message: string; requestId: string | null } | null>(null)
+const canReadWorkflow = computed(() => session.can('workflow.case.read'))
+
+function requestIdOf(reason: unknown): string | null {
+  return reason instanceof ApiError ? reason.requestId : null
+}
+
+function taskErrorMessage(reason: unknown): string {
+  if (reason instanceof ApiError && reason.code === 'FORBIDDEN') {
+    return '无权查看待办列表。当前账号没有流程查看能力。'
+  }
+  return '待办列表暂时无法加载，请稍后重试。'
+}
+
+async function loadTasks(): Promise<void> {
+  if (!canReadWorkflow.value) {
+    tasks.value = []
+    tasksError.value = null
+    tasksLoading.value = false
+    return
+  }
+
+  tasksLoading.value = true
+  tasksError.value = null
+  try {
+    tasks.value = await loadMyTasks()
+  } catch (reason) {
+    tasks.value = []
+    tasksError.value = {
+      message: taskErrorMessage(reason),
+      requestId: requestIdOf(reason),
+    }
+  } finally {
+    tasksLoading.value = false
+  }
+}
 
 async function load(): Promise<void> {
   loading.value = true
   pageError.clear()
   try {
-    data.value = await getApi().workspace.get()
+    data.value = await resourceGet<WorkspaceProjection>('/v1/me/workspace')
   } catch (reason) {
     pageError.capture(reason)
   } finally {
     loading.value = false
   }
+  await loadTasks()
 }
 
 const annualBalance = computed(() => {
@@ -59,8 +105,21 @@ onMounted(load)
         </div>
       </div>
       <div class="workspace-hero__actions">
-        <el-button type="primary" @click="go('/leave')">发起请假</el-button>
-        <el-button @click="go('/payroll/my-payslips')">查看工资条</el-button>
+        <el-button
+          v-if="data === null || data.employment_linked !== false"
+          type="primary"
+          data-testid="workspace-start-leave"
+          @click="go(INTERNAL_ROUTES.leave)"
+        >
+          发起请假
+        </el-button>
+        <el-button
+          v-if="data === null || data.employment_linked !== false"
+          data-testid="workspace-payslip-link"
+          @click="go(INTERNAL_ROUTES.payroll)"
+        >
+          查看工资条
+        </el-button>
       </div>
     </header>
 
@@ -77,12 +136,31 @@ onMounted(load)
     <el-skeleton v-if="loading" :rows="8" animated />
 
     <template v-else-if="data">
-      <div class="workspace-attention">
+      <NoActiveEmploymentState
+        v-if="data.employment_linked === false"
+        data-testid="workspace-no-employment"
+        title="当前账号未绑定员工"
+        description="你仍可处理管理待办。本人请假、考勤、工资条和培训入口在完成任职关联后才可用。"
+        :links="[{ label: '查看我的待办', path: INTERNAL_ROUTES.workspace }]"
+      />
+
+      <MyTasks
+        v-if="canReadWorkflow"
+        data-testid="workspace-tasks"
+        :tasks="tasks"
+        :loading="tasksLoading"
+        :can-read-workflow="canReadWorkflow"
+        :error-message="tasksError?.message ?? ''"
+        :error-request-id="tasksError?.requestId ?? null"
+        @retry="loadTasks"
+      />
+
+      <div v-if="data.employment_linked !== false" class="workspace-attention">
         <button
           v-if="data.attendanceException"
           class="attention-card attention-card--warning"
           type="button"
-          @click="go('/attendance')"
+          @click="go(INTERNAL_ROUTES.attendance)"
         >
           <span class="attention-card__kicker">
             待处理 · {{ formatBusinessDate(data.attendanceException.date) }}
@@ -91,7 +169,7 @@ onMounted(load)
           <span>考勤异常需要补正后才能进入工资计算。</span>
           <span class="attention-card__action">去补正 →</span>
         </button>
-        <button v-else class="attention-card" type="button" @click="go('/attendance')">
+        <button v-else class="attention-card" type="button" @click="go(INTERNAL_ROUTES.attendance)">
           <span class="attention-card__kicker">本月考勤</span>
           <strong>暂无待处理异常</strong>
           <span>
@@ -99,13 +177,13 @@ onMounted(load)
           </span>
           <span class="attention-card__action">查看考勤 →</span>
         </button>
-        <button class="attention-card" type="button" @click="go('/notices')">
+        <button class="attention-card" type="button" @click="go(INTERNAL_ROUTES.notices)">
           <span class="attention-card__kicker">未读公告</span>
           <strong>{{ data.notices.filter((notice) => !notice.acknowledged).length }} 条需确认</strong>
           <span>需确认公告会进入待办；公告可见范围由受众规则决定。</span>
           <span class="attention-card__action">查看公告 →</span>
         </button>
-        <button v-if="annualBalance" class="attention-card" type="button" @click="go('/leave')">
+        <button v-if="annualBalance" class="attention-card" type="button" @click="go(INTERNAL_ROUTES.leave)">
           <span class="attention-card__kicker">{{ annualBalance.leaveTypeName }}</span>
           <strong>{{ annualBalance.available }} {{ annualBalance.unit === 'DAY' ? '天可用' : '小时可用' }}</strong>
           <span>
@@ -114,7 +192,7 @@ onMounted(load)
           </span>
           <span class="attention-card__action">查看余额明细 →</span>
         </button>
-        <button v-else class="attention-card" type="button" @click="go('/leave')">
+        <button v-else class="attention-card" type="button" @click="go(INTERNAL_ROUTES.leave)">
           <span class="attention-card__kicker">假期余额</span>
           <strong>尚无假期账户</strong>
           <span>假期余额来自不可变账本，需先开通账户并发放额度。</span>
@@ -122,7 +200,7 @@ onMounted(load)
         </button>
       </div>
 
-      <div class="workspace-grid">
+      <div v-if="data.employment_linked !== false" class="workspace-grid">
         <section class="panel workspace-profile">
           <div class="panel__header">
             <div>
@@ -133,7 +211,7 @@ onMounted(load)
               v-if="data.profile.employmentId"
               text
               size="small"
-              @click="go(`/employees?employee=${data.profile.employmentId}`)"
+              @click="go(INTERNAL_DETAIL_ROUTES.employee(data.profile.employmentId))"
             >
               查看完整档案
             </el-button>
@@ -170,7 +248,7 @@ onMounted(load)
             <div>
               <span class="workspace-contract__label">当前条款版本</span>
               <strong>{{ data.contract.contractNo }}</strong>
-              <span class="muted"> · {{ data.contract.type }}</span>
+              <span class="muted"> · {{ translate('people', 'employmentType', data.contract.type).label }}</span>
             </div>
             <span class="muted small">
               {{ formatBusinessDate(data.contract.startDate) }} —
@@ -192,7 +270,7 @@ onMounted(load)
               <h2 class="panel__title">本月考勤</h2>
               <p class="panel__subtitle">{{ formatMonthLabel(data.attendanceMonth) }} · Asia/Shanghai</p>
             </div>
-            <el-button text size="small" @click="go('/attendance')">打开日历</el-button>
+            <el-button text size="small" @click="go(INTERNAL_ROUTES.attendance)">打开日历</el-button>
           </div>
           <div class="panel__body attendance-mini">
             <div class="attendance-mini__stat">
@@ -224,7 +302,7 @@ onMounted(load)
               <h2 class="panel__title">假期余额</h2>
               <p class="panel__subtitle">账本汇总，不直接修改余额</p>
             </div>
-            <el-button text size="small" @click="go('/leave')">账本明细</el-button>
+            <el-button text size="small" @click="go(INTERNAL_ROUTES.leave)">账本明细</el-button>
           </div>
           <ul class="balance-list">
             <li v-for="balance in data.leaveBalances" :key="balance.leaveTypeCode" class="balance-list__item">
@@ -250,11 +328,11 @@ onMounted(load)
               <h2 class="panel__title">我的申请</h2>
               <p class="panel__subtitle">申请状态与生效状态分开显示</p>
             </div>
-            <el-button text size="small" @click="go('/cases')">全部申请</el-button>
+            <el-button text size="small" @click="go(INTERNAL_ROUTES.workflow)">全部申请</el-button>
           </div>
           <ul class="request-list">
             <li v-for="request in data.myRequests" :key="request.case_id" class="request-list__item">
-              <button type="button" class="request-list__button" @click="go(`/cases/${request.case_id}`)">
+              <button type="button" class="request-list__button" @click="go(INTERNAL_DETAIL_ROUTES.workflowCase(request.case_id))">
                 <span class="request-list__main">
                   <span class="request-list__title">
                     {{ request.state === 'APPROVED' ? '请假申请（已批准）' : '请假申请' }}
@@ -277,11 +355,11 @@ onMounted(load)
               <h2 class="panel__title">我的工资条</h2>
               <p class="panel__subtitle">已发布工资条 · 金额为整数分计算</p>
             </div>
-            <el-button text size="small" @click="go('/payroll/my-payslips')">查看全部</el-button>
+            <el-button text size="small" @click="go(INTERNAL_ROUTES.payroll)">查看全部</el-button>
           </div>
           <ul class="payslip-list">
             <li v-for="slip in data.payslips.slice(0, 2)" :key="slip.id" class="payslip-list__item">
-              <button type="button" class="payslip-list__button" @click="go(`/payroll/my-payslips/${slip.id}`)">
+              <button type="button" class="payslip-list__button" @click="go(INTERNAL_ROUTES.payroll)">
                 <div>
                   <p class="payslip-list__period">{{ formatMonthLabel(slip.period) }}</p>
                   <p class="payslip-list__meta">{{ slip.state === 'CORRECTION' ? '更正批次' : `发放日 ${formatBusinessDate(slip.payDate)}` }}</p>
@@ -298,11 +376,11 @@ onMounted(load)
               <h2 class="panel__title">最新公告</h2>
               <p class="panel__subtitle">需确认公告会进入待办</p>
             </div>
-            <el-button text size="small" @click="go('/notices')">公告中心</el-button>
+            <el-button text size="small" @click="go(INTERNAL_ROUTES.notices)">公告中心</el-button>
           </div>
           <ul class="notice-list" style="padding: 0 18px">
             <li v-for="notice in data.notices" :key="notice.id" class="notice-list__item">
-              <button type="button" class="notice-link" @click="go(`/notices/${notice.id}`)">
+              <button type="button" class="notice-link" @click="go(INTERNAL_ROUTES.notices)">
                 <span class="notice-list__title">
                   {{ notice.title }}
                   <span v-if="!notice.acknowledged" class="plain-chip">待确认</span>
@@ -313,6 +391,34 @@ onMounted(load)
           </ul>
         </section>
       </div>
+
+      <section
+        v-if="data.employment_linked !== false"
+        class="panel workspace-quick"
+        data-testid="workspace-quick-actions"
+        aria-labelledby="workspace-quick-title"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 id="workspace-quick-title" class="panel__title">快捷业务</h2>
+            <p class="panel__subtitle">员工自助入口已并入工作台；缺少能力的入口仍由服务端拒绝。</p>
+          </div>
+        </div>
+        <div class="workspace-quick__grid">
+          <button type="button" class="workspace-quick__item" data-testid="quick-account" @click="go(INTERNAL_ROUTES.account)">
+            <strong>账号安全</strong><span>密码、登录会话与可选双因素认证</span>
+          </button>
+          <button type="button" class="workspace-quick__item" data-testid="quick-overtime" @click="go(INTERNAL_ROUTES.overtime)">
+            <strong>我的加班</strong><span>查看加班记录与调休余额</span>
+          </button>
+          <button type="button" class="workspace-quick__item" data-testid="quick-travel" @click="go(INTERNAL_ROUTES.travel)">
+            <strong>我的出差</strong><span>查看出差申请与行程</span>
+          </button>
+          <button type="button" class="workspace-quick__item" data-testid="quick-training" @click="go(INTERNAL_ROUTES.training)">
+            <strong>我的培训</strong><span>查看培训项目与报名记录</span>
+          </button>
+        </div>
+      </section>
 
       <FreshnessNote :timestamp="data.freshness" />
     </template>
@@ -434,6 +540,35 @@ onMounted(load)
   color: var(--color-brand);
   font-size: 11px;
   font-weight: 600;
+}
+
+.workspace-quick__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 14px 18px 18px;
+}
+
+.workspace-quick__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 14px;
+  color: var(--color-ink-secondary);
+  text-align: left;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workspace-quick__item strong {
+  color: var(--color-ink);
+  font-size: 13px;
+}
+
+.workspace-quick__item span {
+  font-size: 11.5px;
 }
 
 .workspace-grid {
@@ -597,7 +732,36 @@ onMounted(load)
 }
 
 @media (max-width: 1100px) {
-  .workspace-grid {
+  .workspace-quick__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 14px 18px 18px;
+}
+
+.workspace-quick__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 14px;
+  color: var(--color-ink-secondary);
+  text-align: left;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workspace-quick__item strong {
+  color: var(--color-ink);
+  font-size: 13px;
+}
+
+.workspace-quick__item span {
+  font-size: 11.5px;
+}
+
+.workspace-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

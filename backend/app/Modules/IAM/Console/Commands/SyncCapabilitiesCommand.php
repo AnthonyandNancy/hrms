@@ -71,6 +71,7 @@ final class SyncCapabilitiesCommand extends Command
                         'role_code' => $grant->roleCode,
                         'capability_code' => $grant->capabilityCode,
                         'anchor_type' => $grant->anchorType->value,
+                        'anchor_id' => null,
                         'field_profile' => $grant->fieldProfile->value,
                     ]);
                 }

@@ -47,7 +47,7 @@ final class RecruitmentFunnelController
 
     public function candidates(Request $request): JsonResponse
     {
-        return $this->projections->ok($this->funnel->candidates($this->userId(), $this->asOf($request)));
+        return $this->projections->ok($this->funnel->candidates($this->userId(), $this->asOf($request), $request->query()));
     }
 
     public function importCandidates(Request $request): JsonResponse
@@ -164,21 +164,24 @@ final class RecruitmentFunnelController
             ['candidate_id' => $id, ...$data],
             function () use ($id, $data, $principal): array {
                 $body = $this->funnel->convertCandidate($principal->userId(), $id, $data);
+                $httpStatus = ($body['status'] ?? null) === 'PENDING_ONBOARDING' ? 202 : 201;
 
                 return [
-                    'http_status' => 201,
+                    'http_status' => $httpStatus,
                     'body' => $body,
                     'resource_type' => 'candidate_conversion',
-                    'resource_id' => (string) ($body['conversion_id'] ?? ''),
+                    'resource_id' => (string) ($body['conversion_id'] ?? $body['onboarding_case_id'] ?? ''),
                 ];
             },
             (string) $request->header('Idempotency-Key', ''),
         );
 
         $businessReplayed = ($result->body['business_replayed'] ?? false) === true;
-        $response = $result->status === 200 || $businessReplayed
-            ? ApiResponse::ok($result->body)
-            : ApiResponse::created($result->body);
+        $response = match (true) {
+            $result->status === 200 || $businessReplayed => ApiResponse::ok($result->body),
+            $result->status === 202 => ApiResponse::accepted($result->body),
+            default => ApiResponse::created($result->body),
+        };
 
         if ($result->replayed || $businessReplayed) {
             $response->headers->set('Idempotency-Replayed', 'true');

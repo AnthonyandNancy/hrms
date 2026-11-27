@@ -1,0 +1,107 @@
+{
+  "module": "M19",
+  "name": "用户角色与细粒度权限",
+  "status": "implemented-frozen-focused-tests-green",
+  "pagesAdded": [
+    {
+      "path": "/system/pages",
+      "name": "system-pages",
+      "componentKey": "system/system-pages",
+      "capability": "iam.permission.read",
+      "requiredApis": [
+        "GET /v1/pages/catalog",
+        "GET /v1/system/menus",
+        "POST /v1/system/menus",
+        "PATCH /v1/system/menus/{page_code}",
+        "DELETE /v1/system/menus/{page_code}",
+        "GET /v1/capabilities"
+      ]
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/system/menus",
+      "name": "system-menus"
+    },
+    {
+      "path": "/system/permissions",
+      "name": "system-permissions"
+    },
+    {
+      "path": "/system/data-scopes",
+      "name": "system-data-scopes"
+    },
+    {
+      "path": "/system/field-policies",
+      "name": "system-field-policies"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "system-menus",
+    "system-permissions",
+    "system-data-scopes",
+    "system-field-policies"
+  ],
+  "openapiOperations": [
+    "GET /v1/pages/catalog",
+    "GET /v1/system/menus",
+    "POST /v1/system/menus",
+    "PATCH /v1/system/menus/{page_code}",
+    "DELETE /v1/system/menus/{page_code}",
+    "GET /v1/capabilities",
+    "PUT /v1/roles/{id}/authorization"
+  ],
+  "routeChanges": [
+    "No redirect for the four retired pages; browser URL resolves to not-found.",
+    "/system/pages is the single page-catalog entry; menu overrides keep POST/PATCH/DELETE semantics.",
+    "Role authorization remains one atomic PUT /v1/roles/{id}/authorization."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.create",
+      "label": "新增菜单展示覆盖",
+      "capability": "iam.menu.manage",
+      "api": "POST /v1/system/menus",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::create"
+      ]
+    },
+    {
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.reset",
+      "label": "恢复默认菜单展示",
+      "capability": "iam.menu.manage",
+      "api": "DELETE /v1/system/menus/{page_code}",
+      "ui": "secondary",
+      "confirm": "danger",
+      "services": [
+        "MenuOverrideService::delete"
+      ]
+    },
+    {
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.update",
+      "label": "保存菜单展示",
+      "capability": "iam.menu.manage",
+      "api": "PATCH /v1/system/menus/{page_code}",
+      "ui": "primary",
+      "confirm": "none",
+      "services": [
+        "MenuOverrideService::update"
+      ]
+    }
+  ],
+  "notes": [
+    "Page counts after M19: frontend 148, backend 146 (M01+M21 gave 151/149; delete 4 add 1).",
+    "Four IAM pages were folded: menus/permissions -> /system/pages; data-scopes/field-policies -> role authorization tabs.",
+    "Role workspace has four Chinese tabs (页面权限/按钮动作/数据范围/字段权限); built-in roles are copy-only.",
+    "ADR copy removed from role UI; technical codes only in an explicitly labelled admin technical detail region.",
+    "Focused backend tests green: RoleAuthorizationApiTest, PageCatalogApiTest, RolePagesTest, RolePagesApiTest, SuperadminBaselineTest, MePermissionsTest. 36 tests / 7631 assertions / 3 failures.",
+    "The 3 remaining failures are shared-contract drift from M21 (PATCH /v1/system/company-profile and POST /v1/audit/events/export x-capability/operation registration). They are to be fixed by the lead when regenerating OpenAPI/actions.",
+    "Global typecheck/audits/gate:all were NOT RUN to completion: BLOCKED_BY_CONCURRENT_EDITING at execution time.",
+    "Cross-domain incidental fixes made by the worker (to be reviewed by lead): departments api/page, employee profile section, positions page, workflow detail, reporting api/components/pages, performance api/page, recruiting candidate detail, training workspace, leave drawer/list/page, overtime api, and related tests. Notice four files were reverted and currently have no diff."
+  ]
+}

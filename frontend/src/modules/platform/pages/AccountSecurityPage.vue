@@ -293,7 +293,7 @@ onMounted(() => {
       部分账号安全信息暂时无法加载。可分别重试对应区域；已加载的区域仍可正常使用。
     </el-alert>
 
-    <section v-if="canOpen" class="account-security__card" aria-labelledby="account-profile-title">
+    <section v-if="canOpen" class="account-security__card" data-testid="account-profile" aria-labelledby="account-profile-title">
       <header class="account-security__card-header">
         <h2 id="account-profile-title">账号信息</h2>
         <span class="plain-chip">密码登录为唯一必需方式</span>
@@ -313,7 +313,7 @@ onMounted(() => {
         title="没有可展示的账号信息"
         description="当前登录未返回账号资料。请重新登录后再试。"
       />
-      <dl v-else class="account-security__facts" data-testid="account-profile">
+      <dl v-else class="account-security__facts" data-testid="account-profile-facts">
         <div><dt>公司</dt><dd>{{ companyName }}</dd></div>
         <div><dt>登录账号</dt><dd>{{ profile.username }}</dd></div>
         <div><dt>邮箱</dt><dd>{{ profile.email ?? '未登记' }}</dd></div>
@@ -325,7 +325,7 @@ onMounted(() => {
       </dl>
     </section>
 
-    <section v-if="canOpen" class="account-security__card" aria-labelledby="account-sessions-title">
+    <section v-if="canOpen" class="account-security__card" data-testid="account-sessions" aria-labelledby="account-sessions-title">
       <header class="account-security__card-header">
         <h2 id="account-sessions-title">登录会话</h2>
         <span class="plain-chip">服务端 HttpOnly Cookie</span>
@@ -343,7 +343,7 @@ onMounted(() => {
       />
     </section>
 
-    <section v-if="canOpen" class="account-security__card" aria-labelledby="account-mfa-title">
+    <section v-if="canOpen" class="account-security__card" data-testid="account-mfa" aria-labelledby="account-mfa-title">
       <header class="account-security__card-header">
         <h2 id="account-mfa-title">多因素认证</h2>
         <span class="plain-chip">{{ mfaVisible ? '可为高风险操作增加第二因素' : '当前部署未启用' }}</span>

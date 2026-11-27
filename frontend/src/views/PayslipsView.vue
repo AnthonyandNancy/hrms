@@ -88,7 +88,7 @@ onMounted(load)
         <p v-if="slip.note" class="payslip-card__note">{{ slip.note }}</p>
         <div class="payslip-card__footer">
           <span class="small muted">工资条 #{{ slip.id }}</span>
-          <el-button type="primary" plain size="small" @click="router.push(`/payroll/my-payslips/${slip.id}`)">
+          <el-button type="primary" plain size="small" @click="router.push('/payroll')">
             查看明细
           </el-button>
         </div>

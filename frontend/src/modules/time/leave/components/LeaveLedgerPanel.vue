@@ -130,7 +130,7 @@ const hasEntries = computed(() => (current.value.data?.entries.length ?? 0) > 0)
       <div>
         <h2 class="leave-ledger__title">假期账本</h2>
         <p class="leave-ledger__subtitle">
-          只读的不可变分录：发放计入、占用与结算扣减，余额为服务端逐笔计算的累计值。
+          只读的不可变分录：发放计入、占用、结算与冲正逐笔记录，余额为服务端计算的累计值。
         </p>
       </div>
       <span class="leave-ledger__readonly">只读</span>

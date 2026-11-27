@@ -66,6 +66,40 @@ type ChangeRow = {
 type Draft = {
   changeType: string
   reason: string
+  resource: string
+  recordId: number | null
+  field: string
+  newValue: string
+}
+
+const CHANGE_RESOURCES = [
+  { value: 'education', label: '教育经历' },
+  { value: 'experiences', label: '工作经历' },
+  { value: 'contacts', label: '联系方式' },
+  { value: 'certificates', label: '证照信息' },
+] as const
+
+const CHANGE_FIELDS: Readonly<Record<string, ReadonlyArray<{ value: string; label: string }>>> = {
+  education: [
+    { value: 'school', label: '学校' }, { value: 'degree', label: '学历' },
+    { value: 'major', label: '专业' }, { value: 'start_date', label: '开始日期' },
+    { value: 'end_date', label: '结束日期' }, { value: 'notes', label: '备注' },
+  ],
+  experiences: [
+    { value: 'company', label: '公司' }, { value: 'title', label: '职位' },
+    { value: 'start_date', label: '开始日期' }, { value: 'end_date', label: '结束日期' },
+    { value: 'leave_reason', label: '离职原因' }, { value: 'notes', label: '备注' },
+  ],
+  contacts: [
+    { value: 'name', label: '姓名' }, { value: 'relationship', label: '关系' },
+    { value: 'phone', label: '电话' }, { value: 'email', label: '邮箱' },
+    { value: 'is_emergency', label: '紧急联系人' }, { value: 'is_primary', label: '主要联系人' },
+  ],
+  certificates: [
+    { value: 'certificate_type', label: '证照类型' }, { value: 'certificate_no', label: '证照编号' },
+    { value: 'issuer', label: '签发机构' }, { value: 'issued_on', label: '签发日期' },
+    { value: 'expires_on', label: '到期日期' }, { value: 'document_id', label: '附件编号' },
+  ],
 }
 
 const rows = ref<ChangeRow[]>([])
@@ -79,7 +113,7 @@ const formOpen = ref(false)
 const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formError = ref<string | null>(null)
-const draft = ref<Draft>({ changeType: 'PROFILE_CORRECTION', reason: '' })
+const draft = ref<Draft>({ changeType: 'PROFILE_CORRECTION', reason: '', resource: 'education', recordId: null, field: 'major', newValue: '' })
 
 const columns: DataTableColumn[] = [
   { key: 'display_type', label: '变更类型' },
@@ -289,7 +323,7 @@ async function reload(showLoading = true): Promise<void> {
 
 function openCreate(): void {
   editingId.value = null
-  draft.value = { changeType: 'PROFILE_CORRECTION', reason: '' }
+  draft.value = { changeType: 'PROFILE_CORRECTION', reason: '', resource: 'education', recordId: null, field: 'major', newValue: '' }
   formError.value = null
   formOpen.value = true
 }
@@ -300,6 +334,10 @@ function openEdit(row: ChangeRow): void {
   draft.value = {
     changeType: row.changeType ?? 'PROFILE_CORRECTION',
     reason: row.reason ?? '',
+    resource: 'education',
+    recordId: null,
+    field: 'major',
+    newValue: '',
   }
   formError.value = null
   formOpen.value = true
@@ -311,12 +349,25 @@ async function submitDraftForm(): Promise<void> {
     formError.value = '请填写至少 3 个字的变更原因。'
     return
   }
+  if (draft.value.recordId === null || draft.value.recordId <= 0) {
+    formError.value = '请填写要变更的子档案记录编号。'
+    return
+  }
+  if (draft.value.newValue.trim() === '') {
+    formError.value = '请填写变更后的新值。'
+    return
+  }
 
   submitting.value = true
   try {
     const body = {
       reason: draft.value.reason.trim(),
-      diff: { change_type: draft.value.changeType },
+      diff: {
+        change_type: draft.value.changeType,
+        resource: draft.value.resource,
+        record_id: draft.value.recordId,
+        changes: { [draft.value.field]: draft.value.newValue.trim() },
+      },
     }
     const base = `/v1/employees/${props.employmentId}/change_requests`
     if (editingId.value === null) {
@@ -502,12 +553,15 @@ watch(
               <template v-if="selected.caseIdVisible && selected.caseId !== null">
                 <ActionGate capability="workflow.case.read">
                   <RouterLink
-                    :to="`/cases/${selected.caseId}`"
+                    :to="`/workflow/cases/${selected.caseId}`"
                     class="change-detail__link"
                     data-testid="change-case-link"
                   >
                     查看审批案例 #{{ selected.caseId }}
                   </RouterLink>
+                  <template #fallback>
+                    <span data-testid="change-case-no-access">审批案例 #{{ selected.caseId }}（无查看权限）</span>
+                  </template>
                 </ActionGate>
               </template>
               <span v-else-if="selected.caseIdVisible">
@@ -536,6 +590,26 @@ watch(
               {{ type.label }}
             </option>
           </select>
+        </label>
+        <label class="change-form__field">
+          <span>目标子档案 *</span>
+          <el-select v-model="draft.resource" aria-label="目标子档案" data-testid="change-form-resource">
+            <el-option v-for="item in CHANGE_RESOURCES" :key="item.value" :value="item.value" :label="item.label" />
+          </el-select>
+        </label>
+        <label class="change-form__field">
+          <span>记录编号 *</span>
+          <el-input-number v-model="draft.recordId" :min="1" aria-label="记录编号" data-testid="change-form-record" />
+        </label>
+        <label class="change-form__field">
+          <span>变更字段 *</span>
+          <el-select v-model="draft.field" aria-label="变更字段" data-testid="change-form-field">
+            <el-option v-for="item in CHANGE_FIELDS[draft.resource] ?? []" :key="item.value" :value="item.value" :label="item.label" />
+          </el-select>
+        </label>
+        <label class="change-form__field">
+          <span>新值 *</span>
+          <el-input v-model="draft.newValue" aria-label="新值" data-testid="change-form-value" />
         </label>
         <label class="change-form__field">
           <span>变更原因 *</span>

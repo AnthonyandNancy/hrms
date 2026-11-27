@@ -15,8 +15,61 @@ export type LeaveTypeOption = {
   code: string
   name: string
   unit: LeaveUnit
+  isStatutory: boolean
+  isAnnual: boolean
   requiresAttachment: boolean
   allowNegative: boolean
+  status: string
+  policyVersion: number | null
+  policyVersionId: number | null
+  entitlementMinutes: number | null
+  version: number
+}
+
+export type LeavePolicy = {
+  id: number
+  leaveTypeId: number
+  leaveTypeCode: string
+  leaveTypeName: string
+  unit: LeaveUnit
+  version: number
+  status: string
+  effectiveFrom: string
+  effectiveTo: string
+  accrualMode: string
+  entitlementMinutes: number
+  minNoticeDays: number
+  maxConsecutiveDays: number | null
+  requiresAttachmentOverDays: number | null
+  allowHalfDay: boolean
+  legalBasis: string | null
+  publishedAt: string
+  retiredAt: string | null
+  retireReason: string | null
+}
+
+export type LeavePolicyInput = {
+  leave_type_id: number
+  effective_from: string
+  effective_to: string
+  accrual: { mode: string; minutes_per_year: number }
+  carryover: Record<string, unknown> | null
+  min_notice_days: number
+  max_consecutive_days: number | null
+  requires_attachment_over_days: number | null
+  allow_half_day: boolean
+  legal_basis: string | null
+  applies_to: { scope: 'COMPANY' }
+}
+
+export type LeaveTypeInput = {
+  code: string
+  name: string
+  unit: string
+  is_statutory: boolean
+  is_annual: boolean
+  requires_attachment: boolean
+  allow_negative: boolean
 }
 
 export type LeaveBalance = {
@@ -43,6 +96,7 @@ export type LeaveRequestStatus =
   | 'REJECTED'
   | 'WITHDRAWN'
   | 'CANCELLED'
+  | 'REVOKED'
   | string
 
 export type LeaveRequestItem = {
@@ -51,11 +105,50 @@ export type LeaveRequestItem = {
   caseNo: string
   applicationStatus: LeaveRequestStatus
   effectStatus: string | null
+  employmentId: number | null
+  employeeNo: string | null
+  departmentName: string | null
+  actorUserId: number | null
+  orgUnitId: number | null
   leaveTypeId: number | null
+  policyVersionId: number | null
   fromDate: string
   toDate: string
   minutes: number
   state: string
+}
+
+export type LeaveSummaryRow = {
+  leaveTypeId: number
+  leaveTypeCode: string
+  leaveTypeName: string
+  unit: LeaveUnit
+  orgUnitId: number | null
+  month: string
+  employmentId: number | null
+  employmentIds: number[]
+  requestedMinutes: number
+  caseIds: number[]
+  consumedMinutes: number
+  reservedMinutes: number
+  releasedMinutes: number
+  reversedMinutes: number
+  balanceMinutes: number
+}
+
+export type LeaveSummary = {
+  rows: LeaveSummaryRow[]
+  total: number
+  asOf: string
+  sourceHash: string
+}
+
+export type LeaveCancelResult = {
+  caseId: number
+  state: string
+  releasedMinutes: number
+  reversedMinutes: number
+  replayed: boolean
 }
 
 export type LeavePreviewConflict = {
@@ -76,6 +169,7 @@ export type LeavePreview = {
   availableBeforeMinutes: number
   availableAfterMinutes: number
   standardDayMinutes: number
+  policyVersion: number | null
 }
 
 export type LeaveRequestInput = {
@@ -84,7 +178,10 @@ export type LeaveRequestInput = {
   endDate: string
   halfDay: boolean
   reason: string
+  attachmentReference?: string | null
 }
+
+export type LeaveOnBehalfInput = LeaveRequestInput & { employmentId: number }
 
 export type LeaveRequestResult = {
   caseId: number | null
@@ -92,6 +189,8 @@ export type LeaveRequestResult = {
   applicationStatus: LeaveRequestStatus
   effectStatus: string | null
   requestedMinutes: number
+  actorUserId: number | null
+  subjectEmploymentId: number | null
 }
 
 export type LeaveLedgerEntryType =
@@ -175,8 +274,55 @@ function normaliseType(raw: RawRecord): LeaveTypeOption | null {
     code,
     name: text(firstValue(raw, ['name', 'leaveTypeName', 'leave_type_name']), code),
     unit: text(firstValue(raw, ['unit']), 'DAY'),
+    isStatutory: firstValue(raw, ['is_statutory', 'isStatutory']) === true,
+    isAnnual: firstValue(raw, ['is_annual', 'isAnnual']) === true,
     requiresAttachment: firstValue(raw, ['requires_attachment', 'requiresAttachment']) === true,
     allowNegative: firstValue(raw, ['allow_negative', 'allowNegative']) === true,
+    status: text(firstValue(raw, ['status']), 'ACTIVE').toUpperCase(),
+    policyVersion: nullableInteger(firstValue(raw, ['policy_version', 'policyVersion'])),
+    policyVersionId: nullableInteger(firstValue(raw, ['policy_version_id', 'policyVersionId'])),
+    entitlementMinutes: nullableInteger(firstValue(raw, ['entitlement_minutes', 'entitlementMinutes'])),
+    version: Math.trunc(numberValue(firstValue(raw, ['version']), 1)),
+  }
+}
+
+function integerList(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((entry) => nullableInteger(entry))
+    .filter((entry): entry is number => entry !== null)
+}
+
+function normalisePolicy(raw: RawRecord): LeavePolicy | null {
+  const id = nullableInteger(firstValue(raw, ['id']))
+  const leaveTypeId = nullableInteger(firstValue(raw, ['leave_type_id', 'leaveTypeId']))
+  if (id === null || leaveTypeId === null) return null
+
+  const accrualValue = firstValue(raw, ['accrual', 'accrual_json'])
+  const accrual = isRecord(accrualValue) ? accrualValue : {}
+
+  return {
+    id,
+    leaveTypeId,
+    leaveTypeCode: text(firstValue(raw, ['leave_type_code', 'leaveTypeCode'])),
+    leaveTypeName: text(firstValue(raw, ['leave_type_name', 'leaveTypeName'])),
+    unit: text(firstValue(raw, ['unit']), 'DAY'),
+    version: Math.trunc(numberValue(firstValue(raw, ['version']), 1)),
+    status: text(firstValue(raw, ['status']), 'PUBLISHED').toUpperCase(),
+    effectiveFrom: text(firstValue(raw, ['effective_from', 'effectiveFrom'])),
+    effectiveTo: text(firstValue(raw, ['effective_to', 'effectiveTo'])),
+    accrualMode: text(firstValue(accrual, ['mode']), 'ANNUAL_FIXED').toUpperCase(),
+    entitlementMinutes: Math.trunc(numberValue(firstValue(accrual, ['minutes_per_year']))),
+    minNoticeDays: Math.trunc(numberValue(firstValue(raw, ['min_notice_days', 'minNoticeDays']))),
+    maxConsecutiveDays: nullableInteger(firstValue(raw, ['max_consecutive_days', 'maxConsecutiveDays'])),
+    requiresAttachmentOverDays: nullableInteger(
+      firstValue(raw, ['requires_attachment_over_days', 'requiresAttachmentOverDays']),
+    ),
+    allowHalfDay: firstValue(raw, ['allow_half_day', 'allowHalfDay']) !== false,
+    legalBasis: nullableText(firstValue(raw, ['legal_basis', 'legalBasis'])),
+    publishedAt: text(firstValue(raw, ['published_at', 'publishedAt'])),
+    retiredAt: nullableText(firstValue(raw, ['retired_at', 'retiredAt'])),
+    retireReason: nullableText(firstValue(raw, ['retire_reason', 'retireReason'])),
   }
 }
 
@@ -233,7 +379,13 @@ function normaliseRequest(raw: RawRecord): LeaveRequestItem | null {
       'SUBMITTED',
     ).toUpperCase(),
     effectStatus: nullableText(firstValue(raw, ['effectStatus', 'effect_status'])),
+    employmentId: nullableInteger(firstValue(raw, ['employment_id', 'employmentId', 'subject_employment_id'])),
+    employeeNo: nullableText(firstValue(raw, ['employeeNo', 'employee_no'])),
+    departmentName: nullableText(firstValue(raw, ['departmentName', 'department_name'])),
+    actorUserId: nullableInteger(firstValue(raw, ['actor_user_id', 'actorUserId'])),
+    orgUnitId: nullableInteger(firstValue(raw, ['org_unit_id', 'orgUnitId'])),
     leaveTypeId: nullableInteger(firstValue(raw, ['leaveTypeId', 'leave_type_id'])),
+    policyVersionId: nullableInteger(firstValue(raw, ['leave_policy_version_id', 'leavePolicyVersionId'])),
     fromDate: text(firstValue(raw, ['fromDate', 'from_date'])),
     toDate: text(firstValue(raw, ['toDate', 'to_date'])),
     minutes: Math.trunc(numberValue(firstValue(raw, ['minutes']))),
@@ -285,6 +437,39 @@ function normalisePreview(raw: RawRecord): LeavePreview {
     standardDayMinutes: Math.trunc(
       numberValue(firstValue(raw, ['standardDayMinutes', 'standard_day_minutes']), 1),
     ),
+    policyVersion: nullableInteger(firstValue(raw, ['policyVersion', 'policy_version'])),
+  }
+}
+
+function normaliseSummaryRow(raw: RawRecord): LeaveSummaryRow {
+  return {
+    leaveTypeId: Math.trunc(numberValue(firstValue(raw, ['leave_type_id', 'leaveTypeId']))),
+    leaveTypeCode: text(firstValue(raw, ['leave_type_code', 'leaveTypeCode'])),
+    leaveTypeName: text(firstValue(raw, ['leave_type_name', 'leaveTypeName'])),
+    unit: text(firstValue(raw, ['unit']), 'DAY'),
+    orgUnitId: nullableInteger(firstValue(raw, ['org_unit_id', 'orgUnitId'])),
+    month: text(firstValue(raw, ['month'])),
+    employmentId: nullableInteger(firstValue(raw, ['employment_id', 'employmentId'])),
+    employmentIds: integerList(firstValue(raw, ['employment_ids', 'employmentIds'])),
+    requestedMinutes: Math.trunc(numberValue(firstValue(raw, ['requested_minutes', 'requestedMinutes']))),
+    caseIds: integerList(firstValue(raw, ['case_ids', 'caseIds'])),
+    consumedMinutes: Math.trunc(numberValue(firstValue(raw, ['consumed_minutes', 'consumedMinutes']))),
+    reservedMinutes: Math.trunc(numberValue(firstValue(raw, ['reserved_minutes', 'reservedMinutes']))),
+    releasedMinutes: Math.trunc(numberValue(firstValue(raw, ['released_minutes', 'releasedMinutes']))),
+    reversedMinutes: Math.trunc(numberValue(firstValue(raw, ['reversed_minutes', 'reversedMinutes']))),
+    balanceMinutes: Math.trunc(numberValue(firstValue(raw, ['balance_minutes', 'balanceMinutes']))),
+  }
+}
+
+function normaliseSummary(raw: unknown): LeaveSummary {
+  const payload = isRecord(raw) ? raw : {}
+  const rows = Array.isArray(payload.rows) ? payload.rows.filter(isRecord).map(normaliseSummaryRow) : []
+
+  return {
+    rows,
+    total: Math.trunc(numberValue(firstValue(payload, ['total']), rows.length)),
+    asOf: text(firstValue(payload, ['as_of', 'asOf'])),
+    sourceHash: text(firstValue(payload, ['source_hash', 'sourceHash'])),
   }
 }
 
@@ -332,22 +517,104 @@ export async function getLeaveTypes(): Promise<LeaveTypeOption[]> {
     .filter((value): value is LeaveTypeOption => value !== null)
 }
 
-export async function getLeaveBalances(): Promise<LeaveBalance[]> {
-  const raw = await resourceGet<unknown>('/v1/time/leave/balances')
+export async function getLeavePolicies(): Promise<LeavePolicy[]> {
+  const raw = await resourceGet<unknown>('/v1/time/leave/policies')
+  return itemsOf(raw)
+    .map(normalisePolicy)
+    .filter((value): value is LeavePolicy => value !== null)
+}
+
+export async function getLeaveBalances(employmentId?: number | null): Promise<LeaveBalance[]> {
+  const raw = await resourceGet<unknown>(
+    '/v1/time/leave/balances',
+    employmentId ? { employment_id: employmentId } : {},
+  )
   return itemsOf(raw)
     .map(normaliseBalance)
     .filter((value): value is LeaveBalance => value !== null)
 }
 
-export async function getLeaveRequests(): Promise<LeaveRequestItem[]> {
-  const raw = await resourceGet<unknown>('/v1/time/leave/requests')
+export async function getLeaveRequests(params: Record<string, unknown> = {}): Promise<LeaveRequestItem[]> {
+  const raw = await resourceGet<unknown>('/v1/time/leave/requests', params)
   return itemsOf(raw)
     .map(normaliseRequest)
     .filter((value): value is LeaveRequestItem => value !== null)
 }
 
-export async function previewLeave(input: LeaveRequestInput): Promise<LeavePreview> {
-  const raw = await resourcePost<RawRecord>('/v1/time/leave/preview', leaveRequestPayload(input))
+export async function getLeaveSummary(params: Record<string, unknown>): Promise<LeaveSummary> {
+  const raw = await resourceGet<unknown>('/v1/time/leave/reports/summary', params)
+  return normaliseSummary(raw)
+}
+
+export async function createLeaveType(
+  input: LeaveTypeInput,
+  idempotencyKey: string,
+): Promise<LeaveTypeOption | null> {
+  const raw = await resourcePost<RawRecord>('/v1/time/leave/types', input, { idempotencyKey })
+  return normaliseType(raw)
+}
+
+export async function updateLeaveType(
+  id: number,
+  input: Record<string, unknown>,
+  idempotencyKey: string,
+): Promise<LeaveTypeOption | null> {
+  // Dynamic import keeps the module boundary mockable for the existing leave
+  // tests that only stub GET/POST while still using PATCH in production.
+  const { resourcePatch } = await import('@/api/resourceClient')
+  const raw = await resourcePatch<RawRecord>(`/v1/time/leave/types/${id}`, input, { idempotencyKey })
+  return normaliseType(raw)
+}
+
+export async function createLeavePolicy(
+  input: LeavePolicyInput,
+  idempotencyKey: string,
+): Promise<LeavePolicy | null> {
+  const raw = await resourcePost<RawRecord>('/v1/time/leave/policies', input, { idempotencyKey })
+  return normalisePolicy(raw)
+}
+
+export async function retireLeavePolicy(
+  id: number,
+  reason: string,
+  idempotencyKey: string,
+): Promise<LeavePolicy | null> {
+  const raw = await resourcePost<RawRecord>(
+    `/v1/time/leave/policies/${id}/retire`,
+    { reason },
+    { idempotencyKey },
+  )
+  return normalisePolicy(raw)
+}
+
+export async function submitLeaveOnBehalf(
+  input: LeaveOnBehalfInput,
+  idempotencyKey: string,
+): Promise<LeaveRequestResult> {
+  const raw = await resourcePost<RawRecord>(
+    '/v1/time/leave/requests/on-behalf',
+    { employment_id: input.employmentId, ...leaveRequestPayload(input) },
+    { idempotencyKey },
+  )
+
+  return {
+    caseId: nullableInteger(firstValue(raw, ['caseId', 'case_id'])),
+    caseNo: text(firstValue(raw, ['caseNo', 'case_no'])),
+    applicationStatus: text(firstValue(raw, ['applicationStatus', 'application_status']), 'SUBMITTED').toUpperCase(),
+    effectStatus: nullableText(firstValue(raw, ['effectStatus', 'effect_status'])),
+    requestedMinutes: Math.trunc(numberValue(firstValue(raw, ['requestedMinutes', 'requested_minutes']))),
+    actorUserId: nullableInteger(firstValue(raw, ['actor_user_id', 'actorUserId'])),
+    subjectEmploymentId: nullableInteger(firstValue(raw, ['subject_employment_id', 'subjectEmploymentId'])),
+  }
+}
+
+export async function previewLeave(input: LeaveRequestInput, employmentId?: number | null): Promise<LeavePreview> {
+  const raw = employmentId
+    ? await resourcePost<RawRecord>('/v1/time/leave/requests/on-behalf/preview', {
+        employment_id: employmentId,
+        ...leaveRequestPayload(input),
+      })
+    : await resourcePost<RawRecord>('/v1/time/leave/preview', leaveRequestPayload(input))
   return normalisePreview(raw)
 }
 
@@ -370,6 +637,8 @@ export async function submitLeaveRequest(
     ).toUpperCase(),
     effectStatus: nullableText(firstValue(raw, ['effectStatus', 'effect_status'])),
     requestedMinutes: Math.trunc(numberValue(firstValue(raw, ['requestedMinutes', 'requested_minutes']))),
+    actorUserId: nullableInteger(firstValue(raw, ['actor_user_id', 'actorUserId'])),
+    subjectEmploymentId: nullableInteger(firstValue(raw, ['subject_employment_id', 'subjectEmploymentId'])),
   }
 }
 
@@ -377,17 +646,49 @@ export async function cancelLeaveRequest(
   caseId: number,
   reason: string,
   idempotencyKey: string,
-): Promise<void> {
-  await resourcePost<unknown>(
+  revoke = false,
+): Promise<LeaveCancelResult> {
+  const body: Record<string, unknown> = { reason }
+  if (revoke) body.revoke = true
+  const raw = await resourcePost<RawRecord>(
     `/v1/time/leave/requests/${caseId}/cancel`,
+    body,
+    { idempotencyKey },
+  )
+
+  return {
+    caseId: nullableInteger(firstValue(raw, ['caseId', 'case_id'])) ?? caseId,
+    state: text(firstValue(raw, ['state']), revoke ? 'REVOKED' : 'CANCELLED'),
+    releasedMinutes: Math.trunc(numberValue(firstValue(raw, ['releasedMinutes', 'released_minutes']))),
+    reversedMinutes: Math.trunc(numberValue(firstValue(raw, ['reversedMinutes', 'reversed_minutes']))),
+    replayed: firstValue(raw, ['replayed']) === true,
+  }
+}
+
+export async function revokeApprovedLeave(
+  caseId: number,
+  reason: string,
+  idempotencyKey: string,
+): Promise<LeaveCancelResult> {
+  const raw = await resourcePost<RawRecord>(
+    `/v1/time/leave/requests/${caseId}/revoke`,
     { reason },
     { idempotencyKey },
   )
+
+  return {
+    caseId: nullableInteger(firstValue(raw, ['caseId', 'case_id'])) ?? caseId,
+    state: text(firstValue(raw, ['state']), 'REVOKED'),
+    releasedMinutes: Math.trunc(numberValue(firstValue(raw, ['releasedMinutes', 'released_minutes']))),
+    reversedMinutes: Math.trunc(numberValue(firstValue(raw, ['reversedMinutes', 'reversed_minutes']))),
+    replayed: firstValue(raw, ['replayed']) === true,
+  }
 }
 
 export async function getLeaveLedger(
   leaveTypeCode: string,
   standardDayMinutes: number | null = null,
+  employmentId?: number | null,
 ): Promise<LeaveLedger> {
   if (leaveTypeCode.trim() === '') {
     throw new ApiError('VALIDATION_FAILED', '请先选择假期类型。', { status: 422 })
@@ -395,18 +696,24 @@ export async function getLeaveLedger(
 
   // No as_of is sent: omitting it asks the server to use the company profile's
   // business date, which is the only source for "today" in this workspace.
-  const raw = await resourceGet<unknown>('/v1/time/leave/ledger', { leave_type: leaveTypeCode })
+  const params: Record<string, unknown> = { leave_type: leaveTypeCode }
+  if (employmentId) params.employment_id = employmentId
+  const raw = await resourceGet<unknown>('/v1/time/leave/ledger', params)
   return normaliseLedger(raw, standardDayMinutes)
 }
 
 export function leaveRequestPayload(input: LeaveRequestInput): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     leaveTypeCode: input.leaveTypeCode,
     startDate: input.startDate,
     endDate: input.endDate,
     halfDay: input.halfDay,
     reason: input.reason.trim(),
   }
+
+  if (input.attachmentReference) payload.attachment_reference = input.attachmentReference
+
+  return payload
 }
 
 export function newLeaveIdempotencyKey(prefix: string): string {
@@ -460,10 +767,11 @@ export const LEAVE_STATUS_LABEL: Record<string, string> = {
   REJECTED: '已驳回',
   COMPLETED: '已完成',
   WITHDRAWN: '已撤回',
-  CANCELLED: '已撤回',
-  RELEASED: '已撤回',
+  CANCELLED: '已撤销',
+  RELEASED: '已撤销',
   DRAFT: '草稿',
-  REVOKED: '已撤销',
+  REVOKED: '已销假',
+  CONSUMED: '已结算',
 }
 
 export const LEAVE_STATUS_TONE: Record<string, 'pending' | 'approved' | 'rejected' | 'closed'> = {
@@ -477,6 +785,8 @@ export const LEAVE_STATUS_TONE: Record<string, 'pending' | 'approved' | 'rejecte
   WITHDRAWN: 'closed',
   CANCELLED: 'closed',
   RELEASED: 'closed',
+  REVOKED: 'closed',
+  CONSUMED: 'approved',
 }
 
 export const LEDGER_ENTRY_LABEL: Record<string, string> = {
@@ -494,8 +804,30 @@ export const PREVIEW_CONFLICT_LABEL: Record<string, string> = {
   LEAVE_REQUEST_OVERLAP: '所选日期与已有请假申请重叠。',
   ATTENDANCE_PERIOD_CLOSED: '所选日期所在考勤期间已关账。',
   DATE_CONFLICT: '所选日期存在排班冲突。',
+  LEAVE_MIN_NOTICE_VIOLATION: '未满足该假别要求的最短提前申请天数。',
+  LEAVE_MAX_CONSECUTIVE_EXCEEDED: '连续请假天数超过该假别上限。',
+  LEAVE_HALF_DAY_NOT_ALLOWED: '该假别不允许半天请假。',
+  LEAVE_ATTACHMENT_REQUIRED: '该时长需要上传附件。',
+  LEAVE_REASON_TOO_SHORT: '请假事由至少需要 3 个字。',
 }
 
+export const POLICY_STATUS_LABEL: Record<string, string> = {
+  PUBLISHED: '已发布',
+  RETIRED: '已停用',
+  DRAFT: '草稿',
+}
+
+export const ACCRUAL_MODE_LABEL: Record<string, string> = {
+  ANNUAL_FIXED: '按年固定额度',
+  MONTHLY_FIXED: '按月固定额度',
+  NONE: '不设固定额度',
+}
+
+export const LEAVE_UNIT_OPTIONS = [
+  { value: 'DAY', label: '天' },
+  { value: 'HOUR', label: '小时' },
+]
+
 export function previewConflictText(conflict: LeavePreviewConflict): string {
-  return PREVIEW_CONFLICT_LABEL[conflict.code] ?? conflict.message ?? '服务端返回了日期冲突。'
+  return PREVIEW_CONFLICT_LABEL[conflict.code] ?? '服务端返回了日期冲突。'
 }

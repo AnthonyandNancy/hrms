@@ -4,12 +4,27 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Time;
 
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\OvertimeRecord;
 use Tests\Support\Time\TimeHttpTestCase;
 use Tests\Support\Time\TimeTestFixtures;
 
 final class OvertimeSettlementTest extends TimeHttpTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Existing single-settlement tests run against an open payroll period.
+        $this->app->instance(PayrollPeriodLockReader::class, new class implements PayrollPeriodLockReader
+        {
+            public function isFrozen(int $employmentId, string $period): bool
+            {
+                return false;
+            }
+        });
+    }
+
     public function test_overtime_can_be_settled_only_once_either_as_pay_or_timeoff(): void
     {
         $this->actAsHttp(TimeTestFixtures::actor(employmentId: 1, capabilities: ['time.overtime.read', 'time.overtime.settle']));
@@ -50,10 +65,12 @@ final class OvertimeSettlementTest extends TimeHttpTestCase
             'reason' => 'Synthetic time-off settlement.',
         ], ['Idempotency-Key' => 'ot-settle-1'])->assertCreated();
 
+        // Different key, same semantic request: service-level replay returns
+        // the existing settlement as a 200 rather than creating a second row.
         $second = $this->postJson("/v1/overtime/records/{$record->id}/settlements", [
             'method' => 'TIMEOFF',
             'reason' => 'Synthetic time-off settlement.',
-        ], ['Idempotency-Key' => 'ot-settle-2'])->assertCreated();
+        ], ['Idempotency-Key' => 'ot-settle-2'])->assertOk();
 
         $this->assertSame($first->json('data.settlement_id'), $second->json('data.settlement_id'));
         $this->assertDatabaseCount('overtime_settlements', 1);

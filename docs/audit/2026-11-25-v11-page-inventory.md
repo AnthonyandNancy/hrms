@@ -187,7 +187,7 @@
 | 03B.6 | 数据范围权限 | `/system/data-scopes` | 本人、本部门、本部门及子部门、指定部门、本公司、指定公司、全集团范围配置。 | `sys_data_scopes`, `sys_role_data_scopes`, `sys_user_scopes`。 | 部门经理不能通过改query参数访问其他部门员工。 |
 | 03B.7 | 字段级权限 | `/system/field-policies` | 敏感字段清单、明文/脱敏/不可见/可编辑策略、导出列约束、下载控制。 | `sys_sensitive_fields`, `sys_field_policies`。 | 普通员工通过直接调用API也不能获取隐藏的工资字段。 |
 | 03B.8 | 审批流程中心 | `/workflow` | 流程模板、发起、我的待办/已办、抄送、转交、退回、撤回、催办、审批轨迹、代理审批规则。 | `workflow_definitions`, `workflow_versions`, `workflow_instances`, `workflow_tasks`, `workflow_actions`。 | 不同流程模板可按公司/部门/条件选择审批人。 |
-| 03B.9 | 员工自助门户 | `/self-service` | 我的档案、资料更正、我的打卡/考勤、请假加班出差、我的薪资条、我的绩效、我的培训、公告、待办。 | `employee_change_requests`, `self_service_preferences`。 | 更改employee_id参数不能读取别人的工资条和申请。 |
+| 03B.9 | 员工自助门户（并入工作台） | `/workspace` | 我的档案、资料更正、我的打卡/考勤、请假加班出差、我的薪资条、我的绩效、我的培训、公告、待办；V2.3 M01 已删除独立 `/self-service` 页面，能力并入工作台。 | `employee_change_requests`, `self_service_preferences`。 | 更改employee_id参数不能读取别人的工资条和申请。 |
 | 03B.10 | 社保公积金与福利 | `/benefits` | 属地基数方案、个人/单位缴费项、月度增减员记录、员工福利项目、福利发放台账。 | `statutory_rules`, `employee_insurance_enrollments`, `benefit_plans`, `benefit_transactions`。 | 参保基数变更保留历史，月度费用可关联工资批次。 |
 | 03B.11 | 节假日与工作日历 | `/system/calendars` | 法定节假日、自定义休息日、调休工作日、公司日历、地区和时区。 | `work_calendars`, `calendar_days`, `calendar_versions`。 | 跨地区员工使用对应日历，跨夜班考勤归属正确。 |
 | 03B.12 | 字典、参数与文件 | `/system/settings` | 员工状态、合同类型、假别、申请原因等字典；全局参数；文件密级、访问审计。 | `sys_dictionaries`, `sys_parameters`, `files`, `file_access_logs`。 | 知道文件ID不能越权下载合同或简历附件。 |

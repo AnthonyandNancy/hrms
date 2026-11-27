@@ -96,8 +96,8 @@ function change(grant: FieldPolicyGrant, event: Event): void {
 <template>
   <section class="role-field-policy-editor" data-testid="role-field-policy-editor">
     <p class="muted small">
-      字段档位按 P0 公开 / P1 内部 / P2 敏感 / P3 高敏选择。超过能力上限时页面会提示，服务端仍会最终校验。
-      只提交与当前授权不同的字段行。
+      字段档位按公开、内部、敏感、高敏四档选择。超过能力上限时页面会提示，服务端仍会最终校验。
+      保存时随授权一次性提交。
     </p>
 
     <p v-if="props.grants.length === 0" class="empty-inline">尚未选择动作，暂无字段权限可配置。</p>

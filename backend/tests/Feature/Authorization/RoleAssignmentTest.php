@@ -8,6 +8,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\User;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
@@ -114,12 +115,19 @@ final class RoleAssignmentTest extends AuthorizationTestSupport
 
     private function roleManager(): User
     {
-        $user = User::factory()->create();
+        // Assigning a role that grants capabilities requires the operator to
+        // hold them too (AdminProtectionGuard). The wildcard fixture is a
+        // non-privileged operator that still exercises the normal MFA login.
+        $user = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $user->id] = [1];
         AuthorityBinding::factory()
-            ->forPrincipal((int) $user->id)
-            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
-            ->create(['capability_code' => 'iam.role.manage']);
+            ->forPrincipal((int) $user->id, (int) $user->auth_version)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
+            ->create([
+                'capability_code' => CapabilityWildcard::WILDCARD,
+                'valid_from' => '2025-01-01 00:00:00',
+                'valid_to' => '2030-01-01 00:00:00',
+            ]);
 
         return $user;
     }

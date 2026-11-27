@@ -56,7 +56,7 @@ final class ExportScopeTest extends ReportingTestCase
         $this->assertSame(2, $created['rowCount']);
 
         $csv = $this->downloadCsv((int) $created['id'], (string) $created['downloadToken']);
-        $this->assertSame(['Employee no.', 'Organization', 'watermark'], $csv['header']);
+        $this->assertSame(['工号', '组织', 'watermark'], $csv['header']);
         $this->assertCount(2, $csv['rows']);
         $this->assertSame($reportEmployees, array_values(array_map(
             static fn (array $row): string => (string) $row[0],
@@ -158,7 +158,7 @@ final class ExportScopeTest extends ReportingTestCase
         ])->assertAccepted()->json('data');
 
         $csv = $this->downloadCsv((int) $valid['id'], (string) $valid['downloadToken']);
-        $this->assertSame(['Employee no.', 'watermark'], $csv['header']);
+        $this->assertSame(['工号', 'watermark'], $csv['header']);
         $this->assertStringNotContainsString('attacker_field', implode('', $csv['header']));
         $this->assertStringNotContainsString('salary', implode('', $csv['header']));
     }

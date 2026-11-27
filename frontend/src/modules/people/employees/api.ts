@@ -151,7 +151,8 @@ export async function listEmployees(query: EmployeeListQuery): Promise<EmployeeL
     q: query.q?.trim() === '' ? undefined : query.q?.trim(),
     page: query.page,
     page_size: query.page_size,
-    include_archived: query.include_archived,
+    // Laravel's boolean rule accepts 1/0, not the string "false".
+    include_archived: query.include_archived ? 1 : 0,
   })
 
   if (!isRecord(raw)) {

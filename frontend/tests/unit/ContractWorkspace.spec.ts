@@ -252,7 +252,13 @@ beforeEach(() => {
 })
 
 describe('contract workspace', () => {
-  it('renders the live ledger with Chinese types, statuses, dates, renewal count and an expiring filter', async () => {
+  it('renders the live ledger with Chinese types, statuses, dates, renewal count and a server-side expiry tab', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/employments/contracts') return Promise.resolve(projectionEnvelope(CONTRACTS))
+      if (path === '/v1/employments/contracts/expiring') return Promise.resolve(projectionEnvelope([CONTRACTS[0]]))
+      if (path === '/v1/employees') return Promise.resolve(listEnvelope(EMPLOYEES))
+      return Promise.reject(new Error(`Unexpected GET ${path}`))
+    })
     const wrapper = await mountPage(ContractWorkspacePage, '/hr/contracts')
 
     expect(resource.get).toHaveBeenCalledWith(
@@ -269,9 +275,13 @@ describe('contract workspace', () => {
     expect(wrapper.text()).not.toContain('FIXED_TERM')
     expect(wrapper.text()).not.toContain('TERMINATED')
 
-    await wrapper.get('[data-testid="contract-expiry-filter"]').trigger('click')
+    await wrapper.get('[data-testid="contract-tab-expiry"]').trigger('click')
     await flushPromises()
 
+    expect(resource.get).toHaveBeenCalledWith(
+      '/v1/employments/contracts/expiring',
+      expect.objectContaining({ within_days: 60, as_of: expect.any(String) }),
+    )
     expect(wrapper.get('[data-testid="contract-table"]').text()).toContain('CT-2026-0031')
     expect(wrapper.get('[data-testid="contract-table"]').text()).not.toContain('CT-2026-0032')
     expect(wrapper.get('[data-testid="contract-table"]').text()).not.toContain('CT-2025-0033')
@@ -361,13 +371,13 @@ describe('contract workspace', () => {
 
   it('shows the version timeline with signer, contract attachments and a termination confirmation naming the employee', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/employments/contracts') return Promise.resolve(projectionEnvelope([CONTRACTS[0]]))
+      if (path === '/v1/employments/1/contracts/31') return Promise.resolve(CONTRACTS[0])
       if (path === '/v1/employment-contracts/31/amendments') return Promise.resolve(projectionEnvelope(VERSIONS))
       if (path === '/v1/employments/1/document-files') return Promise.resolve(projectionEnvelope(ATTACHMENTS))
       return Promise.reject(new Error(`Unexpected GET ${path}`))
     })
 
-    const wrapper = await mountPage(ContractDetailPage, '/hr/contracts/31')
+    const wrapper = await mountPage(ContractDetailPage, '/hr/contracts/31?employment_id=1')
     await flushPromises()
 
     const timeline = wrapper.get('[data-testid="contract-version-list"]')

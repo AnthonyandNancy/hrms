@@ -12,6 +12,7 @@ use App\Modules\IAM\Models\UserRole;
 use App\Modules\IAM\Services\PasswordHasher;
 use App\Modules\IAM\Services\TotpService;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
+use App\Modules\Payroll\Contracts\PayrollRunDirectory;
 use App\Shared\Time\Clock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Crypt;
@@ -45,7 +46,10 @@ final class SeedDemoCommand extends Command
             ['demo.hr', false, ['HR_ADMIN']],
             ['demo.manager', false, ['LINE_MANAGER']],
             ['demo.employee', false, ['EMPLOYEE']],
+            ['demo.payroll', false, ['PAYROLL_SPECIALIST']],
         ];
+
+        $payrollRunId = app(PayrollRunDirectory::class)->latestRunId();
 
         foreach ($users as [$username, $privileged, $roles]) {
             $user = User::query()->firstOrCreate(
@@ -55,13 +59,18 @@ final class SeedDemoCommand extends Command
                     'password_hash' => $hash,
                     'status' => User::STATUS_ACTIVE,
                     'is_privileged' => $privileged,
-                    // auth_version has no database default. Leaving it unset
-                    // produced 0 on MySQL, while the bindings created below
-                    // carried 1, so every authorization check failed closed and
-                    // all protected endpoints returned 403.
                     'auth_version' => 1,
                 ],
             );
+
+            // A re-seed must repair credentials too. Earlier partial runs
+            // could leave an existing synthetic account on a stale password.
+            $user->forceFill([
+                'password_hash' => $hash,
+                'status' => User::STATUS_ACTIVE,
+                'is_privileged' => $privileged,
+            ])->save();
+            $user->refresh();
 
             // Repair users created before auth_version was initialised: a 0
             // here can never match any binding and silently denies everything.
@@ -106,39 +115,50 @@ final class SeedDemoCommand extends Command
                 $grants = RoleCapability::query()->where('role_code', $roleCode)->get();
 
                 foreach ($grants as $grant) {
-                    // Every scope either carries its own anchor id or, for
-                    // COMPANY, uses null/0 as the instance-wide anchor key.
+                    $anchorType = (string) $grant->anchor_type;
                     $anchorId = null;
                     $anchorKey = 0;
 
-                    AuthorityBinding::query()->firstOrCreate([
-                        'principal_id' => (int) $user->id,
-                        'capability_code' => (string) $grant->capability_code,
-                        'anchor_type' => (string) $grant->anchor_type,
-                        'anchor_key' => $anchorKey,
-                        'valid_from' => $clock->now()->startOfDay(),
-                    ], [
+                    if ($anchorType === 'PAYROLL_RUN') {
+                        if ($payrollRunId === null) {
+                            continue;
+                        }
+                        $anchorId = $payrollRunId;
+                        $anchorKey = $payrollRunId;
+                    }
+
+                    $binding = AuthorityBinding::query()
+                        ->where('principal_id', (int) $user->id)
+                        ->where('capability_code', (string) $grant->capability_code)
+                        ->where('anchor_type', $anchorType)
+                        ->where('anchor_key', $anchorKey)
+                        ->where('auth_version', (int) $user->auth_version)
+                        ->orderByDesc('valid_from')
+                        ->first();
+
+                    $attributes = [
                         'anchor_id' => $anchorId,
                         'field_profile' => (string) $grant->field_profile,
                         'purpose_code' => 'DEMO_'.$roleCode,
                         'valid_to' => $clock->now()->addYear()->startOfDay(),
                         'source_type' => 'DEMO',
                         'source_id' => null,
-                        'auth_version' => (int) $user->auth_version,
-                        'created_at' => $clock->now(),
-                    ]);
+                    ];
 
-                    // Repair stale DEMO rows created before anchors/versions
-                    // were propagated, so re-seeding is idempotent and correct.
-                    AuthorityBinding::query()
-                        ->where('principal_id', (int) $user->id)
-                        ->where('capability_code', (string) $grant->capability_code)
-                        ->where('source_type', 'DEMO')
-                        ->update([
-                            'anchor_id' => $anchorId,
+                    if ($binding === null) {
+                        AuthorityBinding::query()->create([
+                            'principal_id' => (int) $user->id,
+                            'capability_code' => (string) $grant->capability_code,
+                            'anchor_type' => $anchorType,
                             'anchor_key' => $anchorKey,
+                            'valid_from' => $clock->now()->startOfDay(),
                             'auth_version' => (int) $user->auth_version,
+                            'created_at' => $clock->now(),
+                            ...$attributes,
                         ]);
+                    } else {
+                        $binding->forceFill($attributes)->save();
+                    }
                 }
             }
         }

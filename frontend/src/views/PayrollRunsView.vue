@@ -47,7 +47,7 @@ onMounted(load)
         </p>
       </div>
       <div class="page-header__actions">
-        <el-button @click="router.push('/payroll/my-payslips')">我的工资条</el-button>
+        <el-button @click="router.push('/payroll')">我的工资条</el-button>
       </div>
     </header>
 

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\People;
 
+use App\Modules\IAM\Models\Role;
+use App\Modules\IAM\Models\User;
+use App\Modules\IAM\Models\UserRole;
 use App\Modules\People\Models\EmployeeChangeRequest;
 use App\Modules\People\Models\EmployeeContact;
 use App\Modules\People\Models\EmployeeEducation;
+use Illuminate\Testing\TestResponse;
 use Tests\Support\PeopleTestCase;
 
 /**
@@ -15,6 +19,56 @@ use Tests\Support\PeopleTestCase;
  */
 final class EmployeeProfileApiTest extends PeopleTestCase
 {
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
+    public function postJson($uri, array $data = [], array $headers = [], mixed $options = 0): TestResponse
+    {
+        $headers['Idempotency-Key'] ??= 'profile-post-'.bin2hex(random_bytes(8));
+
+        return parent::postJson($uri, $data, $headers, $options);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
+    public function patchJson($uri, array $data = [], array $headers = [], mixed $options = 0): TestResponse
+    {
+        $headers['Idempotency-Key'] ??= 'profile-patch-'.bin2hex(random_bytes(8));
+
+        return parent::patchJson($uri, $data, $headers, $options);
+    }
+
+    private function seedHrApprover(): void
+    {
+        Role::query()->firstOrCreate(
+            ['code' => 'HR_ADMIN'],
+            ['name' => 'HR administrator', 'is_template' => true, 'purpose' => 'Synthetic test role'],
+        );
+        $suffix = bin2hex(random_bytes(4));
+        $user = User::query()->create([
+            'username' => 'synthetic.profile.hr.'.$suffix,
+            'email' => 'synthetic.profile.hr.'.$suffix.'@example.test',
+            'password_hash' => 'synthetic-not-a-login',
+            'status' => 'ACTIVE',
+            'auth_version' => 1,
+            'is_privileged' => false,
+        ]);
+        UserRole::query()->create([
+            'user_id' => (int) $user->id,
+            'role_code' => 'HR_ADMIN',
+            'valid_from' => '2026-01-01 00:00:00',
+            'valid_to' => '2027-01-01 00:00:00',
+            'reason' => 'Synthetic test approval assignment',
+            'auth_version' => 1,
+            'created_at' => '2026-01-01 00:00:00',
+        ]);
+    }
+
     public function test_hr_creates_and_lists_education_for_an_employment(): void
     {
         $scenario = $this->scenario();
@@ -173,13 +227,27 @@ final class EmployeeProfileApiTest extends PeopleTestCase
 
     public function test_change_request_draft_can_be_edited_and_is_read_only_after_submit(): void
     {
+        $this->seedHrApprover();
         $scenario = $this->scenario();
         $employment = $scenario->employment($scenario->person(), 'CHG-1');
         $scenario->assignment($employment, $scenario->orgUnit('CHG-ORG'));
 
+        $educationId = (int) $this->postJson("/v1/employees/{$employment->id}/education", [
+            'school' => '合成变更大学',
+            'degree' => 'BACHELOR',
+            'major' => '计算机科学',
+            'start_date' => '2010-09-01',
+        ])->assertCreated()->json('data.id');
+
+        $diff = [
+            'change_type' => 'PROFILE_CORRECTION',
+            'resource' => 'education',
+            'record_id' => $educationId,
+            'changes' => ['major' => '软件工程'],
+        ];
         $created = $this->postJson("/v1/employees/{$employment->id}/change_requests", [
             'reason' => '更正合成教育信息',
-            'diff' => ['change_type' => 'PROFILE_CORRECTION'],
+            'diff' => $diff,
         ])->assertCreated()
             ->assertJsonPath('data.status', 'DRAFT');
 
@@ -187,7 +255,7 @@ final class EmployeeProfileApiTest extends PeopleTestCase
 
         $edited = $this->patchJson("/v1/employees/{$employment->id}/change_requests/{$id}", [
             'reason' => '更正合成教育信息（补充说明）',
-            'diff' => ['change_type' => 'PROFILE_CORRECTION'],
+            'diff' => [...$diff, 'changes' => ['major' => '信息工程']],
         ])->assertOk()
             ->assertJsonPath('data.status', 'DRAFT');
 
@@ -254,7 +322,7 @@ final class EmployeeProfileApiTest extends PeopleTestCase
         $first = $this->postJson("/v1/employees/{$employment->id}/education", $payload, $headers)
             ->assertCreated();
         $second = $this->postJson("/v1/employees/{$employment->id}/education", $payload, $headers)
-            ->assertCreated();
+            ->assertOk();
 
         $this->assertSame($first->json('data.id'), $second->json('data.id'));
         $this->assertSame('true', $second->headers->get('Idempotency-Replayed'));
@@ -263,13 +331,26 @@ final class EmployeeProfileApiTest extends PeopleTestCase
 
     public function test_submit_replays_idempotently_and_still_rejects_a_second_logical_submit(): void
     {
+        $this->seedHrApprover();
         $scenario = $this->scenario();
         $employment = $scenario->employment($scenario->person(), 'IDEM-SUBMIT');
         $scenario->assignment($employment, $scenario->orgUnit('IDEM-SUBMIT-ORG'));
 
+        $educationId = (int) $this->postJson("/v1/employees/{$employment->id}/education", [
+            'school' => '合成提交大学',
+            'degree' => 'BACHELOR',
+            'major' => '计算机科学',
+            'start_date' => '2010-09-01',
+        ])->assertCreated()->json('data.id');
+
         $id = (int) $this->postJson("/v1/employees/{$employment->id}/change_requests", [
             'reason' => '提交幂等测试',
-            'diff' => [],
+            'diff' => [
+                'change_type' => 'PROFILE_CORRECTION',
+                'resource' => 'education',
+                'record_id' => $educationId,
+                'changes' => ['major' => '软件工程'],
+            ],
         ])->assertCreated()->json('data.id');
 
         $headers = ['Idempotency-Key' => 'profile-idem-submit-1'];

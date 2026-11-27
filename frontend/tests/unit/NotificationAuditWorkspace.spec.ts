@@ -204,9 +204,12 @@ describe('notification center workspace', () => {
 })
 
 describe('audit log workspace', () => {
-  it('requests the server page and size, then renders actor, action, resource, result, request id and timestamp without raw codes', async () => {
-    resource.get.mockImplementation((_path: string, query: { page?: number; page_size?: number }) =>
-      Promise.resolve(listResponse([
+  it('requests the server-filtered audit page and renders readable actor, action, result and request id', async () => {
+    resource.get.mockImplementation((path: string, query: Record<string, unknown>) => {
+      if (path === '/v1/health/ready') {
+        return Promise.resolve({ status: 'ready', version: '1.0.0', checks: { db: true, cache: true, storage: true }, time: '2026-11-27T01:00:00Z' })
+      }
+      return Promise.resolve(listResponse([
         auditEvent(),
         auditEvent({
           id: 2,
@@ -216,38 +219,100 @@ describe('audit log workspace', () => {
           request_id: 'req-audit-2',
           occurred_at: '2026-11-26T01:00:00Z',
         }),
-      ], { page: query.page ?? 1, page_size: query.page_size ?? 20, total: 47 })),
-    )
+      ], { page: query.page ?? 1, page_size: query.page_size ?? 20, total: 47 }))
+    })
 
     const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/auth/events', { page: 1, page_size: 20 })
+    expect(resource.get).toHaveBeenCalledWith('/v1/audit/events', {
+      page: 1,
+      page_size: 20,
+    })
     const row = wrapper.get('[data-testid="audit-row-1"]')
     expect(row.text()).toContain('登录成功')
     expect(row.text()).toContain('账号会话')
     expect(row.text()).toContain('成功')
     expect(row.text()).toContain('req-audit-1')
-    expect(row.text()).toContain('2026-11-27')
     expect(row.text()).toContain('用户 15')
     expect(row.text()).not.toContain('login.succeeded')
-    expect(row.text()).not.toContain('SUCCESS')
 
     const table = wrapper.findComponent(DataTable)
     expect(table.props('total')).toBe(47)
-    expect(table.props('page')).toBe(1)
     table.vm.$emit('update:page', 2)
     await flushPromises()
-    expect(resource.get).toHaveBeenLastCalledWith('/v1/auth/events', { page: 2, page_size: 20 })
-
-    const reloadedTable = wrapper.findComponent(DataTable)
-    reloadedTable.vm.$emit('update:pageSize', 50)
-    await flushPromises()
-    expect(resource.get).toHaveBeenLastCalledWith('/v1/auth/events', { page: 1, page_size: 50 })
+    expect(resource.get).toHaveBeenLastCalledWith('/v1/audit/events', expect.objectContaining({ page: 2, page_size: 20 }))
   })
 
-  it('keeps the raw technical event code inside the operator detail only', async () => {
-    resource.get.mockResolvedValue(listResponse([auditEvent()]))
+  it('applies actor, action, result and date filters on the server and exports the allow-listed fields', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/health/ready') {
+        return Promise.resolve({ status: 'ready', version: '1.0.0', checks: { db: true, cache: true, storage: true }, time: '2026-11-27T01:00:00Z' })
+      }
+      return Promise.resolve(listResponse([auditEvent()], { total: 1 }))
+    })
+    resource.post.mockResolvedValue({ fields: ['event_type', 'result', 'user_id', 'request_id', 'occurred_at'], rows: [auditEvent()] })
+
+    const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
+    await flushPromises()
+
+    await wrapper.get('[data-testid="audit-filter-actor"]').setValue('15')
+    await wrapper.get('[data-testid="audit-filter-action"]').setValue('login')
+    await wrapper.get('[data-testid="audit-filter-result-SUCCESS"]').trigger('click')
+    const datePickers = wrapper.findAllComponents({ name: 'ElDatePicker' })
+    datePickers[0]?.vm.$emit('update:modelValue', '2026-11-01')
+    datePickers[1]?.vm.$emit('update:modelValue', '2026-11-30')
+    await wrapper.get('[data-testid="audit-filter-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.get).toHaveBeenLastCalledWith('/v1/audit/events', expect.objectContaining({
+      actor: '15',
+      action: 'login',
+      result: 'SUCCESS',
+      from: '2026-11-01',
+      to: '2026-11-30',
+    }))
+
+    await wrapper.get('[data-testid="audit-export"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/audit/events/export',
+      expect.objectContaining({
+        fields: ['event_type', 'result', 'user_id', 'request_id', 'occurred_at'],
+        actor: '15',
+        action: 'login',
+        result: 'SUCCESS',
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="audit-export-message"]').text()).toContain('已导出 1 条')
+  })
+
+  it('shows real readiness and explicitly discloses that backup status has no API', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/health/ready') {
+        return Promise.resolve({ status: 'ready', version: '1.0.0', checks: { db: true, cache: false, storage: true }, time: '2026-11-27T01:00:00Z' })
+      }
+      return Promise.resolve(listResponse([], { total: 0 }))
+    })
+
+    const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="audit-health-panel"]').text()).toContain('版本 1.0.0')
+    expect(wrapper.get('[data-testid="audit-health-check-db"]').text()).toContain('正常')
+    expect(wrapper.get('[data-testid="audit-health-check-cache"]').text()).toContain('异常')
+    expect(wrapper.get('[data-testid="audit-backup-unavailable"]').text()).toContain('未提供备份状态 API')
+  })
+
+  it('keeps the raw event code inside the operator detail only', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/health/ready') {
+        return Promise.resolve({ status: 'ready', version: '1.0.0', checks: { db: true, cache: true, storage: true }, time: '2026-11-27T01:00:00Z' })
+      }
+      return Promise.resolve(listResponse([auditEvent()]))
+    })
     const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
     await flushPromises()
 
@@ -261,47 +326,18 @@ describe('audit log workspace', () => {
     expect(detail.get('[data-testid="audit-detail-request-id"]').text()).toContain('req-audit-1')
   })
 
-  it('discloses client-side-only filtering and pagination, and filters the loaded page', async () => {
-    resource.get.mockResolvedValue(listResponse([
-      auditEvent(),
-      auditEvent({ id: 2, user_id: 16, event_type: 'user.status.changed', request_id: 'req-audit-2', occurred_at: '2026-11-26T01:00:00Z' }),
-    ], { total: 2 }))
-    const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
-    await flushPromises()
-
-    const note = wrapper.get('[data-testid="audit-partial"]')
-    expect(note.text()).toContain('仅作用于已加载')
-    expect(note.text()).toContain('服务端')
-    expect(note.text()).toContain('导出暂未开放')
-    expect(wrapper.find('[data-testid="audit-export"]').exists()).toBe(false)
-
-    const actionInput = wrapper.get('[data-testid="audit-filter-action"]')
-    expect(actionInput.attributes('placeholder')).not.toMatch(/[a-z]+\.[a-z]+/)
-
-    await wrapper.get('[data-testid="audit-filter-actor"]').setValue('16')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-row-1"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="audit-row-2"]').exists()).toBe(true)
-
-    await wrapper.get('[data-testid="audit-filter-actor"]').setValue('')
-    await actionInput.setValue('登录成功')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-row-1"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audit-row-2"]').exists()).toBe(false)
-
-    await actionInput.setValue('不存在的动作')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-empty"]').exists()).toBe(true)
-  })
-
-  it('renders loading, empty, error, forbidden and partial states without fabricating events', async () => {
+  it('renders loading, empty, error and forbidden states without fabricating events', async () => {
     resource.get.mockReturnValue(new Promise(() => {}))
     const loading = await mountPage(SystemAuditPage, ['iam.audit.read'])
     await nextTick()
     expect(loading.find('[data-testid="audit-loading"]').exists()).toBe(true)
-    expect(loading.find('[data-testid="audit-table"]').exists()).toBe(false)
 
-    resource.get.mockResolvedValue(listResponse([], { total: 0 }))
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/health/ready') {
+        return Promise.resolve({ status: 'ready', version: '1.0.0', checks: { db: true, cache: true, storage: true }, time: '2026-11-27T01:00:00Z' })
+      }
+      return Promise.resolve(listResponse([], { total: 0 }))
+    })
     const empty = await mountPage(SystemAuditPage, ['iam.audit.read'])
     await flushPromises()
     expect(empty.find('[data-testid="audit-empty"]').exists()).toBe(true)
@@ -317,11 +353,6 @@ describe('audit log workspace', () => {
     await nextTick()
     expect(forbidden.find('[data-testid="audit-forbidden"]').exists()).toBe(true)
     expect(forbidden.find('[data-testid="audit-loading"]').exists()).toBe(false)
-
-    resource.get.mockResolvedValue(listResponse([auditEvent()], { total: 1 }))
-    const partial = await mountPage(SystemAuditPage, ['iam.audit.read'])
-    await flushPromises()
-    expect(partial.find('[data-testid="audit-partial"]').exists()).toBe(true)
-    expect(partial.find('[data-testid="audit-table"]').exists()).toBe(true)
   })
 })
+

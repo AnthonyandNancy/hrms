@@ -5,6 +5,7 @@ import {
   cancelLeaveRequest,
   formatLeaveNumber,
   newLeaveIdempotencyKey,
+  revokeApprovedLeave,
   LEAVE_STATUS_LABEL,
   LEAVE_STATUS_TONE,
   leaveUnitLabel,
@@ -19,12 +20,30 @@ const props = withDefaults(
     types?: LeaveTypeOption[]
     balances?: LeaveBalance[]
     canCancel?: boolean
+    canRevoke?: boolean
+    canAdminRevoke?: boolean
+    canOnBehalf?: boolean
+    title?: string
+    showOnBehalf?: boolean
+    showEmployee?: boolean
   }>(),
-  { types: () => [], balances: () => [], canCancel: false },
+  {
+    types: () => [],
+    balances: () => [],
+    canCancel: false,
+    canRevoke: false,
+    canAdminRevoke: false,
+    canOnBehalf: false,
+    title: '我的请假申请',
+    showOnBehalf: false,
+    showEmployee: false,
+  },
 )
 
 const emit = defineEmits<{
   cancel: [request: LeaveRequestItem]
+  revoke: [request: LeaveRequestItem]
+  'on-behalf': []
 }>()
 
 type FilterKey = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -58,6 +77,7 @@ const counts = computed(() => ({
 }))
 
 const cancelTarget = ref<LeaveRequestItem | null>(null)
+const cancelRevoke = ref(false)
 const cancelReason = ref('')
 const cancelError = ref<{ message: string; requestId: string | null } | null>(null)
 const localCancelling = ref(false)
@@ -75,6 +95,8 @@ const CANCEL_REASON_LABEL: Record<string, string> = {
   ATTENDANCE_PERIOD_CLOSED: '所选日期所在考勤期间已关账。',
   CASE_NOT_CANCELLABLE: '该申请当前状态不可撤回。',
   WORKFLOW_PRINCIPAL_MISMATCH: '当前账号与申请人不一致，无法撤回。',
+  LEAVE_PERIOD_FROZEN: '工资期间已冻结，不能撤销已批准的请假。',
+  LEAVE_REQUEST_NOT_APPROVABLE: '该请假申请当前状态不允许销假。',
 }
 
 function statusLabel(status: string): string {
@@ -103,6 +125,12 @@ function typeName(item: LeaveRequestItem): string {
   return props.types.find((type) => type.id === item.leaveTypeId)?.name ?? '请假'
 }
 
+const REVOCABLE_STATES = new Set(['APPROVED', 'CONSUMED'])
+
+function revocable(item: LeaveRequestItem): boolean {
+  return (props.canRevoke || props.canAdminRevoke) && REVOCABLE_STATES.has(item.state)
+}
+
 function canCancelRequest(item: LeaveRequestItem): boolean {
   return props.canCancel && CANCELLABLE.has(item.applicationStatus)
 }
@@ -110,6 +138,17 @@ function canCancelRequest(item: LeaveRequestItem): boolean {
 function openCancel(item: LeaveRequestItem): void {
   if (!canCancelRequest(item)) return
   cancelTarget.value = item
+  cancelRevoke.value = revocable(item)
+  cancelReason.value = ''
+  cancelError.value = null
+  cancelKey = null
+  cancelKeyTarget = null
+}
+
+function openRevoke(item: LeaveRequestItem): void {
+  if (!revocable(item)) return
+  cancelTarget.value = item
+  cancelRevoke.value = true
   cancelReason.value = ''
   cancelError.value = null
   cancelKey = null
@@ -129,9 +168,10 @@ function failureText(reason: unknown): string {
   if (reason instanceof ApiError) {
     const reasonText = reason.serverReason !== null ? CANCEL_REASON_LABEL[reason.serverReason] : ''
     const base = errorCopy(reason)
-    return reasonText !== '' ? `撤回失败：${reasonText}（${base}）` : `撤回失败：${base}`
+    const action = cancelRevoke.value ? '销假' : '撤回'
+    return reasonText !== '' ? `${action}失败：${reasonText}（${base}）` : `${action}失败：${base}`
   }
-  return `撤回失败：${errorCopy(reason)}`
+  return `${cancelRevoke.value ? '销假' : '撤回'}失败：${errorCopy(reason)}`
 }
 
 async function confirmCancel(): Promise<void> {
@@ -147,12 +187,28 @@ async function confirmCancel(): Promise<void> {
       cancelKey = newLeaveIdempotencyKey('leave-cancel')
       cancelKeyTarget = target.caseId
     }
-    await cancelLeaveRequest(target.caseId, cancelReason.value.trim() || '页面撤回请假申请', cancelKey)
+    if (cancelRevoke.value && props.canAdminRevoke) {
+      await revokeApprovedLeave(
+        target.caseId,
+        cancelReason.value.trim() || '页面销假',
+        cancelKey,
+      )
+    } else {
+      await cancelLeaveRequest(
+        target.caseId,
+        cancelReason.value.trim() || (cancelRevoke.value ? '页面销假' : '页面撤回请假申请'),
+        cancelKey,
+        cancelRevoke.value,
+      )
+    }
+    const wasRevoke = cancelRevoke.value
     cancelTarget.value = null
+    cancelRevoke.value = false
     cancelReason.value = ''
     cancelKey = null
     cancelKeyTarget = null
-    emit('cancel', target)
+    if (wasRevoke) emit('revoke', target)
+    else emit('cancel', target)
   } catch (reason) {
     cancelError.value = {
       message: failureText(reason),
@@ -168,11 +224,20 @@ async function confirmCancel(): Promise<void> {
   <section class="leave-requests" aria-label="请假申请记录">
     <header class="leave-requests__header">
       <div>
-        <h2 class="leave-requests__title">我的请假申请</h2>
+        <h2 class="leave-requests__title">{{ props.title }}</h2>
         <p class="leave-requests__subtitle">
-          按审批状态筛选；仅待审批的本人申请可撤回，撤回会释放服务端预占余额。
+          按审批状态筛选；待审批申请可撤回并释放预占。已通过的申请只能走受工资冻结保护的销假。
         </p>
       </div>
+      <button
+        v-if="props.showOnBehalf && props.canOnBehalf"
+        type="button"
+        class="leave-requests__on-behalf"
+        data-testid="leave-on-behalf"
+        @click="emit('on-behalf')"
+      >
+        代员工申请
+      </button>
     </header>
 
     <div class="leave-requests__filters" role="group" aria-label="按审批状态筛选">
@@ -201,6 +266,7 @@ async function confirmCancel(): Promise<void> {
         <caption class="visually-hidden">请假申请记录，共 {{ visible.length }} 条</caption>
         <thead>
           <tr>
+            <th v-if="props.showEmployee" scope="col">申请人</th>
             <th scope="col">申请编号</th>
             <th scope="col">请假日期</th>
             <th scope="col">时长</th>
@@ -213,6 +279,13 @@ async function confirmCancel(): Promise<void> {
             <td class="leave-requests__case">
               <span class="mono">{{ item.caseNo }}</span>
               <small class="leave-requests__type">{{ typeName(item) }}</small>
+            </td>
+            <td v-if="props.showEmployee" class="leave-requests__employee">
+              <span>{{ item.employeeNo || `任职 ${item.employmentId ?? '—'}` }}</span>
+              <small>{{ item.departmentName || '部门未返回' }}</small>
+              <small v-if="item.actorUserId && item.employmentId && item.actorUserId !== item.employmentId">
+                由用户 {{ item.actorUserId }} 代申请
+              </small>
             </td>
             <td class="leave-requests__dates">
               <span>{{ item.fromDate || '—' }}</span>
@@ -235,6 +308,15 @@ async function confirmCancel(): Promise<void> {
               >
                 撤回
               </button>
+              <button
+                v-else-if="revocable(item)"
+                type="button"
+                class="leave-requests__cancel"
+                :data-testid="`leave-revoke-${item.caseId}`"
+                @click="openRevoke(item)"
+              >
+                销假
+              </button>
               <span v-else class="leave-requests__readonly">—</span>
             </td>
           </tr>
@@ -255,10 +337,10 @@ async function confirmCancel(): Promise<void> {
         aria-label="确认撤回请假申请"
         data-testid="leave-cancel-dialog"
       >
-        <h3>确认撤回请假申请？</h3>
+        <h3>{{ cancelRevoke ? '确认销假？' : '确认撤回请假申请？' }}</h3>
         <p>
           申请 <strong class="mono">{{ cancelTarget?.caseNo }}</strong>
-          （{{ cancelTarget?.fromDate }} 至 {{ cancelTarget?.toDate }}）将被撤回，服务端预占余额会释放。
+          （{{ cancelTarget?.fromDate }} 至 {{ cancelTarget?.toDate }}）将被{{ cancelRevoke ? '销假，已结算额度将冲正返还' : '撤回，服务端预占余额会释放' }}。
         </p>
 
         <label class="leave-cancel-dialog__field">
@@ -267,7 +349,7 @@ async function confirmCancel(): Promise<void> {
             v-model="cancelReason"
             data-testid="leave-cancel-reason"
             maxlength="500"
-            placeholder="可选，将记录在审批时间线"
+            :placeholder="cancelRevoke ? '请填写销假原因（至少 3 个字）' : '可选，将记录在审批时间线'"
           />
         </label>
 
@@ -289,7 +371,7 @@ async function confirmCancel(): Promise<void> {
             :disabled="localCancelling"
             @click="confirmCancel"
           >
-            {{ localCancelling ? '正在撤回…' : '确认撤回' }}
+            {{ localCancelling ? '正在处理…' : (cancelRevoke ? '确认销假' : '确认撤回') }}
           </button>
         </footer>
       </section>
@@ -448,6 +530,28 @@ async function confirmCancel(): Promise<void> {
 
 .leave-requests__actions {
   text-align: right;
+}
+
+.leave-requests__employee {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.leave-requests__employee small {
+  color: var(--color-ink-muted);
+  font-size: 9.5px;
+}
+
+.leave-requests__on-behalf {
+  flex: none;
+  padding: 6px 12px;
+  color: #fff;
+  font-size: 11.5px;
+  background: var(--color-primary, #1f5f8b);
+  border: 1px solid var(--color-primary, #1f5f8b);
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .leave-requests__cancel {

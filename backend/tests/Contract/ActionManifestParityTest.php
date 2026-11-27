@@ -20,18 +20,14 @@ final class ActionManifestParityTest extends TestCase
     private const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
     private const OWNED_CAPABILITY_GAPS = [
-        'people.employee.export' => 'Volume 3 Task 4',
         'people.contract.export' => 'Volume 3 Task 8',
         'org.unit.export' => 'Volume 3 Task 5',
         'org.position.export' => 'Volume 3 Task 6',
         'recruitment.requisition.export' => 'Volume 3 Task 14',
         'payroll.payslip.read' => 'Volume 3 Task 12',
-        'time.leave.admin' => 'Volume 3 Task 10',
-        'time.overtime.manage' => 'Volume 3 Task 11',
         'time.travel.manage' => 'Volume 3 Task 11',
         'workflow.template.manage' => 'Volume 3 Task 17',
         'notification.manage' => 'Volume 3 Task 16',
-        'system.settings.manage' => 'Volume 3 Task 17',
         'reporting.report.create' => 'Volume 3 Task 16',
     ];
 
@@ -44,10 +40,7 @@ final class ActionManifestParityTest extends TestCase
     private const WORKBENCH_PAGES = [
         'system-users' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 6'],
         'system-roles' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 7'],
-        'system-menus' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 8'],
-        'system-permissions' => ['mode' => 'read-only', 'owner' => 'Volume 2 Task 8'],
-        'system-data-scopes' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 8'],
-        'system-field-policies' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 8'],
+        'system-pages' => ['mode' => 'writable', 'owner' => 'Volume 2 Task 8'],
     ];
 
     /**
@@ -57,9 +50,7 @@ final class ActionManifestParityTest extends TestCase
      * @var list<string>
      */
     private const SERVICE_REQUIRED_PAGES = [
-        'system-menus',
-        'system-data-scopes',
-        'system-field-policies',
+        'system-pages',
     ];
 
     public function test_generated_manifest_matches_capability_page_openapi_and_service_contracts(): void
@@ -171,13 +162,6 @@ final class ActionManifestParityTest extends TestCase
                 $page['required_apis'],
                 static fn (string $api): bool => in_array(explode(' ', $api, 2)[0], self::WRITE_METHODS, true),
             ));
-
-            if ($spec['mode'] === 'read-only') {
-                $this->assertSame([], $actions, "{$pageCode} is read-only but the manifest declares actions.");
-                $this->assertSame([], $writeApis, "{$pageCode} is read-only but declares write APIs.");
-
-                continue;
-            }
 
             if ($writeApis === []) {
                 // Owner has not declared a write API yet; report an explicit skip.

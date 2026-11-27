@@ -21,9 +21,8 @@ use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Run creation and catalog management. This class is the only writer of
- * payroll_schemes / payroll_items through the HTTP surface; calculations are
- * delegated to CalculationService.
+ * Run creation and scheme management. Payroll-item writes live in
+ * PayrollItemService; calculations are delegated to CalculationService.
  */
 final class PayrollRunService
 {
@@ -337,33 +336,17 @@ final class PayrollRunService
     }
 
     /**
+     * Legacy service seam retained for console fixtures. HTTP writes go
+     * through PayrollItemService so the identity/version split and the
+     * append-only/retire commands stay in one place.
+     *
      * @param  array<string, mixed>  $data
      */
     public function createItem(int $actorUserId, array $data): PayrollItem
     {
-        return DB::transaction(function () use ($actorUserId, $data): PayrollItem {
-            $item = PayrollItem::query()->create([
-                'code' => strtoupper((string) $data['code']),
-                'name' => (string) $data['name'],
-                'type' => (string) $data['type'],
-                'taxable' => (bool) ($data['taxable'] ?? true),
-                'insurable' => (bool) ($data['insurable'] ?? true),
-                'calculation' => (string) ($data['calculation'] ?? 'FIXED'),
-                'formula_json' => $data['formula_json'] ?? null,
-                'sort_order' => (int) ($data['sort_order'] ?? 0),
-                'status' => 'ACTIVE',
-            ]);
+        $version = app(PayrollItemService::class)->create($actorUserId, $data);
 
-            $this->audit->record(
-                actorUserId: $actorUserId,
-                action: 'payroll.item.created',
-                aggregateType: 'payroll_item',
-                aggregateId: (int) $item->id,
-                after: ['code' => $item->code, 'type' => $item->type->value],
-            );
-
-            return $item;
-        });
+        return PayrollItem::query()->whereKey((int) $version->payroll_item_id)->firstOrFail();
     }
 
     /**
@@ -371,22 +354,7 @@ final class PayrollRunService
      */
     public function items(): array
     {
-        return PayrollItem::query()
-            ->orderBy('sort_order')
-            ->orderBy('code')
-            ->get()
-            ->map(fn (PayrollItem $item): array => [
-                'id' => (int) $item->id,
-                'code' => (string) $item->code,
-                'name' => (string) $item->name,
-                'type' => $item->type->value,
-                'taxable' => (bool) $item->taxable,
-                'insurable' => (bool) $item->insurable,
-                'calculation' => (string) $item->calculation,
-                'sort_order' => (int) $item->sort_order,
-                'status' => (string) $item->status,
-            ])
-            ->all();
+        return app(PayrollItemService::class)->items();
     }
 
     /**
@@ -395,14 +363,28 @@ final class PayrollRunService
     public function createScheme(int $actorUserId, array $data): PayrollScheme
     {
         return DB::transaction(function () use ($actorUserId, $data): PayrollScheme {
+            $code = strtoupper((string) $data['code']);
+            $validFrom = (string) ($data['valid_from'] ?? $this->clock->now()->toDateString());
+            app(PayrollItemService::class)->assertPeriodNotFrozen(substr($validFrom, 0, 7), 'PAYROLL_RUN_FROZEN');
+
+            // Server-owned monotonic version. The client value is ignored so
+            // a stale tab cannot overwrite or collide with a scheme version.
+            $latest = PayrollScheme::query()
+                ->where('code', $code)
+                ->orderByDesc('version')
+                ->lockForUpdate()
+                ->first();
+
+            $version = $latest !== null ? ((int) $latest->version) + 1 : 1;
+
             $scheme = PayrollScheme::query()->create([
-                'code' => strtoupper((string) $data['code']),
+                'code' => $code,
                 'name' => (string) $data['name'],
                 'frequency' => 'MONTHLY',
                 'currency' => strtoupper((string) $data['currency']),
-                'version' => (int) ($data['version'] ?? 1),
+                'version' => $version,
                 'status' => 'ACTIVE',
-                'valid_from' => (string) ($data['valid_from'] ?? now()->toDateString()),
+                'valid_from' => $validFrom,
                 'valid_to' => (string) ($data['valid_to'] ?? '9999-12-31'),
                 'proration_divisor' => (string) ($data['proration_divisor'] ?? 'ANNUAL_DAYS_365'),
                 'rounding_mode' => (string) ($data['rounding_mode'] ?? 'HALF_UP'),
@@ -421,7 +403,7 @@ final class PayrollRunService
                     'category' => (string) ($itemData['category'] ?? 'EARNING'),
                     'calculation' => (string) ($itemData['calculation'] ?? 'FIXED'),
                     'amount_cents' => (int) ($itemData['amount_cents'] ?? 0),
-                    'rate_scaled' => isset($itemData['rate_scaled']) ? (int) $itemData['rate_scaled'] : null,
+                    'rate_scaled' => $this->rateScaled($itemData),
                     'basis' => (string) ($itemData['basis'] ?? 'BASE_SALARY'),
                     'sort_order' => (int) ($itemData['sort_order'] ?? ($position + 1) * 10),
                     'taxable' => (bool) ($itemData['taxable'] ?? true),
@@ -471,6 +453,28 @@ final class PayrollRunService
                 ])->all(),
             ])
             ->all();
+    }
+
+    /**
+     * Exact decimal-string conversion at scale 1e6. Clients may send either the
+     * already-scaled integer or a rate such as "0.125000"; arrays/booleans are
+     * rejected rather than coerced through a float.
+     *
+     * @param  array<string, mixed>  $itemData
+     */
+    private function rateScaled(array $itemData): ?int
+    {
+        if (isset($itemData['rate_scaled'])) {
+            return (int) $itemData['rate_scaled'];
+        }
+
+        if (! isset($itemData['rate']) || ! is_string($itemData['rate'])) {
+            return null;
+        }
+
+        $decimal = \App\Shared\Money\Decimal::fromString($itemData['rate']);
+
+        return $decimal->toScaledInt(6);
     }
 
     private function dateOnly(mixed $value): string

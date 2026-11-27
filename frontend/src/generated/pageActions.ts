@@ -15,9 +15,9 @@ export type GeneratedPageAction = {
 }
 
 export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
-  "account-mfa": [
+  "account": [
     {
-      "pageCode": "account-mfa",
+      "pageCode": "account",
       "key": "account.mfa.confirm",
       "label": "确认动态口令",
       "capability": "iam.session.manage",
@@ -30,7 +30,7 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P0_PUBLIC"
     },
     {
-      "pageCode": "account-mfa",
+      "pageCode": "account",
       "key": "account.mfa.disable",
       "label": "停用双因素认证",
       "capability": "iam.session.manage",
@@ -43,7 +43,7 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P0_PUBLIC"
     },
     {
-      "pageCode": "account-mfa",
+      "pageCode": "account",
       "key": "account.mfa.enroll",
       "label": "绑定动态口令",
       "capability": "iam.session.manage",
@@ -54,11 +54,22 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "SELF"
       ],
       "fieldProfileMax": "P0_PUBLIC"
-    }
-  ],
-  "account-sessions": [
+    },
     {
-      "pageCode": "account-sessions",
+      "pageCode": "account",
+      "key": "account.password.change",
+      "label": "修改登录密码",
+      "capability": "iam.session.manage",
+      "api": "POST /v1/auth/password",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "account",
       "key": "account.sessions.revoke",
       "label": "撤销会话",
       "capability": "iam.session.manage",
@@ -71,7 +82,7 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P0_PUBLIC"
     },
     {
-      "pageCode": "account-sessions",
+      "pageCode": "account",
       "key": "account.sessions.revoke.all",
       "label": "退出全部会话",
       "capability": "iam.session.manage",
@@ -84,7 +95,202 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P0_PUBLIC"
     }
   ],
+  "attendance": [
+    {
+      "pageCode": "attendance",
+      "key": "attendance.close",
+      "label": "考勤关账",
+      "capability": "time.attendance.manage",
+      "api": "POST /v1/time/attendance/closings",
+      "ui": "primary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.correction.request",
+      "label": "发起补卡",
+      "capability": "time.attendance.correct.request",
+      "api": "POST /v1/time/attendance/corrections",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF",
+        "MANAGED",
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.recalculate",
+      "label": "重算考勤月",
+      "capability": "time.attendance.manage",
+      "api": "POST /v1/time/attendance/recalculate",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.reopen",
+      "label": "重开考勤月结",
+      "capability": "time.attendance.reopen",
+      "api": "POST /v1/time/attendance/closings/{id}/reopen",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.rule.publish",
+      "label": "发布考勤规则版本",
+      "capability": "time.attendance.rule.manage",
+      "api": "POST /v1/time/attendance/rules",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.schedule.create",
+      "label": "保存排班",
+      "capability": "time.shift.schedule.manage",
+      "api": "POST /v1/time/shift-schedules",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.create",
+      "label": "创建班次",
+      "capability": "time.shift.manage",
+      "api": "POST /v1/time/shifts",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.disable",
+      "label": "停用班次",
+      "capability": "time.shift.manage",
+      "api": "POST /v1/time/shifts/{id}/disable",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.version",
+      "label": "发布班次新版本",
+      "capability": "time.shift.manage",
+      "api": "PATCH /v1/time/shifts/{id}",
+      "ui": "primary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "benefits": [
+    {
+      "pageCode": "benefits",
+      "key": "benefit.enrollment.create",
+      "label": "新增参保登记",
+      "capability": "benefit.manage",
+      "api": "POST /v1/benefits/enrollments",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "benefits",
+      "key": "benefit.plan.create",
+      "label": "创建福利方案版本",
+      "capability": "benefit.manage",
+      "api": "POST /v1/benefits/plans",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "benefits",
+      "key": "benefit.transaction.record",
+      "label": "登记福利发放",
+      "capability": "benefit.manage",
+      "api": "POST /v1/benefits/transactions",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
   "employee-detail": [
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.change.submit",
+      "label": "提交资料变更审批",
+      "capability": "people.employee.manage",
+      "api": "POST /v1/employees/{employmentId}/change_requests/{id}/submit",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
     {
       "pageCode": "employee-detail",
       "key": "employee.detail.archive",
@@ -123,6 +329,66 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "api": "POST /v1/employees/{employment_id}/restore",
       "ui": "secondary",
       "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.profile.certificates.retire",
+      "label": "退役子档案记录",
+      "capability": "people.employee.manage",
+      "api": "DELETE /v1/employees/{employmentId}/certificates/{id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.profile.contacts.retire",
+      "label": "退役子档案记录",
+      "capability": "people.employee.manage",
+      "api": "DELETE /v1/employees/{employmentId}/contacts/{id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.profile.education.retire",
+      "label": "退役子档案记录",
+      "capability": "people.employee.manage",
+      "api": "DELETE /v1/employees/{employmentId}/education/{id}",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.profile.experiences.retire",
+      "label": "退役子档案记录",
+      "capability": "people.employee.manage",
+      "api": "DELETE /v1/employees/{employmentId}/experiences/{id}",
+      "ui": "danger",
+      "confirm": "danger",
       "anchorTypes": [
         "ORG_UNIT",
         "ORG_SUBTREE",
@@ -198,6 +464,21 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
   "hr-employees": [
     {
       "pageCode": "hr-employees",
+      "key": "hr.employees.contract.create",
+      "label": "签订劳动合同",
+      "capability": "people.contract.manage",
+      "api": "POST /v1/employments/{employmentId}/contracts",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-employees",
       "key": "hr.employees.create.employment",
       "label": "新建任职",
       "capability": "people.employee.manage",
@@ -205,6 +486,115 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "ui": "primary",
       "confirm": "none",
       "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "hr-movements": [
+    {
+      "pageCode": "hr-movements",
+      "key": "lifecycle.checklist.update",
+      "label": "更新入职任务",
+      "capability": "lifecycle.checklist.manage",
+      "api": "PATCH /v1/onboarding-tasks/{id}",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.offboarding.create",
+      "label": "发起离职",
+      "capability": "lifecycle.offboard.manage",
+      "api": "POST /v1/lifecycle/offboardings",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.onboarding.create",
+      "label": "发起入职",
+      "capability": "lifecycle.onboarding.manage",
+      "api": "POST /v1/lifecycle/onboarding",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.probation.create",
+      "label": "发起转正",
+      "capability": "lifecycle.probation.manage",
+      "api": "POST /v1/lifecycle/probation-confirmations",
+      "anchorTypes": [
+        "MANAGED",
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.salary-change.create",
+      "label": "发起调薪",
+      "capability": "lifecycle.terms.manage",
+      "api": "POST /v1/lifecycle/salary-changes",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P3_RESTRICTED"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.secondment.create",
+      "label": "发起借调",
+      "capability": "lifecycle.secondment.manage",
+      "api": "POST /v1/lifecycle/secondments",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "hr-movements",
+      "ui": "primary",
+      "confirm": "none",
+      "key": "lifecycle.transfer.create",
+      "label": "发起调岗",
+      "capability": "lifecycle.transfer.manage",
+      "api": "POST /v1/lifecycle/transfers",
+      "anchorTypes": [
+        "MANAGED",
         "ORG_UNIT",
         "ORG_SUBTREE",
         "COMPANY"
@@ -242,9 +632,162 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.grade.upsert",
+      "label": "维护岗位职级",
+      "capability": "org.position.grade.manage",
+      "api": "POST /v1/positions/grades",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.requirements.version",
+      "label": "追加任职资格版本",
+      "capability": "org.position.qualification.manage",
+      "api": "POST /v1/positions/{id}/requirements",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "leave": [
+    {
+      "pageCode": "leave",
+      "key": "leave.policy.create",
+      "label": "发布假期规则版本",
+      "capability": "time.leave.policy.manage",
+      "api": "POST /v1/time/leave/policies",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.policy.retire",
+      "label": "停用假期规则版本",
+      "capability": "time.leave.policy.manage",
+      "api": "POST /v1/time/leave/policies/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.cancel",
+      "label": "撤回请假申请",
+      "capability": "time.leave.request.cancel",
+      "api": "POST /v1/time/leave/requests/{caseId}/cancel",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.on-behalf",
+      "label": "代员工申请请假",
+      "capability": "time.leave.request.on-behalf",
+      "api": "POST /v1/time/leave/requests/on-behalf",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.revoke",
+      "label": "销假冲正",
+      "capability": "time.leave.admin",
+      "api": "POST /v1/time/leave/requests/{caseId}/revoke",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.request.self",
+      "label": "提交本人请假",
+      "capability": "time.leave.request",
+      "api": "POST /v1/time/leave/requests",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.type.create",
+      "label": "新增假期类型",
+      "capability": "time.leave.type.manage",
+      "api": "POST /v1/time/leave/types",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "leave",
+      "key": "leave.type.update",
+      "label": "编辑假期类型",
+      "capability": "time.leave.type.manage",
+      "api": "PATCH /v1/time/leave/types/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
     }
   ],
   "notices": [
+    {
+      "pageCode": "notices",
+      "key": "engagement.notice-templates.create",
+      "label": "发布公告模板版本",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notice-templates",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
     {
       "pageCode": "notices",
       "key": "engagement.notices.archive",
@@ -253,6 +796,21 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "api": "POST /v1/engagement/notices/{notice}/archive",
       "ui": "secondary",
       "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.audience-preview",
+      "label": "预览公告受众",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/audience-preview",
+      "ui": "secondary",
+      "confirm": "none",
       "anchorTypes": [
         "ORG_UNIT",
         "ORG_SUBTREE",
@@ -277,6 +835,51 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "notices",
+      "key": "engagement.notices.decide",
+      "label": "公告审批决定",
+      "capability": "engagement.notice.publish",
+      "api": "POST /v1/engagement/notices/{notice}/decision",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.publish-approved",
+      "label": "发布已批准公告",
+      "capability": "engagement.notice.publish",
+      "api": "POST /v1/engagement/notices/{notice}/publish",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.remind",
+      "label": "催阅未读受众",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/remind",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
       "key": "engagement.notices.restore",
       "label": "恢复公告",
       "capability": "engagement.notice.manage",
@@ -289,9 +892,320 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.submit",
+      "label": "提交公告审批",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/submit",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "notifications": [
+    {
+      "pageCode": "notifications",
+      "key": "notifications.delivery.retry",
+      "label": "重试消息投递",
+      "capability": "notification.delivery.manage",
+      "api": "POST /v1/notifications/deliveries/{id}/retry",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "overtime": [
+    {
+      "pageCode": "overtime",
+      "key": "overtime.policy.create",
+      "label": "新建加班规则版本",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/policies",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.policy.retire",
+      "label": "停用加班规则版本",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/policies/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.request.confirm",
+      "label": "确认加班时长",
+      "capability": "time.overtime.confirm",
+      "api": "POST /v1/time/overtime/requests/{id}/confirm",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "MANAGED",
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.request.self",
+      "label": "提交本人加班",
+      "capability": "time.overtime.request",
+      "api": "POST /v1/time/overtime/requests",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF",
+        "MANAGED"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "overtime",
+      "key": "overtime.settlement.create",
+      "label": "结算加班",
+      "capability": "time.overtime.settle",
+      "api": "POST /v1/overtime/records/{recordId}/settlements",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "payroll": [
+    {
+      "pageCode": "payroll",
+      "key": "payroll.compensation.create",
+      "label": "新增薪资档案版本",
+      "capability": "payroll.compensation.manage",
+      "api": "POST /v1/payroll/employee-plans",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.create",
+      "label": "新增薪资项目",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.retire",
+      "label": "停用薪资项目",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items/{id}/retire",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.item.version",
+      "label": "复制薪资项目为新版本",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/items/{id}/versions",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.run.create",
+      "label": "创建工资批次",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.run.publish",
+      "label": "发布工资批次",
+      "capability": "payroll.run.publish",
+      "api": "POST /v1/payroll/runs/{id}/publish",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.run.review",
+      "label": "复核工资批次",
+      "capability": "payroll.run.review",
+      "api": "POST /v1/payroll/runs/{id}/review",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll",
+      "key": "payroll.scheme.create",
+      "label": "新建薪酬方案",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/schemes",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    }
+  ],
+  "performance": [
+    {
+      "pageCode": "performance",
+      "key": "performance.appeal.create",
+      "label": "提交绩效申诉",
+      "capability": "performance.appeal.manage",
+      "api": "POST /v1/performance/reviews/{id}/appeals",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF",
+        "MANAGED",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "performance",
+      "key": "performance.cycle.create",
+      "label": "新建绩效周期",
+      "capability": "performance.cycle.manage",
+      "api": "POST /v1/performance/cycles",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "performance",
+      "key": "performance.cycle.publish",
+      "label": "发布绩效结果",
+      "capability": "performance.result.publish",
+      "api": "POST /v1/performance/cycles/{id}/publish",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
   "recruitment-candidates": [
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.applications.create",
+      "label": "新增应聘申请",
+      "capability": "recruitment.candidate.manage",
+      "api": "POST /v1/recruitment/candidates/{id}/applications",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.convert",
+      "label": "录用转入职",
+      "capability": "recruitment.candidate.convert",
+      "api": "POST /v1/recruitment/candidates/{id}/convert",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.import",
+      "label": "导入候选人",
+      "capability": "recruitment.candidate.import",
+      "api": "POST /v1/recruitment/candidates/imports",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
     {
       "pageCode": "recruitment-candidates",
       "key": "recruitment.candidates.move.stage",
@@ -306,6 +1220,51 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.talent-pool",
+      "label": "加入人才库",
+      "capability": "recruitment.talent-pool.manage",
+      "api": "POST /v1/recruitment/candidates/{id}/talent-pool",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.offers.accept",
+      "label": "接受录用通知",
+      "capability": "recruitment.offer.accept",
+      "api": "POST /v1/recruitment/offers/{id}/accept",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P3_RESTRICTED"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.offers.create",
+      "label": "创建 Offer",
+      "capability": "recruitment.offer.manage",
+      "api": "POST /v1/recruitment/offers",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P3_RESTRICTED"
     }
   ],
   "recruitment-requests": [
@@ -355,47 +1314,26 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
-  "system-data-scopes": [
+  "system-audit": [
     {
-      "pageCode": "system-data-scopes",
-      "key": "system.data.scopes.save",
-      "label": "保存数据范围",
-      "capability": "iam.scope.manage",
-      "api": "PUT /v1/system/data-scopes/{id}",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "DataScopePolicyService::upsert"
-      ],
+      "pageCode": "system-audit",
+      "key": "system.audit.export",
+      "label": "导出安全审计",
+      "capability": "iam.audit.read",
+      "api": "POST /v1/audit/events/export",
+      "ui": "secondary",
+      "confirm": "danger",
       "anchorTypes": [
         "COMPANY"
       ],
       "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
-  "system-field-policies": [
+  "system-pages": [
     {
-      "pageCode": "system-field-policies",
-      "key": "system.field.policies.save",
-      "label": "保存字段策略",
-      "capability": "iam.field.manage",
-      "api": "PUT /v1/system/field-policies/{field_key}",
-      "ui": "primary",
-      "confirm": "none",
-      "services": [
-        "FieldPolicyService::update"
-      ],
-      "anchorTypes": [
-        "COMPANY"
-      ],
-      "fieldProfileMax": "P2_SENSITIVE"
-    }
-  ],
-  "system-menus": [
-    {
-      "pageCode": "system-menus",
-      "key": "system.menus.create",
-      "label": "新增菜单覆盖",
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.create",
+      "label": "新增菜单展示覆盖",
       "capability": "iam.menu.manage",
       "api": "POST /v1/system/menus",
       "ui": "primary",
@@ -409,12 +1347,12 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P1_INTERNAL"
     },
     {
-      "pageCode": "system-menus",
-      "key": "system.menus.delete",
-      "label": "删除菜单覆盖",
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.reset",
+      "label": "恢复默认菜单展示",
       "capability": "iam.menu.manage",
       "api": "DELETE /v1/system/menus/{page_code}",
-      "ui": "danger",
+      "ui": "secondary",
       "confirm": "danger",
       "services": [
         "MenuOverrideService::delete"
@@ -425,9 +1363,9 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P1_INTERNAL"
     },
     {
-      "pageCode": "system-menus",
-      "key": "system.menus.update",
-      "label": "编辑菜单覆盖",
+      "pageCode": "system-pages",
+      "key": "system.pages.menu.update",
+      "label": "保存菜单展示",
       "capability": "iam.menu.manage",
       "api": "PATCH /v1/system/menus/{page_code}",
       "ui": "primary",
@@ -442,6 +1380,19 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     }
   ],
   "system-roles": [
+    {
+      "pageCode": "system-roles",
+      "key": "system.roles.copy",
+      "label": "复制角色",
+      "capability": "iam.role.manage",
+      "api": "POST /v1/roles/{id}/copy",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
     {
       "pageCode": "system-roles",
       "key": "system.roles.create",
@@ -493,13 +1444,43 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "system-settings": [
+    {
+      "pageCode": "system-settings",
+      "key": "system.settings.calendar.publish",
+      "label": "发布工作日历",
+      "capability": "time.calendar.manage",
+      "api": "POST /v1/system/calendars/publish",
+      "ui": "primary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
     },
     {
-      "pageCode": "system-roles",
-      "key": "system.roles.save.capabilities",
-      "label": "保存动作授权",
-      "capability": "iam.role.manage",
-      "api": "PUT /v1/roles/{id}/capabilities",
+      "pageCode": "system-settings",
+      "key": "system.settings.company-profile.save",
+      "label": "保存公司资料",
+      "capability": "system.settings.manage",
+      "api": "PATCH /v1/system/company-profile",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "system-settings",
+      "key": "system.settings.dictionary.update",
+      "label": "保存字典项",
+      "capability": "system.dictionary.manage",
+      "api": "PATCH /v1/system/dictionaries/{id}",
       "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
@@ -508,17 +1489,30 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
       "fieldProfileMax": "P1_INTERNAL"
     },
     {
-      "pageCode": "system-roles",
-      "key": "system.roles.save.pages",
-      "label": "保存页面授权",
-      "capability": "iam.role.manage",
-      "api": "PUT /v1/roles/{id}/pages",
+      "pageCode": "system-settings",
+      "key": "system.settings.feature.update",
+      "label": "变更功能开关",
+      "capability": "platform.feature.manage",
+      "api": "PUT /v1/platform/features/{flag}",
+      "ui": "secondary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "system-settings",
+      "key": "system.settings.parameter.update",
+      "label": "保存系统参数",
+      "capability": "system.parameter.manage",
+      "api": "PUT /v1/system/parameters",
       "ui": "secondary",
       "confirm": "none",
       "anchorTypes": [
         "COMPANY"
       ],
-      "fieldProfileMax": "P1_INTERNAL"
+      "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
   "system-users": [
@@ -564,6 +1558,229 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "training": [
+    {
+      "pageCode": "training",
+      "key": "training.courses.update",
+      "label": "更新培训课程",
+      "capability": "training.course.manage",
+      "api": "PATCH /v1/training/courses/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.enrollments.cancel",
+      "label": "取消培训报名",
+      "capability": "training.enrollment.manage",
+      "api": "POST /v1/training/enrollments/{id}/cancel",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.program.create",
+      "label": "新建培训项目",
+      "capability": "training.program.manage",
+      "api": "POST /v1/training/programs",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.programs.update",
+      "label": "更新培训项目",
+      "capability": "training.program.manage",
+      "api": "PATCH /v1/training/programs/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.sessions.update",
+      "label": "更新培训场次",
+      "capability": "training.session.manage",
+      "api": "PATCH /v1/training/sessions/{id}",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    }
+  ],
+  "travel": [
+    {
+      "pageCode": "travel",
+      "key": "travel.expense.claim",
+      "label": "登记出差费用",
+      "capability": "time.travel.expense.manage",
+      "api": "POST /v1/travel/expenses",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.policy.publish",
+      "label": "发布差旅政策",
+      "capability": "time.travel.policy.manage",
+      "api": "POST /v1/travel/policies",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.approve",
+      "label": "审批出差申请",
+      "capability": "time.travel.approve",
+      "api": "POST /v1/travel/requests/{id}/approve",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "MANAGED",
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.cancel",
+      "label": "取消出差申请",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests/{id}/cancel",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.change",
+      "label": "申请出差变更",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests/{id}/change",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    },
+    {
+      "pageCode": "travel",
+      "key": "travel.request.create",
+      "label": "申请出差",
+      "capability": "time.travel.request",
+      "api": "POST /v1/travel/requests",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF"
+      ],
+      "fieldProfileMax": "P0_PUBLIC"
+    }
+  ],
+  "workflow": [
+    {
+      "pageCode": "workflow",
+      "key": "workflow.case.decide",
+      "label": "处理审批决定",
+      "capability": "workflow.case.decide",
+      "api": "POST /v1/cases/{caseId}/decisions",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "CASE",
+        "MANAGED"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "workflow",
+      "key": "workflow.case.withdraw",
+      "label": "撤回审批事项",
+      "capability": "workflow.case.create",
+      "api": "POST /v1/cases/{id}/withdraw",
+      "ui": "secondary",
+      "confirm": "none",
+      "anchorTypes": [
+        "SELF",
+        "MANAGED",
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "workflow",
+      "key": "workflow.effect.retry",
+      "label": "重试失效效果",
+      "capability": "workflow.case.admin",
+      "api": "POST /v1/effects/{id}/retry",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "CASE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "workflow",
+      "key": "workflow.template.version.create",
+      "label": "新建流程模板版本",
+      "capability": "workflow.case.admin",
+      "api": "POST /v1/workflow/templates",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "CASE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
     }
   ]
 }

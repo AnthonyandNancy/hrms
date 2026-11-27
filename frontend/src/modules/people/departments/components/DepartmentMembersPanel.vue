@@ -3,10 +3,10 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApiError } from '@/api/errors'
 import {
-  MISSING_MEMBER_REMOVAL_ENDPOINT,
   addDepartmentMember,
   assignmentTypeLabel,
   errorMessage,
+  removeDepartmentMember,
   type DepartmentMember,
   type MemberPage,
 } from '../api'
@@ -39,7 +39,9 @@ const localError = ref('')
 
 const pendingRemoval = ref<DepartmentMember | null>(null)
 const removalDate = ref('')
-const removalConfirmed = ref(false)
+const removalReason = ref('')
+const removalError = ref('')
+const removing = ref(false)
 
 const fieldErrors = computed<Record<string, string[]>>(() => addError.value?.fieldErrors ?? {})
 
@@ -61,7 +63,9 @@ watch(
     addError.value = null
     localError.value = ''
     pendingRemoval.value = null
-    removalConfirmed.value = false
+    removalDate.value = ''
+    removalReason.value = ''
+    removalError.value = ''
   },
 )
 
@@ -113,20 +117,45 @@ async function submitAdd(): Promise<void> {
 }
 
 function askRemove(member: DepartmentMember): void {
-  removalConfirmed.value = false
   removalDate.value = ''
+  removalReason.value = ''
+  removalError.value = ''
   pendingRemoval.value = member
 }
 
 function closeRemoval(): void {
   pendingRemoval.value = null
-  removalConfirmed.value = false
   removalDate.value = ''
+  removalReason.value = ''
+  removalError.value = ''
 }
 
-function confirmRemoval(): void {
-  if (removalDate.value === '') return
-  removalConfirmed.value = true
+async function confirmRemoval(): Promise<void> {
+  if (props.departmentId === null || pendingRemoval.value === null) return
+  removalError.value = ''
+  if (removalDate.value === '') {
+    removalError.value = '请填写移除生效日期。'
+    return
+  }
+  if (removalReason.value.trim().length < 3) {
+    removalError.value = '请填写至少 3 个字的移除原因。'
+    return
+  }
+
+  removing.value = true
+  try {
+    await removeDepartmentMember(props.departmentId, pendingRemoval.value.employment_id, {
+      effective_from: removalDate.value,
+      reason: removalReason.value.trim(),
+    })
+    ElMessage.success('部门成员已按生效日期移除；历史任职保留。')
+    closeRemoval()
+    emit('refresh')
+  } catch (error) {
+    removalError.value = errorMessage(error)
+  } finally {
+    removing.value = false
+  }
 }
 
 function memberLabel(member: DepartmentMember | null): string {
@@ -174,7 +203,11 @@ function memberLabel(member: DepartmentMember | null): string {
           </thead>
           <tbody>
             <tr v-for="member in members?.items ?? []" :key="member.assignment_id">
-              <td>员工关系 #{{ member.employment_id }}</td>
+              <td>
+                <router-link :to="`/hr/employees/${member.employment_id}`" class="department-link">
+                  员工关系 #{{ member.employment_id }}
+                </router-link>
+              </td>
               <td>
                 {{ assignmentTypeLabel(member.assignment_type) }}
                 <span v-if="member.is_primary">（主）</span>
@@ -258,15 +291,20 @@ function memberLabel(member: DepartmentMember | null): string {
           <span>生效日期 *</span>
           <input v-model="removalDate" type="date" data-testid="member-remove-effective-date" />
         </label>
-        <p v-if="removalConfirmed" class="department-form__error" role="alert" data-testid="member-remove-blocker">
-          {{ MISSING_MEMBER_REMOVAL_ENDPOINT }} 已确认移除，但不会发起伪请求。
+        <label class="department-field">
+          <span>移除原因 *</span>
+          <input v-model="removalReason" maxlength="255" data-testid="member-remove-reason" />
+        </label>
+        <p v-if="removalError !== ''" class="department-form__error" role="alert" data-testid="member-remove-error">
+          {{ removalError }}
         </p>
       </div>
       <template #footer>
         <el-button @click="closeRemoval">取消</el-button>
         <el-button
           type="danger"
-          :disabled="removalDate === ''"
+          :disabled="removalDate === '' || removing"
+          :loading="removing"
           data-testid="member-remove-confirm-final"
           @click="confirmRemoval"
         >

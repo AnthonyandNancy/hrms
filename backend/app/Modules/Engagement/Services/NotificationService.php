@@ -7,6 +7,7 @@ namespace App\Modules\Engagement\Services;
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
 use App\Modules\Engagement\Models\Notification;
 use App\Shared\Exceptions\NotFoundException;
+use App\Shared\Observability\AuditRecorder;
 use App\Shared\Observability\OutboxRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,30 @@ final class NotificationService
         private readonly ExternalNotificationChannel $external,
         private readonly OutboxRecorder $outbox,
         private readonly Clock $clock,
+        private readonly ?AuditRecorder $audit = null,
     ) {}
+
+    /**
+     * Notice notification payloads are an identifier boundary, never a copy of
+     * the notice. Reject any producer that tries to smuggle display facts in.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertNoticePayloadShape(string $type, array $payload): void
+    {
+        if (! str_starts_with($type, 'NOTICE_')) {
+            return;
+        }
+
+        $allowed = ['notice_id', 'requires_ack'];
+        $unexpected = array_values(array_diff(array_keys($payload), $allowed));
+
+        if ($unexpected !== [] || ! isset($payload['notice_id'])) {
+            throw new \InvalidArgumentException(
+                'Notice notifications may contain only notice_id and requires_ack; received: '.implode(',', $unexpected),
+            );
+        }
+    }
 
     /**
      * @param  list<int>  $userIds
@@ -26,6 +50,7 @@ final class NotificationService
      */
     public function notify(array $userIds, string $type, array $payload): array
     {
+        $this->assertNoticePayloadShape($type, $payload);
         $ids = [];
         $now = $this->clock->now();
 
@@ -90,6 +115,15 @@ final class NotificationService
 
         if ($notification->read_at === null) {
             $notification->forceFill(['read_at' => $this->clock->now()])->save();
+
+            ($this->audit ?? app(AuditRecorder::class))->record(
+                actorUserId: $userId,
+                action: 'engagement.notification.read',
+                aggregateType: 'notification',
+                aggregateId: (int) $notification->id,
+                after: ['read' => true],
+                metadata: ['type' => (string) $notification->type],
+            );
         }
 
         return $this->payload($notification->refresh());

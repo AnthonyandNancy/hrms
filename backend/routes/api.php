@@ -6,6 +6,7 @@ use App\Modules\Engagement\Http\Controllers\NoticeController;
 use App\Modules\Engagement\Http\Controllers\NoticeGovernanceController;
 use App\Modules\Engagement\Http\Controllers\NotificationController;
 use App\Modules\IAM\Http\Controllers\AccessReviewController;
+use App\Modules\IAM\Http\Controllers\AuditQueryController;
 use App\Modules\IAM\Http\Controllers\AuthController;
 use App\Modules\IAM\Http\Controllers\AuthorizationAdminController;
 use App\Modules\IAM\Http\Controllers\BreakGlassController;
@@ -22,6 +23,7 @@ use App\Modules\IAM\Http\Controllers\UserAdminController;
 use App\Modules\IAM\Http\Controllers\WorkspaceController;
 use App\Modules\Lifecycle\Http\Controllers\LifecycleController;
 use App\Modules\Lifecycle\Http\Controllers\SecondmentController;
+use App\Modules\Organization\Http\Controllers\CompanyProfileController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\OrgUnitController;
 use App\Modules\Organization\Http\Controllers\PositionCatalogController;
@@ -30,6 +32,7 @@ use App\Modules\Payroll\Http\Controllers\BenefitController;
 use App\Modules\Payroll\Http\Controllers\CompensationController;
 use App\Modules\Payroll\Http\Controllers\PayrollCatalogController;
 use App\Modules\Payroll\Http\Controllers\PayrollPayslipController;
+use App\Modules\Payroll\Http\Controllers\PayrollReportController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollStatutoryParameterController;
 use App\Modules\People\Http\Controllers\ContractLifecycleController;
@@ -59,14 +62,22 @@ use App\Modules\Talent\Http\Controllers\TrainingController;
 use App\Modules\Time\Http\Controllers\AttendanceClosingController;
 use App\Modules\Time\Http\Controllers\AttendanceController;
 use App\Modules\Time\Http\Controllers\AttendanceOpsController;
+use App\Modules\Time\Http\Controllers\AttendanceRecordController;
 use App\Modules\Time\Http\Controllers\CalendarAdminController;
+use App\Modules\Time\Http\Controllers\LeaveAdminController;
 use App\Modules\Time\Http\Controllers\LeaveController;
+use App\Modules\Time\Http\Controllers\LeaveOnBehalfController;
+use App\Modules\Time\Http\Controllers\LeavePolicyController;
+use App\Modules\Time\Http\Controllers\LeaveReportController;
+use App\Modules\Time\Http\Controllers\LeaveTypeController;
 use App\Modules\Time\Http\Controllers\OvertimeController;
 use App\Modules\Time\Http\Controllers\OvertimeRequestController;
+use App\Modules\Time\Http\Controllers\ShiftAdminController;
 use App\Modules\Time\Http\Controllers\TimeCatalogController;
 use App\Modules\Time\Http\Controllers\TravelController;
 use App\Modules\Time\Http\Controllers\TravelExpenseController;
 use App\Modules\Time\Http\Controllers\TravelPolicyController;
+use App\Modules\Time\Http\Controllers\TravelReportController;
 use App\Modules\Workflow\Http\Controllers\CaseController;
 use App\Modules\Workflow\Http\Controllers\DecisionController;
 use App\Modules\Workflow\Http\Controllers\DelegationController;
@@ -165,6 +176,18 @@ Route::middleware(['auth.session', 'csrf.header'])->group(function (): void {
     Route::post('/users/{id}/bindings', [AuthorizationAdminController::class, 'storeBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,COMPANY'])->name('bindings.store');
     Route::delete('/bindings/{id}', [AuthorizationAdminController::class, 'destroyBinding'])->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:iam.binding.manage,COMPANY'])->name('bindings.destroy');
 
+    Route::get('/system/company-profile', [CompanyProfileController::class, 'show'])
+        ->middleware('capability:system.settings.manage,COMPANY')
+        ->name('system.company-profile.show');
+    Route::patch('/system/company-profile', [CompanyProfileController::class, 'save'])
+        ->middleware('capability:system.settings.manage,COMPANY')
+        ->name('system.company-profile.save');
+    Route::get('/audit/events', [AuditQueryController::class, 'index'])
+        ->middleware('capability:iam.audit.read,COMPANY')
+        ->name('audit.events.index');
+    Route::post('/audit/events/export', [AuditQueryController::class, 'export'])
+        ->middleware(['mfa.enrolled', 'capability:iam.audit.read,COMPANY'])
+        ->name('audit.events.export');
     Route::post('/auth/break-glass', [BreakGlassController::class, 'activate'])->middleware(['mfa.step-up', 'capability:iam.session.manage,SELF'])->name('auth.break-glass.activate');
     Route::post('/auth/break-glass/{id}/revoke', [BreakGlassController::class, 'revoke'])->middleware('capability:iam.session.manage,SELF')->name('auth.break-glass.revoke');
 
@@ -180,6 +203,9 @@ Route::prefix('employees')->middleware('auth.session')->group(function (): void 
     Route::get('/', [EmployeeController::class, 'index'])
         ->middleware('capability:people.employee.read,COMPANY')
         ->name('employees.index');
+    Route::get('/export', [EmployeeController::class, 'export'])
+        ->middleware('capability:people.employee.export,COMPANY')
+        ->name('employees.export');
     Route::get('/{employment_id}', [EmployeeController::class, 'show'])
         ->whereNumber('employment_id')
         ->middleware('capability:people.employee.read,COMPANY')
@@ -194,8 +220,12 @@ Route::prefix('employees')->middleware('auth.session')->group(function (): void 
         ->name('employees.restore');
 });
 
+Route::get('/employee-imports', [EmployeeController::class, 'imports'])
+    ->middleware(['auth.session', 'capability:people.employee.manage,COMPANY'])
+    ->name('employee-imports.index');
+
 Route::prefix('employees/{employmentId}')->middleware('auth.session')->group(function (): void {
-    foreach (['education', 'experiences', 'contacts', 'certificates', 'change_requests', 'imports'] as $profileResource) {
+    foreach (['education', 'experiences', 'contacts', 'certificates', 'change_requests'] as $profileResource) {
         Route::get('/'.$profileResource, [EmployeeProfileController::class, 'index'])
             ->whereNumber('employmentId')
             ->defaults('profileResource', $profileResource)
@@ -212,6 +242,18 @@ Route::prefix('employees/{employmentId}')->middleware('auth.session')->group(fun
             ->defaults('profileResource', $profileResource)
             ->middleware('capability:people.employee.manage')
             ->name('employees.profile.'.$profileResource.'.update');
+    }
+
+    // M04 append-only retire for versioned sub-records. The four concrete
+    // resources are enumerated so the generic placeholder never becomes a
+    // client-visible route template.
+    foreach (['education', 'experiences', 'contacts', 'certificates'] as $profileResource) {
+        Route::delete('/'.$profileResource.'/{id}', [EmployeeProfileController::class, 'retire'])
+            ->whereNumber('employmentId')
+            ->whereNumber('id')
+            ->defaults('profileResource', $profileResource)
+            ->middleware([IdempotentCommand::class, 'capability:people.employee.manage'])
+            ->name('employees.profile.'.$profileResource.'.retire');
     }
 
     Route::post('/change_requests/{id}/submit', [EmployeeProfileController::class, 'submit'])
@@ -532,6 +574,30 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.attendance.read')
         ->name('time.attendance.days');
 
+    // M09 literal reads must precede the numeric {employment_id} route above;
+    // they are registered here explicitly to keep that ordering visible.
+    Route::get('/attendance/records', [AttendanceRecordController::class, 'index'])
+        ->middleware('capability:time.attendance.read')
+        ->name('time.attendance.records.index');
+    Route::get('/attendance/records/export', [AttendanceRecordController::class, 'export'])
+        ->middleware('capability:time.attendance.export')
+        ->name('time.attendance.records.export');
+    Route::get('/punches', [AttendanceRecordController::class, 'punches'])
+        ->middleware('capability:time.punch.read')
+        ->name('time.punches.index');
+
+    Route::post('/shifts', [ShiftAdminController::class, 'store'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.shift.manage,COMPANY'])
+        ->name('time.shifts.store');
+    Route::patch('/shifts/{id}', [ShiftAdminController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.shift.manage,COMPANY'])
+        ->name('time.shifts.update');
+    Route::post('/shifts/{id}/disable', [ShiftAdminController::class, 'disable'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.shift.manage,COMPANY'])
+        ->name('time.shifts.disable');
+
     Route::post('/attendance/corrections', [AttendanceController::class, 'correct'])
         ->middleware('capability:time.attendance.correct.request')
         ->name('time.attendance.corrections.store');
@@ -582,6 +648,30 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::get('/leave/types', [TimeCatalogController::class, 'leaveTypes'])
         ->middleware('capability:time.leave.read')
         ->name('time.leave.types.index');
+    Route::post('/leave/types', [LeaveTypeController::class, 'store'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.type.manage,COMPANY'])
+        ->name('time.leave.types.store');
+    Route::patch('/leave/types/{id}', [LeaveTypeController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.type.manage,COMPANY'])
+        ->name('time.leave.types.update');
+    Route::post('/leave/policies', [LeavePolicyController::class, 'store'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.policy.manage,COMPANY'])
+        ->name('time.leave.policies.store');
+    Route::post('/leave/policies/{id}/retire', [LeavePolicyController::class, 'retire'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.policy.manage,COMPANY'])
+        ->name('time.leave.policies.retire');
+    Route::post('/leave/requests/on-behalf', [LeaveOnBehalfController::class, 'store'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.request.on-behalf,MANAGED'])
+        ->name('time.leave.requests.on-behalf');
+    Route::post('/leave/requests/{caseId}/revoke', [LeaveAdminController::class, 'revoke'])
+        ->whereNumber('caseId')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.leave.admin'])
+        ->name('time.leave.requests.revoke');
+    Route::get('/leave/reports/summary', [LeaveReportController::class, 'summary'])
+        ->middleware('capability:time.leave.read')
+        ->name('time.leave.reports.summary');
     Route::get('/leave/policies', [TimeCatalogController::class, 'leavePolicies'])
         ->middleware('capability:time.leave.read')
         ->name('time.leave.policies.index');
@@ -591,6 +681,16 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
     Route::get('/overtime/policies', [TimeCatalogController::class, 'overtimePolicies'])
         ->middleware('capability:time.overtime.read')
         ->name('time.overtime.policies.show');
+    Route::post('/overtime/policies', [TimeCatalogController::class, 'storeOvertimePolicy'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.overtime.manage,COMPANY'])
+        ->name('time.overtime.policies.store');
+    Route::post('/overtime/policies/{id}/retire', [TimeCatalogController::class, 'retireOvertimePolicy'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.overtime.manage,COMPANY'])
+        ->name('time.overtime.policies.retire');
+    Route::get('/overtime/settlements', [OvertimeController::class, 'settlements'])
+        ->middleware('capability:time.overtime.read')
+        ->name('time.overtime.settlements.index');
     Route::get('/overtime/requests', [OvertimeRequestController::class, 'index'])
         ->middleware('capability:time.overtime.read')
         ->name('time.overtime.requests.index');
@@ -645,6 +745,13 @@ Route::prefix('travel')->middleware(['auth.session', 'csrf.header'])->group(func
         ->whereNumber('id')
         ->middleware(['mfa.enrolled', 'capability:time.travel.approve,MANAGED'])
         ->name('time.travel.requests.approve');
+    Route::post('/requests/{id}/change', [TravelController::class, 'change'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.travel.request'])
+        ->name('time.travel.requests.change');
+    Route::get('/reports/summary', [TravelReportController::class, 'summary'])
+        ->middleware('capability:time.travel.read')
+        ->name('time.travel.reports.summary');
 
     Route::get('/policies', [TravelPolicyController::class, 'index'])
         ->middleware('capability:time.travel.policy.read,COMPANY')
@@ -695,6 +802,9 @@ Route::prefix('leave')->middleware('auth.session')->group(function (): void {
 |--------------------------------------------------------------------------
 */
 Route::prefix('engagement')->middleware('auth.session')->group(function (): void {
+    Route::post('/notices/audience-preview', [NoticeController::class, 'previewAudience'])
+        ->middleware('capability:engagement.notice.manage,COMPANY')
+        ->name('engagement.notices.audience-preview');
     Route::get('/notices', [NoticeController::class, 'index'])
         ->middleware('capability:engagement.notice.read')
         ->name('engagement.notices.index');
@@ -743,6 +853,10 @@ Route::prefix('engagement')->middleware('auth.session')->group(function (): void
     Route::get('/notice-templates', [NoticeGovernanceController::class, 'templates'])
         ->middleware('capability:engagement.notice.read')
         ->name('engagement.notice-templates.index');
+    Route::post('/notices/{notice}/remind', [NoticeGovernanceController::class, 'remind'])
+        ->whereNumber('notice')
+        ->middleware('capability:engagement.notice.manage,COMPANY')
+        ->name('engagement.notices.remind');
     Route::post('/notice-templates', [NoticeGovernanceController::class, 'storeTemplate'])
         ->middleware('capability:engagement.notice.manage')
         ->name('engagement.notice-templates.store');
@@ -932,6 +1046,15 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
         ->whereNumber('id')
         ->middleware('capability:recruitment.requisition.manage')
         ->name('recruitment.openings.store');
+    Route::get('/board', [RecruitmentFunnelController::class, 'board'])
+        ->middleware('capability:recruitment.requisition.read')
+        ->name('recruitment.board');
+    Route::get('/budget', [RecruitmentFunnelController::class, 'budget'])
+        ->middleware('capability:recruitment.requisition.read')
+        ->name('recruitment.budget');
+    Route::get('/reports', [RecruitmentFunnelController::class, 'reports'])
+        ->middleware('capability:recruitment.requisition.read')
+        ->name('recruitment.reports');
     Route::post('/candidates', [RecruitmentController::class, 'storeCandidate'])
         ->middleware('capability:recruitment.candidate.manage')
         ->name('recruitment.candidates.store');
@@ -947,6 +1070,10 @@ Route::prefix('recruitment')->middleware(['auth.session'])->group(function (): v
         ->whereNumber('id')
         ->middleware('capability:recruitment.offer.accept')
         ->name('recruitment.offers.accept');
+    Route::post('/candidates/{id}/applications', [RecruitmentController::class, 'storeApplication'])
+        ->whereNumber('id')
+        ->middleware('capability:recruitment.candidate.manage')
+        ->name('recruitment.applications.store');
 });
 
 Route::prefix('performance')->middleware(['auth.session'])->group(function (): void {
@@ -1034,6 +1161,22 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
     Route::post('/programs', [TrainingController::class, 'storeProgram'])
         ->middleware('capability:training.program.manage')
         ->name('training.programs.store');
+    Route::patch('/programs/{id}', [TrainingController::class, 'updateProgram'])
+        ->whereNumber('id')
+        ->middleware('capability:training.program.manage')
+        ->name('training.programs.update');
+    Route::patch('/courses/{id}', [TrainingController::class, 'updateCourse'])
+        ->whereNumber('id')
+        ->middleware('capability:training.course.manage,COMPANY')
+        ->name('training.courses.update');
+    Route::patch('/sessions/{id}', [TrainingController::class, 'updateSession'])
+        ->whereNumber('id')
+        ->middleware('capability:training.session.manage')
+        ->name('training.sessions.update');
+    Route::post('/enrollments/{id}/cancel', [TrainingController::class, 'cancelEnrollment'])
+        ->whereNumber('id')
+        ->middleware('capability:training.enrollment.manage')
+        ->name('training.enrollments.cancel');
     Route::get('/sessions', [TrainingController::class, 'sessions'])
         ->middleware('capability:training.session.manage')
         ->name('training.sessions.index');
@@ -1113,6 +1256,19 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
     Route::get('/schemes', [PayrollCatalogController::class, 'schemes'])
         ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.schemes.index');
+    Route::post('/items/{id}/versions', [PayrollCatalogController::class, 'storeVersion'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.items.versions.store');
+    Route::post('/items/{id}/retire', [PayrollCatalogController::class, 'retire'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.items.retire');
+    Route::get('/reports/summary', [PayrollReportController::class, 'summary'])
+        ->middleware('capability:payroll.report.read,COMPANY')
+        ->name('payroll.reports.summary');
     Route::post('/schemes', [PayrollCatalogController::class, 'storeScheme'])
         ->middleware(IdempotentCommand::class)
         ->middleware('capability:payroll.run.prepare,COMPANY')

@@ -22,14 +22,14 @@ async function mountPayslips() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/payroll/my-payslips', name: 'payslips', component: PayslipsView },
+      { path: '/payroll', name: 'payroll', component: PayslipsView },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
       { path: '/forbidden', name: 'forbidden', component: { template: '<div>forbidden</div>' } },
       { path: '/system/users', name: 'system-users', component: { template: '<div>users</div>' } },
       { path: '/hr/employees', name: 'hr-employees', component: { template: '<div>employees</div>' } },
     ],
   })
-  await router.push('/payroll/my-payslips')
+  await router.push('/payroll')
   await router.isReady()
 
   return mount(PayslipsView, {

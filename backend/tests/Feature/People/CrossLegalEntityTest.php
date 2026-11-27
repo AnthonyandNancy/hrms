@@ -57,7 +57,7 @@ final class CrossLegalEntityTest extends PeopleTestCase
             'employment_id' => $employment->id,
             'effective_from' => '2026-12-01',
             'reason' => 'Department transfer',
-        ]);
+        ], ['Idempotency-Key' => 'cross-legal-member-move']);
 
         $response->assertCreated();
         $old->refresh();

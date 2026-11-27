@@ -28,9 +28,11 @@ const session = useSessionStore()
  * that the route guard would turn into a forbidden page.
  */
 function casePath(caseId: number): string {
-  const detailGranted =
-    session.canPage('workflow-case-detail') || session.canPage('/workflow/cases/:id')
-  return detailGranted ? `/workflow/cases/${caseId}` : `/cases/${caseId}`
+  // V2.3 deleted the legacy /cases routes outright. A task link must land on
+  // the surviving workflow case workspace or the user sees a 404; the route
+  // guard, not a fallback URL, owns page authorization.
+  void session
+  return `/workflow/cases/${caseId}`
 }
 
 const dueLabel = (value: string | null): string => (value === null ? '未设置截止时间' : formatDateTimeInTimezone(value))

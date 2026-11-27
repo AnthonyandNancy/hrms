@@ -366,23 +366,20 @@ describe('performance workspace cycle list', () => {
 })
 
 describe('performance workspace detail entry', () => {
-  it('opens the cycle detail through the registered workspace route without a missing router path', async () => {
+  it('links the cycle list to the stable detail deep link and never embeds a detail query shell', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/performance/cycles') return Promise.resolve(page([cycleRaw()]))
-      if (path === '/v1/performance/reviews') return Promise.resolve(page([reviewRaw()]))
       return Promise.resolve(page([]))
     })
 
     const wrapper = await mountAt(PerformanceWorkspacePage, '/performance')
-    const open = wrapper.findAll('button').find((button) => button.text() === '查看详情')
-    expect(open).toBeDefined()
-    await open?.trigger('click')
-    await flushPromises()
+    const open = wrapper.get('[data-testid="performance-open-cycle"]')
 
-    expect(wrapper.text()).toContain('参与者评估')
-    expect(resource.get).toHaveBeenCalledWith(
+    expect(open.attributes('href')).toBe('/performance/cycles/9')
+    expect(wrapper.find('[data-testid="performance-detail"]').exists()).toBe(false)
+    expect(resource.get).not.toHaveBeenCalledWith(
       '/v1/performance/reviews',
-      expect.objectContaining({ cycle_id: 9 }),
+      expect.anything(),
     )
   })
 })
@@ -409,7 +406,7 @@ describe('performance cycle detail and score drawer', () => {
       return Promise.resolve(page([]))
     })
 
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9', [
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews', [
       'performance.cycle.read',
       'performance.review.manage',
       'performance.review.submit',
@@ -436,14 +433,16 @@ describe('performance cycle detail and score drawer', () => {
 
   it('raises an appeal as a separate workflow Case and never edits the review', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/performance/cycles') return Promise.resolve(page([cycleRaw()]))
+      if (path === '/v1/performance/cycles') {
+        return Promise.resolve(page([cycleRaw({ status: 'PUBLISHED', submitted_count: 3, progress: 100 })]))
+      }
       if (path === '/v1/performance/reviews') {
-        return Promise.resolve(page([reviewRaw({ status: 'SUBMITTED', manager_rating: '88' })]))
+        return Promise.resolve(page([reviewRaw({ status: 'SUBMITTED', manager_rating: '88', snapshot: true })]))
       }
       return Promise.resolve(page([]))
     })
 
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9', [
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews', [
       'performance.cycle.read',
       'performance.review.manage',
       'performance.appeal.manage',
@@ -467,7 +466,7 @@ describe('performance cycle detail and score drawer', () => {
   })
 
   it('opens the score drawer with goal rows and enforces the 100 percent total before saving', async () => {
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9')
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews')
 
     expect(resource.get).toHaveBeenCalledWith('/v1/performance/cycles', expect.objectContaining({ page: 1 }))
     expect(resource.get).toHaveBeenCalledWith(
@@ -517,7 +516,7 @@ describe('performance cycle detail and score drawer', () => {
   })
 
   it('confirms manager submission and posts the real submit endpoint with manager rating', async () => {
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9')
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews')
     await openDrawer(wrapper)
 
     await wrapper.get('[data-testid="performance-manager-rating"]').setValue('92')
@@ -550,7 +549,7 @@ describe('performance cycle detail and score drawer', () => {
       return Promise.resolve(page([]))
     })
 
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9')
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews')
     await openDrawer(wrapper)
 
     const final = wrapper.get('[data-testid="performance-final-rating"]')
@@ -570,7 +569,7 @@ describe('performance cycle detail and score drawer', () => {
       return Promise.resolve(page([]))
     })
 
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9')
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews')
 
     expect(wrapper.text()).toContain('已提交（只读）')
     const viewButton = wrapper.findAll('button').find((button) => button.text() === '查看')
@@ -594,17 +593,17 @@ describe('performance cycle detail and score drawer', () => {
       return Promise.resolve(page([]))
     })
 
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9')
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews')
 
     expect(wrapper.get('[data-testid="performance-readonly"]').text()).toContain('只读')
     const viewButton = wrapper.findAll('button').find((button) => button.text() === '查看')
     expect(viewButton).toBeDefined()
-    expect(wrapper.get('[data-testid="performance-publish"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-testid="performance-publish"]').exists()).toBe(false)
     expect(resource.post).not.toHaveBeenCalled()
   })
 
   it('shows a capability explanation and does not load review rows without review.manage', async () => {
-    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9', [
+    const wrapper = await mountAt(PerformanceCycleDetailPage, '/performance/cycles/9?tab=reviews', [
       'performance.cycle.read',
     ])
 
@@ -628,6 +627,8 @@ describe('performance score drawer component', () => {
           employmentId: 21,
           managerEmploymentId: 20,
           status: 'SUBMITTED',
+          snapshot: true,
+          publishedAt: null,
           selfRating: '85',
           managerRating: '88',
           calibratedRating: 'MEETS',

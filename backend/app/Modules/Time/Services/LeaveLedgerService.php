@@ -244,6 +244,16 @@ final class LeaveLedgerService
         );
     }
 
+    /**
+     * Serialize request submission against one open account without writing.
+     * The request service calls this before its overlap check so two parallel
+     * submissions for adjacent/overlapping dates cannot both pass.
+     */
+    public function assertAccountLockable(int $employmentId, int $leaveTypeId): void
+    {
+        $this->lockAccount($employmentId, $leaveTypeId);
+    }
+
     private function append(
         int $employmentId,
         int $leaveTypeId,
