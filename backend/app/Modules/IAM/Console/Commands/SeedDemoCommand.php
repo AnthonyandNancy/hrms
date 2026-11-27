@@ -27,6 +27,12 @@ final class SeedDemoCommand extends Command
 
     public function handle(PasswordHasher $passwords, Clock $clock): int
     {
+        if (app()->environment('production')) {
+            $this->error('iam:seed-demo is refused in production.');
+
+            return self::FAILURE;
+        }
+
         $password = config('iam.demo_seed_password');
 
         if (! is_string($password) || strlen($password) < 12) {

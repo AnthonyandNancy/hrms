@@ -19,6 +19,7 @@ use App\Modules\IAM\Contracts\SecurityAuditReader;
 use App\Modules\IAM\Contracts\SessionRevoker;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\IAM\Contracts\UserDirectory;
+use App\Modules\IAM\Services\EloquentActiveAdministratorDirectory;
 use App\Modules\IAM\Services\EloquentDemoUserDirectory;
 use App\Modules\IAM\Services\EloquentSecurityAuditReader;
 use App\Modules\IAM\Services\EloquentUserAudienceDirectory;
@@ -37,6 +38,7 @@ use App\Shared\Authorization\Contracts\OrganizationScopeDirectory;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
 use App\Shared\Authorization\Contracts\PersonEmploymentDirectory;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
+use App\Shared\Health\ActiveAdministratorDirectory;
 use Illuminate\Support\ServiceProvider;
 use Tests\Fakes\FakeCaseMembershipDirectory;
 use Tests\Fakes\FakeOrganizationScopeDirectory;
@@ -77,6 +79,7 @@ final class IamServiceProvider extends ServiceProvider
         $this->app->bind(AssigneeDirectory::class, IamAssigneeDirectory::class);
         $this->app->bindIf(UserAudienceDirectory::class, EloquentUserAudienceDirectory::class);
         $this->app->bind(DemoUserDirectory::class, EloquentDemoUserDirectory::class);
+        $this->app->bind(ActiveAdministratorDirectory::class, EloquentActiveAdministratorDirectory::class);
 
         if ($this->app->environment('testing')) {
             $this->app->singleton(PersonEmploymentDirectory::class, FakePersonEmploymentDirectory::class);

@@ -6016,6 +6016,12 @@ export interface components {
                 db: boolean;
                 cache: boolean;
                 storage: boolean;
+                /** @description Present on readiness probes; true when no migration is pending. */
+                migrations?: boolean;
+                /** @description Present on readiness probes; true when the single installation completed with an administrator. */
+                installation?: boolean;
+                /** @description Present on readiness probes; true when exactly one active privileged administrator exists. */
+                administrator?: boolean;
             };
             /** Format: date-time */
             time: string;
@@ -13618,7 +13624,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Database, cache and storage are ready. */
+            /** @description Database, cache, storage, migrations, installation state and administrator are ready. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13628,7 +13634,7 @@ export interface operations {
                 };
             };
             500: components["responses"]["InternalError"];
-            /** @description A required dependency is unavailable. */
+            /** @description A required dependency, migration state, installation state or administrator invariant is unavailable. */
             503: {
                 headers: {
                     [name: string]: unknown;

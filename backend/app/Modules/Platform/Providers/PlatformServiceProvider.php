@@ -7,6 +7,7 @@ namespace App\Modules\Platform\Providers;
 use App\Modules\Platform\Contracts\DictionaryReader;
 use App\Modules\Platform\Contracts\FileObjectReader;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
+use App\Modules\Platform\Contracts\InstallationStateStore;
 use App\Modules\Platform\Contracts\MenuOverrideReader;
 use App\Modules\Platform\Contracts\MenuOverrideWriter;
 use App\Modules\Platform\Contracts\OutboxDispatcher;
@@ -20,6 +21,7 @@ use App\Modules\Platform\Services\AuditRecorderAdapter;
 use App\Modules\Platform\Services\DatabaseDictionaryReader;
 use App\Modules\Platform\Services\DatabaseParameterReader;
 use App\Modules\Platform\Services\EloquentFileObjectReader;
+use App\Modules\Platform\Services\EloquentInstallationStateStore;
 use App\Modules\Platform\Services\FileMetadataAdapter;
 use App\Modules\Platform\Services\LocalPrivateFileStore;
 use App\Modules\Platform\Services\LogOutboxDispatcher;
@@ -35,6 +37,7 @@ final class PlatformServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(OutboxDispatcher::class, LogOutboxDispatcher::class);
+        $this->app->bind(InstallationStateStore::class, EloquentInstallationStateStore::class);
         $this->app->bind(AuditRecorder::class, AuditRecorderAdapter::class);
         $this->app->bind(OutboxRecorder::class, OutboxRecorderAdapter::class);
         $this->app->bind(IdempotencyRunner::class, \App\Modules\Platform\Services\IdempotencyService::class);

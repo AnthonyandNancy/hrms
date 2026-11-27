@@ -1295,6 +1295,15 @@ components:
               type: boolean
             storage:
               type: boolean
+            migrations:
+              type: boolean
+              description: Present on readiness probes; true when no migration is pending.
+            installation:
+              type: boolean
+              description: Present on readiness probes; true when the single installation completed with an administrator.
+            administrator:
+              type: boolean
+              description: Present on readiness probes; true when exactly one active privileged administrator exists.
         time:
           type: string
           format: date-time
@@ -13659,13 +13668,13 @@ paths:
       security: []
       responses:
         "200":
-          description: Database, cache and storage are ready.
+          description: Database, cache, storage, migrations, installation state and administrator are ready.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthEnvelope"
         "503":
-          description: A required dependency is unavailable.
+          description: A required dependency, migration state, installation state or administrator invariant is unavailable.
           content:
             application/json:
               schema:

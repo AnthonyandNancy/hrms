@@ -76,7 +76,7 @@
 | Task | 工作包 | 状态 | 最后通过步骤 | 证据 |
 |---|---|---|---|---|
 | T00 | 基线与 ADR | COMPLETE | Step 4 | `docs/implementation/v24/00-baseline/gate-all.log` |
-| T01 | 安装状态与干净初始化 | PENDING | — | — |
+| T01 | 安装状态与干净初始化 | COMPLETE | Step 5 | `docs/implementation/v24/01-install/evidence.md`; gate log |
 | T02 | 权限单一目录与对象动作 | PENDING | — | — |
 | T03 | 合同约定版本 | PENDING | — | — |
 | T04 | 员工执行薪酬版本 | PENDING | — | — |
@@ -102,6 +102,7 @@
 |---|---|---|---|---|
 | 2026-11-28 | T00 planning baseline | `pnpm gate:all` | FAIL at `backend:phpunit`; 1490 tests, 8 failures | 先修 §T00 的 8 个真实契约漂移，不得绕过 |
 | 2026-11-28 | T00 Step 4 | focused PHPUnit + `pnpm gate:all` | Focused 29 tests PASS; full 22-gate matrix PASS in 238.9s; evidence at `docs/implementation/v24/00-baseline/gate-all.log` | T00 complete. Continue with T01. |
+| 2026-11-28 | T01 Step 5 | `phpunit --filter 'Install|Health|SyncCapabilities|DemoSeed'`; `pnpm gate:all` | 28 adjacent tests PASS; 22 gates PASS in 222.5s; evidence at `docs/implementation/v24/01-install/evidence.md` | T01 complete. Continue with T02; do not claim AC-02 until real-stack/MCP evidence. |
 
 ---
 
@@ -205,7 +206,7 @@ pnpm gate:all
 
 ### T01：安装状态、干净 Seeder 与健康检查
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_000100_create_platform_installation_states.php`
@@ -248,11 +249,11 @@ pnpm actions:check
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：`test_database_seeder_does_not_seed_demo_in_production`、`test_install_is_single_state_and_idempotent`、`test_sync_preserves_custom_pages_and_grants`、`test_readiness_fails_on_pending_migration_install_or_admin`。
-- [ ] Step 2：运行聚焦测试确认 FAIL。
-- [ ] Step 3：新增迁移/模型/安装状态与 health 检查；把 requirement 的非必要参数改为可选。
-- [ ] Step 4：替换 Seeder 默认行为、增加 demo guard、修正 sync upsert；跑聚焦测试 GREEN。
-- [ ] Step 5：跑 OpenAPI/action checks；提交 `feat(v2.4): add clean install state and production guards`。
+- [x] Step 1：写 failing tests：`test_database_seeder_does_not_seed_demo_in_production`、`test_install_is_single_state_and_idempotent`、`test_sync_preserves_custom_pages_and_grants`、`test_readiness_fails_on_pending_migration_install_or_admin`。
+- [x] Step 2：运行聚焦测试确认 FAIL。
+- [x] Step 3：新增迁移/模型/安装状态与 health 检查；把 requirement 的非必要参数改为可选。
+- [x] Step 4：替换 Seeder 默认行为、增加 demo guard、修正 sync upsert；跑聚焦测试 GREEN。
+- [x] Step 5：跑 OpenAPI/action checks；提交 `feat(v2.4): add clean install state and production guards`。
 
 ---
 

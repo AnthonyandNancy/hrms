@@ -33,6 +33,9 @@ class HealthProbeTest extends TestCase
         $health->shouldReceive('databaseHealthy')->once()->andReturnFalse();
         $health->shouldReceive('cacheHealthy')->once()->andReturnTrue();
         $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('migrationsHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('installationHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('administratorHealthy')->once()->andReturnTrue();
         $health->shouldReceive('version')->once()->andReturn('1.0.0');
         $this->app->instance(HealthService::class, $health);
 
@@ -49,6 +52,9 @@ class HealthProbeTest extends TestCase
         $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
         $health->shouldReceive('cacheHealthy')->once()->andReturnFalse();
         $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('migrationsHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('installationHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('administratorHealthy')->once()->andReturnTrue();
         $health->shouldReceive('version')->once()->andReturn('1.0.0');
         $this->app->instance(HealthService::class, $health);
 
@@ -57,6 +63,45 @@ class HealthProbeTest extends TestCase
             ->assertJsonPath('code', 'SERVICE_UNAVAILABLE')
             ->assertJsonPath('data.status', 'not_ready')
             ->assertJsonPath('data.checks.cache', false);
+    }
+
+    public function test_readiness_requires_completed_install_and_one_active_administrator(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('cacheHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('migrationsHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('installationHealthy')->once()->andReturnFalse();
+        $health->shouldReceive('administratorHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('version')->once()->andReturn('1.0.0');
+        $this->app->instance(HealthService::class, $health);
+
+        $this->getJson('/v1/health/ready')
+            ->assertStatus(503)
+            ->assertJsonPath('data.status', 'not_ready')
+            ->assertJsonPath('data.checks.installation', false)
+            ->assertJsonPath('data.checks.administrator', true);
+    }
+
+    public function test_readiness_is_ready_when_every_check_passes(): void
+    {
+        $health = Mockery::mock(HealthService::class);
+        $health->shouldReceive('databaseHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('cacheHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('storageHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('migrationsHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('installationHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('administratorHealthy')->once()->andReturnTrue();
+        $health->shouldReceive('version')->once()->andReturn('1.0.0');
+        $this->app->instance(HealthService::class, $health);
+
+        $this->getJson('/v1/health/ready')
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ready')
+            ->assertJsonPath('data.checks.migrations', true)
+            ->assertJsonPath('data.checks.installation', true)
+            ->assertJsonPath('data.checks.administrator', true);
     }
 
     public function test_legacy_health_remains_degraded_not_unavailable_for_cache_failure(): void
