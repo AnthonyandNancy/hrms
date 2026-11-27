@@ -8,6 +8,8 @@ use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Contracts\ExportDispatcher;
 use App\Modules\Reporting\Models\ExportJob;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\Contracts\AuthorityBindingRepository;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -67,7 +69,9 @@ final class ExportService
         $definition = $this->reports->definition($code);
         $this->assertExportAllowed($principal, $definition, $asOf);
         $this->projections()->ensure($asOf);
-        $preview = $this->reports->exportRows($principal, $code, $asOf, $filters, array_values(array_map('strval', $fields)));
+        $requestedFields = array_values(array_map('strval', $fields));
+        $this->assertFieldsExportable($principal, $definition, $requestedFields, $asOf);
+        $preview = $this->reports->exportRows($principal, $code, $asOf, $filters, $requestedFields);
 
         if (count($preview['rows']) > self::ROW_CAP) {
             throw new ValidationException(
@@ -81,8 +85,9 @@ final class ExportService
         $now = $this->clock->now();
         $watermark = sprintf('%s · %s · %s', $principal->userId(), $now->toIso8601ZuluString(), $purpose);
         $fieldWhitelist = array_values(array_map('strval', $fields));
+        $scopeFingerprint = $this->scopeFingerprint($principal, $asOf);
 
-        $job = DB::transaction(function () use ($principal, $purpose, $code, $asOf, $filters, $token, $now, $watermark, $fieldWhitelist, $preview): ExportJob {
+        $job = DB::transaction(function () use ($principal, $purpose, $code, $asOf, $filters, $token, $now, $watermark, $fieldWhitelist, $preview, $scopeFingerprint): ExportJob {
             return ExportJob::query()->create([
                 'report_code' => $code,
                 'purpose' => $purpose,
@@ -93,7 +98,12 @@ final class ExportService
                 'row_count' => 0,
                 'source_hash' => $preview['source_hash'],
                 'audit_trail_json' => [
-                    ['action' => 'reporting.export.requested', 'actor_user_id' => $principal->userId(), 'at' => $now->toIso8601ZuluString()],
+                    [
+                        'action' => 'reporting.export.requested',
+                        'actor_user_id' => $principal->userId(),
+                        'at' => $now->toIso8601ZuluString(),
+                        'scope_fingerprint' => $scopeFingerprint,
+                    ],
                 ],
                 'file_object_id' => null,
                 'expires_at' => $now->addHours(self::EXPIRY_HOURS),
@@ -140,6 +150,8 @@ final class ExportService
             throw new NotFoundOrForbiddenException;
         }
 
+        $this->reauthorizeDownload($principal, $job);
+
         $now = $this->clock->now();
 
         if ($job->status !== 'COMPLETED') {
@@ -182,6 +194,175 @@ final class ExportService
             'contents' => $contents,
             'filename' => strtolower((string) $job->report_code).'-'.$job->id.'.csv',
         ];
+    }
+
+    /**
+     * Re-evaluate every authorization boundary at download time. Possession of
+     * a token or a signed URL is never enough: the caller, current auth version,
+     * current capability bindings, data scope, field policy, file ownership,
+     * expiry and download cap are all checked again.
+     */
+    private function reauthorizeDownload(Principal $principal, ExportJob $job): void
+    {
+        /** @var array<string, mixed> $filters */
+        $filters = (array) ($job->filters_json ?? []);
+        $asOf = (string) ($filters['_as_of'] ?? $this->businessDates->today()->value());
+        unset($filters['_as_of']);
+
+        $this->assertExportAllowed($principal, [], $asOf);
+
+        if (! $this->authorizer->permits($principal, 'reporting.report.read', $asOf)) {
+            throw new AuthorizationException('Forbidden.');
+        }
+
+        $definition = $this->reports->definition((string) $job->report_code);
+        $fields = array_values(array_map('strval', (array) ($job->field_whitelist_json ?? $job->fields_json)));
+        $this->assertFieldsExportable($principal, $definition, $fields, $asOf);
+
+        // The scope fingerprint captures the caller's current auth version,
+        // export/report read bindings and anchor ids at creation. Recomputing
+        // it now proves that revoking a role, changing an org scope or bumping
+        // auth_version invalidates every previously issued link.
+        $expectedScope = $this->storedScopeFingerprint($job);
+
+        if ($expectedScope === null) {
+            // Older jobs created before the scope fingerprint was recorded
+            // cannot prove their creation-time scope. Fail closed and require
+            // the caller to request a fresh export.
+            throw new NotFoundOrForbiddenException;
+        }
+
+        if (! hash_equals($expectedScope, $this->scopeFingerprint($principal, $asOf))) {
+            throw new AuthorizationException('Forbidden.');
+        }
+
+        $fileId = (int) ($job->file_object_id ?? 0);
+
+        if ($fileId <= 0) {
+            throw new NotFoundOrForbiddenException;
+        }
+
+        // The job row is already owner-scoped by find(). Verify that its file
+        // reference is the generated CSV for this job rather than an object
+        // copied from another export.
+        $file = app(\App\Shared\Files\FileMetadataReader::class)->metadata($fileId);
+        $expectedName = strtolower((string) $job->report_code).'-'.$job->id.'.csv';
+
+        if ($file === null || $file->originalName !== $expectedName || ! str_contains($file->mime, 'csv')) {
+            throw new NotFoundOrForbiddenException;
+        }
+    }
+
+    /**
+     * Re-evaluate each requested column against the current field profile.
+     * P2/P3 columns require a grant at or above the field profile on the
+     * current binding, not just at creation time.
+     *
+     * @param  array<string, mixed>  $definition
+     * @param  list<string>  $fields
+     */
+    private function assertFieldsExportable(Principal $principal, array $definition, array $fields, string $asOf): void
+    {
+        if ($fields === []) {
+            throw new ValidationException(['fields' => ['At least one export field is required.']], 'The given data was invalid.', ['reason' => 'EXPORT_FIELDS_REQUIRED']);
+        }
+
+        $catalog = [];
+
+        foreach ((array) ($definition['fields'] ?? []) as $field) {
+            /** @var array<string, mixed> $field */
+            $catalog[(string) $field['key']] = $field;
+        }
+
+        $policyFields = [];
+
+        foreach ($fields as $key) {
+            $field = $catalog[$key] ?? null;
+
+            if ($field === null) {
+                throw new ValidationException(['fields' => ["Field {$key} is not exported by this report."]], 'The given data was invalid.', ['reason' => 'EXPORT_FIELD_NOT_ALLOWED']);
+            }
+
+            $profile = FieldProfile::from((string) $field['profile']);
+
+            if ($profile->isHidden()) {
+                throw new ValidationException(['fields' => ["Field {$key} is restricted and can never be exported."]], 'The given data was invalid.', ['reason' => 'EXPORT_FIELD_HIDDEN']);
+            }
+
+            $policyFields[$key] = $profile;
+        }
+
+        foreach ($policyFields as $key => $profile) {
+            if ($profile !== FieldProfile::P0_PUBLIC && ! $this->profileGranted($principal, $profile, $asOf)) {
+                throw new AuthorizationException('Forbidden.');
+            }
+        }
+    }
+
+    private function profileGranted(Principal $principal, FieldProfile $required, string $asOf): bool
+    {
+        foreach (app(AuthorityBindingRepository::class)->effectiveBindings(
+            $principal->userId(),
+            'reporting.export',
+            $principal->authVersion(),
+            $asOf,
+        ) as $grant) {
+            if ($grant->fieldProfile->rank() >= $required->rank()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Stable fingerprint of the authorization state that defines the export
+     * data scope. It deliberately contains no row values.
+     */
+    private function scopeFingerprint(Principal $principal, string $asOf): string
+    {
+        $bindings = app(AuthorityBindingRepository::class);
+        $rows = [];
+
+        foreach (['reporting.report.read', 'reporting.export'] as $capability) {
+            foreach ($bindings->effectiveBindings($principal->userId(), $capability, $principal->authVersion(), $asOf) as $grant) {
+                $rows[] = [
+                    'capability' => $grant->capabilityCode,
+                    'anchor_type' => $grant->anchorType->value,
+                    'anchor_id' => $grant->anchorId,
+                    // The export field profile has its own per-column check;
+                    // the scope fingerprint must not change just because a
+                    // different (still sufficient) export grant is selected.
+                    'field_profile' => $capability === 'reporting.report.read' ? $grant->fieldProfile->value : null,
+                ];
+            }
+        }
+
+        usort($rows, static fn (array $a, array $b): int => strcmp(json_encode($a, JSON_THROW_ON_ERROR), json_encode($b, JSON_THROW_ON_ERROR)));
+
+        return hash('sha256', json_encode([
+            'user_id' => $principal->userId(),
+            'auth_version' => $principal->authVersion(),
+            'as_of' => $asOf,
+            'bindings' => $rows,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    private function storedScopeFingerprint(ExportJob $job): ?string
+    {
+        foreach ((array) ($job->audit_trail_json ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $value = $entry['scope_fingerprint'] ?? null;
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /**

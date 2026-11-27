@@ -1,5 +1,6 @@
 import { ApiError } from '@/api/errors'
 import { resourceGet, resourcePost } from '@/api/resourceClient'
+import { formatMoney } from '@/utils/format'
 
 /**
  * Reporting workspace API boundary.
@@ -15,24 +16,93 @@ type RawRecord = Record<string, unknown>
 
 export type Freshness = 'LIVE' | 'MATERIALIZED' | 'STALE' | string
 
+export type MetricAvailability = 'AVAILABLE' | 'UNCONFIGURED' | 'FORBIDDEN' | 'UNAVAILABLE'
+
+export type MetricDrilldownTarget = {
+  route: string
+  query: Record<string, string>
+}
+
 export type MetricCardMetric = {
   code: string
   label: string
   value: number
   unit: string
-  status: 'AVAILABLE' | 'UNAVAILABLE' | string
+  unitLabel?: string
+  status: MetricAvailability | string
   reason: string | null
+  scope?: string
+  scopeLabel?: string
+  period?: string
+  predicate?: string
+  asOf?: string
+  drilldown?: MetricDrilldownTarget | null
   trend: string | null
-  trendDirection: 'UP' | 'DOWN' | 'FLAT' | string
-  drilldownLabel: string
   sourceHash: string
   computedAt: string
+  preview?: MetricDrilldownRow[]
+}
+
+export type DashboardDepartmentRow = {
+  label: string
+  count: number
+}
+
+export type DashboardWorkforceRow = {
+  key: string
+  label: string
+  count: number
+}
+
+export type DashboardRecruitmentRow = {
+  stage: string
+  label: string
+  count: number
+}
+
+export type DashboardPendingApproval = {
+  id: number
+  caseNo: string
+  title: string
+  status: string
+  statusLabel: string
+  ageDays: number
+  dueAt: string | null
+}
+
+export type DashboardContractAlert = {
+  employmentId: number
+  employeeName: string
+  employeeNo: string
+  orgName: string
+  endDate: string
+  daysRemaining: number
+}
+
+export type DashboardNotice = {
+  id: number
+  title: string
+  publishedAt: string | null
+  requiresAck: boolean
+  acknowledged: boolean
+  authorName: string | null
+}
+
+export type DashboardSections = {
+  departments: DashboardDepartmentRow[]
+  workforce: DashboardWorkforceRow[]
+  recruitment: DashboardRecruitmentRow[]
 }
 
 export type DashboardSnapshot = {
   asOf: string
   freshness: string
+  freshnessState: string
   metrics: MetricCardMetric[]
+  sections?: DashboardSections
+  pendingApprovals?: DashboardPendingApproval[]
+  recentNotices?: DashboardNotice[]
+  contractAlerts?: DashboardContractAlert[]
 }
 
 export type MetricDrilldownColumn = {
@@ -48,6 +118,7 @@ export type MetricDrilldown = {
   asOf: string
   total: number
   unit: string
+  unitLabel?: string
   status: string
   reason: string | null
   columns: MetricDrilldownColumn[]
@@ -79,10 +150,14 @@ export type ReportFilter = {
   options: string[]
 }
 
+export type ReportDomain = 'PEOPLE' | 'ATTENDANCE' | 'PAYROLL' | 'RECRUITMENT' | 'PERFORMANCE_TRAINING' | string
+
 export type ReportDefinition = {
   id: number
   code: string
   name: string
+  /** Business grouping code. Normalizers always fill it; fixtures may omit. */
+  domain?: ReportDomain
   description: string
   asOfSupported: boolean
   drilldownRoute: string | null
@@ -210,9 +285,9 @@ export const EXPORT_PURPOSE_OPTIONS: ReadonlyArray<{ value: ExportPurpose; label
 const METRIC_LABELS: Record<string, string> = {
   headcount: '在职人数',
   probation: '试用期人数',
-  turnover: '主动离职率',
-  pending_approvals: '待审批',
-  contract_expiring: '合同到期',
+  turnover: '主动离职人数',
+  pending_approvals: '待审批事项',
+  contract_expiring: '即将到期合同',
   leave_liability: '假期负债',
   payroll_cost_by_entity: '薪酬成本',
   recruitment_funnel: '招聘漏斗',
@@ -220,30 +295,69 @@ const METRIC_LABELS: Record<string, string> = {
 
 const FIELD_LABELS: Record<string, string> = {
   employee: '员工',
-  employee_no: '员工编号',
+  employee_no: '工号',
   org_path: '组织',
   org_unit_id: '组织',
   status: '状态',
   end_date: '到期日',
   days_remaining: '剩余天数',
-  case_no: '案例编号',
-  title: '标题',
+  case_no: '事项编号',
+  title: '事项标题',
   age_days: '已等待天数',
   leave_type: '假期类型',
   balance_minutes: '余额（分钟）',
   stage: '阶段',
-  count: '数量',
-  gross_cents: '应发（最小货币单位）',
-  net_cents: '实发（最小货币单位）',
-  employer_cost_cents: '雇主成本（最小货币单位）',
+  count: '人数',
+  gross_cents: '应发工资（元）',
+  net_cents: '实发工资（元）',
+  employer_cost_cents: '雇主成本（元）',
+  basic_salary_cents: '基本工资（元）',
   salary: '受限薪资明细',
-  terminated_on: '终止日期',
-  reason: '原因',
+  value_label: '业务含义',
+  terminated_on: '离职日期',
+  reason: '离职原因',
   primary: '名称',
   secondary: '组织/标识',
   value: '数值',
   window: '到期窗口',
   min_age_days: '最短等待天数',
+}
+
+/** A cents column always renders as yuan; technical keys never reach the UI. */
+const MONEY_FIELD_KEYS = new Set([
+  'gross_cents',
+  'net_cents',
+  'employer_cost_cents',
+  'basic_salary_cents',
+  'deductions_cents',
+  'amount_cents',
+])
+
+const REPORT_DOMAIN_LABELS: Record<string, string> = {
+  PEOPLE: '人力资源',
+  ATTENDANCE: '考勤假勤',
+  PAYROLL: '薪资',
+  RECRUITMENT: '招聘',
+  PERFORMANCE_TRAINING: '绩效培训',
+}
+
+export function reportDomainLabel(domain: string): string {
+  return REPORT_DOMAIN_LABELS[domain.trim().toUpperCase()] ?? '其他报表'
+}
+
+export function isMoneyField(key: string): boolean {
+  return MONEY_FIELD_KEYS.has(key)
+}
+
+export function reportCellText(value: string | number | null, key: string): string {
+  if (value === null || value === '') return '—'
+  if (isMoneyField(key)) return formatMoney(typeof value === 'number' ? value : Number(value))
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return '—'
+    return new Intl.NumberFormat('zh-CN').format(value)
+  }
+  if (key === 'status') return statusText(value)
+  return String(value)
 }
 
 const FILTER_LABELS: Record<string, string> = {
@@ -344,12 +458,16 @@ export function metricLabel(code: string, fallback?: string | null): string {
   return fallback !== null && fallback !== undefined && hasChinese(fallback) ? fallback : '其他指标'
 }
 
-export function metricUnitText(metric: Pick<MetricCardMetric, 'code' | 'unit'>): string {
-  if (metric.unit === 'COUNT') {
-    return metric.code === 'headcount' || metric.code === 'probation' ? '人' : '项'
+export function metricUnitText(metric: Pick<MetricCardMetric, 'code' | 'unit' | 'unitLabel'>): string {
+  if (metric.unitLabel !== undefined && metric.unitLabel.trim() !== '') return metric.unitLabel
+  if (metric.unit === 'CNY_CENT' || metric.unit === 'MINOR_UNITS' || metric.unit === 'CENTS') return '元'
+  if (metric.unit === 'MINUTE' || metric.unit === 'MINUTES') return '分钟'
+  if (metric.unit === 'PERSON' || metric.unit === 'CONTRACT' || metric.unit === 'ITEM') {
+    return { PERSON: '人', CONTRACT: '份', ITEM: '项' }[metric.unit]
   }
-  if (metric.unit === 'MINUTES') return '分钟'
-  if (metric.unit === 'MINOR_UNITS' || metric.unit === 'CENTS') return '最小货币单位'
+  if (metric.unit === 'COUNT') {
+    return metric.code === 'headcount' || metric.code === 'probation' || metric.code === 'recruitment_funnel' ? '人' : '项'
+  }
   if (metric.unit === 'RATIO') return '%'
   return ''
 }
@@ -357,6 +475,23 @@ export function metricUnitText(metric: Pick<MetricCardMetric, 'code' | 'unit'>):
 export function formatMetricValue(value: number): string {
   if (!Number.isSafeInteger(value)) return String(value)
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 }).format(value)
+}
+
+/**
+ * Metric amounts and units are formatted in one place. Integer minor units
+ * are always converted to yuan before display; a technical unit code can
+ * never reach the DOM.
+ */
+export function formatMetric(metric: Pick<MetricCardMetric, 'code' | 'unit' | 'value' | 'status'> & { unitLabel?: string }): { value: string; unit: string } {
+  if (metric.status !== 'AVAILABLE') return { value: '—', unit: '' }
+  const unit = metricUnitText(metric)
+
+  if (metric.unit === 'CNY_CENT' || metric.unit === 'MINOR_UNITS' || metric.unit === 'CENTS') {
+    const amount = formatMoney(metric.value).replace(/^¥/, '')
+    return { value: amount === '—' ? '—' : amount, unit: '元' }
+  }
+
+  return { value: formatMetricValue(metric.value), unit }
 }
 
 export function freshnessLabel(value: string): string {
@@ -367,15 +502,20 @@ export function freshnessLabel(value: string): string {
 }
 
 export function fieldLabel(key: string, fallback?: string | null): string {
+  // Server labels are authoritative. The local map is only a degraded fallback
+  // for old payloads, so a future server relabel does not require a frontend
+  // release and money columns keep the unit chosen by Reporting.
+  if (fallback !== null && fallback !== undefined && hasChinese(fallback)) return fallback
   const mapped = FIELD_LABELS[key]
   if (mapped !== undefined) return mapped
-  return fallback !== null && fallback !== undefined && hasChinese(fallback) ? fallback : '其他字段'
+  return '其他字段'
 }
 
 export function filterLabel(key: string, fallback?: string | null): string {
+  if (fallback !== null && fallback !== undefined && hasChinese(fallback)) return fallback
   const mapped = FILTER_LABELS[key]
   if (mapped !== undefined) return mapped
-  return fallback !== null && fallback !== undefined && hasChinese(fallback) ? fallback : '其他筛选'
+  return '其他筛选'
 }
 
 export function statusText(value: string): string {
@@ -409,15 +549,32 @@ export function audienceText(notice: Pick<Notice, 'audience' | 'audienceLabel'>)
 
 export function unavailableMetricReason(code: string): string {
   if (code === 'payroll_cost_by_entity') {
-    return '薪酬成本投影尚未发布，当前部署不提供估算值。'
+    return '薪酬成本投影尚未配置：仅统计已发布工资批次的雇主成本，当前不提供估算值。'
   }
   if (code === 'recruitment_funnel') {
-    return '招聘漏斗投影尚未发布，当前部署不提供推断值。'
+    return '招聘漏斗投影尚未配置：需由招聘模块发布真实候选人阶段数量，当前不提供推断值。'
   }
   if (code === 'turnover') {
-    return '离职率投影尚未发布，当前部署不提供推断值。'
+    return '离职投影尚未配置：当前不提供推断值。'
   }
-  return '该指标在当前部署中暂不可用，未以估算值替代。'
+  return '该指标在当前授权范围内尚未配置，未以估算值替代。'
+}
+
+export function metricAvailabilityLabel(status: string): string {
+  const normalized = status.trim().toUpperCase()
+  if (normalized === 'AVAILABLE') return '可用'
+  if (normalized === 'UNCONFIGURED') return '指标尚未配置'
+  if (normalized === 'FORBIDDEN') return '无权查看'
+  if (normalized === 'UNAVAILABLE') return '暂不可用'
+  return '状态未知'
+}
+
+export function metricReasonText(metric: Pick<MetricCardMetric, 'code' | 'status' | 'reason'>): string {
+  if (metric.status === 'AVAILABLE') return ''
+  const reason = metric.reason?.trim() ?? ''
+  if (reason !== '' && hasChinese(reason)) return reason
+  if (metric.status === 'FORBIDDEN') return '当前账号无权查看该指标。'
+  return unavailableMetricReason(metric.code)
 }
 
 /**
@@ -464,6 +621,19 @@ export function exportDenialCopy(error: unknown): string {
   return '导出任务未创建，请稍后重试。'
 }
 
+function normaliseMetricDrilldown(raw: unknown): MetricDrilldownTarget | null {
+  if (!isRecord(raw)) return null
+  const route = text(raw.route).trim()
+  if (!route.startsWith('/')) return null
+  const query: Record<string, string> = {}
+  if (isRecord(raw.query)) {
+    for (const [key, value] of Object.entries(raw.query)) {
+      if (typeof value === 'string' && value !== '') query[key] = value
+    }
+  }
+  return { route, query }
+}
+
 function normaliseMetric(raw: unknown): MetricCardMetric | null {
   if (!isRecord(raw)) return null
   const code = text(raw.code).trim()
@@ -475,26 +645,150 @@ function normaliseMetric(raw: unknown): MetricCardMetric | null {
     label: text(raw.label),
     value,
     unit: text(raw.unit),
+    unitLabel: text(raw.unitLabel),
     status: text(raw.status, 'UNAVAILABLE').toUpperCase(),
     reason: nullableText(raw.reason),
+    scope: text(raw.scope),
+    scopeLabel: text(raw.scopeLabel),
+    period: text(raw.period),
+    predicate: text(raw.predicate),
+    asOf: text(raw.asOf),
+    drilldown: normaliseMetricDrilldown(raw.drilldown),
     trend: nullableText(raw.trend),
-    trendDirection: text(raw.trendDirection, 'FLAT').toUpperCase(),
-    drilldownLabel: text(raw.drilldownLabel),
     sourceHash: text(raw.sourceHash),
     computedAt: text(raw.computedAt),
+    preview: Array.isArray(raw.preview)
+      ? raw.preview.map(normaliseDrilldownRow).filter((row): row is MetricDrilldownRow => row !== null)
+      : [],
   }
+}
+
+function normaliseDepartmentRows(raw: unknown): DashboardDepartmentRow[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const label = text(row.label).trim()
+      if (label === '') return null
+      return { label, count: integer(row.count) }
+    })
+    .filter((row): row is DashboardDepartmentRow => row !== null)
+}
+
+function normaliseWorkforceRows(raw: unknown): DashboardWorkforceRow[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const key = text(row.key).trim()
+      const label = text(row.label).trim()
+      if (key === '' || label === '') return null
+      return { key, label, count: integer(row.count) }
+    })
+    .filter((row): row is DashboardWorkforceRow => row !== null)
+}
+
+function normaliseRecruitmentRows(raw: unknown): DashboardRecruitmentRow[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const stage = text(row.stage).trim()
+      const label = text(row.label).trim()
+      if (stage === '' || label === '') return null
+      return { stage, label, count: integer(row.count) }
+    })
+    .filter((row): row is DashboardRecruitmentRow => row !== null)
+}
+
+function normalisePendingApprovals(raw: unknown): DashboardPendingApproval[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const id = integer(row.id)
+      if (id <= 0) return null
+      return {
+        id,
+        caseNo: text(row.caseNo),
+        title: text(row.title),
+        status: text(row.status),
+        statusLabel: text(row.statusLabel, statusText(text(row.status))),
+        ageDays: integer(row.ageDays),
+        dueAt: nullableText(row.dueAt),
+      }
+    })
+    .filter((row): row is DashboardPendingApproval => row !== null)
+}
+
+function normaliseContractAlerts(raw: unknown): DashboardContractAlert[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const employmentId = integer(row.employmentId)
+      if (employmentId <= 0) return null
+      return {
+        employmentId,
+        employeeName: text(row.employeeName),
+        employeeNo: text(row.employeeNo),
+        orgName: text(row.orgName),
+        endDate: text(row.endDate),
+        daysRemaining: integer(row.daysRemaining),
+      }
+    })
+    .filter((row): row is DashboardContractAlert => row !== null)
+}
+
+function normaliseNotices(raw: unknown): DashboardNotice[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!isRecord(row)) return null
+      const id = integer(row.id)
+      if (id <= 0) return null
+      return {
+        id,
+        title: text(row.title),
+        publishedAt: nullableText(row.publishedAt),
+        requiresAck: row.requiresAck === true,
+        acknowledged: row.acknowledged === true,
+        authorName: nullableText(row.authorName),
+      }
+    })
+    .filter((row): row is DashboardNotice => row !== null)
 }
 
 export async function getDashboard(asOf: string): Promise<DashboardSnapshot> {
   const raw = await resourceGet<unknown>('/v1/reporting/dashboard', { as_of: asOf })
-  if (!isRecord(raw)) return { asOf, freshness: '', metrics: [] }
+  if (!isRecord(raw)) {
+    return {
+      asOf,
+      freshness: '',
+      freshnessState: 'LIVE',
+      metrics: [],
+      sections: { departments: [], workforce: [], recruitment: [] },
+      pendingApprovals: [],
+      recentNotices: [],
+      contractAlerts: [],
+    }
+  }
 
   return {
     asOf: text(raw.asOf, asOf),
     freshness: text(raw.freshness),
+    freshnessState: text(raw.freshnessState, 'LIVE').toUpperCase(),
     metrics: Array.isArray(raw.metrics)
       ? raw.metrics.map(normaliseMetric).filter((metric): metric is MetricCardMetric => metric !== null)
       : [],
+    sections: {
+      departments: normaliseDepartmentRows(isRecord(raw.sections) ? raw.sections.departments : []),
+      workforce: normaliseWorkforceRows(isRecord(raw.sections) ? raw.sections.workforce : []),
+      recruitment: normaliseRecruitmentRows(isRecord(raw.sections) ? raw.sections.recruitment : []),
+    },
+    pendingApprovals: normalisePendingApprovals(raw.pendingApprovals),
+    recentNotices: normaliseNotices(raw.recentNotices),
+    contractAlerts: normaliseContractAlerts(raw.contractAlerts),
   }
 }
 
@@ -528,23 +822,26 @@ export async function getMetricDrilldown(metric: string, asOf: string): Promise<
       asOf,
       total: 0,
       unit: '',
-      status: 'UNAVAILABLE',
-      reason: null,
+      unitLabel: '',
+      status: 'UNCONFIGURED',
+      reason: unavailableMetricReason(metric),
       columns: [],
       rows: [],
     }
   }
 
   const rawRows = Array.isArray(raw.items) ? raw.items : Array.isArray(raw.rows) ? raw.rows : []
+  const rawUnit = text(raw.unit)
 
   return {
     metric: text(raw.metric, metric),
     label: metricLabel(text(raw.metric, metric), text(raw.label)),
     asOf: text(raw.asOf, asOf),
     total: integer(raw.total),
-    unit: text(raw.unit),
+    unit: rawUnit,
+    unitLabel: text(raw.unitLabel, metricUnitText({ code: metric, unit: rawUnit })),
     status: text(raw.status, 'UNAVAILABLE').toUpperCase(),
-    reason: nullableText(raw.reason),
+    reason: nullableText(raw.reason) ?? unavailableMetricReason(text(raw.metric, metric)),
     columns: Array.isArray(raw.columns)
       ? raw.columns.map(normaliseDrilldownColumn).filter((column): column is MetricDrilldownColumn => column !== null)
       : [],
@@ -586,6 +883,7 @@ function normaliseDefinition(raw: unknown): ReportDefinition | null {
     id: integer(raw.id),
     code,
     name: text(raw.name, code),
+    domain: text(raw.domain, 'PEOPLE').toUpperCase() || 'PEOPLE',
     description: text(raw.description),
     asOfSupported: raw.asOfSupported !== false,
     drilldownRoute: nullableText(raw.drilldownRoute),
@@ -614,10 +912,17 @@ function normaliseProjection(raw: unknown, fallbackPage = 1, fallbackPageSize = 
 
 export async function listReportDefinitions(): Promise<ReportDefinitionPage> {
   const raw = await resourceGet<unknown>('/v1/reporting/definitions', { page: 1, page_size: 100 })
+  if (!isRecord(raw) || !Array.isArray(raw.items)) {
+    throw new TypeError('报表目录接口未返回有效的 items 列表。')
+  }
   const meta = normaliseProjection(raw)
-  const items = isRecord(raw) && Array.isArray(raw.items)
-    ? raw.items.map(normaliseDefinition).filter((definition): definition is ReportDefinition => definition !== null)
-    : []
+  const items = raw.items
+    .map(normaliseDefinition)
+    .filter((definition): definition is ReportDefinition => definition !== null)
+
+  if (raw.items.length > 0 && items.length === 0) {
+    throw new TypeError('报表目录接口返回的记录均缺少有效编码。')
+  }
 
   return {
     ...meta,
@@ -655,9 +960,15 @@ function normaliseReportRow(raw: unknown): ReportRow | null {
 }
 
 function normaliseReportResult(raw: unknown): ReportResult {
-  const payload = isRecord(raw) ? raw : {}
-  const rawRows = Array.isArray(payload.rows) ? payload.rows : Array.isArray(payload.items) ? payload.items : []
-  const rows = rawRows.map(normaliseReportRow).filter((row): row is ReportRow => row !== null)
+  if (!isRecord(raw)) {
+    throw new TypeError('报表运行接口未返回结果对象。')
+  }
+  const payload = raw
+  if (!Array.isArray(payload.rows) && !Array.isArray(payload.items)) {
+    throw new TypeError('报表运行接口未返回 rows/items 列表，不能按 0 行处理。')
+  }
+  const rawRows = Array.isArray(payload.rows) ? payload.rows : payload.items
+  const rows = (rawRows as unknown[]).map(normaliseReportRow).filter((row): row is ReportRow => row !== null)
   const total = nullableInteger(payload.total) ?? nullableInteger(payload.totalRows) ?? rows.length
 
   return {

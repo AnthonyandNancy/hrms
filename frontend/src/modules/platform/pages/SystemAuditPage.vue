@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
 import { ApiError } from '@/api/errors'
 import { formatDateTimeInTimezone } from '@/utils/format'
 import { isForbidden, platformErrorCopy } from '../api'
-import { listAuthEvents, type AuthEvent } from '../api/audit'
+import {
+  exportAuthEvents,
+  listAuthEvents,
+  type AuthEvent,
+  type AuthEventQuery,
+} from '../api/audit'
 import {
   authEventLabel,
   authEventResource,
@@ -14,12 +20,16 @@ import {
   authResultTone,
   metadataRows,
 } from '../labels'
+import AuditHealthPanel from '../components/AuditHealthPanel.vue'
 
 const session = useSessionStore()
 const canRead = computed(() => session.can('iam.audit.read'))
 
 const loading = ref(true)
+const exporting = ref(false)
 const loadError = ref<unknown>(null)
+const exportError = ref('')
+const exportMessage = ref('')
 const events = ref<AuthEvent[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -41,42 +51,35 @@ const filters = reactive({
   to: '',
 })
 
-const visibleEvents = computed(() =>
-  events.value.filter((event) => {
-    if (filters.actor !== '' && String(event.actorUserId ?? '') !== filters.actor.trim()) return false
-    if (filters.action !== '' && !authEventLabel(event.eventType).includes(filters.action.trim())) return false
-    if (filters.result !== '' && event.result !== filters.result) return false
-    if (filters.from !== '' && event.occurredAt.slice(0, 10) < filters.from) return false
-    if (filters.to !== '' && event.occurredAt.slice(0, 10) > filters.to) return false
-    return true
-  }),
-)
+function query(): AuthEventQuery {
+  return {
+    page: page.value,
+    pageSize: pageSize.value,
+    actor: filters.actor.trim(),
+    action: filters.action.trim(),
+    result: filters.result,
+    from: filters.from,
+    to: filters.to,
+  }
+}
 
-const rows = computed(() =>
-  visibleEvents.value.map((event) => ({
-    ...event,
-    actionLabel: authEventLabel(event.eventType),
-    resourceLabel: authEventResource(event.eventType),
-    resultLabel: authResultLabel(event.result),
-    resultTone: `plain-chip--${authResultTone(event.result)}`,
-    actorLabel: event.actorUserId === null ? '系统' : `用户 ${event.actorUserId}`,
-    requestLabel: event.requestId ?? '—',
-    timeLabel: formatDateTimeInTimezone(event.occurredAt),
-  })),
-)
+const rows = computed(() => events.value.map((event) => ({
+  ...event,
+  actionLabel: authEventLabel(event.eventType),
+  resourceLabel: authEventResource(event.eventType),
+  resultLabel: authResultLabel(event.result),
+  resultTone: `plain-chip--${authResultTone(event.result)}`,
+  actorLabel: event.actorUserId === null ? '系统' : `用户 ${event.actorUserId}`,
+  requestLabel: event.requestId ?? '—',
+  timeLabel: formatDateTimeInTimezone(event.occurredAt),
+})))
 
-const isEmpty = computed(
-  () => !loading.value && loadError.value === null && (events.value.length === 0 || rows.value.length === 0),
-)
-
-const emptyTitle = computed(() =>
-  events.value.length === 0 ? '当前没有审计事件' : '当前筛选下没有审计事件',
-)
+const isEmpty = computed(() => !loading.value && loadError.value === null && events.value.length === 0)
+const emptyTitle = computed(() => '当前筛选下没有审计事件')
 
 const errorRequestId = computed(() => {
   const error = loadError.value
-  const requestId = error instanceof ApiError ? error.requestId : null
-  return requestId === null || requestId === '' ? '' : requestId
+  return error instanceof ApiError ? error.requestId ?? '' : ''
 })
 
 const columns: DataTableColumn[] = [
@@ -97,15 +100,21 @@ function resetFilters(): void {
   filters.result = ''
   filters.from = ''
   filters.to = ''
+  page.value = 1
+  void loadEvents()
+}
+
+function applyFilters(): void {
+  page.value = 1
+  selected.value = null
+  void loadEvents()
 }
 
 async function loadEvents(): Promise<void> {
   loading.value = true
   loadError.value = null
   try {
-    // The endpoint exposes page/page_size only. The server owns pagination;
-    // the filters below operate on the loaded page and the page says so.
-    const result = await listAuthEvents({ page: page.value, pageSize: pageSize.value })
+    const result = await listAuthEvents(query())
     events.value = result.items
     total.value = result.total
     page.value = result.page
@@ -119,12 +128,24 @@ async function loadEvents(): Promise<void> {
   }
 }
 
-function inspect(event: AuthEvent): void {
-  selected.value = event
+async function exportEvents(): Promise<void> {
+  exporting.value = true
+  exportError.value = ''
+  exportMessage.value = ''
+  try {
+    const result = await exportAuthEvents(query())
+    exportMessage.value = `已导出 ${result.rows.length} 条安全事件；导出字段：${result.fields.join('、')}。`
+    ElMessage.success(exportMessage.value)
+  } catch (error) {
+    exportError.value = platformErrorCopy(error)
+    ElMessage.error(exportError.value)
+  } finally {
+    exporting.value = false
+  }
 }
 
-function closeDetail(): void {
-  selected.value = null
+function inspect(event: AuthEvent): void {
+  selected.value = event
 }
 
 function changePage(next: number): void {
@@ -137,10 +158,6 @@ function changePageSize(next: number): void {
   pageSize.value = next
   page.value = 1
   selected.value = null
-  void loadEvents()
-}
-
-function retry(): void {
   void loadEvents()
 }
 
@@ -157,10 +174,20 @@ onMounted(() => {
   <PageShell
     data-testid="system-audit-page"
     title="日志审计与运维"
-    description="查阅账号与授权安全事件，包括发生时间、操作人、动作、资源、结果与请求编号；审计记录只读且不可修改或删除。"
+    description="查阅登录与授权安全事件，按操作人、动作、结果与日期在服务端筛选；导出只包含白名单字段，并记录敏感访问。"
   >
     <template #actions>
-      <el-button plain :disabled="loading" @click="retry">刷新</el-button>
+      <el-button plain :disabled="loading" @click="loadEvents">刷新</el-button>
+      <el-button
+        v-if="canRead"
+        type="primary"
+        plain
+        :loading="exporting"
+        data-testid="audit-export"
+        @click="exportEvents"
+      >
+        导出安全审计
+      </el-button>
     </template>
 
     <section v-if="!canRead" class="panel" data-testid="audit-forbidden">
@@ -171,11 +198,13 @@ onMounted(() => {
     </section>
 
     <template v-else>
+      <AuditHealthPanel />
+
       <section class="panel" data-testid="audit-filters">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">事件筛选</h2>
-            <p class="panel__subtitle">服务端按页返回审计事件；筛选只作用于当前已加载的这一页，跨页筛选和审计导出暂未开放。</p>
+            <p class="panel__subtitle">筛选在服务端执行，作用于全部审计记录，而不是当前页。</p>
           </div>
           <el-button text @click="resetFilters">清除筛选</el-button>
         </div>
@@ -185,8 +214,8 @@ onMounted(() => {
             <el-input v-model="filters.actor" data-testid="audit-filter-actor" placeholder="例如 15" clearable />
           </label>
           <label class="audit-field">
-            <span>动作</span>
-            <el-input v-model="filters.action" data-testid="audit-filter-action" placeholder="按中文动作名称筛选" clearable />
+            <span>动作代码</span>
+            <el-input v-model="filters.action" data-testid="audit-filter-action" placeholder="例如 login" clearable />
           </label>
           <div class="audit-field" role="group" aria-label="按结果筛选">
             <span>结果</span>
@@ -213,12 +242,15 @@ onMounted(() => {
             <span>结束日期</span>
             <el-date-picker v-model="filters.to" data-testid="audit-filter-to" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
           </label>
+          <div class="audit-field audit-field--action">
+            <span>&nbsp;</span>
+            <el-button type="primary" data-testid="audit-filter-apply" @click="applyFilters">应用服务端筛选</el-button>
+          </div>
         </div>
       </section>
 
-      <p v-if="!loading && loadError === null" class="inline-warning" data-testid="audit-partial">
-        筛选仅作用于已加载的 {{ events.length }} 条审计记录；服务端当前只开放分页、未开放日期、操作人与动作筛选，审计导出暂未开放，跨页检索需等待接口补齐。
-      </p>
+      <p v-if="exportMessage" class="inline-success" data-testid="audit-export-message">{{ exportMessage }}</p>
+      <p v-if="exportError" class="inline-error" role="alert" data-testid="audit-export-error">{{ exportError }}</p>
 
       <section v-if="loading" class="panel" data-testid="audit-loading">
         <div class="panel__body">
@@ -227,11 +259,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <section
-        v-else-if="loadError !== null && isForbidden(loadError)"
-        class="panel"
-        data-testid="audit-forbidden"
-      >
+      <section v-else-if="loadError !== null && isForbidden(loadError)" class="panel" data-testid="audit-forbidden">
         <div class="panel__body">
           <h2 class="panel__title">审计日志不可查看</h2>
           <p class="muted">当前账号没有审计读取权限。审计权限与普通系统管理权限分离，请联系安全管理员。</p>
@@ -243,18 +271,14 @@ onMounted(() => {
           <h2 class="panel__title">审计日志加载失败</h2>
           <p class="muted">{{ platformErrorCopy(loadError) }}</p>
           <p v-if="errorRequestId" class="muted small">问题反馈编号：<span class="mono">{{ errorRequestId }}</span></p>
-          <el-button type="primary" plain @click="retry">重试</el-button>
+          <el-button type="primary" plain @click="loadEvents">重试</el-button>
         </div>
       </section>
 
       <section v-else-if="isEmpty" class="panel" data-testid="audit-empty">
         <div class="panel__body">
           <h2 class="panel__title">{{ emptyTitle }}</h2>
-          <p class="muted">
-            {{ events.length === 0
-              ? '系统尚未记录可查看的安全事件，或当前分页没有数据。'
-              : `本页共 ${events.length} 条记录，调整日期、操作人、动作或结果筛选后重试。` }}
-          </p>
+          <p class="muted">调整操作人、动作、结果或日期后重新筛选。</p>
         </div>
       </section>
 
@@ -262,7 +286,7 @@ onMounted(() => {
         <div class="panel__header">
           <div>
             <h2 class="panel__title">安全审计事件</h2>
-            <p class="panel__subtitle">共 {{ total }} 条记录；当前页 {{ events.length }} 条，筛选后可见 {{ rows.length }} 条。</p>
+            <p class="panel__subtitle">服务端匹配 {{ total }} 条记录；当前页 {{ events.length }} 条。</p>
           </div>
         </div>
         <DataTable
@@ -301,7 +325,7 @@ onMounted(() => {
         title="审计事件明细"
         width="560px"
         data-testid="audit-detail-dialog"
-        @close="closeDetail"
+        @close="selected = null"
       >
         <div v-if="selected !== null" class="audit-detail">
           <el-descriptions :column="1" border>
@@ -329,7 +353,7 @@ onMounted(() => {
           <p v-else class="muted">该事件没有可展示的上下文字段。</p>
         </div>
         <template #footer>
-          <el-button @click="closeDetail">关闭</el-button>
+          <el-button @click="selected = null">关闭</el-button>
         </template>
       </el-dialog>
     </template>
@@ -372,6 +396,9 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
 }
+.audit-field--action {
+  flex: 0 0 auto;
+}
 .audit-detail {
   display: flex;
   flex-direction: column;
@@ -412,12 +439,21 @@ onMounted(() => {
 .plain-chip--muted {
   color: var(--color-ink-muted);
 }
-.inline-warning {
+.inline-success,
+.inline-error {
   padding: 9px 12px;
-  color: #8a5a00;
+  margin: 0;
   font-size: 12px;
-  background: #fff6e5;
-  border: 1px solid #ead49f;
   border-radius: 7px;
+}
+.inline-success {
+  color: #146c43;
+  background: #e8f6ee;
+  border: 1px solid #b7dcc7;
+}
+.inline-error {
+  color: #a12828;
+  background: #fdecec;
+  border: 1px solid #efc2c2;
 }
 </style>

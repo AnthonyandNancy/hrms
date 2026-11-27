@@ -8,10 +8,17 @@ use App\Modules\Lifecycle\Models\LifecycleIntent;
 use App\Modules\Lifecycle\Models\LifecycleTask;
 use App\Modules\Lifecycle\Models\OnboardingChecklistTemplate;
 use App\Modules\Workflow\Contracts\DomainEffectCommand;
+use App\Shared\Exceptions\ConflictException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Shared transaction-scoped effect mechanics. Handlers call alreadyApplied()
+ * before touching People and markEffective() only after the write succeeds, so
+ * replaying an effect returns the original frozen result and never appends a
+ * second assignment, employment or terms version.
+ */
 final class LifecycleEffectSupport
 {
     /**
@@ -37,46 +44,149 @@ final class LifecycleEffectSupport
     {
         $payload = $command->payload['case_payload'] ?? null;
 
-        return is_array($payload) ? $payload : [];
+        if (is_array($payload) && $payload !== []) {
+            return $payload;
+        }
+
+        // Older persisted effects may carry only the aggregate envelope. The
+        // intent payload is immutable and is the authoritative fallback.
+        $intent = $this->intent($command->caseId);
+
+        if ($intent === null) {
+            return [];
+        }
+
+        return (array) ($intent->intent_json ?? []);
     }
 
     public function intent(int $caseId): ?LifecycleIntent
     {
-        return LifecycleIntent::query()
-            ->where('case_id', $caseId)
-            ->first();
+        return LifecycleIntent::query()->where('case_id', $caseId)->first();
     }
 
+    /**
+     * Return the terminal intent when this case's effect already ran. Handlers
+     * must return the same outbox event without writing People again.
+     */
     public function alreadyApplied(int $caseId): ?LifecycleIntent
     {
-        $intent = $this->intent($caseId);
-
-        return $intent !== null && $intent->status === LifecycleIntent::STATUS_EFFECTIVE ? $intent : null;
-    }
-
-    public function markEffective(int $caseId, ?int $employmentId, ?int $resultEmploymentId = null, ?string $effectiveAt = null): void
-    {
-        $intent = $this->intent($caseId);
+        $intent = LifecycleIntent::query()
+            ->where('case_id', $caseId)
+            ->lockForUpdate()
+            ->first();
 
         if ($intent === null) {
+            throw new ConflictException('The lifecycle intent is missing for this case.', [
+                'reason' => 'LIFECYCLE_INTENT_MISSING',
+                'case_id' => $caseId,
+            ]);
+        }
+
+        return $intent->status === LifecycleIntent::STATUS_EFFECTIVE ? $intent : null;
+    }
+
+    /**
+     * Freeze the pre-effect business facts exactly once, inside the same
+     * transaction as the People write. Detail reads use this snapshot instead
+     * of reinterpreting later People state.
+     *
+     * @param  array<string, mixed>  $before
+     */
+    public function freezeBefore(int $caseId, array $before): void
+    {
+        $intent = LifecycleIntent::query()
+            ->where('case_id', $caseId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($intent === null) {
+            throw new ConflictException('The lifecycle intent is missing for this case.', [
+                'reason' => 'LIFECYCLE_INTENT_MISSING',
+                'case_id' => $caseId,
+            ]);
+        }
+
+        if ($intent->before_json !== null) {
             return;
         }
 
         $intent->forceFill([
-            'status' => LifecycleIntent::STATUS_EFFECTIVE,
-            'employment_id' => $employmentId ?? $intent->employment_id,
-            'result_employment_id' => $resultEmploymentId ?? $employmentId ?? $intent->result_employment_id,
-            'effective_at' => $effectiveAt !== null ? $this->clock->now() : $intent->effective_at,
+            'before_json' => $before,
+            'detail_frozen_at' => $intent->detail_frozen_at ?? $this->clock->now(),
         ])->save();
+
+        $this->audit->record(
+            actorUserId: null,
+            action: 'lifecycle.effect.before_frozen',
+            aggregateType: 'lifecycle_intent',
+            aggregateId: (int) $intent->id,
+            after: [
+                'case_id' => $caseId,
+                'case_type' => (string) $intent->case_type,
+                'before_keys' => array_keys($before),
+            ],
+        );
+    }
+
+    /**
+     * Persist the effective projection and its frozen result once.
+     *
+     * @param  array<string, mixed>  $after
+     * @param  array<string, mixed>  $result
+     */
+    public function markEffective(
+        int $caseId,
+        ?int $employmentId,
+        ?int $resultEmploymentId = null,
+        ?string $effectiveAt = null,
+        array $after = [],
+        array $result = [],
+    ): void {
+        $intent = LifecycleIntent::query()
+            ->where('case_id', $caseId)
+            ->lockForUpdate()
+            ->first();
+
+        if ($intent === null) {
+            throw new ConflictException('The lifecycle intent is missing for this case.', [
+                'reason' => 'LIFECYCLE_INTENT_MISSING',
+                'case_id' => $caseId,
+            ]);
+        }
+
+        $now = $this->clock->now();
+        $intent->forceFill([
+            'status' => LifecycleIntent::STATUS_EFFECTIVE,
+            'employment_id' => $intent->employment_id ?? $employmentId,
+            'result_employment_id' => $resultEmploymentId ?? $employmentId ?? $intent->result_employment_id,
+            'effective_at' => $intent->effective_at ?? ($effectiveAt !== null && $effectiveAt !== '' ? $now : null),
+            'after_json' => $intent->after_json ?? $after,
+            'effect_result_json' => $intent->effect_result_json ?? $result,
+            'detail_frozen_at' => $intent->detail_frozen_at ?? $now,
+        ])->save();
+
+        $this->audit->record(
+            actorUserId: null,
+            action: 'lifecycle.effect.applied',
+            aggregateType: 'lifecycle_intent',
+            aggregateId: (int) $intent->id,
+            after: [
+                'case_id' => $caseId,
+                'employment_id' => $intent->employment_id,
+                'result_employment_id' => $intent->result_employment_id,
+                'planned_effective_on' => $intent->planned_effective_on,
+                'effective_at' => $intent->effective_at !== null ? \Carbon\CarbonImmutable::parse((string) $intent->effective_at)->toIso8601ZuluString() : null,
+                'effect_result' => (array) ($intent->effect_result_json ?? []),
+            ],
+        );
     }
 
     public function markFailed(int $caseId): void
     {
-        $intent = $this->intent($caseId);
-
-        if ($intent !== null && $intent->status !== LifecycleIntent::STATUS_EFFECTIVE) {
-            $intent->forceFill(['status' => LifecycleIntent::STATUS_FAILED])->save();
-        }
+        LifecycleIntent::query()
+            ->where('case_id', $caseId)
+            ->where('status', LifecycleIntent::STATUS_DRAFT)
+            ->update(['status' => LifecycleIntent::STATUS_FAILED]);
     }
 
     /**
@@ -103,7 +213,7 @@ final class LifecycleEffectSupport
 
     public function createOnboardingChecklist(int $caseId, int $employmentId, string $hireDate): void
     {
-        foreach ($this->checklist() as $index => $task) {
+        foreach ($this->checklist() as $task) {
             $created = LifecycleTask::query()->firstOrCreate(
                 ['case_id' => $caseId, 'task_code' => $task['task_code']],
                 [
@@ -137,7 +247,7 @@ final class LifecycleEffectSupport
     }
 
     /**
-     * @return list<array{task_code:string,required:bool,status:string,waiver_reason:?string}>
+     * @return list<array{task_code:string,required:bool,status:string,waiver_reason:string|null}>
      */
     public function checklistSnapshot(int $caseId): array
     {

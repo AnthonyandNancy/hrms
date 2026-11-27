@@ -115,7 +115,7 @@ const vIndeterminate = {
 <template>
   <section class="role-page-tree" data-testid="role-page-tree">
     <p class="inline-note" data-testid="page-action-separation-note">
-      页面可见权与按钮动作授权相互独立（ADR-0035）：勾选页面只授予进入与查看权，不会自动授予该页面的任何动作。
+      页面授权决定能否进入和查看；按钮动作必须单独授权，隐藏按钮不代替服务端校验。
     </p>
 
     <p v-if="props.pages.length === 0" class="empty-inline">页面目录为空。</p>

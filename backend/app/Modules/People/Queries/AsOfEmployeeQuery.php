@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Queries;
 
+use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Models\EmploymentTerms;
@@ -12,18 +14,20 @@ use App\Shared\Authorization\Authorizer;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Read model for the employee list. Row scope is applied with
- * Authorizer::constrain() before pagination so totals cannot leak out-of-scope
- * rows. Assignment and manager projections use the same business date.
+ * Read model for the employee list and export. Row scope is applied with
+ * Authorizer::constrain() before pagination/counting so totals cannot leak
+ * out-of-scope rows. The same as-of predicates drive list and export.
  */
 final class AsOfEmployeeQuery
 {
+    public function __construct(private readonly OrganizationFacts $organization) {}
+
     /**
      * @param  array{org_unit_id?: int|null, q?: string|null, include_archived?: bool|null}  $filters
      * @return array{items: list<array<string, mixed>>, page: int, page_size: int, total: int}
      */
     public function paginate(
-        \App\Modules\IAM\Contracts\Principal $principal,
+        Principal $principal,
         Authorizer $authorizer,
         string $capability,
         string $on,
@@ -31,6 +35,69 @@ final class AsOfEmployeeQuery
         int $page,
         int $pageSize,
     ): array {
+        $query = $this->scopedQuery($principal, $authorizer, $capability, $on, $filters);
+        $total = (int) (clone $query)->count();
+        $rows = $query->orderBy('employments.id')->forPage($page, $pageSize)->get();
+        $items = [];
+
+        foreach ($rows as $employment) {
+            /** @var Employment $employment */
+            $items[] = $this->projection($employment, $on);
+        }
+
+        return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
+    }
+
+    /**
+     * Exact export projection. The caller must enforce the field whitelist and
+     * row cap; this method never silently truncates or fabricates a value.
+     *
+     * @param  array{org_unit_id?: int|null, q?: string|null, include_archived?: bool|null}  $filters
+     * @return array{items: list<array<string, mixed>>, total: int}
+     */
+    public function exportRows(
+        Principal $principal,
+        Authorizer $authorizer,
+        string $capability,
+        string $on,
+        array $filters,
+        int $maxRows,
+    ): array {
+        $query = $this->scopedQuery($principal, $authorizer, $capability, $on, $filters);
+        $total = (int) (clone $query)->count();
+
+        if ($total > $maxRows) {
+            return ['items' => [], 'total' => $total];
+        }
+
+        $items = [];
+        foreach ($query->orderBy('employments.id')->get() as $employment) {
+            /** @var Employment $employment */
+            $row = $this->projection($employment, $on);
+            $items[] = [
+                'employee_no' => $row['employee_no'],
+                'person_name' => $row['person_name'],
+                'status' => $row['status'],
+                'hire_date' => $row['hire_date'],
+                'org_unit_name' => $row['org_unit_name'],
+                'position_title' => $row['position_title'],
+            ];
+        }
+
+        return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * @param  array{org_unit_id?: int|null, q?: string|null, include_archived?: bool|null}  $filters
+     * @return Builder<Employment>
+     */
+    private function scopedQuery(
+        Principal $principal,
+        Authorizer $authorizer,
+        string $capability,
+        string $on,
+        array $filters,
+    ): Builder {
         $query = Employment::query()
             ->whereExists(function ($sub) use ($on): void {
                 $sub->selectRaw('1')
@@ -71,17 +138,7 @@ final class AsOfEmployeeQuery
             });
         }
 
-        $query = $authorizer->constrain($query, $principal, $capability, $on);
-        $total = (int) (clone $query)->count();
-        $rows = $query->orderBy('employments.id')->forPage($page, $pageSize)->get();
-        $items = [];
-
-        foreach ($rows as $employment) {
-            /** @var Employment $employment */
-            $items[] = $this->projection($employment, $on);
-        }
-
-        return ['items' => $items, 'page' => $page, 'page_size' => $pageSize, 'total' => $total];
+        return $authorizer->constrain($query, $principal, $capability, $on);
     }
 
     /**
@@ -145,6 +202,12 @@ final class AsOfEmployeeQuery
         }
 
         $person = Person::query()->whereKey((int) $employment->person_id)->first();
+        $orgUnit = $assignment !== null
+            ? $this->organization->orgUnit((int) $assignment->org_unit_id)
+            : null;
+        $position = $assignment?->position_id !== null
+            ? $this->organization->position((int) $assignment->position_id)
+            : null;
 
         return [
             'employment_id' => (int) $employment->id,
@@ -153,15 +216,20 @@ final class AsOfEmployeeQuery
             'employee_no' => (string) $employment->employee_no,
             'status' => (string) $employment->status,
             'employment_type' => (string) $employment->employment_type,
+            'hire_date' => (string) $employment->hire_date,
             'valid_from' => (string) $employment->valid_from,
             'valid_to' => (string) $employment->valid_to,
             'archived_at' => $employment->archived_at instanceof \Carbon\CarbonInterface ? $employment->archived_at->toIso8601ZuluString() : null,
             'archived_by' => $employment->archived_by !== null ? (int) $employment->archived_by : null,
             'archive_reason' => $employment->archive_reason !== null ? (string) $employment->archive_reason : null,
+            'org_unit_name' => $orgUnit?->name,
+            'position_title' => $position?->title,
             'current_assignment' => $assignment !== null ? [
                 'id' => (int) $assignment->id,
                 'org_unit_id' => (int) $assignment->org_unit_id,
+                'org_unit_name' => $orgUnit?->name,
                 'position_id' => $assignment->position_id !== null ? (int) $assignment->position_id : null,
+                'position_title' => $position?->title,
                 'assignment_type' => (string) $assignment->assignment_type,
                 'is_primary' => (bool) $assignment->is_primary,
                 'valid_from' => (string) $assignment->valid_from,

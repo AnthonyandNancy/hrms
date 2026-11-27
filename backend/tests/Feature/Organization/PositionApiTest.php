@@ -22,7 +22,7 @@ final class PositionApiTest extends PeopleTestCase
             'grade' => 'P5',
             'headcount_limit' => 3,
             'valid_from' => '2026-01-01',
-        ])->assertCreated();
+        ], ['Idempotency-Key' => 'pos-create-1'])->assertCreated();
 
         $id = (int) $created->json('data.id');
         $this->assertDatabaseHas('positions', [
@@ -39,7 +39,7 @@ final class PositionApiTest extends PeopleTestCase
         $this->patchJson("/v1/positions/{$id}", [
             'title' => 'Synthetic Senior Engineer',
             'headcount_limit' => 5,
-        ])->assertOk();
+        ], ['Idempotency-Key' => 'pos-update-1'])->assertOk();
 
         $this->assertDatabaseHas('positions', [
             'id' => $id,
@@ -58,12 +58,15 @@ final class PositionApiTest extends PeopleTestCase
 
         $this->patchJson("/v1/positions/{$position->id}", [
             'status' => 'DISABLED',
-        ])->assertConflict()->assertJsonPath('data.reason', 'POSITION_STAFFED');
+        ], ['Idempotency-Key' => 'pos-disable-conflict'])->assertConflict()
+            ->assertJsonPath('data.reason', 'POSITION_STAFFED');
     }
 
     public function test_unknown_position_read_is_404(): void
     {
-        $this->patchJson('/v1/positions/999999', ['title' => 'Hijack'])->assertNotFound();
+        $this->patchJson('/v1/positions/999999', ['title' => 'Hijack'], [
+            'Idempotency-Key' => 'pos-missing-update',
+        ])->assertNotFound();
     }
 
     public function test_missing_manage_capability_is_403(): void

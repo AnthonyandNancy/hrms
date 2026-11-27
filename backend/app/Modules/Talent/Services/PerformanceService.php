@@ -7,6 +7,7 @@ namespace App\Modules\Talent\Services;
 use App\Modules\Talent\Domain\PerformanceStateMachine;
 use App\Modules\Talent\Models\PerformanceAppeal;
 use App\Modules\Talent\Models\PerformanceCycle;
+use App\Modules\Talent\Models\PerformanceResultSnapshot;
 use App\Modules\Talent\Models\PerformanceReview;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
 use App\Shared\Exceptions\ConflictException;
@@ -43,10 +44,23 @@ final class PerformanceService
             ],
         );
 
-        $this->audit->record($actorUserId, 'talent.performance_cycle.created', 'performance_cycle', (int) $cycle->id, after: [
-            'period_from' => (string) $cycle->period_from,
-            'period_to' => (string) $cycle->period_to,
-        ]);
+        // A repeated POST under a fresh idempotency key must not silently
+        // return a differently-configured existing cycle as if it were created.
+        if (! $cycle->wasRecentlyCreated
+            && ((string) $cycle->period_from !== (string) $input['period_from']
+                || (string) $cycle->period_to !== (string) $input['period_to'])) {
+            throw new ConflictException('A performance cycle with this name already exists with different dates.', [
+                'reason' => 'PERFORMANCE_CYCLE_DUPLICATE',
+                'cycle_id' => (int) $cycle->id,
+            ]);
+        }
+
+        if ($cycle->wasRecentlyCreated) {
+            $this->audit->record($actorUserId, 'talent.performance_cycle.created', 'performance_cycle', (int) $cycle->id, after: [
+                'period_from' => (string) $cycle->period_from,
+                'period_to' => (string) $cycle->period_to,
+            ]);
+        }
 
         return [
             'cycle_id' => (int) $cycle->id,
@@ -65,6 +79,7 @@ final class PerformanceService
     {
         $cycle = PerformanceCycle::query()
             ->whereKey((int) $input['cycle_id'])
+            ->lockForUpdate()
             ->first();
 
         if ($cycle === null) {
@@ -92,6 +107,20 @@ final class PerformanceService
             ],
         );
 
+        // A create-or-save against a decided review would otherwise return
+        // 201 with no write. Make the conflict explicit instead.
+        if ((string) $review->status !== 'DRAFT') {
+            throw new ConflictException('This review has been decided and is read-only.', [
+                'reason' => 'REVIEW_DECIDED',
+                'status' => (string) $review->status,
+            ]);
+        }
+
+        $this->audit->record($actorUserId, 'talent.performance_review.saved', 'performance_review', (int) $review->id, after: [
+            'cycle_id' => (int) $review->cycle_id,
+            'employment_id' => (int) $review->employment_id,
+        ]);
+
         return $this->reviewData($review);
     }
 
@@ -102,22 +131,16 @@ final class PerformanceService
     public function submitReview(int $actorUserId, int $reviewId, array $input): array
     {
         return DB::transaction(function () use ($actorUserId, $reviewId, $input): array {
-            $this->cycleDetails->assertReviewEditable($reviewId);
+            // assertReviewEditable takes the cycle lock first and returns the
+            // locked review, so publication and submission cannot interleave.
+            $review = $this->cycleDetails->assertReviewEditable($reviewId);
 
-            $review = PerformanceReview::query()
-                ->whereKey($reviewId)
-                ->lockForUpdate()
-                ->first();
-
-            if ($review === null) {
-                throw NotFoundException::forResource();
+            if ((string) $review->status !== 'DRAFT') {
+                throw new ConflictException('This review has been decided and is read-only.', [
+                    'reason' => 'REVIEW_DECIDED',
+                    'status' => (string) $review->status,
+                ]);
             }
-
-            if ($review->status === 'SUBMITTED') {
-                return $this->reviewData($review);
-            }
-
-            $this->machine->assertCanSubmit((string) $review->status);
 
             $review->forceFill([
                 'manager_assessment' => $input['manager_assessment'] ?? $review->manager_assessment,
@@ -139,9 +162,40 @@ final class PerformanceService
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public function createAppeal(int $actorUserId, int $reviewId, array $input, string $businessDate): array
-    {
-        return DB::transaction(function () use ($actorUserId, $reviewId, $input, $businessDate): array {
+    public function createAppeal(
+        int $actorUserId,
+        int $reviewId,
+        array $input,
+        string $businessDate,
+        ?int $actorEmploymentId = null,
+        bool $companyScope = false,
+    ): array {
+        return DB::transaction(function () use ($actorUserId, $reviewId, $input, $businessDate, $actorEmploymentId, $companyScope): array {
+            $review = PerformanceReview::query()
+                ->whereKey($reviewId)
+                ->first();
+
+            if ($review === null) {
+                throw NotFoundException::forResource();
+            }
+
+            // Cycle first, then review: the same order is used by publish,
+            // submit and calibration to avoid a lock-order deadlock.
+            $cycle = PerformanceCycle::query()
+                ->whereKey((int) $review->cycle_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($cycle === null) {
+                throw NotFoundException::forResource();
+            }
+
+            // Out-of-scope callers see 404 for both the resource and its
+            // publication state, preventing review-id enumeration.
+            if (! $companyScope && ($actorEmploymentId === null || $actorEmploymentId !== (int) $review->employment_id)) {
+                throw NotFoundException::forResource();
+            }
+
             $review = PerformanceReview::query()
                 ->whereKey($reviewId)
                 ->lockForUpdate()
@@ -150,6 +204,20 @@ final class PerformanceService
             if ($review === null) {
                 throw NotFoundException::forResource();
             }
+
+            $snapshot = PerformanceResultSnapshot::query()
+                ->where('cycle_id', (int) $review->cycle_id)
+                ->where('review_id', (int) $review->id)
+                ->first();
+
+            if ((string) $cycle->status !== 'PUBLISHED' || $snapshot === null) {
+                throw new ConflictException('An appeal requires a published result.', [
+                    'reason' => 'APPEAL_REQUIRES_PUBLISHED_RESULT',
+                    'cycle_status' => (string) $cycle->status,
+                ]);
+            }
+
+            $this->machine->assertCanAppeal((string) $review->status, (string) $cycle->status);
 
             $existing = PerformanceAppeal::query()
                 ->where('review_id', (int) $review->id)
@@ -162,8 +230,6 @@ final class PerformanceService
                 ]);
             }
 
-            $this->machine->assertCanAppeal((string) $review->status);
-
             $this->ensureAppealTemplate();
             $case = $this->workflow->createCase(
                 requesterUserId: $actorUserId,
@@ -174,6 +240,9 @@ final class PerformanceService
                 payload: [
                     'review_id' => (int) $review->id,
                     'employment_id' => (int) $review->employment_id,
+                    'result_snapshot_id' => (int) $snapshot->id,
+                    'final_rating' => (string) $snapshot->final_rating,
+                    'published_at' => $snapshot->published_at?->toIso8601ZuluString(),
                     'reason' => (string) $input['reason'],
                 ],
                 templateCode: 'talent.performance_appeal',
@@ -196,6 +265,8 @@ final class PerformanceService
             $this->audit->record($actorUserId, 'talent.performance_appeal.created', 'performance_appeal', (int) $appeal->id, after: [
                 'review_id' => (int) $review->id,
                 'case_id' => $case->id,
+                'result_snapshot_id' => (int) $snapshot->id,
+                'employment_id' => (int) $review->employment_id,
             ]);
 
             return [
@@ -209,9 +280,6 @@ final class PerformanceService
         });
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
     /**
      * @return list<array<string, mixed>>
      */

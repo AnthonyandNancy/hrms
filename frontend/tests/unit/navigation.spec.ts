@@ -174,13 +174,13 @@ describe('menu-only navigation model', () => {
     expect(menu.flatMap((group) => group.pages.map((page) => page.name))).not.toContain('login')
   })
 
-  it('derives the effective menu from the 155-entry registry without dropping menu groups', () => {
+  it('derives the effective menu from the V2.3 37-entry registry without dropping menu groups', () => {
     const menu = buildMenu(PAGE_REGISTRY)
     const children = menu.flatMap((group) => group.pages)
 
     // ADR-0035: seven create/edit/archive form routes became workspace actions.
-    expect(PAGE_REGISTRY).toHaveLength(155)
-    expect(children).toHaveLength(136)
+    expect(PAGE_REGISTRY).toHaveLength(37)
+    expect(children).toHaveLength(26)
     expect(menu).toHaveLength(18)
     expect(new Set(children.map((page) => page.name)).size).toBe(children.length)
     expect(children.every((page) => page.menu !== null)).toBe(true)

@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import { ApiError } from '@/api/errors'
@@ -10,15 +11,23 @@ const resource = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
-  delete: vi.fn(),
 }))
 
 vi.mock('@/api/resourceClient', () => ({
   resourceGet: resource.get,
   resourcePost: resource.post,
   resourcePatch: resource.patch,
-  resourceDelete: resource.delete,
 }))
+
+const axiosClient = vi.hoisted(() => ({
+  delete: vi.fn(),
+}))
+vi.mock('axios', () => {
+  const create = vi.fn(() => ({
+    delete: axiosClient.delete,
+  }))
+  return { default: { create }, create, isAxiosError: () => false }
+})
 
 import DepartmentWorkspacePage from '@/modules/people/departments/pages/DepartmentWorkspacePage.vue'
 import { canUseAsParent, type Department } from '@/modules/people/departments/api'
@@ -119,6 +128,29 @@ function listResponse(items: unknown[]) {
 
 function mockWorkspaceGet(): void {
   resource.get.mockImplementation((path: string) => {
+    if (path === '/v1/departments/staffing') {
+      return Promise.resolve(listResponse([{
+        org_unit_id: 2,
+        code: 'HR',
+        name: '人力资源部',
+        headcount_limit: 5,
+        staffed: 1,
+        vacancies: 4,
+        overstaffed: false,
+        version: 3,
+        effective_from: '2026-01-01',
+      }]))
+    }
+    if (/^\/v1\/org-units\/\d+\/impact$/.test(path)) {
+      return Promise.resolve({
+        affected_employee_count: 1,
+        affected_manager_count: 0,
+        payroll_cost_center_count: 0,
+        cross_entity_warning: false,
+        cycle_refused: false,
+        authorization_warning: null,
+      })
+    }
     if (path === '/v1/departments') return Promise.resolve(listResponse(DEPARTMENTS))
     if (path === '/v1/org-units/tree') return Promise.resolve(listResponse(TREE_ROWS))
     if (/^\/v1\/departments\/\d+\/members$/.test(path)) {
@@ -141,9 +173,18 @@ async function mountWorkspace(
   capabilities: string[] = ['org.unit.read', 'org.unit.manage'],
 ): Promise<VueWrapper> {
   const pinia = activePiniaWith(capabilities)
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/hr/departments', component: DepartmentWorkspacePage },
+      { path: '/hr/employees/:id', component: { template: '<div />' } },
+    ],
+  })
+  await router.push('/hr/departments')
+  await router.isReady()
   const wrapper = mount(DepartmentWorkspacePage, {
     global: {
-      plugins: [pinia, ElementPlus],
+      plugins: [pinia, router, ElementPlus],
       stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub },
     },
   })
@@ -153,6 +194,7 @@ async function mountWorkspace(
 
 async function selectDepartment(wrapper: VueWrapper, id: number): Promise<void> {
   await wrapper.get(`[data-testid="dept-node-${id}"]`).trigger('click')
+  await wrapper.get('[data-testid="department-tab-members"]').trigger('click')
   await flushPromises()
 }
 
@@ -160,7 +202,8 @@ beforeEach(() => {
   resource.get.mockReset()
   resource.post.mockReset()
   resource.patch.mockReset()
-  resource.delete.mockReset()
+  axiosClient.delete.mockReset()
+  axiosClient.delete.mockResolvedValue({ data: { data: {} } })
   resource.post.mockResolvedValue({})
   resource.patch.mockResolvedValue({})
   mockWorkspaceGet()
@@ -193,6 +236,8 @@ describe('department workspace', () => {
   it('shows the selected node in Chinese with headcount, member count and the manager gap', async () => {
     const wrapper = await mountWorkspace()
     await selectDepartment(wrapper, 1)
+    await wrapper.get('[data-testid="department-tab-overview"]').trigger('click')
+    await flushPromises()
 
     const detail = wrapper.get('[data-testid="department-detail"]')
     expect(detail.text()).toContain('总公司')
@@ -201,13 +246,9 @@ describe('department workspace', () => {
     expect(detail.text()).toContain('在编人数')
     expect(detail.text()).toContain('2 人')
     expect(detail.text()).toContain('成员数')
-    expect(detail.text()).toContain('1 人')
-    expect(detail.get('[data-testid="department-manager-gap"]').text()).toContain('负责人')
-    expect(detail.get('[data-testid="department-manager-gap"]').text()).toContain('接口未返回')
-    expect(resource.get).toHaveBeenCalledWith(
-      '/v1/departments/1/members',
-      expect.objectContaining({ as_of: expect.any(String) }),
-    )
+    expect(detail.get('[data-testid="department-manager"]').text()).toContain('负责人')
+    expect(detail.get('[data-testid="department-manager"]').text()).toContain('未设置')
+    // Members are loaded lazily when the members tab is selected.
   })
 
   it('validates a half-open date range locally and maps create 422 field errors inline', async () => {
@@ -220,19 +261,20 @@ describe('department workspace', () => {
     const wrapper = await mountWorkspace()
     await wrapper.get('[data-testid="department-create"]').trigger('click')
     await nextTick()
+    const drawer = wrapper.get('[data-testid="department-form-drawer"]')
 
-    await wrapper.get('[data-testid="department-name"]').setValue('合成测试部')
-    await wrapper.get('[data-testid="department-code"]').setValue('SYN-001')
-    await wrapper.get('[data-testid="department-valid-from"]').setValue('2026-12-01')
-    await wrapper.get('[data-testid="department-valid-to"]').setValue('2026-12-01')
-    await wrapper.get('[data-testid="department-manager"]').setValue('88')
-    await wrapper.get('[data-testid="department-save"]').trigger('click')
+    await drawer.get('[data-testid="department-name"]').setValue('合成测试部')
+    await drawer.get('[data-testid="department-code"]').setValue('SYN-001')
+    await drawer.get('[data-testid="department-valid-from"]').setValue('2026-12-01')
+    await drawer.get('[data-testid="department-valid-to"]').setValue('2026-12-01')
+    await drawer.get('[data-testid="department-manager"]').setValue('88')
+    await drawer.get('[data-testid="department-save"]').trigger('click')
 
     expect(wrapper.get('[data-testid="department-date-range-error"]').text()).toContain('晚于')
     expect(resource.post).not.toHaveBeenCalled()
 
-    await wrapper.get('[data-testid="department-valid-to"]').setValue('2026-12-31')
-    await wrapper.get('[data-testid="department-save"]').trigger('click')
+    await drawer.get('[data-testid="department-valid-to"]').setValue('2026-12-31')
+    await drawer.get('[data-testid="department-save"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
@@ -272,7 +314,7 @@ describe('department workspace', () => {
     expect(parentOptions).toContain('4')
 
     await drawer.get('[data-testid="department-name"]').setValue('人力资源与行政部')
-    await drawer.get('[data-testid="department-parent"]').setValue('1')
+    await drawer.get('[data-testid="department-parent"]').setValue('4')
     await drawer.get('[data-testid="department-manager"]').setValue('88')
     await drawer.get('[data-testid="department-save"]').trigger('click')
     await flushPromises()
@@ -280,7 +322,6 @@ describe('department workspace', () => {
     expect(resource.patch).toHaveBeenCalledWith(
       '/v1/departments/2',
       expect.objectContaining({
-        parent_id: 1,
         name: '人力资源与行政部',
         code: 'HR',
         type: 'DEPARTMENT',
@@ -322,7 +363,7 @@ describe('department workspace', () => {
     await wrapper.findComponent('[data-testid="move-parent"]').setValue('4')
     await wrapper.get('[data-testid="move-effective-date"]').setValue('2026-12-01')
     await wrapper.get('[data-testid="move-confirm"]').trigger('click')
-    await nextTick()
+    await flushPromises()
 
     const confirmation = wrapper.get('[data-testid="move-confirmation"]')
     expect(confirmation.text()).toContain('总公司')
@@ -369,17 +410,20 @@ describe('department workspace', () => {
     const dialog = wrapper.get('[data-testid="member-remove-dialog"]')
     expect(dialog.text()).toContain('员工关系 #44')
     expect(resource.post).toHaveBeenCalledTimes(1)
-    expect(resource.delete).not.toHaveBeenCalled()
+    expect(axiosClient.delete).not.toHaveBeenCalled()
 
     await wrapper.get('[data-testid="member-remove-effective-date"]').setValue('2026-12-01')
+    await wrapper.get('[data-testid="member-remove-reason"]').setValue('合成部门移出')
     await wrapper.get('[data-testid="member-remove-confirm-final"]').trigger('click')
-    await nextTick()
+    await flushPromises()
 
-    const blocker = wrapper.get('[data-testid="member-remove-blocker"]')
-    expect(blocker.text()).toContain('缺少后端接口')
-    expect(blocker.text()).toContain('移除部门成员')
-    expect(resource.post).toHaveBeenCalledTimes(1)
-    expect(resource.delete).not.toHaveBeenCalled()
+    expect(axiosClient.delete).toHaveBeenCalledWith(
+      '/departments/2/members/44',
+      expect.objectContaining({
+        data: { effective_from: '2026-12-01', reason: '合成部门移出' },
+        headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }),
+      }),
+    )
   })
 
   it('renders a forbidden state and hides every mutating control from read-only callers', async () => {
@@ -410,9 +454,15 @@ describe('department workspace', () => {
       return Promise.reject(new Error(`Unexpected GET ${path}`))
     })
 
+    const loadingRouter = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/hr/departments', component: DepartmentWorkspacePage }],
+    })
+    await loadingRouter.push('/hr/departments')
+    await loadingRouter.isReady()
     const loading = mount(DepartmentWorkspacePage, {
       global: {
-        plugins: [activePiniaWith(['org.unit.read', 'org.unit.manage']), ElementPlus],
+        plugins: [activePiniaWith(['org.unit.read', 'org.unit.manage']), loadingRouter, ElementPlus],
         stubs: { ElDrawer: OverlayStub, ElDialog: OverlayStub },
       },
     })

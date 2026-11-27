@@ -1,0 +1,169 @@
+{
+  "module": "M04",
+  "pagesChanged": [
+    {
+      "path": "/hr/employees",
+      "name": "hr-employees",
+      "file": "frontend/src/modules/people/employees/pages/EmployeeListPage.vue",
+      "capability": "people.employee.read",
+      "requiredApis": [
+        "GET /v1/employees",
+        "POST /v1/employees/onboard",
+        "DELETE /v1/employees/{employment_id}",
+        "POST /v1/employees/{employment_id}/restore",
+        "GET /v1/employee-imports",
+        "GET /v1/employees/export"
+      ],
+      "notes": "Added toolbar actions 导入结果 (people.employee.manage) and 导出 (people.employee.export). Import results are a company-level drawer; export reuses the current list filters and streams the server CSV."
+    },
+    {
+      "path": "/hr/employees/:id",
+      "name": "employee-detail",
+      "file": "frontend/src/modules/people/employees/pages/EmployeeDetailPage.vue",
+      "capability": "people.employee.read",
+      "requiredApis": [
+        "GET /v1/employees/{employment_id}",
+        "GET /v1/employees/{employmentId}/education",
+        "GET /v1/employees/{employmentId}/experiences",
+        "GET /v1/employees/{employmentId}/contacts",
+        "GET /v1/employees/{employmentId}/certificates",
+        "GET /v1/employees/{employmentId}/change_requests",
+        "POST /v1/employees/{employmentId}/education",
+        "POST /v1/employees/{employmentId}/experiences",
+        "POST /v1/employees/{employmentId}/contacts",
+        "POST /v1/employees/{employmentId}/certificates",
+        "PATCH /v1/employees/{employmentId}/{resource}/{id}",
+        "DELETE /v1/employees/{employmentId}/{resource}/{id}",
+        "POST /v1/employees/{employmentId}/change_requests/{id}/submit"
+      ],
+      "tabs": [
+        "overview",
+        "employment",
+        "contracts",
+        "credentials",
+        "education",
+        "experience",
+        "contacts",
+        "changes"
+      ],
+      "queryAliases": {
+        "files": "credentials",
+        "history": "employment",
+        "work-history": "experience"
+      },
+      "notes": "The eight tabs are frozen. EmployeeTabs renders read-only summary tables; the editable EmployeeProfileSection/EmployeeFileList/EmployeeChangeList for a tab is mounted exactly once, so no tab shows duplicate tables. Query aliases are handled in-page and do not create routes."
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/hr/employees/:id/education",
+      "name": "hr-employees-by-id-education"
+    },
+    {
+      "path": "/hr/employees/:id/work-history",
+      "name": "hr-employees-by-id-work-history"
+    },
+    {
+      "path": "/hr/employees/:id/contacts",
+      "name": "hr-employees-by-id-contacts"
+    },
+    {
+      "path": "/hr/employees/:id/credentials",
+      "name": "hr-employees-by-id-credentials"
+    },
+    {
+      "path": "/hr/employees/:id/history",
+      "name": "hr-employees-by-id-history"
+    },
+    {
+      "path": "/hr/employees/:id/files",
+      "name": "hr-employees-by-id-files"
+    },
+    {
+      "path": "/hr/employees/:id/changes",
+      "name": "hr-employees-by-id-changes"
+    },
+    {
+      "path": "/hr/employees/imports",
+      "name": "hr-employees-imports"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "hr-employees-by-id-education",
+    "hr-employees-by-id-work-history",
+    "hr-employees-by-id-contacts",
+    "hr-employees-by-id-credentials",
+    "hr-employees-by-id-history",
+    "hr-employees-by-id-files",
+    "hr-employees-by-id-changes",
+    "hr-employees-imports"
+  ],
+  "openapiOperations": [
+    "GET /v1/employees",
+    "GET /v1/employees/{employment_id}",
+    "GET /v1/employees/export",
+    "GET /v1/employee-imports",
+    "DELETE /v1/employees/{employmentId}/{resource}/{id}",
+    "POST /v1/employees/{employmentId}/change_requests/{id}/submit"
+  ],
+  "routeChanges": [
+    "ADD GET /v1/employees/export -> EmployeeController@export, before GET /v1/employees/{employment_id}, middleware auth.session + capability:people.employee.export,COMPANY; query as_of, org_unit_id, q, include_archived; response text/csv; charset=UTF-8 with Cache-Control no-store. `fields` is prohibited (422).",
+    "ADD GET /v1/employee-imports -> EmployeeController@imports, middleware auth.session + capability:people.employee.manage,COMPANY; query page/page_size; company-level list envelope {items,page,page_size,total}. Do not retain an employment-scoped imports read route.",
+    "ADD DELETE /v1/employees/{employmentId}/{profileResource}/{id} for education|experiences|contacts|certificates only -> EmployeeProfileController@retire, whereNumber employmentId/id, defaults profileResource, middleware csrf.header + IdempotentCommand + capability:people.employee.manage,COMPANY. Body {reason,effective_from}; response {retired,id,employment_id,superseded_at}.",
+    "REMOVE GET/POST /v1/employees/{employmentId}/imports and PATCH /v1/employees/{employmentId}/imports/{id}; imports are no longer an employee subresource. Keep change_requests routes and POST .../{id}/submit.",
+    "REMOVE the `imports` key from the profile-resource route loop. Keep change_requests in the loop for list/store/patch, but store/update must not use the versioning writer for drafts.",
+    "CHANGE POST /v1/employees/{employmentId}/change_requests/{id}/submit response to include case_id and case_no from the Workflow Case; keep capability:people.employee.manage,COMPANY and required Idempotency-Key.",
+    "Remove the eight legacy employee subroute registry entries; old URLs must 404 and must not redirect to ?tab=."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "hr-employees",
+      "key": "hr.employees.export",
+      "label": "导出员工",
+      "capability": "people.employee.export",
+      "api": "GET /v1/employees/export",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-employees",
+      "key": "hr.employees.imports",
+      "label": "导入结果",
+      "capability": "people.employee.manage",
+      "api": "GET /v1/employee-imports",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.profile.retire",
+      "label": "退役子档案记录",
+      "capability": "people.employee.manage",
+      "api": "DELETE /v1/employees/{employmentId}/{resource}/{id}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "employee-detail",
+      "key": "employee.change.submit",
+      "label": "提交资料变更审批",
+      "capability": "people.employee.manage",
+      "api": "POST /v1/employees/{employmentId}/change_requests/{id}/submit",
+      "ui": "primary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Bind App\\Modules\\People\\Contracts\\EmployeeChangeApprovalPort to App\\Modules\\People\\Services\\EmployeeChangeWorkflowService in PeopleServiceProvider (provider file was outside this task's allowed domain). The service uses WorkflowCaseGateway + CaseCommandPort only and never imports a Workflow model.",
+    "Register App\\Modules\\People\\Services\\EmployeeProfileChangeEffectHandler in Workflow's domain effect handler list and add people.employee.change.apply to the effect type catalog; Workflow provider/config were outside this task's allowed domain.",
+    "The People adapter ensures the code-owned template employee.profile.change (type EMPLOYEE_PROFILE_CHANGE, HR_ADMIN approval, LOCAL people.employee.change.apply effect) on every submit via WorkflowCaseGateway::ensureTemplate; no manual template publish is required.",
+    "OpenAPI: add GET /v1/employees/export, GET /v1/employee-imports and DELETE /v1/employees/{employmentId}/{resource}/{id}; replace EmployeeImportBatch.employment_id with the real company-level fields (id,status,original_name,total_rows,valid_rows,failed_rows,errors,validated_at,committed_at,created_at); remove old import operations.",
+    "Generated action manifests must be regenerated after adding the routes; frontend/src/generated/pageActions.ts and docs/generated/action-input.json are outside this task's domain.",
+    "Delete the eight legacy files frontend/src/modules/people/pages/Employee{Education,WorkHistory,Contacts,Credentials,History,Files,Changes,Imports}Page.vue and remove their entries from frontend/src/modules/people/pages/index.ts, frontend/src/modules/people/catalog.ts, frontend/src/router/registry.ts and backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php. These files were outside this task's allowed domain.",
+    "The People adapter and effect handler now have backend feature tests (EmployeeProfileRetireTest, EmployeeImportListTest, EmployeeExportTest, EmployeeChangeRequestWorkflowTest, EmployeeChangeWorkflowAdapterTest); frontend contract tests are employeeTabsContract, employeeProfileRetire, employeeImportExportActions and employeeChangeWorkflow. All tests are NOT RUN in this task per instruction.",
+    "Contact phone remains encrypted by the EmployeeContact model's `encrypted` cast (phone_ciphertext) and the API always returns {display:null,masked:true,profile:P2_SENSITIVE,revealable:false,exportable:false}. Employee CSV export is a fixed whitelist and never includes phone, email, national id or any P3 field.",
+    "ADD EMPLOYEE_PROFILE_CHANGE ('员工资料变更') to frontend/src/modules/platform/labels.ts CASE_TYPES so the Workflow case deep link #/workflow/cases/{id} renders a business label instead of 其他审批事项; this shared platform file was outside this task's allowed domain.",
+    "Grant workflow.case.decide (AnchorType::CASE) to the HR_ADMIN role template in RoleTemplateCatalog so the HR_ADMIN assignee of the employee.profile.change template can record its approval decision; this IAM file was outside this task's allowed domain. Without it an approver can hold the task but cannot call POST /v1/cases/{id}/decisions.",
+    "Add the three new guarded routes to backend/tests/Authorization/endpoint_matrix.php: GET /v1/employees/export (people.employee.export, COMPANY, field_or_export), GET /v1/employee-imports (people.employee.manage, COMPANY, field_or_export), DELETE /v1/employees/{employmentId}/{resource}/{id} (people.employee.manage, COMPANY, csrf_missing + mfa_required); remove the three legacy imports entries. The matrix file was outside this task's allowed domain."
+  ]
+}

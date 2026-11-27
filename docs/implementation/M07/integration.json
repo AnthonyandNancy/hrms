@@ -1,0 +1,158 @@
+{
+  "module": "M07",
+  "pagesChanged": [
+    {
+      "path": "/hr/movements",
+      "name": "hr-movements",
+      "componentKey": "hr/movements/index",
+      "capability": "lifecycle.case.read",
+      "file": "frontend/src/modules/people/lifecycle/pages/MovementWorkspacePage.vue",
+      "requiredApis": [
+        "GET /v1/lifecycle/cases"
+      ],
+      "query": [
+        "tab",
+        "view",
+        "status",
+        "employee_id",
+        "effective_from",
+        "effective_to",
+        "q",
+        "page"
+      ],
+      "tabs": [
+        "all",
+        "onboarding",
+        "probation",
+        "transfer",
+        "salary",
+        "secondment",
+        "offboarding"
+      ],
+      "notes": "唯一员工异动台账。tab/view/筛选/page 全部写入 URL query，可刷新和分享；台账与日历共用同一次 GET /v1/lifecycle/cases 服务端分页结果，switch view 不得读第二份台账。"
+    },
+    {
+      "path": "/hr/movements/:id",
+      "name": "hr-movements-by-id",
+      "componentKey": "hr/movements/by-id",
+      "capability": "lifecycle.case.read",
+      "file": "frontend/src/modules/people/lifecycle/pages/MovementDetailPage.vue",
+      "requiredApis": [
+        "GET /v1/lifecycle/cases/{caseId}",
+        "GET /v1/cases/{id}",
+        "GET /v1/cases/{id}/timeline",
+        "POST /v1/cases/{id}/decisions",
+        "POST /v1/cases/{id}/withdraw"
+      ],
+      "notes": "深链可刷新。详情展示生效/待生效/待审批 Banner、申请摘要、Workflow 审批轨迹、before/after/effect_result 冻结快照；撤回与决定动作按 Workflow 状态和当前 assignee 显示，并使用稳定 Idempotency-Key。"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/hr/movements/onboarding",
+      "name": "hr-movements-onboarding"
+    },
+    {
+      "path": "/hr/movements/probation",
+      "name": "hr-movements-probation"
+    },
+    {
+      "path": "/hr/movements/transfer",
+      "name": "hr-movements-transfer"
+    },
+    {
+      "path": "/hr/movements/salary-change",
+      "name": "hr-movements-salary-change"
+    },
+    {
+      "path": "/hr/movements/secondment",
+      "name": "hr-movements-secondment"
+    },
+    {
+      "path": "/hr/movements/offboarding",
+      "name": "hr-movements-offboarding"
+    },
+    {
+      "path": "/hr/movements/calendar",
+      "name": "hr-movements-calendar"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "hr-movements-onboarding",
+    "hr-movements-probation",
+    "hr-movements-transfer",
+    "hr-movements-salary-change",
+    "hr-movements-secondment",
+    "hr-movements-offboarding",
+    "hr-movements-calendar"
+  ],
+  "openapiOperations": [
+    "GET /v1/lifecycle/cases",
+    "GET /v1/lifecycle/cases/{caseId}",
+    "POST /v1/lifecycle/onboarding",
+    "POST /v1/lifecycle/probation-confirmations",
+    "POST /v1/lifecycle/transfers",
+    "POST /v1/lifecycle/salary-changes",
+    "POST /v1/lifecycle/offboardings",
+    "POST /v1/lifecycle/contract-renewals",
+    "POST /v1/lifecycle/rehires",
+    "GET /v1/lifecycle/secondments",
+    "POST /v1/lifecycle/secondments",
+    "POST /v1/cases/{id}/withdraw",
+    "POST /v1/cases/{caseId}/decisions",
+    "GET /v1/cases/{id}/timeline",
+    "GET /v1/employees/{employment_id}/onboarding-checklist",
+    "PATCH /v1/onboarding-tasks/{id}"
+  ],
+  "routeChanges": [
+    "KEEP GET /v1/lifecycle/cases; ADD query parameters type, kind, effective_from, effective_to, as_of (existing case_type/status/employment_id/q/page/page_size remain). type accepts uppercase case type or movement kind; kind accepts onboarding|probation|transfer|salary|secondment|offboarding|all. Response remains {items,total,page,page_size,partial,partial_reason,as_of} but each item now also carries row_id,title,kind,employee_id,employee_name,employee_no,employee_status,effective_date,planned_effective_on,lane,requester_user_id,requester_display_name,current_assignee_user_id,current_assignee_display_name,is_awaiting_me,assignment_id,valid_to,partial.",
+    "KEEP GET /v1/lifecycle/cases/{caseId}; response now also returns title,kind,effective_date,planned_effective_on,effective_at,requester_*,current_assignee_*,is_mine,is_awaiting_me,submitted_at,closed_at,current_node_key,before,after,effect_result,detail_frozen_at,case,intent. Application/effect status and timeline still come from Workflow.",
+    "KEEP all seven lifecycle POST commands; each now persists planned_effective_on and a non-PII deduplication_key on lifecycle_intents and records audit action lifecycle.case.created. Existing Idempotency-Key behavior is unchanged.",
+    "KEEP POST /v1/cases/{id}/withdraw and POST /v1/cases/{caseId}/decisions; the movement detail page now invokes them with Idempotency-Key and the Workflow state machine still owns 409 INVALID_CASE_TRANSITION / CASE_NOT_WITHDRAWABLE.",
+    "KEEP GET /v1/lifecycle/secondments; it is no longer read by the workspace (the unified ledger includes secondment rows) and remains only for the secondment detail deep link and generic People service.",
+    "No redirects: the seven legacy movement paths must be removed from registry, pages barrel and people catalog and must return 404."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "hr-movements",
+      "key": "lifecycle.movements.create",
+      "label": "发起异动",
+      "capability": "lifecycle.onboarding.manage|lifecycle.probation.manage|lifecycle.transfer.manage|lifecycle.terms.manage|lifecycle.secondment.manage|lifecycle.offboard.manage",
+      "api": "POST /v1/lifecycle/{kind-specific-path}",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-movements-by-id",
+      "key": "workflow.case.decide",
+      "label": "批准/驳回",
+      "capability": "workflow.case.decide",
+      "api": "POST /v1/cases/{caseId}/decisions",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-movements-by-id",
+      "key": "workflow.case.withdraw",
+      "label": "撤回申请",
+      "capability": "workflow.case.create",
+      "api": "POST /v1/cases/{id}/withdraw",
+      "ui": "danger",
+      "confirm": "danger"
+    }
+  ],
+  "notes": [
+    "Required lead integration outside this worker's strict file domain: delete the seven registry entries in frontend/src/router/registry.ts, the seven loaders in frontend/src/modules/people/pages/index.ts, the seven configs in frontend/src/modules/people/catalog.ts, the seven files Movement{Onboarding,Probation,Transfer,SalaryChange,Secondment,Offboarding,Calendar}Page.vue, and the seven page_code entries in backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php. Keep only hr/movements/index and hr/movements/by-id.",
+    "Workflow timeline: no contract added because backend/app/Modules/Workflow/** is forbidden to this worker. The detail page keeps the existing authenticated GET /v1/cases/{id}/timeline read behind workflow.case.read, so an actor with lifecycle.case.read but without workflow.case.read sees a partial-detail warning instead of a fabricated timeline. A lead-owned Workflow read contract can remove that partial state later.",
+    "Contract renewal and rehire are already covered: TermsChangeEffectHandler supports lifecycle.contract_renew and OnboardingEffectHandler supports lifecycle.rehire, and both are present in LifecycleServiceProvider::EFFECT_HANDLERS. No provider edit was needed; lifecycle.contract_renew/lifecycle.rehire are not unbound.",
+    "Effect idempotency: every handler calls alreadyApplied() under lockForUpdate before People writes and markEffective() only after success. Repeated decisions/effects return the frozen result and do not create a second assignment/employment/terms row. before_json/after_json/effect_result_json/detail_frozen_at are written inside the effect transaction.",
+    "New migration: backend/database/migrations/2026_11_27_000701_add_ledger_and_effect_snapshots_to_lifecycle_intents.php adds planned_effective_on, deduplication_key, before_json, after_json, effect_result_json and detail_frozen_at. It is forward-only; down() exists for local rollback symmetry only.",
+    "OpenAPI must be updated by the lead: GET /v1/lifecycle/cases query additions (type, kind, effective_from, effective_to, as_of) and the expanded list/detail DTOs. docs/openapi/** and docs/generated/** are outside this worker domain; frontend/src/generated/api.ts likewise needs regeneration.",
+    "Audit: lifecycle case creation now records lifecycle.case.created; effect support records lifecycle.effect.before_frozen and lifecycle.effect.applied; secondment start and checklist changes already recorded audit evidence. Payloads carry IDs/status/date evidence only, never PII.",
+    "Employee labels come only from People contracts: EmploymentLifecycleDirectory for live employment status and WorkforceReportingDirectory for reporting-safe display names/employee numbers. Because the latter is as-of a business date, a future onboarding or terminated employee not in that slice keeps a blank label and the stable employment id; no name is invented.",
+    "Workspace/catalog cleanup is intentionally NOT done here because router, pages barrel, people catalog and IAM catalog are forbidden by this worker's file domain. Until the lead applies the removal, the seven old routes still compile and MovementCalendarPage still wraps the old generic PeopleWorkspace shell.",
+    "Known limitation to report honestly: the unified 'all' ledger merges two server projections (Lifecycle intents and People secondments). Total is the sum of both filtered sets and the merged page is sorted/sliced on the server after reading only the required intent prefix; this is correct for the reference scale but is not a single SQL UNION.",
+    "Executed by this worker: php -l on all changed/new backend PHP files; vue-tsc --noEmit -p tsconfig.json (exit 0); focused Vitest MovementWorkspace.spec.ts + movementLedgerQuery.spec.ts + movementDetail.spec.ts (20 tests passed); focused PHPUnit MovementLedgerQueryTest (6 tests / 57 assertions), MovementDetailEffectTest (2 / 36), plus MovementWorkspaceTest, LifecycleCaseListTest, SecondmentTest, ContractRenewalTest, RehireTest, OnboardingEffectTest, TransferFutureEffectTest, OffboardingOffboardTest (27 / 268) and OnboardingDedupTest, SalaryChangeHistoryTest, OffboardingChecklistTest, LifecycleAuthorizationTest, TalentRedLinesTest, OfferIdempotencyTest (12 / 51), all green.",
+    "NOT RUN: full phpunit suite, pnpm gate:all, Playwright E2E, Pint, PHPStan, capability:audit, arch:test, OpenAPI lint/validate, and the full repository-wide typecheck script. New subroute-removal test is intentionally not authored here because the forbidden registry/catalog/barrel entries are still present until lead integration."
+  ]
+}

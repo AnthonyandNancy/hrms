@@ -7,6 +7,7 @@ namespace Tests\Feature\Time;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Services\LeaveAccountService;
 use App\Modules\Time\Services\LeaveLedgerService;
+use App\Modules\Time\Services\LeavePolicyService;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
@@ -146,6 +147,14 @@ final class TimeWorkflowIntegrationTest extends TestCase
             'created_at' => $this->clock->now(),
         ]);
 
+        app(LeavePolicyService::class)->append([
+            'leave_type_id' => (int) $type->id,
+            'effective_from' => '2026-01-01',
+            'effective_to' => '2026-12-31',
+            'accrual' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'min_notice_days' => 0,
+            'allow_half_day' => true,
+        ], 10);
         app(LeaveAccountService::class)->ensureAccount($employmentId, (int) $type->id, '2026-01-01');
         app(LeaveLedgerService::class)->grant($employmentId, (int) $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
 

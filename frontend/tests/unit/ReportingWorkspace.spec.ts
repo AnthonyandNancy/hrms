@@ -2,9 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import type {
+  DashboardSnapshot,
   ExportJob,
   MetricCardMetric,
   Notice,
@@ -44,8 +46,25 @@ function useCapabilities(capabilities: string[]): void {
 
 async function mountWithSession(component: object, capabilities: string[], options: Record<string, unknown> = {}) {
   useCapabilities(capabilities)
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/dashboard', name: 'dashboard', component: { template: '<div />' } },
+      { path: '/hr/employees', name: 'employees', component: { template: '<div />' } },
+      { path: '/hr/contracts', name: 'contracts', component: { template: '<div />' } },
+      { path: '/notices', name: 'notices', component: { template: '<div />' } },
+      { path: '/workflow', name: 'workflow', component: { template: '<div />' } },
+      { path: '/payroll', name: 'payroll', component: { template: '<div />' } },
+      { path: '/leave', name: 'leave', component: { template: '<div />' } },
+      { path: '/recruitment/candidates', name: 'candidates', component: { template: '<div />' } },
+      { path: '/:pathMatch(.*)*', name: 'catchall', component: { template: '<div />' } },
+    ],
+  })
+  await router.push('/dashboard')
+  await router.isReady()
   return mount(component, {
-    global: { plugins: [ElementPlus] },
+    global: { plugins: [ElementPlus, router] },
     ...options,
   })
 }
@@ -53,36 +72,49 @@ async function mountWithSession(component: object, capabilities: string[], optio
 function metric(overrides: Partial<MetricCardMetric> = {}): MetricCardMetric {
   return {
     code: 'headcount',
-    label: 'Headcount',
+    label: '在职人数',
     value: 1234,
-    unit: 'COUNT',
+    unit: 'PERSON',
+    unitLabel: '人',
     status: 'AVAILABLE',
     reason: null,
+    scope: 'AUTHORIZED',
+    scopeLabel: '按当前授权范围',
+    period: 'AS_OF',
+    predicate: '统计日有效任职且在当前授权组织范围内',
+    asOf: '2026-11-25',
+    drilldown: { route: '/hr/employees', query: { as_of: '2026-11-25' } },
     trend: null,
-    trendDirection: 'FLAT',
-    drilldownLabel: 'View details',
     sourceHash: 'a'.repeat(64),
     computedAt: '2026-11-25T06:00:00Z',
+    preview: [],
     ...overrides,
   }
 }
 
-function dashboard() {
+function dashboard(): DashboardSnapshot {
   return {
     asOf: '2026-11-25',
     freshness: '2026-11-25T06:05:00Z',
-    greeting: 'Welcome back',
+    freshnessState: 'LIVE',
     metrics: [
       metric(),
       metric({
         code: 'payroll_cost_by_entity',
-        label: 'Payroll cost by entity',
+        label: '薪酬成本',
         value: 0,
-        unit: 'MINOR_UNITS',
-        status: 'UNAVAILABLE',
-        reason: 'Payroll run tables exist, but no projection publishes finalized cost yet.',
+        unit: 'CNY_CENT',
+        unitLabel: '元',
+        status: 'UNCONFIGURED',
+        reason: '薪酬成本投影尚未配置：仅统计已发布工资批次的雇主成本，当前不提供估算值。',
+        drilldown: { route: '/payroll', query: { as_of: '2026-11-25' } },
       }),
     ],
+    sections: {
+      departments: [{ label: '合成制造部', count: 1 }],
+      workforce: [{ key: 'ACTIVE', label: '在职', count: 1 }],
+      recruitment: [],
+    },
     pendingApprovals: [],
     recentNotices: [],
     contractAlerts: [],
@@ -224,36 +256,17 @@ describe('reporting workspace', () => {
     expect(wrapper.text()).toContain('缓存')
     expect(wrapper.get('[data-testid="metric-partial"]').text()).toContain('部分组织尚在计算')
     expect(wrapper.text()).not.toContain('1,234.0')
+    expect(wrapper.text()).toContain('按当前授权范围')
+    expect(wrapper.text()).not.toContain('PERSON')
 
     await wrapper.get('button').trigger('click')
     expect(wrapper.emitted('drill')?.[0]).toEqual([expect.objectContaining({ code: 'headcount' })])
   })
 
-  it('loads the dashboard snapshot and drills into the real metric endpoint', async () => {
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/reporting/dashboard') return Promise.resolve(dashboard())
-      if (path === '/v1/reporting/dashboard/metrics/headcount') {
-        return Promise.resolve({
-          metric: 'headcount',
-          label: 'Headcount',
-          predicate: 'active employment',
-          asOf: '2026-11-25',
-          total: 1,
-          unit: 'COUNT',
-          status: 'AVAILABLE',
-          reason: null,
-          columns: [
-            { key: 'primary', label: 'Name' },
-            { key: 'status', label: 'Status' },
-          ],
-          items: [{ id: '7', primary: '合成员工', secondary: '合成制造部', status: 'ACTIVE', value: 1 }],
-          rows: [],
-        })
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`))
-    })
+  it('loads the dashboard snapshot and navigates with the server drilldown target', async () => {
+    resource.get.mockResolvedValue(dashboard())
 
-    const wrapper = await mountWithSession(DashboardPage, ['reporting.dashboard.read'])
+    const wrapper = await mountWithSession(DashboardPage, ['reporting.dashboard.read', 'people.employee.read'])
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/reporting/dashboard', { as_of: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
@@ -261,18 +274,16 @@ describe('reporting workspace', () => {
     expect(wrapper.text()).toContain('1,234')
     expect(wrapper.get('[data-testid="dashboard-partial"]').text()).toContain('薪酬成本')
     expect(wrapper.text()).not.toContain('Payroll run tables exist')
+    expect(wrapper.text()).not.toContain('MINOR_UNITS')
     expect(wrapper.text()).toContain('实时快照')
 
     await wrapper.get('[data-testid="metric-card-headcount"]').trigger('click')
     await flushPromises()
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/reporting/dashboard/metrics/headcount', {
-      as_of: '2026-11-25',
-    })
-    const drilldown = wrapper.get('[data-testid="dashboard-drilldown"]').text()
-    expect(drilldown).toContain('合成员工')
-    expect(drilldown).toContain('在职')
-    expect(drilldown).not.toContain('ACTIVE')
+    const router = wrapper.vm.$router
+    expect(router.currentRoute.value.path).toBe('/hr/employees')
+    expect(router.currentRoute.value.query).toEqual({ as_of: '2026-11-25' })
+    expect(resource.get).toHaveBeenCalledTimes(1)
   })
 
   it('shows a Chinese forbidden state and makes no dashboard request without its capability', async () => {
@@ -397,7 +408,10 @@ describe('reporting workspace', () => {
       props: { definition: definition(), asOf: '2026-10-31', filters: { org_unit_id: '12' } },
     })
 
-    await wrapper.get('[data-testid="export-purpose"]').setValue('AUDIT')
+    // Element Plus renders an el-select as a div in unit tests. Drive its model
+    // through the component contract and verify the request payload.
+    wrapper.findComponent({ name: 'ElSelect' }).vm.$emit('update:modelValue', 'AUDIT')
+    await flushPromises()
     await wrapper.get('[data-testid="export-submit"]').trigger('click')
     await flushPromises()
 
@@ -487,7 +501,13 @@ describe('reporting workspace', () => {
     await wrapper.get('[data-testid="notice-publish"]').trigger('click')
     await flushPromises()
 
-    expect(resource.post).not.toHaveBeenCalled()
+    // The confirmation step may perform one audience-preview POST, but it must
+    // not create the notice until the operator confirms explicitly.
+    expect(resource.post).not.toHaveBeenCalledWith(
+      '/v1/engagement/notices',
+      expect.anything(),
+      expect.anything(),
+    )
     expect(wrapper.get('[data-testid="notice-confirm"]').text()).toContain('确认发布公告')
     expect(wrapper.get('[data-testid="notice-confirm"]').text()).toContain('人力资源部')
 
@@ -503,6 +523,7 @@ describe('reporting workspace', () => {
         audienceLabel: '人力资源部',
         orgUnitIds: [12],
         requiresAck: true,
+        approvalRequired: false,
       },
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )

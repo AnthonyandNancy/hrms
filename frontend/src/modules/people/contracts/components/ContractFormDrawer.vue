@@ -30,6 +30,8 @@ type EditChanges = {
   end_date?: string | null
   signed_on?: string | null
   terms_summary?: string | null
+  work_location?: string | null
+  probation_end_date?: string | null
 }
 
 const props = withDefaults(
@@ -221,11 +223,23 @@ function submit(): void {
     const changes: EditChanges = {}
     if (draft.contractType !== (props.contract.contract_type as ContractType)) changes.contract_type = draft.contractType
     const nextEnd = draft.endDate === '' ? null : draft.endDate
+    const nextProbation = draft.probationEndDate === '' ? null : draft.probationEndDate
+    if (nextProbation !== null && nextEnd !== null && nextProbation > nextEnd) {
+      localError.value = '试用期结束日期必须落在合同期限内。'
+      return
+    }
+    if (nextProbation !== null && nextProbation < props.contract.start_date) {
+      localError.value = '试用期结束日期不能早于合同开始日期。'
+      return
+    }
     if (nextEnd !== props.contract.end_date) changes.end_date = nextEnd
     const nextSigned = draft.signedOn === '' ? null : draft.signedOn
     if (nextSigned !== props.contract.signed_on) changes.signed_on = nextSigned
     const nextTerms = draft.termsSummary.trim() === '' ? null : draft.termsSummary.trim()
     if (nextTerms !== props.contract.terms_summary) changes.terms_summary = nextTerms
+    const nextLocation = draft.workLocation.trim() === '' ? null : draft.workLocation.trim()
+    if (nextLocation !== props.contract.work_location) changes.work_location = nextLocation
+    if (nextProbation !== props.contract.probation_end_date) changes.probation_end_date = nextProbation
     if (Object.keys(changes).length === 0) {
       localError.value = '请至少修改一个可变更字段。'
       return
@@ -372,7 +386,6 @@ function submit(): void {
             v-model="draft.probationEndDate"
             data-testid="contract-probation"
             type="date"
-            :disabled="mode === 'edit'"
           />
           <small class="contract-field__hint">不得超过六个月且须在合同期限内。</small>
           <small v-if="firstFieldError('probation_end_date')" class="contract-field__error">{{ firstFieldError('probation_end_date') }}</small>
@@ -384,7 +397,6 @@ function submit(): void {
             v-model="draft.workLocation"
             data-testid="contract-location"
             maxlength="160"
-            :disabled="mode === 'edit'"
           />
           <small class="contract-field__hint">工作地点随版本快照保存。</small>
           <small v-if="firstFieldError('work_location')" class="contract-field__error">{{ firstFieldError('work_location') }}</small>
@@ -416,8 +428,7 @@ function submit(): void {
       </div>
 
       <p v-if="mode === 'edit'" class="contract-form__gap" data-testid="contract-edit-gap">
-        接口未提供劳动合同直接编辑路由；本抽屉通过追加变更版本保存合同类型、结束日期、签署日期与条款摘要。
-        工作地点与试用期属于雇佣条款版本，请在员工档案中维护。
+        合同不可直接覆盖：本抽屉会把合同类型、起止日期、签署信息、工作地点、试用期与条款摘要追加为新的变更版本，历史版本保留。
       </p>
 
       <p v-if="summaryError !== ''" class="contract-form__error" role="alert" data-testid="contract-form-error">

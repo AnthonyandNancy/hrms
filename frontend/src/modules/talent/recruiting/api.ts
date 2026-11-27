@@ -4,23 +4,8 @@ import { resourceGet, resourcePatch, resourcePost } from '@/api/resourceClient'
 /**
  * Recruitment workspace API boundary.
  *
- * Live routes used here (verified with `php artisan route:list --path=recruitment`):
- *   GET   /v1/recruitment/requisitions
- *   POST  /v1/recruitment/requisitions
- *   GET   /v1/recruitment/candidates
- *   GET   /v1/recruitment/offers
- *   POST  /v1/recruitment/candidates/{id}/convert
- *   GET   /v1/org-units/tree
- *
- * The workspace-only commands below are implemented in RecruitmentController
- * but their routes belong to the router owner:
- *   PATCH /v1/recruitment/requisitions/{id}
- *   POST  /v1/recruitment/requisitions/{id}/close
- *   PATCH /v1/recruitment/candidates/{id}/stage
- *   GET   /v1/recruitment/candidates/{id}/interviews
- *
- * The client normalises transport casing only. Money stays an integer count
- * of minor units until a component formats it, and absent server values stay
+ * The client normalises transport casing only. Money stays an integer count of
+ * minor units until a component formats it, and absent server values stay
  * absent instead of becoming zero or a fabricated row.
  */
 
@@ -94,7 +79,11 @@ export type Candidate = {
   hasEmail: boolean
   hasMobile: boolean
   source: string | null
+  applicationId: number | null
+  applicationStage: string | null
   requisitionId: number | null
+  onboardingCaseId: number | null
+  conversionStatus: string | null
   offerId: number | null
   offerStatus: string | null
   baseSalaryMinor: number | null
@@ -111,12 +100,15 @@ export type CandidateFilters = {
   requisitionId?: number | null
   status?: string
   search?: string
+  talentPool?: boolean
 }
 
 export type Interview = {
   id: number
   candidateId: number
   requisitionId: number
+  applicationId: number | null
+  applicationStage: string | null
   scheduledAt: string | null
   durationMinutes: number
   interviewer: string
@@ -148,6 +140,8 @@ export type Offer = {
   baseSalaryMinor: number
   salaryCurrency: string
   startDate: string
+  caseId: number | null
+  onboardingCaseId: number | null
   acceptedAt: string | null
 }
 
@@ -158,16 +152,148 @@ export type ConversionInput = {
 }
 
 export type CandidateConversion = {
-  conversionId: number
+  conversionId: number | null
   candidateId: number
-  employmentId: number
-  personId: number
+  employmentId: number | null
+  personId: number | null
   offerId: number
   orgUnitId: number
   employeeNo: string
   status: string
+  onboardingCaseId: number | null
   convertedAt: string | null
   businessReplayed: boolean
+}
+
+export type CandidateApplication = {
+  id: number
+  candidateId: number
+  requisitionId: number
+  openingId: number | null
+  stage: string
+  status: string
+  source: string | null
+  recordedAt: string | null
+  requisitionNo: string | null
+  requisitionTitle: string | null
+  requisitionStatus: string | null
+}
+
+export type InterviewInput = {
+  requisitionId: number
+  scheduledAt: string
+  durationMinutes: number
+  interviewer: string
+  mode: string
+}
+
+export type Evaluation = {
+  id: number
+  candidateId: number
+  interviewId: number | null
+  evaluatorUserId: number
+  rating: number
+  recommendation: string
+  strengths: string | null
+  concerns: string | null
+  comments: string | null
+  status: string
+  recordedAt: string | null
+}
+
+export type Communication = {
+  id: number
+  candidateId: number
+  channel: string
+  direction: string
+  subject: string | null
+  body: string
+  consentBasis: string
+  sentAt: string | null
+  recordedAt: string | null
+}
+
+export type TalentPoolTag = {
+  id: number
+  candidateId: number
+  tag: string
+  reason: string | null
+  retentionUntil: string | null
+  status: string
+  recordedAt: string | null
+}
+
+export type RequisitionOpening = {
+  id: number
+  requisitionId: number
+  channel: string
+  status: string
+  publishedAt: string | null
+}
+
+export type RecruitmentBoardRow = {
+  requisitionId: number
+  requisitionNo: string
+  title: string
+  status: string
+  headcount: number
+  openingsCount: number
+  candidateCount: number
+  interviewCount: number
+  offerCount: number
+  acceptedOffers: number
+  hiredCount: number
+  vacancyCount: number
+  fillRateBps: number
+}
+
+export type RecruitmentBudgetRow = {
+  requisitionId: number
+  requisitionNo: string
+  title: string
+  status: string
+  headcount: number
+  budgetMinor: number | null
+  budgetCurrency: string | null
+  committedOfferMinor: number
+  budgetVarianceMinor: number | null
+  filledHeadcount: number
+  vacancyCount: number
+}
+
+export type RecruitmentReportRow = {
+  requisitionId: number
+  requisitionNo: string
+  title: string
+  status: string
+  headcount: number
+  openingsCount: number
+  candidateCount: number
+  interviewCount: number
+  offerCount: number
+  acceptedOffers: number
+  hiredCount: number
+  fillRateBps: number
+  timeToHireDays: number | null
+}
+
+export type CandidateImportRow = {
+  rowNumber: number
+  status: string
+  reason: string | null
+  errors: Record<string, string[]>
+  candidateId: number | null
+}
+
+export type CandidateImportResult = {
+  importId: number
+  requisitionId: number | null
+  source: string
+  rowCount: number
+  acceptedCount: number
+  rejectedCount: number
+  rows: CandidateImportRow[]
+  recordedAt: string | null
 }
 
 export type ListResult<T> = {
@@ -236,6 +362,13 @@ export const REQUISITION_STATUS_OPTIONS: ReadonlyArray<{ value: RequisitionStatu
   { value: 'PENDING_APPROVAL', label: '招聘中' },
   { value: 'ON_HOLD', label: '已暂停' },
   { value: 'CLOSED', label: '已关闭' },
+]
+
+export const OPENING_CHANNELS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'EXTERNAL', label: '外部渠道' },
+  { value: 'INTERNAL', label: '内部渠道' },
+  { value: 'REFERRAL', label: '内部推荐' },
+  { value: 'AGENCY', label: '猎头渠道' },
 ]
 
 export function requisitionStatusLabel(value: string): string {
@@ -430,7 +563,11 @@ export function normaliseCandidate(raw: unknown): Candidate {
     hasEmail: row.has_email === true,
     hasMobile: row.has_mobile === true,
     source: nullableText(row.source),
+    applicationId: nullableInteger(row.application_id),
+    applicationStage: nullableText(row.application_stage),
     requisitionId: nullableInteger(row.requisition_id),
+    onboardingCaseId: nullableInteger(row.onboarding_case_id),
+    conversionStatus: nullableText(row.conversion_status),
     offerId: nullableInteger(row.offer_id),
     offerStatus: nullableText(row.offer_status),
     baseSalaryMinor: nullableInteger(row.base_salary_minor),
@@ -452,6 +589,7 @@ export async function listCandidates(
     candidate_id: filters.candidateId ?? undefined,
     status: filters.status || undefined,
     search: filters.search || undefined,
+    talent_pool: filters.talentPool ? true : undefined,
     page,
     page_size: pageSize,
   })
@@ -463,10 +601,15 @@ export async function moveCandidateStage(
   candidateId: number,
   status: string,
   reason: string | null = null,
-): Promise<{ candidateId: number; status: string; previousStatus: string; replayed: boolean }> {
+  applicationId: number | null = null,
+): Promise<{ candidateId: number; status: string; previousStatus: string; replayed: boolean; applicationId: number | null }> {
   const raw = await resourcePatch<unknown>(
     `/v1/recruitment/candidates/${candidateId}/stage`,
-    { status, ...(reason === null || reason.trim() === '' ? {} : { reason: reason.trim() }) },
+    {
+      status,
+      ...(applicationId !== null ? { application_id: applicationId } : {}),
+      ...(reason === null || reason.trim() === '' ? {} : { reason: reason.trim() }),
+    },
     { idempotencyKey: nextIdempotencyKey(`candidate-stage-${candidateId}`) },
   )
   const row = isRecord(raw) ? raw : contractError('candidate_stage')
@@ -475,6 +618,7 @@ export async function moveCandidateStage(
     status: text(row.status, 'status'),
     previousStatus: text(row.previous_status, 'previous_status'),
     replayed: row.replayed === true,
+    applicationId: nullableInteger(row.application_id),
   }
 }
 
@@ -485,6 +629,8 @@ export function normaliseInterview(raw: unknown): Interview {
     id: integer(row.interview_id, 'interview_id'),
     candidateId: integer(row.candidate_id, 'candidate_id'),
     requisitionId: integer(row.requisition_id, 'requisition_id'),
+    applicationId: nullableInteger(row.application_id),
+    applicationStage: nullableText(row.application_stage),
     scheduledAt: nullableText(row.scheduled_at),
     durationMinutes: integer(row.duration_minutes, 'duration_minutes'),
     interviewer: text(row.interviewer, 'interviewer'),
@@ -515,6 +661,8 @@ export function normaliseOffer(raw: unknown): Offer {
     baseSalaryMinor: integer(row.base_salary_minor, 'base_salary_minor'),
     salaryCurrency: text(row.salary_currency, 'salary_currency'),
     startDate: text(row.start_date, 'start_date'),
+    caseId: nullableInteger(row.case_id),
+    onboardingCaseId: nullableInteger(row.onboarding_case_id),
     acceptedAt: nullableText(row.accepted_at),
   }
 }
@@ -553,16 +701,390 @@ export async function convertCandidate(
   const row = isRecord(raw) ? raw : contractError('candidate_conversion')
 
   return {
-    conversionId: integer(row.conversion_id, 'conversion_id'),
+    conversionId: nullableInteger(row.conversion_id),
     candidateId: integer(row.candidate_id, 'candidate_id'),
-    employmentId: integer(row.employment_id, 'employment_id'),
-    personId: integer(row.person_id, 'person_id'),
+    employmentId: nullableInteger(row.employment_id),
+    personId: nullableInteger(row.person_id),
     offerId: integer(row.offer_id, 'offer_id'),
     orgUnitId: integer(row.org_unit_id, 'org_unit_id'),
     employeeNo: text(row.employee_no, 'employee_no'),
     status: text(row.status, 'status'),
+    onboardingCaseId: nullableInteger(row.onboarding_case_id),
     convertedAt: nullableText(row.converted_at),
     businessReplayed: row.business_replayed === true,
+  }
+}
+
+export function normaliseCandidateApplication(raw: unknown): CandidateApplication {
+  const row = isRecord(raw) ? raw : contractError('candidate_application')
+
+  return {
+    id: integer(row.application_id, 'application_id'),
+    candidateId: integer(row.candidate_id, 'candidate_id'),
+    requisitionId: integer(row.requisition_id, 'requisition_id'),
+    openingId: nullableInteger(row.opening_id),
+    stage: text(row.stage, 'stage'),
+    status: text(row.status, 'status'),
+    source: nullableText(row.source),
+    recordedAt: nullableText(row.recorded_at),
+    requisitionNo: nullableText(row.requisition_no),
+    requisitionTitle: nullableText(row.requisition_title),
+    requisitionStatus: nullableText(row.requisition_status),
+  }
+}
+
+export async function listApplications(candidateId: number): Promise<CandidateApplication[]> {
+  const raw = await resourceGet<unknown>(`/v1/recruitment/candidates/${candidateId}/applications`)
+  return rowsOf(raw).map(normaliseCandidateApplication)
+}
+
+export async function createApplication(
+  candidateId: number,
+  input: { requisitionId: number; openingId?: number | null; source?: string | null },
+): Promise<CandidateApplication> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/candidates/${candidateId}/applications`,
+    {
+      requisition_id: input.requisitionId,
+      ...(input.openingId ? { opening_id: input.openingId } : {}),
+      ...(input.source ? { source: input.source } : {}),
+    },
+    { idempotencyKey: nextIdempotencyKey(`candidate-application-${candidateId}`) },
+  )
+
+  return normaliseCandidateApplication(raw)
+}
+
+export async function createInterview(candidateId: number, input: InterviewInput): Promise<Interview> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/candidates/${candidateId}/interviews`,
+    {
+      requisition_id: input.requisitionId,
+      scheduled_at: input.scheduledAt,
+      duration_minutes: input.durationMinutes,
+      interviewer: input.interviewer,
+      mode: input.mode,
+    },
+    { idempotencyKey: nextIdempotencyKey(`candidate-interview-${candidateId}`) },
+  )
+
+  return normaliseInterview(raw)
+}
+
+export function normaliseEvaluation(raw: unknown): Evaluation {
+  const row = isRecord(raw) ? raw : contractError('candidate_evaluation')
+
+  return {
+    id: integer(row.evaluation_id, 'evaluation_id'),
+    candidateId: integer(row.candidate_id, 'candidate_id'),
+    interviewId: nullableInteger(row.interview_id),
+    evaluatorUserId: integer(row.evaluator_user_id, 'evaluator_user_id'),
+    rating: integer(row.rating, 'rating'),
+    recommendation: text(row.recommendation, 'recommendation'),
+    strengths: nullableText(row.strengths),
+    concerns: nullableText(row.concerns),
+    comments: nullableText(row.comments),
+    status: text(row.status, 'status'),
+    recordedAt: nullableText(row.recorded_at),
+  }
+}
+
+export async function listEvaluations(candidateId: number): Promise<Evaluation[]> {
+  const raw = await resourceGet<unknown>(`/v1/recruitment/candidates/${candidateId}/evaluations`)
+  return rowsOf(raw).map(normaliseEvaluation)
+}
+
+export async function createEvaluation(
+  candidateId: number,
+  input: {
+    interviewId: number | null
+    rating: number
+    recommendation: string
+    strengths?: string | null
+    concerns?: string | null
+    comments?: string | null
+  },
+): Promise<Evaluation> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/candidates/${candidateId}/evaluations`,
+    {
+      ...(input.interviewId !== null ? { interview_id: input.interviewId } : {}),
+      rating: input.rating,
+      recommendation: input.recommendation,
+      strengths: input.strengths ?? null,
+      concerns: input.concerns ?? null,
+      comments: input.comments ?? null,
+    },
+    { idempotencyKey: nextIdempotencyKey(`candidate-evaluation-${candidateId}`) },
+  )
+
+  return normaliseEvaluation(raw)
+}
+
+export function normaliseCommunication(raw: unknown): Communication {
+  const row = isRecord(raw) ? raw : contractError('candidate_communication')
+
+  return {
+    id: integer(row.communication_id, 'communication_id'),
+    candidateId: integer(row.candidate_id, 'candidate_id'),
+    channel: text(row.channel, 'channel'),
+    direction: text(row.direction, 'direction'),
+    subject: nullableText(row.subject),
+    body: text(row.body, 'body'),
+    consentBasis: text(row.consent_basis, 'consent_basis'),
+    sentAt: nullableText(row.sent_at),
+    recordedAt: nullableText(row.recorded_at),
+  }
+}
+
+export async function listCommunications(candidateId: number): Promise<Communication[]> {
+  const raw = await resourceGet<unknown>(`/v1/recruitment/candidates/${candidateId}/communications`)
+  return rowsOf(raw).map(normaliseCommunication)
+}
+
+export async function createCommunication(
+  candidateId: number,
+  input: {
+    channel: string
+    direction: string
+    subject: string | null
+    body: string
+    consentBasis: string
+    sentAt?: string | null
+  },
+): Promise<Communication> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/candidates/${candidateId}/communications`,
+    {
+      channel: input.channel,
+      direction: input.direction,
+      subject: input.subject,
+      body: input.body,
+      consent_basis: input.consentBasis,
+      ...(input.sentAt ? { sent_at: input.sentAt } : {}),
+    },
+    { idempotencyKey: nextIdempotencyKey(`candidate-communication-${candidateId}`) },
+  )
+
+  return normaliseCommunication(raw)
+}
+
+export function normaliseTalentPoolTag(raw: unknown): TalentPoolTag {
+  const row = isRecord(raw) ? raw : contractError('talent_pool_tag')
+
+  return {
+    id: integer(row.tag_id, 'tag_id'),
+    candidateId: integer(row.candidate_id, 'candidate_id'),
+    tag: text(row.tag, 'tag'),
+    reason: nullableText(row.reason),
+    retentionUntil: nullableText(row.retention_until),
+    status: text(row.status, 'status'),
+    recordedAt: nullableText(row.recorded_at),
+  }
+}
+
+export async function listTalentPoolTags(candidateId: number): Promise<TalentPoolTag[]> {
+  const raw = await resourceGet<unknown>(`/v1/recruitment/candidates/${candidateId}/talent-pool`)
+  return rowsOf(raw).map(normaliseTalentPoolTag)
+}
+
+export async function createTalentPoolTag(
+  candidateId: number,
+  input: { tag: string; reason: string | null; retentionUntil: string | null },
+): Promise<TalentPoolTag> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/candidates/${candidateId}/talent-pool`,
+    {
+      tag: input.tag,
+      reason: input.reason,
+      retention_until: input.retentionUntil,
+    },
+    { idempotencyKey: nextIdempotencyKey(`candidate-talent-pool-${candidateId}`) },
+  )
+
+  return normaliseTalentPoolTag(raw)
+}
+
+export async function createOffer(input: {
+  candidateId: number
+  requisitionId: number
+  baseSalaryMinor: number
+  salaryCurrency: string
+  startDate: string
+}): Promise<Offer> {
+  const raw = await resourcePost<unknown>(
+    '/v1/recruitment/offers',
+    {
+      candidate_id: input.candidateId,
+      requisition_id: input.requisitionId,
+      base_salary_minor: input.baseSalaryMinor,
+      salary_currency: input.salaryCurrency,
+      start_date: input.startDate,
+    },
+    { idempotencyKey: nextIdempotencyKey(`offer-create-${input.candidateId}`) },
+  )
+  const row = isRecord(raw) ? raw : contractError('offer')
+
+  return {
+    id: integer(row.offer_id, 'offer_id'),
+    candidateId: input.candidateId,
+    requisitionId: input.requisitionId,
+    version: integer(row.version, 'version'),
+    status: text(row.status, 'status') as OfferStatus,
+    statusLabel: offerStatusLabel(text(row.status, 'status')),
+    baseSalaryMinor: input.baseSalaryMinor,
+    salaryCurrency: input.salaryCurrency,
+    startDate: input.startDate,
+    caseId: nullableInteger(row.case_id),
+    onboardingCaseId: nullableInteger(row.onboarding_case_id),
+    acceptedAt: null,
+  }
+}
+
+export async function acceptOffer(
+  offerId: number,
+  input: { orgUnitId: number; employeeNo: string; hireDate: string | null },
+): Promise<{ offerId: number; offerStatus: string; onboardingCaseId: number | null; replayed: boolean }> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/offers/${offerId}/accept`,
+    {
+      org_unit_id: input.orgUnitId,
+      employee_no: input.employeeNo.trim(),
+      ...(input.hireDate ? { hire_date: input.hireDate } : {}),
+    },
+    { idempotencyKey: nextIdempotencyKey(`offer-accept-${offerId}`) },
+  )
+  const row = isRecord(raw) ? raw : contractError('offer_accept')
+
+  return {
+    offerId: integer(row.offer_id, 'offer_id'),
+    offerStatus: text(row.offer_status ?? row.status, 'offer_status'),
+    onboardingCaseId: nullableInteger(row.onboarding_case_id),
+    replayed: row.replayed === true,
+  }
+}
+
+export function normaliseOpening(raw: unknown): RequisitionOpening {
+  const row = isRecord(raw) ? raw : contractError('requisition_opening')
+
+  return {
+    id: integer(row.opening_id, 'opening_id'),
+    requisitionId: integer(row.requisition_id, 'requisition_id'),
+    channel: text(row.channel, 'channel'),
+    status: text(row.status, 'status'),
+    publishedAt: nullableText(row.published_at),
+  }
+}
+
+export async function listRequisitionOpenings(requisitionId: number): Promise<RequisitionOpening[]> {
+  const raw = await resourceGet<unknown>(`/v1/recruitment/requisitions/${requisitionId}/openings`)
+  return rowsOf(raw).map(normaliseOpening)
+}
+
+export async function publishRequisitionOpening(requisitionId: number, channel: string): Promise<RequisitionOpening> {
+  const raw = await resourcePost<unknown>(
+    `/v1/recruitment/requisitions/${requisitionId}/openings`,
+    { channel },
+    { idempotencyKey: nextIdempotencyKey(`requisition-opening-${requisitionId}`) },
+  )
+
+  return normaliseOpening(raw)
+}
+
+export async function listRecruitmentBoard(): Promise<RecruitmentBoardRow[]> {
+  const raw = await resourceGet<unknown>('/v1/recruitment/board')
+  return rowsOf(raw).map((row) => ({
+    requisitionId: integer(row.requisition_id, 'requisition_id'),
+    requisitionNo: text(row.requisition_no, 'requisition_no'),
+    title: text(row.title, 'title'),
+    status: text(row.status, 'status'),
+    headcount: integer(row.headcount, 'headcount'),
+    openingsCount: integer(row.openings_count, 'openings_count'),
+    candidateCount: integer(row.candidate_count, 'candidate_count'),
+    interviewCount: integer(row.interview_count, 'interview_count'),
+    offerCount: integer(row.offer_count, 'offer_count'),
+    acceptedOffers: integer(row.accepted_offers, 'accepted_offers'),
+    hiredCount: integer(row.hired_count, 'hired_count'),
+    vacancyCount: integer(row.vacancy_count, 'vacancy_count'),
+    fillRateBps: integer(row.fill_rate_bps, 'fill_rate_bps'),
+  }))
+}
+
+export async function listRecruitmentBudget(): Promise<RecruitmentBudgetRow[]> {
+  const raw = await resourceGet<unknown>('/v1/recruitment/budget')
+  return rowsOf(raw).map((row) => ({
+    requisitionId: integer(row.requisition_id, 'requisition_id'),
+    requisitionNo: text(row.requisition_no, 'requisition_no'),
+    title: text(row.title, 'title'),
+    status: text(row.status, 'status'),
+    headcount: integer(row.headcount, 'headcount'),
+    budgetMinor: nullableInteger(row.budget_minor),
+    budgetCurrency: nullableText(row.budget_currency),
+    committedOfferMinor: integer(row.committed_offer_minor, 'committed_offer_minor'),
+    budgetVarianceMinor: nullableInteger(row.budget_variance_minor),
+    filledHeadcount: integer(row.filled_headcount, 'filled_headcount'),
+    vacancyCount: integer(row.vacancy_count, 'vacancy_count'),
+  }))
+}
+
+export async function listRecruitmentReports(): Promise<RecruitmentReportRow[]> {
+  const raw = await resourceGet<unknown>('/v1/recruitment/reports')
+  return rowsOf(raw).map((row) => ({
+    requisitionId: integer(row.requisition_id, 'requisition_id'),
+    requisitionNo: text(row.requisition_no, 'requisition_no'),
+    title: text(row.title, 'title'),
+    status: text(row.status, 'status'),
+    headcount: integer(row.headcount, 'headcount'),
+    openingsCount: integer(row.openings_count, 'openings_count'),
+    candidateCount: integer(row.candidate_count, 'candidate_count'),
+    interviewCount: integer(row.interview_count, 'interview_count'),
+    offerCount: integer(row.offer_count, 'offer_count'),
+    acceptedOffers: integer(row.accepted_offers, 'accepted_offers'),
+    hiredCount: integer(row.hired_count, 'hired_count'),
+    fillRateBps: integer(row.fill_rate_bps, 'fill_rate_bps'),
+    timeToHireDays: nullableInteger(row.time_to_hire_days),
+  }))
+}
+
+export async function importCandidates(input: {
+  requisitionId: number | null
+  source: string
+  rows: Array<{ display_name: string; email?: string; mobile?: string; source?: string }>
+}): Promise<CandidateImportResult> {
+  const raw = await resourcePost<unknown>(
+    '/v1/recruitment/candidates/imports',
+    {
+      requisition_id: input.requisitionId,
+      source: input.source,
+      rows: input.rows,
+    },
+    { idempotencyKey: nextIdempotencyKey('candidate-import') },
+  )
+  const row = isRecord(raw) ? raw : contractError('candidate_import')
+  const reports = Array.isArray(row.rows) ? row.rows.filter(isRecord) : []
+
+  return {
+    importId: integer(row.import_id, 'import_id'),
+    requisitionId: nullableInteger(row.requisition_id),
+    source: text(row.source, 'source'),
+    rowCount: integer(row.row_count, 'row_count'),
+    acceptedCount: integer(row.accepted_count, 'accepted_count'),
+    rejectedCount: integer(row.rejected_count, 'rejected_count'),
+    rows: reports.map((report) => ({
+      rowNumber: integer(report.row_number, 'row_number'),
+      status: text(report.status, 'status'),
+      reason: nullableText(report.reason),
+      errors: isRecord(report.errors)
+        ? Object.fromEntries(
+            Object.entries(report.errors).map(([field, messages]) => [
+              field,
+              Array.isArray(messages) ? messages.filter((message): message is string => typeof message === 'string') : [],
+            ]),
+          )
+        : {},
+      candidateId: nullableInteger(report.candidate_id),
+    })),
+    recordedAt: nullableText(row.recorded_at),
   }
 }
 

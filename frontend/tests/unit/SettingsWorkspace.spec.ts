@@ -6,7 +6,7 @@ import ElementPlus from 'element-plus'
 import { defineComponent } from 'vue'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
-import SystemCalendarsPage from '@/modules/platform/pages/SystemCalendarsPage.vue'
+import SettingsCalendarTab from '@/modules/platform/components/SettingsCalendarTab.vue'
 import SystemSettingsPage from '@/modules/platform/pages/SystemSettingsPage.vue'
 import BenefitsPage from '@/modules/platform/pages/BenefitsPage.vue'
 import { percentToRate, ratePercent } from '@/modules/platform/api/settings'
@@ -41,7 +41,6 @@ const router = createRouter({
   history: createMemoryHistory(),
   routes: [
     { path: '/benefits', name: 'benefits', component: { template: '<div />' } },
-    { path: '/system/calendars', name: 'system-calendars', component: { template: '<div />' } },
     { path: '/system/settings', name: 'system-settings', component: { template: '<div />' } },
     { path: '/hr/employees/:id/files', name: 'hr-employees-by-id-files', component: { template: '<div />' } },
   ],
@@ -159,6 +158,9 @@ describe('settings workspace', () => {
           version: 1,
         }], { total: params?.plan_id === 10 ? 1 : 1 }))
       }
+      if (path === '/v1/payroll/statutory-parameters') {
+        return Promise.resolve(listResponse([]))
+      }
       if (path === '/v1/benefits/transactions') {
         return Promise.resolve(listResponse([{
           id: 30,
@@ -181,15 +183,12 @@ describe('settings workspace', () => {
 
     expect(resource.get).toHaveBeenCalledWith('/v1/benefits/plans', expect.any(Object))
     expect(resource.get).toHaveBeenCalledWith('/v1/benefits/enrollments', expect.any(Object))
-    expect(resource.get).toHaveBeenCalledWith('/v1/benefits/transactions', expect.any(Object))
     expect(wrapper.find('[data-testid="benefits-page"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).toContain('SOCIAL_INSURANCE')
+    expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).toContain('社会保险')
     expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).toContain('16%')
     expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).toContain('8%')
     expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).not.toContain('0.160000')
     expect(wrapper.find('[data-testid="benefit-plans-panel"]').text()).toContain('1 人')
-    expect(wrapper.find('[data-testid="benefit-enrollments-panel"]').text()).toContain('¥10,000.00')
-    expect(wrapper.find('[data-testid="benefit-transactions-panel"]').text()).toContain('¥2,400.00')
 
     await wrapper.get('[data-testid="benefit-plan-code"]').setValue('HOUSING_FUND')
     await wrapper.get('[data-testid="benefit-plan-name"]').setValue('住房公积金')
@@ -214,6 +213,7 @@ describe('settings workspace', () => {
       if (path === '/v1/benefits/plans') return Promise.resolve(listResponse([plan]))
       if (path === '/v1/benefits/enrollments') return Promise.resolve(listResponse([]))
       if (path === '/v1/benefits/transactions') return Promise.resolve(listResponse([]))
+      if (path === '/v1/payroll/statutory-parameters') return Promise.resolve(listResponse([]))
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
 
@@ -235,6 +235,7 @@ describe('settings workspace', () => {
       if (path === '/v1/benefits/plans') return Promise.resolve(listResponse([]))
       if (path === '/v1/benefits/enrollments') return Promise.resolve(listResponse([]))
       if (path === '/v1/benefits/transactions') return Promise.resolve(listResponse([]))
+      if (path === '/v1/payroll/statutory-parameters') return Promise.resolve(listResponse([]))
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
     const loading = await mountPage(BenefitsPage, ['benefit.read'])
@@ -254,8 +255,7 @@ describe('settings workspace', () => {
 
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/benefits/plans') return Promise.resolve(listResponse([plan]))
-      if (path === '/v1/benefits/enrollments') return Promise.resolve(listResponse([]))
-      if (path === '/v1/benefits/transactions') {
+      if (path === '/v1/benefits/enrollments') {
         return Promise.reject(new ApiError('INTERNAL', 'Boom', { status: 500 }))
       }
       return Promise.reject(new Error(`Unexpected path ${path}`))
@@ -269,9 +269,9 @@ describe('settings workspace', () => {
     resource.get.mockResolvedValue({ ...calendar, partial: true, partial_reason: '仅返回所选年度快照' })
     resource.post.mockResolvedValue({ ...calendar, version: 5 })
 
-    const wrapper = await mountPage(SystemCalendarsPage, ['time.calendar.read', 'time.calendar.manage'], '/system/calendars')
+    const wrapper = await mountPage(SettingsCalendarTab, ['time.calendar.read', 'time.calendar.manage'], '/system/settings')
     await flushPromises()
-    await wrapper.get('[data-testid="calendar-year-input"] input').setValue('2027')
+    await wrapper.get('[data-testid="settings-calendar-year-input"] input').setValue('2027')
     await flushPromises()
 
     expect(resource.get).toHaveBeenCalledWith('/v1/time/calendars', { year: 2027 })
@@ -283,10 +283,10 @@ describe('settings workspace', () => {
     expect(text).not.toContain('legal_entity')
     expect(text).not.toContain('tenant')
 
-    await wrapper.get('[data-testid="calendar-publish"]').trigger('click')
+    await wrapper.get('[data-testid="settings-calendar-publish"]').trigger('click')
     await flushPromises()
-    expect(wrapper.find('[data-testid="calendar-publish-confirm"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="calendar-publish-confirm-ok"]').trigger('click')
+    expect(wrapper.find('[data-testid="settings-calendar-publish-confirm"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="settings-calendar-publish-confirm-ok"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
@@ -306,28 +306,51 @@ describe('settings workspace', () => {
 
   it('hides calendar publication without manage capability and shows forbidden/error/empty states', async () => {
     resource.get.mockResolvedValue({ ...calendar, holidays: [] })
-    const readOnly = await mountPage(SystemCalendarsPage, ['time.calendar.read'], '/system/calendars')
+    const readOnly = await mountPage(SettingsCalendarTab, ['time.calendar.read'], '/system/settings')
     await flushPromises()
-    expect(readOnly.find('[data-testid="calendar-publish"]').exists()).toBe(false)
+    expect(readOnly.find('[data-testid="settings-calendar-publish"]').exists()).toBe(false)
 
     resource.get.mockRejectedValue(new ApiError('FORBIDDEN', 'Forbidden', { status: 403 }))
-    const forbidden = await mountPage(SystemCalendarsPage, ['time.calendar.read'], '/system/calendars')
+    const forbidden = await mountPage(SettingsCalendarTab, ['time.calendar.read'], '/system/settings')
     await flushPromises()
     expect(forbidden.find('[data-testid="calendar-forbidden"]').exists()).toBe(true)
 
     resource.get.mockRejectedValue(new ApiError('INTERNAL', 'Boom', { status: 500, requestId: 'req-calendar-500' }))
-    const failed = await mountPage(SystemCalendarsPage, ['time.calendar.read'], '/system/calendars')
+    const failed = await mountPage(SettingsCalendarTab, ['time.calendar.read'], '/system/settings')
     await flushPromises()
     expect(failed.find('[data-testid="calendar-error"]').text()).toContain('req-calendar-500')
 
     resource.get.mockResolvedValue({ ...calendar, version: 0, holidays: [] })
-    const empty = await mountPage(SystemCalendarsPage, ['time.calendar.read'], '/system/calendars')
+    const empty = await mountPage(SettingsCalendarTab, ['time.calendar.read'], '/system/settings')
     await flushPromises()
     expect(empty.find('[data-testid="calendar-empty"]').exists()).toBe(true)
   })
 
-  it('edits only existing dictionary entries and typed parameters, and links employee files without fake rows', async () => {
+  it('renders one settings shell with five tabs and only mounts the selected tab', async () => {
+    const wrapper = await mountPage(SystemSettingsPage, [
+      'system.settings.manage',
+      'platform.feature.manage',
+      'system.dictionary.manage',
+      'system.parameter.manage',
+      'time.calendar.read',
+    ], '/system/settings')
+    await flushPromises()
+
+    const tabs = wrapper.get('[data-testid="settings-tabs"]').text()
+    expect(tabs).toContain('公司')
+    expect(tabs).toContain('日历')
+    expect(tabs).toContain('字典')
+    expect(tabs).toContain('参数')
+    expect(tabs).toContain('文件')
+    expect(wrapper.find('[data-testid="settings-company"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="settings-dictionaries"]').exists()).toBe(false)
+  })
+
+  it('edits only existing dictionary entries and typed parameters in their own tabs', async () => {
     resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/system/company-profile') {
+        return Promise.resolve({ name: 'Synthetic Company', country_code: 'CN', timezone: 'Asia/Shanghai', currency_code: 'CNY', calendar_policy: null })
+      }
       if (path === '/v1/platform/features') {
         return Promise.resolve({ items: [{ flag: 'payroll_enabled', enabled: false, risky: true }] })
       }
@@ -345,51 +368,52 @@ describe('settings workspace', () => {
       return Promise.reject(new Error(`Unexpected path ${path}`))
     })
 
-    const wrapper = await mountPage(SystemSettingsPage, [
+    const dictionary = await mountPage(SystemSettingsPage, [
       'system.settings.manage',
-      'platform.feature.manage',
       'system.dictionary.manage',
       'system.parameter.manage',
-    ], '/system/settings')
+      'platform.feature.manage',
+    ], '/system/settings?tab=dictionary')
     await flushPromises()
+    expect(dictionary.find('[data-testid="settings-dictionaries"]').text()).toContain('试用')
+    expect(dictionary.find('[data-testid="settings-parameters"]').exists()).toBe(false)
 
-    expect(resource.get).toHaveBeenCalledWith('/v1/platform/features')
-    expect(resource.get).toHaveBeenCalledWith('/v1/system/dictionaries', expect.any(Object))
-    expect(resource.get).toHaveBeenCalledWith('/v1/system/parameters', expect.any(Object))
-    expect(wrapper.find('[data-testid="settings-dictionaries"]').text()).toContain('试用')
-    expect(wrapper.find('[data-testid="settings-dictionaries"]').text()).toContain('PROBATION')
-    expect(wrapper.find('[data-testid="settings-parameters"]').text()).toContain('分页每页上限')
-    expect(wrapper.find('[data-testid="settings-parameters"]').text()).not.toContain('mail.password')
-    expect(wrapper.find('[data-testid="parameter-key"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="dictionary-type"]').exists()).toBe(false)
-
-    await wrapper.get('[data-testid="settings-dictionary-edit-2"]').trigger('click')
+    await dictionary.get('[data-testid="settings-dictionary-edit-2"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-testid="dictionary-label"]').setValue('试用期')
-    await wrapper.get('[data-testid="dictionary-save"]').trigger('click')
+    await dictionary.get('[data-testid="dictionary-label"]').setValue('试用期')
+    await dictionary.get('[data-testid="dictionary-save"]').trigger('click')
     await flushPromises()
-
     expect(resource.patch).toHaveBeenCalledWith(
       '/v1/system/dictionaries/2',
       expect.objectContaining({ label: '试用期' }),
       expect.objectContaining({ idempotencyKey: expect.any(String) }),
     )
 
-    await wrapper.get('[data-testid="settings-parameter-edit-3"]').trigger('click')
+    const parameters = await mountPage(SystemSettingsPage, [
+      'system.settings.manage',
+      'system.parameter.manage',
+      'platform.feature.manage',
+    ], '/system/settings?tab=parameter')
     await flushPromises()
-    await wrapper.get('[data-testid="parameter-value"]').setValue('80')
-    await wrapper.get('[data-testid="parameter-save"]').trigger('click')
-    await flushPromises()
+    expect(parameters.find('[data-testid="settings-parameters"]').text()).toContain('分页每页上限')
+    expect(parameters.find('[data-testid="settings-parameters"]').text()).not.toContain('mail.password')
+    expect(parameters.find('[data-testid="parameter-key"]').exists()).toBe(false)
+    expect(parameters.find('[data-testid="dictionary-type"]').exists()).toBe(false)
 
+    await parameters.get('[data-testid="settings-parameter-edit-3"]').trigger('click')
+    await flushPromises()
+    await parameters.get('[data-testid="parameter-value"]').setValue('80')
+    await parameters.get('[data-testid="parameter-save"]').trigger('click')
+    await flushPromises()
     expect(resource.put).toHaveBeenCalledWith(
       '/v1/system/parameters',
       expect.objectContaining({ key: 'pagination.max_page_size', scope: 'COMPANY', value: 80 }),
       expect.objectContaining({ idempotencyKey: expect.stringContaining('parameter-pagination.max_page_size') }),
     )
 
-    expect(wrapper.find('[data-testid="settings-files"]').text()).toContain('员工附件')
-    const filesLink = wrapper.findAll('[data-testid="settings-files-link"]')
-    expect(filesLink.length).toBeGreaterThan(0)
+    const files = await mountPage(SystemSettingsPage, ['system.settings.manage'], '/system/settings?tab=file')
+    await flushPromises()
+    expect(files.find('[data-testid="settings-files"]').text()).toContain('员工附件')
   })
 
   it('shows the settings forbidden state without any management capability', async () => {

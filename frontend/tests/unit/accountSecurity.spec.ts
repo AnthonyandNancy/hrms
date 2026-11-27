@@ -3,68 +3,88 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import ElementPlus from 'element-plus'
-import AccountSecurityView from '@/views/AccountSecurityView.vue'
-import { ApiError } from '@/api/errors'
+import AccountSecurityPage from '@/modules/platform/pages/AccountSecurityPage.vue'
+import { useSessionStore } from '@/stores/session'
 
-const get = vi.fn()
-const post = vi.fn()
-
-vi.mock('@/api/resourceClient', () => ({
-  resourceGet: (...args: unknown[]) => get(...args),
-  resourcePost: (...args: unknown[]) => post(...args),
+const resource = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  delete: vi.fn(),
 }))
 
-async function mountAt(path: string) {
+vi.mock('@/api/resourceClient', () => ({
+  resourceGet: resource.get,
+  resourcePost: resource.post,
+  resourceDelete: resource.delete,
+}))
+
+const PROFILE = {
+  id: 2,
+  company_name: '合成制造有限公司',
+  username: 'synthetic.account',
+  email: 'account@example.invalid',
+  employment_id: 7,
+  is_privileged: false,
+  has_mfa: false,
+  mfa_verified: false,
+  auth_version: 1,
+  roles: ['EMPLOYEE'],
+}
+
+async function mountAccount() {
   const pinia = createPinia()
   setActivePinia(pinia)
+  const session = useSessionStore()
+  session.capabilities = ['iam.session.manage']
+  session.csrfToken = 'synthetic-csrf'
+
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/account/mfa', name: 'mfa', component: AccountSecurityView },
-      { path: '/account/sessions', name: 'sessions', component: AccountSecurityView },
+      { path: '/account', name: 'account', component: { template: '<div />' } },
       { path: '/login', name: 'login', component: { template: '<div>login</div>' } },
     ],
   })
-  await router.push(path)
+  await router.push('/account')
   await router.isReady()
-  const wrapper = mount(AccountSecurityView, { global: { plugins: [pinia, router, ElementPlus] } })
+
+  const wrapper = mount(AccountSecurityPage, {
+    global: { plugins: [pinia, router, ElementPlus] },
+  })
+  await flushPromises()
   return { wrapper, router }
 }
 
-describe('account security pages', () => {
-  beforeEach(() => {
-    get.mockReset()
-    post.mockReset()
+beforeEach(() => {
+  resource.get.mockReset()
+  resource.post.mockReset()
+  resource.delete.mockReset()
+  resource.get.mockImplementation((path: string) => {
+    if (path === '/v1/me') return Promise.resolve(PROFILE)
+    if (path === '/v1/auth/sessions') return Promise.resolve({ items: [] })
+    if (path === '/v1/auth/mfa/status') {
+      return Promise.resolve({ enabled: false, enrolled: false, mfa_verified: false, recovery_codes_remaining: 0 })
+    }
+    return Promise.reject(new Error(`Unexpected GET ${path}`))
+  })
+})
+
+describe('single account security workspace', () => {
+  it('renders profile, sessions and optional MFA as one route', async () => {
+    const { wrapper } = await mountAccount()
+
+    expect(wrapper.find('[data-testid="account-profile"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="account-sessions"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="account-mfa"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('synthetic.account')
+    expect(wrapper.text()).toContain('当前部署未启用多因素认证')
   })
 
-  it('loads the real account projection on the MFA page', async () => {
-    get.mockResolvedValue({ id: 2, username: 'demo.hr', has_mfa: true, mfa_verified: false, auth_version: 1 })
-    const { wrapper } = await mountAt('/account/mfa')
-    await flushPromises()
+  it('keeps every account action on /account rather than a legacy sub-route', async () => {
+    const { router } = await mountAccount()
 
-    expect(get).toHaveBeenCalledWith('/v1/me')
-    expect(wrapper.text()).toContain('demo.hr')
-    expect(wrapper.text()).toContain('多因素认证')
-  })
-
-  it('enrolls TOTP with an idempotency key and shows the one-time secret', async () => {
-    get.mockResolvedValue({ id: 2, username: 'demo.hr', has_mfa: false, mfa_verified: false, auth_version: 1 })
-    post.mockResolvedValue({ secret: 'JBSWY3DPEHPK3PXP', otpauth_uri: 'otpauth://totp/x', recovery_codes: [] })
-    const { wrapper } = await mountAt('/account/mfa')
-    await flushPromises()
-
-    await wrapper.get('button.el-button--primary').trigger('click')
-    await flushPromises()
-
-    expect(post).toHaveBeenCalledWith('/v1/auth/mfa/totp/enroll', {}, expect.objectContaining({ idempotencyKey: expect.any(String) }))
-    expect(wrapper.text()).toContain('JBSWY3DPEHPK3PXP')
-  })
-
-  it('shows the session page and keeps the 5xx request id', async () => {
-    get.mockRejectedValue(new ApiError('INTERNAL', 'boom', { status: 500, requestId: 'req-account-500' }))
-    const { wrapper } = await mountAt('/account/sessions')
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('req-account-500')
+    expect(router.hasRoute('account')).toBe(true)
+    expect(router.hasRoute('account-mfa')).toBe(false)
+    expect(router.hasRoute('account-sessions')).toBe(false)
   })
 })

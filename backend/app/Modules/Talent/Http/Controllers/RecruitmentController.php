@@ -8,10 +8,13 @@ use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Modules\Talent\Models\Candidate;
+use App\Modules\Talent\Models\CandidateApplication;
 use App\Modules\Talent\Models\CandidateConversion;
 use App\Modules\Talent\Models\Interview;
 use App\Modules\Talent\Models\Offer;
 use App\Modules\Talent\Models\Requisition;
+use App\Modules\Talent\Models\TalentPoolTag;
+use App\Modules\Talent\Services\CandidateApplicationService;
 use App\Modules\Talent\Services\RecruitmentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
@@ -31,21 +34,12 @@ use Illuminate\Support\Facades\DB;
 
 final class RecruitmentController
 {
-    /** Pipeline stages that a recruiter may set through a generic stage move. */
-    private const MOVABLE_CANDIDATE_STAGES = [
-        'NEW',
-        'SCREENING',
-        'INTERVIEW',
-        'OFFER',
-        'OFFER_ACCEPTED',
-        'REJECTED',
-    ];
-
     public function __construct(
         private readonly PrincipalResolver $principals,
         private readonly Authorizer $authorizer,
         private readonly CompanyBusinessDate $businessDates,
         private readonly RecruitmentService $recruitment,
+        private readonly CandidateApplicationService $applications,
         private readonly IdempotencyRunner $idempotency,
         private readonly OrganizationFacts $organization,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
@@ -160,6 +154,7 @@ final class RecruitmentController
             'candidate_id' => ['nullable', 'integer', 'min:1'],
             'status' => ['nullable', 'string', 'max:24'],
             'search' => ['nullable', 'string', 'max:120'],
+            'talent_pool' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -171,15 +166,16 @@ final class RecruitmentController
         $candidateIdsForRequisition = null;
 
         if ($requisitionId !== null) {
-            $candidateIdsForRequisition = Interview::query()
+            $candidateIdsForRequisition = CandidateApplication::query()
                 ->where('requisition_id', $requisitionId)
                 ->pluck('candidate_id')
-                ->merge(Offer::query()->where('requisition_id', $requisitionId)->pluck('candidate_id'))
                 ->map(static fn (mixed $id): int => (int) $id)
                 ->unique()
                 ->values()
                 ->all();
         }
+
+        $talentPoolOnly = ($data['talent_pool'] ?? false) === true;
 
         $query = Candidate::query()
             // Direct id lookup so a detail view never depends on the candidate
@@ -188,6 +184,12 @@ final class RecruitmentController
             ->when($candidateIdsForRequisition !== null, fn ($builder) => $builder->whereIn('id', $candidateIdsForRequisition === [] ? [-1] : $candidateIdsForRequisition))
             ->when(isset($data['status']) && $data['status'] !== '', fn ($builder) => $builder->where('status', (string) $data['status']))
             ->when(isset($data['search']) && trim((string) $data['search']) !== '', fn ($builder) => $builder->where('display_name', 'like', '%'.trim((string) $data['search']).'%'))
+            ->when($talentPoolOnly, fn ($builder) => $builder->whereIn(
+                'id',
+                CandidateApplication::query()->distinct()->pluck('candidate_id')->merge(
+                    TalentPoolTag::query()->where('status', 'ACTIVE')->distinct()->pluck('candidate_id'),
+                )->map(static fn (mixed $id): int => (int) $id)->all(),
+            ))
             ->orderBy('id');
 
         $total = (int) (clone $query)->count();
@@ -199,6 +201,37 @@ final class RecruitmentController
         return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
     }
 
+    public function applications(Request $request, int $candidateId): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+
+        $items = $this->applications->listForCandidate($candidateId);
+
+        return ApiResponse::ok(ApiResponse::list($items, 1, max(1, count($items)), count($items)));
+    }
+
+    public function storeApplication(Request $request, int $candidateId): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+
+        $data = $request->validate([
+            'requisition_id' => ['required', 'integer', 'min:1'],
+            'opening_id' => ['nullable', 'integer', 'min:1'],
+            'source' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        return $this->command(
+            $request,
+            "candidate-{$candidateId}-application",
+            $data,
+            fn (): array => $this->applications->store($principal->userId(), $candidateId, $data),
+            path: "candidates/{$candidateId}/applications",
+            method: 'POST',
+        );
+    }
+
     public function moveCandidateStage(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();
@@ -206,6 +239,8 @@ final class RecruitmentController
 
         $data = $request->validate([
             'status' => ['required', 'string', 'max:24'],
+            'application_id' => ['nullable', 'integer', 'min:1'],
+            'requisition_id' => ['nullable', 'integer', 'min:1'],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -213,7 +248,7 @@ final class RecruitmentController
             $request,
             "candidate-{$id}-stage",
             $data,
-            fn (): array => $this->applyCandidateStageMove($principal->userId(), $id, $data),
+            fn (): array => $this->applications->moveStage($principal->userId(), $id, $data),
             path: "candidates/{$id}/stage",
             method: 'PATCH',
             createdStatus: 200,
@@ -256,6 +291,11 @@ final class RecruitmentController
                 'status' => (string) $interview->status,
                 'feedback_restricted' => ! $canSeeFeedback,
             ];
+
+            $application = $this->applicationFor($candidateId, (int) $interview->requisition_id);
+
+            $data['application_id'] = $application !== null ? (int) $application->id : null;
+            $data['application_stage'] = $application !== null ? (string) $application->stage : null;
 
             if ($canSeeFeedback) {
                 $data['feedback'] = $interview->feedback;
@@ -457,66 +497,6 @@ final class RecruitmentController
 
     /**
      * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function applyCandidateStageMove(int $actorUserId, int $id, array $data): array
-    {
-        $candidate = Candidate::query()->whereKey($id)->lockForUpdate()->first();
-
-        if ($candidate === null) {
-            throw NotFoundException::forResource();
-        }
-
-        $next = mb_strtoupper(trim((string) $data['status']));
-
-        if (! in_array($next, self::MOVABLE_CANDIDATE_STAGES, true)) {
-            throw new ValidationException(
-                ['status' => ['Only pipeline stages may be moved explicitly.']],
-                'The candidate stage cannot be set by this command.',
-                ['reason' => 'INVALID_CANDIDATE_STAGE'],
-            );
-        }
-
-        $current = (string) $candidate->status;
-
-        if ($current === $next) {
-            return [
-                'candidate_id' => (int) $candidate->id,
-                'status' => $next,
-                'previous_status' => $current,
-                'replayed' => true,
-            ];
-        }
-
-        if (in_array($current, ['CONVERTED', 'HIRED'], true)) {
-            throw new ConflictException('A hired candidate cannot be moved back through the pipeline.', [
-                'reason' => 'CANDIDATE_ALREADY_HIRED',
-                'status' => $current,
-            ]);
-        }
-
-        $candidate->forceFill(['status' => $next])->save();
-
-        app(AuditRecorder::class)->record(
-            actorUserId: $actorUserId,
-            action: 'talent.candidate.stage_moved',
-            aggregateType: 'candidate',
-            aggregateId: (int) $candidate->id,
-            before: ['status' => $current],
-            after: ['status' => $next],
-            metadata: ['reason' => $data['reason'] ?? null],
-        );
-
-        return [
-            'candidate_id' => (int) $candidate->id,
-            'status' => $next,
-            'previous_status' => $current,
-            'replayed' => false,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
      * @param  \Closure(): array<string, mixed>  $operation
      */
     private function command(
@@ -635,14 +615,25 @@ final class RecruitmentController
             context: ['access' => 'LIST', 'minimized' => true],
         );
 
+        $application = $requisitionId === null
+            ? CandidateApplication::query()->where('candidate_id', (int) $candidate->id)->orderByDesc('id')->first()
+            : CandidateApplication::query()->where('candidate_id', (int) $candidate->id)->where('requisition_id', $requisitionId)->first();
+
+        $linkedRequisitionId = $requisitionId
+            ?? ($application !== null ? (int) $application->requisition_id : ($interview !== null ? (int) $interview->requisition_id : ($offer !== null ? (int) $offer->requisition_id : null)));
+
         return [
             'candidate_id' => (int) $candidate->id,
             'display_name' => (string) $candidate->display_name,
             'status' => (string) $candidate->status,
+            'application_id' => $application !== null ? (int) $application->id : null,
+            'application_stage' => $application !== null ? (string) $application->stage : null,
             'has_email' => $candidate->email_hash !== null,
             'has_mobile' => $candidate->mobile_hash !== null,
             'source' => $candidate->source,
-            'requisition_id' => $requisitionId ?? ($interview !== null ? (int) $interview->requisition_id : ($offer !== null ? (int) $offer->requisition_id : null)),
+            'requisition_id' => $linkedRequisitionId,
+            'onboarding_case_id' => $offer !== null && $offer->onboarding_case_id !== null ? (int) $offer->onboarding_case_id : null,
+            'conversion_status' => $conversion !== null ? 'CONVERTED' : ($offer !== null && $offer->onboarding_case_id !== null ? 'PENDING_ONBOARDING' : null),
             'offer_id' => $offer !== null ? (int) $offer->id : null,
             'offer_status' => $offer !== null ? (string) $offer->status : null,
             'base_salary_minor' => $offer !== null ? (int) $offer->base_salary_minor : null,
@@ -653,6 +644,15 @@ final class RecruitmentController
             'converted_employee_no' => $conversion !== null ? (string) $conversion->employee_no : null,
             'recorded_at' => $this->iso($candidate->getAttribute('recorded_at')),
         ];
+    }
+
+    private function applicationFor(int $candidateId, ?int $requisitionId = null): ?CandidateApplication
+    {
+        return CandidateApplication::query()
+            ->where('candidate_id', $candidateId)
+            ->when($requisitionId !== null, fn ($query) => $query->where('requisition_id', $requisitionId))
+            ->orderByDesc('id')
+            ->first();
     }
 
     private function iso(mixed $value): ?string

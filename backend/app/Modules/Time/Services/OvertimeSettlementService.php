@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\OvertimeRecord;
 use App\Modules\Time\Models\OvertimeSettlement;
 use App\Shared\Exceptions\ConflictException;
@@ -11,19 +12,27 @@ use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Overtime compensation is single-settlement: a record becomes either payroll
  * input or time-off credit, never both. The unique key makes the rule safe
  * under concurrent requests, not just sequential ones.
+ *
+ * PAY is additionally refused when the employment's target payroll period is
+ * sealed. Freeze state is read through the Time-owned PayrollPeriodLockReader
+ * contract; this service never imports Payroll models or tables. TIMEOFF is not
+ * affected by a PAY freeze. A missing adapter fails closed for PAY.
  */
 final class OvertimeSettlementService
 {
     public function __construct(
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly Container $container,
     ) {}
 
     /**
@@ -60,6 +69,18 @@ final class OvertimeSettlementService
                 ]);
             }
 
+            $period = $record->business_date->format('Y-m');
+
+            if ($method === 'PAY' && $this->isFrozen((int) $record->employment_id, $period)) {
+                throw new ConflictException(
+                    'The payroll period is frozen; this overtime record can only be settled as time off.',
+                    [
+                        'reason' => 'PAYROLL_PERIOD_FROZEN',
+                        'period' => $period,
+                    ],
+                );
+            }
+
             try {
                 /** @var OvertimeSettlement $settlement */
                 $settlement = OvertimeSettlement::query()->create([
@@ -89,10 +110,37 @@ final class OvertimeSettlementService
                 'overtime_record_id' => $recordId,
                 'method' => $method,
                 'minutes' => (int) $settlement->minutes,
+                'period' => $period,
+                'payroll_period_frozen_checked' => $method === 'PAY',
             ]);
 
             return $this->payload($settlement, false);
         });
+    }
+
+    /**
+     * Resolve the read-only freeze adapter. A missing or failing adapter fails
+     * closed for PAY settlement: Time cannot prove the period is open.
+     */
+    private function isFrozen(int $employmentId, string $period): bool
+    {
+        if (! $this->container->bound(PayrollPeriodLockReader::class)) {
+            return true;
+        }
+
+        try {
+            $reader = $this->container->make(PayrollPeriodLockReader::class);
+
+            if (! $reader instanceof PayrollPeriodLockReader) {
+                return true;
+            }
+
+            return $reader->isFrozen($employmentId, $period);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return true;
+        }
     }
 
     /**

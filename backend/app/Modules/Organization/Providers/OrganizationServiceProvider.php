@@ -7,10 +7,12 @@ namespace App\Modules\Organization\Providers;
 use App\Modules\Organization\Authorization\EloquentOrganizationScopeDirectory;
 use App\Modules\Organization\Commands\RebuildOrgClosureCommand;
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Organization\Contracts\CompanyProfileWriter;
 use App\Modules\Organization\Contracts\DemoOrganizationSeeder;
 use App\Modules\Organization\Contracts\OrganizationBootstrap;
 use App\Modules\Organization\Contracts\OrganizationDirectory;
 use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Organization\Services\CompanyProfileWriterService;
 use App\Modules\Organization\Services\DemoOrganizationSeederService;
 use App\Modules\Organization\Services\EloquentCompanyProfileReader;
 use App\Modules\Organization\Services\OrganizationBootstrapService;
@@ -31,6 +33,7 @@ final class OrganizationServiceProvider extends ServiceProvider
         $this->app->bind(OrganizationFacts::class, OrganizationFactsService::class);
         $this->app->bind(OrganizationBootstrap::class, OrganizationBootstrapService::class);
         $this->app->bind(CompanyProfileReader::class, EloquentCompanyProfileReader::class);
+        $this->app->bind(CompanyProfileWriter::class, CompanyProfileWriterService::class);
         if (! $this->app->environment('testing')) {
             $this->app->bind(OrganizationScopeDirectory::class, EloquentOrganizationScopeDirectory::class);
         }

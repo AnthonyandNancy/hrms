@@ -8,6 +8,7 @@ import {
   newLeaveIdempotencyKey,
   previewLeave,
   previewConflictText,
+  submitLeaveOnBehalf,
   submitLeaveRequest,
   type LeaveBalance,
   type LeavePreview,
@@ -21,16 +22,19 @@ const props = withDefaults(
     types: LeaveTypeOption[]
     balances: LeaveBalance[]
     submitEnabled?: boolean
+    mode?: 'self' | 'on-behalf'
+    subjectEmploymentId?: number | null
   }>(),
-  { submitEnabled: false },
+  { submitEnabled: false, mode: 'self', subjectEmploymentId: null },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  submitted: [payload: { caseNo: string }]
+  submitted: [payload: { caseNo: string; onBehalf: boolean }]
 }>()
 
 const REASON_MIN_LENGTH = 3
+const onBehalf = computed(() => props.mode === 'on-behalf')
 
 const form = reactive<LeaveRequestInput>({
   leaveTypeCode: props.types[0]?.code ?? '',
@@ -83,6 +87,10 @@ const selectedType = computed(
 
 const balance = computed(
   () => props.balances.find((item) => item.leaveTypeCode === form.leaveTypeCode) ?? null,
+)
+
+const onBehalfSubjectMissing = computed(
+  () => onBehalf.value && (props.subjectEmploymentId === null || props.subjectEmploymentId === undefined || props.subjectEmploymentId <= 0),
 )
 
 const blockingConflict = computed(
@@ -191,7 +199,10 @@ async function runPreview(): Promise<void> {
   submitError.value = null
 
   try {
-    const result = await previewLeave({ ...form, reason: form.reason.trim() })
+    const result = await previewLeave(
+      { ...form, reason: form.reason.trim() },
+      onBehalf.value ? props.subjectEmploymentId : null,
+    )
     if (requestId !== previewRequest) return
     preview.value = result
     previewFingerprint.value = requestedFingerprint
@@ -227,6 +238,10 @@ async function submit(): Promise<void> {
   validationMessage.value = ''
 
   if (!validate()) return
+  if (onBehalfSubjectMissing.value) {
+    validationMessage.value = '代申请必须先选择授权范围内的员工。'
+    return
+  }
   if (preview.value === null) {
     validationMessage.value = '预览已过期：请重新检查余额与冲突后再提交。'
     return
@@ -247,8 +262,11 @@ async function submit(): Promise<void> {
       submissionKey = newLeaveIdempotencyKey('leave-request')
       submissionFingerprint = fingerprint.value
     }
-    const result = await submitLeaveRequest({ ...form, reason: form.reason.trim() }, submissionKey)
-    emit('submitted', { caseNo: result.caseNo })
+    const input = { ...form, reason: form.reason.trim() }
+    const result = onBehalf.value && props.subjectEmploymentId !== null && props.subjectEmploymentId !== undefined
+      ? await submitLeaveOnBehalf({ ...input, employmentId: props.subjectEmploymentId }, submissionKey)
+      : await submitLeaveRequest(input, submissionKey)
+    emit('submitted', { caseNo: result.caseNo, onBehalf: onBehalf.value })
     submissionKey = null
     submissionFingerprint = ''
     form.reason = ''
@@ -304,9 +322,10 @@ watch(
     <section class="leave-drawer" role="dialog" aria-modal="true" aria-label="申请请假">
       <header class="leave-drawer__header">
         <div>
-          <h2 class="leave-drawer__title">申请请假</h2>
+          <h2 class="leave-drawer__title">{{ onBehalf ? '代员工申请请假' : '申请请假' }}</h2>
           <p class="leave-drawer__subtitle">
-            先由服务端预览扣减与日期冲突，确认后再提交。业务日期与余额均以服务端公司时区为准。
+            {{ onBehalf ? '申请主体为已选择员工，操作者与申请员工分别记录。' : '申请主体固定为当前登录员工，页面不能指定他人。' }}
+            先由服务端预览扣减与日期冲突，确认后再提交。
           </p>
         </div>
         <button type="button" class="leave-drawer__close" aria-label="关闭请假申请抽屉" @click="close">关闭</button>

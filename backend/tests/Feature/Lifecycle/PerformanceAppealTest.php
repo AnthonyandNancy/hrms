@@ -22,6 +22,10 @@ final class PerformanceAppealTest extends TalentTestCase
         $reviewId = (int) $review->json('data.review_id');
         $this->postJson("/v1/performance/reviews/{$reviewId}/submit", [], ['Idempotency-Key' => 'perf2-submit'])->assertOk();
 
+        $this->postJson('/v1/performance/cycles/'.(int) $cycle->json('data.cycle_id').'/publish', [], [
+            'Idempotency-Key' => 'perf2-publish',
+        ])->assertOk()->assertJsonPath('data.status', 'PUBLISHED');
+
         $appeal = $this->postJson("/v1/performance/reviews/{$reviewId}/appeals", [
             'reason' => 'The rating process did not follow the published rubric.',
         ], ['Idempotency-Key' => 'perf2-appeal'])->assertCreated();

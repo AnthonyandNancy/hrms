@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\IAM\Http\Controllers;
 
 use App\Modules\IAM\Auth\AuthenticationContext;
+use App\Modules\IAM\Services\AdminProtectionGuard;
 use App\Modules\IAM\Services\RoleAdminService;
 use App\Modules\IAM\Services\RolePageService;
 use App\Shared\ApiResponse;
@@ -12,6 +13,7 @@ use App\Shared\Authorization\AnchorType;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
+use App\Shared\Exceptions\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,7 @@ final class RoleAuthorizationController
         private readonly AuthenticationContext $context,
         private readonly RoleAdminService $roles,
         private readonly RolePageService $pages,
+        private readonly AdminProtectionGuard $adminProtection,
         private readonly CommandRunner $commands,
     ) {}
 
@@ -45,6 +48,7 @@ final class RoleAuthorizationController
             'capabilities' => ['present', 'array', 'max:64'],
             'capabilities.*.capability' => ['required', 'string', 'max:120'],
             'capabilities.*.anchor_type' => ['required', 'string', 'max:24'],
+            'capabilities.*.anchor_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'capabilities.*.field_profile' => ['required', 'string', 'max:24'],
             'reason' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
@@ -54,16 +58,20 @@ final class RoleAuthorizationController
             (array) $data['pages'],
         )));
         $capabilities = array_values((array) $data['capabilities']);
+        $this->adminProtection->assertRoleGrantListAllowed((int) $principal->userId(), $capabilities);
 
-        // Actions require their page. Reject the whole save instead of silently
-        // dropping the action, so the operator sees the inconsistency.
+        // Actions require their page. The generated action manifest is the
+        // code-owned fact for which page owns an action capability; a client
+        // cannot move an action to an unrelated page by supplying page_code.
         $missingPages = $this->missingActionPages($capabilities, $pageCodes);
         if ($missingPages !== []) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'capabilities' => [
+            throw new ValidationException(
+                ['capabilities' => [
                     'Action capabilities require their page to be granted: '.implode(', ', $missingPages),
-                ],
-            ]);
+                ]],
+                'The given data was invalid.',
+                ['reason' => 'PAGE_REQUIRED_FOR_ACTION', 'missing_pages' => $missingPages],
+            );
         }
 
         $payload = [
@@ -123,6 +131,17 @@ final class RoleAuthorizationController
                 continue;
             }
 
+            $capabilityCode = (string) ($capability['capability'] ?? '');
+            $ownedPage = self::actionPageByCapability()[$capabilityCode] ?? null;
+
+            if ($ownedPage !== null) {
+                if (! isset($known[$ownedPage])) {
+                    $missing[$ownedPage] = true;
+                }
+
+                continue;
+            }
+
             $page = isset($capability['page_code']) ? (string) $capability['page_code'] : '';
             if ($page !== '' && ! isset($known[$page])) {
                 $missing[$page] = true;
@@ -130,6 +149,42 @@ final class RoleAuthorizationController
         }
 
         return array_keys($missing);
+    }
+
+    /**
+     * Code-owned capability -> page map from the generated action manifest.
+     * The map is deliberately read-only and never client supplied.
+     *
+     * @return array<string, string>
+     */
+    private static function actionPageByCapability(): array
+    {
+        static $map = null;
+
+        if ($map !== null) {
+            return $map;
+        }
+
+        $path = base_path('../docs/generated/page-actions.json');
+        $payload = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+        $map = [];
+
+        if (is_array($payload) && is_array($payload['pages'] ?? null)) {
+            foreach ($payload['pages'] as $pageCode => $actions) {
+                if (! is_array($actions)) {
+                    continue;
+                }
+
+                foreach ($actions as $action) {
+                    $capability = is_array($action) ? (string) ($action['capability'] ?? '') : '';
+                    if ($capability !== '') {
+                        $map[$capability] = (string) $pageCode;
+                    }
+                }
+            }
+        }
+
+        return $map;
     }
 
     private function respond(CommandResult $result): JsonResponse

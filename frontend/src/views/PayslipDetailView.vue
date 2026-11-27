@@ -33,7 +33,7 @@ onMounted(load)
 <template>
   <div class="page payslip-detail-page">
     <div class="row">
-      <el-button text @click="router.push('/payroll/my-payslips')">← 返回我的工资条</el-button>
+      <el-button text @click="router.push('/payroll')">← 返回我的工资条</el-button>
     </div>
 
     <LoadingState v-if="loading" :rows="8" label="正在加载工资条" />

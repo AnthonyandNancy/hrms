@@ -75,6 +75,39 @@ const routeId = computed(() => {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 })
 
+type PayrollDetailTab = 'inputs' | 'review' | 'disbursement' | 'payslips' | 'export'
+
+const DETAIL_TABS: ReadonlyArray<{ key: PayrollDetailTab; label: string }> = [
+  { key: 'inputs', label: '计薪输入' },
+  { key: 'review', label: '复核' },
+  { key: 'disbursement', label: '发放登记' },
+  { key: 'payslips', label: '工资条' },
+  { key: 'export', label: '导出' },
+]
+
+function detailTabFromQuery(): PayrollDetailTab | null {
+  const value = route.query.tab
+  return typeof value === 'string' && DETAIL_TABS.some((tab) => tab.key === value)
+    ? (value as PayrollDetailTab)
+    : null
+}
+
+const activeDetailTab = ref<PayrollDetailTab>(detailTabFromQuery() ?? 'inputs')
+
+function selectDetailTab(tab: PayrollDetailTab): void {
+  activeDetailTab.value = tab
+  void router.replace({ query: { ...route.query, tab } })
+}
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    if (typeof value === 'string' && DETAIL_TABS.some((tab) => tab.key === value)) {
+      activeDetailTab.value = value as PayrollDetailTab
+    }
+  },
+)
+
 const readOnly = computed(() => (detail.value === null ? false : isRunReadOnly(detail.value.status)))
 const periodLabel = computed(() => (detail.value === null ? '' : payrollPeriodLabel(detail.value.period)))
 const stage = computed(() => (detail.value === null ? null : payrollStage(detail.value.status)))
@@ -381,7 +414,95 @@ onMounted(() => {
       <p v-if="actionError !== ''" class="payroll-detail__error" role="alert">{{ actionError }}</p>
       <p v-if="actionSuccess !== ''" class="payroll-detail__success" role="status">{{ actionSuccess }}</p>
 
-      <section class="panel payroll-detail__exports" aria-label="批次导出">
+      <nav class="payroll-detail__tabs" aria-label="工资批次详情分区" role="tablist">
+        <button
+          v-for="tab in DETAIL_TABS"
+          :key="tab.key"
+          type="button"
+          role="tab"
+          :aria-selected="activeDetailTab === tab.key"
+          :data-testid="`payroll-detail-tab-${tab.key}`"
+          @click="selectDetailTab(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <section
+        v-if="activeDetailTab === 'payslips'"
+        class="panel payroll-detail__payslip-summary"
+        aria-label="工资条概览"
+        data-testid="payroll-payslip-panel"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">工资条</h2>
+            <p class="panel__subtitle">
+              只显示服务端返回且当前字段策略允许的金额；缺失金额不会补 0。点击员工行可查看逐项工资条。
+            </p>
+          </div>
+          <span class="plain-chip">{{ employees.length }} 名员工</span>
+        </div>
+        <dl class="payroll-detail__facts payroll-detail__facts--inline">
+          <div>
+            <dt>应发合计</dt>
+            <dd>
+              <MoneyText v-if="detail.grossCents !== undefined" :cents="detail.grossCents" size="sm" />
+              <span v-else class="payroll-detail__masked">已按字段权限隐藏</span>
+            </dd>
+          </div>
+          <div>
+            <dt>扣款合计</dt>
+            <dd>
+              <MoneyText v-if="detail.deductionsCents !== undefined" :cents="detail.deductionsCents" size="sm" />
+              <span v-else class="payroll-detail__masked">已按字段权限隐藏</span>
+            </dd>
+          </div>
+          <div>
+            <dt>实发合计</dt>
+            <dd>
+              <MoneyText v-if="detail.netCents !== undefined" :cents="detail.netCents" size="sm" tone="strong" />
+              <span v-else class="payroll-detail__masked">已按字段权限隐藏</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section
+        v-if="activeDetailTab === 'disbursement'"
+        class="panel payroll-detail__disbursement"
+        aria-label="发放登记"
+        data-testid="payroll-disbursement-panel"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">发放登记</h2>
+            <p class="panel__subtitle">
+              登记发放只记录已完成的外部付款结果，不代表系统发起银行支付；实际支付凭证由授权人员留存。
+            </p>
+          </div>
+        </div>
+        <dl class="payroll-detail__facts payroll-detail__facts--inline">
+          <div>
+            <dt>批次状态</dt>
+            <dd>{{ PAYROLL_STATUS_LABELS[detail.status] }}</dd>
+          </div>
+          <div>
+            <dt>计划发放日</dt>
+            <dd>{{ formatBusinessDate(detail.payDate) }}</dd>
+          </div>
+          <div>
+            <dt>登记结果</dt>
+            <dd>{{ detail.status === 'PAID' || detail.status === 'CLOSED' ? '已登记发放' : '尚未登记' }}</dd>
+          </div>
+          <div>
+            <dt>支付凭证</dt>
+            <dd>由服务端导入或留存，页面不伪造凭证号</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section v-if="activeDetailTab === 'export'" class="panel payroll-detail__exports" aria-label="批次导出">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">导出</h2>
@@ -428,7 +549,11 @@ onMounted(() => {
         </p>
       </section>
 
-      <section class="panel payroll-detail__inputs" aria-label="计薪输入证据">
+      <section
+        v-if="activeDetailTab === 'inputs'"
+        class="panel payroll-detail__inputs"
+        aria-label="计薪输入证据"
+      >
         <div class="panel__header">
           <div>
             <h2 class="panel__title">计薪输入证据</h2>
@@ -465,7 +590,36 @@ onMounted(() => {
         </div>
       </section>
 
-      <section v-if="reconciliation !== null" class="panel payroll-detail__reconciliation" aria-label="批次对账">
+      <section
+        v-if="activeDetailTab === 'review'"
+        class="panel payroll-detail__review"
+        aria-label="复核差异"
+        data-testid="payroll-review-panel"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">复核差异</h2>
+            <p class="panel__subtitle">
+              复核人必须与制单人不同；差异直接来自服务端对账结果，页面不会把缺失金额补成 0。
+            </p>
+          </div>
+        </div>
+        <p v-if="reconciliation === null" class="payroll-detail__masked">
+          对账结果暂不可用；复核动作仍由服务端状态机与职责分离校验。
+        </p>
+        <p v-else-if="reconciliation.differences.length === 0" class="payroll-detail__success" role="status">
+          对账未发现差异，员工结果与工资条合计一致。
+        </p>
+        <p v-else class="payroll-detail__error" role="alert">
+          发现 {{ reconciliation.differences.length }} 项差异，请逐项核对后再提交复核。
+        </p>
+      </section>
+
+      <section
+        v-if="reconciliation !== null && (activeDetailTab === 'inputs' || activeDetailTab === 'review')"
+        class="panel payroll-detail__reconciliation"
+        aria-label="批次对账"
+      >
         <div class="panel__header">
           <div>
             <h2 class="panel__title">批次对账</h2>
@@ -514,7 +668,7 @@ onMounted(() => {
         </ul>
       </section>
 
-      <section class="panel payroll-detail__employees" aria-label="员工明细">
+      <section v-if="activeDetailTab === 'payslips'" class="panel payroll-detail__employees" aria-label="员工明细">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">员工明细</h2>
@@ -720,6 +874,33 @@ onMounted(() => {
   color: #b91c1c;
   font-size: 11.5px;
   line-height: 1.7;
+}
+
+.payroll-detail__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.payroll-detail__tabs button {
+  padding: 8px 16px;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.payroll-detail__tabs button[aria-selected='true'] {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .payroll-detail__export-actions {

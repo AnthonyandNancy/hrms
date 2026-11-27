@@ -9,6 +9,7 @@ use App\Modules\Talent\Models\PerformanceCycle;
 use App\Modules\Talent\Models\PerformanceFeedback;
 use App\Modules\Talent\Models\PerformanceGoal;
 use App\Modules\Talent\Models\PerformanceIndicator;
+use App\Modules\Talent\Models\PerformanceResultSnapshot;
 use App\Modules\Talent\Models\PerformanceReview;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
@@ -76,37 +77,46 @@ final class PerformanceCycleService
      */
     public function createGoal(int $actorUserId, array $input): array
     {
-        $cycle = $this->cycleOrFail((int) $input['cycle_id']);
-        $this->assertCycleOpen($cycle);
-
-        if (isset($input['indicator_id'])) {
-            $indicator = PerformanceIndicator::query()
-                ->whereKey((int) $input['indicator_id'])
+        return DB::transaction(function () use ($actorUserId, $input): array {
+            $cycle = $this->cycleOrFail((int) $input['cycle_id']);
+            $cycle = PerformanceCycle::query()
+                ->whereKey((int) $cycle->id)
+                ->lockForUpdate()
                 ->first();
-
-            if ($indicator === null) {
-                throw new ValidationException(['indicator_id' => ['The performance indicator does not exist.']]);
+            if ($cycle === null) {
+                throw new ValidationException(['cycle_id' => ['The performance cycle does not exist.']]);
             }
-        }
+            $this->assertCycleOpen($cycle);
 
-        $goal = PerformanceGoal::query()->create([
-            'cycle_id' => (int) $cycle->id,
-            'employment_id' => (int) $input['employment_id'],
-            'indicator_id' => isset($input['indicator_id']) ? (int) $input['indicator_id'] : null,
-            'title' => (string) $input['title'],
-            'target_value' => (string) $input['target_value'],
-            'weight' => (int) ($input['weight'] ?? 0),
-            'due_on' => $this->nullableString($input['due_on'] ?? null),
-            'status' => (string) ($input['status'] ?? 'DRAFT'),
-            'recorded_at' => $this->clock->now(),
-        ]);
+            if (isset($input['indicator_id'])) {
+                $indicator = PerformanceIndicator::query()
+                    ->whereKey((int) $input['indicator_id'])
+                    ->first();
 
-        $this->audit->record($actorUserId, 'talent.performance_goal.created', 'performance_goal', (int) $goal->id, after: [
-            'cycle_id' => (int) $goal->cycle_id,
-            'employment_id' => (int) $goal->employment_id,
-        ]);
+                if ($indicator === null) {
+                    throw new ValidationException(['indicator_id' => ['The performance indicator does not exist.']]);
+                }
+            }
 
-        return $this->goalData($goal);
+            $goal = PerformanceGoal::query()->create([
+                'cycle_id' => (int) $cycle->id,
+                'employment_id' => (int) $input['employment_id'],
+                'indicator_id' => isset($input['indicator_id']) ? (int) $input['indicator_id'] : null,
+                'title' => (string) $input['title'],
+                'target_value' => (string) $input['target_value'],
+                'weight' => (int) ($input['weight'] ?? 0),
+                'due_on' => $this->nullableString($input['due_on'] ?? null),
+                'status' => (string) ($input['status'] ?? 'DRAFT'),
+                'recorded_at' => $this->clock->now(),
+            ]);
+
+            $this->audit->record($actorUserId, 'talent.performance_goal.created', 'performance_goal', (int) $goal->id, after: [
+                'cycle_id' => (int) $goal->cycle_id,
+                'employment_id' => (int) $goal->employment_id,
+            ]);
+
+            return $this->goalData($goal);
+        });
     }
 
     /**
@@ -115,42 +125,51 @@ final class PerformanceCycleService
      */
     public function createFeedback(int $actorUserId, array $input): array
     {
-        $cycle = $this->cycleOrFail((int) $input['cycle_id']);
-        $this->assertCycleOpen($cycle);
-
-        $reviewId = isset($input['review_id']) ? (int) $input['review_id'] : null;
-
-        if ($reviewId !== null) {
-            $review = PerformanceReview::query()
-                ->where('cycle_id', (int) $cycle->id)
-                ->whereKey($reviewId)
+        return DB::transaction(function () use ($actorUserId, $input): array {
+            $cycle = $this->cycleOrFail((int) $input['cycle_id']);
+            $cycle = PerformanceCycle::query()
+                ->whereKey((int) $cycle->id)
+                ->lockForUpdate()
                 ->first();
-
-            if ($review === null) {
-                throw new ValidationException(['review_id' => ['The performance review does not belong to this cycle.']]);
+            if ($cycle === null) {
+                throw new ValidationException(['cycle_id' => ['The performance cycle does not exist.']]);
             }
-        }
+            $this->assertCycleOpen($cycle);
 
-        $feedback = PerformanceFeedback::query()->create([
-            'cycle_id' => (int) $cycle->id,
-            'review_id' => $reviewId,
-            'from_employment_id' => (int) $input['from_employment_id'],
-            'to_employment_id' => (int) $input['to_employment_id'],
-            'feedback_type' => (string) $input['feedback_type'],
-            'rating' => $this->nullableString($input['rating'] ?? null),
-            'comments' => (string) $input['comments'],
-            'anonymous' => (bool) ($input['anonymous'] ?? false),
-            'status' => 'RECORDED',
-            'recorded_at' => $this->clock->now(),
-        ]);
+            $reviewId = isset($input['review_id']) ? (int) $input['review_id'] : null;
 
-        $this->audit->record($actorUserId, 'talent.performance_feedback.created', 'performance_feedback', (int) $feedback->id, after: [
-            'cycle_id' => (int) $feedback->cycle_id,
-            'to_employment_id' => (int) $feedback->to_employment_id,
-            'anonymous' => (bool) $feedback->anonymous,
-        ]);
+            if ($reviewId !== null) {
+                $review = PerformanceReview::query()
+                    ->where('cycle_id', (int) $cycle->id)
+                    ->whereKey($reviewId)
+                    ->first();
 
-        return $this->feedbackData($feedback);
+                if ($review === null) {
+                    throw new ValidationException(['review_id' => ['The performance review does not belong to this cycle.']]);
+                }
+            }
+
+            $feedback = PerformanceFeedback::query()->create([
+                'cycle_id' => (int) $cycle->id,
+                'review_id' => $reviewId,
+                'from_employment_id' => (int) $input['from_employment_id'],
+                'to_employment_id' => (int) $input['to_employment_id'],
+                'feedback_type' => (string) $input['feedback_type'],
+                'rating' => $this->nullableString($input['rating'] ?? null),
+                'comments' => (string) $input['comments'],
+                'anonymous' => (bool) ($input['anonymous'] ?? false),
+                'status' => 'RECORDED',
+                'recorded_at' => $this->clock->now(),
+            ]);
+
+            $this->audit->record($actorUserId, 'talent.performance_feedback.created', 'performance_feedback', (int) $feedback->id, after: [
+                'cycle_id' => (int) $feedback->cycle_id,
+                'to_employment_id' => (int) $feedback->to_employment_id,
+                'anonymous' => (bool) $feedback->anonymous,
+            ]);
+
+            return $this->feedbackData($feedback);
+        });
     }
 
     /**
@@ -160,10 +179,30 @@ final class PerformanceCycleService
     public function calibrate(int $actorUserId, int $reviewId, array $input): array
     {
         return DB::transaction(function () use ($actorUserId, $reviewId, $input): array {
-            $review = $this->reviewForUpdate($reviewId);
-            $cycle = $this->cycleOrFail((int) $review->cycle_id);
+            $review = PerformanceReview::query()
+                ->whereKey($reviewId)
+                ->first();
+
+            if ($review === null) {
+                throw NotFoundException::forResource();
+            }
+
+            // Lock order is cycle -> review: publish, submit, calibration and
+            // goal/feedback writes all take the cycle row first.
+            $cycle = PerformanceCycle::query()
+                ->whereKey((int) $review->cycle_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($cycle === null) {
+                throw NotFoundException::forResource();
+            }
+
             $this->assertCycleOpen($cycle);
 
+            // Re-read the review under lock after the cycle guard so the
+            // previous value used in evidence is the committed one.
+            $review = $this->reviewForUpdate($reviewId);
             $previous = $review->calibrated_rating;
 
             $calibration = PerformanceCalibration::query()->create([
@@ -221,8 +260,11 @@ final class PerformanceCycleService
                 ]);
             }
 
+            $previousStatus = (string) $cycle->status;
+
             $reviews = PerformanceReview::query()
                 ->where('cycle_id', (int) $cycle->id)
+                ->lockForUpdate()
                 ->get();
 
             if ($reviews->isEmpty()) {
@@ -242,16 +284,50 @@ final class PerformanceCycleService
                 ]);
             }
 
-            $cycle->forceFill(['status' => 'PUBLISHED'])->save();
+            $publishedAt = $this->clock->now();
+
+            $cycle->forceFill([
+                'status' => 'PUBLISHED',
+                'published_at' => $publishedAt,
+                'published_by' => $actorUserId,
+            ])->save();
+
+            // Publication is one transaction: the cycle transition and its
+            // immutable result facts commit together. The snapshot is the only
+            // source for published result reads; live ratings are never read
+            // again after this point.
+            $snapshots = $reviews->map(function (PerformanceReview $review) use ($cycle, $actorUserId, $publishedAt): PerformanceResultSnapshot {
+                return PerformanceResultSnapshot::query()->create([
+                    'cycle_id' => (int) $cycle->id,
+                    'review_id' => (int) $review->id,
+                    'employment_id' => (int) $review->employment_id,
+                    'self_rating' => $review->self_rating,
+                    'manager_rating' => $review->manager_rating,
+                    'calibrated_rating' => $review->calibrated_rating,
+                    'final_rating' => $this->finalRating($review),
+                    'published_at' => $publishedAt,
+                    'published_by' => $actorUserId,
+                ]);
+            });
 
             $this->audit->record($actorUserId, 'talent.performance_cycle.published', 'performance_cycle', (int) $cycle->id, before: [
-                'status' => 'ACTIVE',
+                'status' => $previousStatus,
             ], after: [
                 'status' => 'PUBLISHED',
                 'review_count' => $reviews->count(),
+                'snapshot_count' => $snapshots->count(),
+                'published_at' => $publishedAt->toIso8601ZuluString(),
             ]);
 
-            return $this->cycleData($cycle, $reviews->count());
+            return [
+                ...$this->cycleData($cycle, $reviews->count()),
+                'published_at' => $this->iso($cycle->published_at),
+                'published_by' => (int) ($cycle->published_by ?? $actorUserId),
+                'results' => $snapshots
+                    ->map(fn (PerformanceResultSnapshot $snapshot): array => $this->snapshotData($snapshot))
+                    ->values()
+                    ->all(),
+            ];
         });
     }
 
@@ -268,8 +344,13 @@ final class PerformanceCycleService
             throw NotFoundException::forResource();
         }
 
+        // Lock order is cycle -> review everywhere a write needs both rows.
+        // The review is read once to resolve its cycle, then re-read under
+        // lock so a concurrent publish cannot interleave between the guard
+        // and the caller's mutation.
         $cycle = PerformanceCycle::query()
             ->whereKey((int) $review->cycle_id)
+            ->lockForUpdate()
             ->first();
 
         if ($cycle === null) {
@@ -282,7 +363,7 @@ final class PerformanceCycleService
             ]);
         }
 
-        return $review;
+        return $this->reviewForUpdate($reviewId);
     }
 
     public function indicators(string $asOf): ProjectionResult
@@ -334,12 +415,70 @@ final class PerformanceCycleService
     }
 
     /**
-     * Result publication ledger: every review with its frozen ratings and the
-     * owning cycle status. This is a live projection, never a writable table.
+     * Published results are read from the immutable snapshot ledger; draft and
+     * active cycles retain an explicitly pending live projection. The first row
+     * exposes the ledger-level flags consumed by the workspace.
+     *
+     * @param  int|null  $employmentId  Narrow SELF readers to their own result.
+     * @param  list<int>|null  $cycleIds  Restrict cross-anchor readers to visible cycles.
      */
-    public function results(string $asOf): ProjectionResult
+    public function results(string $asOf, ?int $employmentId = null, ?array $cycleIds = null): ProjectionResult
     {
+        if ($employmentId !== null) {
+            return $this->pendingResults($asOf, $employmentId);
+        }
+
+        $snapshots = PerformanceResultSnapshot::query()
+            ->when($cycleIds !== null, fn ($builder) => $builder->whereIn('cycle_id', $cycleIds))
+            ->orderByDesc('id')
+            ->get();
+
+        $publishedCycleIds = $snapshots
+            ->pluck('cycle_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($snapshots->isNotEmpty()) {
+            $cycles = PerformanceCycle::query()
+                ->whereIn('id', $publishedCycleIds->all())
+                ->orderByDesc('id')
+                ->get()
+                ->keyBy(static fn (PerformanceCycle $cycle): int => (int) $cycle->id);
+
+            $items = $snapshots
+                ->map(function (PerformanceResultSnapshot $snapshot) use ($cycles): array {
+                    $cycle = $cycles->get((int) $snapshot->cycle_id);
+
+                    return [
+                        'review_id' => (int) $snapshot->review_id,
+                        'cycle_id' => (int) $snapshot->cycle_id,
+                        'employment_id' => (int) $snapshot->employment_id,
+                        'cycle_status' => $cycle !== null ? (string) $cycle->status : 'PUBLISHED',
+                        'status' => 'PUBLISHED',
+                        'self_rating' => $snapshot->self_rating,
+                        'manager_rating' => $snapshot->manager_rating,
+                        'calibrated_rating' => $snapshot->calibrated_rating,
+                        'final_rating' => (string) $snapshot->final_rating,
+                        'snapshot' => true,
+                        'published_at' => $this->iso($snapshot->published_at),
+                        'published_by' => (int) $snapshot->published_by,
+                        'submitted_at' => null,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            return $this->projection($items, $asOf, [
+                'snapshot' => true,
+                'pending' => false,
+            ]);
+        }
+
+        // No publication exists yet. Return live evidence but label it pending;
+        // the client must not present a draft score as a final result.
         $items = PerformanceReview::query()
+            ->when($cycleIds !== null, fn ($builder) => $builder->whereIn('cycle_id', $cycleIds))
             ->orderByDesc('id')
             ->get()
             ->map(function (PerformanceReview $review): array {
@@ -356,19 +495,84 @@ final class PerformanceCycleService
                     'self_rating' => $review->self_rating,
                     'manager_rating' => $review->manager_rating,
                     'calibrated_rating' => $review->calibrated_rating,
+                    'final_rating' => null,
+                    'snapshot' => false,
+                    'published_at' => null,
+                    'published_by' => null,
                     'submitted_at' => $this->iso($review->submitted_at),
                 ];
             })
             ->values()
             ->all();
 
-        return $this->projection($items, $asOf);
+        return $this->projection($items, $asOf, [
+            'snapshot' => false,
+            'pending' => true,
+        ]);
+    }
+
+    private function pendingResults(string $asOf, int $employmentId): ProjectionResult
+    {
+        $snapshots = PerformanceResultSnapshot::query()
+            ->where('employment_id', $employmentId)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (PerformanceResultSnapshot $snapshot): array => [
+                ...$this->snapshotData($snapshot),
+                'cycle_status' => 'PUBLISHED',
+                'status' => 'PUBLISHED',
+                'snapshot' => true,
+            ])
+            ->values()
+            ->all();
+
+        // When this employee has no published snapshot yet, show only their
+        // own live row as pending. Never fall through to the company ledger.
+        if ($snapshots === []) {
+            $snapshots = PerformanceReview::query()
+                ->where('employment_id', $employmentId)
+                ->orderByDesc('id')
+                ->get()
+                ->map(function (PerformanceReview $review): array {
+                    $cycle = PerformanceCycle::query()
+                        ->whereKey((int) $review->cycle_id)
+                        ->first();
+
+                    return [
+                        'review_id' => (int) $review->id,
+                        'cycle_id' => (int) $review->cycle_id,
+                        'employment_id' => (int) $review->employment_id,
+                        'cycle_status' => $cycle !== null ? (string) $cycle->status : null,
+                        'status' => (string) $review->status,
+                        'self_rating' => $review->self_rating,
+                        'manager_rating' => $review->manager_rating,
+                        'calibrated_rating' => $review->calibrated_rating,
+                        'final_rating' => null,
+                        'snapshot' => false,
+                        'published_at' => null,
+                        'published_by' => null,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        $hasSnapshot = collect($snapshots)->contains(
+            static fn (array $row): bool => ($row['snapshot'] ?? false) === true,
+        );
+        $hasPending = collect($snapshots)->contains(
+            static fn (array $row): bool => ($row['snapshot'] ?? false) !== true,
+        );
+
+        return $this->projection($snapshots, $asOf, [
+            'snapshot' => $hasSnapshot,
+            'pending' => $hasPending || $snapshots === [],
+        ]);
     }
 
     /**
-     * Read-only performance report: per-cycle review and calibration counts.
-     * Every figure is derived from live rows; no synthetic distribution or
-     * forecast is produced when the source data is absent.
+     * Report completion counts come only from the publication ledger. A draft
+     * review can never inflate a published completion rate.
      */
     public function reports(string $asOf): ProjectionResult
     {
@@ -380,10 +584,19 @@ final class PerformanceCycleService
                     ->where('cycle_id', (int) $cycle->id)
                     ->get();
 
+                $publishedReviews = PerformanceResultSnapshot::query()
+                    ->where('cycle_id', (int) $cycle->id)
+                    ->count();
+
                 $calibrated = PerformanceCalibration::query()
                     ->where('cycle_id', (int) $cycle->id)
                     ->distinct()
                     ->count('review_id');
+
+                $reviewCount = $reviews->count();
+                $completionRate = $reviewCount === 0
+                    ? 0
+                    : intdiv($publishedReviews * 100, $reviewCount);
 
                 return [
                     'cycle_id' => (int) $cycle->id,
@@ -391,7 +604,7 @@ final class PerformanceCycleService
                     'period_from' => (string) $cycle->period_from,
                     'period_to' => (string) $cycle->period_to,
                     'status' => (string) $cycle->status,
-                    'review_count' => $reviews->count(),
+                    'review_count' => $reviewCount,
                     'submitted_reviews' => $reviews->filter(
                         static fn (PerformanceReview $review): bool => (string) $review->status === 'SUBMITTED',
                     )->count(),
@@ -399,6 +612,9 @@ final class PerformanceCycleService
                         static fn (PerformanceReview $review): bool => (string) $review->status === 'DRAFT',
                     )->count(),
                     'calibrated_reviews' => $calibrated,
+                    'published_reviews' => $publishedReviews,
+                    'completion_rate' => $completionRate,
+                    'snapshot' => $publishedReviews > 0,
                 ];
             })
             ->values()
@@ -445,8 +661,9 @@ final class PerformanceCycleService
 
     /**
      * @param  list<array<string, mixed>>  $items
+     * @param  array<string, mixed>  $extra
      */
-    private function projection(array $items, string $asOf): ProjectionResult
+    private function projection(array $items, string $asOf, array $extra = []): ProjectionResult
     {
         return new ProjectionResult(
             items: $items,
@@ -455,10 +672,10 @@ final class PerformanceCycleService
             total: count($items),
             asOf: $asOf,
             freshness: ProjectionResult::FRESHNESS_LIVE,
-            sourceHash: hash('sha256', json_encode($items, JSON_THROW_ON_ERROR)),
+            sourceHash: hash('sha256', json_encode(['items' => $items, 'extra' => $extra], JSON_THROW_ON_ERROR)),
             partial: false,
             partialReason: null,
-            drilldown: null,
+            drilldown: $extra === [] ? null : $extra,
         );
     }
 
@@ -547,6 +764,36 @@ final class PerformanceCycleService
             'period_to' => (string) $cycle->period_to,
             'status' => (string) $cycle->status,
             'review_count' => $reviewCount,
+            'published_at' => $this->iso($cycle->published_at),
+            'published_by' => $cycle->published_by !== null ? (int) $cycle->published_by : null,
+        ];
+    }
+
+    /**
+     * Server-owned final rating rule. Calibration wins, then manager evidence,
+     * then self evidence. The value is stored verbatim as a string.
+     */
+    private function finalRating(PerformanceReview $review): string
+    {
+        return (string) ($review->calibrated_rating ?? $review->manager_rating ?? $review->self_rating ?? '0');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshotData(PerformanceResultSnapshot $snapshot): array
+    {
+        return [
+            'review_id' => (int) $snapshot->review_id,
+            'cycle_id' => (int) $snapshot->cycle_id,
+            'employment_id' => (int) $snapshot->employment_id,
+            'self_rating' => $snapshot->self_rating,
+            'manager_rating' => $snapshot->manager_rating,
+            'calibrated_rating' => $snapshot->calibrated_rating,
+            'final_rating' => (string) $snapshot->final_rating,
+            'snapshot' => true,
+            'published_at' => $this->iso($snapshot->published_at),
+            'published_by' => (int) $snapshot->published_by,
         ];
     }
 

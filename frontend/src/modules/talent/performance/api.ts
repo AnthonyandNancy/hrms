@@ -23,6 +23,9 @@ export type PerformanceCycleSummary = {
   submittedCount: number
   draftCount: number
   progress: number
+  /** Present after a real publication; never invented for draft cycles. */
+  publishedAt: string | null
+  publishedBy: number | null
 }
 
 export type PerformanceCyclePage = {
@@ -51,6 +54,8 @@ export type PerformanceReviewRow = {
   employmentId: number
   managerEmploymentId: number | null
   status: ReviewStatus
+  snapshot: boolean
+  publishedAt: string | null
   selfRating: string
   managerRating: string
   calibratedRating: string
@@ -179,6 +184,8 @@ export function normalisePerformanceCycle(raw: unknown): PerformanceCycleSummary
     submittedCount: requiredInteger(row.submitted_count, 'submitted_count'),
     draftCount: requiredInteger(row.draft_count, 'draft_count'),
     progress: requiredInteger(row.progress, 'progress'),
+    publishedAt: typeof row.published_at === 'string' ? row.published_at : null,
+    publishedBy: nullableInteger(row.published_by),
   }
 }
 
@@ -222,6 +229,8 @@ export function normalisePerformanceReview(raw: unknown): PerformanceReviewRow {
     employmentId: requiredInteger(row.employment_id, 'employment_id'),
     managerEmploymentId: nullableInteger(row.manager_employment_id),
     status: text(row.status, 'status').toUpperCase(),
+    snapshot: row.snapshot === true,
+    publishedAt: typeof row.published_at === 'string' ? row.published_at : null,
     selfRating: scoreText(row.self_rating),
     managerRating: scoreText(row.manager_rating),
     calibratedRating: scoreText(row.calibrated_rating),
@@ -452,6 +461,14 @@ export function performanceActionErrorCopy(error: unknown): string {
         return '该周期已发布，全部评估为只读。'
       case 'INVALID_REVIEW_TRANSITION':
         return '当前状态不允许该评估动作，请刷新后重试。'
+      case 'APPEAL_REQUIRES_PUBLISHED_RESULT':
+        return '申诉只能针对已发布并生成结果快照的绩效结果。'
+      case 'PERFORMANCE_APPEAL_DUPLICATE':
+        return '该评估已经有进行中的申诉，不能重复提交。'
+      case 'SUBJECT_APPROVER_NOT_SEPARATED':
+        return '评估对象与主管不能是同一人，本人也不能填写主管评分。'
+      case 'REVIEWS_NOT_SUBMITTED':
+        return '仍有评估未提交，全部提交后才能发布周期。'
       case 'CAPABILITY_DENIED':
         return '当前账号没有执行该操作的权限。'
     }
@@ -503,4 +520,352 @@ export function performancePeriodLabel(from: string, to: string): string {
   const end = /^(\d{4})-(\d{2})-(\d{2})$/.exec(to)
   if (start === null || end === null) return `${from} 至 ${to}`
   return `${start[1]} 年 ${Number(start[2])} 月 ${Number(start[3])} 日 至 ${end[1]} 年 ${Number(end[2])} 月 ${Number(end[3])} 日`
+}
+
+/* ------------------------------------------------------------------ */
+/* Cycle-detail tab projections and commands.                           */
+/* ------------------------------------------------------------------ */
+
+export type PerformanceTemplateRow = {
+  id: number
+  code: string
+  name: string
+  weightTotal: number
+  version: number
+  publishedAt: string | null
+}
+
+export type PerformanceIndicatorRow = {
+  id: number
+  code: string
+  name: string
+  category: string
+  dataSource: string
+  description: string
+  active: boolean
+}
+
+export type PerformancePlanGoalRow = {
+  id: number
+  cycleId: number
+  employmentId: number
+  indicatorId: number | null
+  title: string
+  targetValue: string
+  weight: number
+  dueOn: string
+  status: string
+}
+
+export type PerformanceFeedbackRow = {
+  id: number
+  cycleId: number
+  reviewId: number | null
+  fromEmploymentId: number
+  toEmploymentId: number
+  feedbackType: string
+  rating: string
+  anonymous: boolean
+  status: string
+  recordedAt: string | null
+}
+
+export type PerformanceCalibrationRow = {
+  id: number
+  cycleId: number
+  reviewId: number
+  previousRating: string
+  calibratedRating: string
+  reason: string
+  calibratedBy: number
+  recordedAt: string | null
+}
+
+export type PerformanceResultRow = {
+  reviewId: number
+  cycleId: number
+  employmentId: number
+  cycleStatus: string
+  status: string
+  selfRating: string
+  managerRating: string
+  calibratedRating: string
+  finalRating: string
+  snapshot: boolean
+  publishedAt: string | null
+  publishedBy: number | null
+}
+
+export type PerformanceResultPage = {
+  items: PerformanceResultRow[]
+  snapshot: boolean
+  pending: boolean
+  total: number
+}
+
+export type PerformanceReportRow = {
+  cycleId: number
+  name: string
+  status: string
+  reviewCount: number
+  submittedReviews: number
+  draftReviews: number
+  calibratedReviews: number
+  publishedReviews: number
+  completionRate: number
+  snapshot: boolean
+}
+
+function normaliseTemplate(raw: unknown): PerformanceTemplateRow {
+  const row = isRecord(raw) ? raw : contractError('template')
+  return {
+    id: requiredInteger(row.template_id, 'template_id'),
+    code: text(row.code, 'template.code'),
+    name: text(row.name, 'template.name'),
+    weightTotal: requiredInteger(row.weight_total, 'template.weight_total'),
+    version: requiredInteger(row.version, 'template.version'),
+    publishedAt: typeof row.published_at === 'string' ? row.published_at : null,
+  }
+}
+
+function normaliseIndicator(raw: unknown): PerformanceIndicatorRow {
+  const row = isRecord(raw) ? raw : contractError('indicator')
+  return {
+    id: requiredInteger(row.indicator_id, 'indicator_id'),
+    code: text(row.code, 'indicator.code'),
+    name: text(row.name, 'indicator.name'),
+    category: nullableText(row.category),
+    dataSource: nullableText(row.data_source),
+    description: nullableText(row.description),
+    active: row.active === true,
+  }
+}
+
+function normalisePlanGoal(raw: unknown): PerformancePlanGoalRow {
+  const row = isRecord(raw) ? raw : contractError('performance_goal')
+  return {
+    id: requiredInteger(row.goal_id, 'goal_id'),
+    cycleId: requiredInteger(row.cycle_id, 'goal.cycle_id'),
+    employmentId: requiredInteger(row.employment_id, 'goal.employment_id'),
+    indicatorId: nullableInteger(row.indicator_id),
+    title: text(row.title, 'goal.title'),
+    targetValue: text(row.target_value, 'goal.target_value'),
+    weight: requiredInteger(row.weight, 'goal.weight'),
+    dueOn: nullableText(row.due_on),
+    status: text(row.status, 'goal.status'),
+  }
+}
+
+function normaliseFeedback(raw: unknown): PerformanceFeedbackRow {
+  const row = isRecord(raw) ? raw : contractError('feedback')
+  return {
+    id: requiredInteger(row.feedback_id, 'feedback_id'),
+    cycleId: requiredInteger(row.cycle_id, 'feedback.cycle_id'),
+    reviewId: nullableInteger(row.review_id),
+    fromEmploymentId: requiredInteger(row.from_employment_id, 'feedback.from_employment_id'),
+    toEmploymentId: requiredInteger(row.to_employment_id, 'feedback.to_employment_id'),
+    feedbackType: text(row.feedback_type, 'feedback.feedback_type'),
+    rating: scoreText(row.rating),
+    anonymous: row.anonymous === true,
+    status: text(row.status, 'feedback.status'),
+    recordedAt: typeof row.recorded_at === 'string' ? row.recorded_at : null,
+  }
+}
+
+function normaliseCalibration(raw: unknown): PerformanceCalibrationRow {
+  const row = isRecord(raw) ? raw : contractError('calibration')
+  return {
+    id: requiredInteger(row.calibration_id, 'calibration_id'),
+    cycleId: requiredInteger(row.cycle_id, 'calibration.cycle_id'),
+    reviewId: requiredInteger(row.review_id, 'calibration.review_id'),
+    previousRating: scoreText(row.previous_rating),
+    calibratedRating: scoreText(row.calibrated_rating),
+    reason: text(row.reason, 'calibration.reason'),
+    calibratedBy: requiredInteger(row.calibrated_by, 'calibration.calibrated_by'),
+    recordedAt: typeof row.recorded_at === 'string' ? row.recorded_at : null,
+  }
+}
+
+function normaliseResult(raw: unknown): PerformanceResultRow {
+  const row = isRecord(raw) ? raw : contractError('result')
+  return {
+    reviewId: requiredInteger(row.review_id, 'result.review_id'),
+    cycleId: requiredInteger(row.cycle_id, 'result.cycle_id'),
+    employmentId: requiredInteger(row.employment_id, 'result.employment_id'),
+    cycleStatus: nullableText(row.cycle_status),
+    status: text(row.status, 'result.status'),
+    selfRating: scoreText(row.self_rating),
+    managerRating: scoreText(row.manager_rating),
+    calibratedRating: scoreText(row.calibrated_rating),
+    finalRating: scoreText(row.final_rating),
+    snapshot: row.snapshot === true,
+    publishedAt: typeof row.published_at === 'string' ? row.published_at : null,
+    publishedBy: nullableInteger(row.published_by),
+  }
+}
+
+function normaliseReport(raw: unknown): PerformanceReportRow {
+  const row = isRecord(raw) ? raw : contractError('report')
+  return {
+    cycleId: requiredInteger(row.cycle_id, 'report.cycle_id'),
+    name: text(row.name, 'report.name'),
+    status: text(row.status, 'report.status'),
+    reviewCount: requiredInteger(row.review_count, 'report.review_count'),
+    submittedReviews: requiredInteger(row.submitted_reviews, 'report.submitted_reviews'),
+    draftReviews: requiredInteger(row.draft_reviews, 'report.draft_reviews'),
+    calibratedReviews: requiredInteger(row.calibrated_reviews, 'report.calibrated_reviews'),
+    publishedReviews: nullableInteger(row.published_reviews) ?? 0,
+    completionRate: nullableInteger(row.completion_rate) ?? 0,
+    snapshot: row.snapshot === true,
+  }
+}
+
+/** The projection envelope carries snapshot/pending evidence in drilldown. */
+function projectionRows(raw: unknown, field: string): { rows: unknown[]; snapshot: boolean; pending: boolean; total: number } {
+  const row = isRecord(raw) ? raw : contractError(field)
+  const drilldown = isRecord(row.drilldown) ? row.drilldown : {}
+  return {
+    rows: listOf(row.items, `${field}.items`),
+    snapshot: drilldown.snapshot === true,
+    pending: drilldown.pending === true,
+    total: requiredInteger(row.total, `${field}.total`),
+  }
+}
+
+export async function listPerformanceTemplates(): Promise<PerformanceTemplateRow[]> {
+  const result = await resourceGet<unknown>('/v1/performance/templates')
+  const row = isRecord(result) ? result : contractError('template_page')
+  return listOf(row.items, 'template_page.items').map(normaliseTemplate)
+}
+
+export async function createPerformanceTemplate(input: {
+  code: string
+  name: string
+  sections: Array<{ key: string; weight: number }>
+}): Promise<PerformanceTemplateRow> {
+  return normaliseTemplate(
+    await resourcePost<unknown>('/v1/performance/templates', input, {
+      idempotencyKey: newPerformanceIdempotencyKey('template'),
+    }),
+  )
+}
+
+export async function listPerformanceIndicators(): Promise<PerformanceIndicatorRow[]> {
+  const result = await resourceGet<unknown>('/v1/performance/indicators')
+  const row = isRecord(result) ? result : contractError('indicator_projection')
+  return listOf(row.items, 'indicator_projection.items').map(normaliseIndicator)
+}
+
+export async function createPerformanceIndicator(input: {
+  code: string
+  name: string
+  category?: string
+  dataSource?: string
+  description?: string
+}): Promise<PerformanceIndicatorRow> {
+  return normaliseIndicator(
+    await resourcePost<unknown>('/v1/performance/indicators', {
+      code: input.code,
+      name: input.name,
+      category: input.category || null,
+      data_source: input.dataSource || null,
+      description: input.description || null,
+      active: true,
+    }, { idempotencyKey: newPerformanceIdempotencyKey('indicator') }),
+  )
+}
+
+export async function listPerformanceGoals(cycleId: number): Promise<PerformancePlanGoalRow[]> {
+  const result = await resourceGet<unknown>('/v1/performance/goals')
+  const row = isRecord(result) ? result : contractError('goal_projection')
+  return listOf(row.items, 'goal_projection.items')
+    .map(normalisePlanGoal)
+    .filter((goal) => goal.cycleId === cycleId)
+}
+
+export async function createPerformanceGoal(input: {
+  cycleId: number
+  employmentId: number
+  title: string
+  targetValue: string
+  weight: number
+  indicatorId?: number | null
+  dueOn?: string
+}): Promise<PerformancePlanGoalRow> {
+  return normalisePlanGoal(
+    await resourcePost<unknown>('/v1/performance/goals', {
+      cycle_id: input.cycleId,
+      employment_id: input.employmentId,
+      indicator_id: input.indicatorId ?? null,
+      title: input.title,
+      target_value: input.targetValue,
+      weight: input.weight,
+      due_on: input.dueOn || null,
+    }, { idempotencyKey: newPerformanceIdempotencyKey('goal') }),
+  )
+}
+
+export async function listPerformanceFeedback(cycleId: number): Promise<PerformanceFeedbackRow[]> {
+  const result = await resourceGet<unknown>('/v1/performance/feedback')
+  const row = isRecord(result) ? result : contractError('feedback_projection')
+  return listOf(row.items, 'feedback_projection.items')
+    .map(normaliseFeedback)
+    .filter((feedback) => feedback.cycleId === cycleId)
+}
+
+export async function createPerformanceFeedback(input: {
+  cycleId: number
+  reviewId: number | null
+  fromEmploymentId: number
+  toEmploymentId: number
+  feedbackType: string
+  rating: string
+  comments: string
+  anonymous: boolean
+}): Promise<PerformanceFeedbackRow> {
+  return normaliseFeedback(
+    await resourcePost<unknown>('/v1/performance/feedback', {
+      cycle_id: input.cycleId,
+      review_id: input.reviewId,
+      from_employment_id: input.fromEmploymentId,
+      to_employment_id: input.toEmploymentId,
+      feedback_type: input.feedbackType,
+      rating: input.rating || null,
+      comments: input.comments,
+      anonymous: input.anonymous,
+    }, { idempotencyKey: newPerformanceIdempotencyKey('feedback') }),
+  )
+}
+
+export async function listPerformanceCalibrations(cycleId: number): Promise<PerformanceCalibrationRow[]> {
+  const result = await resourceGet<unknown>('/v1/performance/calibration')
+  const row = isRecord(result) ? result : contractError('calibration_projection')
+  return listOf(row.items, 'calibration_projection.items')
+    .map(normaliseCalibration)
+    .filter((calibration) => calibration.cycleId === cycleId)
+}
+
+export async function listPerformanceResults(cycleId: number): Promise<PerformanceResultPage> {
+  const result = projectionRows(
+    await resourceGet<unknown>('/v1/performance/results'),
+    'result_projection',
+  )
+  const items = result.rows
+    .map(normaliseResult)
+    .filter((row) => row.cycleId === cycleId)
+
+  return {
+    items,
+    snapshot: result.snapshot || items.some((row) => row.snapshot),
+    pending: result.pending || items.some((row) => !row.snapshot),
+    total: items.length,
+  }
+}
+
+export async function listPerformanceReports(cycleId: number): Promise<PerformanceReportRow | null> {
+  const result = projectionRows(
+    await resourceGet<unknown>('/v1/performance/reports'),
+    'report_projection',
+  )
+  return result.rows.map(normaliseReport).find((row) => row.cycleId === cycleId) ?? null
 }

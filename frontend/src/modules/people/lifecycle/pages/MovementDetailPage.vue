@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DISPLAY_CODES } from '@/shared/display/dictionary'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError, errorCode, errorCopy } from '@/api/errors'
@@ -18,8 +19,7 @@ import {
   loadMovementCaseDetail,
   listEmployees,
   listOrgUnits,
-  listSecondments,
-  secondmentToRow,
+  loadSecondmentDetail,
   listUsers,
   movementKindForCaseType,
   movementKindLabel,
@@ -27,6 +27,7 @@ import {
   stableSubmissionKey,
   statusLabel,
   submitMovementDecision,
+  submitMovementWithdraw,
   terminationTypeLabel,
   type EmployeeOption,
   type MovementCaseDetail,
@@ -57,7 +58,7 @@ const employees = ref<EmployeeOption[]>([])
 const orgUnits = ref<OrgUnitOption[]>([])
 
 const comment = ref('')
-const decisionSubmitting = ref<'APPROVE' | 'REJECT' | null>(null)
+const decisionSubmitting = ref<'APPROVE' | 'REJECT' | 'WITHDRAW' | null>(null)
 const decisionError = ref('')
 const decisionSuccess = ref('')
 const decisionKey = ref<StableSubmissionKey | null>(null)
@@ -93,25 +94,31 @@ const effectiveDate = computed<string | null>(() => {
   return textValue(payload.value.effective_date) ?? textValue(payload.value.effective_from)
 })
 
-const secondmentRow = computed(() => (secondment.value === null ? null : secondmentToRow(secondment.value)))
-const applicationStatus = computed(
-  () =>
-    workflow.value?.applicationStatus ??
-    secondmentRow.value?.applicationStatus ??
-    lifecycle.value?.applicationStatus ??
-    '',
-)
-const effectStatus = computed(
-  () =>
-    workflow.value?.effectStatus ??
-    secondmentRow.value?.effectStatus ??
-    lifecycle.value?.effectStatus ??
-    '',
-)
+const applicationStatus = computed(() => {
+  if (secondment.value !== null) return secondmentWindowStatus()
+  return workflow.value?.applicationStatus ?? lifecycle.value?.applicationStatus ?? ''
+})
+const effectStatus = computed(() => {
+  if (secondment.value !== null) return secondmentWindowStatus() === 'SCHEDULED' ? 'SCHEDULED' : 'APPLIED'
+  return workflow.value?.effectStatus ?? lifecycle.value?.effectStatus ?? ''
+})
 const canViewSalary = computed(() => session.can('lifecycle.terms.manage'))
 const decided = computed(() => isDecidedApplicationStatus(applicationStatus.value))
 const awaitingDecision = computed(
-  () => canDecide.value && !decided.value && isOpenApplicationStatus(applicationStatus.value) && workflow.value?.isAwaitingMe === true,
+  () =>
+    canDecide.value
+    && secondment.value === null
+    && !decided.value
+    && isOpenApplicationStatus(applicationStatus.value)
+    && (workflow.value?.isAwaitingMe === true || lifecycle.value?.isAwaitingMe === true),
+)
+const canWithdraw = computed(
+  () =>
+    secondment.value === null
+    && lifecycle.value !== null
+    && lifecycle.value.isMine
+    && isOpenApplicationStatus(applicationStatus.value)
+    && applicationStatus.value !== 'IN_REVIEW',
 )
 const currentNodeKey = computed(() => workflow.value?.currentNodeKey ?? null)
 const requesterUserId = computed(() => workflow.value?.requesterUserId ?? null)
@@ -181,6 +188,49 @@ function numberValue(value: unknown): number | null {
   return null
 }
 
+function snapshotEntries(snapshot: Record<string, unknown>): Array<[string, string]> {
+  const entries: Array<[string, string]> = []
+  const walk = (prefix: string, value: unknown): void => {
+    if (isRecord(value)) {
+      for (const [key, nested] of Object.entries(value)) {
+        walk(prefix === '' ? key : `${prefix}.${key}`, nested)
+      }
+      return
+    }
+    if (value === null || value === undefined || value === '') return
+    entries.push([prefix, String(value)])
+  }
+  walk('', snapshot)
+  return entries
+}
+
+const SNAPSHOT_LABELS: Readonly<Record<string, string>> = {
+  employment_id: '员工关系',
+  person_id: '人员',
+  employment_status: '任职状态',
+  assignment_id: '任职记录',
+  'assignment.org_unit_id': '原组织',
+  'assignment.position_id': '原岗位',
+  'assignment.valid_from': '原任职开始',
+  'assignment.valid_to': '原任职结束',
+  org_unit_id: '组织',
+  position_id: '岗位',
+  effective_date: '生效日期',
+  terms_id: '条款版本',
+  terms_version: '条款版本号',
+  base_salary_minor: '基本工资（最小单位）',
+  salary_currency: '币种',
+  contract_version_id: '合同版本',
+  last_working_date: '最后工作日',
+  hire_date: '入职日期',
+  sessions_revoked: '撤销会话数',
+  export_tasks_cancelled: '取消导出任务数',
+}
+
+function snapshotLabel(key: string): string {
+  return SNAPSHOT_LABELS[key] ?? key
+}
+
 function captureError(reason: unknown): void {
   errorCodeValue.value = errorCode(reason)
   if (reason instanceof ApiError) {
@@ -221,8 +271,7 @@ async function loadSecondment(assignmentId: number): Promise<void> {
     secondment.value = null
     return
   }
-  const result = await listSecondments()
-  secondment.value = result.items.find((item) => item.assignmentId === assignmentId) ?? null
+  secondment.value = await loadSecondmentDetail(assignmentId)
 }
 
 async function load(): Promise<void> {
@@ -295,6 +344,39 @@ async function decide(action: 'APPROVE' | 'REJECT'): Promise<void> {
   } finally {
     decisionSubmitting.value = null
   }
+}
+
+async function withdraw(): Promise<void> {
+  const caseId = lifecycle.value?.caseId ?? null
+  if (caseId === null || !canWithdraw.value) return
+  if (comment.value.trim() === '') {
+    decisionError.value = '撤回必须填写原因。'
+    return
+  }
+  decisionKey.value = stableSubmissionKey(decisionKey.value, 'movement-withdraw', { comment: comment.value.trim() })
+  decisionSubmitting.value = 'WITHDRAW'
+  decisionError.value = ''
+  decisionSuccess.value = ''
+  try {
+    await submitMovementWithdraw(caseId, comment.value.trim(), decisionKey.value.key)
+    comment.value = ''
+    await load()
+    decisionSuccess.value = '案例已撤回。'
+  } catch (reason) {
+    decisionError.value = reason instanceof ApiError && reason.code === 'CONFLICT'
+      ? '案例状态已变化，无法撤回；请刷新后重试。'
+      : (reason instanceof Error ? reason.message : '撤回未提交，请稍后重试。')
+  } finally {
+    decisionSubmitting.value = null
+  }
+}
+
+function secondmentWindowStatus(): string {
+  if (secondment.value === null) return ''
+  const today = new Date().toISOString().slice(0, 10)
+  if (secondment.value.validFrom > today) return 'SCHEDULED'
+  if (secondment.value.validTo <= today) return 'COMPLETED'
+  return DISPLAY_CODES.userStatus.active
 }
 
 function backToList(): void {
@@ -444,6 +526,45 @@ onMounted(() => {
           </p>
         </section>
 
+        <section class="movement-detail__snapshots" data-testid="movement-snapshots">
+          <header>
+            <h2>前后快照与生效结果</h2>
+            <p>快照在生效事务内冻结；之后 People 数据的变更不会改写本案例历史。</p>
+          </header>
+          <div class="movement-detail__snapshot-grid">
+            <article>
+              <h3>生效前</h3>
+              <dl>
+                <div v-for="(value, key) in snapshotEntries(lifecycle?.before ?? {})" :key="`before-${key}`">
+                  <dt>{{ snapshotLabel(String(key)) }}</dt>
+                  <dd>{{ value }}</dd>
+                </div>
+              </dl>
+              <p v-if="snapshotEntries(lifecycle?.before ?? {}).length === 0">批准前尚未冻结快照。</p>
+            </article>
+            <article>
+              <h3>生效后</h3>
+              <dl>
+                <div v-for="(value, key) in snapshotEntries(lifecycle?.after ?? {})" :key="`after-${key}`">
+                  <dt>{{ snapshotLabel(String(key)) }}</dt>
+                  <dd>{{ value }}</dd>
+                </div>
+              </dl>
+              <p v-if="snapshotEntries(lifecycle?.after ?? {}).length === 0">案例尚未产生生效结果。</p>
+            </article>
+            <article>
+              <h3>生效结果</h3>
+              <dl>
+                <div v-for="(value, key) in snapshotEntries(lifecycle?.effectResult ?? {})" :key="`result-${key}`">
+                  <dt>{{ snapshotLabel(String(key)) }}</dt>
+                  <dd>{{ value }}</dd>
+                </div>
+              </dl>
+              <p v-if="snapshotEntries(lifecycle?.effectResult ?? {}).length === 0">暂无 effect 结果。</p>
+            </article>
+          </div>
+        </section>
+
         <MovementTimeline
           :items="timelineItems"
           :users="users"
@@ -453,6 +574,39 @@ onMounted(() => {
           :awaiting-decision="awaitingDecision"
           :loading="loading"
         />
+
+        <section
+          v-if="canWithdraw"
+          class="movement-detail__decision"
+          data-testid="movement-withdraw-panel"
+        >
+          <header>
+            <h2>撤回申请</h2>
+            <p>撤回只关闭尚未审批完成的案例，不产生任何 People 变更。</p>
+          </header>
+          <label>
+            <span>撤回原因</span>
+            <textarea
+              v-model="comment"
+              data-testid="movement-withdraw-comment"
+              rows="3"
+              maxlength="2000"
+              placeholder="必填：说明撤回原因"
+            />
+          </label>
+          <p v-if="decisionError !== ''" class="movement-detail__error" role="alert">{{ decisionError }}</p>
+          <div class="movement-detail__decision-actions">
+            <button
+              type="button"
+              class="movement-detail__reject"
+              :disabled="decisionSubmitting !== null"
+              data-testid="movement-withdraw"
+              @click="withdraw"
+            >
+              {{ decisionSubmitting === 'WITHDRAW' ? '撤回中…' : '撤回申请' }}
+            </button>
+          </div>
+        </section>
 
         <section
           v-if="awaitingDecision"
@@ -788,5 +942,71 @@ onMounted(() => {
   margin: 0;
   color: #475569;
   font-size: 12px;
+}
+
+.movement-detail__snapshots {
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.movement-detail__snapshots > header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.movement-detail__snapshots > header p {
+  margin: 4px 0 12px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.movement-detail__snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.movement-detail__snapshot-grid article {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.movement-detail__snapshot-grid h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.movement-detail__snapshot-grid dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.movement-detail__snapshot-grid dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.movement-detail__snapshot-grid dt {
+  color: #64748b;
+}
+
+.movement-detail__snapshot-grid dd {
+  margin: 0;
+  color: #0f172a;
+  text-align: right;
+  word-break: break-all;
+}
+
+.movement-detail__snapshot-grid p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
 }
 </style>

@@ -5,19 +5,26 @@ declare(strict_types=1);
 namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\WorkflowCasePort;
+use App\Modules\Time\Models\LeaveLedgerEntry;
 use App\Modules\Time\Models\LeaveRequestProjection;
 use App\Modules\Time\Models\LeaveType;
 use App\Shared\Exceptions\ConflictException;
+use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Leave request application service. RESERVE happens at submit; the case owns
- * approval state and the ledger owns the balance. Cancellation RELEASEs the
- * reservation once and is idempotent.
+ * Leave request application service.
+ *
+ * Submit reserves integer minutes, the Workflow case owns approval, and the
+ * ledger owns balances. Self and on-behalf are separate entry points with
+ * different controllers/capabilities; this service still receives the subject
+ * explicitly so a client-supplied employment id can never be trusted by the
+ * self controller.
  */
 final class LeaveRequestService
 {
@@ -27,6 +34,10 @@ final class LeaveRequestService
         private readonly LeaveLedgerService $ledger,
         private readonly LeaveBalanceService $balances,
         private readonly LeaveAccountService $accounts,
+        private readonly BusinessCalendar $calendar,
+        private readonly LeavePolicyService $policies,
+        private readonly PayrollFreezeGuard $freezeGuard,
+        private readonly AuditRecorder $audit,
     ) {}
 
     /**
@@ -38,33 +49,54 @@ final class LeaveRequestService
         string $fromDate,
         string $toDate,
         bool $halfDay,
+        ?string $reason = null,
     ): array {
-        BusinessDate::parse($fromDate);
-        BusinessDate::parse($toDate);
-
-        if ($toDate < $fromDate) {
-            throw new ValidationException(['to_date' => ['The end date must not precede the start date.']]);
-        }
-
-        if ($halfDay && $fromDate !== $toDate) {
-            throw new ValidationException(['half_day' => ['A half-day request must start and end on the same date.']]);
-        }
+        $this->assertDates($fromDate, $toDate, $halfDay);
 
         $type = $this->type($leaveTypeCode);
+        $policy = $this->policy($type, $fromDate, true);
         $standardDay = $this->accounts->standardDayMinutes($employmentId, $fromDate);
-        $requested = $this->requestedMinutes($employmentId, $type, $fromDate, $toDate, $halfDay);
+        $workingDays = $this->workingDays($fromDate, $toDate);
+        $requested = $this->requestedMinutes($employmentId, $type, $workingDays, $halfDay);
         $available = $this->balances->available($employmentId, (int) $type->id, $fromDate);
-        $handover = [];
+        $conflicts = [];
 
         if (! $type->allow_negative && $available < $requested) {
-            $handover[] = [
+            $conflicts[] = [
                 'code' => 'INSUFFICIENT_BALANCE',
                 'severity' => 'BLOCKING',
                 'message' => 'The requested leave exceeds the available balance.',
             ];
         }
 
+        $ruleConflicts = $this->ruleConflicts(
+            policy: $policy,
+            leaveType: $type,
+            employmentId: $employmentId,
+            fromDate: $fromDate,
+            toDate: $toDate,
+            workingDays: $workingDays,
+            halfDay: $halfDay,
+            reason: $reason,
+        );
+
+        $conflicts = [...$conflicts, ...$ruleConflicts];
+        $overlap = $this->overlap($employmentId, $fromDate, $toDate);
+
+        if ($overlap !== null) {
+            $conflicts[] = [
+                'code' => 'LEAVE_REQUEST_OVERLAP',
+                'severity' => 'BLOCKING',
+                'message' => 'An overlapping leave request already exists.',
+                'case_id' => (int) $overlap->case_id,
+            ];
+        }
+
         $standardDayDivisor = max(1, $standardDay);
+        $blocking = array_values(array_filter(
+            $conflicts,
+            static fn (array $conflict): bool => ($conflict['severity'] ?? '') === 'BLOCKING',
+        ));
 
         return [
             'leave_type_id' => (int) $type->id,
@@ -73,23 +105,27 @@ final class LeaveRequestService
             'from_date' => $fromDate,
             'to_date' => $toDate,
             'half_day' => $halfDay,
-            'working_days' => $this->workingDays($fromDate, $toDate),
+            'working_days' => $workingDays,
             'requested_minutes' => $requested,
-            'requested_days' => $type->unit === 'DAY' ? QuantityUnit::toDisplayDays($requested, $standardDayDivisor) : '0.00',
+            'requested_days' => $type->unit === 'DAY'
+                ? QuantityUnit::toDisplayDays($requested, $standardDayDivisor)
+                : (float) ($requested / 60),
             'available_before_minutes' => $available,
             'available_before_days' => QuantityUnit::toDisplayDays($available, $standardDayDivisor),
             'available_after_minutes' => $available - $requested,
             'available_after_days' => QuantityUnit::toDisplayDays($available - $requested, $standardDayDivisor),
             'standard_day_minutes' => $standardDayDivisor,
-            'conflicts' => $handover,
-            'note' => $handover === []
+            'policy_version_id' => (int) $policy->id,
+            'policy_version' => (int) $policy->version,
+            'conflicts' => $conflicts,
+            'note' => $blocking === []
                 ? 'Balance is reserved at submit and settled on approval.'
-                : 'The request cannot be submitted until the balance or dates are adjusted.',
+                : 'The request cannot be submitted until the highlighted issues are adjusted.',
         ];
     }
 
     /**
-     * @return array{case_id: int, case_no: string, application_status: string, effect_status: string, leave_type_id: int, requested_minutes: int, replayed: bool}
+     * @return array<string, mixed>
      */
     public function request(
         int $employmentId,
@@ -99,52 +135,147 @@ final class LeaveRequestService
         string $toDate,
         bool $halfDay,
         string $reason,
+        ?int $orgUnitId = null,
+        ?string $attachmentReference = null,
     ): array {
-        BusinessDate::parse($fromDate);
-        BusinessDate::parse($toDate);
+        return $this->submit(
+            employmentId: $employmentId,
+            actorUserId: $userId,
+            leaveTypeCode: $leaveTypeCode,
+            fromDate: $fromDate,
+            toDate: $toDate,
+            halfDay: $halfDay,
+            reason: $reason,
+            onBehalf: false,
+            orgUnitId: $orgUnitId,
+            attachmentReference: $attachmentReference,
+        );
+    }
 
-        if ($toDate < $fromDate) {
-            throw new ValidationException(['to_date' => ['The end date must not precede the start date.']]);
+    /**
+     * On-behalf is a distinct command. The caller (route capability + scope)
+     * has already proven the actor may manage the explicit subject.
+     *
+     * @return array<string, mixed>
+     */
+    public function requestOnBehalf(
+        int $employmentId,
+        int $actorUserId,
+        string $leaveTypeCode,
+        string $fromDate,
+        string $toDate,
+        bool $halfDay,
+        string $reason,
+        ?int $orgUnitId = null,
+        ?string $attachmentReference = null,
+    ): array {
+        if ($actorUserId <= 0) {
+            throw new ValidationException(['actor' => ['A resolved actor is required.']]);
         }
 
-        if ($halfDay && $fromDate !== $toDate) {
-            throw new ValidationException(['half_day' => ['A half-day request must start and end on the same date.']]);
-        }
+        return $this->submit(
+            employmentId: $employmentId,
+            actorUserId: $actorUserId,
+            leaveTypeCode: $leaveTypeCode,
+            fromDate: $fromDate,
+            toDate: $toDate,
+            halfDay: $halfDay,
+            reason: $reason,
+            onBehalf: true,
+            orgUnitId: $orgUnitId,
+            attachmentReference: $attachmentReference,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function submit(
+        int $employmentId,
+        int $actorUserId,
+        string $leaveTypeCode,
+        string $fromDate,
+        string $toDate,
+        bool $halfDay,
+        string $reason,
+        bool $onBehalf,
+        ?int $orgUnitId,
+        ?string $attachmentReference,
+    ): array {
+        $this->assertDates($fromDate, $toDate, $halfDay);
 
         if (trim($reason) === '') {
             throw new ValidationException(['reason' => ['A leave request reason is required.']]);
         }
 
         $type = $this->type($leaveTypeCode);
-        $this->accounts->ensureAccount($employmentId, (int) $type->id, $fromDate);
-        $minutes = $this->requestedMinutes($employmentId, $type, $fromDate, $toDate, $halfDay);
+        $policy = $this->policy($type, $fromDate, false);
+        $workingDays = $this->workingDays($fromDate, $toDate);
+        $ruleConflicts = $this->ruleConflicts(
+            policy: $policy,
+            leaveType: $type,
+            employmentId: $employmentId,
+            fromDate: $fromDate,
+            toDate: $toDate,
+            workingDays: $workingDays,
+            halfDay: $halfDay,
+            reason: $reason,
+            attachmentReference: $attachmentReference,
+        );
 
-        $existing = LeaveRequestProjection::query()
-            ->where('employment_id', $employmentId)
-            ->where('leave_type_id', $type->id)
-            ->where('from_date', $fromDate)
-            ->where('to_date', $toDate)
-            ->whereIn('state', ['SUBMITTED', 'APPROVED'])
-            ->first();
-
-        if ($existing !== null) {
-            throw new ConflictException(
-                'An overlapping leave request already exists.',
-                ['reason' => 'LEAVE_REQUEST_OVERLAP', 'case_id' => (int) $existing->case_id],
+        if ($ruleConflicts !== []) {
+            throw new ValidationException(
+                ['leave' => array_map(static fn (array $conflict): string => (string) $conflict['message'], $ruleConflicts)],
+                'The leave request violates the effective leave policy.',
+                ['reason' => (string) $ruleConflicts[0]['code'], 'conflicts' => $ruleConflicts],
             );
         }
 
-        return DB::transaction(function () use ($employmentId, $userId, $type, $fromDate, $toDate, $minutes, $halfDay, $reason): array {
+        $this->accounts->ensureAccount($employmentId, (int) $type->id, $fromDate);
+        $minutes = $this->requestedMinutes($employmentId, $type, $workingDays, $halfDay);
+
+        return DB::transaction(function () use (
+            $employmentId,
+            $actorUserId,
+            $type,
+            $policy,
+            $fromDate,
+            $toDate,
+            $minutes,
+            $halfDay,
+            $reason,
+            $onBehalf,
+            $orgUnitId,
+        ): array {
+            // Serialize requests for one leave account before checking the
+            // overlap window. The projection lock alone is insufficient when
+            // the caller has not yet created a row.
+            $this->accounts->ensureAccount($employmentId, (int) $type->id, $fromDate);
+            $this->ledger->assertAccountLockable($employmentId, (int) $type->id);
+
+            $overlap = $this->overlap($employmentId, $fromDate, $toDate, true);
+
+            if ($overlap !== null) {
+                throw new ConflictException(
+                    'An overlapping leave request already exists.',
+                    ['reason' => 'LEAVE_REQUEST_OVERLAP', 'case_id' => (int) $overlap->case_id],
+                );
+            }
+
             $caseId = $this->workflow->createCase(
-                requesterUserId: $userId,
+                requesterUserId: $actorUserId,
                 type: 'LEAVE_REQUEST',
                 subjectType: 'employment',
                 subjectId: $employmentId,
                 payload: [
-                    'title' => 'Leave request',
+                    'title' => $onBehalf ? 'HR leave request' : 'Leave request',
                     'employment_id' => $employmentId,
+                    'actor_user_id' => $actorUserId,
+                    'subject_employment_id' => $employmentId,
+                    'on_behalf' => $onBehalf,
                     'leave_type_id' => (int) $type->id,
                     'leave_type_code' => (string) $type->code,
+                    'leave_policy_version_id' => (int) $policy->id,
                     'from_date' => $fromDate,
                     'to_date' => $toDate,
                     'half_day' => $halfDay,
@@ -167,7 +298,10 @@ final class LeaveRequestService
 
             $projection = LeaveRequestProjection::query()->create([
                 'employment_id' => $employmentId,
+                'actor_user_id' => $actorUserId,
+                'org_unit_id' => $orgUnitId,
                 'leave_type_id' => (int) $type->id,
+                'leave_policy_version_id' => (int) $policy->id,
                 'case_id' => $caseId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
@@ -178,70 +312,192 @@ final class LeaveRequestService
             ]);
 
             $case = $this->workflow->case($caseId);
+            $state = $case?->isApproved() === true ? 'APPROVED' : 'SUBMITTED';
+
+            $this->audit->record(
+                $actorUserId,
+                $onBehalf ? 'time.leave.request.on_behalf_submitted' : 'time.leave.request.submitted',
+                'leave_request',
+                $caseId,
+                after: [
+                    'case_id' => $caseId,
+                    'actor_user_id' => $actorUserId,
+                    'subject_employment_id' => $employmentId,
+                    'leave_type_id' => (int) $type->id,
+                    'policy_version_id' => (int) $policy->id,
+                    'minutes' => $minutes,
+                    'state' => $state,
+                ],
+            );
 
             return [
                 'case_id' => $caseId,
-                'case_no' => $case !== null ? 'CASE-'.$caseId : 'CASE-'.$caseId,
+                'case_no' => $case->caseNo !== '' ? $case->caseNo : 'CASE-'.$caseId,
                 'application_status' => $case->status ?? 'SUBMITTED',
                 'effect_status' => $case->effectStatus ?? 'NONE',
                 'leave_type_id' => (int) $type->id,
+                'leave_type_code' => (string) $type->code,
+                'policy_version_id' => (int) $policy->id,
                 'requested_minutes' => $minutes,
+                'actor_user_id' => $actorUserId,
+                'subject_employment_id' => $employmentId,
+                'projection_id' => (int) $projection->id,
                 'replayed' => false,
             ];
         });
     }
 
     /**
-     * Release the reservation exactly once; repeated cancellation is a no-op.
+     * Cancel/revoke state machine.
      *
-     * @return array{case_id: int, state: string, released_minutes: int, replayed: bool}
+     * SUBMITTED -> RELEASE + workflow withdraw (CANCELLED).
+     * APPROVED/CONSUMED -> freeze guard, REVERSE consumption and reserved hold
+     * (REVOKED). Replaying the same method on a terminal projection is a no-op.
+     *
+     * @return array{case_id: int, state: string, released_minutes: int, reversed_minutes: int, replayed: bool}
      */
-    public function cancel(int $caseId, int $actorUserId, string $reason): array
-    {
-        return DB::transaction(function () use ($caseId, $actorUserId, $reason): array {
-            $case = $this->workflow->case($caseId);
-
-            if ($case === null || $case->requesterUserId !== $actorUserId) {
-                throw new ConflictException('The leave request was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
-            }
-
+    public function cancel(
+        int $caseId,
+        int $actorUserId,
+        string $reason,
+        ?bool $revoke = null,
+        bool $managerOverride = false,
+    ): array {
+        return DB::transaction(function () use ($caseId, $actorUserId, $reason, $revoke, $managerOverride): array {
+            /** @var LeaveRequestProjection|null $projection */
             $projection = LeaveRequestProjection::query()
                 ->where('case_id', $caseId)
                 ->lockForUpdate()
                 ->first();
 
             if ($projection === null) {
-                throw new ConflictException('The leave request projection was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
+                throw new ConflictException('The leave request was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
             }
 
-            if (in_array((string) $projection->state, ['CANCELLED', 'RELEASED'], true)) {
+            $case = $this->workflow->case($caseId);
+            $state = strtoupper((string) $projection->state);
+            $shouldRevoke = $revoke ?? in_array($state, ['APPROVED', 'CONSUMED', 'REVOKED'], true);
+
+            if (in_array($state, ['CANCELLED', 'RELEASED'], true) && ! $shouldRevoke) {
                 return [
                     'case_id' => $caseId,
-                    'state' => (string) $projection->state,
+                    'state' => $state,
                     'released_minutes' => 0,
+                    'reversed_minutes' => 0,
                     'replayed' => true,
                 ];
             }
 
-            $this->ledger->release(
-                employmentId: $projection->employment_id,
-                leaveTypeId: $projection->leave_type_id,
-                minutes: (int) $projection->minutes,
-                businessDate: $projection->from_date->format('Y-m-d'),
-                sourceType: 'LEAVE_REQUEST',
-                sourceId: (string) $caseId,
-                reason: $reason !== '' ? $reason : 'Leave request cancelled',
-                caseId: $caseId,
+            if ($state === 'REVOKED' && $shouldRevoke) {
+                return [
+                    'case_id' => $caseId,
+                    'state' => $state,
+                    'released_minutes' => 0,
+                    'reversed_minutes' => 0,
+                    'replayed' => true,
+                ];
+            }
+
+            if (! $managerOverride && $case !== null && $case->requesterUserId !== $actorUserId) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if ($shouldRevoke) {
+                $this->freezeGuard->assertNotFrozen(
+                    (int) $projection->employment_id,
+                    PayrollFreezeGuard::periodsForRange(
+                        $projection->from_date->format('Y-m-d'),
+                        $projection->to_date->format('Y-m-d'),
+                    ),
+                );
+            }
+
+            $businessDate = $projection->from_date->format('Y-m-d');
+            $minutes = (int) $projection->minutes;
+            $released = 0;
+            $reversed = 0;
+
+            if ($shouldRevoke) {
+                $consumed = $this->consumedMinutes($projection);
+
+                if ($consumed > 0) {
+                    $this->ledger->reverse(
+                        employmentId: (int) $projection->employment_id,
+                        leaveTypeId: (int) $projection->leave_type_id,
+                        minutes: $consumed,
+                        businessDate: $businessDate,
+                        sourceType: 'LEAVE_REVOKE',
+                        sourceId: (string) $caseId,
+                        reason: $reason !== '' ? $reason : 'Leave revoked',
+                        targetAccount: 'CONSUME',
+                        caseId: $caseId,
+                    );
+                    $reversed = $consumed;
+                }
+
+                // If an approval consumed the reservation, CONSUME already
+                // released it. Only release a still-outstanding hold.
+                if ($consumed === 0) {
+                    $this->ledger->release(
+                        employmentId: (int) $projection->employment_id,
+                        leaveTypeId: (int) $projection->leave_type_id,
+                        minutes: $minutes,
+                        businessDate: $businessDate,
+                        sourceType: 'LEAVE_REQUEST',
+                        sourceId: (string) $caseId,
+                        reason: $reason !== '' ? $reason : 'Leave revoked',
+                        caseId: $caseId,
+                    );
+                    $released = $minutes;
+                }
+
+                if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
+                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                }
+
+                $projection->forceFill(['state' => 'REVOKED', 'updated_at' => $this->clock->now()])->save();
+                $newState = 'REVOKED';
+            } else {
+                $this->ledger->release(
+                    employmentId: (int) $projection->employment_id,
+                    leaveTypeId: (int) $projection->leave_type_id,
+                    minutes: $minutes,
+                    businessDate: $businessDate,
+                    sourceType: 'LEAVE_REQUEST',
+                    sourceId: (string) $caseId,
+                    reason: $reason !== '' ? $reason : 'Leave request cancelled',
+                    caseId: $caseId,
+                );
+                $released = $minutes;
+
+                if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
+                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                }
+
+                $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
+                $newState = 'CANCELLED';
+            }
+
+            $this->audit->record(
+                $actorUserId,
+                $shouldRevoke ? 'time.leave.request.revoked' : 'time.leave.request.cancelled',
+                'leave_request',
+                $caseId,
+                before: ['state' => $state],
+                after: [
+                    'state' => $newState,
+                    'actor_user_id' => $actorUserId,
+                    'subject_employment_id' => (int) $projection->employment_id,
+                    'released_minutes' => $released,
+                    'reversed_minutes' => $reversed,
+                ],
             );
-
-            $this->workflow->requestCancel($caseId, $actorUserId, $reason);
-
-            $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
 
             return [
                 'case_id' => $caseId,
-                'state' => 'CANCELLED',
-                'released_minutes' => (int) $projection->minutes,
+                'state' => $newState,
+                'released_minutes' => $released,
+                'reversed_minutes' => $reversed,
                 'replayed' => false,
             ];
         });
@@ -250,51 +506,274 @@ final class LeaveRequestService
     /**
      * @return list<array<string, mixed>>
      */
-    public function forEmployment(int $employmentId, ?string $asOf = null): array
+    public function forEmployment(int $employmentId, ?string $asOf = null, ?string $toDate = null): array
     {
         $asOf ??= $this->clock->now()->toDateString();
 
-        return LeaveRequestProjection::query()
+        $query = LeaveRequestProjection::query()
             ->where('employment_id', $employmentId)
             ->where('from_date', '<=', $asOf)
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (LeaveRequestProjection $projection): array => [
-                'case_id' => (int) $projection->case_id,
-                'leave_type_id' => (int) $projection->leave_type_id,
-                'from_date' => CarbonImmutable::parse((string) $projection->from_date)->format('Y-m-d'),
-                'to_date' => CarbonImmutable::parse((string) $projection->to_date)->format('Y-m-d'),
-                'minutes' => (int) $projection->minutes,
-                'state' => (string) $projection->state,
-            ])
+            ->orderByDesc('id');
+
+        if ($toDate !== null && $toDate !== '') {
+            $query->where('to_date', '>=', $toDate);
+        }
+
+        return $query->get()
+            ->map(fn (LeaveRequestProjection $projection): array => $this->projectionRow($projection))
             ->all();
     }
 
-    private function requestedMinutes(
-        int $employmentId,
-        LeaveType $type,
-        string $fromDate,
-        string $toDate,
-        bool $halfDay,
-    ): int {
-        if ($type->unit === 'HOUR') {
-            $minutes = $this->workingDays($fromDate, $toDate) * 60;
+    /**
+     * Scoped management listing used by the HR ledger tab.
+     *
+     * @param  list<int>  $scopeEmploymentIds
+     * @param  array<string, mixed>  $filters
+     * @return array{items: list<array<string, mixed>>, total: int, page: int, page_size: int}
+     */
+    public function scopedRequests(array $scopeEmploymentIds, array $filters, int $page, int $pageSize): array
+    {
+        $query = LeaveRequestProjection::query();
 
-            return $halfDay ? 30 : max(1, $minutes);
+        if ($scopeEmploymentIds !== []) {
+            $query->whereIn('employment_id', $scopeEmploymentIds);
         }
 
-        $standardDay = $this->accounts->standardDayMinutes($employmentId, $fromDate);
-        $days = $this->workingDays($fromDate, $toDate);
+        foreach ([
+            'employment_id' => 'employment_id',
+            'leave_type_id' => 'leave_type_id',
+            'org_unit_id' => 'org_unit_id',
+            'state' => 'state',
+        ] as $filter => $column) {
+            if (isset($filters[$filter]) && $filters[$filter] !== '') {
+                $query->where($column, $filters[$filter]);
+            }
+        }
 
-        return ($halfDay ? 1 : max(1, $days)) * $standardDay;
+        if (isset($filters['from']) && (string) $filters['from'] !== '') {
+            $query->where('to_date', '>=', (string) $filters['from']);
+        }
+
+        if (isset($filters['to']) && (string) $filters['to'] !== '') {
+            $query->where('from_date', '<=', (string) $filters['to']);
+        }
+
+        $total = (clone $query)->count();
+        $rows = $query->orderByDesc('id')->forPage($page, $pageSize)->get();
+
+        return [
+            'items' => $rows->map(fn (LeaveRequestProjection $projection): array => $this->projectionRow($projection))->all(),
+            'total' => $total,
+            'page' => $page,
+            'page_size' => $pageSize,
+        ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function projectionRow(LeaveRequestProjection $projection): array
+    {
+        $case = $this->workflow->case((int) $projection->case_id);
+
+        return [
+            'id' => (int) $projection->id,
+            'caseId' => (int) $projection->case_id,
+            'caseNo' => $case !== null ? $case->caseNo : 'CASE-'.$projection->case_id,
+            'title' => $case !== null ? $case->title : 'Leave request',
+            'applicationStatus' => $case !== null ? $case->status : 'UNKNOWN',
+            'effectStatus' => $case?->effectStatus,
+            'currentNode' => $case?->currentNode,
+            'dueAt' => $case?->dueAt,
+            'employment_id' => (int) $projection->employment_id,
+            'actor_user_id' => $projection->actor_user_id !== null ? (int) $projection->actor_user_id : null,
+            'subject_employment_id' => (int) $projection->employment_id,
+            'org_unit_id' => $projection->org_unit_id !== null ? (int) $projection->org_unit_id : null,
+            'leaveTypeId' => (int) $projection->leave_type_id,
+            'leave_policy_version_id' => $projection->leave_policy_version_id !== null
+                ? (int) $projection->leave_policy_version_id
+                : null,
+            'fromDate' => $projection->from_date->format('Y-m-d'),
+            'toDate' => $projection->to_date->format('Y-m-d'),
+            'minutes' => (int) $projection->minutes,
+            'state' => (string) $projection->state,
+        ];
+    }
+
+    private function assertDates(string $fromDate, string $toDate, bool $halfDay): void
+    {
+        BusinessDate::parse($fromDate);
+        BusinessDate::parse($toDate);
+
+        if ($toDate < $fromDate) {
+            throw new ValidationException(['to_date' => ['The end date must not precede the start date.']]);
+        }
+
+        if ($halfDay && $fromDate !== $toDate) {
+            throw new ValidationException(['half_day' => ['A half-day request must start and end on the same date.']]);
+        }
+    }
+
+    /**
+     * @return list<array{code: string, severity: string, message: string}>
+     */
+    private function ruleConflicts(
+        \App\Modules\Time\Models\LeavePolicyVersion $policy,
+        LeaveType $leaveType,
+        int $employmentId,
+        string $fromDate,
+        string $toDate,
+        int $workingDays,
+        bool $halfDay,
+        ?string $reason,
+        ?string $attachmentReference = null,
+    ): array {
+        $conflicts = [];
+        $today = $this->clock->now()->toDateString();
+        $minNoticeDays = (int) $policy->min_notice_days;
+
+        if ($minNoticeDays > 0) {
+            $requiredFrom = CarbonImmutable::parse($today, 'UTC')->addDays($minNoticeDays)->format('Y-m-d');
+
+            if ($fromDate < $requiredFrom) {
+                $conflicts[] = [
+                    'code' => 'LEAVE_MIN_NOTICE_VIOLATION',
+                    'severity' => 'BLOCKING',
+                    'message' => "This leave type requires at least {$minNoticeDays} day(s) of advance notice.",
+                ];
+            }
+        }
+
+        if ($policy->max_consecutive_days !== null && $workingDays > (int) $policy->max_consecutive_days) {
+            $conflicts[] = [
+                'code' => 'LEAVE_MAX_CONSECUTIVE_EXCEEDED',
+                'severity' => 'BLOCKING',
+                'message' => 'The request exceeds the maximum consecutive leave days for this type.',
+            ];
+        }
+
+        if ($halfDay && ! (bool) $policy->allow_half_day) {
+            $conflicts[] = [
+                'code' => 'LEAVE_HALF_DAY_NOT_ALLOWED',
+                'severity' => 'BLOCKING',
+                'message' => 'Half-day leave is not allowed by the effective policy.',
+            ];
+        }
+
+        $attachmentThreshold = $policy->requires_attachment_over_days;
+
+        if ($attachmentThreshold !== null
+            && $workingDays > (int) $attachmentThreshold
+            && ($attachmentReference === null || trim($attachmentReference) === '')) {
+            $conflicts[] = [
+                'code' => 'LEAVE_ATTACHMENT_REQUIRED',
+                'severity' => 'BLOCKING',
+                'message' => 'An attachment is required for a request of this length.',
+            ];
+        }
+
+        if ($reason !== null && trim($reason) !== '' && mb_strlen(trim($reason)) < 3) {
+            $conflicts[] = [
+                'code' => 'LEAVE_REASON_TOO_SHORT',
+                'severity' => 'BLOCKING',
+                'message' => 'A leave request reason must be at least 3 characters.',
+            ];
+        }
+
+        return $conflicts;
+    }
+
+    private function overlap(int $employmentId, string $fromDate, string $toDate, bool $lock = false): ?LeaveRequestProjection
+    {
+        $query = LeaveRequestProjection::query()
+            ->where('employment_id', $employmentId)
+            ->whereIn('state', ['SUBMITTED', 'APPROVED', 'CONSUMED'])
+            ->where('from_date', '<=', $toDate)
+            ->where('to_date', '>=', $fromDate)
+            ->orderBy('id');
+
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
+    }
+
+    private function consumedMinutes(LeaveRequestProjection $projection): int
+    {
+        $consume = LeaveLedgerEntry::query()
+            ->where('case_id', $projection->case_id)
+            ->where('account', 'CONSUME')
+            ->first();
+
+        if ($consume === null) {
+            return 0;
+        }
+
+        $alreadyReversed = LeaveLedgerEntry::query()
+            ->where('case_id', $projection->case_id)
+            ->where('account', 'REVERSE')
+            ->where('source_type', 'LEAVE_REVOKE')
+            ->exists();
+
+        return $alreadyReversed ? 0 : abs((int) $consume->quantity_minutes);
+    }
+
+    private function requestedMinutes(int $employmentId, LeaveType $type, int $workingDays, bool $halfDay): int
+    {
+        if ($type->unit === 'HOUR') {
+            return $halfDay ? 30 : max(1, $workingDays * 60);
+        }
+
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $this->clock->now()->toDateString());
+
+        return ($halfDay ? 1 : max(1, $workingDays)) * $standardDay;
+    }
+
+    /**
+     * Walk the company calendar day by day; weekends and holidays are not
+     * silently counted as leave.
+     */
     private function workingDays(string $fromDate, string $toDate): int
     {
-        $from = CarbonImmutable::parse($fromDate, 'UTC')->startOfDay();
-        $to = CarbonImmutable::parse($toDate, 'UTC')->startOfDay();
+        $cursor = CarbonImmutable::parse($fromDate, 'UTC')->startOfDay();
+        $end = CarbonImmutable::parse($toDate, 'UTC')->startOfDay();
+        $days = 0;
 
-        return max(1, (int) $from->diffInDays($to) + 1);
+        while ($cursor->lessThanOrEqualTo($end)) {
+            if ($this->calendar->isWorkingDay($cursor->format('Y-m-d'))) {
+                $days++;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        return max(1, $days);
+    }
+
+    private function policy(LeaveType $type, string $businessDate, bool $forPreview): \App\Modules\Time\Models\LeavePolicyVersion
+    {
+        if ((string) ($type->status ?? 'ACTIVE') !== 'ACTIVE') {
+            throw new ConflictException('The leave type is inactive.', ['reason' => 'LEAVE_TYPE_INACTIVE']);
+        }
+
+        $policy = $this->policies->effectiveFor((int) $type->id, $businessDate);
+
+        if ($policy === null) {
+            if ($forPreview) {
+                throw new ConflictException(
+                    'No published leave policy is effective on the requested date.',
+                    ['reason' => 'LEAVE_POLICY_UNPUBLISHED'],
+                );
+            }
+
+            throw new ConflictException(
+                'No published leave policy is effective on the requested date.',
+                ['reason' => 'LEAVE_POLICY_UNPUBLISHED'],
+            );
+        }
+
+        return $policy;
     }
 
     private function type(string $code): LeaveType

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $is_statutory
  * @property bool $is_annual
  * @property string $unit
+ * @property string $status
  * @property string|null $annual_entitlement_days
  * @property array<string, mixed>|null $expiry_rule_json
  */
@@ -23,6 +24,7 @@ final class LeaveType extends Model
         'is_statutory',
         'is_annual',
         'unit',
+        'status',
         'annual_entitlement_days',
         'requires_attachment',
         'allow_negative',

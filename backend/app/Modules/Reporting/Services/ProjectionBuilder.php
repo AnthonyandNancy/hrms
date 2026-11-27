@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\DB;
  * Rebuilds Reporting's own projection table exclusively from module Contracts.
  * The projection is disposable: dropping it and replaying this service for a
  * business date yields the same rows and source hashes.
+ *
+ * Payroll and recruitment rows are published only from their owning module's
+ * Contract. Reporting never reads payroll_runs or candidates directly and
+ * never writes either module's tables.
  */
 final class ProjectionBuilder
 {
@@ -44,8 +48,20 @@ final class ProjectionBuilder
         $exists = ProjectionRow::query()
             ->where('business_date', $asOf)
             ->exists();
+        $payrollMissing = $this->payroll->available() && ! ProjectionRow::query()
+            ->where('business_date', $asOf)
+            ->where('source_projection', 'payroll_cost')
+            ->where('entity_type', 'SOURCE_SYNC')
+            ->where('status', 'AVAILABLE')
+            ->exists();
+        $recruitmentMissing = $this->recruitment->available() && ! ProjectionRow::query()
+            ->where('business_date', $asOf)
+            ->where('source_projection', 'recruitment_funnel')
+            ->where('entity_type', 'SOURCE_SYNC')
+            ->where('status', 'AVAILABLE')
+            ->exists();
 
-        if (! $exists) {
+        if (! $exists || $payrollMissing || $recruitmentMissing) {
             $this->rebuild($asOf);
         }
     }
@@ -173,6 +189,65 @@ final class ProjectionBuilder
                     ],
                 ], $now);
             }
+
+            if ($this->payroll->available()) {
+                foreach ($this->payroll->costByEntity($asOf) as $index => $cost) {
+                    $currency = strtoupper($cost->currencyCode);
+                    $this->store($asOf, 'payroll_cost', 'payroll_cost_by_entity', 'PAYROLL_COST', 'published:'.$asOf.':'.$currency.':'.$index, [
+                        'employment_id' => null,
+                        'org_unit_id' => null,
+                        'label' => '已发布工资批次（'.$asOf.'）',
+                        'secondary_label' => $currency.' · 雇主成本',
+                        'status' => 'PUBLISHED',
+                        'numeric_value' => $cost->employerCostCents,
+                        'attributes_json' => [
+                            'gross_cents' => $cost->grossCents,
+                            'net_cents' => $cost->netCents,
+                            'employer_cost_cents' => $cost->employerCostCents,
+                            'currency_code' => $currency,
+                        ],
+                    ], $now);
+                }
+            }
+
+            $this->store($asOf, 'payroll_cost', 'source_sync', 'SOURCE_SYNC', 'payroll_cost', [
+                'employment_id' => null,
+                'org_unit_id' => null,
+                'label' => '薪酬成本投影同步标记',
+                'secondary_label' => null,
+                'status' => $this->payroll->available() ? 'AVAILABLE' : 'UNAVAILABLE',
+                'numeric_value' => 0,
+                'attributes_json' => ['source' => 'payroll_cost', 'available' => $this->payroll->available()],
+            ], $now);
+
+            if ($this->recruitment->available()) {
+                foreach ($this->recruitment->funnel($asOf) as $stage) {
+                    $this->store($asOf, 'recruitment_funnel', 'recruitment_funnel', 'RECRUITMENT_STAGE', $stage->stage.':'.($stage->orgUnitId ?? 'company'), [
+                        'employment_id' => null,
+                        'org_unit_id' => $stage->orgUnitId,
+                        'label' => MetricDefinition::stageLabel($stage->stage),
+                        'secondary_label' => $stage->orgUnitId === null ? '全公司' : '授权组织',
+                        'status' => $stage->stage,
+                        'numeric_value' => $stage->count,
+                        'attributes_json' => [
+                            'stage' => $stage->stage,
+                            'stage_label' => MetricDefinition::stageLabel($stage->stage),
+                            'count' => $stage->count,
+                            'org_unit_id' => $stage->orgUnitId,
+                        ],
+                    ], $now);
+                }
+            }
+
+            $this->store($asOf, 'recruitment_funnel', 'source_sync', 'SOURCE_SYNC', 'recruitment_funnel', [
+                'employment_id' => null,
+                'org_unit_id' => null,
+                'label' => '招聘漏斗投影同步标记',
+                'secondary_label' => null,
+                'status' => $this->recruitment->available() ? 'AVAILABLE' : 'UNAVAILABLE',
+                'numeric_value' => 0,
+                'attributes_json' => ['source' => 'recruitment_funnel', 'available' => $this->recruitment->available()],
+            ], $now);
         });
     }
 

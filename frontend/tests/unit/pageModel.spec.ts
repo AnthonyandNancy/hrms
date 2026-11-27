@@ -87,14 +87,13 @@ describe('page model', () => {
     expect(result.errors.join('\n')).toContain('base page must have menu: null')
   })
 
-  it('classifies the real 155-entry registry with 13 hidden detail pages', () => {
-    // ADR-0035: seven create/edit/archive form routes became workspace actions.
-    expect(PAGE_REGISTRY).toHaveLength(155)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail')).toHaveLength(13)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'base')).toHaveLength(6)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'workspace')).toHaveLength(122)
-    expect(PAGE_REGISTRY.filter((page) => page.kind === 'governance')).toHaveLength(14)
-    expect(PAGE_REGISTRY.filter((page) => page.menu !== null)).toHaveLength(136)
+  it('classifies the consolidated V2.3 registry', () => {
+    expect(PAGE_REGISTRY).toHaveLength(37)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail')).toHaveLength(7)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'base')).toHaveLength(4)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'workspace')).toHaveLength(17)
+    expect(PAGE_REGISTRY.filter((page) => page.kind === 'governance')).toHaveLength(9)
+    expect(PAGE_REGISTRY.filter((page) => page.menu !== null)).toHaveLength(26)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail').every((page) => page.menu === null)).toBe(true)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'base').every((page) => page.menu === null)).toBe(true)
     expect(PAGE_REGISTRY.filter((page) => page.kind === 'detail').every((page) => page.detailOf !== undefined)).toBe(true)
@@ -104,6 +103,6 @@ describe('page model', () => {
     expect(findPage('employee-detail')?.kind).toBe('detail')
     expect(findPage('missing-page')).toBeUndefined()
     expect(pagesByCapability('iam.role.manage').map((page) => page.name)).toEqual(['system-roles'])
-    expect(pagesByCluster('K3').map((page) => page.name)).toEqual(['hr-employees-by-id-files'])
+    expect(pagesByCluster('K3')).toHaveLength(0)
   })
 })

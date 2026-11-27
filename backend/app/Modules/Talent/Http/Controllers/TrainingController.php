@@ -8,6 +8,7 @@ use App\Modules\Talent\Models\TrainingCourse;
 use App\Modules\Talent\Models\TrainingEnrollment;
 use App\Modules\Talent\Models\TrainingProgram;
 use App\Modules\Talent\Models\TrainingSession;
+use App\Modules\Talent\Services\TrainingExamService;
 use App\Modules\Talent\Services\TrainingLifecycleService;
 use App\Modules\Talent\Services\TrainingService;
 use App\Shared\ApiResponse;
@@ -36,6 +37,7 @@ final class TrainingController
         private readonly ProjectionResponder $projections,
         private readonly CompanyBusinessDate $businessDates,
         private readonly TrainingService $training,
+        private readonly TrainingExamService $exams,
         private readonly TrainingLifecycleService $lifecycle,
     ) {}
 
@@ -92,6 +94,24 @@ final class TrainingController
         });
     }
 
+    public function updateCourse(Request $request, int $courseId): JsonResponse
+    {
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:160'],
+            'instructor' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'duration_minutes' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            'materials' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'status' => ['sometimes', 'string', 'in:ACTIVE,ARCHIVED'],
+        ]);
+
+        return $this->runCommand($request, 'talent.training.course.update', 'training.course.manage', ['course_id' => $courseId, ...$data], function (int $actorUserId) use ($courseId, $data): array {
+            $result = $this->training->updateCourse($actorUserId, $courseId, $data);
+            unset($result['outcome']);
+
+            return ['status' => 200, 'body' => $result];
+        });
+    }
+
     public function programs(Request $request): JsonResponse
     {
         $asOf = $this->asOf($request);
@@ -142,6 +162,7 @@ final class TrainingController
                 'program_id' => (int) $program->id,
                 'code' => (string) $program->code,
                 'title' => (string) $program->title,
+                'default_capacity' => (int) $program->default_capacity,
                 'category' => null,
                 'delivery_mode' => $deliveryMode,
                 'capacity' => $capacity > 0 ? $capacity : (int) $program->default_capacity,
@@ -166,7 +187,27 @@ final class TrainingController
         ]);
 
         return $this->runCommand($request, 'talent.training.program.create', 'training.program.manage', $data, function (int $actorUserId) use ($data): array {
-            return ['status' => 201, 'body' => $this->training->createProgram($actorUserId, $data)];
+            $result = $this->training->createProgram($actorUserId, $data);
+            $status = ($result['outcome'] ?? 'CREATED') === 'REPLAY' ? 200 : 201;
+            unset($result['outcome']);
+
+            return ['status' => $status, 'body' => $result];
+        });
+    }
+
+    public function updateProgram(Request $request, int $programId): JsonResponse
+    {
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:160'],
+            'default_capacity' => ['sometimes', 'integer', 'min:0', 'max:10000'],
+            'status' => ['sometimes', 'string', 'in:ACTIVE,ARCHIVED'],
+        ]);
+
+        return $this->runCommand($request, 'talent.training.program.update', 'training.program.manage', ['program_id' => $programId, ...$data], function (int $actorUserId) use ($programId, $data): array {
+            $result = $this->training->updateProgram($actorUserId, $programId, $data);
+            unset($result['outcome']);
+
+            return ['status' => 200, 'body' => $result];
         });
     }
 
@@ -187,15 +228,38 @@ final class TrainingController
             'plan_id' => ['nullable', 'integer', 'min:1'],
             'course_id' => ['nullable', 'integer', 'min:1'],
             'starts_on' => ['required', 'date_format:Y-m-d'],
-            'ends_on' => ['required', 'date_format:Y-m-d', 'after_or_equal:starts_on'],
+            'ends_on' => ['required', 'date_format:Y-m-d'],
             'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'ends_at' => ['required', 'date'],
             'capacity' => ['required', 'integer', 'min:1', 'max:10000'],
             'location' => ['nullable', 'string', 'max:160'],
         ]);
 
         return $this->runCommand($request, 'talent.training.session.create', 'training.session.manage', $data, function (int $actorUserId) use ($data): array {
             return ['status' => 201, 'body' => $this->training->createSession($actorUserId, $data)];
+        });
+    }
+
+    public function updateSession(Request $request, int $sessionId): JsonResponse
+    {
+        $data = $request->validate([
+            'program_id' => ['sometimes', 'integer', 'min:1'],
+            'plan_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'course_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'starts_on' => ['sometimes', 'date_format:Y-m-d'],
+            'ends_on' => ['sometimes', 'date_format:Y-m-d'],
+            'starts_at' => ['sometimes', 'date'],
+            'ends_at' => ['sometimes', 'date'],
+            'capacity' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+            'location' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'status' => ['sometimes', 'string', 'in:SCHEDULED,COMPLETED,CANCELLED'],
+        ]);
+
+        return $this->runCommand($request, 'talent.training.session.update', 'training.session.manage', ['session_id' => $sessionId, ...$data], function (int $actorUserId) use ($sessionId, $data): array {
+            $result = $this->training->updateSession($actorUserId, $sessionId, $data);
+            unset($result['outcome']);
+
+            return ['status' => 200, 'body' => $result];
         });
     }
 
@@ -258,6 +322,20 @@ final class TrainingController
         });
     }
 
+    public function cancelEnrollment(Request $request, int $enrollmentId): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return $this->runCommand($request, 'talent.training.enrollment.cancel', 'training.enrollment.manage', ['enrollment_id' => $enrollmentId, ...$data], function (int $actorUserId) use ($enrollmentId, $data): array {
+            $result = $this->training->cancelEnrollment($actorUserId, $enrollmentId, $data);
+            unset($result['outcome']);
+
+            return ['status' => 200, 'body' => $result];
+        });
+    }
+
     public function checkins(Request $request, ?int $sessionId = null): JsonResponse
     {
         $filter = $sessionId ?? ($request->query('session_id') !== null ? (int) $request->query('session_id') : null);
@@ -286,8 +364,10 @@ final class TrainingController
     public function exams(Request $request): JsonResponse
     {
 
+        $sessionId = $request->query('session_id') !== null ? (int) $request->query('session_id') : null;
+
         return $this->projections->ok(
-            $this->lifecycle->exams($this->asOf($request)),
+            $this->exams->exams($this->asOf($request), $sessionId),
         );
     }
 
@@ -295,6 +375,7 @@ final class TrainingController
     {
         $data = $request->validate([
             'course_id' => ['nullable', 'integer', 'min:1'],
+            'session_id' => ['nullable', 'integer', 'min:1'],
             'code' => ['required', 'string', 'max:64'],
             'title' => ['required', 'string', 'max:200'],
             'passing_score' => ['required', 'integer', 'min:0', 'max:1000'],
@@ -303,14 +384,14 @@ final class TrainingController
         ]);
 
         return $this->runCommand($request, 'talent.training.exam.create', 'training.exam.manage', $data, function (int $actorUserId) use ($data): array {
-            return ['status' => 201, 'body' => $this->lifecycle->createExam($actorUserId, $data)];
+            return ['status' => 201, 'body' => $this->exams->createExam($actorUserId, $data)];
         });
     }
 
     public function publishExam(Request $request, int $examId): JsonResponse
     {
         return $this->runCommand($request, 'talent.training.exam.publish', 'training.exam.manage', ['exam_id' => $examId], function (int $actorUserId) use ($examId): array {
-            return ['status' => 200, 'body' => $this->lifecycle->publishExam($actorUserId, $examId)];
+            return ['status' => 200, 'body' => $this->exams->publishExam($actorUserId, $examId)];
         });
     }
 

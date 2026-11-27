@@ -95,12 +95,12 @@ test.describe('@real platform workspaces', () => {
         response.request().method() === 'GET',
     )
 
-    await page.goto('/system/calendars', { waitUntil: 'load' })
+    await page.goto('/system/settings?tab=calendar', { waitUntil: 'load' })
     const response = await calendarResponse
     expect([200, 404], 'calendar read is either available or explicitly absent').toContain(response.status())
 
-    await expect(page.getByTestId('system-calendars-page')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '节假日与工作日历', level: 1 })).toBeVisible()
+    await expect(page.getByTestId('settings-calendar')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '公司设置', level: 1 })).toBeVisible()
     await expect(page.getByTestId('calendar-error')).toHaveCount(0)
 
     if (response.status() === 200) {
@@ -111,17 +111,17 @@ test.describe('@real platform workspaces', () => {
         holidays?: Array<Record<string, unknown>>
       }>
       const calendar = payload.data
-      await expect(page.getByTestId('calendar-version')).toContainText(String(calendar?.version ?? ''))
-      await expect(page.getByTestId('calendar-year')).toContainText(String(year))
-      await expect(page.getByTestId('calendar-workweek')).not.toHaveText('')
-      await expect(page.getByTestId('calendar-holiday-table')).toBeVisible()
+      await expect(page.getByTestId('settings-calendar-version')).toContainText(String(calendar?.version ?? ''))
+      await expect(page.getByTestId('settings-calendar-year-label')).toContainText(String(year))
+      await expect(page.getByTestId('settings-calendar-workweek')).not.toHaveText('')
+      await expect(page.getByTestId('settings-calendar-holiday-table')).toBeVisible()
       const firstHoliday = calendar?.holidays?.[0]
       if (firstHoliday !== undefined) {
-        await expect(page.getByTestId('calendar-holiday-table')).toContainText(String(firstHoliday.name ?? ''))
+        await expect(page.getByTestId('settings-calendar-holiday-table')).toContainText(String(firstHoliday.name ?? ''))
       }
       // demo.hr may hold time.calendar.manage; when it does the editor must be
       // visible without actually publishing a new calendar in this read test.
-      const publish = page.getByTestId('calendar-publish')
+      const publish = page.getByTestId('settings-calendar-publish')
       if (await publish.count()) {
         await expect(page.getByTestId('calendar-editor')).toBeVisible()
       }

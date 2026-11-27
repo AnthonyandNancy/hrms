@@ -139,19 +139,23 @@ onBeforeUnmount(stopPolling)
     <div class="panel__body export-panel__body">
       <label class="export-field">
         <span>导出目的</span>
-        <select v-model="purpose" data-testid="export-purpose" aria-label="导出目的">
-          <option v-for="option in EXPORT_PURPOSE_OPTIONS" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
+        <el-select v-model="purpose" data-testid="export-purpose" aria-label="导出目的" style="width: 240px">
+          <el-option v-for="option in EXPORT_PURPOSE_OPTIONS" :key="option.value" :value="option.value" :label="option.label" />
+        </el-select>
       </label>
 
       <fieldset class="export-fields">
         <legend>可导出字段</legend>
-        <label v-for="field in exportableFields" :key="field.key" class="export-field__check">
-          <input v-model="selectedFields" type="checkbox" :value="field.key" :data-testid="`export-field-${field.key}`" />
-          <span>{{ fieldLabel(field.key, field.label) }}</span>
-        </label>
+        <el-checkbox-group v-model="selectedFields" class="export-field__group">
+          <el-checkbox
+            v-for="field in exportableFields"
+            :key="field.key"
+            :value="field.key"
+            :label="fieldLabel(field.key, field.label)"
+            :data-testid="`export-field-${field.key}`"
+            class="export-field__check"
+          />
+        </el-checkbox-group>
         <p v-if="exportableFields.length === 0" class="small muted">该报表当前没有可导出字段。</p>
       </fieldset>
 

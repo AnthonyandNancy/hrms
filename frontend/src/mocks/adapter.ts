@@ -2366,6 +2366,7 @@ function metricDrilldown(metric: DashboardMetricCode): MetricDrilldown {
 function workspace(principal: Principal): WorkspaceProjection {
   const employee = employeeSeed.find((item) => item.employeeNo === principal.employmentNo) ?? employeeSeed[0]!
   return {
+    employment_linked: true,
     profile: {
       employmentId: 5105,
       name: principal.displayName,

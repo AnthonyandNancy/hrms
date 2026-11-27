@@ -14,7 +14,10 @@ final class LeaveRequestProjection extends Model
 {
     protected $fillable = [
         'employment_id',
+        'actor_user_id',
+        'org_unit_id',
         'leave_type_id',
+        'leave_policy_version_id',
         'case_id',
         'from_date',
         'to_date',

@@ -79,8 +79,7 @@ final class ReportDefinitionTest extends ReportingTestCase
         ], ['Idempotency-Key' => 'rd-create-1'])
             ->assertCreated()
             ->assertJsonPath('data.code', 'CUSTOM_HEADCOUNT_A')
-            ->assertJsonPath('data.isSystem', false)
-            ->assertJsonPath('data.sourceProjection', 'workforce');
+            ->assertJsonPath('data.isSystem', false);
 
         $definitionId = (int) $created->json('data.id');
         $this->assertGreaterThan(0, $definitionId);
@@ -99,6 +98,22 @@ final class ReportDefinitionTest extends ReportingTestCase
         ]]);
         $this->assertGreaterThanOrEqual(1, (int) $list->json('data.total'));
         $this->assertContains('CUSTOM_HEADCOUNT_A', array_column((array) $list->json('data.items'), 'code'));
+
+        foreach ((array) $list->json('data.items') as $definition) {
+            $this->assertArrayNotHasKey('sourceProjection', (array) $definition);
+            $this->assertArrayNotHasKey('source_projection', (array) $definition);
+            $this->assertNotSame('', (string) ($definition['domain'] ?? ''));
+        }
+
+        $labels = [];
+        foreach ((array) $list->json('data.items') as $definition) {
+            foreach ((array) ($definition['fields'] ?? []) as $field) {
+                $labels[] = (string) ($field['label'] ?? '');
+            }
+        }
+        $this->assertContains('应发工资（元）', $labels);
+        $this->assertContains('实发工资（元）', $labels);
+        $this->assertNotContains('Gross (minor units)', $labels);
 
         $run = $this->postJson('/v1/reporting/run', [
             'definition_code' => 'CUSTOM_HEADCOUNT_A',

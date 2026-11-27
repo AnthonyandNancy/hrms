@@ -54,8 +54,6 @@ export const DECISIONS = Object.freeze({
   workspace: { disposition: 'keep', targetPageCode: 'workspace', owner: 'Platform', evidence: '我的工作台保留，汇总当前用户有权进入的待办与入口。' },
   forbidden: { disposition: 'keep', targetPageCode: 'forbidden', owner: 'Platform', evidence: '无权限基础页保留，用于统一 403 状态。' },
   'not-found': { disposition: 'keep', targetPageCode: 'not-found', owner: 'Platform', evidence: '页面不存在基础页保留，用于统一 404 状态。' },
-  'account-mfa': { disposition: 'keep', targetPageCode: 'account-mfa', owner: 'Platform', evidence: 'MFA 作为可选安全能力保留在账号安全页，默认不启用。' },
-  'account-sessions': { disposition: 'keep', targetPageCode: 'account-sessions', owner: 'Platform', evidence: '会话管理页保留，支持查看并注销当前账号会话。' },
 
   dashboard: { disposition: 'keep', targetPageCode: 'dashboard', owner: 'Reporting', evidence: '首页看板保留为 V2.1 登录后的默认工作台。' },
   'dashboard-departments': { disposition: 'keep', targetPageCode: 'dashboard-departments', owner: 'Reporting', evidence: '部门人数分析保留为独立看板工作区，查询同一仪表盘数据域。' },
@@ -212,14 +210,9 @@ export const DECISIONS = Object.freeze({
   'workflow-case-detail': { disposition: 'keep', targetPageCode: 'workflow-case-detail', owner: 'Platform', evidence: '审批案例详情保留为 workflow 深链接，menu: null，由案例列表进入。' },
   'payroll-run-detail': { disposition: 'keep', targetPageCode: 'payroll-run-detail', owner: 'Payroll', evidence: '工资批次详情保留为 payroll 深链接，menu: null，由批次列表进入。' },
   'system-roles': { disposition: 'keep', targetPageCode: 'system-roles', owner: 'Platform', evidence: '角色管理保留为 system-roles 治理工作台。' },
-  'system-menus': { disposition: 'keep', targetPageCode: 'system-menus', owner: 'Platform', evidence: '菜单与页面管理保留为 system-menus 治理工作台。' },
-  'system-permissions': { disposition: 'keep', targetPageCode: 'system-permissions', owner: 'Platform', evidence: '操作权限配置保留为 system-permissions 治理工作台。' },
-  'system-data-scopes': { disposition: 'keep', targetPageCode: 'system-data-scopes', owner: 'Platform', evidence: '数据范围权限保留为 system-data-scopes 治理工作台。' },
-  'system-field-policies': { disposition: 'keep', targetPageCode: 'system-field-policies', owner: 'Platform', evidence: '字段级权限保留为 system-field-policies 治理工作台。' },
+  'system-pages': { disposition: 'keep', targetPageCode: 'system-pages', owner: 'Platform', evidence: '页面目录为 M19 新增的唯一页面目录入口；菜单覆盖与动作矩阵只读展示。' },
   workflow: { disposition: 'keep', targetPageCode: 'workflow', owner: 'Platform', evidence: '审批流程中心保留为 workflow 治理与待办工作台。' },
-  'self-service': { disposition: 'keep', targetPageCode: 'self-service', owner: 'Platform', evidence: '员工自助门户保留为 self-service 个人工作台。' },
   benefits: { disposition: 'keep', targetPageCode: 'benefits', owner: 'Platform', evidence: '社保公积金与福利保留为 benefits 治理工作台。' },
-  'system-calendars': { disposition: 'keep', targetPageCode: 'system-calendars', owner: 'Platform', evidence: '节假日与工作日历保留为 system-calendars 治理工作台。' },
   'system-settings': { disposition: 'keep', targetPageCode: 'system-settings', owner: 'Platform', evidence: '字典、参数与文件保留为 system-settings 治理工作台。' },
   notifications: { disposition: 'keep', targetPageCode: 'notifications', owner: 'Platform', evidence: '消息与通知中心保留为 notifications 个人与投递工作台。' },
   'system-audit': { disposition: 'keep', targetPageCode: 'system-audit', owner: 'Platform', evidence: '日志审计与运维保留为 system-audit 治理工作台。' },
@@ -479,7 +472,7 @@ function markdownCell(value) {
 export function buildRouteDispositionMarkdown(rows) {
   const summary = summarizeRows(rows)
   const lines = [
-    '# FactoryHR V2.1 155 路由最终处置表',
+    '# FactoryHR V2.1 路由最终处置表',
     '',
     '- 生成命令：`node scripts/generate_route_disposition.mjs`',
     '- 来源：`frontend/src/router/registry.ts` 的 `PAGE_REGISTRY`（唯一注册表来源）',
@@ -523,9 +516,9 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
     '# FactoryHR V2.1 能力等价表',
     '',
     '- 生成命令：`node scripts/generate_route_disposition.mjs`',
-    '- 来源：`frontend/src/router/registry.ts` 的 155 条页面能力域与 `HRMS-V1.1实施书.md` 的 133 个 03A 页面/能力点。',
+    '- 来源：`frontend/src/router/registry.ts` 的页面能力域与 `HRMS-V1.1实施书.md` 的 133 个 03A 页面/能力点。',
     '- 等价口径：V1.1 的每个业务能力点都保留一个 keep/action/view/flow 去向；合并只改变入口形态，不删除能力、API、权限或测试要求。',
-    '- 统计口径：业务能力点按注册表 `layer: business` 的 134 条计数；平台 15 条与基础 6 条同样列出，但不计入 V1.1 业务能力点。',
+    '- 统计口径：业务能力点按注册表 `layer: business` 的 {business} 条计数；平台与基础页面同样列出，但不计入 V1.1 业务能力点。',
     '- 废弃规则：本表没有用户签认废弃项，因此 `deprecate` 为 0。',
     '',
     '| # | V1.1 能力点（旧页面码） | 路径 | 层 | 能力码（保持） | 处置 | 目标页面码 | Owner | 证据 |',
@@ -549,9 +542,9 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
     '',
     '## 判定',
     '',
-    `- 134 个业务能力点全部有目标页面码与处置，无未映射项。`,
+    `- ${summary.business} 个业务能力点全部有目标页面码与处置，无未映射项。`,
     `- 用户签认废弃为 ${summary.userApprovedDeprecated}；本表不依赖任何未签认废弃。`,
-    `- 平台 15 条与基础 6 条也全部有处置，注册表总计 ${summary.total} 条。`,
+    `- 平台 ${summary.platform} 条与基础 ${summary.base} 条也全部有处置，注册表总计 ${summary.total} 条。`,
     '',
   )
 
@@ -559,8 +552,8 @@ export function buildCapabilityEquivalenceMarkdown(rows) {
 }
 
 function assertExpectedCounts(summary) {
-  // ADR-0035: seven form routes became workspace actions (160 -> 155).
-  const expected = { total: 155, business: 134, platform: 15, base: 6, mappedBusiness: 134, userApprovedDeprecated: 0, unmappedBusiness: 0 }
+  const pageCount = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/v23-page-count.json'), 'utf8'))
+  const expected = { total: Number(pageCount.frontendRegistry), business: 134, platform: Number(pageCount.frontendRegistry) - 134 - 4, base: 4, mappedBusiness: 134, userApprovedDeprecated: 0, unmappedBusiness: 0 }
   for (const [key, value] of Object.entries(expected)) {
     if (summary[key] !== value) {
       throw new Error(`expected ${key}=${value}, got ${summary[key]}`)
@@ -583,7 +576,8 @@ function assertRequiredMappings(decisions) {
 
 function main() {
   const registry = parseRegistryPages(readFileSync(registryPath, 'utf8'))
-  if (registry.length !== 155) throw new Error(`expected 155 registry pages, got ${registry.length}`)
+  const pageCount = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/v23-page-count.json'), 'utf8'))
+  if (registry.length !== Number(pageCount.frontendRegistry)) throw new Error(`expected ${pageCount.frontendRegistry} registry pages, got ${registry.length}`)
 
   const registryNames = new Set(registry.map((page) => page.name))
   const staleDecisions = Object.keys(DECISIONS).filter((name) => !registryNames.has(name))

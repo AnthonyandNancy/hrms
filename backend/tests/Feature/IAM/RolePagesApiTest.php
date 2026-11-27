@@ -96,7 +96,7 @@ final class RolePagesApiTest extends AuthorizationTestSupport
         $response = $this->getJson('/v1/roles', $headers)->assertOk();
         $roles = $this->rolesByCode($response->json('data.roles'));
 
-        $this->assertSame(153, (int) $roles['SYSTEM_ADMIN']['page_count']);
+        $this->assertSame(37, (int) $roles['SYSTEM_ADMIN']['page_count']);
         $this->assertGreaterThanOrEqual(0, (int) $roles['SYSTEM_ADMIN']['member_count']);
     }
 

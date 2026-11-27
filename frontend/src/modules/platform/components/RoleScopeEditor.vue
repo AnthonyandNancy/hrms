@@ -88,6 +88,23 @@ function explanation(anchorType: string): string {
   return '指定工资批次：授权范围由所选批次锁定，批次结束后不再扩大，此处不选择组织单元。'
 }
 
+function capabilityLabel(code: string): string {
+  const parts = code.split('.')
+  const resource = parts.length > 1 ? (parts[parts.length - 2] ?? code) : code
+  const action = parts[parts.length - 1] ?? ''
+  const resources: Record<string, string> = {
+    user: '用户', role: '角色', employee: '员工', contract: '合同', department: '部门',
+    position: '岗位', leave: '请假', overtime: '加班', travel: '出差', payroll: '薪资',
+    report: '报表', notice: '公告', permission: '权限', menu: '菜单', field: '字段',
+    scope: '数据范围', audit: '审计', session: '登录会话', setting: '系统设置',
+  }
+  const actions: Record<string, string> = {
+    read: '查看', manage: '管理', create: '新增', update: '编辑', delete: '删除',
+    export: '导出', approve: '审批', publish: '发布', assign: '分配', request: '申请',
+  }
+  return `${resources[resource] ?? '业务数据'} · ${actions[action] ?? '操作'}`
+}
+
 function unitLabel(unit: OrgUnitOption): string {
   const name = unit.name ?? unit.code ?? String(unit.id)
   return unit.type === null || unit.type === undefined || unit.type === ''
@@ -126,7 +143,7 @@ function onOrgUnit(grant: ScopeGrant, event: Event): void {
     <p v-if="props.grants.length === 0" class="empty-inline">尚未选择动作，暂无数据范围可配置。</p>
 
     <div v-for="grant in props.grants" :key="grant.capability" class="role-scope-editor__row" :data-scope-capability="grant.capability">
-      <div class="role-scope-editor__capability mono">{{ grant.capability }}</div>
+      <div class="role-scope-editor__capability">{{ capabilityLabel(grant.capability) }}</div>
       <label class="platform-field">
         <span>数据锚点</span>
         <select

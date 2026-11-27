@@ -19,9 +19,24 @@ use Tests\Support\TalentTestCase;
  */
 final class TrainingWorkspaceTest extends TalentTestCase
 {
+    /**
+     * Training writes use the shared command/idempotency contract. Tests that
+     * are not specifically about replay still need a valid unique key.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $headers
+     * @return TestResponse<\Illuminate\Http\JsonResponse>
+     */
+    private function trainingPost(string $uri, array $data = [], array $headers = []): TestResponse
+    {
+        $headers['Idempotency-Key'] ??= 'training-test-'.bin2hex(random_bytes(8));
+
+        return $this->postJson($uri, $data, $headers);
+    }
+
     public function test_program_projection_exposes_capacity_mode_and_live_enrollment_counts(): void
     {
-        $course = $this->postJson('/v1/training/courses', [
+        $course = $this->trainingPost('/v1/training/courses', [
             'code' => 'WS-COURSE-ONLINE',
             'title' => 'Synthetic online safety course',
             'delivery_mode' => 'ONLINE',
@@ -88,7 +103,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
         $sessionId = (int) $session->json('data.session_id');
 
         // No enrollment -> 404, never a silent completion.
-        $this->postJson('/v1/training/enrollments/999999/complete', [
+        $this->trainingPost('/v1/training/enrollments/999999/complete', [
             'attended' => true,
             'completion_result' => 'PASS',
         ], ['Idempotency-Key' => 'ws-complete-unenrolled'])->assertNotFound();
@@ -98,7 +113,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
 
         TrainingEnrollment::query()->whereKey($enrollmentId)->update(['status' => 'CANCELLED']);
 
-        $this->postJson("/v1/training/enrollments/{$enrollmentId}/complete", [
+        $this->trainingPost("/v1/training/enrollments/{$enrollmentId}/complete", [
             'attended' => true,
             'completion_result' => 'PASS',
         ], ['Idempotency-Key' => 'ws-complete-cancelled'])
@@ -107,7 +122,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
 
         TrainingEnrollment::query()->whereKey($enrollmentId)->update(['status' => 'ENROLLED']);
 
-        $this->postJson("/v1/training/enrollments/{$enrollmentId}/complete", [
+        $this->trainingPost("/v1/training/enrollments/{$enrollmentId}/complete", [
             'attended' => true,
             'completion_result' => 'PASS',
             'score' => 88,
@@ -143,19 +158,19 @@ final class TrainingWorkspaceTest extends TalentTestCase
         $this->getJson('/v1/training/programs')->assertForbidden();
 
         $this->authorizer->deniedCapabilities = ['training.program.manage'];
-        $this->postJson('/v1/training/programs', [
+        $this->trainingPost('/v1/training/programs', [
             'code' => 'WS-AUTH-DENIED',
             'title' => 'Synthetic denied program',
         ], ['Idempotency-Key' => 'ws-auth-program-denied'])->assertForbidden();
 
         $this->authorizer->deniedCapabilities = ['training.enrollment.manage'];
-        $this->postJson('/v1/training/enrollments', [
+        $this->trainingPost('/v1/training/enrollments', [
             'session_id' => $sessionId,
             'employment_id' => 402,
         ], ['Idempotency-Key' => 'ws-auth-enrol-denied'])->assertForbidden();
 
         $this->authorizer->deniedCapabilities = ['training.completion.manage'];
-        $this->postJson("/v1/training/enrollments/{$enrollmentId}/complete", [
+        $this->trainingPost("/v1/training/enrollments/{$enrollmentId}/complete", [
             'completion_result' => 'PASS',
         ], ['Idempotency-Key' => 'ws-auth-complete-denied'])->assertForbidden();
     }
@@ -165,7 +180,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
      */
     private function createProgram(string $code, int $capacity): TestResponse
     {
-        return $this->postJson('/v1/training/programs', [
+        return $this->trainingPost('/v1/training/programs', [
             'code' => $code,
             'title' => 'Synthetic workspace program '.$code,
             'default_capacity' => $capacity,
@@ -177,7 +192,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
      */
     private function createSession(int $programId, int $capacity, ?int $courseId = null): TestResponse
     {
-        return $this->postJson('/v1/training/sessions', [
+        return $this->trainingPost('/v1/training/sessions', [
             'program_id' => $programId,
             'course_id' => $courseId,
             'starts_on' => '2026-12-10',
@@ -194,7 +209,7 @@ final class TrainingWorkspaceTest extends TalentTestCase
      */
     private function enroll(int $sessionId, int $employmentId): TestResponse
     {
-        return $this->postJson('/v1/training/enrollments', [
+        return $this->trainingPost('/v1/training/enrollments', [
             'session_id' => $sessionId,
             'employment_id' => $employmentId,
         ], ['Idempotency-Key' => 'ws-enrol-'.$sessionId.'-'.$employmentId]);

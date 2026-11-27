@@ -1,0 +1,83 @@
+{
+  "module": "M03",
+  "pagesChanged": [
+    "frontend/src/modules/reporting/pages/ReportsPage.vue",
+    "frontend/src/modules/reporting/components/ReportRunner.vue",
+    "frontend/src/modules/reporting/components/ReportCatalog.vue",
+    "frontend/src/modules/reporting/api.ts"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/reports/headcount",
+      "name": "reports-headcount"
+    },
+    {
+      "path": "/reports/attendance",
+      "name": "reports-attendance"
+    },
+    {
+      "path": "/reports/payroll",
+      "name": "reports-payroll"
+    },
+    {
+      "path": "/reports/hiring",
+      "name": "reports-hiring"
+    },
+    {
+      "path": "/reports/talent",
+      "name": "reports-talent"
+    },
+    {
+      "path": "/reports/builder",
+      "name": "reports-builder"
+    },
+    {
+      "path": "/reports/subscriptions",
+      "name": "reports-subscriptions"
+    },
+    {
+      "path": "/reports/exports",
+      "name": "reports-exports"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "reports-headcount",
+    "reports-attendance",
+    "reports-payroll",
+    "reports-hiring",
+    "reports-talent",
+    "reports-builder",
+    "reports-subscriptions",
+    "reports-exports"
+  ],
+  "openapiOperations": [
+    "GET /v1/reporting/definitions",
+    "POST /v1/reporting/run",
+    "POST /v1/reporting/exports",
+    "GET /v1/reporting/exports/{jobId}/download"
+  ],
+  "routeChanges": [
+    "delete frontend/src/modules/platform/pages/ReportHeadcountPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportAttendancePage.vue",
+    "delete frontend/src/modules/platform/pages/ReportPayrollPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportHiringPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportTalentPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportBuilderPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportSubscriptionsPage.vue",
+    "delete frontend/src/modules/platform/pages/ReportExportsPage.vue",
+    "remove the eight reports/* platform configs, pages/index loaders, registry entries and PlatformWorkspace report modes",
+    "remove the eight reports-* backend IAM page catalog entries; retain only /reports",
+    "keep GET /v1/reporting/* routes unchanged; no redirect and no replacement subroute is added"
+  ],
+  "actionInputAdds": [],
+  "notes": [
+    "ReportDefinitionCatalog now returns Chinese name/description/domain/field and filter labels; PAYROLL_COST cents columns are labelled 应发工资（元）/实发工资（元）/雇主成本（元） and remain integer minor units on the wire.",
+    "The definitions API removes sourceProjection/source_projection from the business DTO and derives exportable flags from the caller's live reporting.export profile; ReportCatalog groups by business domain and /reports?report=<code> is the only deep link.",
+    "ReportsPage and ReportRunner keep loading/error/empty/partial/success mutually exclusive: a rejected run leaves result null and renders report-error; a successful zero-row response alone renders report-empty; partial responses render report-partial and never hide the reason.",
+    "ExportService now re-authorizes download: owner, reporting.export, reporting.report.read, current reporting bindings/auth_version scope fingerprint, requested field profile, private file identity, expiry and download count. Legacy jobs without a scope fingerprint fail closed (404). Missing field profile returns 403 before bytes are read.",
+    "EXPORT_FIELD_NOT_ALLOWED/EXPORT_FIELD_HIDDEN remain 422 validation denials; field-profile revocation or scope/auth-version revocation on download returns 403. No export row is fabricated; money is always rendered in yuan through formatMoney.",
+    "Canonical CSV headers are the server Chinese labels (工号/组织/...); existing ExportScopeTest expectations were updated accordingly.",
+    "Tests added: backend/tests/Feature/Reporting/ReportCatalogCopyTest.php and ExportReauthorizationTest.php; frontend/tests/unit/reportWorkspace.spec.ts, reportErrorState.spec.ts and reportCatalog.spec.ts. NOT RUN: phpunit, vitest, pnpm typecheck, Playwright, full gate:all. Only php -l was executed for changed PHP files, all passed.",
+    "Integration follow-up for lead: delete the eight platform Report*.vue files, their catalog/pages-index/registry/PlatformWorkspace entries, and the eight reports-* backend IAM page catalog entries; remove the platform report tests that still mount reports/builder, reports/subscriptions and reports/exports; update docs/openapi and generated manifests only through the lead-owned generation flow."
+  ]
+}

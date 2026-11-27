@@ -9,6 +9,20 @@ import LoadingState from '@/components/LoadingState.vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import PerformanceScoreDrawer from '../components/PerformanceScoreDrawer.vue'
 import {
+  listPerformanceCalibrations,
+  listPerformanceFeedback,
+  listPerformanceGoals,
+  listPerformanceIndicators,
+  listPerformanceReports,
+  listPerformanceResults,
+  listPerformanceTemplates,
+  type PerformanceCalibrationRow,
+  type PerformanceFeedbackRow,
+  type PerformanceIndicatorRow,
+  type PerformancePlanGoalRow,
+  type PerformanceReportRow,
+  type PerformanceResultPage,
+  type PerformanceTemplateRow,
   canScoreReview,
   isCycleReadOnly,
   isDecidedReview,
@@ -30,6 +44,69 @@ import {
 
 defineOptions({ name: 'PerformanceCycleDetailPage' })
 
+const templateRows = computed<Array<Record<string, unknown>>>(() =>
+  templates.value.map((row) => ({ ...row, versionLabel: `v${row.version}`, publishedLabel: row.publishedAt ?? '—' })),
+)
+const templateColumns: DataTableColumn[] = [
+  { key: 'code', label: '编码' }, { key: 'name', label: '名称' },
+  { key: 'weightTotal', label: '权重合计' }, { key: 'versionLabel', label: '版本' },
+  { key: 'publishedLabel', label: '发布时间' },
+]
+const indicatorRows = computed<Array<Record<string, unknown>>>(() =>
+  indicators.value.map((row) => ({ ...row, categoryLabel: row.category || '—', dataSourceLabel: row.dataSource || '—', activeLabel: row.active ? '启用' : '停用' })),
+)
+const indicatorColumns: DataTableColumn[] = [
+  { key: 'code', label: '编码' }, { key: 'name', label: '名称' },
+  { key: 'categoryLabel', label: '分类' }, { key: 'dataSourceLabel', label: '数据来源' },
+  { key: 'activeLabel', label: '状态' },
+]
+const goalRows = computed<Array<Record<string, unknown>>>(() =>
+  planGoals.value.map((row) => ({ ...row, employeeLabel: `员工 #${row.employmentId}`, weightLabel: `${row.weight}%` })),
+)
+const goalColumns: DataTableColumn[] = [
+  { key: 'employeeLabel', label: '员工' }, { key: 'title', label: '目标' },
+  { key: 'targetValue', label: '目标值' }, { key: 'weightLabel', label: '权重' },
+  { key: 'status', label: '状态' },
+]
+const feedbackRowsForTable = computed<Array<Record<string, unknown>>>(() =>
+  feedbackRows.value.map((row) => ({
+    ...row,
+    fromLabel: row.anonymous ? '匿名' : `员工 #${row.fromEmploymentId}`,
+    toLabel: `员工 #${row.toEmploymentId}`,
+    anonymousLabel: row.anonymous ? '是' : '否',
+  })),
+)
+const feedbackColumns: DataTableColumn[] = [
+  { key: 'fromLabel', label: '评价人' }, { key: 'toLabel', label: '被评价人' },
+  { key: 'feedbackType', label: '类型' }, { key: 'rating', label: '评分' },
+  { key: 'anonymousLabel', label: '匿名' },
+]
+const calibrationRowsForTable = computed<Array<Record<string, unknown>>>(() =>
+  calibrationRows.value.map((row) => ({ ...row, reviewLabel: `#${row.reviewId}`, previousLabel: row.previousRating || '—', operatorLabel: `用户 #${row.calibratedBy}` })),
+)
+const calibrationColumns: DataTableColumn[] = [
+  { key: 'reviewLabel', label: '评估' }, { key: 'previousLabel', label: '原等级' },
+  { key: 'calibratedRating', label: '校准等级' }, { key: 'reason', label: '原因' },
+  { key: 'operatorLabel', label: '操作人' },
+]
+const resultRowsForTable = computed<Array<Record<string, unknown>>>(() =>
+  (resultPage.value?.items ?? []).map((row) => ({
+    ...row,
+    employeeLabel: `员工 #${row.employmentId}`,
+    selfLabel: row.selfRating || '—',
+    managerLabel: row.managerRating || '—',
+    calibratedLabel: row.calibratedRating || '—',
+    finalLabel: ratingLabel(row.finalRating),
+    snapshotLabel: row.snapshot ? '发布快照' : '待发布',
+  })),
+)
+const resultColumns: DataTableColumn[] = [
+  { key: 'employeeLabel', label: '员工' }, { key: 'selfLabel', label: '自评' },
+  { key: 'managerLabel', label: '主管评分' }, { key: 'calibratedLabel', label: '校准' },
+  { key: 'finalLabel', label: '最终等级' }, { key: 'snapshotLabel', label: '快照' },
+  { key: 'actions', label: '操作' },
+]
+
 const props = withDefaults(
   defineProps<{
     /** Used when this detail is embedded in the /performance workspace. */
@@ -48,6 +125,39 @@ const canSubmit = computed(() => session.can('performance.review.submit'))
 const canPublish = computed(() => session.can('performance.result.publish'))
 const canCalibrate = computed(() => session.can('performance.calibration.manage'))
 const canAppeal = computed(() => session.can('performance.appeal.manage'))
+const canReport = computed(() => session.can('performance.report.read'))
+
+type DetailTab = 'overview' | 'templates' | 'indicators' | 'goals' | 'reviews' | 'feedback' | 'calibration' | 'results' | 'appeals' | 'reports'
+
+const TABS: ReadonlyArray<{ key: DetailTab; label: string }> = [
+  { key: 'overview', label: '概览' },
+  { key: 'templates', label: '模板' },
+  { key: 'indicators', label: '指标库' },
+  { key: 'goals', label: '目标计划' },
+  { key: 'reviews', label: '考核评价' },
+  { key: 'feedback', label: '360 反馈' },
+  { key: 'calibration', label: '绩效校准' },
+  { key: 'results', label: '结果发布' },
+  { key: 'appeals', label: '申诉' },
+  { key: 'reports', label: '报表' },
+]
+
+function normaliseTab(value: unknown): DetailTab {
+  if (typeof value !== 'string') return 'overview'
+  return TABS.some((tab) => tab.key === value) ? value as DetailTab : 'overview'
+}
+
+const activeTab = ref<DetailTab>(normaliseTab(route.query.tab))
+const tabLoading = ref(false)
+const tabForbidden = ref(false)
+const tabError = ref('')
+const templates = ref<PerformanceTemplateRow[]>([])
+const indicators = ref<PerformanceIndicatorRow[]>([])
+const planGoals = ref<PerformancePlanGoalRow[]>([])
+const feedbackRows = ref<PerformanceFeedbackRow[]>([])
+const calibrationRows = ref<PerformanceCalibrationRow[]>([])
+const resultPage = ref<PerformanceResultPage | null>(null)
+const reportRow = ref<PerformanceReportRow | null>(null)
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -167,9 +277,9 @@ async function load(): Promise<void> {
   reviewPageTotal.value = 0
 
   try {
-    // The route list is the verified cycle read; there is no dedicated
-    // cycle-detail route today. Match the requested cycle by walking the
-    // real paginated list instead of inventing a URL.
+    // The router registers a stable /performance/cycles/:id deep link but the
+    // backend still exposes cycle reads through the verified list projection.
+    // Match the requested cycle by walking that real paginated read.
     let requested: PerformanceCycleSummary | null = null
     let pageNumber = 1
     let pages = 1
@@ -187,7 +297,8 @@ async function load(): Promise<void> {
       return
     }
 
-    if (!canManage.value) {
+    const canReadReviews = canManage.value || (canAppeal.value && isCycleReadOnly(requested.status))
+    if (!canReadReviews) {
       return
     }
 
@@ -291,8 +402,9 @@ async function confirmPublish(): Promise<void> {
   actionSuccess.value = ''
   try {
     await publishPerformanceCycle(current.id)
-    actionSuccess.value = '绩效周期已发布，全部评估转为只读。'
+    actionSuccess.value = '绩效周期已发布，结果快照已生成，全部评估转为只读。'
     await load()
+    if (activeTab.value === 'results') await loadTab('results')
   } catch (reason) {
     actionError.value = performanceActionErrorCopy(reason)
   } finally {
@@ -358,19 +470,76 @@ async function confirmAppeal(): Promise<void> {
 }
 
 function backToWorkspace(): void {
-  if (route.query.cycle_id !== undefined) {
-    void router.push({ path: '/performance' })
+  void router.push('/performance')
+}
+
+function selectTab(tab: DetailTab): void {
+  activeTab.value = tab
+  void router.replace({ query: { ...route.query, tab } })
+  void loadTab(tab)
+}
+
+async function loadTab(tab: DetailTab): Promise<void> {
+  tabError.value = ''
+  tabForbidden.value = false
+
+  if (tab === 'overview' || tab === 'reviews' || tab === 'appeals') {
     return
   }
-  void router.push('/performance')
+
+  const id = cycleId.value
+  if (id === null) return
+
+  tabLoading.value = true
+  try {
+    if (tab === 'templates') {
+      templates.value = await listPerformanceTemplates()
+    } else if (tab === 'indicators') {
+      indicators.value = await listPerformanceIndicators()
+    } else if (tab === 'goals') {
+      planGoals.value = await listPerformanceGoals(id)
+    } else if (tab === 'feedback') {
+      feedbackRows.value = await listPerformanceFeedback(id)
+    } else if (tab === 'calibration') {
+      calibrationRows.value = await listPerformanceCalibrations(id)
+    } else if (tab === 'results') {
+      resultPage.value = await listPerformanceResults(id)
+    } else if (tab === 'reports') {
+      if (!canReport.value) {
+        reportRow.value = null
+      } else {
+        reportRow.value = await listPerformanceReports(id)
+      }
+    }
+  } catch (reason) {
+    if (reason instanceof ApiError && reason.code === 'FORBIDDEN') {
+      tabForbidden.value = true
+    } else {
+      tabError.value = reason instanceof Error ? reason.message : '绩效详情暂时无法加载。'
+    }
+  } finally {
+    tabLoading.value = false
+  }
 }
 
 watch(cycleId, () => {
   void load()
+  void loadTab(activeTab.value)
 })
+
+watch(
+  () => route.query.tab,
+  (value) => {
+    const next = normaliseTab(value)
+    if (next === activeTab.value) return
+    activeTab.value = next
+    void loadTab(next)
+  },
+)
 
 onMounted(() => {
   void load()
+  void loadTab(activeTab.value)
 })
 </script>
 
@@ -392,6 +561,7 @@ onMounted(() => {
       <div v-if="cycle !== null" class="performance-detail__header-actions">
         <span class="performance-detail__stage">{{ cycleStage }}</span>
         <button
+          v-if="activeTab === 'results' || activeTab === 'overview'"
           type="button"
           class="performance-detail__primary"
           :disabled="publishDisabledReason !== '' || publishing"
@@ -425,6 +595,104 @@ onMounted(() => {
         该周期已发布，全部评估为只读：评分、保存、提交与再次发布均已禁用。最终等级仅展示服务端结果。
       </p>
 
+      <nav class="performance-detail__tabs" role="tablist" aria-label="绩效周期详情" data-testid="performance-tabs">
+        <button
+          v-for="tab in TABS"
+          :key="tab.key"
+          type="button"
+          role="tab"
+          class="performance-detail__tab"
+          :aria-selected="activeTab === tab.key"
+          :data-active="activeTab === tab.key"
+          :data-testid="`performance-tab-${tab.key}`"
+          @click="selectTab(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <p v-if="tabError !== ''" class="performance-detail__error" role="alert" data-testid="performance-tab-error">
+        {{ tabError }}
+        <button type="button" class="performance-detail__link" @click="loadTab(activeTab)">重试</button>
+      </p>
+      <p v-else-if="tabForbidden" class="performance-detail__warning" role="status" data-testid="performance-tab-forbidden">
+        当前账号没有读取该详情分区的权限；页面不会请求或展示该分区数据。
+      </p>
+      <LoadingState v-else-if="tabLoading" :rows="4" label="正在加载绩效详情分区" />
+
+      <section v-else-if="activeTab === 'templates'" class="panel" data-testid="performance-tab-panel-templates">
+        <header class="panel__header"><h2 class="panel__title">考核模板</h2></header>
+        <EmptyState v-if="templates.length === 0" title="还没有考核模板" description="发布带版本号的考核模板后，这里按权重合计展示。" />
+        <DataTable v-else :columns="templateColumns" :rows="templateRows" :total="templateRows.length" :page="1" :page-size="Math.max(1, templateRows.length)" row-key="id" data-testid="performance-template-table" empty-title="还没有考核模板" />
+      </section>
+
+      <section v-else-if="activeTab === 'indicators'" class="panel" data-testid="performance-tab-panel-indicators">
+        <header class="panel__header"><h2 class="panel__title">指标库</h2></header>
+        <EmptyState v-if="indicators.length === 0" title="还没有绩效指标" description="创建可复用指标后，这里显示编码、分类和数据来源。" />
+        <DataTable v-else :columns="indicatorColumns" :rows="indicatorRows" :total="indicatorRows.length" :page="1" :page-size="Math.max(1, indicatorRows.length)" row-key="id" data-testid="performance-indicator-table" empty-title="还没有绩效指标" />
+      </section>
+
+      <section v-else-if="activeTab === 'goals'" class="panel" data-testid="performance-tab-panel-goals">
+        <header class="panel__header"><h2 class="panel__title">目标计划</h2></header>
+        <EmptyState v-if="planGoals.length === 0" title="该周期还没有目标" description="为参与者设定目标、目标值和权重后，这里显示目标台账。" />
+        <DataTable v-else :columns="goalColumns" :rows="goalRows" :total="goalRows.length" :page="1" :page-size="Math.max(1, goalRows.length)" row-key="id" data-testid="performance-goal-table" empty-title="该周期还没有目标" />
+      </section>
+
+      <section v-else-if="activeTab === 'feedback'" class="panel" data-testid="performance-tab-panel-feedback">
+        <header class="panel__header"><h2 class="panel__title">360 反馈</h2></header>
+        <EmptyState v-if="feedbackRows.length === 0" title="还没有 360 反馈" description="记录同级、主管与跨团队反馈后，这里显示反馈类型与匿名标记。" />
+        <DataTable v-else :columns="feedbackColumns" :rows="feedbackRowsForTable" :total="feedbackRowsForTable.length" :page="1" :page-size="Math.max(1, feedbackRowsForTable.length)" row-key="id" data-testid="performance-feedback-table" empty-title="还没有 360 反馈" />
+      </section>
+
+      <section v-else-if="activeTab === 'calibration'" class="panel" data-testid="performance-tab-panel-calibration">
+        <header class="panel__header"><h2 class="panel__title">绩效校准</h2></header>
+        <EmptyState v-if="calibrationRows.length === 0" title="还没有校准记录" description="校准只追加证据，不覆盖自评或主管原始分数。" />
+        <DataTable v-else :columns="calibrationColumns" :rows="calibrationRowsForTable" :total="calibrationRowsForTable.length" :page="1" :page-size="Math.max(1, calibrationRowsForTable.length)" row-key="id" data-testid="performance-calibration-table" empty-title="还没有校准记录" />
+      </section>
+
+      <section v-else-if="activeTab === 'results'" class="panel" data-testid="performance-tab-panel-results">
+        <header class="panel__header"><h2 class="panel__title">结果发布</h2></header>
+        <p v-if="resultPage === null" class="performance-detail__warning" data-testid="performance-result-unloaded">
+          结果投影尚未加载；页面不会用周期状态推断发布状态。
+        </p>
+        <p v-else-if="resultPage.snapshot" class="performance-detail__success" data-testid="performance-result-published">
+          已发布 · 结果读取自发布快照，评分与校准均冻结。
+        </p>
+        <p v-else class="performance-detail__warning" data-testid="performance-result-pending">
+          尚未发布 · 当前展示的是实时评估，不是最终结果。
+        </p>
+        <EmptyState v-if="resultPage === null" title="正在读取结果投影" description="页面不会根据周期状态推测最终分数。" />
+        <EmptyState v-else-if="resultPage.items.length === 0" title="还没有结果行" description="周期产生评估行后，这里会展示实时或发布后的结果。" />
+        <DataTable v-else :columns="resultColumns" :rows="resultRowsForTable" :total="resultRowsForTable.length" :page="1" :page-size="Math.max(1, resultRowsForTable.length)" row-key="reviewId" :row-test-id="(row) => `performance-result-${String(row.reviewId)}`" data-testid="performance-result-table" empty-title="还没有结果行">
+          <template #cell-actions="{ row }">
+            <button
+              v-if="canAppeal && row.snapshot"
+              type="button"
+              class="performance-detail__link"
+              :data-testid="`performance-result-appeal-${row.reviewId}`"
+              @click="openAppeal(row as unknown as PerformanceReviewRow)"
+            >
+              申诉
+            </button>
+          </template>
+        </DataTable>
+      </section>
+
+      <section v-else-if="activeTab === 'reports'" class="panel" data-testid="performance-tab-panel-reports">
+        <header class="panel__header"><h2 class="panel__title">绩效报表</h2></header>
+        <p v-if="!canReport" class="performance-detail__warning" role="status" data-testid="performance-report-forbidden">
+          当前账号缺少 performance.report.read 能力；页面不会请求或展示报表。
+        </p>
+        <EmptyState v-else-if="reportRow === null" title="还没有报表数据" description="周期与评估产生后，这里显示已发布完成度。" />
+        <dl v-else-if="canReport" class="performance-detail__facts">
+          <div><dt>评估总数</dt><dd>{{ reportRow.reviewCount }}</dd></div>
+          <div><dt>已提交</dt><dd>{{ reportRow.submittedReviews }}</dd></div>
+          <div><dt>草稿</dt><dd>{{ reportRow.draftReviews }}</dd></div>
+          <div><dt>已发布快照</dt><dd>{{ reportRow.publishedReviews }}</dd></div>
+          <div><dt>发布完成率</dt><dd>{{ reportRow.completionRate }}%</dd></div>
+        </dl>
+      </section>
+
       <p v-if="partialNote !== ''" class="performance-detail__warning" role="status" data-testid="performance-partial">
         部分数据：{{ partialNote }}
       </p>
@@ -436,7 +704,7 @@ onMounted(() => {
         {{ actionError }}
       </p>
 
-      <section class="performance-detail__facts" aria-label="绩效周期基本信息">
+      <section v-if="activeTab === 'overview'" class="performance-detail__facts" aria-label="绩效周期基本信息">
         <div>
           <dt>周期名称</dt>
           <dd>{{ cycle.name }}</dd>
@@ -463,17 +731,36 @@ onMounted(() => {
         </div>
       </section>
 
-      <section v-if="!canManage" class="performance-detail__state" role="alert" data-testid="performance-review-forbidden">
+      <section
+        v-if="activeTab === 'reviews' && !canManage"
+        class="performance-detail__state"
+        role="alert"
+        data-testid="performance-review-forbidden"
+      >
         <h2>无权查看评估明细</h2>
         <p>当前账号缺少 performance.review.manage 能力，只展示周期汇总，不请求员工评估行。</p>
       </section>
 
-      <template v-else>
-        <section class="panel" aria-label="评估参与者">
+      <section
+        v-if="activeTab === 'appeals' && (!canAppeal || !readOnlyCycle)"
+        class="performance-detail__state"
+        role="status"
+        data-testid="performance-appeals-unavailable"
+      >
+        <h2>{{ readOnlyCycle ? '无权发起绩效申诉' : '申诉需要已发布结果' }}</h2>
+        <p>{{ readOnlyCycle ? '当前账号缺少 performance.appeal.manage 能力。' : '周期发布并生成结果快照后，本人或授权 HR 才能发起申诉。' }}</p>
+      </section>
+
+      <template v-if="(activeTab === 'reviews' && canManage) || (activeTab === 'appeals' && canAppeal && readOnlyCycle)">
+        <section class="panel" :aria-label="activeTab === 'appeals' ? '绩效申诉' : '评估参与者'">
           <header class="panel__header">
             <div>
-              <h2 class="panel__title">参与者评估</h2>
-              <p class="panel__subtitle">共 {{ reviewPageTotal }} 条评估 · 每条评估显示目标与评分状态</p>
+              <h2 class="panel__title">{{ activeTab === 'appeals' ? '绩效申诉' : '参与者评估' }}</h2>
+              <p class="panel__subtitle">
+                {{ activeTab === 'appeals'
+                  ? '仅已发布结果可申诉；申诉创建审批 Case，评分保持冻结。'
+                  : `共 ${reviewPageTotal} 条评估 · 每条评估显示目标与评分状态` }}
+              </p>
             </div>
           </header>
 
@@ -528,6 +815,7 @@ onMounted(() => {
                 </template>
                 <template #cell-actions="{ row }">
                   <button
+                    v-if="activeTab === 'reviews'"
                     type="button"
                     class="performance-detail__link"
                     :disabled="!canManage"
@@ -537,7 +825,7 @@ onMounted(() => {
                     {{ !readOnlyCycle && canScoreReview(String(row.status)) ? '评分' : '查看' }}
                   </button>
                   <button
-                    v-if="canCalibrate && !readOnlyCycle && isDecidedReview(String(row.status))"
+                    v-if="activeTab === 'reviews' && canCalibrate && !readOnlyCycle && isDecidedReview(String(row.status))"
                     type="button"
                     class="performance-detail__link"
                     :data-testid="`performance-calibrate-${String(row.id)}`"
@@ -546,7 +834,7 @@ onMounted(() => {
                     校准
                   </button>
                   <button
-                    v-if="canAppeal && row.status === 'SUBMITTED'"
+                    v-if="canAppeal && readOnlyCycle && row.status === 'SUBMITTED'"
                     type="button"
                     class="performance-detail__link"
                     :data-testid="`performance-appeal-${String(row.id)}`"
@@ -614,7 +902,7 @@ onMounted(() => {
         :close-on-click-modal="false"
         data-testid="performance-publish-confirm"
       >
-        <p>将发布 {{ cycle.name }} 的绩效结果，并把全部评估转为只读。</p>
+        <p>将发布 {{ cycle.name }} 的绩效结果，写入不可变结果快照，并把全部评估转为只读。</p>
         <p>当前已提交 {{ cycle.submittedCount }} / {{ cycle.participantCount }} 人，待提交 {{ pendingCount }} 人。</p>
         <template #footer>
           <el-button data-testid="performance-publish-cancel" @click="publishConfirmOpen = false">取消</el-button>
@@ -640,6 +928,52 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.performance-detail__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.performance-detail__tab {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.performance-detail__tab[data-active='true'] {
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.performance-detail__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.performance-detail__table th,
+.performance-detail__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.performance-detail__table thead th {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .performance-detail {
   display: flex;
   flex-direction: column;

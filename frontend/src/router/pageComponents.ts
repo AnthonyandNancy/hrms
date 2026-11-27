@@ -2,7 +2,6 @@ import type { Component } from 'vue'
 import { PAGE_COMPONENTS as PEOPLE_PAGES } from '@/modules/people/pages'
 import { PAGE_COMPONENTS as PLATFORM_PAGES } from '@/modules/platform/pages'
 import { PAGE_COMPONENTS as TALENT_PAGES } from '@/modules/talent/pages'
-import { PAGE_COMPONENTS as TIMEPAY_PAGES } from '@/modules/timepay/pages'
 import { PAGE_COMPONENTS as REPORTING_PAGES } from '@/modules/reporting/pages'
 import { PAGE_COMPONENTS as TIME_WORKSPACE_PAGES } from '@/modules/time/workspaces'
 import { PAGE_COMPONENTS as PAYROLL_PAGES } from '@/modules/payroll/pages'
@@ -23,8 +22,6 @@ const BASE_VIEWS: Record<string, Loader> = {
   'base/WorkspaceView': () => import('@/views/WorkspaceView.vue'),
   'base/ForbiddenView': () => import('@/views/ForbiddenView.vue'),
   'base/NotFoundView': () => import('@/views/NotFoundView.vue'),
-  'base/AccountMfaView': () => import('@/views/AccountSecurityView.vue'),
-  'base/AccountSessionsView': () => import('@/views/AccountSecurityView.vue'),
 }
 
 /**
@@ -50,7 +47,7 @@ export function talentPageLoader(key: string): Loader | null {
 function isPlatformKey(key: string): boolean {
   return (
     ['dashboard/', 'reports/', 'notices/'].some((prefix) => key.startsWith(prefix)) ||
-    ['account', 'system/', 'workflow', 'self-service', 'benefits', 'notifications'].some(
+    ['account', 'system/', 'workflow', 'benefits', 'notifications'].some(
       (prefix) => key === prefix || key.startsWith(prefix),
     )
   )
@@ -59,16 +56,6 @@ function isPlatformKey(key: string): boolean {
 export function platformPageLoader(key: string): Loader | null {
   const loader = PLATFORM_PAGES[key as keyof typeof PLATFORM_PAGES]
   return loader === undefined ? null : () => loader() as Promise<Component>
-}
-
-function isTimePayKey(key: string): boolean {
-  return ['attendance/', 'leave/', 'overtime/', 'travel/', 'payroll/'].some((prefix) =>
-    key.startsWith(prefix),
-  )
-}
-
-export function timePayPageLoader(key: string): Loader | null {
-  return TIMEPAY_PAGES[key as keyof typeof TIMEPAY_PAGES] ?? null
 }
 
 /**
@@ -96,10 +83,6 @@ export function matureView(componentKey: string): Loader | null {
   if (peoplePage !== undefined) return peoplePage
 
   if (componentKey.startsWith('hr/')) return null
-
-  if (isTimePayKey(componentKey)) {
-    return timePayPageLoader(componentKey)
-  }
 
   if (isTalentKey(componentKey)) {
     return talentPageLoader(componentKey)

@@ -9,11 +9,11 @@ contracts, but it never becomes a second home for a business domain.
 | Surface | Pages | Why platform |
 | --- | --- | --- |
 | Account security | `pages/AccountSecurityPage.vue` | Session, password and optional MFA posture belong to the authenticated principal, not to a business domain. |
-| IAM administration | `pages/SystemUsersPage.vue`, `SystemRolesPage.vue`, `SystemMenusPage.vue`, `SystemPermissionsPage.vue`, `SystemDataScopesPage.vue`, `SystemFieldPoliciesPage.vue` | These screens edit the capability/role/page model itself. They must stay next to the IAM contracts. |
+| IAM administration | `pages/SystemUsersPage.vue`, `SystemRolesPage.vue`, `SystemPagesPage.vue` | These screens edit the capability/role/page model itself. They must stay next to the IAM contracts. |
 | Workflow governance | `pages/WorkflowCenterPage.vue`, `workflow/pages/WorkflowCaseDetailPage.vue` | Approval cases are cross-domain platform infrastructure; a case timeline is not owned by People or Time. |
-| Employee self-service | `self-service/pages/SelfServicePage.vue` (replacement staged by Volume 4 Task 4; the old wrapper remains at `pages/SelfServicePage.vue` until wiring lands) | It aggregates the caller's own cross-domain facts and links. It owns no domain writes. |
+| Employee self-service | `@/views/WorkspaceView.vue` with typed readers from `self-service/api.ts` | Self-service is a section of the workspace. It aggregates the caller's own cross-domain facts and links and owns no domain writes. |
 | Benefits administration | `pages/BenefitsPage.vue` | Statutory benefit plans and enrollments are company-wide settings, not a People profile tab. |
-| Company calendar | `pages/SystemCalendarsPage.vue` | One company calendar, holidays and workweek are settings consumed by every domain. |
+| Company calendar | `components/SettingsCalendarTab.vue` | One company calendar, holidays and workweek are edited inside the single `/system/settings` workspace. |
 | Settings | `pages/SystemSettingsPage.vue` | Dictionaries, parameters and file metadata are platform configuration. |
 | Notifications | `pages/NotificationsPage.vue` | Delivery/inbox plumbing is platform infrastructure; business modules only emit events. |
 | Audit and operations | `pages/SystemAuditPage.vue` | Authentication events, access review and sensitive-operation evidence are platform controls. |
@@ -57,9 +57,9 @@ checks this module against
 
 ## Retirement status
 
-The shared shell is transitional. `self-service` is the only remaining
-platform-owned `PlatformWorkspace` wrapper; the other generic wrappers are
-reporting-family pages awaiting migration. The exact order for deleting
+The shared shell is transitional. Each remaining `PlatformWorkspace` mode is
+itself a platform-owned object workspace; the generic reporting wrappers are
+awaiting migration. The exact order for deleting
 `PlatformWorkspace.vue` is recorded in the disposition document. Do not add a
 new `mode`, a new wrapper, or a second registry entry while that retirement is
 in progress.

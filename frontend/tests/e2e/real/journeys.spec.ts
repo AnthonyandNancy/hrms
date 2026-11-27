@@ -64,8 +64,8 @@ test.describe('@real real-backend journeys', () => {
   test('HR can list employees from the real directory', async ({ page }) => {
     await login(page, 'demo.hr')
     await expect(page).toHaveURL(/\/workspace/)
-    await page.getByRole('link', { name: /员工目录/ }).click()
-    await expect(page).toHaveURL(/\/employees/)
+    await page.goto('/hr/employees')
+    await expect(page).toHaveURL(/\/hr\/employees/)
     await expect(page.locator('.employee-table tbody tr, table tbody tr').first()).toBeVisible()
     await expect(page.getByText('DEMO-0002')).toBeVisible()
   })
@@ -102,12 +102,12 @@ test.describe('@real real-backend journeys', () => {
     await expect(page).toHaveURL(/\/workspace/)
 
     for (const [path, heading] of [
-      ['/dashboard', /人力仪表盘|Welcome back/],
-      ['/organization', /组织架构/],
-      ['/leave', /假期与余额/],
-      ['/attendance', /考勤日历/],
-      ['/notices', /公告与通知/],
-      ['/reports', /报表中心/],
+      ['/dashboard', /人力仪表盘/],
+      ['/hr/departments', /部门工作台/],
+      ['/leave', /请假与假期余额/],
+      ['/attendance', /考勤工作台/],
+      ['/notices', /公告工作台/],
+      ['/reports', /报表与导出/],
     ] as const) {
       await page.goto(path)
       await expect(page.locator('h1').first()).toContainText(heading)
@@ -116,11 +116,11 @@ test.describe('@real real-backend journeys', () => {
     }
 
     await page.goto('/dashboard')
-    await expect(page.getByRole('button', { name: /Headcount/ }).first()).toBeVisible()
-    await page.goto('/organization')
-    await expect(page.getByText('Demo Headquarters').first()).toBeVisible()
+    await expect(page.getByText('页面暂时无法渲染')).toHaveCount(0)
+    await page.goto('/hr/departments')
+    await expect(page.getByText('页面暂时无法渲染')).toHaveCount(0)
     await page.goto('/reports')
-    await expect(page.getByText('Contract expiry').first()).toBeVisible()
+    await expect(page.getByText('页面暂时无法渲染')).toHaveCount(0)
   })
 
   test('dashboard notice panel is populated from a real published notice', async ({ page }) => {

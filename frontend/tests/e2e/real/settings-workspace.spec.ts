@@ -46,12 +46,12 @@ test.describe('@real settings workspace', () => {
         response.request().method() === 'GET',
     )
 
-    await page.goto('/system/calendars', { waitUntil: 'load' })
+    await page.goto('/system/settings?tab=calendar', { waitUntil: 'load' })
     const response = await responsePromise
     expect([200, 404], 'calendar read is either available or explicitly absent').toContain(response.status())
 
-    await expect(page.getByTestId('system-calendars-page')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '节假日与工作日历', level: 1 })).toBeVisible()
+    await expect(page.getByTestId('settings-calendar')).toBeVisible()
+    await expect(page.getByRole('heading', { name: '公司设置', level: 1 })).toBeVisible()
     await expect(page.getByTestId('calendar-forbidden')).toHaveCount(0)
     await expect(page.getByTestId('calendar-error')).toHaveCount(0)
     expect(requests.length).toBeGreaterThan(0)
@@ -72,25 +72,25 @@ test.describe('@real settings workspace', () => {
     expect(Object.prototype.hasOwnProperty.call(calendar ?? {}, 'legal_entity_id')).toBe(false)
     expect(Object.prototype.hasOwnProperty.call(calendar ?? {}, 'tenant_id')).toBe(false)
 
-    await expect(page.getByTestId('calendar-version')).toContainText(String(calendar?.version ?? ''))
-    await expect(page.getByTestId('calendar-workweek')).not.toHaveText('')
+    await expect(page.getByTestId('settings-calendar-version')).toContainText(String(calendar?.version ?? ''))
+    await expect(page.getByTestId('settings-calendar-workweek')).not.toHaveText('')
     const holidayRows = calendar?.holidays ?? []
     if (holidayRows.length === 0) {
-      await expect(page.getByTestId('calendar-holidays-empty')).toBeVisible()
+      await expect(page.getByTestId('settings-calendar-holidays-empty')).toBeVisible()
     } else {
-      await expect(page.getByTestId('calendar-holiday-table')).toBeVisible()
-      await expect(page.getByTestId('calendar-holiday-table')).toContainText(String(holidayRows[0]?.name ?? ''))
+      await expect(page.getByTestId('settings-calendar-holiday-table')).toBeVisible()
+      await expect(page.getByTestId('settings-calendar-holiday-table')).toContainText(String(holidayRows[0]?.name ?? ''))
     }
 
     // demo.hr may hold time.calendar.manage. The page may publish, but this
     // read-only journey deliberately leaves the company calendar unchanged.
-    await page.getByTestId('calendar-year-input').locator('input').fill(String(year))
-    await page.getByTestId('calendar-year-input').locator('input').press('Enter')
-    await expect(page.getByTestId('calendar-year')).toContainText(String(year))
-    if (await page.getByTestId('calendar-publish').count()) {
-      await page.getByTestId('calendar-publish').click()
-      await expect(page.getByTestId('calendar-publish-confirm')).toBeVisible()
-      await expect(page.getByTestId('calendar-publish-confirm').getByText('确认发布', { exact: true })).toBeVisible()
+    await page.getByTestId('settings-calendar-year-input').locator('input').fill(String(year))
+    await page.getByTestId('settings-calendar-year-input').locator('input').press('Enter')
+    await expect(page.getByTestId('settings-calendar-year-label')).toContainText(String(year))
+    if (await page.getByTestId('settings-calendar-publish').count()) {
+      await page.getByTestId('settings-calendar-publish').click()
+      await expect(page.getByTestId('settings-calendar-publish-confirm')).toBeVisible()
+      await expect(page.getByTestId('settings-calendar-publish-confirm').getByText('确认发布', { exact: true })).toBeVisible()
       await page.keyboard.press('Escape')
     }
   })

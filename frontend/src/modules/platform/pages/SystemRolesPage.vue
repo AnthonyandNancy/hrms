@@ -198,20 +198,7 @@ const diff = computed<DiffCounts>(() => {
 
 const hasDiff = computed(() => Object.values(diff.value).some((count) => count > 0))
 
-const changedFieldRows = computed(() =>
-  selectedCapabilities.value
-    .filter(
-      (capability) =>
-        hasOriginalCapability(capability) &&
-        (originalFieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public) !==
-          (fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public),
-    )
-    .map((capability) => ({
-      capability,
-      field_key: capability,
-      field_profile: fieldProfileByCapability.value[capability] ?? DISPLAY_CODES.fieldProfile.p0Public,
-    })),
-)
+
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
@@ -486,6 +473,10 @@ function requestSave(): void {
     actionMessage.value = '没有需要保存的角色授权变更。'
     return
   }
+  if (invalidAnchorAction.value !== null) {
+    actionError.value = `请为“${actionOfCapability(invalidAnchorAction.value.capability)}”选择数据范围对应的组织单元，再保存授权。`
+    return
+  }
   diffOpen.value = true
 }
 
@@ -518,15 +509,7 @@ async function confirmSave(): Promise<void> {
       {
         pages: [...selectedPageCodes.value],
         capabilities: saveCapabilityGrants(),
-        scopes: selectedActionGrants.value
-          .filter((grant) => ORG_ANCHORS.has(grant.anchor_type))
-          .map((grant) => ({
-            capability: grant.capability,
-            anchor_type: grant.anchor_type,
-            anchor_id: grant.anchor_id ?? null,
-          })),
-        fields: changedFieldRows.value,
-        diff: diff.value,
+        reason: '角色授权工作台保存',
       },
       { idempotencyKey: nextIdempotencyKey(`role-authorization-${code}`) },
     )
@@ -706,6 +689,12 @@ function anchorLabel(anchor: string): string {
   return ANCHOR_LABELS[anchor] ?? anchor
 }
 
+function selectedGrantCanBeSaved(grant: { anchor_type: string; anchor_id?: number | null }): boolean {
+  return !ORG_ANCHORS.has(grant.anchor_type) || (typeof grant.anchor_id === 'number' && grant.anchor_id > 0)
+}
+
+const invalidAnchorAction = computed(() => selectedActionGrants.value.find((grant) => !selectedGrantCanBeSaved(grant)) ?? null)
+
 function profileLabel(profile: string): string {
   return translate('platform', 'fieldProfile', profile, '未知字段档位').label
 }
@@ -719,7 +708,7 @@ onMounted(load)
       <div>
         <h1>角色与授权工作台</h1>
         <p class="muted">
-          页面可见权与动作授权相互独立（ADR-0035）；一次保存原子提交页面、动作、数据范围与字段档位。
+          页面授权决定能否进入和查看；按钮动作必须单独授权，隐藏按钮不代替服务端校验。保存时一次性提交四类授权。
         </p>
       </div>
       <div class="platform-inline-actions">
@@ -759,10 +748,11 @@ onMounted(load)
               <span v-if="role.is_template === true" class="plain-chip">内置</span>
               <div class="role-list__actions">
                 <button
+                  v-if="role.is_template !== true"
                   type="button"
                   class="plain-chip"
                   :data-testid="`role-rename-${rowText(role, 'code')}`"
-                  :disabled="role.is_template === true || !canManage"
+                  :disabled="!canManage"
                   @click="openRenameForm(role)"
                 >
                   重命名
@@ -777,10 +767,11 @@ onMounted(load)
                   复制
                 </button>
                 <button
+                  v-if="role.is_template !== true"
                   type="button"
                   class="plain-chip"
                   :data-testid="`role-delete-${rowText(role, 'code')}`"
-                  :disabled="role.is_template === true || !canManage"
+                  :disabled="!canManage"
                   @click="openDeleteForm(role)"
                 >
                   删除
@@ -802,20 +793,23 @@ onMounted(load)
             <div>
               <h2 class="panel__title">{{ rowText(selectedRole, 'name') }} 的授权</h2>
               <p class="panel__subtitle">
-                <span class="mono">{{ selectedRoleCode }}</span>
-                · {{ roleCapabilityCount(selectedRole) }} 项动作授权
-                · {{ selectedPageCodes.length }} 个页面
-                <span v-if="selectedRoleIsTemplate"> · 内置模板只读</span>
+                {{ roleCapabilityCount(selectedRole) }} 项动作授权 · {{ selectedPageCodes.length }} 个页面
+                <span v-if="selectedRoleIsTemplate"> · 内置角色只读</span>
               </p>
             </div>
             <span v-if="selectedRoleIsTemplate" class="plain-chip">内置角色只读</span>
           </div>
+          <el-collapse class="panel__body small">
+            <el-collapse-item title="管理员技术明细">
+              <p class="mono" data-testid="role-technical-detail">{{ selectedRoleCode }}</p>
+            </el-collapse-item>
+          </el-collapse>
 
           <nav class="platform-tabs" role="tablist">
-            <button type="button" role="tab" data-testid="tab-pages" :aria-selected="activeTab === 'pages'" @click="activeTab = 'pages'">页面权限</button>
-            <button type="button" role="tab" data-testid="tab-actions" :aria-selected="activeTab === 'actions'" @click="activeTab = 'actions'">按钮动作</button>
-            <button type="button" role="tab" data-testid="tab-scopes" :aria-selected="activeTab === 'scopes'" @click="activeTab = 'scopes'">数据范围</button>
-            <button type="button" role="tab" data-testid="tab-fields" :aria-selected="activeTab === 'fields'" @click="activeTab = 'fields'">字段权限</button>
+            <button type="button" role="tab" data-testid="role-tab-pages" :aria-selected="activeTab === 'pages'" @click="activeTab = 'pages'">页面权限</button>
+            <button type="button" role="tab" data-testid="role-tab-actions" :aria-selected="activeTab === 'actions'" @click="activeTab = 'actions'">按钮动作</button>
+            <button type="button" role="tab" data-testid="role-tab-scopes" :aria-selected="activeTab === 'scopes'" @click="activeTab = 'scopes'">数据范围</button>
+            <button type="button" role="tab" data-testid="role-tab-fields" :aria-selected="activeTab === 'fields'" @click="activeTab = 'fields'">字段权限</button>
           </nav>
 
           <div class="role-workbench__body">
@@ -895,15 +889,16 @@ onMounted(load)
 
           <div class="panel__body role-workbench__save">
             <button
-              v-if="canManage"
+              v-if="canManage && !selectedRoleIsTemplate"
               type="button"
               data-testid="save-role"
-              :disabled="selectedRoleIsTemplate || saving"
+              :disabled="saving"
               @click="requestSave"
             >
               {{ saving ? '保存中…' : '保存授权' }}
             </button>
-            <span class="small muted">保存将在一个事务内提交四类变更。</span>
+            <span v-if="!selectedRoleIsTemplate" class="small muted">保存将在一个事务内提交四类变更。</span>
+            <span v-else class="small muted">内置角色只读；复制后可编辑四类授权。</span>
           </div>
         </section>
       </div>
@@ -982,7 +977,7 @@ onMounted(load)
           </label>
           <p class="small muted">新角色页面授权默认留空，请在创建后进入页面权限配置；动作授权从所选来源角色复制。</p>
           <div class="platform-inline-actions">
-            <button type="button" :disabled="formSubmitting" @click="submitForm">{{ formSubmitting ? '提交中…' : '提交' }}</button>
+            <button type="button" :disabled="formSubmitting" :data-testid="formMode === 'copy' ? 'role-copy-submit' : 'role-form-submit'" @click="submitForm">{{ formSubmitting ? '提交中…' : '提交' }}</button>
             <button type="button" class="plain-chip" :disabled="formSubmitting" @click="closeForm">取消</button>
           </div>
         </div>

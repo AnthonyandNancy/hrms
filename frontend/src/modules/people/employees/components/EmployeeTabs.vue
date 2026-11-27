@@ -30,6 +30,19 @@ const TABS: readonly TabDefinition[] = [
   { key: 'changes', label: '变更申请' },
 ]
 
+/**
+ * These tabs own an editable workspace below the tab shell. Their single table
+ * is the writer component; rendering a second read-only table here caused the
+ * duplicate-table defect the M04 closure removes.
+ */
+const WORKSPACE_TABS: ReadonlySet<EmployeeTabKey> = new Set([
+  'credentials',
+  'education',
+  'experience',
+  'contacts',
+  'changes',
+])
+
 const TAB_ALIASES: Record<string, EmployeeTabKey> = {
   overview: 'overview',
   employment: 'employment',
@@ -38,6 +51,7 @@ const TAB_ALIASES: Record<string, EmployeeTabKey> = {
   files: 'credentials',
   education: 'education',
   experience: 'experience',
+  history: 'employment',
   'work-history': 'experience',
   contacts: 'contacts',
   changes: 'changes',
@@ -88,7 +102,9 @@ function isForbidden(reason: unknown): boolean {
 }
 
 async function load(tab: EmployeeTabKey, force = false): Promise<void> {
-  if (tab === 'overview') return
+  // Overview and the editable workspace tabs are rendered without a summary
+  // fetch: their single table is the writer below the tab shell.
+  if (tab === 'overview' || WORKSPACE_TABS.has(tab)) return
   const state = states[tab]
   if (state.loading) return
   if (!force && state.loaded) return
@@ -361,6 +377,12 @@ function cell(row: Record<string, unknown>, column: Column): string {
         <div class="employee-tabs__notice" data-testid="tab-overview-note">
           本页签只呈现服务端已返回的字段。缺失或被字段策略隐藏的属性显示“无权查看”，
           不根据姓名、编号或组织标识推断任何值。合同、证照、经历、联系人与变更申请分别在各自页签按需加载。
+        </div>
+      </template>
+
+      <template v-else-if="WORKSPACE_TABS.has(activeTab)">
+        <div class="employee-tabs__notice" data-testid="tab-workspace-note">
+          该页签的完整数据与操作在页签下方的编辑区；上方只保留摘要，避免同一份档案出现重复表格。
         </div>
       </template>
 

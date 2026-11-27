@@ -15,6 +15,7 @@ final class RoleCapability extends Model
         'role_code',
         'capability_code',
         'anchor_type',
+        'anchor_id',
         'field_profile',
     ];
 

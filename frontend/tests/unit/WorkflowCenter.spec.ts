@@ -8,11 +8,10 @@ import { useSessionStore } from '@/stores/session'
 import WorkflowCenterPage from '@/modules/platform/pages/WorkflowCenterPage.vue'
 import WorkflowCaseDetailPage from '@/modules/platform/workflow/pages/WorkflowCaseDetailPage.vue'
 import {
-  WORKFLOW_CASE_TYPE_OPTIONS,
   getWorkflowTimeline,
   listWorkflowCases,
   type WorkflowCaseQuery,
-} from '@/modules/platform/api'
+} from '@/modules/platform/workflow/api'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -81,9 +80,15 @@ function workflowCase(overrides: Record<string, unknown> = {}) {
     subject_type: 'employment',
     subject_id: 9,
     title: '十一月事假申请',
+    payload: { reason: 'Synthetic family visit', amount_minor: 125000 },
     application_status: 'SUBMITTED',
     effect_status: 'NONE',
     requester_user_id: 12,
+    requester_display_name: 'demo.requester',
+    current_assignee_user_id: 10,
+    current_assignee_display_name: 'demo.approver',
+    decided_by_user_id: null,
+    decided_by_display_name: null,
     template_id: 3,
     template_version: 2,
     business_date: '2026-11-27',
@@ -92,6 +97,11 @@ function workflowCase(overrides: Record<string, unknown> = {}) {
     current_node_key: 'manager_approval',
     is_mine: false,
     is_awaiting_me: true,
+    decision_context: {
+      is_awaiting_me: true,
+      can_admin_override: true,
+      requires_reason: false,
+    },
     effects: [],
     ...overrides,
   }
@@ -109,6 +119,13 @@ function timeline(overrides: Record<string, unknown> = {}) {
         action: 'APPROVE',
         node_key: 'manager_approval',
         actor_user_id: 15,
+        actor_display_name: 'demo.decider',
+        decided_by_display_name: 'demo.decider',
+        on_behalf_of_user_id: null,
+        on_behalf_of_display_name: null,
+        delegation_id: null,
+        admin_override: false,
+        reason: null,
         comment: '同意，请按计划休假。',
         occurred_at: '2026-11-27T02:00:00Z',
       },
@@ -133,54 +150,37 @@ beforeEach(() => {
   resource.delete.mockReset()
 })
 
-describe('workflow center consistency', () => {
-  it('offers only case types that a real business module emits', () => {
-    const values = WORKFLOW_CASE_TYPE_OPTIONS.map((option) => option.value)
-
-    expect(new Set(values).size).toBe(values.length)
-    expect(values).toEqual(expect.arrayContaining([
-      'LEAVE_REQUEST',
-      'ATTENDANCE_CORRECTION',
-      'TRAVEL_REQUEST',
-      'ONBOARDING',
-      'PROBATION_CONFIRM',
-      'ASSIGNMENT_CHANGE',
-      'TERMS_CHANGE',
-      'CONTRACT_RENEW',
-      'OFFBOARD',
-      'REHIRE',
-      'NOTICE_APPROVAL',
-      'PAYROLL_APPROVAL',
-      'REQUISITION_APPROVAL',
-      'OFFER_APPROVAL',
-      'PERFORMANCE_APPEAL',
-    ]))
-    expect(values).not.toContain('TRANSFER_REQUEST')
-    expect(values).not.toContain('CONTRACT_RENEWAL')
-  })
-
-  it('renders the pending, decided, requested and all views and sends real server filters', async () => {
+describe('workflow center four views', () => {
+  it('defaults to my pending work and exposes only the final business views', async () => {
     mockList('/v1/cases', listResponse([workflowCase()]))
 
-    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read', 'workflow.case.decide'])
+    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read', 'workflow.case.admin'])
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="workflow-view-my_approvals"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="workflow-view-my_decided"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="workflow-view-my_requests"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="workflow-view-all"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="workflow-type-REQUISITION_APPROVAL"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="workflow-type-TRANSFER_REQUEST"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="workflow-case-row-71"]').text()).toContain('直属经理审批')
+    expect(wrapper.find('[data-testid="workflow-view-my_approvals"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('[data-testid="workflow-view-my_approvals"]').text()).toBe('我的待办')
+    expect(wrapper.text()).toContain('我发起的')
+    expect(wrapper.text()).toContain('我审批的')
+    expect(wrapper.text()).toContain('抄送我的')
+    expect(wrapper.text()).toContain('模板设置')
+    expect(wrapper.text()).not.toContain('全部可见')
+    expect(wrapper.find('[data-testid="workflow-view-all"]').exists()).toBe(false)
+    expect(resource.get).toHaveBeenCalledWith('/v1/cases', expect.objectContaining({ view: 'my_approvals' }))
+    expect(wrapper.find('[data-testid="workflow-case-row-71"]').text()).toContain('demo.requester')
+    expect(wrapper.find('[data-testid="workflow-case-row-71"]').text()).toContain('demo.approver')
+  })
 
+  it('does not request /v1/tasks/my for the decided or requested views', async () => {
+    mockList('/v1/cases', listResponse([workflowCase()]))
+
+    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read'])
+    await flushPromises()
     const vm = wrapper.vm as unknown as {
       filters: { status: string; type: string; view: string }
       changeView: (view: string) => void
     }
-    vm.filters.status = 'IN_REVIEW'
-    vm.filters.type = 'REQUISITION_APPROVAL'
-    // The "all" view legitimately reads the personal task projection first;
-    // isolate the decided-view request set.
+    vm.filters.status = 'APPROVED'
+    vm.filters.type = 'LEAVE_REQUEST'
     resource.get.mockClear()
     vm.changeView('my_decided')
     await flushPromises()
@@ -188,30 +188,78 @@ describe('workflow center consistency', () => {
     const calls = resource.get.mock.calls.map((call) => [call[0], call[1]])
     expect(calls).toContainEqual([
       '/v1/cases',
-      expect.objectContaining({ status: 'IN_REVIEW', type: 'REQUISITION_APPROVAL', view: 'my_decided' }),
+      expect.objectContaining({ status: 'APPROVED', type: 'LEAVE_REQUEST', view: 'my_decided' }),
     ])
-    // The decided view does not borrow the current pending-task projection.
     expect(calls.map((call) => call[0])).not.toContain('/v1/tasks/my')
   })
 
-  it('lists only the caller tasks and describes an empty approval queue honestly', async () => {
-    mockList('/v1/cases', listResponse([]))
+  it('renders template versions for readers without an admin create button', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/workflow/templates') {
+        return Promise.resolve(listResponse([
+          {
+            id: 1,
+            code: 'talent.offer',
+            name: 'Offer 审批',
+            version: 1,
+            status: 'PUBLISHED',
+            node_count: 3,
+            effect_count: 1,
+            definition: { nodes: [], effects: [] },
+            created_at: '2026-11-27T01:00:00Z',
+          },
+        ]))
+      }
+      if (path === '/v1/cases') return Promise.resolve(listResponse([]))
+      if (path === '/v1/tasks/my') return Promise.resolve(listResponse([]))
+      return Promise.resolve(null)
+    })
 
-    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read', 'workflow.case.decide'])
+    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read'])
     await flushPromises()
-    const vm = wrapper.vm as unknown as { changeView: (view: string) => void }
-    vm.changeView('my_approvals')
+    await wrapper.get('[data-testid="workflow-view-templates"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="workflow-empty"]').text()).toContain('当前没有指派给你的待办审批')
-    expect(resource.get).toHaveBeenCalledWith('/v1/tasks/my')
-    expect(resource.get).toHaveBeenCalledWith(
-      '/v1/cases',
-      expect.objectContaining({ view: 'my_approvals' }),
-    )
+    expect(wrapper.find('[data-testid="workflow-templates-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="workflow-template-version"]').text()).toContain('Offer 审批')
+    expect(wrapper.find('[data-testid="workflow-template-create"]').exists()).toBe(false)
+    // Switching to templates does not read the case list with a fake view.
+    expect(resource.get).not.toHaveBeenCalledWith('/v1/cases', expect.objectContaining({ view: 'templates' }))
   })
 
-  it('shows timeline actor and timestamp and the Chinese current node on the detail page', async () => {
+  it('shows the admin create control only when workflow.case.admin is present', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/workflow/templates') {
+        return Promise.resolve(listResponse([{
+          id: 1,
+          code: 'talent.offer',
+          name: 'Offer 审批',
+          version: 1,
+          status: 'PUBLISHED',
+          definition: {},
+        }]))
+      }
+      return Promise.resolve(listResponse([]))
+    })
+
+    const wrapper = await mountPage(WorkflowCenterPage, ['workflow.case.read', 'workflow.case.admin'])
+    await flushPromises()
+    await wrapper.get('[data-testid="workflow-view-templates"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="workflow-template-create"]').exists()).toBe(true)
+  })
+
+  it('does not request the case list without workflow.case.read', async () => {
+    const wrapper = await mountPage(WorkflowCenterPage, [])
+
+    expect(wrapper.find('[data-testid="workflow-forbidden"]').exists()).toBe(true)
+    expect(resource.get).not.toHaveBeenCalled()
+  })
+})
+
+describe('workflow case detail', () => {
+  it('shows server display names, decision context and the Chinese current node', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/cases/71') return Promise.resolve(workflowCase())
       if (path === '/v1/cases/71/timeline') return Promise.resolve(timeline())
@@ -226,18 +274,26 @@ describe('workflow center consistency', () => {
     )
     await flushPromises()
 
-    const timelineText = wrapper.get('[data-testid="workflow-timeline"]').text()
+    expect(wrapper.find('[data-testid="workflow-case-summary"]').text()).toContain('demo.requester')
+    expect(wrapper.find('[data-testid="workflow-case-summary"]').text()).toContain('demo.approver')
+    expect(wrapper.find('[data-testid="workflow-decision-context"]').exists()).toBe(true)
+    const timelineText = wrapper.find('[data-testid="workflow-timeline"]').text()
     expect(timelineText).toContain('审批决定')
-    expect(timelineText).toContain('操作人：用户 #15')
+    expect(timelineText).toContain('操作人：demo.decider')
     expect(timelineText).toContain('2026-11-27 10:00')
     expect(wrapper.text()).toContain('直属经理审批')
     expect(wrapper.text()).not.toContain('manager_approval')
-    expect(wrapper.find('[data-testid="workflow-decision-actions"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('SHOULD-NOT-LEAK')
   })
 
-  it('offers a decision only to the current assignee with the decide capability', async () => {
+  it('offers a decision only for the server-confirmed assignee with decide capability', async () => {
     resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/cases/71') return Promise.resolve(workflowCase({ is_awaiting_me: false }))
+      if (path === '/v1/cases/71') {
+        return Promise.resolve(workflowCase({
+          is_awaiting_me: false,
+          decision_context: { is_awaiting_me: false, can_admin_override: false, requires_reason: false },
+        }))
+      }
       if (path === '/v1/cases/71/timeline') return Promise.resolve(timeline())
       return Promise.resolve(null)
     })
@@ -249,7 +305,7 @@ describe('workflow center consistency', () => {
       { props: { caseId: '71' } },
     )
     await flushPromises()
-    expect(nonAssignee.find('[data-testid="workflow-decision-actions"]').exists()).toBe(false)
+    expect(nonAssignee.find('[data-testid="workflow-decision-context"]').exists()).toBe(false)
     expect(nonAssignee.get('[data-testid="workflow-readonly"]').text()).toContain('没有指派给你的待办')
 
     resource.get.mockImplementation((path: string) => {
@@ -265,17 +321,20 @@ describe('workflow center consistency', () => {
       { props: { caseId: '71' } },
     )
     await flushPromises()
-    expect(readOnlyCapability.find('[data-testid="workflow-decision-actions"]').exists()).toBe(false)
+    expect(readOnlyCapability.find('[data-testid="workflow-decision-context"]').exists()).toBe(false)
     expect(readOnlyCapability.get('[data-testid="workflow-readonly"]').text()).toContain('没有审批决策权限')
   })
 
-  it('renders a decided case read-only with no decision controls', async () => {
+  it('renders a decided case read-only and maps the actor timestamp', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/cases/71') {
         return Promise.resolve(workflowCase({
           application_status: 'APPROVED',
           is_awaiting_me: false,
           closed_at: '2026-11-27T03:00:00Z',
+          decided_by_user_id: 15,
+          decided_by_display_name: 'demo.decider',
+          decision_context: { is_awaiting_me: false, can_admin_override: false, requires_reason: false },
         }))
       }
       if (path === '/v1/cases/71/timeline') {
@@ -294,28 +353,33 @@ describe('workflow center consistency', () => {
     )
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="workflow-readonly"]').text()).toContain('已有最终结果')
-    expect(wrapper.find('[data-testid="workflow-decision-actions"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="workflow-readonly"]').text()).toContain('已有最终结果')
+    expect(wrapper.find('[data-testid="workflow-decision-context"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="workflow-case-summary"]').text()).toContain('demo.decider')
     expect(wrapper.text()).toContain('已通过')
   })
 
-  it('does not request the case list without the read capability', async () => {
-    const wrapper = await mountPage(WorkflowCenterPage, [])
+  it('does not request detail or timeline without workflow.case.read', async () => {
+    const wrapper = await mountPage(
+      WorkflowCaseDetailPage,
+      [],
+      '/workflow/cases/71',
+      { props: { caseId: '71' } },
+    )
 
-    expect(wrapper.find('[data-testid="workflow-forbidden"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="workflow-detail-forbidden"]').exists()).toBe(true)
     expect(resource.get).not.toHaveBeenCalled()
   })
 })
 
 describe('workflow API client', () => {
-  it('sends effect status and business date filters when a caller supplies them', async () => {
+  it('sends the selected server view and business date filters', async () => {
     resource.get.mockResolvedValue(listResponse([]))
     const query: WorkflowCaseQuery = {
       page: 2,
       pageSize: 50,
-      view: 'my_decided',
+      view: 'my_cc',
       status: 'APPROVED',
-      effectStatus: 'FAILED',
       businessDate: '2026-11-27',
       type: 'LEAVE_REQUEST',
     }
@@ -325,9 +389,8 @@ describe('workflow API client', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/cases', {
       page: 2,
       page_size: 50,
-      view: 'my_decided',
+      view: 'my_cc',
       status: 'APPROVED',
-      effect_status: 'FAILED',
       business_date: '2026-11-27',
       type: 'LEAVE_REQUEST',
     })

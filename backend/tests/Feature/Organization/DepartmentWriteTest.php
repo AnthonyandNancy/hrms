@@ -24,7 +24,7 @@ final class DepartmentWriteTest extends PeopleTestCase
             'name' => '合成新部门',
             'type' => 'DEPARTMENT',
             'valid_from' => '2026-01-01',
-        ], ['X-CSRF-Token' => 'test-csrf'])
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-create-1'])
             ->assertCreated()
             ->assertJsonPath('data.code', 'SYNTH-DEPT-NEW');
 
@@ -41,14 +41,14 @@ final class DepartmentWriteTest extends PeopleTestCase
             'name' => '合成重复部门',
             'type' => 'DEPARTMENT',
             'valid_from' => '2026-01-01',
-        ], ['X-CSRF-Token' => 'test-csrf'])->assertCreated();
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-create-dup-1'])->assertCreated();
 
         $this->postJson('/v1/departments', [
             'code' => 'SYNTH-DEPT-DUP',
             'name' => '另一个部门',
             'type' => 'DEPARTMENT',
             'valid_from' => '2026-01-01',
-        ], ['X-CSRF-Token' => 'test-csrf'])
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-create-dup-2'])
             ->assertStatus(409)
             ->assertJsonPath('data.reason', 'ORG_UNIT_CODE_DUPLICATE');
     }
@@ -61,7 +61,7 @@ final class DepartmentWriteTest extends PeopleTestCase
         $this->patchJson('/v1/departments/'.$child->id, [
             'new_parent_id' => (int) $parent->id,
             'effective_from' => '2026-06-01',
-        ], ['X-CSRF-Token' => 'test-csrf'])
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-move-1'])
             ->assertOk();
 
         $this->assertSame(
@@ -90,7 +90,7 @@ final class DepartmentWriteTest extends PeopleTestCase
         $this->deleteJson(
             '/v1/departments/'.$unit->id.'/members/'.$employment->id,
             ['effective_from' => '2026-07-01', 'reason' => '合成调岗测试'],
-            ['X-CSRF-Token' => 'test-csrf'],
+            ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'dept-member-remove-1'],
         )->assertOk();
 
         // The row survives with a closed validity window: history is preserved.

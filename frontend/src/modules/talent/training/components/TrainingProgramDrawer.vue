@@ -39,7 +39,7 @@ watch(
     localError.value = ''
     draft.code = props.program?.code ?? ''
     draft.title = props.program?.title ?? ''
-    draft.defaultCapacity = String(props.program?.capacity ?? 20)
+    draft.defaultCapacity = String(props.program?.defaultCapacity ?? props.program?.capacity ?? 20)
   },
 )
 
@@ -74,8 +74,8 @@ function close(): void {
   <el-drawer v-model="open" :title="title" size="480px" data-testid="training-program-drawer">
     <div class="training-program-drawer">
       <p class="training-program-drawer__note">
-        项目编码用于幂等创建；创建成功后由服务端返回真实项目编号。默认容量只作为新场次的建议值，
-        实际名额以每个场次返回的容量为准。
+        项目编码用于幂等创建；同编码不同内容会返回冲突而不是静默复用。创建成功后由服务端返回真实项目编号。
+        默认容量只作为新场次的建议值，实际名额以每个场次返回的容量为准。
       </p>
 
       <label class="training-program-drawer__field">

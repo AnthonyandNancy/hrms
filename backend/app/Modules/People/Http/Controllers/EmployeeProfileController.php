@@ -8,22 +8,24 @@ use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Models\EmployeeChangeRequest;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Services\EmployeeProfileService;
-use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
-use App\Shared\Exceptions\ConflictException;
+use App\Shared\Commands\CommandDefinition;
+use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Time\CompanyBusinessDate;
+use App\Shared\Validation\BusinessDateRule;
 use Carbon\CarbonImmutable;
-use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
- * Employee-profile subresources. Read uses people.employee.read; write uses
- * people.employee.manage. Every employment id is re-scoped through the
+ * Employee-profile subresources. Read uses people.employee.read; every write is
+ * a CommandRunner command (capability, idempotency, invariants and audit) with
+ * a required Idempotency-Key. Every employment id is re-scoped through the
  * authorizer before any row is touched.
  */
 final class EmployeeProfileController
@@ -34,7 +36,6 @@ final class EmployeeProfileController
         'contacts' => ['read' => 'people.employee.read', 'write' => 'people.employee.manage'],
         'certificates' => ['read' => 'people.employee.read', 'write' => 'people.employee.manage'],
         'change_requests' => ['read' => 'people.employee.read', 'write' => 'people.employee.manage'],
-        'imports' => ['read' => 'people.employee.manage', 'write' => 'people.employee.manage'],
     ];
 
     public function __construct(
@@ -42,7 +43,7 @@ final class EmployeeProfileController
         private readonly Authorizer $authorizer,
         private readonly CompanyBusinessDate $businessDates,
         private readonly EmployeeProfileService $profiles,
-        private readonly IdempotencyRunner $idempotency,
+        private readonly CommandRunner $commands,
     ) {}
 
     public function index(Request $request, int $employmentId): JsonResponse
@@ -67,24 +68,24 @@ final class EmployeeProfileController
         $principal = $this->principals->resolve();
         $this->assertEmploymentVisible($principal, $employmentId);
         $this->assertPermits($principal, $this->config($resource)['write']);
-
         $validated = $this->validate($request, $resource);
 
-        return $this->idempotent(
+        return $this->command(
             $request,
             $principal,
-            "POST:/v1/employees/{$employmentId}/{$resource}",
+            new CommandDefinition(
+                name: "people.profile.{$resource}.open",
+                capability: 'people.employee.manage',
+                anchor: \App\Shared\Authorization\AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.profile.opened',
+            ),
             ['employment_id' => $employmentId, 'resource' => $resource, 'data' => $validated],
-            function () use ($resource, $employmentId, $validated, $principal): array {
-                $row = $this->profiles->open($resource, $employmentId, $validated, $principal->userId());
-
-                return [
-                    'http_status' => 201,
-                    'body' => $row,
-                    'resource_type' => 'employee_profile',
-                    'resource_id' => (string) ($row['id'] ?? ''),
-                ];
-            },
+            fn (): array => $this->profiles->open($resource, $employmentId, $validated, $principal->userId()),
+            201,
+            'employee_profile',
         );
     }
 
@@ -94,28 +95,93 @@ final class EmployeeProfileController
         $principal = $this->principals->resolve();
         $this->assertEmploymentVisible($principal, $employmentId);
         $this->assertPermits($principal, $this->config($resource)['write']);
-
         $validated = $this->validate($request, $resource, true);
 
-        return $this->idempotent(
+        return $this->command(
             $request,
             $principal,
-            "PATCH:/v1/employees/{$employmentId}/{$resource}/{$id}",
+            new CommandDefinition(
+                name: "people.profile.{$resource}.revise",
+                capability: 'people.employee.manage',
+                anchor: \App\Shared\Authorization\AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.profile.revised',
+            ),
             ['employment_id' => $employmentId, 'resource' => $resource, 'id' => $id, 'data' => $validated],
-            function () use ($resource, $employmentId, $id, $validated): array {
+            function () use ($resource, $employmentId, $id, $validated, $principal): array {
                 if ($resource === 'change_requests') {
                     $this->assertChangeRequestDraft($employmentId, $id);
+
+                    return $this->profiles->updateChangeRequestDraft(
+                        $employmentId,
+                        $id,
+                        $validated,
+                        $principal->userId(),
+                    );
                 }
 
-                $row = $this->profiles->revise($resource, $employmentId, $id, $validated);
-
-                return [
-                    'http_status' => 200,
-                    'body' => $row,
-                    'resource_type' => 'employee_profile',
-                    'resource_id' => (string) ($row['id'] ?? $id),
-                ];
+                return $this->profiles->revise(
+                    $resource,
+                    $employmentId,
+                    $id,
+                    $validated,
+                    $principal->userId(),
+                );
             },
+            200,
+            'employee_profile',
+            (string) $id,
+        );
+    }
+
+    /**
+     * Append-only retirement. The row is never deleted: superseded_at closes
+     * its effective window and the response identifies the exact version.
+     */
+    public function retire(Request $request, int $employmentId, int $id): JsonResponse
+    {
+        $resource = (string) $request->route('profileResource', '');
+        $principal = $this->principals->resolve();
+        $this->assertEmploymentVisible($principal, $employmentId);
+        $this->assertPermits($principal, $this->config($resource)['write']);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+            'effective_from' => ['nullable', new BusinessDateRule],
+        ]);
+
+        return $this->command(
+            $request,
+            $principal,
+            new CommandDefinition(
+                name: "people.profile.{$resource}.retire",
+                capability: 'people.employee.manage',
+                anchor: \App\Shared\Authorization\AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.profile.retired',
+            ),
+            [
+                'employment_id' => $employmentId,
+                'resource' => $resource,
+                'id' => $id,
+                'reason' => (string) $data['reason'],
+                'effective_from' => $data['effective_from'] ?? null,
+            ],
+            fn (): array => $this->profiles->retire(
+                $resource,
+                $employmentId,
+                $id,
+                (string) $data['reason'],
+                $data['effective_from'] ?? null,
+                $principal->userId(),
+            ),
+            200,
+            'employee_profile',
+            (string) $id,
         );
     }
 
@@ -125,28 +191,70 @@ final class EmployeeProfileController
         $this->assertEmploymentVisible($principal, $employmentId);
         $this->assertPermits($principal, 'people.employee.manage');
 
-        return $this->idempotent(
+        return $this->command(
             $request,
             $principal,
-            "POST:/v1/employees/{$employmentId}/change_requests/{$id}/submit",
+            new CommandDefinition(
+                name: 'people.employee.change.submit',
+                capability: 'people.employee.manage',
+                anchor: \App\Shared\Authorization\AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.change.submitted',
+            ),
             ['employment_id' => $employmentId, 'id' => $id],
-            function () use ($employmentId, $id, $principal): array {
-                $this->assertChangeRequestDraft($employmentId, $id);
+            fn (): array => $this->profiles->submitChangeRequest(
+                $employmentId,
+                $id,
+                $principal->userId(),
+            ),
+            200,
+            'employee_change_request',
+            (string) $id,
+        );
+    }
 
-                $row = $this->profiles->submitChangeRequest(
-                    $employmentId,
-                    $id,
-                    $principal->userId(),
-                );
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  \Closure(): array<string, mixed>  $operation
+     */
+    private function command(
+        Request $request,
+        Principal $principal,
+        CommandDefinition $definition,
+        array $payload,
+        \Closure $operation,
+        int $successStatus,
+        string $resourceType,
+        string $resourceId = '',
+    ): JsonResponse {
+        $result = $this->commands->run(
+            definition: $definition,
+            payload: $payload,
+            operation: function () use ($operation, $successStatus, $resourceType, $resourceId): array {
+                $body = $operation();
+                $resolvedId = $resourceId !== '' ? $resourceId : (string) ($body['id'] ?? '');
 
                 return [
-                    'http_status' => 200,
-                    'body' => $row,
-                    'resource_type' => 'employee_change_request',
-                    'resource_id' => (string) $id,
+                    'http_status' => $successStatus,
+                    'body' => $body,
+                    'resource_type' => $resourceType,
+                    'resource_id' => $resolvedId,
                 ];
             },
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
         );
+
+        $response = $result->status === 201
+            ? ApiResponse::created($result->body)
+            : ApiResponse::ok($result->body);
+
+        if ($result->replayed) {
+            $response->headers->set('Idempotency-Replayed', 'true');
+        }
+
+        return $response;
     }
 
     /**
@@ -166,7 +274,7 @@ final class EmployeeProfileController
         }
 
         if ((string) $request->getAttribute('status') !== 'DRAFT') {
-            throw new ConflictException(
+            throw new \App\Shared\Exceptions\ConflictException(
                 'Submitted change requests are read-only.',
                 ['reason' => 'CHANGE_REQUEST_NOT_DRAFT'],
             );
@@ -208,54 +316,6 @@ final class EmployeeProfileController
 
             return $item;
         }, $items);
-    }
-
-    /**
-     * Replay a write response when the client supplies an Idempotency-Key.
-     * The guard and write run inside the operation so a replayed response is
-     * byte-stable and a state-sensitive retry is not rejected after success.
-     *
-     * @param  array<string, mixed>  $payload
-     * @param  Closure(): array{http_status: int, body: array<string, mixed>, resource_type?: string, resource_id?: string}  $operation
-     */
-    private function idempotent(
-        Request $request,
-        Principal $principal,
-        string $scope,
-        array $payload,
-        Closure $operation,
-    ): JsonResponse {
-        $key = trim((string) $request->header('Idempotency-Key', ''));
-
-        if ($key === '') {
-            $result = $operation();
-
-            return $this->statusResponse((int) $result['http_status'], $result['body']);
-        }
-
-        $result = $this->idempotency->run(
-            principalId: $principal->userId(),
-            scope: $scope,
-            key: $key,
-            payload: $payload,
-            operation: $operation,
-        );
-
-        $response = $this->statusResponse($result->status, $result->body);
-
-        if ($result->replayed) {
-            $response->headers->set('Idempotency-Replayed', 'true');
-        }
-
-        return $response;
-    }
-
-    /**
-     * @param  array<string, mixed>  $body
-     */
-    private function statusResponse(int $status, array $body): JsonResponse
-    {
-        return $status === 201 ? ApiResponse::created($body) : ApiResponse::ok($body, $status);
     }
 
     private function assertEmploymentVisible(Principal $principal, int $employmentId): void
@@ -345,11 +405,10 @@ final class EmployeeProfileController
             'change_requests' => [
                 'reason' => [$required, 'string', 'min:3', 'max:500'],
                 'diff' => ['sometimes', 'array'],
-            ],
-            'imports' => [
-                'original_name' => [$required, 'string', 'max:255'],
-                'total_rows' => ['sometimes', 'integer', 'min:0'],
-                'errors' => ['sometimes', 'array'],
+                'diff.change_type' => ['sometimes', 'string', 'max:64'],
+                'diff.resource' => ['sometimes', Rule::in(['education', 'experiences', 'contacts', 'certificates'])],
+                'diff.record_id' => ['sometimes', 'integer', 'min:1'],
+                'diff.changes' => ['sometimes', 'array'],
             ],
             default => throw new NotFoundOrForbiddenException,
         });

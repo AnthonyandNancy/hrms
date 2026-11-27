@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $reason
  * @property int|null $case_id
  * @property int|null $overtime_record_id
+ * @property int|null $policy_version_id
+ * @property array<string, mixed>|null $policy_snapshot_json
  * @property \Carbon\CarbonImmutable $recorded_at
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
@@ -58,6 +60,8 @@ final class OvertimeRequest extends Model
         'reason',
         'case_id',
         'overtime_record_id',
+        'policy_version_id',
+        'policy_snapshot_json',
         'recorded_at',
         'created_at',
         'updated_at',
@@ -75,6 +79,8 @@ final class OvertimeRequest extends Model
             'confirmed_minutes' => 'integer',
             'case_id' => 'integer',
             'overtime_record_id' => 'integer',
+            'policy_version_id' => 'integer',
+            'policy_snapshot_json' => 'array',
             'recorded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

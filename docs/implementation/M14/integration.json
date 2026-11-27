@@ -1,0 +1,218 @@
+{
+  "module": "M14",
+  "name": "社保公积金与福利",
+  "status": "partial-integration-required",
+  "pagesChanged": [
+    {
+      "path": "/benefits",
+      "name": "benefits",
+      "componentKey": "benefits",
+      "capability": "benefit.read",
+      "requiredApis": [
+        "GET /v1/benefits/plans",
+        "POST /v1/benefits/plans",
+        "GET /v1/benefits/enrollments",
+        "POST /v1/benefits/enrollments",
+        "GET /v1/benefits/transactions",
+        "POST /v1/benefits/transactions",
+        "GET /v1/payroll/statutory-parameters",
+        "POST /v1/payroll/statutory-parameters"
+      ],
+      "notes": "The route itself already exists as KEEP; this is its final four-tab shape. The statutory tab visibility is independently gated by payroll.parameters.read."
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "pageCode": "payroll-statutory",
+      "path": "/payroll/statutory",
+      "file": "frontend/src/modules/timepay/pages/PayrollStatutoryPage.vue",
+      "requiredChanges": [
+        "删除 router registry 中的 /payroll/statutory 条目",
+        "删除 frontend/src/modules/timepay/pages/index.ts 中的 payroll/statutory barrel key",
+        "删除 frontend/src/views/timepay/definitions.ts 中的 payroll/statutory definition",
+        "删除 frontend/src/modules/timepay/pages/PayrollStatutoryPage.vue"
+      ],
+      "notes": "M14 does not delete timepay files or router registrations (strict file domain). The file remains in the worktree; the lead agent must remove the route, barrel key, definition, and legacy component, and update legacy route tests (routeRegistry/timePayModulePages/timePayrollPages/timePay definitions). No redirect is permitted."
+    }
+  ],
+  "backendCatalogChanges": [
+    {
+      "file": "backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php",
+      "pageCode": "benefits",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "requiredActions": [
+        "payroll.parameters.read",
+        "payroll.parameters.manage",
+        "benefit.read",
+        "benefit.manage"
+      ],
+      "requiredApis": [
+        "GET /v1/benefits/plans",
+        "POST /v1/benefits/plans",
+        "GET /v1/benefits/enrollments",
+        "POST /v1/benefits/enrollments",
+        "GET /v1/benefits/transactions",
+        "POST /v1/benefits/transactions",
+        "GET /v1/payroll/statutory-parameters",
+        "POST /v1/payroll/statutory-parameters"
+      ]
+    },
+    {
+      "file": "backend/app/Modules/Payroll/Http/Controllers/PayrollStatutoryParameterController.php",
+      "change": "none",
+      "notes": "Existing GET/POST parameter-version controller reused as the single statutory source. No second route/table was added."
+    }
+  ],
+  "openapiOperations": [
+    {
+      "operation": "GET /v1/payroll/statutory-parameters",
+      "status": "existing",
+      "capability": "payroll.parameters.read",
+      "requiredChange": "Declare this operation in benefits page required_apis; no path/schema semantic change."
+    },
+    {
+      "operation": "POST /v1/payroll/statutory-parameters",
+      "status": "existing",
+      "capability": "payroll.parameters.manage",
+      "requiredChange": "Update x-action-label to 新建社保/公积金参数版本 (existing capability stays payroll.parameters.manage); declare this operation in benefits required_apis."
+    },
+    {
+      "operation": "POST /v1/benefits/enrollments",
+      "status": "existing",
+      "capability": "benefit.manage",
+      "requiredChange": "Declare this existing write operation in benefits required_apis/actions."
+    },
+    {
+      "operation": "POST /v1/benefits/transactions",
+      "status": "existing",
+      "capability": "benefit.manage",
+      "requiredChange": "Declare this existing write operation in benefits required_apis/actions. FREEZE_REASON=BENEFIT_PAYROLL_RUN_FROZEN is documented by the feature test."
+    }
+  ],
+  "routeChanges": [
+    {
+      "method": "DELETE",
+      "path": "/payroll/statutory",
+      "kind": "frontend-route",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "notes": "The legacy route must be removed without redirect. Registry/timepay files are outside this task's strict file domain. Also remove the payroll-statutory PermissionResourceCatalog entry and reassign any sole-page role (BENEFITS_ADMIN already points at /benefits); verify PagePermissionCoverageTest expected page counts as coordinated by the lead."
+    },
+    {
+      "method": "POST",
+      "path": "/v1/payroll/statutory-parameters",
+      "kind": "backend-route",
+      "status": "existing-reused",
+      "notes": "No route file edit; backend/routes/api.php is explicitly forbidden for M14."
+    }
+  ],
+  "actionInputAdds": [
+    {
+      "file": "docs/generated/action-input.json",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "actions": [
+        {
+          "pageCode": "benefits",
+          "key": "benefit.statutory.version.create",
+          "label": "新建社保/公积金参数版本",
+          "capability": "payroll.parameters.manage",
+          "api": "POST /v1/payroll/statutory-parameters",
+          "ui": "primary",
+          "confirm": "none"
+        },
+        {
+          "pageCode": "benefits",
+          "key": "benefit.enrollment.version.create",
+          "label": "登记参保基数版本",
+          "capability": "benefit.manage",
+          "api": "POST /v1/benefits/enrollments",
+          "ui": "primary",
+          "confirm": "none"
+        },
+        {
+          "pageCode": "benefits",
+          "key": "benefit.transaction.record",
+          "label": "登记福利缴款",
+          "capability": "benefit.manage",
+          "api": "POST /v1/benefits/transactions",
+          "ui": "primary",
+          "confirm": "none"
+        }
+      ],
+      "notes": "Generated manifests and the generator are outside the allowed domain. The lead must regenerate page-actions.json and frontend/src/generated/pageActions.ts after adding these entries."
+    }
+  ],
+  "roleTemplateChanges": [
+    {
+      "file": "backend/app/Modules/IAM/Authorization/RoleTemplateCatalog.php",
+      "roleCode": "BENEFITS_ADMIN",
+      "status": "NOT_RUN_OUT_OF_DOMAIN",
+      "addCapability": "payroll.parameters.manage",
+      "existingCapability": "payroll.parameters.read",
+      "notes": "Do not add the wildcard and do not grant this capability to other roles by default."
+    }
+  ],
+  "notes": [
+    "唯一事实源：statutory_parameters 保留 TAX/SOCIAL_INSURANCE/HOUSING_FUND/ROUNDING 版本；benefit_plans/benefit_enrollments/benefit_transactions 不复制法定费率或基数。",
+    "BenefitService now rejects POST /v1/benefits/transactions with payroll_run_id of a PUBLISHED/PAID/CLOSED run via 409 data.reason=BENEFIT_PAYROLL_RUN_FROZEN. The read goes through PayrollRunService::findRun, not a raw payroll table query.",
+    "Parameter versions remain append-only; historical payroll remains frozen through payroll_input_snapshots parameter-version fields (feature tests added; NOT RUN).",
+    "Allowed syntax checks completed; PHPUnit, Vitest, Playwright, typecheck, pnpm actions/openapi generation, and gate:all are NOT RUN per task instructions.",
+    "BenefitController and PayrollStatutoryParameterController required no changes; their existing authorization/write paths are reused.",
+    "前端按 Tab 懒加载：福利方案 Tab 只读取 plans + enrollments，参保 Tab 只读取 enrollments + plans，台账 Tab 只读取 transactions，法定参数 Tab 只读取 statutory-parameters；不会在法定参数页顺带请求福利接口。",
+    "The shared files PermissionResourceCatalog.php, RoleTemplateCatalog.php, docs/openapi/openapi.yaml, docs/generated/**, router/registry.ts, timepay/**, and docs/implementation/M14/04-evidence.md are intentionally not modified and are tracked here for the lead agent."
+  ],
+  "backendCatalogRemoved": [
+    "payroll-statutory"
+  ],
+  "rolePageAssignmentChanges": [
+    {
+      "roleCode": "BENEFITS_ADMIN",
+      "addPages": [],
+      "removePages": [],
+      "notes": "Already assigned /benefits; add payroll.parameters.manage action grant through RoleTemplateCatalog."
+    },
+    {
+      "roleCode": "PAYROLL_SPECIALIST",
+      "addPages": [],
+      "removePages": [],
+      "notes": "Do not grant payroll.parameters.manage by default; retains payroll.parameters.read and the /benefits link from /payroll."
+    }
+  ],
+  "permissionCatalogChanges": [
+    {
+      "pageCode": "benefits",
+      "requiredCapability": "benefit.read",
+      "addActions": [
+        "payroll.parameters.read",
+        "payroll.parameters.manage",
+        "benefit.read",
+        "benefit.manage"
+      ],
+      "addRequiredApis": [
+        "POST /v1/benefits/enrollments",
+        "POST /v1/benefits/transactions",
+        "GET /v1/payroll/statutory-parameters",
+        "POST /v1/payroll/statutory-parameters"
+      ],
+      "status": "NOT_RUN_OUT_OF_DOMAIN"
+    }
+  ],
+  "pagesAdded": [
+    {
+      "path": "/benefits",
+      "name": "benefits",
+      "componentKey": "benefits",
+      "capability": "benefit.read",
+      "requiredApis": [
+        "GET /v1/benefits/plans",
+        "POST /v1/benefits/plans",
+        "GET /v1/benefits/enrollments",
+        "POST /v1/benefits/enrollments",
+        "GET /v1/benefits/transactions",
+        "POST /v1/benefits/transactions",
+        "GET /v1/payroll/statutory-parameters",
+        "POST /v1/payroll/statutory-parameters"
+      ],
+      "notes": "The route itself already exists as KEEP; this is its final four-tab shape. The statutory tab visibility is independently gated by payroll.parameters.read."
+    }
+  ]
+}

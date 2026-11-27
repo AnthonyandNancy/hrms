@@ -1,0 +1,125 @@
+{
+  "module": "M06",
+  "pagesChanged": [
+    {
+      "path": "/hr/positions",
+      "name": "hr-positions",
+      "componentKey": "hr/positions/index",
+      "capability": "org.position.read",
+      "file": "frontend/src/modules/people/positions/pages/PositionWorkspacePage.vue",
+      "requiredApis": [
+        "GET /v1/positions",
+        "GET /v1/positions/{id}",
+        "GET /v1/positions/{id}/staff",
+        "GET /v1/positions/{id}/requirements",
+        "POST /v1/positions/{id}/requirements",
+        "GET /v1/positions/grades",
+        "POST /v1/positions/grades",
+        "POST /v1/positions",
+        "PATCH /v1/positions/{id}"
+      ],
+      "tabs": [
+        "catalog",
+        "headcount",
+        "grades"
+      ],
+      "detailTabs": [
+        "overview",
+        "staff",
+        "requirements",
+        "headcount"
+      ],
+      "query": [
+        "tab",
+        "position",
+        "detail"
+      ],
+      "notes": "唯一岗位工作区。查询参数：?tab=catalog|headcount|grades 与 ?position=<id>&detail=overview|staff|requirements|headcount 可刷新/分享；tab 与 detail 非法值回落到 catalog/overview。"
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/hr/positions/headcount",
+      "name": "hr-positions-headcount"
+    },
+    {
+      "path": "/hr/positions/requirements",
+      "name": "hr-positions-requirements"
+    },
+    {
+      "path": "/hr/positions/grades",
+      "name": "hr-positions-grades"
+    },
+    {
+      "path": "/hr/positions/staff",
+      "name": "hr-positions-staff"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "hr-positions-headcount",
+    "hr-positions-requirements",
+    "hr-positions-grades",
+    "hr-positions-staff"
+  ],
+  "openapiOperations": [
+    "GET /v1/positions",
+    "GET /v1/positions/{id}",
+    "GET /v1/positions/{id}/staff",
+    "GET /v1/positions/{id}/requirements",
+    "POST /v1/positions/{id}/requirements",
+    "GET /v1/positions/grades",
+    "POST /v1/positions/grades",
+    "POST /v1/positions",
+    "PATCH /v1/positions/{id}"
+  ],
+  "routeChanges": [
+    "KEEP GET /v1/positions; ADD query parameters org_unit_id, status=ACTIVE|DISABLED, page, page_size (1..100), sort=code|code_desc|title|level; filter/count/page after Authorizer::constrain(org.position.read).",
+    "KEEP GET /v1/positions/{id}; ADD as_of query parameter and validate it with BusinessDateRule.",
+    "KEEP GET /v1/positions/{id}/staff (org.position.staff.read); response remains a live projection whose rows come only from AssignmentDirectory::positionIncumbents.",
+    "KEEP GET/POST /v1/positions/{id}/requirements (org.position.qualification.manage); POST stays CommandRunner idempotent and appends exactly one version per key.",
+    "KEEP GET/POST /v1/positions/grades (org.position.grade.manage, COMPANY); the workspace renders this catalogue in the grades tab.",
+    "KEEP POST /v1/positions and PATCH /v1/positions/{id}; both now run through CommandRunner with required Idempotency-Key, AuditRecorder evidence and org.position.manage scope (create additionally verifies the target org unit).",
+    "No redirects: the four folded page paths are removed from registry, pages barrel and catalog and must return 404."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.disable",
+      "label": "停用岗位",
+      "capability": "org.position.manage",
+      "api": "PATCH /v1/positions/{id}",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.requirements.version",
+      "label": "追加任职资格版本",
+      "capability": "org.position.qualification.manage",
+      "api": "POST /v1/positions/{id}/requirements",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "hr-positions",
+      "key": "org.positions.grade.upsert",
+      "label": "维护岗位职级",
+      "capability": "org.position.grade.manage",
+      "api": "POST /v1/positions/grades",
+      "ui": "primary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Required lead integration outside this worker's strict file domain: remove the four registry entries/pages-barrel loaders/people catalog configs and delete PositionHeadcountPage.vue, PositionRequirementsPage.vue, PositionGradesPage.vue, PositionStaffPage.vue; remove the four backend PermissionResourceCatalog page entries; update peoplePages.spec.ts accordingly.",
+    "The four old subroute capabilities are now covered by /hr/positions: headcount is a workspace tab + detail section, grades is a workspace tab, requirements is a detail section that reuses PositionRequirementsPanel, and staff is a detail section that requests only /v1/positions/{id}/staff.",
+    "No new table or migration is needed: headcount_limit lives on positions, qualification versions on position_qualifications, grades on position_grades, and incumbents are read from People assignments through the existing contracts.",
+    "Position create now rejects a duplicate code with 409 reason POSITION_CODE_DUPLICATE; update/disable reject a staffed disable with 409 reason POSITION_STAFFED. Both writes record audit events (org.position.created / org.position.updated|disabled).",
+    "Qualification replay returns the original 201 body as 200 with Idempotency-Replayed=true and creates neither a second version nor a second audit event; same key + different payload is 409 IDEMPOTENCY_PAYLOAD_MISMATCH.",
+    "OpenAPI updated only for the position operation surface. Backend endpoint matrix, generated action manifest and capability catalogs are shared integration files and were not edited by this worker.",
+    "Executed by this worker: backend PositionQueryTest, PositionStaffProjectionTest, PositionQualificationVersionTest, PositionApiTest, PositionCatalogTest and ModuleScannerTest (filter Position|ModuleScannerTest: 32 tests / 152 assertions OK); frontend PositionWorkspace, positionWorkspaceTabs, positionServerQuery and positionRequirementsPanel (26 tests OK); php -l on all changed PHP files; arch:test OK with 4 pre-existing non-blocking warnings; openapi-lint OK (263 paths / 338 operations); capability:audit OK (6 public allowlisted routes).",
+    "NOT RUN by this worker: tests/unit/positionSubroutesRemoved.spec.ts is intentionally red until the lead removes the four old registry entries, pages-barrel loaders, people catalog configs and Vue files. PositionWorkspace.spec.ts, positionWorkspaceTabs.spec.ts, positionServerQuery.spec.ts and positionRequirementsPanel.spec.ts are green (26 tests).",
+    "Lead must regenerate frontend/src/generated/api.ts (and any generated contract copies) after merging docs/openapi/openapi.yaml so listPositions exposes org_unit_id/status/page/page_size/sort and required Idempotency-Key headers; generated files are outside this worker domain.",
+    "Workspace headcount tab uses the same GET /v1/positions payload as catalog and opens detail headcount; it does not add a second headcount API. Position PATCH must be used for limit changes and remains protected by org.position.manage."
+  ]
+}

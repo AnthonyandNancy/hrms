@@ -9,6 +9,7 @@ use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use Tests\Feature\Authorization\AuthorizationTestSupport;
 use Tests\Support\AuthenticatesRequests;
@@ -99,14 +100,14 @@ final class RoleAdminTest extends AuthorizationTestSupport
         $this->stepUp();
         $headers = ['X-CSRF-Token' => $auth['csrf']];
 
-        $this->postJson('/v1/roles/HR_SPECIALIST/copy', [
-            'code' => 'HR_SPECIALIST_COPY',
-            'name' => 'HR specialist copy',
+        $this->postJson('/v1/roles/HR_ADMIN/copy', [
+            'code' => 'HR_ADMIN_COPY',
+            'name' => 'HR admin copy',
             'purpose' => 'Synthetic copied role.',
         ], ['Idempotency-Key' => 'role-copy-1'] + $headers)->assertCreated();
 
-        $this->assertDatabaseHas('roles', ['code' => 'HR_SPECIALIST_COPY', 'is_template' => false]);
-        $this->assertDatabaseHas('role_capabilities', ['role_code' => 'HR_SPECIALIST_COPY', 'capability_code' => 'people.employee.read']);
+        $this->assertDatabaseHas('roles', ['code' => 'HR_ADMIN_COPY', 'is_template' => false]);
+        $this->assertDatabaseHas('role_capabilities', ['role_code' => 'HR_ADMIN_COPY', 'capability_code' => 'people.employee.read']);
 
         Role::query()->create([
             'code' => 'TEMP_OVERRIDE',
@@ -157,13 +158,16 @@ final class RoleAdminTest extends AuthorizationTestSupport
 
     private function roleManager(): User
     {
+        // Assigning a role that grants capabilities requires the operator to
+        // hold them too (AdminProtectionGuard). The wildcard fixture is a
+        // non-privileged operator that still exercises the normal MFA login.
         $user = User::factory()->create(['auth_version' => 1]);
         $this->people->employmentByUser[(int) $user->id] = [1];
         AuthorityBinding::factory()
             ->forPrincipal((int) $user->id, (int) $user->auth_version)
-            ->anchor(AnchorType::COMPANY, null, FieldProfile::P1_INTERNAL)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
             ->create([
-                'capability_code' => 'iam.role.manage',
+                'capability_code' => CapabilityWildcard::WILDCARD,
                 'valid_from' => '2025-01-01 00:00:00',
                 'valid_to' => '2030-01-01 00:00:00',
             ]);

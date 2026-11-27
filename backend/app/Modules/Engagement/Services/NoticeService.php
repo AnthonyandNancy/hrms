@@ -6,10 +6,12 @@ namespace App\Modules\Engagement\Services;
 
 use App\Modules\Engagement\Models\Notice;
 use App\Modules\Engagement\Models\NoticeAcknowledgement;
+use App\Modules\Engagement\Models\NoticeAudienceSnapshot;
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
@@ -23,6 +25,7 @@ final class NoticeService
         private readonly NotificationService $notifications,
         private readonly CompanyBusinessDate $businessDates,
         private readonly Clock $clock,
+        private readonly ?AuditRecorder $audit = null,
     ) {}
 
     /**
@@ -66,6 +69,15 @@ final class NoticeService
             ]);
 
             if (! $approvalRequired) {
+                $publishedAt = $notice->publish_at ?? $this->clock->now();
+                foreach (array_values(array_unique($resolved['recipients'])) as $userId) {
+                    NoticeAudienceSnapshot::query()->create([
+                        'notice_id' => (int) $notice->id,
+                        'user_id' => (int) $userId,
+                        'recorded_at' => $publishedAt,
+                    ]);
+                }
+
                 $this->notifications->notify(
                     userIds: $resolved['recipients'],
                     type: 'NOTICE_PUBLISHED',
@@ -76,10 +88,48 @@ final class NoticeService
                 );
             }
 
+            $this->audit()->record(
+                actorUserId: $principal->userId(),
+                action: 'engagement.notice.created',
+                aggregateType: 'notice',
+                aggregateId: (int) $notice->id,
+                after: [
+                    'status' => (string) $notice->status,
+                    'audience_type' => (string) $resolved['audience_json']['type'],
+                    'audience_count' => (int) $resolved['audience_count'],
+                ],
+            );
+
             return $notice;
         });
 
         return $this->payload($principal, $notice, $today);
+    }
+
+    /**
+     * Resolve a proposed audience before the notice exists. This is a read-only
+     * preview: it returns counts and labels, never the recipient user IDs.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{audienceType: string, audienceLabel: string, orgUnitIds: list<int>, roleCodes: list<string>, recipientCount: int, resolvedOn: string}
+     */
+    public function previewAudience(Principal $principal, array $input, ?string $businessDate = null): array
+    {
+        $today = $this->businessDates->resolve($businessDate)->value();
+        $resolved = $this->audience->resolve($input, $today);
+
+        if (! $this->policy->canManageAudience($principal, $resolved['audience_json'], $today)) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Forbidden.');
+        }
+
+        return [
+            'audienceType' => (string) $resolved['audience_json']['type'],
+            'audienceLabel' => (string) $resolved['audience_json']['label'],
+            'orgUnitIds' => array_values(array_map('intval', (array) $resolved['audience_json']['org_unit_ids'])),
+            'roleCodes' => array_values(array_map('strval', (array) $resolved['audience_json']['role_codes'])),
+            'recipientCount' => (int) $resolved['audience_count'],
+            'resolvedOn' => $today,
+        ];
     }
 
     /**
@@ -167,11 +217,19 @@ final class NoticeService
             throw new ConflictException('This notice does not require acknowledgement.', ['reason' => 'ACK_NOT_REQUIRED']);
         }
 
-        NoticeAcknowledgement::query()->firstOrCreate(
+        $acknowledgement = NoticeAcknowledgement::query()->firstOrCreate(
             ['notice_id' => (int) $notice->id, 'user_id' => $principal->userId()],
             [
                 'acknowledged_at' => $this->clock->now(),
             ],
+        );
+
+        $this->audit()->record(
+            actorUserId: $principal->userId(),
+            action: 'engagement.notice.acknowledged',
+            aggregateType: 'notice',
+            aggregateId: (int) $notice->id,
+            metadata: ['acknowledgement_id' => (int) $acknowledgement->id],
         );
 
         return $this->payload($principal, $notice->refresh(), $today);
@@ -190,11 +248,21 @@ final class NoticeService
         }
 
         if ($notice->status !== Notice::STATUS_RETRACTED) {
+            $previous = (string) $notice->status;
             $notice->forceFill([
                 'status' => Notice::STATUS_RETRACTED,
                 'retract_at' => $this->clock->now(),
             ])->save();
             $notice->refresh();
+
+            $this->audit()->record(
+                actorUserId: $principal->userId(),
+                action: 'engagement.notice.retracted',
+                aggregateType: 'notice',
+                aggregateId: (int) $notice->id,
+                before: ['status' => $previous],
+                after: ['status' => Notice::STATUS_RETRACTED],
+            );
         }
 
         return $this->payload($principal, $notice, $today);
@@ -251,6 +319,11 @@ final class NoticeService
             'templateCode' => $notice->template_code !== null ? (string) $notice->template_code : null,
             'templateVersion' => $notice->template_version !== null ? (int) $notice->template_version : null,
         ];
+    }
+
+    private function audit(): AuditRecorder
+    {
+        return $this->audit ?? app(AuditRecorder::class);
     }
 
     private function instant(string $value): CarbonImmutable

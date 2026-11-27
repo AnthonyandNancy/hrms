@@ -111,7 +111,7 @@ async function mountComponent(
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/cases/:id', name: 'case-detail', component: { template: '<div />' } },
+      { path: '/workflow/cases/:id', name: 'workflow-case-detail', component: { template: '<div />' } },
       { path: '/', name: 'home', component: { template: '<div />' } },
     ],
   })
@@ -355,7 +355,10 @@ describe('EmployeeChangeList', () => {
 
     await buttonByText(wrapper, '新建变更申请')!.trigger('click')
     await flushPromises()
+    await wrapper.findAllComponents({ name: 'ElInputNumber' })[0]!.vm.$emit('update:modelValue', 5)
+    await wrapper.get('[data-testid="change-form-value"]').setValue('合成新专业')
     await wrapper.get('[data-testid="change-form-reason"]').setValue('合成新变更草稿')
+    await flushPromises()
     await buttonByText(wrapper, '保存')!.trigger('click')
     await flushPromises()
 

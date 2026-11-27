@@ -169,6 +169,18 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'mfa_required', 'field_or_export'],
     ],
+    'GET /v1/audit/events' => [
+        'capability' => 'iam.audit.read',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'mfa_required', 'field_or_export'],
+    ],
+    'POST /v1/audit/events/export' => [
+        'capability' => 'iam.audit.read',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required', 'field_or_export'],
+    ],
     'GET /v1/capabilities' => [
         'capability' => 'iam.role.manage',
         'anchor' => 'COMPANY',
@@ -1383,23 +1395,17 @@ return [
         'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
-    'GET /v1/employees/{employmentId}/imports' => [
+    'GET /v1/employee-imports' => [
         'capability' => 'people.employee.manage',
         'anchor' => 'COMPANY',
         'risk' => 'medium',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'field_or_export'],
     ],
-    'POST /v1/employees/{employmentId}/imports' => [
-        'capability' => 'people.employee.manage',
+    'GET /v1/employees/export' => [
+        'capability' => 'people.employee.export',
         'anchor' => 'COMPANY',
-        'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
-    ],
-    'PATCH /v1/employees/{employmentId}/imports/{id}' => [
-        'capability' => 'people.employee.manage',
-        'anchor' => 'COMPANY',
-        'risk' => 'high',
-        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
+        'risk' => 'medium',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'field_or_export'],
     ],
     'GET /v1/employments/contracts' => [
         'capability' => 'people.contract.read',
@@ -1957,6 +1963,18 @@ return [
         'capability' => 'iam.field.manage',
         'anchor' => 'COMPANY',
         'risk' => 'critical',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
+    ],
+    'GET /v1/system/company-profile' => [
+        'capability' => 'system.settings.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
+        'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'mfa_required'],
+    ],
+    'PATCH /v1/system/company-profile' => [
+        'capability' => 'system.settings.manage',
+        'anchor' => 'COMPANY',
+        'risk' => 'high',
         'negative_tests' => ['unauthenticated', 'no_capability', 'wrong_anchor', 'cross_anchor', 'csrf_missing', 'mfa_required'],
     ],
     'GET /v1/system/dictionaries' => [

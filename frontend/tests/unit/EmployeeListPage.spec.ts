@@ -18,7 +18,20 @@ const api = vi.hoisted(() => ({
   restoreEmployee: vi.fn(),
 }))
 
+const listActions = vi.hoisted(() => ({
+  exportEmployees: vi.fn(),
+  saveEmployeeExport: vi.fn(),
+}))
+
 vi.mock('@/modules/people/employees/api', () => api)
+vi.mock('@/modules/people/employees/listActionsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/modules/people/employees/listActionsApi')>()
+  return {
+    ...actual,
+    exportEmployees: listActions.exportEmployees,
+    saveEmployeeExport: listActions.saveEmployeeExport,
+  }
+})
 
 const FormDrawerStub = defineComponent({
   name: 'FormDrawer',
@@ -118,6 +131,7 @@ function mountDrawer() {
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset()
+  for (const fn of Object.values(listActions)) fn.mockReset()
   api.listOrgUnits.mockResolvedValue([])
   api.listPositions.mockResolvedValue([])
   api.listEmployees.mockResolvedValue(list([employee()]))

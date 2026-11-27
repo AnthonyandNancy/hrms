@@ -51,6 +51,7 @@ final class WorkspaceProjectionTest extends TestCase
         $response = $this->getJson('/v1/me/workspace');
 
         $response->assertOk()
+            ->assertJsonPath('data.employment_linked', true)
             ->assertJsonPath('data.profile.employmentId', (int) $employment->id)
             ->assertJsonPath('data.profile.employeeNo', 'DEMO-9001')
             ->assertJsonPath('data.profile.name', '徐清和')
@@ -60,9 +61,8 @@ final class WorkspaceProjectionTest extends TestCase
             ->assertJsonPath('data.profile.email', 'qinghe.xu@example.test')
             ->assertJsonPath('data.profile.managerName', '演示经理')
             ->assertJsonPath('data.contract.startDate', '2026-01-01')
-            ->assertJsonPath('data.contract.status', 'ACTIVE')
-            ->assertJsonPath('data.contract.type', 'FULL_TIME')
-            ->assertJsonPath('data.contract.status', 'ACTIVE')
+            ->assertJsonPath('data.contract.status', '生效中')
+            ->assertJsonPath('data.contract.type', '全职')
             ->assertJsonPath('data.contract.endDate', null)
             ->assertJsonStructure([
                 'data' => [
@@ -89,6 +89,7 @@ final class WorkspaceProjectionTest extends TestCase
         $response = $this->getJson('/v1/me/workspace');
 
         $response->assertOk()
+            ->assertJsonPath('data.employment_linked', false)
             ->assertJsonPath('data.profile.employmentId', null)
             ->assertJsonPath('data.contract', null)
             ->assertJsonStructure([

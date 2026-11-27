@@ -39,7 +39,7 @@ final class SuperadminBaselineTest extends TestCase
 
         $admin = User::query()->where('username', 'installer')->firstOrFail();
 
-        $this->assertSame(153, RolePage::query()->where('role_code', 'SYSTEM_ADMIN')->count());
+        $this->assertSame(37, RolePage::query()->where('role_code', 'SYSTEM_ADMIN')->count());
         $this->assertDatabaseHas('user_roles', [
             'user_id' => $admin->id,
             'role_code' => 'SYSTEM_ADMIN',
@@ -55,7 +55,7 @@ final class SuperadminBaselineTest extends TestCase
         ]);
 
         $this->artisan('iam:verify-superadmin', ['--username' => 'installer'])
-            ->expectsOutputToContain('pages=153')
+            ->expectsOutputToContain('pages=37')
             ->assertExitCode(0);
     }
 

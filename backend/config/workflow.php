@@ -15,5 +15,13 @@ return [
     */
     'effect_handlers' => [],
 
-    'effect_types' => [],
+    // Module-owned local effects. Workflow resolves each through the adapter;
+    // the owning module keeps the writer and verifies the approved case.
+    'domain_effect_handlers' => [
+        'people.employee.change.apply' => App\Modules\People\Services\EmployeeProfileChangeEffectHandler::class,
+    ],
+
+    'effect_types' => [
+        'people.employee.change.apply',
+    ],
 ];

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Talent\Services;
 
-use App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort;
 use App\Modules\Talent\Domain\OfferStateMachine;
 use App\Modules\Talent\Models\Candidate;
+use App\Modules\Talent\Models\CandidateApplication;
 use App\Modules\Talent\Models\Interview;
 use App\Modules\Talent\Models\Offer;
 use App\Modules\Talent\Models\Requisition;
@@ -27,8 +27,10 @@ final class RecruitmentService
         private readonly AuditRecorder $audit,
         private readonly WorkflowCaseGateway $workflow,
         private readonly OfferStateMachine $offerMachine,
-        private readonly TalentOnboardingDraftPort $onboarding,
+        private readonly \App\Modules\Lifecycle\Contracts\TalentOnboardingDraftPort $onboarding,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
+        private readonly CandidateApplicationService $applications,
+        private readonly RecruitmentOnboardingStateService $onboardingState,
     ) {}
 
     /**
@@ -150,14 +152,25 @@ final class RecruitmentService
         }
 
         $requisitionId = (int) $input['requisition_id'];
-        $requisition = Requisition::query()
-            ->whereKey($requisitionId)
-            ->where('status', 'APPROVED')
-            ->first();
+        $requisition = Requisition::query()->whereKey($requisitionId)->first();
 
         if ($requisition === null) {
+            throw new ValidationException(['requisition_id' => ['The requisition does not exist.']]);
+        }
+
+        if ((string) $requisition->status === 'CLOSED') {
+            throw new ConflictException('A closed requisition cannot schedule new interviews.', [
+                'reason' => 'REQUISITION_CLOSED',
+                'status' => 'CLOSED',
+            ]);
+        }
+
+        if ((string) $requisition->status !== 'APPROVED') {
             throw new ValidationException(['requisition_id' => ['Interviews require an approved requisition.']]);
         }
+
+        $application = $this->applications->ensureForWrite($actorUserId, $candidateId, $requisitionId, 'INTERVIEW');
+        $this->applications->advanceStage($actorUserId, $application, 'INTERVIEW', 'talent.candidate_application.interview_scheduled');
 
         $interview = Interview::query()->create([
             'candidate_id' => $candidateId,
@@ -175,6 +188,7 @@ final class RecruitmentService
             'candidate_id' => $candidateId,
             'requisition_id' => $requisitionId,
             'status' => (string) $interview->status,
+            'application_id' => (int) $application->id,
         ];
     }
 
@@ -188,7 +202,6 @@ final class RecruitmentService
             $candidate = Candidate::query()->whereKey((int) $input['candidate_id'])->lockForUpdate()->first();
             $requisition = Requisition::query()
                 ->whereKey((int) $input['requisition_id'])
-                ->where('status', 'APPROVED')
                 ->first();
 
             if ($candidate === null) {
@@ -199,6 +212,14 @@ final class RecruitmentService
                 throw new ValidationException(['requisition_id' => ['Offers require an approved requisition.']]);
             }
 
+            if ((string) $requisition->status !== 'APPROVED') {
+                throw new ConflictException('Offers require an approved requisition.', [
+                    'reason' => 'REQUISITION_NOT_APPROVED',
+                    'status' => (string) $requisition->status,
+                ]);
+            }
+
+            $application = $this->applications->ensureForWrite($actorUserId, (int) $candidate->id, (int) $requisition->id, 'OFFER');
             $version = ((int) Offer::query()
                 ->where('candidate_id', (int) $candidate->id)
                 ->max('version')) + 1;
@@ -232,12 +253,14 @@ final class RecruitmentService
             );
 
             $offer->forceFill(['case_id' => $case->id])->save();
+            $this->applications->advanceStage($actorUserId, $application, 'OFFER', 'talent.candidate_application.offer_drafted');
 
             return [
                 'offer_id' => (int) $offer->id,
                 'version' => (int) $offer->version,
                 'status' => (string) $offer->status,
                 'case_id' => $case->id,
+                'application_id' => (int) $application->id,
             ];
         });
     }
@@ -259,8 +282,25 @@ final class RecruitmentService
             }
 
             if ($offer->status === 'ACCEPTED') {
+                $state = $this->onboardingState->onboardingStateForOffer((int) $offer->id, (string) ($input['hire_date'] ?? $offer->start_date));
+
+                if ($offer->onboarding_case_id === null && $state['status'] === 'NOT_CREATED') {
+                    $draft = $this->onboarding->createDraftFromAcceptedOffer([
+                        'actor_user_id' => $actorUserId,
+                        'candidate_id' => (int) $offer->candidate_id,
+                        'person' => $this->onboardingPerson((int) $offer->candidate_id),
+                        'offer_id' => (int) $offer->id,
+                        'org_unit_id' => (int) $input['org_unit_id'],
+                        'employee_no' => (string) $input['employee_no'],
+                        'hire_date' => (string) ($input['hire_date'] ?? $offer->start_date),
+                        'business_date' => $businessDate,
+                    ]);
+                    $offer->forceFill(['onboarding_case_id' => $draft['case_id']])->save();
+                }
+
                 return [
                     'offer_id' => (int) $offer->id,
+                    'offer_status' => 'ACCEPTED',
                     'status' => 'ACCEPTED',
                     'onboarding_case_id' => $offer->onboarding_case_id,
                     'replayed' => true,
@@ -268,8 +308,25 @@ final class RecruitmentService
             }
 
             $this->offerMachine->assertCanAccept((string) $offer->status);
+            $requisition = Requisition::query()->whereKey((int) $offer->requisition_id)->first();
+
+            if ($requisition === null || (string) $requisition->status === 'CLOSED') {
+                throw new ConflictException('A closed requisition cannot accept an offer.', [
+                    'reason' => 'REQUISITION_CLOSED',
+                    'status' => $requisition?->status,
+                ]);
+            }
 
             $offer->forceFill(['status' => 'ACCEPTED', 'accepted_at' => $this->clock->now()])->save();
+
+            $application = CandidateApplication::query()
+                ->where('candidate_id', (int) $offer->candidate_id)
+                ->where('requisition_id', (int) $offer->requisition_id)
+                ->first();
+
+            if ($application !== null) {
+                $this->applications->markOfferAccepted($actorUserId, $application);
+            }
 
             foreach (Offer::query()
                 ->where('candidate_id', (int) $offer->candidate_id)
@@ -282,6 +339,7 @@ final class RecruitmentService
             $draft = $this->onboarding->createDraftFromAcceptedOffer([
                 'actor_user_id' => $actorUserId,
                 'candidate_id' => (int) $offer->candidate_id,
+                'person' => $this->onboardingPerson((int) $offer->candidate_id),
                 'offer_id' => (int) $offer->id,
                 'org_unit_id' => (int) $input['org_unit_id'],
                 'employee_no' => (string) $input['employee_no'],
@@ -293,6 +351,7 @@ final class RecruitmentService
 
             return [
                 'offer_id' => (int) $offer->id,
+                'offer_status' => 'ACCEPTED',
                 'status' => 'ACCEPTED',
                 'onboarding_case_id' => $draft['case_id'],
                 'replayed' => false,
@@ -371,5 +430,20 @@ final class RecruitmentService
         $this->workflow->ensureTemplate('talent.requisition', 'Talent requisition approval', $definition);
         $definition['effects'][0]['type'] = 'talent.offer.approve';
         $this->workflow->ensureTemplate('talent.offer', 'Talent offer approval', $definition);
+    }
+
+    /**
+     * @return array{legal_name:string,email?:string}
+     */
+    private function onboardingPerson(int $candidateId): array
+    {
+        $candidate = Candidate::query()->findOrFail($candidateId);
+        $person = ['legal_name' => (string) $candidate->display_name];
+
+        if (is_string($candidate->email) && $candidate->email !== '') {
+            $person['email'] = $candidate->email;
+        }
+
+        return $person;
     }
 }

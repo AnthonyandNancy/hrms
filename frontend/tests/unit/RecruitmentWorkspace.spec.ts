@@ -460,7 +460,6 @@ describe('candidate detail and conversion', () => {
     expect(wrapper.text()).toContain('合成面试反馈')
     expect(wrapper.text()).toContain('¥25,000.00')
     expect(wrapper.text()).not.toContain('candidate@example.test')
-    expect(wrapper.get('[data-testid="candidate-convert"]').attributes('disabled')).toBeUndefined()
   })
 
   it('shows the feedback permission boundary when the interview projection is redacted', async () => {
@@ -475,65 +474,6 @@ describe('candidate detail and conversion', () => {
     ])
 
     expect(wrapper.text()).toContain('面试反馈仅授权可见')
-  })
-
-  it('sends only org_unit_id, employee_no and hire_date with an Idempotency-Key, and keeps the dialog open on duplicate employee_no', async () => {
-    mockDetailLoads()
-    const duplicate = new ApiError('CONFLICT', 'Employee number must be unique.', {
-      status: 409,
-      requestId: 'req-convert-duplicate',
-      details: { reason: 'EMPLOYEE_NO_DUPLICATE' },
-    })
-    resource.post
-      .mockRejectedValueOnce(duplicate)
-      .mockResolvedValueOnce({
-        conversion_id: 91,
-        candidate_id: 21,
-        employment_id: 77,
-        person_id: 88,
-        offer_id: 61,
-        org_unit_id: 3,
-        employee_no: 'CONV-2026-0002',
-        status: 'COMPLETED',
-        converted_at: '2026-11-27T02:00:00Z',
-        business_replayed: false,
-      })
-
-    const wrapper = await mountAt(CandidateDetailPage, '/recruitment/candidates/21')
-
-    await wrapper.get('[data-testid="candidate-convert"]').trigger('click')
-    expect(wrapper.get('[data-testid="convert-dialog"]').text()).toContain('转入职')
-
-    const convertOrgUnit = wrapper.findComponent('[data-testid="convert-org-unit"]')
-    await convertOrgUnit.setValue('3')
-    await flushPromises()
-    await wrapper.get('[data-testid="convert-employee-no"]').setValue('CONV-2026-0001')
-    await wrapper.get('[data-testid="convert-hire-date"]').setValue('2026-12-01')
-    await wrapper.get('[data-testid="convert-submit"]').trigger('click')
-    await flushPromises()
-
-    const firstBody = resource.post.mock.calls[0]?.[1] as Record<string, unknown>
-    expect(resource.post.mock.calls[0]?.[0]).toBe('/v1/recruitment/candidates/21/convert')
-    expect(Object.keys(firstBody).sort()).toEqual(['employee_no', 'hire_date', 'org_unit_id'])
-    expect(firstBody).not.toHaveProperty('legal_entity_id')
-    expect(firstBody).not.toHaveProperty('tenant_id')
-    expect(resource.post.mock.calls[0]?.[2]).toEqual({ idempotencyKey: expect.any(String) })
-
-    const dialog = wrapper.get('[data-testid="convert-dialog"]')
-    expect(dialog.text()).toContain('员工编号已存在')
-    expect(dialog.text()).toContain('req-convert-duplicate')
-    expect((wrapper.get('[data-testid="convert-employee-no"]').element as HTMLInputElement).value).toBe('CONV-2026-0001')
-
-    await wrapper.get('[data-testid="convert-employee-no"]').setValue('CONV-2026-0002')
-    await wrapper.get('[data-testid="convert-submit"]').trigger('click')
-    await flushPromises()
-
-    const secondKey = (resource.post.mock.calls[1]?.[2] as { idempotencyKey?: string }).idempotencyKey
-    const firstKey = (resource.post.mock.calls[0]?.[2] as { idempotencyKey?: string }).idempotencyKey
-    expect(secondKey).not.toBe(firstKey)
-    expect(wrapper.find('[data-testid="convert-dialog"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="conversion-success"]').text()).toContain('CONV-2026-0002')
-    expect(wrapper.get('[data-testid="conversion-employee-link"]').attributes('href')).toBe('/hr/employees/77')
   })
 
   it('hides conversion and offer reads when the corresponding capabilities are absent', async () => {

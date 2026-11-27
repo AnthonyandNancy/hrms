@@ -6,6 +6,8 @@ import PageShell from '@/shared/ui/PageShell.vue'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTimeInTimezone } from '@/utils/format'
 import { isForbidden, platformErrorCopy } from '../api'
+import { ApiError } from '@/api/errors'
+import { resourceGet } from '@/api/resourceClient'
 import {
   listInboxNotifications,
   markInboxNotificationRead,
@@ -14,6 +16,29 @@ import {
 import { notificationTypeLabel } from '../labels'
 
 type InboxFilter = 'all' | 'unread' | 'read'
+
+type VisibleNotice = {
+  id: number
+  title: string
+  summary: string
+}
+
+/**
+ * Read the notice through its canonical API. The notification page owns no
+ * notice facts and must not import another module's page or API code.
+ */
+async function fetchVisibleNotice(noticeId: number): Promise<VisibleNotice> {
+  const raw = await resourceGet<unknown>(`/v1/engagement/notices/${noticeId}`)
+  const row = raw !== null && typeof raw === 'object' && !Array.isArray(raw)
+    ? raw as Record<string, unknown>
+    : {}
+  const id = typeof row.id === 'number' ? row.id : noticeId
+  return {
+    id,
+    title: typeof row.title === 'string' ? row.title : '',
+    summary: typeof row.summary === 'string' ? row.summary : '',
+  }
+}
 
 const session = useSessionStore()
 const canRead = computed(() => session.can('notification.read'))
@@ -29,6 +54,8 @@ const partial = ref(false)
 const partialReason = ref('')
 const actionError = ref('')
 const actionMessage = ref('')
+const openedNotice = ref<VisibleNotice | null>(null)
+const openingNoticeId = ref<number | null>(null)
 
 const unreadCount = computed(() => notifications.value.filter((item) => !item.read).length)
 
@@ -57,6 +84,8 @@ const rows = computed(() => {
     label: notificationTypeLabel(item.type),
     summary: notificationSummary(item),
     link: notificationLink(item),
+    noticeId: noticeIdOf(item),
+    isNotice: item.type === 'NOTICE_PUBLISHED' || item.type === 'NOTICE_REMINDER',
     statusLabel: item.read ? '已读' : '未读',
     statusTone: item.read ? 'plain-chip--muted' : 'plain-chip--warning',
     time: formatDateTimeInTimezone(item.createdAt),
@@ -75,9 +104,15 @@ const emptyTitle = computed(() => {
 })
 
 function notificationSummary(item: InboxNotification): string {
+  // Notice title/body/status are deliberately absent from notification
+  // payloads. The inbox may describe the event type and whether it asks for an
+  // acknowledgement; the notice facts themselves are loaded from the notice API.
   if (item.type === 'NOTICE_PUBLISHED') {
     const requiresAck = item.payload.requires_ack === true
-    return requiresAck ? '公司公告已发布，需要阅读并确认。' : '公司公告已发布，点击查看详情。'
+    return requiresAck ? '公司公告已发布，需要阅读并确认。' : '公司公告已发布，点击查看公告详情。'
+  }
+  if (item.type === 'NOTICE_REMINDER') {
+    return '你有一条公告尚未确认阅读，请查看公告并完成确认。'
   }
   if (item.type === 'APPROVAL_PENDING') return '有新的审批任务等待处理。'
   if (item.type === 'CASE_APPROVED') return '你发起的审批已通过，请查看业务结果。'
@@ -86,16 +121,54 @@ function notificationSummary(item: InboxNotification): string {
   return '有新的业务通知，请查看关联对象。'
 }
 
-function notificationLink(item: InboxNotification): string | null {
+function noticeIdOf(item: InboxNotification): number | null {
   const noticeId = item.payload.notice_id
-  if (item.type === 'NOTICE_PUBLISHED' && typeof noticeId === 'number') {
-    return '/notices'
+  if (typeof noticeId === 'number' && Number.isSafeInteger(noticeId) && noticeId > 0) return noticeId
+  if (typeof noticeId === 'string' && /^\d+$/.test(noticeId)) return Number(noticeId)
+  return null
+}
+
+function notificationLink(item: InboxNotification): string | null {
+  const noticeId = noticeIdOf(item)
+  if ((item.type === 'NOTICE_PUBLISHED' || item.type === 'NOTICE_REMINDER') && noticeId !== null) {
+    return `/notices?notice=${noticeId}`
   }
   const caseId = item.payload.case_id
-  if (typeof caseId === 'number' && item.type !== 'NOTICE_PUBLISHED') {
+  if (typeof caseId === 'number' && item.type !== 'NOTICE_PUBLISHED' && item.type !== 'NOTICE_REMINDER') {
     return `/workflow/cases/${caseId}`
   }
   return null
+}
+
+/**
+ * Follow a notice notification strictly by notice_id. The inbox resolves the
+ * current notice before navigating so revoked notices and audience denials show
+ * the same stable Chinese message instead of rendering stale notification copy.
+ */
+async function openNotice(item: InboxNotification): Promise<void> {
+  const noticeId = noticeIdOf(item)
+  if (noticeId === null) {
+    actionError.value = '该通知没有关联可打开的公告。'
+    return
+  }
+
+  openingNoticeId.value = item.id
+  actionError.value = ''
+  actionMessage.value = ''
+  try {
+    const notice = await fetchVisibleNotice(noticeId)
+    openedNotice.value = notice
+    ElMessage.success(`已读取公告：${notice.title}`)
+  } catch (error) {
+    openedNotice.value = null
+    if (error instanceof ApiError && (error.code === 'NOT_FOUND' || error.code === 'FORBIDDEN')) {
+      actionError.value = '该公告不可见或已撤回。'
+    } else {
+      actionError.value = '公告暂时无法读取，请稍后重试。'
+    }
+  } finally {
+    openingNoticeId.value = null
+  }
 }
 
 async function loadNotifications(): Promise<void> {
@@ -311,7 +384,16 @@ onMounted(() => {
         </div>
       </section>
 
-      <section v-else class="panel">
+      <section v-if="openedNotice !== null" class="panel" data-testid="notification-opened-notice">
+        <div class="panel__body">
+          <p class="small muted">公告当前状态由公告接口读取，通知本身不保存公告正文。</p>
+          <h2 class="panel__title">{{ openedNotice.title }}</h2>
+          <p>{{ openedNotice.summary }}</p>
+          <RouterLink :to="`/notices?notice=${openedNotice.id}`" class="notification-link">在公告工作台查看</RouterLink>
+        </div>
+      </section>
+
+      <section v-if="rows.length > 0" class="panel">
         <div class="panel__header">
           <div>
             <h2 class="panel__title">通知列表</h2>
@@ -336,7 +418,18 @@ onMounted(() => {
               <p class="notification-row__summary">{{ item.summary }}</p>
             </div>
             <div class="notification-row__actions">
-              <RouterLink v-if="item.link !== null" :to="item.link" class="notification-link">查看关联对象</RouterLink>
+              <button
+                v-if="item.isNotice"
+                type="button"
+                class="notification-link notification-link--button"
+                :data-notice-id="item.noticeId ?? ''"
+                :data-testid="`notification-open-notice-${item.id}`"
+                :disabled="openingNoticeId === item.id"
+                @click="openNotice(item)"
+              >
+                {{ openingNoticeId === item.id ? '正在读取公告…' : '查看公告' }}
+              </button>
+              <RouterLink v-else-if="item.link !== null" :to="item.link" class="notification-link">查看关联对象</RouterLink>
               <el-button
                 v-if="!item.read"
                 text
@@ -452,6 +545,17 @@ onMounted(() => {
 .notification-link:hover,
 .notification-link:focus-visible {
   text-decoration: underline;
+}
+.notification-link--button {
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.notification-link--button:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 .plain-chip--warning {
   color: #8a5a00;

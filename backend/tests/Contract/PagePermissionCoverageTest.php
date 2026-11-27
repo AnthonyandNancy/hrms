@@ -14,15 +14,13 @@ use Symfony\Component\Yaml\Yaml;
 
 final class PagePermissionCoverageTest extends TestCase
 {
-    private const INVENTORY_PATH = __DIR__.'/../../../docs/audit/2026-11-25-v11-page-inventory.md';
-
     private const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-    public function test_the_catalog_contains_exactly_153_unique_page_resources(): void
+    public function test_the_catalog_contains_exactly_37_consolidated_page_resources(): void
     {
         $pages = (new PermissionResourceCatalog)->pages();
 
-        $this->assertCount(153, $pages);
+        $this->assertCount(37, $pages);
 
         $paths = array_map(static fn (array $page): string => $page['path'], $pages);
         $codes = array_map(static fn (array $page): string => $page['page_code'], $pages);
@@ -31,9 +29,9 @@ final class PagePermissionCoverageTest extends TestCase
         $this->assertSame(count($codes), count(array_unique($codes)), 'Page codes must be unique.');
 
         $layers = array_count_values(array_map(static fn (array $page): string => $page['layer'], $pages));
-        $this->assertSame(133, $layers['business'] ?? 0);
-        $this->assertSame(14, $layers['platform'] ?? 0);
-        $this->assertSame(6, $layers['base'] ?? 0);
+        $this->assertSame(23, $layers['business'] ?? 0);
+        $this->assertSame(10, $layers['platform'] ?? 0);
+        $this->assertSame(4, $layers['base'] ?? 0);
     }
 
     public function test_every_page_has_a_capability_and_every_capability_exists(): void
@@ -81,20 +79,34 @@ final class PagePermissionCoverageTest extends TestCase
         }
     }
 
-    public function test_all_133_inventory_business_paths_are_present(): void
+    public function test_v23_keep_paths_are_present_and_fold_paths_are_deleted(): void
     {
-        $inventory = file_get_contents(self::INVENTORY_PATH);
-        $this->assertIsString($inventory);
-
-        preg_match_all('/^\|\s*\d+\s*\|[^|]*\|[^|]*\|\s*`(\/[^`]+)`\s*\|/m', $inventory, $matches);
-        $inventoryPaths = array_values(array_unique($matches[1]));
-
-        $this->assertCount(133, $inventoryPaths);
-
         $catalogPaths = array_column((new PermissionResourceCatalog)->pages(), 'path');
 
-        foreach ($inventoryPaths as $path) {
-            $this->assertContains($path, $catalogPaths, "Inventory page {$path} is missing from PermissionResourceCatalog.");
+        foreach ([
+            '/dashboard', '/reports', '/hr/employees', '/hr/employees/:id',
+            '/hr/departments', '/hr/positions', '/hr/movements', '/hr/movements/:id',
+            '/hr/contracts', '/hr/contracts/:id', '/attendance', '/leave', '/overtime',
+            '/travel', '/payroll', '/payroll/runs/:id', '/performance',
+            '/performance/cycles/:id', '/recruitment/requests', '/recruitment/candidates',
+            '/recruitment/candidates/:id', '/training', '/notices', '/account',
+            '/system/users', '/system/roles', '/system/pages', '/workflow',
+            '/workflow/cases/:id', '/benefits', '/system/settings', '/notifications',
+            '/system/audit',
+        ] as $path) {
+            $this->assertContains($path, $catalogPaths, "KEEP page {$path} is missing.");
+        }
+
+        foreach ([
+            '/dashboard/departments', '/dashboard/workforce', '/reports/headcount',
+            '/hr/employees/imports', '/hr/departments/list', '/hr/positions/headcount',
+            '/attendance/punches', '/leave/requests', '/overtime/policies',
+            '/travel/requests', '/payroll/components', '/performance/templates',
+            '/recruitment/requests/approval', '/training/courses', '/notices/approval',
+            '/system/menus', '/system/calendars', '/cases', '/cases/:id', '/self-service',
+            '/account/mfa', '/account/sessions',
+        ] as $path) {
+            $this->assertNotContains($path, $catalogPaths, "FOLD page {$path} must be deleted.");
         }
     }
 
@@ -126,7 +138,7 @@ final class PagePermissionCoverageTest extends TestCase
             $sorted = $rolePages;
             sort($sorted);
 
-            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 153 pages.");
+            $this->assertSame($allCodes, $sorted, "{$role} must be assigned all 37 pages.");
         }
 
         $employeePages = $assignments->pagesForRole('EMPLOYEE');
@@ -186,7 +198,11 @@ final class PagePermissionCoverageTest extends TestCase
                 $operationCapability = $operations[$operation]['x-capability'] ?? null;
 
                 if (is_string($operationCapability) && $operationCapability !== '') {
-                    $declared[$operationCapability] = true;
+                    // A route may require more than one capability; OpenAPI
+                    // records the conjunction as a comma-separated list.
+                    foreach (array_filter(array_map('trim', explode(',', $operationCapability))) as $declaredCapability) {
+                        $declared[$declaredCapability] = true;
+                    }
                 }
             }
         }

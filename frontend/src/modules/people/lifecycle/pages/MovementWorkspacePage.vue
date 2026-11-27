@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
-import {
-  ApiError,
-  errorCode,
-  errorCopy,
-} from '@/api/errors'
-import { formatBusinessDate } from '@/utils/format'
+import { ApiError, errorCode, errorCopy } from '@/api/errors'
+import { formatBusinessDate, formatMonthLabel, todayBusinessDate } from '@/utils/format'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -17,13 +13,10 @@ import {
   allowedMovementKinds,
   effectStatusLabel,
   listEmployees,
-  listLifecycleMovementCases,
-  listMovementCases,
+  listMovementLedger,
   listOrgUnits,
-  listSecondments,
   listUsers,
   movementKindLabel,
-  secondmentToRow,
   statusLabel,
   type EmployeeOption,
   type MovementKind,
@@ -37,12 +30,13 @@ import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 defineOptions({ name: 'MovementWorkspacePage' })
 
 type MovementTab = 'all' | MovementKind
+type MovementView = 'ledger' | 'calendar'
 
+const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 
 const canReadLifecycle = computed(() => session.can('lifecycle.case.read'))
-const canReadWorkflow = computed(() => session.can('workflow.case.read'))
 const canReadPeople = computed(() => session.can('people.employee.read'))
 const canReadOrg = computed(() => session.can('org.unit.read'))
 const canReadUsers = computed(() => session.can('iam.user.read'))
@@ -57,6 +51,7 @@ const errorRequestId = ref<string | null>(null)
 const errorCodeValue = ref('')
 const partialNote = ref('')
 const rows = ref<MovementListRow[]>([])
+const total = ref(0)
 const employees = ref<EmployeeOption[]>([])
 const orgUnits = ref<OrgUnitOption[]>([])
 const users = ref<UserOption[]>([])
@@ -64,10 +59,13 @@ const employeeLookupError = ref('')
 
 const typeFilter = ref<MovementTab>('all')
 const statusFilter = ref('')
+const employeeFilter = ref('')
 const search = ref('')
+const effectiveFrom = ref('')
+const effectiveTo = ref('')
 const page = ref(1)
 const pageSize = 10
-
+const view = ref<MovementView>('ledger')
 const drawerOpen = ref(false)
 
 const STATUS_OPTIONS = [
@@ -84,6 +82,11 @@ const STATUS_OPTIONS = [
   { value: 'COMPLETED', label: '已结束' },
 ]
 
+const typeTabs: Array<{ value: MovementTab; label: string }> = [
+  { value: 'all', label: '全部异动' },
+  ...MOVEMENT_TYPES.map((type) => ({ value: type.value as MovementTab, label: type.label })),
+]
+
 const employeeById = computed(() => {
   const map = new Map<number, EmployeeOption>()
   for (const employee of employees.value) map.set(employee.employmentId, employee)
@@ -96,11 +99,26 @@ const userById = computed(() => {
   return map
 })
 
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+
+const calendarGroups = computed(() => {
+  const groups = new Map<string, MovementListRow[]>()
+  for (const row of rows.value) {
+    const month = (row.effectiveDate ?? row.plannedEffectiveOn ?? '').slice(0, 7)
+    if (!/^\d{4}-\d{2}$/.test(month)) continue
+    const bucket = groups.get(month) ?? []
+    bucket.push(row)
+    groups.set(month, bucket)
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([month, items]) => ({ month, label: formatMonthLabel(month), items }))
+})
+
 function employeeName(row: MovementListRow): string {
   if (row.employeeName !== '') return row.employeeName
   if (row.employeeId === null) return '—'
-  const employee = employeeById.value.get(row.employeeId)
-  return employee?.name ?? `员工关系 #${row.employeeId}`
+  return employeeById.value.get(row.employeeId)?.name ?? `员工关系 #${row.employeeId}`
 }
 
 function employeeNo(row: MovementListRow): string {
@@ -110,6 +128,7 @@ function employeeNo(row: MovementListRow): string {
 }
 
 function initiatorName(row: MovementListRow): string {
+  if (row.initiatorDisplayName !== null && row.initiatorDisplayName !== '') return row.initiatorDisplayName
   if (row.initiatorUserId === null) return '—'
   const known = userById.value.get(row.initiatorUserId)?.displayName
   if (known !== undefined) return known
@@ -118,54 +137,29 @@ function initiatorName(row: MovementListRow): string {
   return `用户 #${row.initiatorUserId}`
 }
 
+function isOpenStatus(value: string): boolean {
+  return value === DISPLAY_CODES.applicationStatus.draft
+    || value === DISPLAY_CODES.applicationStatus.submitted
+    || value === DISPLAY_CODES.applicationStatus.inReview
+    || value === DISPLAY_CODES.applicationStatus.scheduled
+    || value === DISPLAY_CODES.applicationStatus.active
+}
+
 function statusChipClass(row: MovementListRow): string {
   if (!isOpenStatus(row.applicationStatus)) return 'is-closed'
   return row.isAwaitingMe ? 'is-awaiting' : 'is-open'
 }
 
-function isOpenStatus(value: string): boolean {
-  return value === DISPLAY_CODES.applicationStatus.draft || value === DISPLAY_CODES.applicationStatus.submitted || value === DISPLAY_CODES.applicationStatus.inReview || value === DISPLAY_CODES.applicationStatus.scheduled || value === DISPLAY_CODES.applicationStatus.active
+function laneLabel(row: MovementListRow): string {
+  if (row.lane === 'EFFECTIVE') return '已生效'
+  if (row.lane === 'SCHEDULED') return '待生效'
+  return '待审批'
 }
 
-const typeTabs: Array<{ value: MovementTab; label: string }> = [
-  { value: 'all', label: '全部异动' },
-  ...MOVEMENT_TYPES.map((type) => ({ value: type.value as MovementTab, label: type.label })),
-]
-
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return rows.value.filter((row) => {
-    if (typeFilter.value !== 'all' && row.kind !== typeFilter.value) return false
-    if (statusFilter.value !== '' && row.applicationStatus !== statusFilter.value) return false
-    if (term === '') return true
-    return [row.caseNo, row.title, employeeName(row), employeeNo(row), initiatorName(row)]
-      .join(' ')
-      .toLowerCase()
-      .includes(term)
-  })
-})
-
-const pageCount = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize)))
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize
-  return filteredRows.value.slice(start, start + pageSize)
-})
-
-function resetPage(): void {
-  page.value = 1
-}
-
-function nextPage(): void {
-  if (page.value < pageCount.value) page.value += 1
-}
-
-function previousPage(): void {
-  if (page.value > 1) page.value -= 1
-}
-
-function setTypeFilter(kind: MovementTab): void {
-  typeFilter.value = kind
-  resetPage()
+function laneClass(row: MovementListRow): string {
+  if (row.lane === 'EFFECTIVE') return 'is-effective'
+  if (row.lane === 'SCHEDULED') return 'is-scheduled'
+  return 'is-pending'
 }
 
 function captureError(reason: unknown): void {
@@ -175,33 +169,44 @@ function captureError(reason: unknown): void {
     errorMessage.value = reason.code === 'FORBIDDEN'
       ? '无权读取员工异动案例。请确认已获得 lifecycle.case.read 能力。'
       : reason.message || errorCopy(reason)
-  } else {
-    errorRequestId.value = null
-    errorMessage.value = reason instanceof Error ? reason.message : '员工异动工作台暂时无法加载。'
+    return
   }
+  errorRequestId.value = null
+  errorMessage.value = reason instanceof Error ? reason.message : '员工异动工作台暂时无法加载。'
 }
 
-function mergeRows(primary: MovementListRow[], secondments: MovementListRow[]): MovementListRow[] {
-  const byId = new Map<string, MovementListRow>()
-  for (const row of primary) byId.set(row.rowId, row)
-  for (const row of secondments) byId.set(row.rowId, row)
-  return [...byId.values()].sort((left, right) => {
-    const leftDate = left.effectiveDate ?? ''
-    const rightDate = right.effectiveDate ?? ''
-    return rightDate.localeCompare(leftDate) || left.rowId.localeCompare(right.rowId)
-  })
+function hydrateFromRoute(): void {
+  const tab = typeof route.query.tab === 'string' ? route.query.tab : 'all'
+  if (tab === 'all' || MOVEMENT_TYPES.some((type) => type.value === tab)) typeFilter.value = tab as MovementTab
+  view.value = route.query.view === 'calendar' ? 'calendar' : 'ledger'
+  statusFilter.value = typeof route.query.status === 'string' ? route.query.status : ''
+  employeeFilter.value = typeof route.query.employee_id === 'string' ? route.query.employee_id : ''
+  search.value = typeof route.query.q === 'string' ? route.query.q : ''
+  effectiveFrom.value = typeof route.query.effective_from === 'string' ? route.query.effective_from : ''
+  effectiveTo.value = typeof route.query.effective_to === 'string' ? route.query.effective_to : ''
+  const rawPage = typeof route.query.page === 'string' ? Number(route.query.page) : 1
+  page.value = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1
+}
+
+function syncRoute(): void {
+  const query: Record<string, string> = {}
+  if (typeFilter.value !== 'all') query.tab = typeFilter.value
+  if (view.value === 'calendar') query.view = 'calendar'
+  if (statusFilter.value !== '') query.status = statusFilter.value
+  if (employeeFilter.value !== '') query.employee_id = employeeFilter.value
+  if (search.value.trim() !== '') query.q = search.value.trim()
+  if (effectiveFrom.value !== '') query.effective_from = effectiveFrom.value
+  if (effectiveTo.value !== '') query.effective_to = effectiveTo.value
+  if (page.value > 1) query.page = String(page.value)
+  void router.replace({ path: '/hr/movements', query })
 }
 
 async function loadLookups(): Promise<void> {
   employeeLookupError.value = ''
-  const employeePromise = canReadPeople.value ? listEmployees() : Promise.resolve([])
-  const orgPromise = canReadOrg.value ? listOrgUnits() : Promise.resolve([])
-  const userPromise = canReadUsers.value ? listUsers() : Promise.resolve([])
-
   const [employeeResult, orgResult, userResult] = await Promise.allSettled([
-    employeePromise,
-    orgPromise,
-    userPromise,
+    canReadPeople.value ? listEmployees() : Promise.resolve([]),
+    canReadOrg.value ? listOrgUnits() : Promise.resolve([]),
+    canReadUsers.value ? listUsers() : Promise.resolve([]),
   ])
 
   if (employeeResult.status === 'fulfilled') employees.value = employeeResult.value
@@ -209,62 +214,47 @@ async function loadLookups(): Promise<void> {
     employees.value = []
     employeeLookupError.value = '员工姓名暂不可用'
   }
-  if (orgResult.status === 'fulfilled') orgUnits.value = orgResult.value
-  else orgUnits.value = []
-  if (userResult.status === 'fulfilled') users.value = userResult.value
-  else users.value = []
+  orgUnits.value = orgResult.status === 'fulfilled' ? orgResult.value : []
+  users.value = userResult.status === 'fulfilled' ? userResult.value : []
 }
 
 async function loadRows(): Promise<void> {
-  const partialReasons: string[] = []
-
-  let movementResult: Awaited<ReturnType<typeof listMovementCases>> | null = null
-  const secondmentPromise =
-    session.can('lifecycle.secondment.manage')
-      ? listSecondments().catch((reason: unknown) => {
-          partialReasons.push(
-            reason instanceof ApiError && reason.code === 'FORBIDDEN'
-              ? '借调任职暂不可读（缺少 lifecycle.secondment.manage）'
-              : '借调任职列表暂不可用',
-          )
-          return null
-        })
-      : Promise.resolve(null)
+  if (readOnly.value) return
+  loading.value = true
+  errorMessage.value = ''
+  errorRequestId.value = null
+  errorCodeValue.value = ''
+  partialNote.value = ''
 
   try {
-    if (canReadWorkflow.value) {
-      movementResult = await listMovementCases()
-    } else {
-      movementResult = await listLifecycleMovementCases()
-      partialReasons.push('当前能力只能读取生命周期投影：姓名、申请人和生效日期部分为空白')
+    const result = await listMovementLedger({
+      kind: typeFilter.value === 'all' ? undefined : typeFilter.value,
+      status: statusFilter.value,
+      employmentId: employeeFilter.value === '' ? null : Number(employeeFilter.value),
+      effectiveFrom: effectiveFrom.value,
+      effectiveTo: effectiveTo.value,
+      q: search.value,
+      page: page.value,
+      pageSize: view.value === 'calendar' ? 100 : pageSize,
+      asOf: todayBusinessDate(),
+    })
+    rows.value = result.items
+    total.value = result.total
+    const reasons: string[] = []
+    if (result.partial && result.partialReason !== null) reasons.push(result.partialReason)
+    if (result.items.some((row) => row.partial)) reasons.push('部分案例的工作流投影暂不可用')
+    partialNote.value = reasons.join('；')
+    if (page.value > pageCount.value) {
+      page.value = pageCount.value
+      syncRoute()
+      await loadRows()
     }
   } catch (reason) {
-    if (!canReadWorkflow.value) {
-      captureError(reason)
-      return
-    }
-    // The workflow read is the primary seam; without it there is no honest
-    // list to show. A lifecycle fallback is only used when it was intended.
     captureError(reason)
-    return
+  } finally {
+    loading.value = false
+    loaded.value = true
   }
-
-  if (movementResult !== null) {
-    rows.value = movementResult.items
-    if (movementResult.partial && movementResult.partialReason !== null) {
-      partialReasons.push(movementResult.partialReason)
-    }
-  }
-
-  const secondments = await secondmentPromise
-  if (secondments !== null) {
-    if (secondments.partial && secondments.partialReason !== null) {
-      partialReasons.push(secondments.partialReason)
-    }
-    rows.value = mergeRows(rows.value, secondments.items.map((item) => secondmentToRow(item)))
-  }
-
-  partialNote.value = partialReasons.join('；')
 }
 
 async function load(): Promise<void> {
@@ -274,22 +264,46 @@ async function load(): Promise<void> {
   }
   loading.value = true
   loaded.value = false
-  errorMessage.value = ''
-  errorRequestId.value = null
-  errorCodeValue.value = ''
-  partialNote.value = ''
-
   await loadLookups()
   await loadRows()
+}
 
-  loading.value = false
-  loaded.value = true
+function resetPageAndLoad(): void {
+  page.value = 1
+  syncRoute()
+  void loadRows()
+}
+
+function setTypeFilter(kind: MovementTab): void {
+  typeFilter.value = kind
+  resetPageAndLoad()
+}
+
+function setView(next: MovementView): void {
+  if (view.value === next) return
+  view.value = next
+  page.value = 1
+  syncRoute()
+  void loadRows()
+}
+
+function nextPage(): void {
+  if (page.value >= pageCount.value) return
+  page.value += 1
+  syncRoute()
+  void loadRows()
+}
+
+function previousPage(): void {
+  if (page.value <= 1) return
+  page.value -= 1
+  syncRoute()
+  void loadRows()
 }
 
 function onDrawerCreated(): void {
   drawerOpen.value = false
-  resetPage()
-  void loadRows()
+  resetPageAndLoad()
 }
 
 function openCase(row: MovementListRow): void {
@@ -301,12 +315,8 @@ function openCase(row: MovementListRow): void {
   void router.push(`/hr/movements/${row.caseId}`)
 }
 
-function openDrawer(): void {
-  if (!canCreate.value) return
-  drawerOpen.value = true
-}
-
 onMounted(() => {
+  hydrateFromRoute()
   void load()
 })
 </script>
@@ -322,15 +332,13 @@ onMounted(() => {
         </p>
       </div>
       <div class="movement-workspace__header-actions">
-        <button type="button" class="movement-workspace__secondary" :disabled="loading" @click="load">
-          刷新
-        </button>
+        <button type="button" class="movement-workspace__secondary" :disabled="loading" @click="load">刷新</button>
         <button
           v-if="canCreate"
           type="button"
           class="movement-workspace__primary"
           data-testid="open-movement-drawer"
-          @click="openDrawer"
+          @click="drawerOpen = true"
         >
           发起异动
         </button>
@@ -374,10 +382,31 @@ onMounted(() => {
           </button>
         </nav>
 
+        <div class="movement-view-toggle" role="group" aria-label="台账视图">
+          <button
+            type="button"
+            class="movement-view-toggle__button"
+            :class="{ 'is-active': view === 'ledger' }"
+            data-testid="movement-view-ledger"
+            @click="setView('ledger')"
+          >
+            台账
+          </button>
+          <button
+            type="button"
+            class="movement-view-toggle__button"
+            :class="{ 'is-active': view === 'calendar' }"
+            data-testid="movement-view-calendar"
+            @click="setView('calendar')"
+          >
+            日历
+          </button>
+        </div>
+
         <section class="movement-filters" aria-label="异动筛选">
           <label>
             <span>异动类型</span>
-            <el-select v-model="typeFilter" data-testid="movement-type-filter" @change="resetPage">
+            <el-select v-model="typeFilter" data-testid="movement-type-filter" @change="resetPageAndLoad">
               <el-option value="all" label="全部类型" />
               <el-option
                 v-for="type in MOVEMENT_TYPES"
@@ -389,7 +418,7 @@ onMounted(() => {
           </label>
           <label>
             <span>案例状态</span>
-            <el-select v-model="statusFilter" data-testid="movement-status-filter" @change="resetPage">
+            <el-select v-model="statusFilter" data-testid="movement-status-filter" @change="resetPageAndLoad">
               <el-option
                 v-for="option in STATUS_OPTIONS"
                 :key="option.value"
@@ -398,31 +427,51 @@ onMounted(() => {
               />
             </el-select>
           </label>
+          <label>
+            <span>员工</span>
+            <el-select v-model="employeeFilter" data-testid="movement-employee-filter" clearable @change="resetPageAndLoad">
+              <el-option value="" label="全部员工" />
+              <el-option
+                v-for="employee in employees"
+                :key="employee.employmentId"
+                :value="String(employee.employmentId)"
+                :label="`${employee.name}（${employee.employeeNo}）`"
+              />
+            </el-select>
+          </label>
+          <label>
+            <span>生效日期从</span>
+            <el-input v-model="effectiveFrom" type="date" data-testid="movement-effective-from" @change="resetPageAndLoad" />
+          </label>
+          <label>
+            <span>生效日期至</span>
+            <el-input v-model="effectiveTo" type="date" data-testid="movement-effective-to" @change="resetPageAndLoad" />
+          </label>
           <label class="movement-filters__search">
             <span>搜索</span>
             <el-input
               v-model="search"
               data-testid="movement-search"
               placeholder="案例编号、员工姓名或工号"
-              @input="resetPage"
+              @input="resetPageAndLoad"
             />
           </label>
         </section>
 
         <EmptyState
-          v-if="filteredRows.length === 0"
+          v-if="total === 0"
           title="暂无员工异动"
           description="当前筛选条件下没有异动案例。可以通过发起异动创建真实案例，或清除筛选条件。"
         />
 
-        <section v-else class="movement-panel">
+        <section v-else-if="view === 'ledger'" class="movement-panel">
           <div class="movement-panel__meta">
-            <span>共 {{ filteredRows.length }} 条</span>
+            <span>共 {{ total }} 条</span>
             <span>第 {{ page }} / {{ pageCount }} 页</span>
           </div>
           <div class="movement-table-scroll">
             <el-table
-              :data="pagedRows"
+              :data="rows"
               row-key="rowId"
               class="movement-table"
               data-testid="movement-table"
@@ -461,50 +510,53 @@ onMounted(() => {
                 </template>
               </el-table-column>
               <el-table-column label="生效状态" min-width="110">
-                <template #default="{ row }">{{ effectStatusLabel(row.effectStatus) }}</template>
+                <template #default="{ row }">
+                  <span>{{ effectStatusLabel(row.effectStatus) }}</span>
+                  <small class="movement-table__muted" :class="laneClass(row)">{{ laneLabel(row) }}</small>
+                </template>
               </el-table-column>
               <el-table-column label="操作" min-width="130">
                 <template #default="{ row }">
                   <button
-                    v-if="row.caseId !== null"
+                    v-if="row.caseId !== null || row.secondmentAssignmentId !== null"
                     type="button"
                     class="movement-table__link"
                     :data-testid="`movement-open-${row.rowId}`"
                     @click.stop="openCase(row)"
                   >
-                    查看详情
-                  </button>
-                  <button
-                    v-else-if="row.secondmentAssignmentId !== null"
-                    type="button"
-                    class="movement-table__link"
-                    :data-testid="`movement-open-${row.rowId}`"
-                    @click.stop="openCase(row)"
-                  >
-                    查看借调任职
+                    {{ row.caseId === null ? '查看借调任职' : '查看详情' }}
                   </button>
                 </template>
               </el-table-column>
             </el-table>
           </div>
           <footer class="movement-pagination">
-            <button
-              type="button"
-              :disabled="page <= 1"
-              data-testid="movement-prev-page"
-              @click="previousPage"
-            >
-              上一页
-            </button>
-            <button
-              type="button"
-              :disabled="page >= pageCount"
-              data-testid="movement-next-page"
-              @click="nextPage"
-            >
-              下一页
-            </button>
+            <button type="button" :disabled="page <= 1" data-testid="movement-prev-page" @click="previousPage">上一页</button>
+            <button type="button" :disabled="page >= pageCount" data-testid="movement-next-page" @click="nextPage">下一页</button>
           </footer>
+        </section>
+
+        <section v-else class="movement-calendar" data-testid="movement-calendar">
+          <article v-for="group in calendarGroups" :key="group.month" class="movement-calendar__month">
+            <header>
+              <h2>{{ group.label }}</h2>
+              <span>{{ group.items.length }} 条</span>
+            </header>
+            <ul>
+              <li
+                v-for="row in group.items"
+                :key="row.rowId"
+                class="movement-calendar__item"
+                :class="laneClass(row)"
+                :data-testid="`movement-calendar-${row.rowId}`"
+                @click="openCase(row)"
+              >
+                <time :datetime="row.effectiveDate ?? undefined">{{ formatBusinessDate(row.effectiveDate) }}</time>
+                <strong>{{ movementKindLabel(row.kind) }} · {{ employeeName(row) }}</strong>
+                <span class="movement-calendar__lane">{{ laneLabel(row) }} · {{ statusLabel(row.applicationStatus) }}</span>
+              </li>
+            </ul>
+          </article>
         </section>
       </template>
     </template>
@@ -599,7 +651,8 @@ onMounted(() => {
   gap: 6px;
 }
 
-.movement-tabs__button {
+.movement-tabs__button,
+.movement-view-toggle__button {
   padding: 6px 12px;
   color: #475569;
   font-size: 12px;
@@ -613,6 +666,18 @@ onMounted(() => {
   color: #fff;
   background: #1e293b;
   border-color: #1e293b;
+}
+
+.movement-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  justify-self: start;
+}
+
+.movement-view-toggle__button.is-active {
+  color: #fff;
+  background: #1d4ed8;
+  border-color: #1d4ed8;
 }
 
 .movement-filters {
@@ -646,7 +711,8 @@ onMounted(() => {
   min-width: 240px;
 }
 
-.movement-panel {
+.movement-panel,
+.movement-calendar__month {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -698,41 +764,30 @@ onMounted(() => {
 .movement-table__muted {
   display: block;
   margin-top: 2px;
-  color: #94a3b8;
-  font-size: 10.5px;
+  color: #64748b;
+}
+
+.movement-table__muted.is-effective {
+  color: #047857;
+}
+
+.movement-table__muted.is-scheduled {
+  color: #b45309;
+}
+
+.movement-table__muted.is-pending {
+  color: #1d4ed8;
 }
 
 .movement-table__effective {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .movement-table__link {
   padding: 4px 8px;
   color: #1d4ed8;
-  background: transparent;
+  background: #eff6ff;
   border-color: #bfdbfe;
-}
-
-.movement-chip {
-  display: inline-block;
-  padding: 2px 8px;
-  font-size: 10.5px;
-  border-radius: 999px;
-}
-
-.movement-chip.is-open {
-  color: #92400e;
-  background: #fef3c7;
-}
-
-.movement-chip.is-awaiting {
-  color: #1d4ed8;
-  background: #dbeafe;
-}
-
-.movement-chip.is-closed {
-  color: #475569;
-  background: #e2e8f0;
 }
 
 .movement-pagination {
@@ -749,12 +804,99 @@ onMounted(() => {
 }
 
 .movement-pagination button:disabled {
-  color: #94a3b8;
   cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.movement-chip {
+  display: inline-flex;
+  margin-right: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+
+.movement-chip.is-open {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.movement-chip.is-awaiting {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.movement-chip.is-closed {
+  color: #475569;
+  background: #f1f5f9;
+}
+
+.movement-calendar {
+  display: grid;
+  gap: 12px;
+}
+
+.movement-calendar__month > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  color: #475569;
+  font-size: 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.movement-calendar__month h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.movement-calendar__month ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #f1f5f9;
+}
+
+.movement-calendar__item {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.movement-calendar__item time {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.movement-calendar__item strong {
+  font-size: 12px;
+}
+
+.movement-calendar__lane {
+  font-size: 11px;
+}
+
+.movement-calendar__item.is-effective .movement-calendar__lane {
+  color: #047857;
+}
+
+.movement-calendar__item.is-scheduled .movement-calendar__lane {
+  color: #b45309;
+}
+
+.movement-calendar__item.is-pending .movement-calendar__lane {
+  color: #1d4ed8;
 }
 
 .movement-state {
   padding: 24px;
+  text-align: center;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;

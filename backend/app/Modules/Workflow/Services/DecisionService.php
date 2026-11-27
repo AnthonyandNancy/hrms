@@ -427,7 +427,20 @@ final class DecisionService
                 break;
 
             case DecisionAction::CC:
+                if ($targetUserId === null || $targetUserId < 1) {
+                    throw new ValidationException(['target_user_id' => ['A CC recipient is required.']], 'A CC recipient is required.');
+                }
+
+                // A CC must remain readable after the request finishes. The
+                // case-member projection is the durable recipient fact; the
+                // event alone is only history.
+                CaseMember::query()->firstOrCreate(
+                    ['case_id' => $case->id, 'user_id' => $targetUserId, 'role' => 'OBSERVER'],
+                    ['created_at' => $now],
+                );
+
                 $this->event($case, 'case.cc', $principal->userId, [
+                    'case_id' => $case->id,
                     'decision_id' => $decision->id,
                     'to_user_id' => $targetUserId,
                 ], $now);
@@ -545,6 +558,7 @@ final class DecisionService
 
         if ($grant?->adminOverride) {
             $snapshot['admin_override'] = true;
+            $snapshot['admin_override_reason'] = $grant->reason;
         }
 
         return $snapshot;

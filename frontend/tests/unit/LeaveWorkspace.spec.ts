@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import ElementPlus from 'element-plus'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
@@ -180,12 +181,7 @@ async function mountPage(capabilities: string[]): Promise<{ wrapper: ReturnType<
   await router.isReady()
 
   const wrapper = mount(LeaveWorkspacePage, {
-    global: {
-      plugins: [pinia, router],
-      stubs: {
-        'el-button': { template: '<button type="button"><slot /></button>' },
-      },
-    },
+    global: { plugins: [pinia, router, ElementPlus] },
   })
   return { wrapper, router }
 }
@@ -233,8 +229,7 @@ describe('LeaveWorkspace balances and request submission', () => {
 
     // Business-date honesty: the browser clock must not supply an as_of
     // fallback. Only the server decides "today" in the company timezone.
-    const balanceCall = resource.get.mock.calls.find(([path]) => path === '/v1/time/leave/balances')
-    expect(balanceCall).toHaveLength(1)
+    expect(resource.get.mock.calls.filter(([path]) => path === '/v1/time/leave/balances')).toHaveLength(1)
     expect(wrapper.find('[data-testid="open-leave-request"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="leave-cancel-33"]').exists()).toBe(false)
   })

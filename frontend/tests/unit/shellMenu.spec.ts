@@ -27,6 +27,8 @@ const ALL_MENU_CAPABILITIES = [
 const ALL_MENU_PAGES = PAGE_REGISTRY
   .filter((page) => page.menu !== null)
   .map((page) => ({ pageCode: page.name, path: page.path }))
+// Registry menu labels map to navigation groups; 岗位管理 folds into 组织与岗位.
+const EXPECTED_MENU_GROUPS = 17
 
 const PRINCIPAL: Principal = {
   userId: 101,
@@ -191,16 +193,15 @@ describe('V1.1 expandable shell menu', () => {
     const groups = wrapper.findAll('button.nav-link--group')
     const children = wrapper.findAll('.nav-link--child')
 
-    expect(groups).toHaveLength(17)
+    expect(groups).toHaveLength(EXPECTED_MENU_GROUPS)
     expect(groups.every((group) => group.find('.nav-link__chevron').exists())).toBe(true)
     expect(groups.every((group) => group.attributes('aria-expanded') === 'true')).toBe(true)
     expect(groups.every((group) => group.attributes('aria-controls')?.startsWith('nav-group-'))).toBe(true)
-    // ADR-0035: the 12 employee/movement/contract/candidate/payroll detail routes are
-    // deep links (menu: null), so the sidebar renders menu-bearing pages only.
-    // ADR-0035: 155 registry keys - 6 base and 13 detail menus = 136
-    // (seven create/edit/archive form routes became workspace actions).
+    // V2.3 folds 155 legacy pages into workspaces. The sidebar renders only the
+    // menu-bearing workspace entries; the 7 detail routes are deep links.
     expect(children).toHaveLength(ALL_MENU_PAGES.length)
-    expect(ALL_MENU_PAGES.length).toBe(136)
+    expect(ALL_MENU_PAGES.length).toBe(26)
+    expect(PAGE_REGISTRY).toHaveLength(37)
     expect(children.every((child) => child.find('.nav-link__child-icon').exists())).toBe(true)
   })
 

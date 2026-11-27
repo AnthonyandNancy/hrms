@@ -25,116 +25,123 @@ final class ReportDefinitionCatalog
         return [
             [
                 'code' => 'WORKFORCE_HEADCOUNT',
-                'name' => 'Workforce headcount',
-                'description' => 'Active employments by organization as of the business date.',
+                'name' => '人力资源报表',
+                'domain' => 'PEOPLE',
+                'description' => '按统计日与组织范围统计在职员工及其组织、状态分布。',
                 'source_projection' => 'workforce',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/headcount',
                 'filters_json' => [
-                    ['key' => 'org_unit_id', 'label' => 'Organization', 'type' => 'ORG'],
+                    ['key' => 'org_unit_id', 'label' => '组织', 'type' => 'ORG'],
                 ],
                 'fields_json' => [
-                    self::field('employee', 'Employee', FieldProfile::P1_INTERNAL),
-                    self::field('employee_no', 'Employee no.', FieldProfile::P0_PUBLIC),
-                    self::field('org_path', 'Organization', FieldProfile::P0_PUBLIC),
-                    self::field('status', 'Status', FieldProfile::P0_PUBLIC),
+                    self::field('employee', '员工', FieldProfile::P1_INTERNAL),
+                    self::field('employee_no', '工号', FieldProfile::P0_PUBLIC),
+                    self::field('org_path', '组织', FieldProfile::P0_PUBLIC),
+                    self::field('status', '状态', FieldProfile::P0_PUBLIC),
                 ],
             ],
             [
                 'code' => 'CONTRACT_EXPIRY',
-                'name' => 'Contract expiry',
-                'description' => 'Contracts ending within 30, 60 or 90 days.',
+                'name' => '合同到期报表',
+                'domain' => 'PEOPLE',
+                'description' => '统计未来 30、60 或 90 天内到期的劳动合同。',
                 'source_projection' => 'workforce',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/contract_expiring',
                 'filters_json' => [
-                    ['key' => 'window', 'label' => 'Expiry window', 'type' => 'SELECT', 'options' => ['30', '60', '90']],
+                    ['key' => 'window', 'label' => '到期窗口', 'type' => 'SELECT', 'options' => ['30', '60', '90']],
                 ],
                 'fields_json' => [
-                    self::field('employee', 'Employee', FieldProfile::P1_INTERNAL),
-                    self::field('org_path', 'Organization', FieldProfile::P0_PUBLIC),
-                    self::field('end_date', 'End date', FieldProfile::P0_PUBLIC),
-                    self::field('days_remaining', 'Days remaining', FieldProfile::P0_PUBLIC),
-                    self::field('status', 'Contract status', FieldProfile::P0_PUBLIC),
+                    self::field('employee', '员工', FieldProfile::P1_INTERNAL),
+                    self::field('org_path', '组织', FieldProfile::P0_PUBLIC),
+                    self::field('end_date', '到期日', FieldProfile::P0_PUBLIC),
+                    self::field('days_remaining', '剩余天数', FieldProfile::P0_PUBLIC),
+                    self::field('status', '合同状态', FieldProfile::P0_PUBLIC),
                 ],
             ],
             [
                 'code' => 'PENDING_APPROVALS',
-                'name' => 'Pending approvals by age',
-                'description' => 'Open workflow tasks with elapsed business days.',
+                'name' => '待审批时效报表',
+                'domain' => 'PEOPLE',
+                'description' => '统计未完成审批事项及其已等待天数。',
                 'source_projection' => 'pending_approvals',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/pending_approvals',
                 'filters_json' => [
-                    ['key' => 'min_age_days', 'label' => 'Minimum age (days)', 'type' => 'SELECT', 'options' => ['0', '3', '7']],
+                    ['key' => 'min_age_days', 'label' => '最短等待天数', 'type' => 'SELECT', 'options' => ['0', '3', '7']],
                 ],
                 'fields_json' => [
-                    self::field('case_no', 'Case no.', FieldProfile::P0_PUBLIC),
-                    self::field('title', 'Case title', FieldProfile::P2_SENSITIVE),
-                    self::field('status', 'Task status', FieldProfile::P0_PUBLIC),
-                    self::field('age_days', 'Age (days)', FieldProfile::P0_PUBLIC),
+                    self::field('case_no', '事项编号', FieldProfile::P0_PUBLIC),
+                    self::field('title', '事项标题', FieldProfile::P2_SENSITIVE),
+                    self::field('status', '任务状态', FieldProfile::P0_PUBLIC),
+                    self::field('age_days', '已等待天数', FieldProfile::P0_PUBLIC),
                 ],
             ],
             [
                 'code' => 'LEAVE_LIABILITY',
-                'name' => 'Leave liability',
-                'description' => 'Remaining leave minutes by employment and leave type.',
+                'name' => '假期负债报表',
+                'domain' => 'ATTENDANCE',
+                'description' => '按员工与假期类型统计剩余假期账本分钟数。',
                 'source_projection' => 'leave_liability',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/leave_liability',
                 'filters_json' => [
-                    ['key' => 'leave_type', 'label' => 'Leave type', 'type' => 'SELECT'],
+                    ['key' => 'leave_type', 'label' => '假期类型', 'type' => 'SELECT'],
                 ],
                 'fields_json' => [
-                    self::field('employee', 'Employee', FieldProfile::P1_INTERNAL),
-                    self::field('employee_no', 'Employee no.', FieldProfile::P0_PUBLIC),
-                    self::field('leave_type', 'Leave type', FieldProfile::P0_PUBLIC),
-                    self::field('balance_minutes', 'Balance (minutes)', FieldProfile::P1_INTERNAL),
+                    self::field('employee', '员工', FieldProfile::P1_INTERNAL),
+                    self::field('employee_no', '工号', FieldProfile::P0_PUBLIC),
+                    self::field('leave_type', '假期类型', FieldProfile::P0_PUBLIC),
+                    self::field('balance_minutes', '余额（分钟）', FieldProfile::P1_INTERNAL),
                 ],
             ],
             [
                 'code' => 'PAYROLL_COST',
-                'name' => 'Payroll cost',
-                'description' => 'Payroll gross, net and employer cost. Unavailable until payroll-run projections land.',
+                'name' => '工资成本报表',
+                'domain' => 'PAYROLL',
+                'description' => '统计工资批次的应发、实发与雇主成本；投影未发布时返回不可用，不估算。',
                 'source_projection' => 'payroll_cost',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/payroll_cost_by_entity',
                 'filters_json' => [],
                 'fields_json' => [
-                    self::field('gross_cents', 'Gross (minor units)', FieldProfile::P2_SENSITIVE),
-                    self::field('net_cents', 'Net (minor units)', FieldProfile::P2_SENSITIVE),
-                    self::field('employer_cost_cents', 'Employer cost (minor units)', FieldProfile::P2_SENSITIVE),
-                    self::field('salary', 'Restricted salary detail', FieldProfile::P3_RESTRICTED),
+                    self::field('gross_cents', '应发工资（元）', FieldProfile::P2_SENSITIVE),
+                    self::field('net_cents', '实发工资（元）', FieldProfile::P2_SENSITIVE),
+                    self::field('employer_cost_cents', '雇主成本（元）', FieldProfile::P2_SENSITIVE),
+                    self::field('salary', '受限薪资明细', FieldProfile::P3_RESTRICTED),
                 ],
             ],
             [
                 'code' => 'RECRUITMENT_FUNNEL',
-                'name' => 'Recruitment funnel',
-                'description' => 'Candidate counts by recruitment stage. Unavailable until Talent projections land.',
+                'name' => '招聘转化报表',
+                'domain' => 'RECRUITMENT',
+                'description' => '按招聘阶段统计候选人数；招聘投影未发布时返回不可用，不推算。',
                 'source_projection' => 'recruitment_funnel',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/recruitment_funnel',
                 'filters_json' => [
-                    ['key' => 'org_unit_id', 'label' => 'Organization', 'type' => 'ORG'],
+                    ['key' => 'org_unit_id', 'label' => '组织', 'type' => 'ORG'],
                 ],
                 'fields_json' => [
-                    self::field('stage', 'Stage', FieldProfile::P0_PUBLIC),
-                    self::field('count', 'Count', FieldProfile::P0_PUBLIC),
-                    self::field('org_path', 'Organization', FieldProfile::P0_PUBLIC),
+                    self::field('stage', '阶段', FieldProfile::P0_PUBLIC),
+                    self::field('count', '人数', FieldProfile::P0_PUBLIC),
+                    self::field('org_path', '组织', FieldProfile::P0_PUBLIC),
                 ],
             ],
             [
                 'code' => 'TURNOVER',
-                'name' => 'Voluntary turnover',
-                'description' => 'Terminations and voluntary turnover. Unavailable until Lifecycle projections land.',
+                'name' => '主动离职报表',
+                'domain' => 'PEOPLE',
+                'description' => '统计主动离职人数与原因；离职投影未发布时返回不可用，不估算。',
                 'source_projection' => 'turnover',
                 'as_of_supported' => true,
                 'drilldown_route' => '/dashboard/metric/turnover',
                 'filters_json' => [],
                 'fields_json' => [
-                    self::field('employee', 'Employee', FieldProfile::P1_INTERNAL),
-                    self::field('terminated_on', 'Termination date', FieldProfile::P0_PUBLIC),
-                    self::field('reason', 'Reason', FieldProfile::P2_SENSITIVE),
+                    self::field('employee', '员工', FieldProfile::P1_INTERNAL),
+                    self::field('terminated_on', '离职日期', FieldProfile::P0_PUBLIC),
+                    self::field('reason', '离职原因', FieldProfile::P2_SENSITIVE),
                 ],
             ],
         ];
@@ -352,6 +359,28 @@ final class ReportDefinitionCatalog
                     continue;
                 }
 
+                // A pre-upgrade system row may still carry the old English
+                // labels. Replace only those technical copies; any later
+                // admin-edited Chinese row remains untouched.
+                $fields = (array) $definition['fields_json'];
+
+                if ($existing !== null) {
+                    $stored = array_map(
+                        static fn (mixed $field): string => (string) (((array) $field)['label'] ?? ''),
+                        (array) $existing->fields_json,
+                    );
+                    $technical = array_filter(
+                        $stored,
+                        static fn (string $label): bool => $label !== ''
+                            && preg_match('/[A-Za-z]/', $label) === 1
+                            && preg_match('/[\x{4e00}-\x{9fff}]/u', $label) !== 1,
+                    );
+
+                    if ($technical === []) {
+                        $fields = (array) $existing->fields_json;
+                    }
+                }
+
                 ReportDefinition::query()->updateOrCreate(
                     ['code' => $definition['code']],
                     [
@@ -360,7 +389,7 @@ final class ReportDefinitionCatalog
                         'description' => $definition['description'],
                         'source_projection' => $definition['source_projection'],
                         'as_of_supported' => $definition['as_of_supported'],
-                        'fields_json' => $definition['fields_json'],
+                        'fields_json' => $fields,
                         'filters_json' => $definition['filters_json'],
                         'drilldown_route' => $definition['drilldown_route'],
                         'catalog_version' => 1,
@@ -387,6 +416,47 @@ final class ReportDefinitionCatalog
     }
 
     /**
+     * Code-owned definition lookup for contract tests and diagnostics. The
+     * returned shape mirrors the public business definition and never exposes
+     * the internal source projection.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function find(string $code): ?array
+    {
+        foreach (self::definitions() as $definition) {
+            if ((string) $definition['code'] !== $code) {
+                continue;
+            }
+
+            return [
+                'id' => 0,
+                'code' => (string) $definition['code'],
+                'name' => (string) $definition['name'],
+                'domain' => (string) ($definition['domain'] ?? $this->domainFor((string) $definition['code'], (string) $definition['source_projection'])),
+                'description' => (string) $definition['description'],
+                'asOfSupported' => (bool) $definition['as_of_supported'],
+                'drilldownRoute' => $definition['drilldown_route'],
+                'fields' => array_map(static function (mixed $field): array {
+                    /** @var array<string, mixed> $field */
+                    $field = (array) $field;
+                    $profile = FieldProfile::from((string) ($field['profile'] ?? FieldProfile::P0_PUBLIC->value));
+
+                    return [
+                        'key' => (string) ($field['key'] ?? ''),
+                        'label' => (string) ($field['label'] ?? ''),
+                        'profile' => $profile->value,
+                        'exportable' => ! $profile->isHidden(),
+                    ];
+                }, (array) $definition['fields_json']),
+                'filters' => (array) $definition['filters_json'],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function payload(ReportDefinition $definition): array
@@ -395,7 +465,10 @@ final class ReportDefinitionCatalog
             'id' => (int) $definition->id,
             'code' => (string) $definition->code,
             'name' => (string) $definition->name,
+            'domain' => $this->domainFor((string) $definition->code, (string) $definition->source_projection),
             'description' => (string) ($definition->description ?? ''),
+            // Internal seam for ReportService's custom-definition mapping.
+            // ReportingController removes it before the business API response.
             'sourceProjection' => (string) $definition->source_projection,
             'isSystem' => (bool) $definition->is_system,
             'asOfSupported' => (bool) $definition->as_of_supported,
@@ -413,6 +486,26 @@ final class ReportDefinitionCatalog
             }, (array) $definition->fields_json),
             'filters' => (array) $definition->filters_json,
         ];
+    }
+
+    /**
+     * Stable business-domain grouping. Technical projection names never leave
+     * the server, so the UI receives a business enum instead.
+     */
+    private function domainFor(string $code, string $sourceProjection): string
+    {
+        return match ($code) {
+            'WORKFORCE_HEADCOUNT', 'CONTRACT_EXPIRY', 'PENDING_APPROVALS', 'TURNOVER' => 'PEOPLE',
+            'LEAVE_LIABILITY' => 'ATTENDANCE',
+            'PAYROLL_COST' => 'PAYROLL',
+            'RECRUITMENT_FUNNEL' => 'RECRUITMENT',
+            default => match ($sourceProjection) {
+                'leave_liability' => 'ATTENDANCE',
+                'payroll_cost' => 'PAYROLL',
+                'recruitment_funnel' => 'RECRUITMENT',
+                default => 'PEOPLE',
+            },
+        };
     }
 
     /**

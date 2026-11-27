@@ -5,7 +5,6 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  DEFAULT_SHARED_ALLOWLIST,
   auditPageComponents,
   discoverPageComponentManifest,
   parseRegistryComponentKeys,
@@ -14,7 +13,6 @@ import {
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const repoRoot = resolve(frontendDir, '..')
 const script = resolve(repoRoot, 'scripts/audit_page_components.mjs')
-const accountSecurityView = 'frontend/src/views/AccountSecurityView.vue'
 const temporaryDirectories: string[] = []
 
 function tempDirectory(): string {
@@ -117,59 +115,18 @@ describe('page component uniqueness audit', () => {
     expect(result.failures.join('\n')).toContain('shared component used by a, b')
   })
 
-  it('allows only the documented AccountSecurityView base-page pair', () => {
-    const result = auditPageComponents({
-      registryKeys: ['base/AccountMfaView', 'base/AccountSessionsView'],
-      manifest: {
-        'base/AccountMfaView': accountSecurityView,
-        'base/AccountSessionsView': accountSecurityView,
-      },
-      existingFiles: new Set([accountSecurityView]),
-      sharedAllowlist: DEFAULT_SHARED_ALLOWLIST,
-      expectedRegistryCount: 2,
-    })
-
-    expect(result.ok).toBe(true)
-    expect(result.allowedSharedGroups).toHaveLength(1)
-    expect(DEFAULT_SHARED_ALLOWLIST[0]?.file).toBe(accountSecurityView)
-    expect(DEFAULT_SHARED_ALLOWLIST[0]?.reason).toMatch(/MFA/)
-  })
-
-  it('does not let a third page join the allowlisted shared component', () => {
-    const result = auditPageComponents({
-      registryKeys: [
-        'base/AccountMfaView',
-        'base/AccountSessionsView',
-        'base/AccountExtraView',
-      ],
-      manifest: {
-        'base/AccountMfaView': accountSecurityView,
-        'base/AccountSessionsView': accountSecurityView,
-        'base/AccountExtraView': accountSecurityView,
-      },
-      existingFiles: new Set([accountSecurityView]),
-      sharedAllowlist: DEFAULT_SHARED_ALLOWLIST,
-      expectedRegistryCount: 3,
-    })
-
-    expect(result.ok).toBe(false)
-    expect(result.failures.join('\n')).toContain(
-      'shared component used by base/AccountMfaView',
-    )
-  })
-
   it('fails closed when a shared allowlist entry has no documented reason', () => {
     const result = auditPageComponents({
-      registryKeys: ['base/AccountMfaView', 'base/AccountSessionsView'],
+      registryKeys: ['a', 'b'],
       manifest: {
-        'base/AccountMfaView': accountSecurityView,
-        'base/AccountSessionsView': accountSecurityView,
+        a: 'frontend/src/views/A.vue',
+        b: 'frontend/src/views/A.vue',
       },
-      existingFiles: new Set([accountSecurityView]),
+      existingFiles: new Set(['frontend/src/views/A.vue']),
       sharedAllowlist: [
         {
-          keys: ['base/AccountMfaView', 'base/AccountSessionsView'],
-          file: accountSecurityView,
+          keys: ['a', 'b'],
+          file: 'frontend/src/views/A.vue',
           reason: '',
         },
       ],
@@ -180,22 +137,6 @@ describe('page component uniqueness audit', () => {
     expect(result.failures.join('\n')).toContain('must document a reason')
   })
 
-  it('does not let the allowlisted pair share a different component file', () => {
-    const otherFile = 'frontend/src/views/OtherAccountView.vue'
-    const result = auditPageComponents({
-      registryKeys: ['base/AccountMfaView', 'base/AccountSessionsView'],
-      manifest: {
-        'base/AccountMfaView': otherFile,
-        'base/AccountSessionsView': otherFile,
-      },
-      existingFiles: new Set([otherFile]),
-      sharedAllowlist: DEFAULT_SHARED_ALLOWLIST,
-      expectedRegistryCount: 2,
-    })
-
-    expect(result.ok).toBe(false)
-    expect(result.failures.join('\n')).toContain('shared component used by base/AccountMfaView')
-  })
 })
 
 describe('registry and module manifest discovery', () => {
@@ -231,13 +172,11 @@ describe('registry and module manifest discovery', () => {
     )
     writeFileSync(resolve(pagesDir, 'EmployeeListPage.vue'), '<template><div /></template>')
     writeFileSync(resolve(viewsDir, 'LoginView.vue'), '<template><div /></template>')
-    writeFileSync(resolve(viewsDir, 'AccountSecurityView.vue'), '<template><div /></template>')
     writeFileSync(
       resolve(routerDir, 'pageComponents.ts'),
       [
         'const BASE_VIEWS: Record<string, Loader> = {',
         '  "base/LoginView": () => import("@/views/LoginView.vue"),',
-        '  "base/AccountMfaView": () => import("@/views/AccountSecurityView.vue"),',
         '  "dashboard/index": () => import("@/views/DashboardView.vue"),',
         '}',
       ].join('\n'),
@@ -250,7 +189,6 @@ describe('registry and module manifest discovery', () => {
       'frontend/src/modules/people/pages/EmployeeListPage.vue',
     )
     expect(discovered.manifest['base/LoginView']).toBe('frontend/src/views/LoginView.vue')
-    expect(discovered.manifest['base/AccountMfaView']).toBe(accountSecurityView)
     expect(discovered.manifest['dashboard/index']).toBeUndefined()
     expect(
       discovered.existingFiles.has('frontend/src/modules/people/pages/EmployeeListPage.vue'),
@@ -260,7 +198,7 @@ describe('registry and module manifest discovery', () => {
 })
 
 describe('real repository page component gate', () => {
-  it('passes with 155 registry keys mapped to 149 module pages plus 6 base pages', () => {
+  it('passes with 37 registry keys mapped to 33 module pages plus 4 base pages', () => {
     const result = spawnSync(process.execPath, [script], {
       cwd: frontendDir,
       encoding: 'utf8',
@@ -286,12 +224,12 @@ ${result.stderr}`).toBe(0)
 
     expect(report.ok).toBe(true)
     // ADR-0035: seven form routes became workspace actions (162 -> 155).
-    expect(report.total).toBe(155)
-    expect(report.expected).toBe(155)
-    expect(report.mapped).toBe(149)
-    expect(report.moduleMapped).toBe(149)
-    expect(report.baseMapped).toBe(6)
-    expect(report.mappedIncludingBase).toBe(155)
+    expect(report.total).toBe(37)
+    expect(report.expected).toBe(37)
+    expect(report.mapped).toBe(33)
+    expect(report.moduleMapped).toBe(33)
+    expect(report.baseMapped).toBe(4)
+    expect(report.mappedIncludingBase).toBe(37)
     expect(report.failures).toEqual([])
     expect(report.missingMappings).toEqual([])
     expect(report.missingFiles).toEqual([])

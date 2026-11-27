@@ -44,6 +44,7 @@ final class OpenApiSchemaContractTest extends TestCase
      */
     private const RAW_DOWNLOAD_PATHS = [
         '/v1/reporting/exports/{jobId}/download',
+        '/v1/employees/export',
     ];
 
     /**

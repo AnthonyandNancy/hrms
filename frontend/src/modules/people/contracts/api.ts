@@ -15,9 +15,13 @@ import { todayBusinessDate } from '@/utils/format'
  *   GET  /v1/employment-contracts/{id}/amendments
  *   POST /v1/employment-contracts/{id}/amendments
  *   POST /v1/employment-contracts/{id}/terminate
+ *   GET  /v1/contract-templates
+ *   POST /v1/contract-templates
+ *   POST /v1/contract-templates/{id}/publish
  *
- * There is no `GET/PATCH /v1/contracts/{id}` route. The workspace therefore
- * reads the ledger projection and appends edits through the lifecycle command.
+ * There is no global `GET /v1/contracts/{id}` route. A detail deep link
+ * carries `employment_id` and reads the real employment-scoped contract; it
+ * never searches a ledger page for the row.
  */
 
 export type ContractType = 'FIXED_TERM' | 'OPEN_ENDED' | 'INTERNSHIP' | 'CONSULTANT'
@@ -136,6 +140,38 @@ export type ContractAmendmentInput = {
   end_date?: string | null
   signed_on?: string | null
   terms_summary?: string | null
+  work_location?: string | null
+  probation_end_date?: string | null
+}
+
+export type ContractTemplateStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+
+export type ContractTemplate = {
+  id: number
+  code: string
+  name: string
+  version: number
+  status: ContractTemplateStatus
+  body: string
+  published_at: string | null
+}
+
+export type ContractTemplatePage = {
+  items: ContractTemplate[]
+  total: number
+  partial: boolean
+  partial_reason: string | null
+}
+
+export type ContractListQuery = {
+  asOf?: string
+  page?: number
+  pageSize?: number
+  q?: string
+  employmentId?: number | null
+  status?: string
+  expiringWithinDays?: 60 | 30 | 7
+  expired?: boolean
 }
 
 export const CONTRACT_TYPES: ReadonlyArray<{ value: ContractType; label: string }> = [
@@ -329,16 +365,23 @@ function normalizeContract(row: UnknownRecord, asOf: string, renewalCount: numbe
   }
 }
 
-export async function listContracts(
-  asOf = todayBusinessDate(),
-  page = 1,
-  pageSize = 100,
-): Promise<ContractPage> {
-  const raw = await resourceGet<unknown>('/v1/employments/contracts', {
+export async function listContracts(query: ContractListQuery = {}): Promise<ContractPage> {
+  const asOf = query.asOf ?? todayBusinessDate()
+  const page = query.page ?? 1
+  const pageSize = query.pageSize ?? 20
+  const params: Record<string, unknown> = {
     as_of: asOf,
     page,
     page_size: pageSize,
-  })
+  }
+  const term = query.q?.trim() ?? ''
+  if (term !== '') params.q = term
+  if (query.employmentId != null && query.employmentId > 0) params.employment_id = query.employmentId
+  if (query.status !== undefined && query.status !== '') params.status = query.status
+  if (query.expiringWithinDays !== undefined) params.expiry_window = String(query.expiringWithinDays)
+  if (query.expired === true) params.expiry_window = 'EXPIRED'
+
+  const raw = await resourceGet<unknown>('/v1/employments/contracts', params)
   const rows = sortedRows(raw)
   const pageMeta = meta(raw)
   const normalized = rows
@@ -362,21 +405,50 @@ export async function listContracts(
   }
 }
 
-export async function findContract(id: number, asOf = todayBusinessDate()): Promise<Contract | null> {
-  const page = await listContracts(asOf, 1, 100)
-  return page.items.find((contract) => contract.id === id) ?? null
+/** Expiry tab reads the dedicated server projection; no client date window. */
+export async function listExpiringContracts(
+  withinDays: 60 | 30 | 7,
+  asOf = todayBusinessDate(),
+): Promise<ContractPage> {
+  const pageSize = 100
+  const raw = await resourceGet<unknown>('/v1/employments/contracts/expiring', {
+    within_days: withinDays,
+    as_of: asOf,
+    page: 1,
+    page_size: pageSize,
+  })
+  const rows = sortedRows(raw)
+  const pageMeta = meta(raw)
+  const normalized = rows
+    .map((row) => normalizeContract(row, pageMeta.asOf ?? asOf, 0))
+    .filter((row): row is Contract => row !== null)
+  const counts = buildContractRenewalCounts(normalized)
+
+  return {
+    items: normalized.map((row) => ({ ...row, renewal_count: counts.get(row.id) ?? 0 })),
+    total: pageMeta.total,
+    page: 1,
+    page_size: pageSize,
+    partial: pageMeta.partial,
+    partial_reason: pageMeta.partialReason,
+    as_of: pageMeta.asOf ?? asOf,
+  }
 }
 
 /**
- * Read one contract through the real employment-scoped route. The workspace
- * carries the employment id in the detail URL because there is no global
- * `/v1/contracts/{id}` read; the ledger fallback remains for old deep links.
+ * Read one contract through the real employment-scoped route. A deep link
+ * carries the employment id; there is no ledger search fallback.
  */
-export async function getContract(employmentId: number, id: number, asOf = todayBusinessDate()): Promise<Contract | null> {
-  const raw = await resourceGet<unknown>(`/v1/employments/${employmentId}/contracts/${id}`)
+export async function getContract(
+  employmentId: number,
+  id: number,
+  asOf = todayBusinessDate(),
+): Promise<Contract | null> {
+  const raw = await resourceGet<unknown>(`/v1/employments/${employmentId}/contracts/${id}`, {
+    as_of: asOf,
+  })
   if (!isRecord(raw)) return null
-  const row = normalizeContract(raw, asOf, 0)
-  return row
+  return normalizeContract(raw, asOf, 0)
 }
 
 export async function listEmployeeOptions(asOf = todayBusinessDate()): Promise<EmployeeOption[]> {
@@ -402,7 +474,7 @@ export async function listEmployeeOptions(asOf = todayBusinessDate()): Promise<E
     .filter((row): row is EmployeeOption => row !== null)
 }
 
-export async function createContract(employmentId: number, input: ContractFormInput): Promise<void> {
+export async function createContract(employmentId: number, input: ContractFormInput): Promise<Contract | null> {
   const body: Record<string, unknown> = {
     contract_no: input.contract_no.trim(),
     contract_type: input.contract_type,
@@ -419,9 +491,11 @@ export async function createContract(employmentId: number, input: ContractFormIn
     body.reason = input.reason?.trim() || null
   }
 
-  await resourcePost(`/v1/employments/${employmentId}/contracts`, body, {
+  const raw = await resourcePost<unknown>(`/v1/employments/${employmentId}/contracts`, body, {
     idempotencyKey: nextIdempotencyKey(input.renewal_of_contract_id === null ? 'contract-create' : 'contract-renew'),
   })
+
+  return isRecord(raw) ? normalizeContract(raw, todayBusinessDate(), 0) : null
 }
 
 export async function amendContract(
@@ -440,6 +514,8 @@ export async function amendContract(
         ...(changes.end_date === undefined ? {} : { end_date: changes.end_date }),
         ...(changes.signed_on === undefined ? {} : { signed_on: changes.signed_on }),
         ...(changes.terms_summary === undefined ? {} : { terms_summary: changes.terms_summary }),
+        ...(changes.work_location === undefined ? {} : { work_location: changes.work_location }),
+        ...(changes.probation_end_date === undefined ? {} : { probation_end_date: changes.probation_end_date }),
       },
     },
     { idempotencyKey: nextIdempotencyKey('contract-amend') },
@@ -581,6 +657,65 @@ export async function listContractAttachments(employmentId: number): Promise<Con
 export async function signedDownloadUrl(documentId: number): Promise<string | null> {
   const raw = await resourceGet<unknown>(`/v1/documents/${documentId}/signed-download`)
   return isRecord(raw) ? nullableText(raw.url) : null
+}
+
+export async function listContractTemplates(
+  query: { asOf?: string; q?: string; status?: ContractTemplateStatus; page?: number; pageSize?: number } = {},
+): Promise<ContractTemplatePage> {
+  const params: Record<string, unknown> = {
+    as_of: query.asOf ?? todayBusinessDate(),
+    page: query.page ?? 1,
+    page_size: query.pageSize ?? 50,
+  }
+  const term = query.q?.trim() ?? ''
+  if (term !== '') params.q = term
+  if (query.status !== undefined) params.status = query.status
+
+  const raw = await resourceGet<unknown>('/v1/contract-templates', params)
+  const rows = sortedRows(raw)
+  const pageMeta = meta(raw)
+
+  const items = rows
+    .map((row): ContractTemplate | null => {
+      const id = integer(row.id)
+      if (id === null || id <= 0) return null
+      const status = text(row.status, 'DRAFT')
+      return {
+        id,
+        code: text(row.code),
+        name: text(row.name),
+        version: integer(row.version) ?? 1,
+        status: status === 'PUBLISHED' || status === 'ARCHIVED' ? status : 'DRAFT',
+        body: text(row.body),
+        published_at: nullableText(row.published_at),
+      }
+    })
+    .filter((row): row is ContractTemplate => row !== null)
+
+  return {
+    items,
+    total: pageMeta.total,
+    partial: pageMeta.partial,
+    partial_reason: pageMeta.partialReason,
+  }
+}
+
+export async function createContractTemplate(
+  input: { code: string; name: string; body: string },
+): Promise<void> {
+  await resourcePost(
+    '/v1/contract-templates',
+    { code: input.code.trim(), name: input.name.trim(), body: input.body },
+    { idempotencyKey: nextIdempotencyKey('contract-template-create') },
+  )
+}
+
+export async function publishContractTemplate(id: number): Promise<void> {
+  await resourcePost(
+    `/v1/contract-templates/${id}/publish`,
+    {},
+    { idempotencyKey: nextIdempotencyKey('contract-template-publish') },
+  )
 }
 
 export function isForbidden(error: unknown): boolean {

@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
       class="requirements-panel__state"
       data-testid="position-requirements-gap"
     >
-      当前账号缺少 org.position.qualification.manage 能力，任职资格只读不可编辑。
+      当前账号无权查看或维护任职资格版本；如需维护，请联系权限管理员授予相应能力。
     </p>
 
     <template v-else>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Modules\Payroll\Models\BenefitTransaction;
@@ -34,6 +35,7 @@ final class BenefitService
         private readonly CompanyBusinessDate $businessDates,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
+        private readonly PayrollRunService $payrollRuns,
     ) {}
 
     /**
@@ -283,6 +285,8 @@ final class BenefitService
         $payrollRunId = isset($data['payroll_run_id']) ? (int) $data['payroll_run_id'] : null;
 
         return DB::transaction(function () use ($actorUserId, $enrollment, $period, $employeeAmount, $employerAmount, $payrollRunId): BenefitTransaction {
+            $this->assertPayrollRunNotFrozen($payrollRunId);
+
             if ($payrollRunId !== null && BenefitTransaction::query()
                 ->where('payroll_run_id', $payrollRunId)
                 ->exists()) {
@@ -432,6 +436,36 @@ final class BenefitService
             partialReason: null,
             drilldown: ['resource' => $resource],
         );
+    }
+
+    /**
+     * A published/paid/closed payroll run is a sealed financial fact. The
+     * benefit ledger may only link to an in-flight run; a missing run keeps
+     * the existing optional-link contract and is rejected later when the
+     * caller supplies an invalid reference.
+     */
+    private function assertPayrollRunNotFrozen(?int $payrollRunId): void
+    {
+        if ($payrollRunId === null) {
+            return;
+        }
+
+        try {
+            $run = $this->payrollRuns->findRun($payrollRunId);
+        } catch (NotFoundOrForbiddenException) {
+            return;
+        }
+
+        $status = $run->status instanceof PayrollRunStatus
+            ? $run->status
+            : PayrollRunStatus::from((string) $run->status);
+
+        if ($status->isSealed()) {
+            throw new ConflictException('Frozen payroll runs cannot receive benefit transactions.', [
+                'reason' => 'BENEFIT_PAYROLL_RUN_FROZEN',
+                'payroll_run_id' => $payrollRunId,
+            ]);
+        }
     }
 
     private function normalizeRate(string $rate, string $field): string

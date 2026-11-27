@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { defineComponent } from 'vue'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 
@@ -18,6 +19,13 @@ const dialogs = vi.hoisted(() => ({
 }))
 
 vi.mock('@/modules/people/employees/detailApi', () => detailApi)
+vi.mock('@/modules/people/employees/components/EmployeeProfileSection.vue', () => ({
+  default: defineComponent({
+    name: 'EmployeeProfileSection',
+    props: { employmentId: Number, resource: String },
+    template: '<div :data-testid="`profile-${resource}`">profile editor</div>',
+  }),
+}))
 vi.mock('element-plus', () => ({
   ElMessageBox: {
     prompt: dialogs.prompt,
@@ -335,9 +343,22 @@ describe('EmployeeDetailPage', () => {
     expect(wrapper.get('[data-testid="tab-error"]').text()).toContain('req-tab-500')
     expect(wrapper.text()).toContain('合成员工')
 
+    await wrapper.get('[data-testid="tab-employment"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('任职开始')
+  })
+
+  it('renders no summary table for a workspace tab and leaves the single editor to its component', async () => {
+    const { wrapper } = await mountPage()
+
     await wrapper.get('[data-testid="tab-education"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('合成大学')
+
+    expect(wrapper.find('[data-testid="tab-education-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="tab-workspace-note"]').text()).toContain('避免同一份档案出现重复表格')
+    expect(wrapper.find('[data-testid="profile-education"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="profile-education"]')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('合成大学')
   })
 
   it('renders a forbidden state inside the tab without blanking the page', async () => {
@@ -346,12 +367,12 @@ describe('EmployeeDetailPage', () => {
     )
     const { wrapper } = await mountPage()
 
-    await wrapper.get('[data-testid="tab-education"]').trigger('click')
+    await wrapper.get('[data-testid="tab-employment"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="tab-forbidden"]').text()).toContain('无权查看')
     expect(wrapper.text()).toContain('合成员工')
-    expect(wrapper.find('[data-testid="tab-education-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="tab-employment-panel"]').exists()).toBe(true)
   })
 
   it('renders 无权查看 for omitted and masked projected fields, never a fabricated value', async () => {
@@ -364,11 +385,10 @@ describe('EmployeeDetailPage', () => {
     expect(summary).not.toContain('E0001')
     expect(summary).toContain('工作地点')
 
-    await wrapper.get('[data-testid="tab-contacts"]').trigger('click')
+    await wrapper.get('[data-testid="tab-employment"]').trigger('click')
     await flushPromises()
-    const contacts = wrapper.get('[data-testid="tab-contacts-panel"]').text()
-    expect(contacts).toContain('无权查看')
-    expect(contacts).not.toContain('P2_SENSITIVE')
+    const timeline = wrapper.get('[data-testid="tab-employment-panel"]').text()
+    expect(timeline).not.toContain('P2_SENSITIVE')
   })
 
   it('renders the API-driven 404 and 403 employee states without leaking a record', async () => {

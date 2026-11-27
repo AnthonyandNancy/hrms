@@ -77,24 +77,9 @@
       "owner": "Volume 3 Task 4"
     },
     {
-      "api": "PATCH /v1/employees/{employmentId}/imports/{id}",
-      "reason": "PATCH /v1/employees/{employmentId}/imports/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
-      "owner": "Volume 3 Task 4"
-    },
-    {
-      "api": "PATCH /v1/onboarding-tasks/{id}",
-      "reason": "PATCH /v1/onboarding-tasks/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
       "api": "PATCH /v1/reporting/subscriptions/{subscriptionId}",
       "reason": "PATCH /v1/reporting/subscriptions/{subscriptionId} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "PATCH /v1/system/dictionaries/{id}",
-      "reason": "PATCH /v1/system/dictionaries/{id} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
     },
     {
       "api": "POST /v1/auth/break-glass",
@@ -117,11 +102,6 @@
       "owner": "Volume 2 Task 9"
     },
     {
-      "api": "POST /v1/auth/password",
-      "reason": "POST /v1/auth/password has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 10.",
-      "owner": "Volume 2 Task 10"
-    },
-    {
       "api": "POST /v1/auth/webauthn/assert/options",
       "reason": "POST /v1/auth/webauthn/assert/options has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 9.",
       "owner": "Volume 2 Task 9"
@@ -132,38 +112,13 @@
       "owner": "Volume 2 Task 9"
     },
     {
-      "api": "POST /v1/benefits/enrollments",
-      "reason": "POST /v1/benefits/enrollments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "POST /v1/benefits/plans",
-      "reason": "POST /v1/benefits/plans has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "POST /v1/benefits/transactions",
-      "reason": "POST /v1/benefits/transactions has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
       "api": "POST /v1/cases",
       "reason": "POST /v1/cases has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
     },
     {
-      "api": "POST /v1/cases/{caseId}/decisions",
-      "reason": "POST /v1/cases/{caseId}/decisions has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
       "api": "POST /v1/cases/{id}/submit",
       "reason": "POST /v1/cases/{id}/submit has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "POST /v1/cases/{id}/withdraw",
-      "reason": "POST /v1/cases/{id}/withdraw has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
     },
     {
@@ -187,11 +142,6 @@
       "owner": "Volume 3 Task 5"
     },
     {
-      "api": "POST /v1/effects/{id}/retry",
-      "reason": "POST /v1/effects/{id}/retry has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
       "api": "POST /v1/employees/onboard",
       "reason": "Onboarding command lands before the employee list workspace exposes the action button.",
       "owner": "Volume 3 Task 2"
@@ -207,11 +157,6 @@
       "owner": "Volume 3 Task 4"
     },
     {
-      "api": "POST /v1/employees/{employmentId}/change_requests/{id}/submit",
-      "reason": "POST /v1/employees/{employmentId}/change_requests/{id}/submit has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
-      "owner": "Volume 3 Task 4"
-    },
-    {
       "api": "POST /v1/employees/{employmentId}/contacts",
       "reason": "POST /v1/employees/{employmentId}/contacts has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
       "owner": "Volume 3 Task 4"
@@ -224,11 +169,6 @@
     {
       "api": "POST /v1/employees/{employmentId}/experiences",
       "reason": "POST /v1/employees/{employmentId}/experiences has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
-      "owner": "Volume 3 Task 4"
-    },
-    {
-      "api": "POST /v1/employees/{employmentId}/imports",
-      "reason": "POST /v1/employees/{employmentId}/imports has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 4.",
       "owner": "Volume 3 Task 4"
     },
     {
@@ -267,33 +207,13 @@
       "owner": "Volume 3 Task 7"
     },
     {
-      "api": "POST /v1/engagement/notice-templates",
-      "reason": "POST /v1/engagement/notice-templates has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
       "api": "POST /v1/engagement/notices/{notice}/acknowledge",
       "reason": "POST /v1/engagement/notices/{notice}/acknowledge has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
     },
     {
-      "api": "POST /v1/engagement/notices/{notice}/decision",
-      "reason": "POST /v1/engagement/notices/{notice}/decision has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "POST /v1/engagement/notices/{notice}/publish",
-      "reason": "POST /v1/engagement/notices/{notice}/publish has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
       "api": "POST /v1/engagement/notices/{notice}/retract",
       "reason": "POST /v1/engagement/notices/{notice}/retract has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "POST /v1/engagement/notices/{notice}/submit",
-      "reason": "POST /v1/engagement/notices/{notice}/submit has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
     },
     {
@@ -317,48 +237,13 @@
       "owner": "Volume 3 Task 7"
     },
     {
-      "api": "POST /v1/lifecycle/offboardings",
-      "reason": "POST /v1/lifecycle/offboardings has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
-      "api": "POST /v1/lifecycle/onboarding",
-      "reason": "POST /v1/lifecycle/onboarding has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
-      "api": "POST /v1/lifecycle/probation-confirmations",
-      "reason": "POST /v1/lifecycle/probation-confirmations has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
       "api": "POST /v1/lifecycle/rehires",
       "reason": "POST /v1/lifecycle/rehires has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
       "owner": "Volume 3 Task 7"
     },
     {
-      "api": "POST /v1/lifecycle/salary-changes",
-      "reason": "POST /v1/lifecycle/salary-changes has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
-      "api": "POST /v1/lifecycle/secondments",
-      "reason": "POST /v1/lifecycle/secondments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
-      "api": "POST /v1/lifecycle/transfers",
-      "reason": "POST /v1/lifecycle/transfers has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 7.",
-      "owner": "Volume 3 Task 7"
-    },
-    {
       "api": "POST /v1/notification-templates",
       "reason": "POST /v1/notification-templates has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
-      "owner": "Volume 3 Task 16"
-    },
-    {
-      "api": "POST /v1/notifications/deliveries/{id}/retry",
-      "reason": "POST /v1/notifications/deliveries/{id}/retry has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 16.",
       "owner": "Volume 3 Task 16"
     },
     {
@@ -377,28 +262,8 @@
       "owner": "Volume 3 Task 5"
     },
     {
-      "api": "POST /v1/overtime/records/{recordId}/settlements",
-      "reason": "POST /v1/overtime/records/{recordId}/settlements has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
       "api": "POST /v1/payroll/adjustments",
       "reason": "POST /v1/payroll/adjustments has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/employee-plans",
-      "reason": "POST /v1/payroll/employee-plans has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/items",
-      "reason": "POST /v1/payroll/items has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs",
-      "reason": "POST /v1/payroll/runs has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
       "owner": "Volume 3 Task 12"
     },
     {
@@ -437,39 +302,14 @@
       "owner": "Volume 3 Task 12"
     },
     {
-      "api": "POST /v1/payroll/runs/{id}/publish",
-      "reason": "POST /v1/payroll/runs/{id}/publish has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
       "api": "POST /v1/payroll/runs/{id}/reopen",
       "reason": "POST /v1/payroll/runs/{id}/reopen has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/runs/{id}/review",
-      "reason": "POST /v1/payroll/runs/{id}/review has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
-      "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/payroll/schemes",
-      "reason": "POST /v1/payroll/schemes has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
       "owner": "Volume 3 Task 12"
     },
     {
       "api": "POST /v1/payroll/statutory-parameters",
       "reason": "POST /v1/payroll/statutory-parameters has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 12.",
       "owner": "Volume 3 Task 12"
-    },
-    {
-      "api": "POST /v1/performance/cycles",
-      "reason": "POST /v1/performance/cycles has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 13.",
-      "owner": "Volume 3 Task 13"
-    },
-    {
-      "api": "POST /v1/performance/cycles/{id}/publish",
-      "reason": "POST /v1/performance/cycles/{id}/publish has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 13.",
-      "owner": "Volume 3 Task 13"
     },
     {
       "api": "POST /v1/performance/feedback",
@@ -489,11 +329,6 @@
     {
       "api": "POST /v1/performance/reviews",
       "reason": "POST /v1/performance/reviews has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 13.",
-      "owner": "Volume 3 Task 13"
-    },
-    {
-      "api": "POST /v1/performance/reviews/{id}/appeals",
-      "reason": "POST /v1/performance/reviews/{id}/appeals has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 13.",
       "owner": "Volume 3 Task 13"
     },
     {
@@ -517,33 +352,13 @@
       "owner": "Volume 3 Task 1"
     },
     {
-      "api": "POST /v1/positions/grades",
-      "reason": "POST /v1/positions/grades has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 6.",
-      "owner": "Volume 3 Task 6"
-    },
-    {
-      "api": "POST /v1/positions/{id}/requirements",
-      "reason": "POST /v1/positions/{id}/requirements has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 6.",
-      "owner": "Volume 3 Task 6"
-    },
-    {
       "api": "POST /v1/recruitment/candidates",
       "reason": "POST /v1/recruitment/candidates has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
       "owner": "Volume 3 Task 14"
     },
     {
-      "api": "POST /v1/recruitment/candidates/imports",
-      "reason": "POST /v1/recruitment/candidates/imports has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
       "api": "POST /v1/recruitment/candidates/{id}/communications",
       "reason": "POST /v1/recruitment/candidates/{id}/communications has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
-      "api": "POST /v1/recruitment/candidates/{id}/convert",
-      "reason": "POST /v1/recruitment/candidates/{id}/convert has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
       "owner": "Volume 3 Task 14"
     },
     {
@@ -554,21 +369,6 @@
     {
       "api": "POST /v1/recruitment/candidates/{id}/interviews",
       "reason": "POST /v1/recruitment/candidates/{id}/interviews has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
-      "api": "POST /v1/recruitment/candidates/{id}/talent-pool",
-      "reason": "POST /v1/recruitment/candidates/{id}/talent-pool has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
-      "api": "POST /v1/recruitment/offers",
-      "reason": "POST /v1/recruitment/offers has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
-      "owner": "Volume 3 Task 14"
-    },
-    {
-      "api": "POST /v1/recruitment/offers/{id}/accept",
-      "reason": "POST /v1/recruitment/offers/{id}/accept has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 14.",
       "owner": "Volume 3 Task 14"
     },
     {
@@ -597,44 +397,9 @@
       "owner": "Volume 3 Task 16"
     },
     {
-      "api": "POST /v1/roles/{id}/copy",
-      "reason": "POST /v1/roles/{id}/copy has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 7.",
-      "owner": "Volume 2 Task 7"
-    },
-    {
-      "api": "POST /v1/system/calendars/publish",
-      "reason": "POST /v1/system/calendars/publish has no page mapping in PAGE_REGISTRY; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
-    },
-    {
       "api": "POST /v1/system/dictionaries",
       "reason": "POST /v1/system/dictionaries has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
       "owner": "Volume 3 Task 17"
-    },
-    {
-      "api": "POST /v1/time/attendance/closings",
-      "reason": "POST /v1/time/attendance/closings has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
-    },
-    {
-      "api": "POST /v1/time/attendance/closings/{id}/reopen",
-      "reason": "POST /v1/time/attendance/closings/{id}/reopen has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
-    },
-    {
-      "api": "POST /v1/time/attendance/corrections",
-      "reason": "POST /v1/time/attendance/corrections has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
-    },
-    {
-      "api": "POST /v1/time/attendance/recalculate",
-      "reason": "POST /v1/time/attendance/recalculate has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
-    },
-    {
-      "api": "POST /v1/time/attendance/rules",
-      "reason": "POST /v1/time/attendance/rules has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
     },
     {
       "api": "POST /v1/time/leave/preview",
@@ -642,33 +407,8 @@
       "owner": "Volume 3 Task 10"
     },
     {
-      "api": "POST /v1/time/leave/requests",
-      "reason": "POST /v1/time/leave/requests has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 10.",
-      "owner": "Volume 3 Task 10"
-    },
-    {
-      "api": "POST /v1/time/leave/requests/{caseId}/cancel",
-      "reason": "POST /v1/time/leave/requests/{caseId}/cancel has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 10.",
-      "owner": "Volume 3 Task 10"
-    },
-    {
-      "api": "POST /v1/time/overtime/requests",
-      "reason": "POST /v1/time/overtime/requests has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
-      "api": "POST /v1/time/overtime/requests/{id}/confirm",
-      "reason": "POST /v1/time/overtime/requests/{id}/confirm has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
       "api": "POST /v1/time/punches/import",
       "reason": "POST /v1/time/punches/import has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
-      "owner": "Volume 3 Task 9"
-    },
-    {
-      "api": "POST /v1/time/shift-schedules",
-      "reason": "POST /v1/time/shift-schedules has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 9.",
       "owner": "Volume 3 Task 9"
     },
     {
@@ -707,11 +447,6 @@
       "owner": "Volume 3 Task 15"
     },
     {
-      "api": "POST /v1/training/programs",
-      "reason": "POST /v1/training/programs has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 15.",
-      "owner": "Volume 3 Task 15"
-    },
-    {
       "api": "POST /v1/training/sessions",
       "reason": "POST /v1/training/sessions has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 15.",
       "owner": "Volume 3 Task 15"
@@ -722,75 +457,37 @@
       "owner": "Volume 3 Task 15"
     },
     {
-      "api": "POST /v1/travel/expenses",
-      "reason": "POST /v1/travel/expenses has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
-      "api": "POST /v1/travel/policies",
-      "reason": "POST /v1/travel/policies has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
-      "api": "POST /v1/travel/requests",
-      "reason": "POST /v1/travel/requests has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
-      "api": "POST /v1/travel/requests/{id}/approve",
-      "reason": "POST /v1/travel/requests/{id}/approve has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
-      "api": "POST /v1/travel/requests/{id}/cancel",
-      "reason": "POST /v1/travel/requests/{id}/cancel has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 11.",
-      "owner": "Volume 3 Task 11"
-    },
-    {
       "api": "POST /v1/users/{id}/bindings",
       "reason": "POST /v1/users/{id}/bindings has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 2 Task 6.",
       "owner": "Volume 2 Task 6"
     },
     {
-      "api": "POST /v1/workflow/templates",
-      "reason": "POST /v1/workflow/templates has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
+      "api": "PUT /v1/roles/{id}/capabilities",
+      "reason": "角色动作授权已折叠到原子授权端点；此兼容写端点不挂独立页面动作。",
+      "owner": "Volume 2 Task 7"
     },
     {
-      "api": "PUT /v1/platform/features/{flag}",
-      "reason": "PUT /v1/platform/features/{flag} has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
+      "api": "PUT /v1/roles/{id}/pages",
+      "reason": "角色页面授权已折叠到原子授权端点；此兼容写端点不挂独立页面动作。",
+      "owner": "Volume 2 Task 7"
     },
     {
-      "api": "PUT /v1/system/parameters",
-      "reason": "PUT /v1/system/parameters has no page mapping in PAGE_REGISTRY in Volume 1; tracked for Volume 3 Task 17.",
-      "owner": "Volume 3 Task 17"
+      "api": "PUT /v1/system/data-scopes/{id}",
+      "reason": "全局数据范围模板由角色工作台的“数据范围”页签承载，旧独立页面已删除。",
+      "owner": "Volume 2 Task 8"
+    },
+    {
+      "api": "PUT /v1/system/field-policies/{field_key}",
+      "reason": "全局字段上限由角色工作台的“字段权限”页签承载，旧独立页面已删除。",
+      "owner": "Volume 2 Task 8"
     }
   ],
   "capabilityGaps": [
     {
-      "capability": "people.employee.export",
-      "pages": [
-        "hr-employees",
-        "employee-detail",
-        "hr-employees-by-id-education",
-        "hr-employees-by-id-work-history",
-        "hr-employees-by-id-contacts",
-        "hr-employees-by-id-credentials",
-        "hr-employees-by-id-history",
-        "hr-employees-by-id-files",
-        "hr-employees-by-id-changes"
-      ],
-      "missing": "Employee export operation (GET /v1/employees/export) is absent from OpenAPI and routes.",
-      "owner": "Volume 3 Task 4",
-      "reason": "Employee export operation (GET /v1/employees/export) is absent from OpenAPI and routes; no operation carries people.employee.export."
-    },
-    {
       "capability": "people.contract.export",
       "pages": [
         "hr-contracts",
-        "hr-contracts-by-id",
-        "hr-contracts-expiry"
+        "hr-contracts-by-id"
       ],
       "missing": "Contract export operation (GET /v1/employments/contracts/export) is absent from OpenAPI and routes.",
       "owner": "Volume 3 Task 8",
@@ -799,8 +496,7 @@
     {
       "capability": "org.unit.export",
       "pages": [
-        "hr-departments",
-        "hr-departments-list"
+        "hr-departments"
       ],
       "missing": "Organization export operation (GET /v1/org-units/export) is absent from OpenAPI and routes.",
       "owner": "Volume 3 Task 5",
@@ -827,38 +523,16 @@
     {
       "capability": "payroll.payslip.read",
       "pages": [
-        "payroll-payslips"
+        "payroll"
       ],
       "missing": "Admin payslip read operation is absent; only payroll.payslip.read.self is routed for GET /v1/payroll/payslips.",
       "owner": "Volume 3 Task 12",
       "reason": "Admin payslip read operation is absent; GET /v1/payroll/payslips and /{id} carry payroll.payslip.read.self only."
     },
     {
-      "capability": "time.leave.admin",
-      "pages": [
-        "leave-types",
-        "leave-policies"
-      ],
-      "missing": "Leave type/policy administration writes are absent from OpenAPI and routes; GET endpoints require time.leave.read.",
-      "owner": "Volume 3 Task 10",
-      "reason": "Leave type/policy administration writes are absent; existing leave reads carry time.leave.read and requests carry time.leave.request."
-    },
-    {
-      "capability": "time.overtime.manage",
-      "pages": [
-        "overtime-policies",
-        "overtime-confirm",
-        "overtime-timeoff",
-        "overtime-settlement"
-      ],
-      "missing": "Overtime policy administration writes are absent; reads use time.overtime.read and confirm uses time.overtime.confirm.",
-      "owner": "Volume 3 Task 11",
-      "reason": "Overtime policy administration writes are absent; reads carry time.overtime.read and confirmations carry time.overtime.confirm."
-    },
-    {
       "capability": "time.travel.manage",
       "pages": [
-        "travel-changes"
+        "travel"
       ],
       "missing": "Travel request change/administration operation is absent; available writes use time.travel.request/approve.",
       "owner": "Volume 3 Task 11",
@@ -883,18 +557,9 @@
       "reason": "Notification administration operation is absent; templates carry notification.template.manage and deliveries carry notification.delivery.manage."
     },
     {
-      "capability": "system.settings.manage",
-      "pages": [
-        "system-settings"
-      ],
-      "missing": "No operation carries system.settings.manage; dictionaries and parameters use system.dictionary.manage/system.parameter.manage.",
-      "owner": "Volume 3 Task 17",
-      "reason": "No operation carries system.settings.manage; dictionaries carry system.dictionary.manage and parameters carry system.parameter.manage."
-    },
-    {
       "capability": "reporting.report.create",
       "pages": [
-        "reports-builder"
+        "reports"
       ],
       "missing": "Legacy code for saving a report definition is replaced by reporting.definition.manage on POST /v1/reporting/definitions.",
       "owner": "Volume 3 Task 16",

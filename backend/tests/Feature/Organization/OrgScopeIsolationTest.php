@@ -16,7 +16,7 @@ final class OrgScopeIsolationTest extends PeopleTestCase
         $this->postJson('/v1/org-units/'.($unit->id + 1000).'/move', [
             'new_parent_id' => null,
             'effective_from' => '2026-12-01',
-        ])->assertNotFound();
+        ], ['X-CSRF-Token' => 'test-csrf', 'Idempotency-Key' => 'scope-move-404'])->assertNotFound();
     }
 
     public function test_impact_of_unknown_org_is_404(): void

@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "status": "proposed",
+  "baseline": "add6d49",
+  "created": "2026-11-27",
+  "counts": {
+    "sourceRegistry": 155,
+    "backendCatalog": 153,
+    "keep": 35,
+    "fold": 120,
+    "targetRegistry": 36,
+    "targetBackendCatalog": 149
+  },
+  "modules": [
+    {
+      "id": "M01",
+      "name": "登录、个人中心与员工自助",
+      "routes": 8,
+      "keep": 5,
+      "fold": 3,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m01-identity-self-service.md",
+      "planExists": true
+    },
+    {
+      "id": "M02",
+      "name": "首页仪表盘",
+      "routes": 6,
+      "keep": 1,
+      "fold": 5,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m02-dashboard.md",
+      "planExists": true
+    },
+    {
+      "id": "M03",
+      "name": "报表与导出中心",
+      "routes": 9,
+      "keep": 1,
+      "fold": 8,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m03-reporting.md",
+      "planExists": true
+    },
+    {
+      "id": "M04",
+      "name": "员工档案",
+      "routes": 10,
+      "keep": 2,
+      "fold": 8,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m04-employee-records.md",
+      "planExists": true
+    },
+    {
+      "id": "M05",
+      "name": "部门与组织结构",
+      "routes": 5,
+      "keep": 1,
+      "fold": 4,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m05-organization.md",
+      "planExists": true
+    },
+    {
+      "id": "M06",
+      "name": "岗位、职级和任职资格",
+      "routes": 5,
+      "keep": 1,
+      "fold": 4,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m06-positions.md",
+      "planExists": true
+    },
+    {
+      "id": "M07",
+      "name": "员工入转调离与异动",
+      "routes": 9,
+      "keep": 2,
+      "fold": 7,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m07-lifecycle.md",
+      "planExists": true
+    },
+    {
+      "id": "M08",
+      "name": "劳动合同",
+      "routes": 6,
+      "keep": 2,
+      "fold": 4,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m08-contracts.md",
+      "planExists": true
+    },
+    {
+      "id": "M09",
+      "name": "考勤打卡与月结",
+      "routes": 10,
+      "keep": 1,
+      "fold": 9,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m09-attendance.md",
+      "planExists": true
+    },
+    {
+      "id": "M10",
+      "name": "请假与假期余额",
+      "routes": 8,
+      "keep": 1,
+      "fold": 7,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m10-leave.md",
+      "planExists": true
+    },
+    {
+      "id": "M11",
+      "name": "加班与调休",
+      "routes": 6,
+      "keep": 1,
+      "fold": 5,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m11-overtime.md",
+      "planExists": true
+    },
+    {
+      "id": "M12",
+      "name": "出差管理",
+      "routes": 7,
+      "keep": 1,
+      "fold": 6,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m12-travel.md",
+      "planExists": true
+    },
+    {
+      "id": "M13",
+      "name": "薪资核算",
+      "routes": 13,
+      "keep": 2,
+      "fold": 11,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m13-payroll.md",
+      "planExists": true
+    },
+    {
+      "id": "M14",
+      "name": "社保公积金与福利",
+      "routes": 1,
+      "keep": 1,
+      "fold": 0,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m14-benefits.md",
+      "planExists": true
+    },
+    {
+      "id": "M15",
+      "name": "绩效考核",
+      "routes": 10,
+      "keep": 1,
+      "fold": 9,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m15-performance.md",
+      "planExists": true
+    },
+    {
+      "id": "M16",
+      "name": "招聘需求与候选人",
+      "routes": 16,
+      "keep": 3,
+      "fold": 13,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m16-recruitment.md",
+      "planExists": true
+    },
+    {
+      "id": "M17",
+      "name": "培训管理",
+      "routes": 9,
+      "keep": 1,
+      "fold": 8,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m17-training.md",
+      "planExists": true
+    },
+    {
+      "id": "M18",
+      "name": "公告与通知",
+      "routes": 6,
+      "keep": 2,
+      "fold": 4,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m18-engagement.md",
+      "planExists": true
+    },
+    {
+      "id": "M19",
+      "name": "用户角色与细粒度权限",
+      "routes": 6,
+      "keep": 2,
+      "fold": 4,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m19-iam.md",
+      "planExists": true
+    },
+    {
+      "id": "M20",
+      "name": "审批流程中心",
+      "routes": 2,
+      "keep": 2,
+      "fold": 0,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m20-workflow.md",
+      "planExists": true
+    },
+    {
+      "id": "M21",
+      "name": "公司基础设置与审计运维",
+      "routes": 3,
+      "keep": 2,
+      "fold": 1,
+      "plan": "docs/superpowers/plans/2026-11-27-v2-3-m21-platform-settings.md",
+      "planExists": true
+    }
+  ]
+}

@@ -139,7 +139,7 @@ final class MePermissionsTest extends TestCase
 
         $response = $this->actAs($user)->getJson('/v1/me/permissions')->assertOk();
 
-        $this->assertCount(153, $this->arrayData($response->json('data.pages')));
+        $this->assertCount(37, $this->arrayData($response->json('data.pages')));
         $this->assertGreaterThanOrEqual(100, count($this->arrayData($response->json('data.actions'))));
         $this->assertContains('P3_RESTRICTED', $this->arrayData($response->json('data.field_capabilities')));
         $this->assertNotEmpty($this->arrayData($response->json('data.scope_labels')));

@@ -30,11 +30,6 @@ const emit = defineEmits<{
 const pageSize = computed(() => props.pageSize ?? 10)
 const pageCount = computed(() => Math.max(1, Math.ceil(props.total / pageSize.value)))
 
-const visibleRows = computed(() => {
-  const start = (props.page - 1) * pageSize.value
-  return props.rows.slice(start, start + pageSize.value)
-})
-
 function headcountLimit(row: Position): string {
   return row.headcount_limit === null ? '未设置' : `${row.headcount_limit} 人`
 }
@@ -97,7 +92,7 @@ function nextPage(): void {
         </thead>
         <tbody>
           <tr
-            v-for="row in visibleRows"
+            v-for="row in rows"
             :key="row.id"
             :data-testid="`position-row-${row.id}`"
             :class="{ 'position-table__row--selected': false }"
@@ -155,7 +150,7 @@ function nextPage(): void {
               </button>
             </td>
           </tr>
-          <tr v-if="visibleRows.length === 0">
+          <tr v-if="rows.length === 0">
             <td colspan="8" class="position-table__empty">当前筛选条件下没有岗位。</td>
           </tr>
         </tbody>

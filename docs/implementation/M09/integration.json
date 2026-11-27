@@ -1,0 +1,204 @@
+{
+  "module": "M09",
+  "pagesAdded": [
+    {
+      "path": "/attendance",
+      "name": "attendance",
+      "componentKey": "attendance/index",
+      "capability": "time.attendance.read",
+      "requiredApis": [
+        "GET /v1/time/attendance",
+        "GET /v1/time/attendance/records",
+        "GET /v1/time/punches",
+        "GET /v1/time/attendance/records/export",
+        "GET /v1/time/attendance/rules",
+        "POST /v1/time/attendance/rules",
+        "GET /v1/time/shifts",
+        "POST /v1/time/shifts",
+        "PATCH /v1/time/shifts/{id}",
+        "POST /v1/time/shifts/{id}/disable",
+        "GET /v1/time/shift-schedules",
+        "POST /v1/time/shift-schedules",
+        "GET /v1/time/attendance/closings",
+        "POST /v1/time/attendance/closings",
+        "POST /v1/time/attendance/closings/{id}/reopen",
+        "POST /v1/time/attendance/recalculate",
+        "GET /v1/time/attendance/devices"
+      ],
+      "actions": []
+    }
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/attendance/punches",
+      "name": "attendance-punches"
+    },
+    {
+      "path": "/attendance/calendar",
+      "name": "attendance-calendar"
+    },
+    {
+      "path": "/attendance/rules",
+      "name": "attendance-rules"
+    },
+    {
+      "path": "/attendance/shifts",
+      "name": "attendance-shifts"
+    },
+    {
+      "path": "/attendance/schedules",
+      "name": "attendance-schedules"
+    },
+    {
+      "path": "/attendance/corrections",
+      "name": "attendance-corrections"
+    },
+    {
+      "path": "/attendance/exceptions",
+      "name": "attendance-exceptions"
+    },
+    {
+      "path": "/attendance/closing",
+      "name": "attendance-closing"
+    },
+    {
+      "path": "/attendance/devices",
+      "name": "attendance-devices"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "attendance-punches",
+    "attendance-calendar",
+    "attendance-rules",
+    "attendance-shifts",
+    "attendance-schedules",
+    "attendance-corrections",
+    "attendance-exceptions",
+    "attendance-closing",
+    "attendance-devices"
+  ],
+  "openapiOperations": [
+    "GET /v1/time/attendance/records",
+    "GET /v1/time/punches",
+    "GET /v1/time/attendance/records/export",
+    "POST /v1/time/shifts",
+    "PATCH /v1/time/shifts/{id}",
+    "POST /v1/time/shifts/{id}/disable"
+  ],
+  "routeChanges": [
+    "KEEP GET /v1/time/attendance and GET /v1/time/attendance/{employment_id}",
+    "ADD GET /v1/time/attendance/records -> AttendanceRecordController@index, capability:time.attendance.read, page/page_size scoped before count",
+    "ADD GET /v1/time/punches -> AttendanceRecordController@punches, capability:time.punch.read, read-only raw punch evidence",
+    "ADD GET /v1/time/attendance/records/export -> AttendanceRecordController@export, capability:time.attendance.export, CSV field whitelist and audit",
+    "ADD POST /v1/time/shifts -> ShiftAdminController@store, csrf.header + capability:time.shift.manage,COMPANY",
+    "ADD PATCH /v1/time/shifts/{id} -> ShiftAdminController@update, csrf.header + capability:time.shift.manage,COMPANY",
+    "ADD POST /v1/time/shifts/{id}/disable -> ShiftAdminController@disable, csrf.header + capability:time.shift.manage,COMPANY",
+    "KEEP GET /v1/time/attendance/rules and POST /v1/time/attendance/rules",
+    "KEEP GET /v1/time/shift-schedules and POST /v1/time/shift-schedules",
+    "KEEP GET /v1/time/attendance/closings, POST /v1/time/attendance/closings, POST /v1/time/attendance/closings/{id}/reopen, POST /v1/time/attendance/recalculate",
+    "KEEP GET /v1/time/attendance/devices (read-only; no write route)"
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "attendance",
+      "key": "attendance.correction.request",
+      "label": "发起补卡",
+      "capability": "time.attendance.correct.request",
+      "api": "POST /v1/time/attendance/corrections",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.records.export",
+      "label": "导出考勤明细",
+      "capability": "time.attendance.export",
+      "api": "GET /v1/time/attendance/records/export",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.rule.publish",
+      "label": "发布考勤规则版本",
+      "capability": "time.attendance.rule.manage",
+      "api": "POST /v1/time/attendance/rules",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.create",
+      "label": "创建班次",
+      "capability": "time.shift.manage",
+      "api": "POST /v1/time/shifts",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.version",
+      "label": "发布班次新版本",
+      "capability": "time.shift.manage",
+      "api": "PATCH /v1/time/shifts/{id}",
+      "ui": "primary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.shift.disable",
+      "label": "停用班次",
+      "capability": "time.shift.manage",
+      "api": "POST /v1/time/shifts/{id}/disable",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.schedule.create",
+      "label": "保存排班",
+      "capability": "time.shift.schedule.manage",
+      "api": "POST /v1/time/shift-schedules",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.close",
+      "label": "考勤关账",
+      "capability": "time.attendance.manage",
+      "api": "POST /v1/time/attendance/closings",
+      "ui": "primary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.reopen",
+      "label": "重开考勤月结",
+      "capability": "time.attendance.reopen",
+      "api": "POST /v1/time/attendance/closings/{id}/reopen",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "attendance",
+      "key": "attendance.recalculate",
+      "label": "重算考勤月",
+      "capability": "time.attendance.manage",
+      "api": "POST /v1/time/attendance/recalculate",
+      "ui": "secondary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "Frontend implementation lives only under frontend/src/modules/time/attendance; router registry/pageComponents/time workspaces, timepay pages barrel/legacy panel, IAM catalogs, routes, OpenAPI and generated files remain shared integration items for the parent agent.",
+    "The ten old TimePayroll attendance page files (attendance/index plus nine subpages) remain in frontend/src/modules/timepay/pages because that path is outside this worker's allowed domain. Delete them, remove their definitions/barrel entries, and delete the AttendancePanel branch when integrating.",
+    "New capabilities required by these routes/actions: time.punch.read, time.attendance.export, time.shift.manage. Add them to CapabilityCatalog, RoleTemplateCatalog (ATTENDANCE_SPECIALIST/HR_ADMIN as appropriate), endpoint_matrix and docs/openapi/openapi.yaml. Also grant time.attendance.read where needed for records tab visibility.",
+    "Remove backend permission-resource catalog entries and role-page assignments for the nine removed attendance page codes; keep attendance only. The attendance page should advertise the new records/punch/export and shift-write APIs instead of its old recalculate-only list.",
+    "The parent must wire GET /v1/time/attendance/records and GET /v1/time/punches before GET /v1/time/attendance/{employment_id}, otherwise the numeric-constraint route will 404 on these literals.",
+    "AttendanceRecordFilterTest and ShiftAdminTest cannot pass until the shared routes/capabilities/OpenAPI entries above are integrated. They and all Vitest files are authored but NOT RUN by M09.",
+    "No migration is required by this implementation: attendance records/punch reads use existing attendance_days/punch_records, shift admin uses existing shift_templates columns (superseded_at, version), and all closing/rule/schedule tables already exist.",
+    "The legacy GET /v1/time/shifts read continues to be used by the workspace. Its existing response omits superseded_at; the UI treats a missing value as null and still shows every returned version. Extend TimeCatalogController only if the parent wants an as-of filter.",
+    "No TimeServiceProvider, IAM, Payroll, routes file, OpenAPI file, generated file, TimePayrollPanel, router file or Time workspaces file was modified by this worker."
+  ]
+}

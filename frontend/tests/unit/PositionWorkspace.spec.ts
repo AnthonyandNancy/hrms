@@ -1,4 +1,4 @@
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import ElementPlus from 'element-plus'
@@ -29,6 +29,7 @@ const FULL_CAPABILITIES = [
   'org.position.manage',
   'org.position.grade.manage',
   'org.position.qualification.manage',
+  'org.position.staff.read',
   'org.unit.read',
 ]
 
@@ -126,12 +127,48 @@ let requirementRows = [requirementVersion(2, { skills: 'PHP', qualifications: 'P
 let positionPageOverrides: Record<string, unknown> = {}
 
 function installWorkspaceGet(): void {
-  resource.get.mockImplementation((path: string) => {
-    if (path === '/v1/positions') return Promise.resolve(list(positionRows, positionPageOverrides))
+  resource.get.mockImplementation((path: string, params?: Record<string, unknown>) => {
+    if (path === '/v1/positions') {
+      const page = Number(params?.page ?? 1)
+      const pageSize = Number(params?.page_size ?? positionRows.length)
+      const start = (page - 1) * pageSize
+      return Promise.resolve(
+        list(positionRows.slice(start, start + pageSize), {
+          total: positionRows.length,
+          page,
+          page_size: pageSize,
+          ...positionPageOverrides,
+        }),
+      )
+    }
     if (path === '/v1/departments') return Promise.resolve(list(DEPARTMENTS))
     if (path === '/v1/positions/grades') return Promise.resolve(list(GRADES))
+    if (/^\/v1\/positions\/\d+\/staff$/.test(path)) {
+      return Promise.resolve(
+        list([
+          {
+            assignment_id: 91,
+            employment_id: 7,
+            employee_no: 'E1007',
+            person_name: '合成员工',
+            org_unit_id: 10,
+            position_id: 1,
+            position_code: 'ENG-001',
+            position_title: '合成工程师',
+            assignment_type: 'PRIMARY',
+            is_primary: true,
+            valid_from: '2026-01-01',
+            valid_to: '9999-12-31',
+          },
+        ]),
+      )
+    }
     if (/^\/v1\/positions\/\d+\/requirements$/.test(path)) {
       return Promise.resolve(list(requirementRows))
+    }
+    if (/^\/v1\/positions\/\d+$/.test(path)) {
+      const id = Number(path.split('/').at(-1))
+      return Promise.resolve(positionRows.find((row) => row.id === id) ?? null)
     }
     return Promise.reject(new Error(`Unexpected GET ${path}`))
   })
@@ -229,10 +266,14 @@ describe('PositionWorkspacePage', () => {
     expect(wrapper.find('[data-testid="position-variance-2"]').exists()).toBe(false)
 
     const positionCall = resource.get.mock.calls.find(([path]) => path === '/v1/positions')
-    expect(positionCall?.[1]).toEqual(expect.objectContaining({ as_of: expect.any(String) }))
-    expect(positionCall?.[1]).not.toHaveProperty('page')
-    expect(positionCall?.[1]).not.toHaveProperty('page_size')
-    expect(positionCall?.[1]).not.toHaveProperty('sort')
+    expect(positionCall?.[1]).toEqual(
+      expect.objectContaining({
+        as_of: expect.any(String),
+        page: 1,
+        page_size: 10,
+        sort: 'code',
+      }),
+    )
 
     positionPageOverrides = { partial: true, partial_reason: '服务端只返回了部分岗位。' }
     await wrapper.get('[data-testid="position-refresh"]').trigger('click')
@@ -240,34 +281,32 @@ describe('PositionWorkspacePage', () => {
     expect(wrapper.get('[data-testid="position-partial"]').text()).toContain('服务端只返回了部分岗位')
   })
 
-  it('applies q and as-of on the server and status and org-unit as explicit client filters', async () => {
+  it('sends q, as-of, status, org-unit and sort to the server instead of filtering locally', async () => {
     const wrapper = await mountWorkspace()
     await flushPromises()
 
-    await wrapper.findComponent('[data-testid="position-filter-status"]').setValue('DISABLED')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="position-row-2"]').exists()).toBe(true)
-
-    await wrapper.findComponent('[data-testid="position-filter-status"]').setValue('ALL')
-    await wrapper.findComponent('[data-testid="position-filter-org-unit"]').setValue('10')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="position-row-2"]').exists()).toBe(false)
-
     await wrapper.get('[data-testid="position-filter-q"]').setValue('工程师')
     await wrapper.get('[data-testid="position-filter-as-of"]').setValue('2026-12-01')
+    await wrapper.findComponent('[data-testid="position-filter-status"]').setValue('DISABLED')
+    await wrapper.findComponent('[data-testid="position-filter-org-unit"]').setValue('10')
+    await wrapper.findComponent('[data-testid="position-filter-sort"]').setValue('title')
     await wrapper.get('[data-testid="position-filter-submit"]').trigger('click')
     await flushPromises()
 
     const calls = resource.get.mock.calls.filter(([path]) => path === '/v1/positions')
     expect(calls.at(-1)?.[1]).toEqual(
-      expect.objectContaining({ as_of: '2026-12-01', q: '工程师' }),
+      expect.objectContaining({
+        as_of: '2026-12-01',
+        q: '工程师',
+        status: 'DISABLED',
+        org_unit_id: 10,
+        sort: 'title',
+        page: 1,
+      }),
     )
-    expect(calls.at(-1)?.[1]).not.toHaveProperty('sort')
   })
 
-  it('paginates only the server-returned rows and resets to page one when filters change', async () => {
+  it('requests the next server page instead of slicing the rows already returned', async () => {
     positionRows = Array.from({ length: 12 }, (_, index) => ({
       ...POSITIONS[0]!,
       id: index + 1,
@@ -277,21 +316,16 @@ describe('PositionWorkspacePage', () => {
     const wrapper = await mountWorkspace()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="position-row-10"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="position-row-11"]').exists()).toBe(false)
 
     await wrapper.get('[data-testid="position-page-next"]').trigger('click')
+    await flushPromises()
+
+    const calls = resource.get.mock.calls.filter(([path]) => path === '/v1/positions')
+    expect(calls.at(-1)?.[1]).toEqual(expect.objectContaining({ page: 2, page_size: 10 }))
     expect(wrapper.find('[data-testid="position-row-11"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(false)
-
-    const statusFilter = wrapper.getComponent('[data-testid="position-filter-status"]') as VueWrapper
-    await statusFilter.setValue('DISABLED')
-    statusFilter.vm.$emit('change', 'DISABLED')
-    await wrapper.vm.$nextTick()
-    await statusFilter.setValue('ACTIVE')
-    statusFilter.vm.$emit('change', 'ACTIVE')
-    await wrapper.vm.$nextTick()
-    expect(wrapper.find('[data-testid="position-row-1"]').exists()).toBe(true)
   })
 
   it('validates the half-open effective range locally and maps create 422 field errors inline', async () => {
@@ -380,7 +414,7 @@ describe('PositionWorkspacePage', () => {
     expect(wrapper.get('[data-testid="position-org-unit"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-testid="position-valid-from"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-testid="position-valid-to"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.get('[data-testid="position-edit-readonly-note"]').text()).toContain('PATCH')
+    expect(wrapper.get('[data-testid="position-edit-readonly-note"]').text()).toContain('不可修改')
 
     await wrapper.get('[data-testid="position-title"]').setValue('高级合成工程师')
     await wrapper.get('[data-testid="position-headcount-limit"]').setValue('5')
@@ -408,6 +442,7 @@ describe('PositionWorkspacePage', () => {
     const wrapper = await mountWorkspace()
     await flushPromises()
     await selectPosition(wrapper, 1)
+    await wrapper.get('[data-testid="position-detail-tab-requirements"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="position-requirements"]').text()).toContain('第 2 版')
@@ -471,7 +506,7 @@ describe('PositionWorkspacePage', () => {
     const forbidden = await mountWorkspace([])
     await flushPromises()
 
-    expect(forbidden.get('[data-testid="position-forbidden"]').text()).toContain('org.position.read')
+    expect(forbidden.get('[data-testid="position-forbidden"]').text()).toContain('没有岗位目录查看能力')
     expect(forbidden.find('[data-testid="position-table"]').exists()).toBe(false)
     expect(resource.get).not.toHaveBeenCalled()
     forbidden.unmount()
@@ -484,8 +519,10 @@ describe('PositionWorkspacePage', () => {
     expect(readOnly.find('[data-testid="position-create"]').exists()).toBe(false)
     await selectPosition(readOnly, 1)
     expect(readOnly.find('[data-testid="position-edit"]').exists()).toBe(false)
+    await readOnly.get('[data-testid="position-detail-tab-requirements"]').trigger('click')
+    await flushPromises()
     expect(readOnly.get('[data-testid="position-requirements-gap"]').text()).toContain(
-      'org.position.qualification.manage',
+      '无权查看或维护任职资格版本',
     )
   })
 

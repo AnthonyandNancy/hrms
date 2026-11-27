@@ -32,6 +32,10 @@ test-results/
 
 # Build outputs (generated, not source)
 /build/
+/backend/build/
+/.review/
+/dist-packages/
+/FactoryHR_*.zip
 /交付物/*.pdf
 *.tmp
 *.log

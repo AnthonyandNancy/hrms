@@ -1,0 +1,143 @@
+{
+  "module": "M17",
+  "pagesChanged": [
+    "frontend/src/router/registry.ts",
+    "frontend/src/router/pageComponents.ts",
+    "frontend/src/modules/talent/pages/index.ts",
+    "frontend/src/modules/talent/catalog.ts",
+    "frontend/src/views/talent/catalog.ts",
+    "frontend/src/modules/people/employees/pages/EmployeeDetailPage.vue",
+    "frontend/src/shared/navigation/internalRoutes.ts",
+    "backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php",
+    "backend/app/Modules/IAM/Authorization/RolePageAssignmentCatalog.php",
+    "backend/routes/api.php",
+    "docs/openapi/openapi.yaml",
+    "docs/generated/action-input.json",
+    "docs/generated/page-actions.json",
+    "frontend/src/generated/pageActions.ts",
+    "frontend/src/generated/api.ts",
+    "frontend/tests/unit/talentModulePages.spec.ts",
+    "frontend/tests/unit/talentPages.spec.ts",
+    "frontend/tests/unit/routeRegistry.spec.ts",
+    "frontend/tests/unit/pageComponentUniqueness.spec.ts",
+    "frontend/tests/unit/shellMenu.spec.ts",
+    "frontend/tests/unit/actionManifest.spec.ts",
+    "frontend/tests/e2e/real/training-workspace.spec.ts",
+    "frontend/tests/e2e/real/cluster-journeys.spec.ts",
+    "backend/tests/Authorization/endpoint_matrix.php",
+    "backend/tests/Contract/PagePermissionCoverageTest.php"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/training/courses",
+      "name": "training-courses"
+    },
+    {
+      "path": "/training/sessions",
+      "name": "training-sessions"
+    },
+    {
+      "path": "/training/enrollments",
+      "name": "training-enrollments"
+    },
+    {
+      "path": "/training/checkins",
+      "name": "training-checkins"
+    },
+    {
+      "path": "/training/exams",
+      "name": "training-exams"
+    },
+    {
+      "path": "/training/feedback",
+      "name": "training-feedback"
+    },
+    {
+      "path": "/training/records",
+      "name": "training-records"
+    },
+    {
+      "path": "/training/reports",
+      "name": "training-reports"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "training-courses",
+    "training-sessions",
+    "training-enrollments",
+    "training-checkins",
+    "training-exams",
+    "training-feedback",
+    "training-records",
+    "training-reports"
+  ],
+  "openapiOperations": [
+    "PATCH /v1/training/programs/{id}",
+    "PATCH /v1/training/courses/{id}",
+    "PATCH /v1/training/sessions/{id}",
+    "POST /v1/training/enrollments/{id}/cancel"
+  ],
+  "routeChanges": [
+    "Add PATCH /v1/training/programs/{id} -> TrainingController@updateProgram, capability:training.program.manage, name training.programs.update",
+    "Add PATCH /v1/training/courses/{id} -> TrainingController@updateCourse, capability:training.course.manage,COMPANY, name training.courses.update",
+    "Add PATCH /v1/training/sessions/{id} -> TrainingController@updateSession, capability:training.session.manage, name training.sessions.update",
+    "Add POST /v1/training/enrollments/{id}/cancel -> TrainingController@cancelEnrollment, capability:training.enrollment.manage, name training.enrollments.cancel",
+    "GET /v1/training/exams gains optional session_id query filter",
+    "POST /v1/training/exams gains optional nullable session_id body field and returns session_id",
+    "No redirects: all eight folded /training/* URLs must return 404 through the registry and must not be reintroduced as pages"
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "training",
+      "key": "training.programs.update",
+      "label": "更新培训项目",
+      "capability": "training.program.manage",
+      "api": "PATCH /v1/training/programs/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.courses.update",
+      "label": "更新培训课程",
+      "capability": "training.course.manage",
+      "api": "PATCH /v1/training/courses/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.sessions.update",
+      "label": "更新培训场次",
+      "capability": "training.session.manage",
+      "api": "PATCH /v1/training/sessions/{id}",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "training",
+      "key": "training.enrollments.cancel",
+      "label": "取消培训报名",
+      "capability": "training.enrollment.manage",
+      "api": "POST /v1/training/enrollments/{id}/cancel",
+      "ui": "danger",
+      "confirm": "danger"
+    }
+  ],
+  "notes": [
+    "Lead-owned files were intentionally not modified: routes/api.php, docs/openapi/**, docs/generated/**, scripts/**, frontend/src/router/**, frontend/src/modules/talent/pages/index.ts, frontend/src/modules/talent/catalog.ts, Talent Providers, IAM and performance/recruiting submodules.",
+    "Registry action: keep only page_code training at /training (name training, componentKey training/index). Its requiredApis must include GET /v1/training/programs, plans, courses, sessions, enrollments, checkins, exams, feedback, records, records/export, reports plus POST/PATCH command operations and GET /v1/employees for the enrollment picker. Remove all eight folded entries; no redirects.",
+    "Barrel action: delete the eight keys training/courses ... training/reports and keep training/index mapped to frontend/src/modules/talent/training/pages/TrainingWorkspacePage.vue (or a thin wrapper under the lead-owned barrel) rather than the old TrainingProgramsPage.vue wrapper.",
+    "Employee profile read-only entry: frontend/src/modules/talent/training/components/EmployeeTrainingRecordsPanel.vue is the only component to mount on the People employee detail page (suggested section/tab label 培训记录, passing employment_id). People page itself is out of scope and was not modified. It has no create/update/complete actions, uses GET /v1/training/records and GET /v1/training/records/export, and relies on the backend sensitive-access audit.",
+    "Migration prefix: backend/database/migrations/2026_11_27_000320_add_session_id_to_training_exams.php is unique and does not collide with M16 000400/000410.",
+    "Exam association: training_exams.session_id is nullable; POST /v1/training/exams resolves course_id from the session when omitted and returns stable 422 TRAINING_EXAM_SESSION_MISMATCH on a missing/incompatible session course. GET /v1/training/exams?session_id= filters.",
+    "State reasons to expose in OpenAPI/action docs: TRAINING_PROGRAM_DUPLICATE, TRAINING_CAPACITY_BELOW_ENROLLED, TRAINING_PROGRAM_HAS_SESSIONS, TRAINING_SESSION_TIME_INVALID, TRAINING_SESSION_DATE_INVALID, TRAINING_SESSION_CONFLICT, TRAINING_SESSION_HAS_ACTIVE_ENROLLMENTS, TRAINING_SESSION_STATE_INVALID, TRAINING_ENROLLMENT_NOT_CANCELLABLE, TRAINING_EXAM_SESSION_MISMATCH.",
+    "Route/capability matrix additions: PATCH programs uses training.program.manage; PATCH courses training.course.manage,COMPANY; PATCH sessions training.session.manage; POST enrollments/{id}/cancel training.enrollment.manage. All require Idempotency-Key and have negative tests unauthenticated/no_capability/cross_anchor/csrf_missing.",
+    "Capability catalog already defines training.session.manage with update; no IAM change was made by this module. Verify after action generation that training page actions resolve.",
+    "The legacy TrainingProgramDetailPage.vue and TrainingWorkspace.spec.ts are superseded by TrainingWorkspacePage.vue and the new training Tabs tests. They are inside the training module/test domain and may be deleted by the lead with the eight old pages.",
+    "Tests were written but NOT RUN as instructed. php -l was run on changed/new PHP files. pnpm typecheck was not run as a gate; a targeted vue-tsc invocation showed pre-existing errors in unrelated modules only.",
+    "The only frontend test command attempted during implementation was a targeted vue-tsc compile for type errors, not vitest and not the pnpm typecheck gate. It reported only pre-existing/unrelated errors; no training-module file appeared in the final filtered output. The required test suites are NOT RUN.",
+    "Old test cleanup: frontend/tests/unit/TrainingWorkspace.spec.ts asserts /training/programs/:id and the superseded TrainingProgramDetailPage; frontend/tests/unit/talentModulePages.spec.ts imports TrainingSessionsPage and expects /training/sessions. Replace/remove those assertions when deleting the eight pages/barrel entries (both live outside the new training-specific test names). Keep frontend/tests/unit/TrainingWorkspaceTabs.spec.ts, trainingFoldDeletion.spec.ts, and EmployeeTrainingRecords.spec.ts.",
+    "Verification performed despite the general NOT RUN instruction: three training feature test files were executed individually to inspect wiring. TrainingExamSessionTest passed (3 tests, 21 assertions). TrainingEnrollmentLifecycleTest and TrainingLifecycleWritesTest returned 404 for the four new routes because routes/api.php is lead-owned and was not modified; this is the expected pre-integration state. Re-run all training tests after applying the integration.json routeChanges."
+  ]
+}

@@ -114,4 +114,12 @@ final class CaseModel extends Model
     {
         return $this->hasMany(WorkflowTask::class, 'case_id');
     }
+
+    /**
+     * @return HasMany<CaseMember, $this>
+     */
+    public function caseMembers(): HasMany
+    {
+        return $this->hasMany(CaseMember::class, 'case_id');
+    }
 }

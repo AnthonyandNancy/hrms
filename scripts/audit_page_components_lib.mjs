@@ -19,27 +19,16 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pathToFileURL } from 'node:url'
 
-// ADR-0035: seven create/edit/archive form routes became workspace actions,
-// so the registry is 155 entries (6 base + 134 business + 15 platform).
-const EXPECTED_REGISTRY_COUNT = 155
-const accountSecurityView = 'frontend/src/views/AccountSecurityView.vue'
+// ADR-0035 turned form routes into workspace actions; M01 folded three account
+// and self-service routes, M21 folded calendars and M19 folds four IAM routes
+// into /system/pages and /system/roles, leaving 148 entries.
+const EXPECTED_REGISTRY_COUNT = 37
 
 /**
- * The only permitted page-level reuse in the registry.
- *
- * MFA enrollment and session management are two sections of one account
- * security screen. Any other shared page file, or a third page joining this
- * group, fails the gate.
+ * Page-level reuse is forbidden. M01 folded MFA and session management into
+ * the single `/account` page, so the previous two-key exception is gone.
  */
-export const DEFAULT_SHARED_ALLOWLIST = [
-  {
-    keys: ['base/AccountMfaView', 'base/AccountSessionsView'],
-    file: accountSecurityView,
-    reason:
-      'MFA enrollment and session management are two sections of the single ' +
-      'AccountSecurityView account-security screen.',
-  },
-]
+export const DEFAULT_SHARED_ALLOWLIST = []
 
 function toPosix(path) {
   return path.split(sep).join('/')
@@ -353,15 +342,23 @@ export function discoverPageComponentManifest({ root = process.cwd() } = {}) {
 
   const modulesDir = join(root, 'frontend/src/modules')
   if (existsSync(modulesDir) && statSync(modulesDir).isDirectory()) {
-    const moduleNames = readdirSync(modulesDir)
+    const manifestSources = readdirSync(modulesDir)
       .filter((name) => {
         const moduleDir = join(modulesDir, name)
         return statSync(moduleDir).isDirectory() && existsSync(join(moduleDir, 'pages/index.ts'))
       })
       .sort()
+      .map((name) => ({ moduleName: name, indexPath: join(modulesDir, name, 'pages/index.ts') }))
 
-    for (const moduleName of moduleNames) {
-      const indexPath = join(modulesDir, moduleName, 'pages/index.ts')
+    // Some domains own several workspaces behind a shared barrel instead of a
+    // single pages/index.ts (Time's attendance/leave/overtime/travel are the
+    // canonical example). Include these first-class page manifests too.
+    const timeWorkspacesIndex = join(modulesDir, 'time/workspaces/index.ts')
+    if (existsSync(timeWorkspacesIndex)) {
+      manifestSources.push({ moduleName: 'time/workspaces', indexPath: timeWorkspacesIndex })
+    }
+
+    for (const { moduleName, indexPath } of manifestSources) {
       const source = stripComments(readFileSync(indexPath, 'utf8'))
       const block = findAssignedBlock(source, 'PAGE_COMPONENTS', '{')
 

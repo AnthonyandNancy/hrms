@@ -144,7 +144,7 @@ final class DashboardConsistencyTest extends ReportingTestCase
         $this->assertCount(2, $allowed['items']);
     }
 
-    public function test_unavailable_metric_keeps_status_and_reason_instead_of_becoming_zero_pass(): void
+    public function test_unconfigured_metric_keeps_status_and_reason_instead_of_becoming_zero_pass(): void
     {
         $ids = $this->seedSyntheticWorkforce();
         $this->authenticate(
@@ -163,7 +163,7 @@ final class DashboardConsistencyTest extends ReportingTestCase
         $this->assertArrayHasKey('reason', $payroll);
         $this->assertArrayHasKey('sourceHash', $payroll);
         $this->assertArrayHasKey('computedAt', $payroll);
-        $this->assertSame('UNAVAILABLE', $payroll['status']);
+        $this->assertSame('UNCONFIGURED', $payroll['status']);
         $this->assertNotSame('AVAILABLE', $payroll['status']);
         $this->assertNotSame('PASS', $payroll['status']);
         $this->assertIsString($payroll['reason']);
@@ -180,7 +180,7 @@ final class DashboardConsistencyTest extends ReportingTestCase
         )->assertOk()->json('data');
 
         $this->assertSame(self::BUSINESS_DATE, $drilldown['asOf']);
-        $this->assertSame('UNAVAILABLE', $drilldown['status']);
+        $this->assertSame('UNCONFIGURED', $drilldown['status']);
         $this->assertNotSame('AVAILABLE', $drilldown['status']);
         $this->assertNotSame('PASS', $drilldown['status']);
         $this->assertIsString($drilldown['reason']);

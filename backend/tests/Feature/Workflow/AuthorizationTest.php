@@ -138,15 +138,24 @@ class AuthorizationTest extends TestCase
         $this->bootWorkflow(userId: 10);
         $template = $this->createTemplate();
 
-        foreach (range(1, 5) as $index) {
+        foreach (range(1, 10) as $index) {
             $this->createCaseThroughApi($template, ['title' => "Case {$index}"])->assertCreated();
         }
 
+        // Warm the display-name projection cache so the comparison measures
+        // page-size-dependent queries, not a one-time user lookup.
+        $this->getJson('/v1/cases?page_size=10')->assertOk();
+
         \Illuminate\Support\Facades\DB::enableQueryLog();
-        $this->getJson('/v1/cases?page_size=20')->assertOk();
-        $queries = \Illuminate\Support\Facades\DB::getQueryLog();
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        $this->getJson('/v1/cases?page_size=5')->assertOk();
+        $smallPageQueries = count(\Illuminate\Support\Facades\DB::getQueryLog());
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        $this->getJson('/v1/cases?page_size=10')->assertOk();
+        $largePageQueries = count(\Illuminate\Support\Facades\DB::getQueryLog());
         \Illuminate\Support\Facades\DB::disableQueryLog();
 
-        $this->assertLessThanOrEqual(4, count($queries), 'Case list must not N+1; got '.count($queries).' queries.');
+        $this->assertSame($smallPageQueries, $largePageQueries, 'Case list must not N+1.');
     }
 }

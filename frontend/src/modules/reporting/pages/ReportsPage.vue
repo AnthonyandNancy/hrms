@@ -1,31 +1,55 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   fieldLabel,
   listReportDefinitions,
   listOrgUnits,
+  reportCellText,
+  reportDomainLabel,
   runReport,
+  statusText,
   type OrgUnitOption,
   type ReportDefinition,
   type ReportResult,
 } from '../api'
 import { formatBusinessDate, formatDateTimeInTimezone, todayBusinessDate } from '@/utils/format'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { errorCopy } from '@/api/errors'
-import { translate } from '@/shared/display/dictionary'
 import { requestIdFromError } from '@/utils/renderErrors'
 import { useSessionStore } from '@/stores/session'
 import ExportPanel from '../components/ExportPanel.vue'
 import ReportRunner from '../components/ReportRunner.vue'
+import ReportCatalog from '../components/ReportCatalog.vue'
+
+const reportColumns = computed<DataTableColumn[]>(() =>
+  (result.value?.columns ?? []).map((column) => ({
+    key: column.key,
+    label: fieldLabel(column.key, column.label),
+  })),
+)
+
+const reportRows = computed<Array<Record<string, unknown>>>(() =>
+  (result.value?.rows ?? []).map((row, index) => {
+    const output: Record<string, unknown> = { id: index }
+    for (const column of result.value?.columns ?? []) {
+      output[column.key] = cellText(row[column.key] ?? null, column.key)
+    }
+    return output
+  }),
+)
 
 const session = useSessionStore()
+const route = useRoute()
+const router = useRouter()
 const loading = ref(true)
 const loadError = ref<unknown>(null)
 const definitionsPartial = ref('')
 const definitions = ref<ReportDefinition[]>([])
-const selectedCode = ref('')
+const selectedCode = ref(typeof route?.query?.report === 'string' ? route.query.report : '')
 const asOf = ref(todayBusinessDate())
 const filters = reactive<Record<string, string>>({})
 const orgUnits = ref<OrgUnitOption[]>([])
@@ -48,11 +72,29 @@ function resetFilters(definition: ReportDefinition | null): void {
   }
 }
 
-watch(selectedCode, () => {
+watch(selectedCode, (code) => {
   result.value = null
   runError.value = ''
   resetFilters(selectedDefinition.value)
+
+  // Deep-link state lives in the URL so refresh keeps the chosen report. The
+  // router is optional in focused component tests and never blocks rendering.
+  if (router === undefined || route === undefined) return
+  const query: Record<string, string | null | Array<string | null>> = { ...route.query }
+  if (code === '') delete query.report
+  else query.report = code
+  void router.replace({ query })
 })
+
+watch(
+  () => route?.query?.report ?? '',
+  (value) => {
+    const code = typeof value === 'string' ? value : ''
+    if (code !== '' && code !== selectedCode.value && definitions.value.some((definition) => definition.code === code)) {
+      selectedCode.value = code
+    }
+  },
+)
 
 async function load(): Promise<void> {
   if (!canRead.value) {
@@ -76,7 +118,12 @@ async function load(): Promise<void> {
       definitionsPartial.value = '组织树暂不可用，按组织的筛选选项为空；报表目录仍可使用。'
     }
     if (page.value.partial) definitionsPartial.value = page.value.partialReason ?? '报表目录只返回了部分结果。'
-    if (!definitions.value.some((definition) => definition.code === selectedCode.value)) {
+    const requestedCode = typeof route?.query?.report === 'string' ? route.query.report : ''
+    const requestedExists = definitions.value.some((definition) => definition.code === requestedCode)
+
+    if (requestedExists) {
+      selectedCode.value = requestedCode
+    } else if (!definitions.value.some((definition) => definition.code === selectedCode.value)) {
       selectedCode.value = definitions.value[0]?.code ?? ''
     }
     resetFilters(selectedDefinition.value)
@@ -102,6 +149,8 @@ async function execute(): Promise<void> {
       as_of: asOf.value,
     })
   } catch (reason) {
+    // A failed query is never an empty result. `result` remains null and the
+    // template renders the error branch only.
     runError.value = errorCopy(reason)
   } finally {
     running.value = false
@@ -109,14 +158,10 @@ async function execute(): Promise<void> {
 }
 
 function cellText(value: string | number | null, key: string): string {
-  if (value === null || value === '') return '—'
-  if (typeof value === 'number') return new Intl.NumberFormat('zh-CN').format(value)
-  if (key === 'status') return statusCopy(value)
-  return String(value)
-}
-
-function statusCopy(value: string): string {
-  return translate('reporting', 'reportStatus', value, '其他状态').label
+  if (key === 'status' && typeof value === 'string' && value !== '') {
+    return statusText(value)
+  }
+  return reportCellText(value, key)
 }
 
 void load()
@@ -165,25 +210,11 @@ void load()
       </el-alert>
 
       <div class="report-layout">
-        <aside class="panel report-catalog" aria-label="报表目录">
-          <div class="panel__header">
-            <h2 class="panel__title">报表目录</h2>
-          </div>
-          <nav class="report-catalog__list">
-            <button
-              v-for="definition in definitions"
-              :key="definition.code"
-              type="button"
-              class="report-catalog__item"
-              :class="{ 'report-catalog__item--active': definition.code === selectedCode }"
-              :data-testid="`report-definition-${definition.code}`"
-              @click="selectedCode = definition.code"
-            >
-              <span class="report-catalog__name">{{ definition.name }}</span>
-              <span class="report-catalog__description">{{ definition.description }}</span>
-            </button>
-          </nav>
-        </aside>
+        <ReportCatalog
+          :definitions="definitions"
+          :selected="selectedCode"
+          @select="selectedCode = $event"
+        />
 
         <div class="stack report-main">
           <ReportRunner
@@ -198,55 +229,64 @@ void load()
             @run="execute"
           />
 
-          <p v-if="runError" class="report-error" role="alert" data-testid="report-run-error">{{ runError }}</p>
+          <ErrorState
+            v-if="runError"
+            title="报表查询失败"
+            :description="runError"
+            data-testid="report-error"
+            @retry="execute"
+          />
 
-          <section v-if="result" class="panel" data-testid="report-result">
-            <div class="panel__header">
-              <div>
-                <h2 class="panel__title">{{ result.title }}</h2>
-                <p class="panel__subtitle">
-                  截至 {{ formatBusinessDate(result.asOf) }} · 共 {{ result.total }} 行 · 生成于
-                  {{ formatDateTimeInTimezone(result.generatedAt) }}
-                </p>
-              </div>
-              <span class="plain-chip">{{ result.freshness === 'MATERIALIZED' ? '缓存结果' : result.freshness === 'LIVE' ? '实时结果' : '结果状态未知' }}</span>
-            </div>
-
-            <div class="panel__body report-meta">
-              <span><strong>截至日期</strong> {{ result.asOf }}</span>
-              <span><strong>数据版本</strong> <code class="mono">{{ result.sourceHash }}</code></span>
-              <span><strong>total</strong> {{ result.total }}</span>
-            </div>
-
-            <el-alert v-if="result.partial" type="warning" :closable="false" show-icon data-testid="report-partial">
-              <template #title>部分结果：{{ result.partialReason ?? '服务端只返回了部分结果，请缩小筛选范围或稍后重试。' }}</template>
+          <template v-else-if="result">
+            <el-alert
+              v-if="result.partial"
+              type="warning"
+              :closable="false"
+              show-icon
+              data-testid="report-partial"
+            >
+              <template #title>部分结果：{{ result.partialReason ?? '服务端投影仍在物化，当前结果可能不完整。' }}</template>
             </el-alert>
 
-            <div v-if="result.rows.length === 0" class="panel__body" data-testid="report-empty">
-              <EmptyState
-                title="当前报表没有数据"
-                description="该定义在所选业务日期和筛选条件下没有返回任何行；页面不会用示例数据填充。"
+            <section class="panel" data-testid="report-result">
+              <div class="panel__header">
+                <div>
+                  <h2 class="panel__title">{{ result.title }}</h2>
+                  <p class="panel__subtitle">
+                    截至 {{ formatBusinessDate(result.asOf) }} · 共 {{ result.total }} 行 · 生成于
+                    {{ formatDateTimeInTimezone(result.generatedAt) }}
+                  </p>
+                </div>
+                <span class="plain-chip">{{ reportDomainLabel(selectedDefinition?.domain ?? '') }}</span>
+              </div>
+
+              <div v-if="result.rows.length === 0" class="panel__body" data-testid="report-empty">
+                <EmptyState title="当前报表没有数据" description="服务端已成功返回结果，当前筛选条件下没有匹配记录。" />
+              </div>
+
+              <DataTable
+                v-else
+                :columns="reportColumns"
+                :rows="reportRows"
+                :total="reportRows.length"
+                :page="1"
+                :page-size="Math.max(1, reportRows.length)"
+                row-key="id"
+                data-testid="report-run-table"
+                empty-title="当前报表没有数据"
               />
-            </div>
 
-            <div v-else class="report-table-wrap">
-              <el-table :data="result.rows" class="report-table" data-testid="report-table">
-                <el-table-column
-                  v-for="column in result.columns"
-                  :key="column.key"
-                  :label="column.label"
-                  :min-width="140"
-                >
-                  <template #default="{ row }">
-                    {{ cellText(row[column.key] ?? null, column.key) }}
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
+              <div class="panel__body report-meta">
+                <span><strong>数据版本</strong><span class="mono">{{ result.sourceHash }}</span></span>
+                <span><strong>统计范围</strong>{{ formatBusinessDate(result.asOf) }}</span>
+                <span><strong>结果行数</strong>{{ result.total }}</span>
+              </div>
+            </section>
+          </template>
 
-            <div class="panel__footer">
-              <span class="small muted">字段：{{ result.columns.map((column) => fieldLabel(column.key, column.label)).join('、') }}</span>
-              <span class="small muted">数据版本用于确认本次结果与导出使用同一投影。</span>
+          <section v-else-if="!running && selectedDefinition" class="panel" data-testid="report-idle">
+            <div class="panel__body">
+              <EmptyState title="尚未运行报表" description="设置业务日期与筛选条件后点击“运行报表”。未运行不等于 0 行。" />
             </div>
           </section>
 
@@ -268,44 +308,6 @@ void load()
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-}
-
-.report-catalog__list {
-  display: flex;
-  flex-direction: column;
-}
-
-.report-catalog__item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 16px;
-  font: inherit;
-  text-align: left;
-  color: inherit;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid #edf1ef;
-  cursor: pointer;
-}
-
-.report-catalog__item:hover,
-.report-catalog__item--active {
-  background: #f4f8f7;
-}
-
-.report-catalog__item--active {
-  box-shadow: inset 3px 0 0 var(--color-brand);
-}
-
-.report-catalog__name {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.report-catalog__description {
-  color: var(--color-ink-muted);
-  font-size: 10.5px;
 }
 
 .report-meta {
@@ -345,16 +347,6 @@ void load()
 .report-table td {
   padding: 10px 14px;
   border-bottom: 1px solid #edf1ef;
-}
-
-.report-error {
-  margin: 0;
-  padding: 10px 13px;
-  color: #8a2c2c;
-  font-size: 12px;
-  background: #fff4f2;
-  border: 1px solid #f0c7c0;
-  border-radius: var(--radius-sm);
 }
 
 .reports-forbidden {

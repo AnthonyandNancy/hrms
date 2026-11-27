@@ -1,0 +1,147 @@
+{
+  "module": "M16",
+  "pagesChanged": [
+    "frontend/src/modules/talent/recruiting/pages/RequisitionWorkspacePage.vue",
+    "frontend/src/modules/talent/recruiting/pages/CandidateWorkspacePage.vue",
+    "frontend/src/modules/talent/recruiting/pages/CandidateDetailPage.vue",
+    "frontend/src/modules/talent/recruiting/api.ts"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/recruitment/requests/approval",
+      "name": "recruitment-requests-approval"
+    },
+    {
+      "path": "/recruitment/requests/openings",
+      "name": "recruitment-requests-openings"
+    },
+    {
+      "path": "/recruitment/requests/board",
+      "name": "recruitment-requests-board"
+    },
+    {
+      "path": "/recruitment/requests/budget",
+      "name": "recruitment-requests-budget"
+    },
+    {
+      "path": "/recruitment/requests/reports",
+      "name": "recruitment-requests-reports"
+    },
+    {
+      "path": "/recruitment/candidates/imports",
+      "name": "recruitment-candidates-imports"
+    },
+    {
+      "path": "/recruitment/candidates/pipeline",
+      "name": "recruitment-candidates-pipeline"
+    },
+    {
+      "path": "/recruitment/candidates/interviews",
+      "name": "recruitment-candidates-interviews"
+    },
+    {
+      "path": "/recruitment/candidates/evaluations",
+      "name": "recruitment-candidates-evaluations"
+    },
+    {
+      "path": "/recruitment/candidates/offers",
+      "name": "recruitment-candidates-offers"
+    },
+    {
+      "path": "/recruitment/candidates/communications",
+      "name": "recruitment-candidates-communications"
+    },
+    {
+      "path": "/recruitment/candidates/talent-pool",
+      "name": "recruitment-candidates-talent-pool"
+    },
+    {
+      "path": "/recruitment/candidates/convert",
+      "name": "recruitment-candidates-convert"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "recruitment-requests-approval",
+    "recruitment-requests-openings",
+    "recruitment-requests-board",
+    "recruitment-requests-budget",
+    "recruitment-requests-reports",
+    "recruitment-candidates-imports",
+    "recruitment-candidates-pipeline",
+    "recruitment-candidates-interviews",
+    "recruitment-candidates-evaluations",
+    "recruitment-candidates-offers",
+    "recruitment-candidates-communications",
+    "recruitment-candidates-talent-pool",
+    "recruitment-candidates-convert"
+  ],
+  "openapiOperations": [
+    "GET /v1/recruitment/requisitions",
+    "POST /v1/recruitment/requisitions",
+    "PATCH /v1/recruitment/requisitions/{id}",
+    "POST /v1/recruitment/requisitions/{id}/close",
+    "GET /v1/recruitment/candidates",
+    "POST /v1/recruitment/candidates",
+    "GET /v1/recruitment/requisitions/{id}/openings",
+    "POST /v1/recruitment/requisitions/{id}/openings",
+    "GET /v1/recruitment/candidates/{id}/applications",
+    "POST /v1/recruitment/candidates/{id}/applications",
+    "PATCH /v1/recruitment/candidates/{id}/stage",
+    "GET /v1/recruitment/candidates/{id}/interviews",
+    "GET /v1/recruitment/candidates/{id}/evaluations",
+    "POST /v1/recruitment/candidates/{id}/evaluations",
+    "GET /v1/recruitment/candidates/{id}/communications",
+    "POST /v1/recruitment/candidates/{id}/communications",
+    "GET /v1/recruitment/candidates/{id}/talent-pool",
+    "POST /v1/recruitment/candidates/{id}/talent-pool",
+    "POST /v1/recruitment/offers",
+    "POST /v1/recruitment/offers/{id}/accept",
+    "POST /v1/recruitment/candidates/{id}/convert",
+    "POST /v1/recruitment/candidates/imports",
+    "GET /v1/recruitment/board",
+    "GET /v1/recruitment/budget",
+    "GET /v1/recruitment/reports"
+  ],
+  "routeChanges": [
+    "Lead must add GET /v1/recruitment/candidates/{id}/applications -> RecruitmentController@applications (capability:recruitment.candidate.read).",
+    "Lead must add POST /v1/recruitment/candidates/{id}/applications -> RecruitmentController@storeApplication (csrf.header + capability:recruitment.candidate.manage).",
+    "Lead must add PATCH /v1/recruitment/candidates/{id}/stage to routes/api.php (capability:recruitment.candidate.manage); the controller now accepts application_id/requisition_id and rejects illegal transitions with 409.",
+    "Lead must add GET /v1/recruitment/candidates/{id}/interviews for the candidate detail tab (capability:recruitment.interview.manage).",
+    "No redirects: the 13 folded URLs are deleted from the registry/barrel/catalog and must return 404."
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.applications.create",
+      "label": "新增应聘申请",
+      "capability": "recruitment.candidate.manage",
+      "api": "POST /v1/recruitment/candidates/{id}/applications"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.offers.accept",
+      "label": "接受录用通知",
+      "capability": "recruitment.offer.accept",
+      "api": "POST /v1/recruitment/offers/{id}/accept"
+    },
+    {
+      "pageCode": "recruitment-candidates",
+      "key": "recruitment.candidates.convert",
+      "label": "录用转入职",
+      "capability": "recruitment.candidate.convert",
+      "api": "POST /v1/recruitment/candidates/{id}/convert"
+    }
+  ],
+  "notes": [
+    "candidate_applications is the recruitment fact table; unique(candidate_id,requisition_id) prevents duplicate applications and candidate list projections now derive requisition_id/application_stage from it.",
+    "Offer acceptance creates exactly one Lifecycle onboarding draft per offer through TalentOnboardingDraftPort; lifecycle_intents.offer_id and unique(case_type,offer_id) enforce the invariant.",
+    "Conversion never creates people/employments/assignments: it reads Lifecycle onboarding status and returns 202 PENDING_ONBOARDING until APPLIED, then records one candidate_conversion with onboarding_case_id and returns 201; repeats replay business_replayed=true.",
+    "Closed requisition rejects new applications, interviews, offers and offer acceptance with 409 REQUISITION_CLOSED/REQUISITION_NOT_APPROVED.",
+    "All writes are CommandRunner/IdempotencyRunner paths with Idempotency-Key, AuditRecorder evidence and capability checks; state transitions are guarded by CandidateApplicationStateMachine and OfferStateMachine.",
+    "Frontend workspaces: /recruitment/requests hosts approval/openings/board/budget/report views; /recruitment/candidates hosts list/pipeline/import; /recruitment/candidates/:id has eight tabs (overview, applications, interviews, evaluations, offers, communications, talent pool, conversion).",
+    "File deletions for the 13 folded Vue pages and registry/catalog/action updates are intentionally left to the lead agent because those paths are outside this agent's strict file domain.",
+    "Tests and migrations were written but NOT RUN. Only php -l was executed for the changed PHP files.",
+    "Migration prefixes: 2026_11_27_000310 candidate_applications, 000321 candidate_conversions.onboarding_case_id, 000330 lifecycle_intents.offer_id; 000320 was already taken by a concurrent training migration.",
+    "Frontend pages/index.ts, catalog.ts, generated action manifests and old Vue deletions were reverted/left untouched per strict file-domain; lead must apply them from pagesRemoved/backendCatalogRemoved."
+  ]
+}

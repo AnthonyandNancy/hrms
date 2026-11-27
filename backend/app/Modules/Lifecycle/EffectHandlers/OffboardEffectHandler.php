@@ -82,6 +82,19 @@ final class OffboardEffectHandler implements DomainEffectHandler
             }
 
             $assignment = $this->employments->assignmentAsOf($employmentId, $lastWorkingDate);
+            $this->support->freezeBefore($command->caseId, [
+                'employment_id' => $employmentId,
+                'employment_status' => $employment->status,
+                'termination_date' => $employment->terminationDate,
+                'valid_to' => $employment->validTo,
+                'assignment' => $assignment !== null ? [
+                    'assignment_id' => $assignment->id,
+                    'org_unit_id' => $assignment->orgUnitId,
+                    'position_id' => $assignment->positionId,
+                    'valid_from' => $assignment->validFrom,
+                    'valid_to' => $assignment->validTo,
+                ] : null,
+            ]);
 
             if ($assignment !== null) {
                 $this->people->endAssignment(
@@ -116,7 +129,25 @@ final class OffboardEffectHandler implements DomainEffectHandler
             }
 
             $cancelledExports = $this->exports->cancelPendingForEmployment($employmentId, 'OFFBOARD');
-            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $lastWorkingDate);
+            $this->support->markEffective(
+                caseId: $command->caseId,
+                employmentId: $employmentId,
+                resultEmploymentId: $employmentId,
+                effectiveAt: $lastWorkingDate,
+                after: [
+                    'employment_id' => $employmentId,
+                    'employment_status' => 'TERMINATED',
+                    'last_working_date' => $lastWorkingDate,
+                    'sessions_revoked' => count($revocations),
+                    'export_tasks_cancelled' => $cancelledExports,
+                ],
+                result: [
+                    'employment_id' => $employmentId,
+                    'last_working_date' => $lastWorkingDate,
+                    'sessions_revoked' => count($revocations),
+                    'export_tasks_cancelled' => $cancelledExports,
+                ],
+            );
 
             return DomainEffectResult::appliedWithOutbox('employment.terminated.v1', [
                 'employment_id' => $employmentId,

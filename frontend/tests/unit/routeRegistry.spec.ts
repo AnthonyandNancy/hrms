@@ -7,12 +7,11 @@ import {
 } from '@/router/registry'
 
 describe('V1.1 controlled page registry', () => {
-  it('registers exactly 134 business pages, 15 platform entries and 6 base pages', () => {
-    // ADR-0035: seven create/edit/archive form routes became workspace actions.
-    expect(PAGE_REGISTRY).toHaveLength(155)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'business')).toHaveLength(134)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(15)
-    expect(PAGE_REGISTRY.filter((page) => page.layer === 'base')).toHaveLength(6)
+  it('registers the V2.3 consolidated 37-page model', () => {
+    expect(PAGE_REGISTRY).toHaveLength(37)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'business')).toHaveLength(23)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'platform')).toHaveLength(10)
+    expect(PAGE_REGISTRY.filter((page) => page.layer === 'base')).toHaveLength(4)
   })
 
   it('has a unique path and route name for every page', () => {
@@ -41,7 +40,7 @@ describe('V1.1 controlled page registry', () => {
     expect(pageByName('hr-employees')).not.toBe(pageByName('employee-detail'))
   })
 
-  it('covers every of the 17 V1.1 menu groups', () => {
+  it('covers the V2.3 menu groups after module folds', () => {
     const groups = new Set(
       PAGE_REGISTRY
         .filter((page) => page.layer === 'business' && page.menu !== null)

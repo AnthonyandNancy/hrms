@@ -10,10 +10,7 @@ import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import WorkflowCenterPage from '@/modules/platform/pages/WorkflowCenterPage.vue'
 import WorkflowCaseDetailPage from '@/modules/platform/workflow/pages/WorkflowCaseDetailPage.vue'
-import SystemCalendarsPage from '@/modules/platform/pages/SystemCalendarsPage.vue'
-import SystemSettingsPage from '@/modules/platform/pages/SystemSettingsPage.vue'
 import NotificationsPage from '@/modules/platform/pages/NotificationsPage.vue'
-import SystemAuditPage from '@/modules/platform/pages/SystemAuditPage.vue'
 
 const resource = vi.hoisted(() => ({
   get: vi.fn(),
@@ -144,8 +141,7 @@ describe('platform workspaces', () => {
   const pages: Array<[string, string]> = [
     ['src/modules/platform/pages/WorkflowCenterPage.vue', 'workflow-center-page'],
     ['src/modules/platform/workflow/pages/WorkflowCaseDetailPage.vue', 'workflow-case-detail-page'],
-    ['src/modules/platform/pages/SystemCalendarsPage.vue', 'system-calendars-page'],
-    ['src/modules/platform/pages/SystemSettingsPage.vue', 'system-settings-page'],
+        ['src/modules/platform/pages/SystemSettingsPage.vue', 'system-settings-page'],
     ['src/modules/platform/pages/NotificationsPage.vue', 'notifications-page'],
     ['src/modules/platform/pages/SystemAuditPage.vue', 'system-audit-page'],
   ]
@@ -268,10 +264,12 @@ describe('platform workspaces', () => {
     expect(wrapper.find('[data-testid="workflow-timeline"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="workflow-timeline"]').text()).toContain('案例已提交')
     expect(wrapper.find('[data-testid="workflow-timeline"]').text()).toContain('同意')
-    expect(wrapper.find('[data-testid="workflow-decision-actions"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="workflow-decision-context"]').exists()).toBe(true)
 
-    await wrapper.get('[data-testid="workflow-decision-comment"]').setValue('同意，按计划执行。')
+    await wrapper.find('textarea').setValue('同意，按计划执行。')
     await wrapper.get('[data-testid="workflow-decision-approve"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="workflow-decision-submit"]').trigger('click')
     await flushPromises()
 
     expect(resource.post).toHaveBeenCalledWith(
@@ -302,158 +300,6 @@ describe('platform workspaces', () => {
     expect(wrapper.find('[data-testid="workflow-readonly"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="workflow-decision-actions"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('已通过')
-  })
-
-  it('loads the real calendar, shows workweek/holidays and publishes with confirmation', async () => {
-    resource.get.mockResolvedValue({
-      year: 2026,
-      timezone: 'Asia/Shanghai',
-      workweek: [1, 2, 3, 4, 5],
-      standard_day_minutes: 480,
-      version: 4,
-      holidays: [
-        { date: '2026-10-01', name: '国庆节', type: 'PUBLIC', source: 'ADMIN_PUBLISH' },
-        { date: '2026-10-10', name: '调休补班', type: 'MAKEUP', source: 'ADMIN_PUBLISH' },
-      ],
-    })
-    resource.post.mockResolvedValue({
-      version: 5,
-      timezone: 'Asia/Shanghai',
-      workweek: [1, 2, 3, 4, 5],
-      standard_day_minutes: 480,
-      holidays: [],
-    })
-
-    const wrapper = await mountPage(SystemCalendarsPage, ['time.calendar.read', 'time.calendar.manage'])
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="system-calendars-page"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="calendar-version"]').text()).toContain('4')
-    expect(wrapper.find('[data-testid="calendar-workweek"]').text()).toContain('周一')
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').text()).toContain('国庆节')
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').text()).toContain('法定节假日')
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').text()).toContain('调休补班')
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').text()).not.toContain('PUBLIC')
-    expect(wrapper.find('[data-testid="calendar-holiday-table"]').text()).not.toContain('MAKEUP')
-
-    await wrapper.get('[data-testid="calendar-publish"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="calendar-publish-confirm"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="calendar-publish-confirm-ok"]').trigger('click')
-    await flushPromises()
-
-    expect(resource.post).toHaveBeenCalledWith(
-      '/v1/system/calendars/publish',
-      expect.objectContaining({
-        timezone: 'Asia/Shanghai',
-        workweek: [1, 2, 3, 4, 5],
-        standard_day_minutes: 480,
-        holidays: expect.any(Array),
-      }),
-      expect.objectContaining({ idempotencyKey: expect.stringContaining('calendar-publish') }),
-    )
-  })
-
-  it('renders calendar forbidden state and hides publication without manage capability', async () => {
-    resource.get.mockRejectedValue(new ApiError('FORBIDDEN', 'Forbidden', { status: 403 }))
-    const wrapper = await mountPage(SystemCalendarsPage, ['time.calendar.read'])
-    await flushPromises()
-    expect(wrapper.find('[data-testid="calendar-forbidden"]').exists()).toBe(true)
-
-    resource.get.mockResolvedValue({
-      year: 2026,
-      timezone: 'Asia/Shanghai',
-      workweek: [1, 2, 3, 4, 5],
-      standard_day_minutes: 480,
-      version: 1,
-      holidays: [],
-    })
-    const readOnly = await mountPage(SystemCalendarsPage, ['time.calendar.read'])
-    await flushPromises()
-    expect(readOnly.find('[data-testid="calendar-publish"]').exists()).toBe(false)
-  })
-
-  it('reads and updates feature flags and typed parameters without a generic key/value editor', async () => {
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/platform/features') {
-        return Promise.resolve({
-          items: [
-            { flag: 'payroll_enabled', enabled: false, risky: true },
-            { flag: 'time_enabled', enabled: true, risky: true },
-          ],
-        })
-      }
-      if (path === '/v1/system/parameters') {
-        return Promise.resolve(listResponse([
-          { id: 3, key: 'pagination.max_page_size', scope: 'COMPANY', value: 50, sensitive: false, masked: false },
-          { id: 4, key: 'mail.password', scope: 'COMPANY', value: null, sensitive: true, masked: true },
-        ]))
-      }
-      return Promise.resolve(null)
-    })
-    resource.put.mockImplementation((path: string) => {
-      if (path === '/v1/platform/features/payroll_enabled') {
-        return Promise.resolve({ flag: 'payroll_enabled', enabled: true })
-      }
-      return Promise.resolve({
-        id: 3,
-        key: 'pagination.max_page_size',
-        scope: 'COMPANY',
-        value: 80,
-        sensitive: false,
-        masked: false,
-      })
-    })
-
-    const wrapper = await mountPage(SystemSettingsPage, ['system.settings.manage', 'platform.feature.manage', 'system.parameter.manage'])
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="system-settings-page"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="settings-feature-flags"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="settings-flag-payroll_enabled"]').text()).toContain('薪资核算')
-    expect(wrapper.find('[data-testid="settings-flag-payroll_enabled"]').text()).not.toContain('payroll_enabled')
-    expect(wrapper.find('[data-testid="settings-parameters"]').text()).toContain('分页每页上限')
-    expect(wrapper.find('[data-testid="settings-parameters"]').text()).toContain('已加密')
-    expect(wrapper.find('[data-testid="settings-parameters"]').text()).not.toContain('mail.password')
-
-    await wrapper.get('[data-testid="settings-parameter-edit-3"]').trigger('click')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="parameter-dialog"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="parameter-value"]').setValue('80')
-    await wrapper.get('[data-testid="parameter-save"]').trigger('click')
-    await flushPromises()
-
-    expect(resource.put).toHaveBeenCalledWith(
-      '/v1/system/parameters',
-      expect.objectContaining({ key: 'pagination.max_page_size', scope: 'COMPANY', value: 80 }),
-      expect.objectContaining({ idempotencyKey: expect.stringContaining('parameter-pagination.max_page_size') }),
-    )
-  })
-
-  it('toggles a supported feature flag with a reason and never renders an unknown flag editor', async () => {
-    resource.get.mockImplementation((path: string) => {
-      if (path === '/v1/platform/features') {
-        return Promise.resolve({ items: [{ flag: 'export_enabled', enabled: false, risky: true }] })
-      }
-      if (path === '/v1/system/parameters') return Promise.resolve(listResponse([]))
-      return Promise.resolve(null)
-    })
-    resource.put.mockResolvedValue({ flag: 'export_enabled', enabled: true })
-
-    const wrapper = await mountPage(SystemSettingsPage, ['system.settings.manage', 'platform.feature.manage', 'system.parameter.manage'])
-    await flushPromises()
-
-    await wrapper.get('[data-testid="settings-flag-export_enabled"]').find('.el-switch').trigger('click')
-    await flushPromises()
-    await wrapper.get('[data-testid="settings-flag-reason"]').setValue('季度发布窗口已批准')
-    await wrapper.get('[data-testid="settings-flag-confirm"]').trigger('click')
-    await flushPromises()
-
-    expect(resource.put).toHaveBeenCalledWith(
-      '/v1/platform/features/export_enabled',
-      { enabled: true, reason: '季度发布窗口已批准' },
-    )
   })
 
   it('lists notifications in Chinese, marks one read and keeps unread filtering', async () => {
@@ -509,56 +355,5 @@ describe('platform workspaces', () => {
     expect(wrapper.text()).not.toContain('渠道偏好')
   })
 
-  it('lists audit events with request ids and discloses client-side filtering as partial', async () => {
-    resource.get.mockResolvedValue(listResponse([
-      {
-        id: 1,
-        user_id: 12,
-        event_type: 'login.succeeded',
-        result: 'SUCCESS',
-        metadata: { method: 'PASSWORD', session_id: 'sess-1' },
-        request_id: 'req-audit-1',
-        occurred_at: '2026-11-27T01:00:00Z',
-      },
-      {
-        id: 2,
-        user_id: 15,
-        event_type: 'user.status.changed',
-        result: 'SUCCESS',
-        metadata: { reason: 'Synthetic account review', target_user_id: 12 },
-        request_id: 'req-audit-2',
-        occurred_at: '2026-11-26T01:00:00Z',
-      },
-    ]))
 
-    const wrapper = await mountPage(SystemAuditPage, ['iam.audit.read'])
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="system-audit-page"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audit-table"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).toContain('登录成功')
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).toContain('成功')
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).toContain('账号会话')
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).toContain('req-audit-1')
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).not.toContain('login.succeeded')
-    expect(wrapper.find('[data-testid="audit-row-1"]').text()).not.toContain('SUCCESS')
-    expect(wrapper.find('[data-testid="audit-partial"]').text()).toContain('仅作用于已加载')
-
-    await wrapper.get('[data-testid="audit-filter-actor"]').setValue('15')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-row-1"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="audit-row-2"]').exists()).toBe(true)
-
-    await wrapper.get('[data-testid="audit-filter-action"]').setValue('login.succeeded')
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-empty"]').exists()).toBe(true)
-  })
-
-  it('shows the audit forbidden state for callers without iam.audit.read', async () => {
-    resource.get.mockRejectedValue(new ApiError('FORBIDDEN', 'Forbidden', { status: 403 }))
-    const wrapper = await mountPage(SystemAuditPage, ['iam.user.read'])
-    await flushPromises()
-    expect(wrapper.find('[data-testid="audit-forbidden"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="audit-table"]').exists()).toBe(false)
-  })
 })

@@ -1,0 +1,96 @@
+{
+  "module": "M15",
+  "pagesChanged": [
+    "/performance"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "/performance/templates",
+      "name": "考核模板"
+    },
+    {
+      "path": "/performance/indicators",
+      "name": "指标库"
+    },
+    {
+      "path": "/performance/goals",
+      "name": "目标计划"
+    },
+    {
+      "path": "/performance/reviews",
+      "name": "自评/主管评分"
+    },
+    {
+      "path": "/performance/feedback",
+      "name": "360 反馈"
+    },
+    {
+      "path": "/performance/calibration",
+      "name": "绩效校准"
+    },
+    {
+      "path": "/performance/results",
+      "name": "结果发布"
+    },
+    {
+      "path": "/performance/appeals",
+      "name": "绩效申诉"
+    },
+    {
+      "path": "/performance/reports",
+      "name": "绩效报表"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "performance-templates",
+    "performance-indicators",
+    "performance-goals",
+    "performance-reviews",
+    "performance-feedback",
+    "performance-calibration",
+    "performance-results",
+    "performance-appeals",
+    "performance-reports"
+  ],
+  "openapiOperations": [
+    "GET /v1/performance/templates",
+    "POST /v1/performance/templates",
+    "GET /v1/performance/cycles",
+    "POST /v1/performance/cycles",
+    "GET /v1/performance/reviews",
+    "POST /v1/performance/reviews",
+    "POST /v1/performance/reviews/{id}/submit",
+    "POST /v1/performance/reviews/{id}/appeals",
+    "GET /v1/performance/indicators",
+    "POST /v1/performance/indicators",
+    "GET /v1/performance/goals",
+    "POST /v1/performance/goals",
+    "GET /v1/performance/feedback",
+    "POST /v1/performance/feedback",
+    "GET /v1/performance/calibration",
+    "POST /v1/performance/reviews/{id}/calibration",
+    "GET /v1/performance/results",
+    "GET /v1/performance/reports",
+    "POST /v1/performance/cycles/{id}/publish"
+  ],
+  "routeChanges": [
+    "ADD /performance/cycles/:id as kind=detail, componentKey performance/cycles/by-id, capability performance.cycle.read",
+    "DELETE /performance/templates, /performance/indicators, /performance/goals, /performance/reviews, /performance/feedback, /performance/calibration, /performance/results, /performance/appeals, /performance/reports from registry.ts menu/routes"
+  ],
+  "actionInputAdds": [
+    "POST /v1/performance/cycles/{id}/publish response adds published_at, published_by and results[] snapshot rows",
+    "GET /v1/performance/results response adds snapshot, pending and per-row snapshot/published_at/published_by/final_rating",
+    "GET /v1/performance/reports response adds published_reviews, completion_rate and snapshot",
+    "POST /v1/performance/reviews requires subject and approver separation and rejects self-entered manager fields"
+  ],
+  "notes": [
+    "Router, Talent barrel/catalog, IAM page catalog and OpenAPI were out of scope for this subagent; the parent must remove the nine FOLD routes/component keys/page codes and add the stable /performance/cycles/:id detail registration.",
+    "Backend tests and frontend Vitest tests are written but NOT RUN. No PHPUnit, Vitest, typecheck, lint or whole-repo gate was executed.",
+    "The publication snapshot table is append-only and publication writes it in the same transaction as the PUBLISHED cycle transition.",
+    "Results reads use snapshots after publication and label live unpublished rows pending; reports compute completion only from snapshots.",
+    "Legacy Performance*.vue files remain on disk because deletion is owned by the parent integration step.",
+    "The parent must also delete the nine legacy Performance*.vue files and remove their TalentForm branches, form-kind union members and page-specific CSS; those files were outside this subagent write scope.",
+    "GET /v1/performance/results is still route-guarded by performance.result.publish; a SELF-only result read needs a separate capability or route decision and was not added in this change.",
+    "New barrel frontend/src/modules/talent/performance/pages/index.ts exports PerformanceWorkspacePage and PerformanceCycleDetailPage; the parent should consume it from the lead-owned Talent barrel/router."
+  ]
+}

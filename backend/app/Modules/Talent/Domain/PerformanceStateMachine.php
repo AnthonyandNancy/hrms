@@ -23,17 +23,29 @@ final class PerformanceStateMachine
         }
     }
 
-    public function canAppeal(string $status): bool
+    /**
+     * An appeal is a dispute against a frozen publication, never against a
+     * mutable draft. The cycle status is therefore part of the transition.
+     */
+    public function canAppeal(string $reviewStatus, ?string $cycleStatus = null): bool
     {
-        return $status === 'SUBMITTED';
+        return $cycleStatus === 'PUBLISHED'
+            && in_array($reviewStatus, ['SUBMITTED', 'APPEALED'], true);
     }
 
-    public function assertCanAppeal(string $status): void
+    public function assertCanAppeal(string $reviewStatus, ?string $cycleStatus = null): void
     {
-        if (! $this->canAppeal($status)) {
-            throw new ConflictException('Only a submitted review can be appealed.', [
+        if ($cycleStatus !== 'PUBLISHED') {
+            throw new ConflictException('An appeal requires a published result.', [
+                'reason' => 'APPEAL_REQUIRES_PUBLISHED_RESULT',
+                'cycle_status' => $cycleStatus,
+            ]);
+        }
+
+        if (! in_array($reviewStatus, ['SUBMITTED', 'APPEALED'], true)) {
+            throw new ConflictException('Only a published submitted review can be appealed.', [
                 'reason' => 'INVALID_APPEAL_TRANSITION',
-                'status' => $status,
+                'status' => $reviewStatus,
             ]);
         }
     }

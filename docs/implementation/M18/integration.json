@@ -1,0 +1,138 @@
+{
+  "module": "M18",
+  "pagesChanged": [
+    "frontend/src/modules/reporting/pages/NoticesPage.vue",
+    "frontend/src/modules/platform/pages/NotificationsPage.vue"
+  ],
+  "pagesRemoved": [
+    {
+      "path": "frontend/src/modules/platform/pages/NoticeApprovalPage.vue",
+      "name": "notices-approval"
+    },
+    {
+      "path": "frontend/src/modules/platform/pages/NoticeAudiencePage.vue",
+      "name": "notices-audience"
+    },
+    {
+      "path": "frontend/src/modules/platform/pages/NoticeReadsPage.vue",
+      "name": "notices-reads"
+    },
+    {
+      "path": "frontend/src/modules/platform/pages/NoticeTemplatesPage.vue",
+      "name": "notices-templates"
+    }
+  ],
+  "backendCatalogRemoved": [
+    "notices-approval",
+    "notices-audience",
+    "notices-reads",
+    "notices-templates"
+  ],
+  "openapiOperations": [
+    "GET /v1/engagement/notices",
+    "POST /v1/engagement/notices",
+    "POST /v1/engagement/notices/audience-preview",
+    "GET /v1/engagement/notices/{notice}",
+    "POST /v1/engagement/notices/{notice}/acknowledge",
+    "POST /v1/engagement/notices/{notice}/submit",
+    "POST /v1/engagement/notices/{notice}/decision",
+    "POST /v1/engagement/notices/{notice}/publish",
+    "POST /v1/engagement/notices/{notice}/archive",
+    "POST /v1/engagement/notices/{notice}/restore",
+    "GET /v1/engagement/notices/{notice}/audience",
+    "GET /v1/engagement/notices/{notice}/reads",
+    "GET /v1/engagement/notices/{notice}/reads/export",
+    "POST /v1/engagement/notices/{notice}/remind",
+    "GET /v1/engagement/notice-templates",
+    "POST /v1/engagement/notice-templates",
+    "GET /v1/engagement/notifications",
+    "POST /v1/engagement/notifications/{notification}/read"
+  ],
+  "routeChanges": [
+    "ADD POST /v1/engagement/notices/audience-preview -> NoticeController@previewAudience (capability engagement.notice.manage; read-only, but POST used because the audience is a structured object)",
+    "ADD POST /v1/engagement/notices/{notice}/remind -> NoticeGovernanceController@remind (capability engagement.notice.manage; Idempotency-Key required)",
+    "DELETE /notices/approval route registration",
+    "DELETE /notices/audience route registration",
+    "DELETE /notices/reads route registration",
+    "DELETE /notices/templates route registration"
+  ],
+  "actionInputAdds": [
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.submit",
+      "label": "提交公告审批",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/submit",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.decide",
+      "label": "公告审批决定",
+      "capability": "engagement.notice.publish",
+      "api": "POST /v1/engagement/notices/{notice}/decision",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.publish-approved",
+      "label": "发布已批准公告",
+      "capability": "engagement.notice.publish",
+      "api": "POST /v1/engagement/notices/{notice}/publish",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.remind",
+      "label": "催阅未读受众",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notices/{notice}/remind",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notices.reads.export",
+      "label": "导出公告阅读明细",
+      "capability": "engagement.notice.export",
+      "api": "GET /v1/engagement/notices/{notice}/reads/export",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "notices",
+      "key": "engagement.notice-templates.create",
+      "label": "发布公告模板版本",
+      "capability": "engagement.notice.manage",
+      "api": "POST /v1/engagement/notice-templates",
+      "ui": "primary",
+      "confirm": "none"
+    }
+  ],
+  "notes": [
+    "NOT RUN: backend Feature tests, frontend Vitest, pnpm typecheck, gate:all, migrations, Playwright/E2E. Only php -l was executed.",
+    "Provider wiring still required for NoticeGovernanceService's new optional NoticeRecipientDirectory dependency: autowiring covers it through app(NoticeRecipientDirectory::class), but the explicit EngagementServiceProvider constructor can be updated by the main agent to pass it as the 7th argument before CompanyBusinessDate/Clock.",
+    "Route registration is required in backend/routes/api.php: POST /v1/engagement/notices/audience-preview (NoticeController@previewAudience) and POST /v1/engagement/notices/{notice}/remind (NoticeGovernanceController@remind), both auth.session plus capability middleware; keep /notices/archive static route before /notices/{notice}.",
+    "OpenAPI operations for POST /v1/engagement/notices/audience-preview and POST /v1/engagement/notices/{notice}/remind are not yet in docs/openapi/openapi.yaml because that file is outside this file domain; they must be added by the contract owner before capability/action gates can pass.",
+    "docs/generated/action-input.json and frontend/src/generated/pageActions.ts are generated artifacts and were not edited here; regenerate after adding the actionInputAdds entries.",
+    "Four FOLD Vue files remain on disk because the user asked the main agent to perform deletions per integration.json; platform pages/index.ts and platform catalog already no longer reference them.",
+    "Read statistics come from notice_acknowledgements intersected with the live audience snapshot; notification read state is never counted as a notice acknowledgement.",
+    "Notice reminders use notice_reminders unique (notice_id,user_id,requested_by), only target currently unread audience members, and carry payload {notice_id,requires_ack} only.",
+    "NotificationService now rejects NOTICE_* payload keys outside notice_id/requires_ack; no title/body/status copies are persisted.",
+    "All protected notice writes (create/acknowledge/retract/submit/decision/publish/archive/restore/template/remind) now pass through CommandRunner with Idempotency-Key and AuditRecorder. Notification mark-read keeps its existing contract and records a first-transition AuditRecorder event.",
+    "Audience preview before create uses POST /v1/engagement/notices/audience-preview; the controller resolves through NoticeAudienceService and returns recipientCount only, never recipient IDs. Role choices are loaded from GET /v1/roles, which is currently gated by iam.role.manage; when unavailable the UI explicitly disables role selection instead of inventing role codes.",
+    "Reminder migration prefix is 2026_11_27_000430, within the required 2026_11_27_0004xx range.",
+    "Remaining out-of-domain cleanup: backend/app/Modules/IAM/Authorization/PermissionResourceCatalog.php still contains notices-approval/notices-audience/notices-reads/notices-templates entries; delete them (and their required_apis) as part of backendCatalogRemoved. docs/generated/page-actions.json, docs/generated/action-input.json, frontend/src/generated/pageActions.ts, scripts/lib/clusterMembership.mjs, frontend registry/catalog are similarly owned by the main agent.",
+    "M18 notice transport is implemented in frontend/src/modules/reporting/components/noticeApi.ts, keeping the shared frontend/src/modules/reporting/api.ts out of the M18 diff. NoticeComposer, NoticeDetailDrawer and NoticesPage import this component-scoped API.",
+    "Module boundary: NotificationsPage no longer imports @/modules/reporting/*; it calls /v1/engagement/notices/{id} through @/api/resourceClient with a local notice-view type. NoticeComposer/NoticeDetailDrawer/NoticesPage use the component-scoped noticeApi.ts, so no cross-module imports were added.",
+    "Contract follow-up: docs/openapi/openapi.yaml GET /v1/engagement/notices/{notice}/reads currently documents only items/user_id/acknowledged_at. Add read_user_ids, unread_user_ids, read_count and unread_count plus the enriched employment_id/employee_no/display_name receipt fields, then regenerate frontend/src/generated/api.ts. The backend and frontend already consume these extra fields.",
+    "Verification executed: scoped vue-tsc --noEmit over noticeApi.ts, NoticeComposer.vue, NoticeDetailDrawer.vue, NoticesPage.vue, NotificationsPage.vue, the four M18 test files and ReportingWorkspace.spec.ts exited 0 with no diagnostics. Backend php -l passed on all changed/new PHP files. Test suites themselves were NOT RUN per task instruction.",
+    "Decision: POST /v1/engagement/notifications/{notification}/read intentionally remains a service-level audited write without CommandRunner/Idempotency-Key, because the existing OpenAPI contract and NoticeAudienceTest call it with no key and frontend/api files are outside the allowed domain. Notification read state is idempotent by read_at IS NULL; the audit records only the first transition.",
+    "Architecture catalog follow-up: backend/app/Shared/Architecture/ModuleBoundaryScanner.php TABLE_OWNERS Engagement list must include notice_reminders. Until then the scanner emits an unknown-table warning (not a violation), because NoticeReminder only uses its own model. This shared file is outside the allowed domain.",
+    "Service wiring: NoticeGovernanceService resolves NoticeRecipientDirectory via an optional ninth constructor parameter and app() fallback; no Provider edit was needed and container resolution was verified for NoticeGovernanceService, NoticeService, NotificationService, NoticeRecipientDirectory and all three Engagement controllers.",
+    "Known limitation: notice create accepts template_code but does not yet resolve/store template_id/template_version. Add a template lookup that locks the latest published version and persists template_id + template_version at creation time; published notices must retain their original version. This is recorded rather than guessed in the payload."
+  ]
+}

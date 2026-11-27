@@ -306,6 +306,7 @@ final class UserAdminController
         }
 
         $grants = RoleCapability::query()->where('role_code', $role->code)->get();
+        $this->adminProtection->assertRoleAssignmentAllowed((int) $principal->userId(), (string) $role->code);
         $anchors = $this->resolveRoleAnchors($request, $grants);
         /** @var list<string> $capabilities */
         $capabilities = $grants->pluck('capability_code')->map(static fn (mixed $code): string => (string) $code)->all();
@@ -354,7 +355,7 @@ final class UserAdminController
                     'principal_id' => (int) $user->id,
                     'capability_code' => (string) $grant->capability_code,
                     'anchor_type' => (string) $grant->anchor_type,
-                    'anchor_id' => $anchors[(string) $grant->anchor_type] ?? null,
+                    'anchor_id' => $anchors[(string) $grant->anchor_type] ?? ($grant->anchor_id === null ? null : (int) $grant->anchor_id),
                     'anchor_key' => $anchors[(string) $grant->anchor_type] ?? 0,
                     'field_profile' => (string) $grant->field_profile,
                     'purpose_code' => 'ROLE_'.$role->code,

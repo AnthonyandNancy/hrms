@@ -152,6 +152,56 @@ export async function publishCompanyCalendar(
 }
 
 /* -------------------------------------------------------------------------
+ * Single-company profile (Organization owns the row; Platform renders it)
+ * ---------------------------------------------------------------------- */
+
+export type CompanyProfile = {
+  name: string
+  countryCode: string
+  timezone: string
+  currencyCode: string
+  calendarPolicy: Record<string, unknown> | null
+}
+
+function companyProfileOf(value: unknown): CompanyProfile {
+  const row = record(value, '公司资料')
+  return {
+    name: text(row.name, '公司名称'),
+    countryCode: text(row.country_code, '国家代码'),
+    timezone: text(row.timezone, '时区'),
+    currencyCode: text(row.currency_code, '币种'),
+    calendarPolicy: isRecord(row.calendar_policy) ? row.calendar_policy : null,
+  }
+}
+
+export async function getCompanyProfile(): Promise<CompanyProfile> {
+  return companyProfileOf(await resourceGet<unknown>('/v1/system/company-profile'))
+}
+
+export type CompanyProfileUpdateInput = {
+  name: string
+  countryCode: string
+  timezone: string
+  currencyCode: string
+}
+
+export async function updateCompanyProfile(
+  input: CompanyProfileUpdateInput,
+  idempotencyKey: string,
+): Promise<CompanyProfile> {
+  return companyProfileOf(await resourcePatch<unknown>(
+    '/v1/system/company-profile',
+    {
+      name: input.name,
+      country_code: input.countryCode,
+      timezone: input.timezone,
+      currency_code: input.currencyCode,
+    },
+    { idempotencyKey },
+  ))
+}
+
+/* -------------------------------------------------------------------------
  * Feature flags and typed parameters (the only editable system settings)
  * ---------------------------------------------------------------------- */
 
@@ -396,6 +446,31 @@ export async function listBenefitEnrollments(
   return { ...page, items: page.items.map(benefitEnrollmentOf) }
 }
 
+export type BenefitEnrollmentInput = {
+  planId: number
+  employmentId: number
+  baseAmountCents: number
+  effectiveFrom: string
+  effectiveTo: string | null
+}
+
+export async function createBenefitEnrollment(
+  input: BenefitEnrollmentInput,
+  idempotencyKey: string,
+): Promise<BenefitEnrollment> {
+  return benefitEnrollmentOf(await resourcePost<unknown>(
+    '/v1/benefits/enrollments',
+    {
+      plan_id: input.planId,
+      employment_id: input.employmentId,
+      base_amount_cents: input.baseAmountCents,
+      effective_from: input.effectiveFrom,
+      effective_to: input.effectiveTo,
+    },
+    { idempotencyKey },
+  ))
+}
+
 export type BenefitTransaction = {
   id: number
   enrollmentId: number
@@ -428,6 +503,164 @@ function benefitTransactionOf(value: unknown): BenefitTransaction {
 export async function listBenefitTransactions(): Promise<PageResult<BenefitTransaction>> {
   const page = pageFrom(await resourceGet<unknown>('/v1/benefits/transactions', { page: 1, page_size: 100 }))
   return { ...page, items: page.items.map(benefitTransactionOf) }
+}
+
+export type BenefitTransactionInput = {
+  enrollmentId: number
+  period: string
+  payrollRunId: number | null
+}
+
+export async function createBenefitTransaction(
+  input: BenefitTransactionInput,
+  idempotencyKey: string,
+): Promise<BenefitTransaction> {
+  return benefitTransactionOf(await resourcePost<unknown>(
+    '/v1/benefits/transactions',
+    {
+      enrollment_id: input.enrollmentId,
+      period: input.period,
+      payroll_run_id: input.payrollRunId,
+    },
+    { idempotencyKey },
+  ))
+}
+
+/**
+ * Statutory parameters are the sole source for tax, social-insurance,
+ * housing-fund and rounding rates. Benefit plans never carry a copy of these
+ * values; this boundary intentionally reuses the existing payroll endpoints.
+ */
+export type StatutoryParameterSet = 'TAX' | 'SOCIAL_INSURANCE' | 'HOUSING_FUND' | 'ROUNDING'
+
+export type StatutoryParameter = {
+  id: number
+  parameterSet: StatutoryParameterSet
+  code: string
+  valueDecimal: string | null
+  valueInt: number | null
+  effectiveFrom: string
+  effectiveTo: string | null
+  version: string
+  approvedBy: number
+  evidenceRef: string
+  isDemo: boolean
+}
+
+export type StatutoryBracketInput = {
+  lowerBoundCents: number
+  upperBoundCents: number | null
+  rateBps: number
+  quickDeductionCents: number
+}
+
+const PARAMETER_SETS: readonly StatutoryParameterSet[] = [
+  'TAX',
+  'SOCIAL_INSURANCE',
+  'HOUSING_FUND',
+  'ROUNDING',
+]
+
+function statutoryParameterSet(value: unknown): StatutoryParameterSet {
+  const candidate = text(value, '参数集')
+  if (!PARAMETER_SETS.includes(candidate as StatutoryParameterSet)) {
+    contractError('参数集')
+  }
+  return candidate as StatutoryParameterSet
+}
+
+function statutoryParameterOf(value: unknown): StatutoryParameter {
+  const row = record(value, '法定参数')
+  return {
+    id: integer(row.id, '参数编号'),
+    parameterSet: statutoryParameterSet(row.parameter_set),
+    code: text(row.code, '参数代码'),
+    valueDecimal: nullableText(row.value_decimal),
+    valueInt: nullableInteger(row.value_int),
+    effectiveFrom: text(row.effective_from, '生效日'),
+    effectiveTo: nullableText(row.effective_to),
+    version: text(row.version, '参数版本'),
+    approvedBy: integer(row.approved_by, '登记人'),
+    evidenceRef: text(row.evidence_ref, '证据引用'),
+    isDemo: bool(row.is_demo),
+  }
+}
+
+export async function listStatutoryParameters(
+  parameterSet?: StatutoryParameterSet,
+): Promise<PageResult<StatutoryParameter>> {
+  const params: Record<string, unknown> = { page: 1, page_size: 100 }
+  if (parameterSet !== undefined) params.parameter_set = parameterSet
+  const page = pageFrom(await resourceGet<unknown>('/v1/payroll/statutory-parameters', params))
+  return { ...page, items: page.items.map(statutoryParameterOf) }
+}
+
+export type StatutoryVersionInput = {
+  parameterSet: StatutoryParameterSet
+  version: string
+  effectiveFrom: string
+  effectiveTo: string | null
+  evidenceRef: string
+  isDemo: boolean
+  thresholdCents?: number
+  minBaseCents?: number
+  maxBaseCents?: number
+  employeeRate?: string
+  employerRate?: string
+  mode?: 'HALF_UP' | 'HALF_EVEN' | 'DOWN' | 'UP'
+  brackets?: StatutoryBracketInput[]
+}
+
+export type StatutoryVersionResult = {
+  version: string
+  parameterSet: StatutoryParameterSet
+  rows: number
+  isDemo: boolean
+  demoNotice: string | null
+}
+
+export async function createStatutoryParameterVersion(
+  input: StatutoryVersionInput,
+  idempotencyKey: string,
+): Promise<StatutoryVersionResult> {
+  const body: Record<string, unknown> = {
+    parameter_set: input.parameterSet,
+    version: input.version,
+    effective_from: input.effectiveFrom,
+    effective_to: input.effectiveTo,
+    evidence_ref: input.evidenceRef,
+    is_demo: input.isDemo,
+  }
+
+  if (input.parameterSet === 'TAX') {
+    body.THRESHOLD_CENTS = input.thresholdCents
+    body.brackets = (input.brackets ?? []).map((bracket) => ({
+      lower_bound_cents: bracket.lowerBoundCents,
+      upper_bound_cents: bracket.upperBoundCents,
+      rate_bps: bracket.rateBps,
+      quick_deduction_cents: bracket.quickDeductionCents,
+    }))
+  } else if (input.parameterSet === 'ROUNDING') {
+    body.MODE = input.mode
+  } else {
+    body.MIN_BASE_CENTS = input.minBaseCents
+    body.MAX_BASE_CENTS = input.maxBaseCents
+    body.EMPLOYEE_RATE = input.employeeRate
+    body.EMPLOYER_RATE = input.employerRate
+  }
+
+  const result = record(
+    await resourcePost<unknown>('/v1/payroll/statutory-parameters', body, { idempotencyKey }),
+    '法定参数版本',
+  )
+
+  return {
+    version: text(result.version, '参数版本'),
+    parameterSet: statutoryParameterSet(result.parameter_set),
+    rows: integer(result.rows, '参数行数'),
+    isDemo: bool(result.is_demo),
+    demoNotice: nullableText(result.demo_notice),
+  }
 }
 
 /* -------------------------------------------------------------------------

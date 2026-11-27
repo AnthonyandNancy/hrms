@@ -176,7 +176,7 @@ describe('role authorization workbench', () => {
     expect((group.element as HTMLInputElement).indeterminate).toBe(true)
     expect(group.attributes('data-tristate')).toBe('partial')
     expect((wrapper.get('input[data-page-code="hr-employees"]').element as HTMLInputElement).checked).toBe(true)
-    expect(wrapper.text()).toContain('页面可见权与按钮动作授权相互独立（ADR-0035）')
+    expect(wrapper.text()).toContain('页面授权决定能否进入和查看；按钮动作必须单独授权')
     expect(wrapper.text()).toContain('hr-employees')
     expect(wrapper.text()).toContain('/hr/employees')
 
@@ -188,12 +188,12 @@ describe('role authorization workbench', () => {
   it('auto-selects a page when an action is chosen and clears actions after page removal confirmation', async () => {
     const wrapper = await mountPage()
 
-    await wrapper.get('[data-testid="tab-actions"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-actions"]').trigger('click')
     await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     await wrapper.get('[data-testid="action-toggle-employee.detail.archive"]').setValue(true)
     await flushPromises()
 
-    await wrapper.get('[data-testid="tab-pages"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-pages"]').trigger('click')
     expect(input(wrapper, 'input[data-page-code="employee-detail"]').checked).toBe(true)
 
     await wrapper.get('input[data-page-code="employee-detail"]').setValue(false)
@@ -205,7 +205,7 @@ describe('role authorization workbench', () => {
     await flushPromises()
     expect(input(wrapper, 'input[data-page-code="employee-detail"]').checked).toBe(false)
 
-    await wrapper.get('[data-testid="tab-actions"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-actions"]').trigger('click')
     await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     expect(input(wrapper, '[data-testid="action-toggle-employee.detail.archive"]').checked).toBe(false)
   })
@@ -267,15 +267,17 @@ describe('role authorization workbench', () => {
     const wrapper = await mountPage()
 
     await wrapper.get('input[data-page-code="employee-detail"]').setValue(true)
-    await wrapper.get('[data-testid="tab-actions"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-actions"]').trigger('click')
     await wrapper.findComponent('[data-testid="action-page-select"]').setValue('employee-detail')
     await wrapper.get('[data-testid="action-toggle-employee.detail.archive"]').setValue(true)
 
-    await wrapper.get('[data-testid="tab-scopes"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-scopes"]').trigger('click')
     await wrapper.get('[data-testid="scope-anchor-people.employee.manage"]').setValue('ORG_UNIT')
     await wrapper.get('[data-testid="org-unit-picker-people.employee.manage"]').setValue('2')
+    await wrapper.get('[data-testid="scope-anchor-people.employee.archive"]').setValue('ORG_UNIT')
+    await wrapper.get('[data-testid="org-unit-picker-people.employee.archive"]').setValue('2')
 
-    await wrapper.get('[data-testid="tab-fields"]').trigger('click')
+    await wrapper.get('[data-testid="role-tab-fields"]').trigger('click')
     await wrapper.get('[data-testid="field-profile-people.employee.manage"]').setValue('P1_INTERNAL')
     await flushPromises()
 
@@ -303,25 +305,25 @@ describe('role authorization workbench', () => {
 
     const [path, body, options] = resource.put.mock.calls[0] as [
       string,
-      Record<string, unknown> & { pages: string[]; fields: Array<Record<string, unknown>>; diff: Record<string, number> },
+      Record<string, unknown> & { pages: string[]; capabilities: Array<Record<string, unknown>> },
       Record<string, unknown>,
     ]
     expect(path).toBe(`/v1/roles/${ROLE_CODE}/authorization`)
     expect(options.idempotencyKey).toEqual(expect.any(String))
     expect(body.pages).toEqual(expect.arrayContaining(['hr-employees', 'employee-detail']))
-    expect(body.diff).toMatchObject({
-      pages_added: 1,
-      pages_removed: 0,
-      actions_added: 1,
-      actions_removed: 0,
-      scopes_changed: 1,
-      fields_changed: 1,
-    })
-    expect(body.fields).toHaveLength(1)
-    expect(body.fields[0]).toMatchObject({
-      capability: 'people.employee.manage',
-      field_profile: 'P1_INTERNAL',
-    })
+    expect(body.capabilities).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        capability: 'people.employee.manage',
+        anchor_type: 'ORG_UNIT',
+        anchor_id: 2,
+        field_profile: 'P1_INTERNAL',
+      }),
+      expect.objectContaining({
+        capability: 'people.employee.archive',
+        anchor_type: 'ORG_UNIT',
+        anchor_id: 2,
+      }),
+    ]))
     expect(resource.post).not.toHaveBeenCalled()
     expect(resource.patch).not.toHaveBeenCalled()
   })
@@ -353,8 +355,9 @@ describe('role authorization workbench', () => {
     expect(wrapper.find(`[data-testid="role-copy-${ROLE_CODE}"]`).exists()).toBe(true)
     expect(wrapper.find(`[data-testid="role-delete-${ROLE_CODE}"]`).exists()).toBe(true)
 
-    const builtInDelete = wrapper.get('[data-testid="role-delete-SYSTEM_ADMIN"]')
-    expect(builtInDelete.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-testid="role-delete-SYSTEM_ADMIN"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="role-rename-SYSTEM_ADMIN"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="role-copy-SYSTEM_ADMIN"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="built-in-role-hint-SYSTEM_ADMIN"]').text()).toContain('内置角色')
 
     await wrapper.get('[data-testid="role-create"]').trigger('click')

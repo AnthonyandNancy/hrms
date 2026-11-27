@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import {
@@ -8,27 +9,62 @@ import {
   buildDepartmentTree,
   canUseAsParent,
   createDepartment,
+  departmentStatusLabel,
   errorMessage,
   fetchDepartmentMembers,
   fetchDepartmentPage,
+  fetchDepartmentStaffing,
   fetchOrgTree,
   flattenDepartments,
   isForbidden,
   moveDepartment,
+  previewDepartmentMove,
+  publishDepartmentHeadcount,
   updateDepartment,
   type Department,
   type DepartmentCreateInput,
   type DepartmentMember,
+  type DepartmentMoveImpact,
   type DepartmentNode,
+  type DepartmentStaffing,
   type MemberPage,
   type OrgTreeNode,
 } from '../api'
+import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import DepartmentTree from '../components/DepartmentTree.vue'
 import DepartmentFormDrawer from '../components/DepartmentFormDrawer.vue'
 import DepartmentMembersPanel from '../components/DepartmentMembersPanel.vue'
 import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
+import { nextIdempotencyKey } from '@/modules/people/peopleRead'
 
 defineOptions({ name: 'DepartmentWorkspacePage' })
+
+type DepartmentTab = 'overview' | 'list' | 'members' | 'staffing'
+
+const DEPARTMENT_TABS: ReadonlyArray<{ value: DepartmentTab; label: string }> = [
+  { value: 'overview', label: '概览' },
+  { value: 'list', label: '列表' },
+  { value: 'members', label: '成员' },
+  { value: 'staffing', label: '编制' },
+]
+
+const DEPARTMENT_LIST_COLUMNS: DataTableColumn[] = [
+  { key: 'code', label: '编码', width: '120px' },
+  { key: 'name', label: '名称', minWidth: '160px' },
+  { key: 'parentName', label: '上级部门', minWidth: '140px' },
+  { key: 'managerLabel', label: '负责人', width: '120px' },
+  { key: 'statusLabel', label: '状态', width: '100px' },
+]
+
+const departmentListRows = computed(() => sortedDepartments.value.map((row) => ({
+  ...row,
+  parentName: sortedDepartments.value.find((item) => item.id === row.parent_id)?.name ?? '无',
+  managerLabel: row.manager_employment_id ? `#${row.manager_employment_id}` : '未设置',
+  statusLabel: departmentStatusLabel(row.status),
+})))
+
+const route = useRoute()
+const router = useRouter()
 
 const session = useSessionStore()
 const canManage = computed(() => session.can('org.unit.manage'))
@@ -59,14 +95,26 @@ const partialReasons = ref<string[]>([])
 const departments = ref<Department[]>([])
 const treeRows = ref<OrgTreeNode[]>([])
 const selectedId = ref<number | null>(null)
+const activeTab = ref<DepartmentTab>('overview')
 
 const members = ref<MemberPage | null>(null)
 const membersLoading = ref(false)
 const membersError = ref('')
 const membersRequestId = ref<string | null>(null)
 
+const staffing = ref<DepartmentStaffing | null>(null)
+const staffingLoading = ref(false)
+const staffingError = ref('')
+const staffingRequestId = ref<string | null>(null)
+const headcountOpen = ref(false)
+const headcountLimit = ref('')
+const headcountDate = ref('')
+const headcountSaving = ref(false)
+const headcountError = ref('')
+
 const drawerOpen = ref(false)
 const drawerMode = ref<'create' | 'edit'>('create')
+const createParentId = ref<number | null>(null)
 const saving = ref(false)
 const saveError = ref<ApiError | null>(null)
 
@@ -76,6 +124,9 @@ const moveDate = ref('')
 const moveStep = ref<'choose' | 'confirm'>('choose')
 const moveSaving = ref(false)
 const moveError = ref('')
+const movePreview = ref<DepartmentMoveImpact | null>(null)
+const movePreviewing = ref(false)
+const moveIdempotencyKey = ref('')
 
 const tree = computed<DepartmentNode[]>(() => buildDepartmentTree(treeRows.value, departments.value))
 const sortedDepartments = computed(() => flattenDepartments(departments.value))
@@ -149,6 +200,40 @@ const moveDescendantRefused = computed(() => {
   return !canUseAsParent(departments.value, moveTargetParent.value.id, selectedNode.value.id)
 })
 
+function readTab(raw: unknown): DepartmentTab {
+  return typeof raw === 'string' && DEPARTMENT_TABS.some((tab) => tab.value === raw)
+    ? (raw as DepartmentTab)
+    : 'overview'
+}
+
+function readDept(raw: unknown): number | null {
+  const value = typeof raw === 'string' ? Number(raw) : typeof raw === 'number' ? raw : NaN
+  return Number.isSafeInteger(value) && value > 0 ? value : null
+}
+
+function writeQuery(): void {
+  const query: Record<string, string | string[]> = {}
+
+  for (const [key, value] of Object.entries(route.query)) {
+    if (value === null || value === undefined) continue
+    query[key] = typeof value === 'string' ? value : value.map(String)
+  }
+
+  query.tab = activeTab.value
+  if (selectedId.value === null) delete query.dept
+  else query.dept = String(selectedId.value)
+
+  if (route.query.dept === query.dept && route.query.tab === query.tab) return
+  void router.replace({ query }).catch(() => undefined)
+}
+
+function changeTab(tab: DepartmentTab): void {
+  activeTab.value = tab
+  writeQuery()
+  if (tab === 'members' && selectedId.value !== null) void loadMembers(selectedId.value)
+  if (tab === 'staffing' && selectedId.value !== null) void loadStaffing(selectedId.value)
+}
+
 async function loadWorkspace(): Promise<void> {
   loading.value = true
   forbidden.value = false
@@ -209,8 +294,14 @@ async function loadWorkspace(): Promise<void> {
       selectedId.value = first?.id ?? firstTreeRow?.id ?? null
     }
 
-    if (selectedId.value !== null) await loadMembers(selectedId.value)
-    else members.value = null
+    if (selectedId.value !== null) {
+      if (activeTab.value === 'members') await loadMembers(selectedId.value)
+      if (activeTab.value === 'staffing') await loadStaffing(selectedId.value)
+    } else {
+      members.value = null
+      staffing.value = null
+    }
+    writeQuery()
   } catch (error) {
     if (isForbidden(error)) forbidden.value = true
     else {
@@ -240,14 +331,32 @@ async function loadMembers(id: number): Promise<void> {
   }
 }
 
+async function loadStaffing(id: number): Promise<void> {
+  staffingLoading.value = true
+  staffingError.value = ''
+  staffingRequestId.value = null
+  try {
+    staffing.value = await fetchDepartmentStaffing(id, asOf.value)
+  } catch (error) {
+    staffing.value = null
+    staffingError.value = errorMessage(error)
+    if (error instanceof ApiError) staffingRequestId.value = error.requestId
+  } finally {
+    staffingLoading.value = false
+  }
+}
+
 async function selectDepartment(id: number): Promise<void> {
   selectedId.value = id
   closeMove()
-  await loadMembers(id)
+  writeQuery()
+  if (activeTab.value === 'members') await loadMembers(id)
+  if (activeTab.value === 'staffing') await loadStaffing(id)
 }
 
-function openCreate(): void {
+function openCreate(parentId: number | null = null): void {
   drawerMode.value = 'create'
+  createParentId.value = parentId
   saveError.value = null
   drawerOpen.value = true
 }
@@ -284,9 +393,11 @@ async function saveDepartment(input: DepartmentCreateInput): Promise<void> {
 
 function openMove(): void {
   moveParentId.value = ''
-  moveDate.value = ''
+  moveDate.value = asOf.value
   moveStep.value = 'choose'
   moveError.value = ''
+  movePreview.value = null
+  moveIdempotencyKey.value = ''
   moveOpen.value = true
 }
 
@@ -294,8 +405,9 @@ function closeMove(): void {
   moveOpen.value = false
 }
 
-function enterMoveConfirmation(): void {
+async function enterMoveConfirmation(): Promise<void> {
   moveError.value = ''
+  movePreview.value = null
   if (moveDate.value === '') {
     moveError.value = '请填写迁移生效日期。'
     return
@@ -308,7 +420,27 @@ function enterMoveConfirmation(): void {
     moveError.value = `${moveTargetParent.value.name} 是当前部门或其后代，不能作为上级；已拒绝提交。`
     return
   }
-  moveStep.value = 'confirm'
+  if (selectedNode.value === null) return
+
+  movePreviewing.value = true
+  try {
+    const preview = await previewDepartmentMove(
+      selectedNode.value.id,
+      moveTargetParent.value.id,
+      moveDate.value,
+    )
+    movePreview.value = preview
+    if (preview.cycle_refused) {
+      moveError.value = '影响预览检测到组织环，已拒绝进入确认。'
+      return
+    }
+    moveIdempotencyKey.value = nextIdempotencyKey('department-move-confirm')
+    moveStep.value = 'confirm'
+  } catch (error) {
+    moveError.value = errorMessage(error)
+  } finally {
+    movePreviewing.value = false
+  }
 }
 
 async function confirmMove(): Promise<void> {
@@ -324,10 +456,15 @@ async function confirmMove(): Promise<void> {
     await moveDepartment(selectedNode.value.id, {
       parent_id: moveTargetParent.value.id,
       effective_from: moveDate.value,
+      idempotencyKey: moveIdempotencyKey.value,
     })
     ElMessage.success('部门迁移已提交；历史组织路径保留。')
     moveOpen.value = false
     await loadWorkspace()
+    if (selectedId.value !== null) {
+      if (activeTab.value === 'members') await loadMembers(selectedId.value)
+      if (activeTab.value === 'staffing') await loadStaffing(selectedId.value)
+    }
   } catch (error) {
     moveError.value =
       error instanceof ApiError && Object.keys(error.fieldErrors).length > 0
@@ -343,7 +480,74 @@ function refreshMembers(): void {
   void loadMembers(selectedId.value)
 }
 
-onMounted(loadWorkspace)
+function refreshStaffing(): void {
+  if (selectedId.value === null) return
+  void loadStaffing(selectedId.value)
+}
+
+function openHeadcount(): void {
+  headcountLimit.value =
+    staffing.value?.headcount_limit === null || staffing.value?.headcount_limit === undefined
+      ? ''
+      : String(staffing.value.headcount_limit)
+  headcountDate.value = asOf.value
+  headcountError.value = ''
+  headcountOpen.value = true
+}
+
+async function submitHeadcount(): Promise<void> {
+  headcountError.value = ''
+  if (selectedId.value === null) return
+  const limit = Number(headcountLimit.value)
+  if (!Number.isSafeInteger(limit) || limit < 0) {
+    headcountError.value = '编制上限必须是大于等于 0 的整数。'
+    return
+  }
+  if (headcountDate.value === '') {
+    headcountError.value = '请填写编制版本生效日期。'
+    return
+  }
+
+  headcountSaving.value = true
+  try {
+    await publishDepartmentHeadcount(selectedId.value, {
+      headcount_limit: limit,
+      effective_from: headcountDate.value,
+    })
+    ElMessage.success('编制版本已追加。')
+    headcountOpen.value = false
+    await loadStaffing(selectedId.value)
+    await loadWorkspace()
+  } catch (error) {
+    headcountError.value = errorMessage(error)
+  } finally {
+    headcountSaving.value = false
+  }
+}
+
+onMounted(() => {
+  activeTab.value = readTab(route.query.tab)
+  selectedId.value = readDept(route.query.dept)
+  void loadWorkspace()
+})
+
+watch(
+  () => route.query,
+  (query) => {
+    const nextTab = readTab(query.tab)
+    const nextDept = readDept(query.dept)
+
+    if (nextTab !== activeTab.value) {
+      activeTab.value = nextTab
+      if (nextTab === 'members' && selectedId.value !== null) void loadMembers(selectedId.value)
+      if (nextTab === 'staffing' && selectedId.value !== null) void loadStaffing(selectedId.value)
+    }
+
+    if (nextDept !== null && nextDept !== selectedId.value) {
+      void selectDepartment(nextDept)
+    }
+  },
+)
 </script>
 
 <template>
@@ -366,7 +570,7 @@ onMounted(loadWorkspace)
           v-if="canManage && !forbidden"
           type="primary"
           data-testid="department-create"
-          @click="openCreate"
+          @click="openCreate()"
         >
           新增部门
         </el-button>
@@ -457,7 +661,7 @@ onMounted(loadWorkspace)
                 type="button"
                 class="department-link"
                 data-testid="department-empty-create"
-                @click="openCreate"
+                @click="openCreate()"
               >
                 新增部门
               </button>
@@ -487,6 +691,15 @@ onMounted(loadWorkspace)
                     v-if="canManage"
                     type="button"
                     class="department-button"
+                    data-testid="department-add-child"
+                    @click="openCreate(selectedNode.id)"
+                  >
+                    添加下级
+                  </button>
+                  <button
+                    v-if="canManage"
+                    type="button"
+                    class="department-button department-button--secondary"
                     data-testid="department-edit"
                     @click="openEdit"
                   >
@@ -504,7 +717,23 @@ onMounted(loadWorkspace)
                 </div>
               </header>
 
-              <div class="panel__body">
+              <nav class="department-tabs" role="tablist" aria-label="部门视图" data-testid="department-tabs">
+                <button
+                  v-for="tab in DEPARTMENT_TABS"
+                  :key="tab.value"
+                  type="button"
+                  role="tab"
+                  class="department-tab"
+                  :class="{ 'department-tab--active': activeTab === tab.value }"
+                  :aria-selected="activeTab === tab.value"
+                  :data-testid="`department-tab-${tab.value}`"
+                  @click="changeTab(tab.value)"
+                >
+                  {{ tab.label }}
+                </button>
+              </nav>
+
+              <div v-if="activeTab === 'overview'" class="panel__body" data-testid="department-overview-tab">
                 <dl class="department-facts">
                   <div class="department-facts__item">
                     <dt>部门编码</dt>
@@ -549,16 +778,40 @@ onMounted(loadWorkspace)
                   </div>
                 </dl>
 
-                <div class="department-manager" data-testid="department-manager-gap">
+                <div class="department-manager" data-testid="department-manager">
                   <strong>负责人：</strong>
-                  <span v-if="selectedNode.manager_name">{{ selectedNode.manager_name }}</span>
-                  <span v-else>—（接口未返回）</span>
-                  <small>当前部门契约未返回负责人字段；补齐后姓名与联系方式按字段策略裁剪展示。</small>
+                  <span v-if="selectedNode.manager_employment_id">
+                    员工关系 #{{ selectedNode.manager_employment_id }}
+                  </span>
+                  <span v-else>未设置</span>
+                  <small>负责人引用员工关系编号；页面不展开联系方式。</small>
                 </div>
+              </div>
+
+              <div v-else-if="activeTab === 'list'" class="panel__body" data-testid="department-list-tab">
+                <p class="department-detail__state">
+                  列表视图与左侧组织树来自同一份部门事实，不额外请求第二套数据。
+                </p>
+                <DataTable
+                  :columns="DEPARTMENT_LIST_COLUMNS"
+                  :rows="departmentListRows as unknown as Array<Record<string, unknown>>"
+                  :total="departmentListRows.length"
+                  :page="1"
+                  :page-size="Math.max(1, departmentListRows.length)"
+                  row-key="id"
+                  data-testid="department-list-table"
+                  empty-title="当前组织没有可展示的部门"
+                >
+                  <template #cell-name="{ row }">
+                    <button type="button" class="department-link" @click="selectDepartment(Number(row.id))">
+                      {{ row.name }}
+                    </button>
+                  </template>
+                </DataTable>
               </div>
             </section>
 
-            <section class="panel">
+            <section v-if="activeTab === 'overview'" class="panel">
               <header class="panel__header">
                 <div>
                   <h2 class="panel__title">成员概览</h2>
@@ -601,6 +854,7 @@ onMounted(loadWorkspace)
             </section>
 
             <DepartmentMembersPanel
+              v-if="activeTab === 'members'"
               :department-id="selectedId"
               :members="members"
               :loading="membersLoading"
@@ -609,6 +863,64 @@ onMounted(loadWorkspace)
               :can-manage="canManage"
               @refresh="refreshMembers"
             />
+
+            <section v-if="activeTab === 'staffing'" class="panel" data-testid="department-staffing-tab">
+              <header class="panel__header">
+                <div>
+                  <h2 class="panel__title">部门编制</h2>
+                  <p class="panel__subtitle">
+                    编制是追加式版本事实；在岗数来自有效任职投影，两者不会互相覆盖。
+                  </p>
+                </div>
+                <div class="department-detail__actions">
+                  <button type="button" class="department-link" data-testid="staffing-refresh" @click="refreshStaffing">
+                    刷新编制
+                  </button>
+                  <button
+                    v-if="canManage"
+                    type="button"
+                    class="department-button"
+                    data-testid="staffing-maintain"
+                    @click="openHeadcount"
+                  >
+                    追加编制版本
+                  </button>
+                </div>
+              </header>
+              <div class="panel__body">
+                <p v-if="staffingLoading" class="department-detail__state">正在加载编制…</p>
+                <p v-else-if="staffingError !== ''" class="department-detail__state department-detail__state--error" data-testid="staffing-error">
+                  {{ staffingError }}
+                  <span v-if="staffingRequestId">（请求编号 {{ staffingRequestId }}）</span>
+                </p>
+                <dl v-else class="department-facts" data-testid="staffing-facts">
+                  <div class="department-facts__item">
+                    <dt>编制上限</dt>
+                    <dd>{{ staffing?.headcount_limit === null || staffing?.headcount_limit === undefined ? '未设置' : `${staffing.headcount_limit} 人` }}</dd>
+                  </div>
+                  <div class="department-facts__item">
+                    <dt>在岗人数</dt>
+                    <dd>{{ staffing === null ? '—' : `${staffing.staffed} 人` }}</dd>
+                  </div>
+                  <div class="department-facts__item">
+                    <dt>缺编</dt>
+                    <dd>{{ staffing?.vacancies === null || staffing?.vacancies === undefined ? '—' : `${staffing.vacancies} 人` }}</dd>
+                  </div>
+                  <div class="department-facts__item">
+                    <dt>超编</dt>
+                    <dd>{{ staffing?.overstaffed === true ? '是' : '否' }}</dd>
+                  </div>
+                  <div class="department-facts__item">
+                    <dt>版本</dt>
+                    <dd>{{ staffing?.version ?? '—' }}</dd>
+                  </div>
+                  <div class="department-facts__item">
+                    <dt>版本生效日</dt>
+                    <dd>{{ staffing?.effective_from ?? '—' }}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
           </template>
           <section v-else class="panel">
             <div
@@ -626,8 +938,8 @@ onMounted(loadWorkspace)
       v-model="drawerOpen"
       :mode="drawerMode"
       :department="selectedDepartment"
-      :departments="departments"
       :parent-options="parentOptions"
+      :preselected-parent-id="createParentId"
       :saving="saving"
       :server-error="saveError"
       @save="saveDepartment"
@@ -679,6 +991,18 @@ onMounted(loadWorkspace)
           生效日期：{{ moveDate }}。目标若是当前部门的下级部门会被拒绝。
         </p>
 
+        <div v-if="moveStep === 'confirm' && movePreview !== null" class="department-move__impact" data-testid="move-impact">
+          <p><strong>影响预览</strong></p>
+          <ul>
+            <li>受影响员工：{{ movePreview.affected_employee_count }} 人</li>
+            <li>受影响主管：{{ movePreview.affected_manager_count }} 人</li>
+            <li>薪资成本中心：{{ movePreview.payroll_cost_center_count }} 个</li>
+            <li>{{ movePreview.cross_entity_warning ? '存在跨公司影响，请核对。' : '无跨公司影响。' }}</li>
+            <li>{{ movePreview.cycle_refused ? '将形成组织环，已拒绝。' : '未检测到组织环。' }}</li>
+            <li v-if="movePreview.authorization_warning">{{ movePreview.authorization_warning }}</li>
+          </ul>
+        </div>
+
         <p v-if="moveError !== ''" class="department-form__error" role="alert" data-testid="move-error">
           {{ moveError }}
         </p>
@@ -691,9 +1015,10 @@ onMounted(loadWorkspace)
           type="primary"
           data-testid="move-confirm"
           :disabled="moveTargetParent === null || moveDate === ''"
+          :loading="movePreviewing"
           @click="enterMoveConfirmation"
         >
-          下一步：确认迁移
+          预览影响
         </el-button>
         <el-button
           v-else
@@ -703,6 +1028,40 @@ onMounted(loadWorkspace)
           @click="confirmMove"
         >
           确认迁移
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="headcountOpen"
+      title="追加编制版本"
+      width="460px"
+      :close-on-click-modal="false"
+      data-testid="department-headcount-dialog"
+    >
+      <div class="department-move">
+        <p>编制上限会作为新的历史版本追加；在岗人数仍由有效任职实时计算，不会被手工写入。</p>
+        <label class="department-field">
+          <span>编制上限 *</span>
+          <el-input v-model="headcountLimit" inputmode="numeric" data-testid="headcount-limit" />
+        </label>
+        <label class="department-field">
+          <span>版本生效日期 *</span>
+          <el-input v-model="headcountDate" type="date" data-testid="headcount-effective-date" />
+        </label>
+        <p v-if="headcountError !== ''" class="department-form__error" role="alert" data-testid="headcount-error">
+          {{ headcountError }}
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="headcountOpen = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="headcountSaving"
+          data-testid="headcount-confirm"
+          @click="submitHeadcount"
+        >
+          保存编制版本
         </el-button>
       </template>
     </el-dialog>
@@ -722,6 +1081,36 @@ onMounted(loadWorkspace)
   font-size: 12px;
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-sm);
+}
+.department-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--color-line);
+}
+.department-tab {
+  padding: 8px 12px;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.department-tab--active {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+}
+.department-move__impact {
+  padding: 9px 10px;
+  font-size: 12px;
+  background: var(--color-brand-soft);
+  border-radius: var(--radius-sm);
+}
+.department-move__impact ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
 }
 .department-workspace {
   display: grid;

@@ -16,8 +16,11 @@ final class PerformanceStateMachineTest extends TestCase
 
         $this->assertTrue($machine->canSubmit('DRAFT'));
         $this->assertFalse($machine->canSubmit('SUBMITTED'));
-        $this->assertTrue($machine->canAppeal('SUBMITTED'));
-        $this->assertFalse($machine->canAppeal('APPEALED'));
+        $this->assertFalse($machine->canAppeal('SUBMITTED'));
+        $this->assertFalse($machine->canAppeal('SUBMITTED', 'ACTIVE'));
+        $this->assertTrue($machine->canAppeal('SUBMITTED', 'PUBLISHED'));
+        $this->assertTrue($machine->canAppeal('APPEALED', 'PUBLISHED'));
+        $this->assertFalse($machine->canAppeal('DRAFT', 'PUBLISHED'));
 
         $this->expectException(ConflictException::class);
         $machine->assertCanSubmit('SUBMITTED');

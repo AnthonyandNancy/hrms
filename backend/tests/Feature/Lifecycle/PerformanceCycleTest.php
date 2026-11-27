@@ -32,6 +32,10 @@ final class PerformanceCycleTest extends TalentTestCase
         ], ['Idempotency-Key' => 'perf-submit-1'])->assertOk()
             ->assertJsonPath('data.status', 'SUBMITTED');
 
+        $this->postJson("/v1/performance/cycles/{$cycleId}/publish", [], [
+            'Idempotency-Key' => 'perf-publish-1',
+        ])->assertOk()->assertJsonPath('data.status', 'PUBLISHED');
+
         $immutableFields = \App\Modules\Talent\Models\PerformanceReview::query()->findOrFail($reviewId)->only([
             'goals_text', 'self_assessment', 'manager_assessment', 'manager_rating', 'calibrated_rating',
         ]);

@@ -67,6 +67,12 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                 }
             }
 
+            $this->support->freezeBefore($command->caseId, [
+                'person_id' => $personId,
+                'previous_employment_id' => $payload['previous_employment_id'] ?? null,
+                'employment_id' => null,
+            ]);
+
             $employmentId = $this->people->createEmployment([
                 'person_id' => $personId,
                 'employee_no' => (string) $payload['employee_no'],
@@ -112,7 +118,25 @@ final class OnboardingEffectHandler implements DomainEffectHandler
 
             $this->linkUserIfPresent($command, $payload, $personId, $employmentId);
             $this->support->createOnboardingChecklist($command->caseId, $employmentId, $hireDate);
-            $this->support->markEffective($command->caseId, $employmentId, $employmentId, $hireDate);
+            $this->support->markEffective(
+                caseId: $command->caseId,
+                employmentId: $employmentId,
+                resultEmploymentId: $employmentId,
+                effectiveAt: $hireDate,
+                after: [
+                    'employment_id' => $employmentId,
+                    'person_id' => $personId,
+                    'assignment_id' => $assignmentId,
+                    'org_unit_id' => (int) $payload['org_unit_id'],
+                    'hire_date' => $hireDate,
+                ],
+                result: [
+                    'employment_id' => $employmentId,
+                    'person_id' => $personId,
+                    'assignment_id' => $assignmentId,
+                    'hire_date' => $hireDate,
+                ],
+            );
 
             return DomainEffectResult::appliedWithOutbox('employment.created.v1', [
                 'employment_id' => $employmentId,

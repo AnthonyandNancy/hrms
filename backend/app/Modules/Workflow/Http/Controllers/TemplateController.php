@@ -4,24 +4,27 @@ declare(strict_types=1);
 
 namespace App\Modules\Workflow\Http\Controllers;
 
+use App\Modules\Workflow\Http\Controllers\Concerns\RespondsToWorkflowCommands;
 use App\Modules\Workflow\Http\Middleware\WorkflowPrincipalContext;
-use App\Modules\Workflow\Services\TemplateService;
+use App\Modules\Workflow\Services\WorkflowCommandService;
 use App\Shared\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 final class TemplateController
 {
-    public function __construct(private readonly TemplateService $templates) {}
+    use RespondsToWorkflowCommands;
+
+    public function __construct(private readonly WorkflowCommandService $commands) {}
 
     public function index(Request $request): JsonResponse
     {
-        $principal = WorkflowPrincipalContext::from($request);
+        WorkflowPrincipalContext::from($request);
 
         $query = \App\Modules\Workflow\Models\WorkflowTemplate::query()
             ->when(is_string($request->query('code')), fn ($builder) => $builder->where('code', $request->query('code')))
             ->orderBy('code')
-            ->orderBy('version');
+            ->orderByDesc('version');
 
         $templates = $query->get();
 
@@ -31,7 +34,9 @@ final class TemplateController
             'name' => $template->name,
             'version' => $template->version,
             'status' => $template->status,
-            'definition' => $template->definition_json,
+            'node_count' => count((array) ($template->definition_json['nodes'] ?? [])),
+            'effect_count' => count((array) ($template->definition_json['effects'] ?? [])),
+            'created_at' => $template->created_at?->toIso8601ZuluString(),
         ])->all();
 
         return ApiResponse::ok(ApiResponse::list($items, 1, count($items), count($items)));
@@ -49,13 +54,12 @@ final class TemplateController
             'definition' => ['required', 'array'],
         ]);
 
-        $template = $this->templates->create($principal->userId, $validated);
+        $result = $this->commands->createTemplate(
+            $principal,
+            $validated,
+            $this->workflowIdempotencyKey($request),
+        );
 
-        return ApiResponse::created([
-            'id' => $template->id,
-            'code' => $template->code,
-            'version' => $template->version,
-            'status' => $template->status,
-        ]);
+        return $this->commandResponse($result);
     }
 }

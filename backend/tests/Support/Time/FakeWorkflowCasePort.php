@@ -74,7 +74,13 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
 
     public function decide(int $caseId, string $action, string $comment): void
     {
-        $this->decideCase($caseId, strtoupper($action), $comment);
+        $status = match (strtoupper($action)) {
+            'APPROVE' => 'APPROVED',
+            'REJECT' => 'REJECTED',
+            'RETURN' => 'RETURNED',
+            default => strtoupper($action),
+        };
+        $this->decideCase($caseId, $status, $comment);
     }
 
     public function requestCancel(int $caseId, int $actorUserId, string $reason): void

@@ -16,7 +16,6 @@ import {
   CONTRACT_STATUS_TONES,
   amendContract,
   contractTypeLabel,
-  findContract,
   getContract,
   isForbidden,
   listContractAttachments,
@@ -125,9 +124,13 @@ async function load(): Promise<void> {
     const employmentId = typeof employmentIdRaw === 'string' && /^\d+$/.test(employmentIdRaw)
       ? Number(employmentIdRaw)
       : null
-    const found = employmentId !== null
-      ? await getContract(employmentId, id, asOf.value)
-      : await findContract(id, asOf.value)
+    if (employmentId === null) {
+      // The live API is employment-scoped. A deep link without the employee
+      // relation cannot identify the contract safely; never scan a ledger page.
+      state.value = 'empty'
+      return
+    }
+    const found = await getContract(employmentId, id, asOf.value)
     if (sequence !== requestSequence) return
     if (found === null) {
       state.value = 'empty'
@@ -199,6 +202,7 @@ async function amend(input: { effectiveDate: string; reason: string; changes: Co
     ElMessage.success('合同变更已追加为新的版本，历史记录保留。')
     editOpen.value = false
     await load()
+    await loadVersions(contract.value.id)
   } catch (error) {
     saveError.value = error instanceof ApiError ? error : null
     if (saveError.value === null) ElMessage.error(errorCopy(error))
@@ -233,6 +237,7 @@ async function confirmTerminate(): Promise<void> {
     ElMessage.success('合同已终止，终止版本已写入历史。')
     terminateOpen.value = false
     await load()
+    await loadVersions(contract.value.id)
   } catch (error) {
     terminateError.value = errorCopy(error)
   } finally {
@@ -322,7 +327,7 @@ onBeforeUnmount(() => {
       v-else-if="state === 'empty'"
       data-testid="contract-detail-empty"
       title="未找到该劳动合同"
-      description="该合同可能已归档、被移出你的数据范围，或不在当前台账前 100 条中。"
+      description="该合同可能已归档、被移出你的数据范围，或链接缺少员工关系编号。"
       action-label="返回台账"
       @action="backToList"
     />

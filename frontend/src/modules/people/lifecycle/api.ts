@@ -1,4 +1,3 @@
-import { ApiError } from '@/api/errors'
 import { resourceGet, resourcePost } from '@/api/resourceClient'
 import { nextIdempotencyKey } from '@/modules/people/peopleRead'
 import { todayBusinessDate } from '@/utils/format'
@@ -73,7 +72,6 @@ export const MOVEMENT_TYPES: readonly MovementTypeDefinition[] = [
   },
 ] as const
 
-const WORKFLOW_CASE_TYPES = MOVEMENT_TYPES.filter((type) => type.caseType !== null)
 const EMPLOYEE_PAGE_SIZE = 100
 const USER_PAGE_SIZE = 100
 const MOVEMENT_PAGE_SIZE = 100
@@ -115,6 +113,8 @@ export type WorkflowCase = {
   isAwaitingMe: boolean
 }
 
+export type CalendarLane = 'EFFECTIVE' | 'SCHEDULED' | 'PENDING_APPROVAL'
+
 export type Secondment = {
   assignmentId: number
   employmentId: number
@@ -139,15 +139,37 @@ export type MovementListRow = {
   employeeName: string
   employeeNo: string
   effectiveDate: string | null
+  plannedEffectiveOn: string | null
+  lane: CalendarLane | null
   initiatorUserId: number | null
+  initiatorDisplayName: string | null
+  currentAssigneeUserId: number | null
+  currentAssigneeDisplayName: string | null
   applicationStatus: string
   effectStatus: string
   isAwaitingMe: boolean
+  partial: boolean
   submittedAt: string | null
+  validTo: string | null
+}
+
+export type MovementLedgerQuery = {
+  kind?: MovementKind | 'all'
+  status?: string
+  employmentId?: number | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  q?: string
+  page?: number
+  pageSize?: number
+  asOf?: string
 }
 
 export type MovementListResult = {
   items: MovementListRow[]
+  page: number
+  pageSize: number
+  total: number
   partial: boolean
   partialReason: string | null
 }
@@ -156,6 +178,8 @@ export type MovementCaseDetail = {
   lifecycle: {
     caseId: number
     caseNo: string
+    title: string
+    kind: MovementKind | null
     caseType: string
     applicationStatus: string
     effectStatus: string
@@ -165,6 +189,20 @@ export type MovementCaseDetail = {
     payload: Record<string, unknown>
     employmentId: number | null
     resultEmploymentId: number | null
+    effectiveDate: string | null
+    requesterUserId: number | null
+    requesterDisplayName: string | null
+    currentAssigneeUserId: number | null
+    currentAssigneeDisplayName: string | null
+    currentNodeKey: string | null
+    isMine: boolean
+    isAwaitingMe: boolean
+    submittedAt: string | null
+    closedAt: string | null
+    before: Record<string, unknown>
+    after: Record<string, unknown>
+    effectResult: Record<string, unknown>
+    detailFrozenAt: string | null
     employment: {
       employmentId: number
       personId: number
@@ -444,212 +482,112 @@ function normaliseSecondment(raw: RawRecord): Secondment | null {
   }
 }
 
-export async function listWorkflowCases(type?: string): Promise<{
-  items: WorkflowCase[]
-  partial: boolean
-  partialReason: string | null
-}> {
-  const raw = await resourceGet<unknown>('/v1/cases', {
-    ...(type === undefined ? {} : { type }),
-    page: 1,
-    page_size: MOVEMENT_PAGE_SIZE,
-  })
+/**
+ * One server-side ledger request covers all movement kinds. The API performs
+ * filtering, count and pagination over Lifecycle intents plus the People
+ * secondment projection; this client never slices or merges partial pages.
+ */
+export async function listMovementLedger(
+  query: MovementLedgerQuery = {},
+): Promise<MovementListResult> {
+  const params: Record<string, unknown> = {
+    page: query.page ?? 1,
+    page_size: query.pageSize ?? 20,
+    as_of: query.asOf ?? todayBusinessDate(),
+  }
+  if (query.kind !== undefined && query.kind !== 'all') params.kind = query.kind
+  if (query.status !== undefined && query.status !== '') params.status = query.status
+  if (query.employmentId !== undefined && query.employmentId !== null) {
+    params.employment_id = query.employmentId
+  }
+  if (query.effectiveFrom !== undefined && query.effectiveFrom !== null && query.effectiveFrom !== '') {
+    params.effective_from = query.effectiveFrom
+  }
+  if (query.effectiveTo !== undefined && query.effectiveTo !== null && query.effectiveTo !== '') {
+    params.effective_to = query.effectiveTo
+  }
+  if (query.q !== undefined && query.q.trim() !== '') params.q = query.q.trim()
+
+  const raw = await resourceGet<unknown>('/v1/lifecycle/cases', params)
   const items = readItems(raw)
-    .map(normaliseWorkflowCase)
-    .filter((row): row is WorkflowCase => row !== null)
+    .map(normaliseMovementLedgerRow)
+    .filter((row): row is MovementListRow => row !== null)
   const meta = readMeta(raw)
-  const partial = meta.partial || meta.total > items.length
+  const page = integer(isRecord(raw) ? raw.page : null) ?? (query.page ?? 1)
+  const pageSize = integer(isRecord(raw) ? raw.page_size : null) ?? (query.pageSize ?? 20)
+  const partial = meta.partial || items.length < meta.total
+
   return {
     items,
+    page,
+    pageSize,
+    total: meta.total,
     partial,
     partialReason: partial
-      ? (meta.partialReason ?? `工作流案例超过单次读取上限，已加载 ${items.length} / ${meta.total} 条。`)
+      ? (meta.partialReason ?? '台账仅返回部分数据；请缩小筛选范围后重试。')
       : null,
   }
 }
 
-export async function listMovementCases(): Promise<MovementListResult> {
-  const results = await Promise.allSettled(
-    WORKFLOW_CASE_TYPES.map((type) => listWorkflowCases(type.caseType ?? undefined)),
-  )
+function normaliseMovementLedgerRow(raw: RawRecord): MovementListRow | null {
+  const kind = text(raw.kind).toLowerCase()
+  if (!isMovementKind(kind)) return null
+  const caseId = positiveInteger(raw.case_id)
+  const assignmentId = positiveInteger(raw.assignment_id)
+  if (kind !== 'secondment' && caseId === null) return null
+  if (kind === 'secondment' && assignmentId === null) return null
 
-  const items: WorkflowCase[] = []
-  const partialReasons: string[] = []
-  let failures = 0
-
-  results.forEach((result, index) => {
-    const definition = WORKFLOW_CASE_TYPES[index]
-    if (result.status === 'fulfilled') {
-      items.push(...result.value.items)
-      if (result.value.partial) {
-        partialReasons.push(`${definition?.label ?? '异动'}：${result.value.partialReason ?? '部分数据'}`)
-      }
-      return
-    }
-    failures += 1
-    if (result.reason instanceof ApiError) {
-      partialReasons.push(`${definition?.label ?? '异动'}暂不可用（${result.reason.code}）`)
-    } else {
-      partialReasons.push(`${definition?.label ?? '异动'}暂不可用`)
-    }
-  })
-
-  if (results.length > 0 && failures === results.length) {
-    const first = results[0]
-    throw first !== undefined && first.status === 'rejected'
-      ? first.reason
-      : new Error('员工异动案例暂不可用。')
-  }
-
-  const rowsById = new Map<number, WorkflowCase>()
-  for (const item of items) rowsById.set(item.id, item)
+  const laneRaw = text(raw.lane).toUpperCase()
+  const lane: CalendarLane | null =
+    laneRaw === 'EFFECTIVE' || laneRaw === 'SCHEDULED' || laneRaw === 'PENDING_APPROVAL'
+      ? laneRaw
+      : null
 
   return {
-    items: [...rowsById.values()].map(workflowCaseToRow).sort(compareMovementRows),
-    partial: partialReasons.length > 0,
-    partialReason: partialReasons.join('；'),
-  }
-}
-
-function workflowCaseToRow(workflowCase: WorkflowCase): MovementListRow {
-  const kind = movementKindForCaseType(workflowCase.type)
-  if (kind === null) {
-    throw new TypeError(`工作流案例 ${workflowCase.caseNo || workflowCase.id} 不是可识别的员工异动类型。`)
-  }
-  const employmentId = positiveInteger(workflowCase.payload.employment_id)
-  const person = isRecord(workflowCase.payload.person) ? workflowCase.payload.person : {}
-  const employeeName =
-    kind === 'onboarding'
-      ? text(person.legal_name) || text(person.preferred_name)
-      : ''
-  const employeeNo = text(workflowCase.payload.employee_no)
-
-  return {
-    rowId: String(workflowCase.id),
+    rowId: text(raw.row_id, kind === 'secondment' ? `secondment-${assignmentId}` : `case-${caseId}`),
     kind,
-    caseId: workflowCase.id,
-    secondmentAssignmentId: null,
-    caseNo: workflowCase.caseNo,
-    title: workflowCase.title,
-    employeeId: employmentId,
-    employeeName,
-    employeeNo,
-    effectiveDate: effectiveDateForPayload(kind, workflowCase.payload),
-    initiatorUserId: workflowCase.requesterUserId > 0 ? workflowCase.requesterUserId : null,
-    applicationStatus: workflowCase.applicationStatus,
-    effectStatus: workflowCase.effectStatus,
-    isAwaitingMe: workflowCase.isAwaitingMe,
-    submittedAt: workflowCase.submittedAt,
+    caseId,
+    secondmentAssignmentId: kind === 'secondment' ? assignmentId : null,
+    caseNo: text(raw.case_no),
+    title: text(raw.title),
+    employeeId: positiveInteger(raw.employee_id) ?? positiveInteger(raw.employment_id),
+    employeeName: text(raw.employee_name),
+    employeeNo: text(raw.employee_no),
+    effectiveDate: nullableText(raw.effective_date) ?? nullableText(raw.planned_effective_on),
+    plannedEffectiveOn: nullableText(raw.planned_effective_on),
+    lane,
+    initiatorUserId: positiveInteger(raw.requester_user_id),
+    initiatorDisplayName: nullableText(raw.requester_display_name),
+    currentAssigneeUserId: positiveInteger(raw.current_assignee_user_id),
+    currentAssigneeDisplayName: nullableText(raw.current_assignee_display_name),
+    applicationStatus: text(raw.application_status, 'DRAFT').toUpperCase(),
+    effectStatus: text(raw.effect_status, 'NONE').toUpperCase(),
+    isAwaitingMe: raw.is_awaiting_me === true,
+    partial: raw.partial === true,
+    submittedAt: nullableText(raw.submitted_at),
+    validTo: nullableText(raw.valid_to),
   }
 }
 
-export async function listSecondments(): Promise<{
-  items: Secondment[]
-  partial: boolean
-  partialReason: string | null
-}> {
-  const asOf = todayBusinessDate()
-  const raw = await resourceGet<unknown>('/v1/lifecycle/secondments', {
-    as_of: asOf,
-    page: 1,
-    page_size: MOVEMENT_PAGE_SIZE,
-  })
-  const items = readItems(raw)
-    .map(normaliseSecondment)
-    .filter((row): row is Secondment => row !== null)
-  const meta = readMeta(raw)
-  const partial = meta.partial || meta.total > items.length
-  return {
-    items,
-    partial,
-    partialReason: partial
-      ? (meta.partialReason ?? `借调任职超过单次读取上限，已加载 ${items.length} / ${meta.total} 条。`)
-      : null,
-  }
-}
-
-export function secondmentToRow(secondment: Secondment, asOf = todayBusinessDate()): MovementListRow {
-  const status = secondmentWindowStatus(secondment, asOf)
-  return {
-    rowId: `s-${secondment.assignmentId}`,
-    kind: 'secondment',
-    caseId: null,
-    secondmentAssignmentId: secondment.assignmentId,
-    caseNo: `借调任职 #${secondment.assignmentId}`,
-    title: `借调至组织 #${secondment.hostOrgUnitId}`,
-    employeeId: secondment.employmentId,
-    employeeName: secondment.personName,
-    employeeNo: secondment.employeeNo,
-    effectiveDate: secondment.validFrom,
-    initiatorUserId: null,
-    applicationStatus: status.application,
-    effectStatus: status.effect,
-    isAwaitingMe: false,
-    submittedAt: null,
-  }
-}
-
-function secondmentWindowStatus(
-  secondment: Secondment,
-  asOf: string,
-): { application: string; effect: string } {
-  if (secondment.validFrom > asOf) return { application: 'SCHEDULED', effect: 'SCHEDULED' }
-  if (secondment.validTo <= asOf) return { application: 'COMPLETED', effect: 'REVERSED' }
-  return { application: 'ACTIVE', effect: 'APPLIED' }
-}
-
-function compareMovementRows(left: MovementListRow, right: MovementListRow): number {
-  const leftDate = left.effectiveDate ?? ''
-  const rightDate = right.effectiveDate ?? ''
-  return rightDate.localeCompare(leftDate) || right.rowId.localeCompare(left.rowId)
+function isMovementKind(value: string): value is MovementKind {
+  return MOVEMENT_TYPES.some((type) => type.value === value)
 }
 
 /**
- * Fallback read seam when the caller has lifecycle.case.read but not
- * workflow.case.read. It returns only the fields the lifecycle projection
- * actually carries; names and plan dates are deliberately left blank rather
- * than invented.
+ * Read one secondment assignment for the dedicated detail deep link. The
+ * workspace itself never uses this path: its ledger already returns the row.
  */
-export async function listLifecycleMovementCases(): Promise<MovementListResult> {
-  const raw = await resourceGet<unknown>('/v1/lifecycle/cases', {
+export async function getSecondment(assignmentId: number): Promise<Secondment | null> {
+  const raw = await resourceGet<unknown>('/v1/lifecycle/secondments', {
+    as_of: todayBusinessDate(),
     page: 1,
     page_size: MOVEMENT_PAGE_SIZE,
   })
-  const meta = readMeta(raw)
-  const items: MovementListRow[] = []
-
   for (const row of readItems(raw)) {
-    const caseId = positiveInteger(row.case_id)
-    const caseType = text(row.case_type).toUpperCase()
-    const kind = movementKindForCaseType(caseType)
-    if (caseId === null || kind === null) continue
-    items.push({
-      rowId: String(caseId),
-      kind,
-      caseId,
-      secondmentAssignmentId: null,
-      caseNo: text(row.case_no),
-      title: text(row.case_type),
-      employeeId: positiveInteger(row.employment_id),
-      employeeName: '',
-      employeeNo: '',
-      // The lifecycle collection returns the effect-application timestamp,
-      // not the planned business effective date. Never rebadge one as the other.
-      effectiveDate: null,
-      initiatorUserId: null,
-      applicationStatus: text(row.application_status, 'DRAFT').toUpperCase(),
-      effectStatus: text(row.effect_status, 'NONE').toUpperCase(),
-      isAwaitingMe: false,
-      submittedAt: null,
-    })
+    const item = normaliseSecondment(row)
+    if (item !== null && item.assignmentId === assignmentId) return item
   }
-
-  const partial = meta.partial || meta.total > items.length
-  return {
-    items: items.sort(compareMovementRows),
-    partial,
-    partialReason: partial ? (meta.partialReason ?? '生命周期投影为部分数据。') : null,
-  }
+  return null
 }
 
 export async function listEmployees(asOf = todayBusinessDate()): Promise<EmployeeOption[]> {
@@ -712,9 +650,13 @@ function normaliseLifecycleDetail(raw: unknown): MovementCaseDetail['lifecycle']
     throw new TypeError('生命周期案例详情接口缺少 case_id。')
   }
   const employment = isRecord(payload.employment) ? payload.employment : null
+  const kindRaw = text(payload.kind).toLowerCase()
+  const kind = isMovementKind(kindRaw) ? kindRaw : movementKindForCaseType(text(payload.case_type).toUpperCase())
   return {
     caseId,
     caseNo: text(payload.case_no),
+    title: text(payload.title),
+    kind,
     caseType: text(payload.case_type).toUpperCase(),
     applicationStatus: text(payload.application_status, 'DRAFT').toUpperCase(),
     effectStatus: text(payload.effect_status, 'NONE').toUpperCase(),
@@ -724,6 +666,20 @@ function normaliseLifecycleDetail(raw: unknown): MovementCaseDetail['lifecycle']
     payload: isRecord(payload.payload) ? { ...payload.payload } : {},
     employmentId: integer(payload.employment_id),
     resultEmploymentId: integer(payload.result_employment_id),
+    effectiveDate: nullableText(payload.effective_date) ?? nullableText(payload.planned_effective_on),
+    requesterUserId: positiveInteger(payload.requester_user_id),
+    requesterDisplayName: nullableText(payload.requester_display_name),
+    currentAssigneeUserId: positiveInteger(payload.current_assignee_user_id),
+    currentAssigneeDisplayName: nullableText(payload.current_assignee_display_name),
+    currentNodeKey: nullableText(payload.current_node_key),
+    isMine: payload.is_mine === true,
+    isAwaitingMe: payload.is_awaiting_me === true,
+    submittedAt: nullableText(payload.submitted_at),
+    closedAt: nullableText(payload.closed_at),
+    before: isRecord(payload.before) ? { ...payload.before } : {},
+    after: isRecord(payload.after) ? { ...payload.after } : {},
+    effectResult: isRecord(payload.effect_result) ? { ...payload.effect_result } : {},
+    detailFrozenAt: nullableText(payload.detail_frozen_at),
     employment:
       employment === null
         ? null
@@ -828,8 +784,7 @@ export async function loadMovementCaseDetail(caseId: number): Promise<MovementCa
 }
 
 export async function loadSecondmentDetail(assignmentId: number): Promise<Secondment | null> {
-  const result = await listSecondments()
-  return result.items.find((item) => item.assignmentId === assignmentId) ?? null
+  return getSecondment(assignmentId)
 }
 
 function movementPath(kind: MovementKind): string {
@@ -878,6 +833,18 @@ export async function submitMovementDecision(
   await resourcePost<unknown>(
     `/v1/cases/${caseId}/decisions`,
     { action, ...(comment.trim() === '' ? {} : { comment: comment.trim() }) },
+    { idempotencyKey },
+  )
+}
+
+export async function submitMovementWithdraw(
+  caseId: number,
+  comment: string,
+  idempotencyKey: string,
+): Promise<void> {
+  await resourcePost<unknown>(
+    `/v1/cases/${caseId}/withdraw`,
+    { comment: comment.trim() },
     { idempotencyKey },
   )
 }

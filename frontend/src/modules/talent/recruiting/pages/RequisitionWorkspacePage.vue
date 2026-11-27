@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError, errorCopy } from '@/api/errors'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -10,6 +11,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatBusinessDate, formatDateTimeInTimezone, formatMoney } from '@/utils/format'
 import { requestIdFromError } from '@/utils/renderErrors'
 import RequisitionFormDrawer from '../components/RequisitionFormDrawer.vue'
+import RequisitionDetailTabs from '../components/RequisitionDetailTabs.vue'
 import {
   REQUISITION_STATUS_OPTIONS,
   closeRequisition,
@@ -28,6 +30,7 @@ defineOptions({ name: 'RequisitionWorkspacePage' })
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'forbidden'
 
+const route = useRoute()
 const session = useSessionStore()
 const canRead = computed(() => session.can('recruitment.requisition.read'))
 const canManage = computed(() => session.can('recruitment.requisition.manage'))
@@ -45,6 +48,9 @@ const drawerMode = ref<'create' | 'edit'>('create')
 const editing = ref<Requisition | null>(null)
 const saving = ref(false)
 const saveError = ref<ApiError | null>(null)
+
+const detailOpen = ref(false)
+const detailTarget = ref<Requisition | null>(null)
 
 const closeTarget = ref<Requisition | null>(null)
 const closeReason = ref('')
@@ -119,6 +125,11 @@ function openCreate(): void {
   editing.value = null
   saveError.value = null
   drawerOpen.value = true
+}
+
+function openDetail(requisition: Requisition): void {
+  detailTarget.value = requisition
+  detailOpen.value = true
 }
 
 function openEdit(requisition: Requisition): void {
@@ -197,7 +208,14 @@ function applyFilters(): void {
   void load()
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  const requestedId = Number(route.query.requisition)
+  if (Number.isSafeInteger(requestedId) && requestedId > 0) {
+    const found = rows.value.find((row) => row.id === requestedId)
+    if (found !== undefined) openDetail(found)
+  }
+})
 onBeforeUnmount(() => {
   requestSequence += 1
 })
@@ -308,6 +326,14 @@ onBeforeUnmount(() => {
         <template #cell-actions="{ row }">
           <div class="requisition-workspace__actions">
             <button
+              type="button"
+              class="requisition-workspace__link"
+              :data-testid="`requisition-detail-${String(row.id)}`"
+              @click="openDetail(row as unknown as Requisition)"
+            >
+              详情
+            </button>
+            <button
               v-if="canManage"
               type="button"
               class="requisition-workspace__link"
@@ -336,6 +362,12 @@ onBeforeUnmount(() => {
         关闭需求会保留历史并停止新增候选人；操作需二次确认。编辑会记录审计。
       </p>
     </template>
+
+    <RequisitionDetailTabs
+      v-model="detailOpen"
+      :requisition="detailTarget"
+      :can-manage="canManage"
+    />
 
     <RequisitionFormDrawer
       v-model="drawerOpen"
