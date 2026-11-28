@@ -42,8 +42,8 @@ It is **not** a completed V2.4 business delivery:
 | T17 frontend precision/actions/self-service | COMPLETE | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17d.log` | Money, self payslips, server actions and Chinese sweep complete; MCP remains T18 |
 | T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
-| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-003/` | Login/dashboard, role-copy/anchor-id UI and PAYROLL_RUN allow/deny executed; role-assignment UI and remaining matrix NOT RUN |
-| T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md`; `concurrency/`; `18-mcp-acceptance/evidence/T19-MCP-003/` | MySQL/Redis/MinIO, clean install, migrations, backup/restore, synthetic upgrade, concurrent idempotency, member API and scoped run access pass; final image/real previous-release upgrade/final GO pending |
+| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-004/` | Login/dashboard, role anchor UI, PAYROLL_RUN allow/deny and user role-assignment UI executed; remaining matrix NOT RUN |
+| T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md`; `concurrency/`; `18-mcp-acceptance/evidence/T19-MCP-003/`, `T19-MCP-004/` | MySQL/Redis/MinIO, clean install, migrations, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment UI and overlap repair pass; final image/real previous-release upgrade/final GO pending |
 
 ### Full gate result
 

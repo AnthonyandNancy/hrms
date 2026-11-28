@@ -93,8 +93,8 @@
 | T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
 | T16 | 通知状态与报表字段裁剪 | COMPLETE | T16 merged after critical-finding fixes | `d8a7f9a`; `docs/implementation/v24/16-notifications-reporting/implementation-report.md`; `gate-all-t16-merge.log`; MCP in T18 |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
-| T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001/002/003 executed; login/dashboard, role-copy/anchor-id UI, PAYROLL_RUN allow/deny PASS; remaining modules/cards/role-assignment UI NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-003/` |
-| T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated stack, clean install, backup/restore, synthetic upgrade, concurrent idempotency, scoped member/run API pass; final backend image, real previous-release upgrade/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md`; `.../concurrency/`; `.../T19-MCP-003/` |
+| T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001/002/003/004 executed; login/dashboard, role anchor UI, PAYROLL_RUN allow/deny and role-assignment UI PASS; remaining modules/cards NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-004/` |
+| T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated stack, clean install, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment UI and overlap repair pass; final image/real previous-release upgrade/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md`; `.../concurrency/`; `.../T19-MCP-003/`, `T19-MCP-004/` |
 
 ### 0.6 执行日志
 
@@ -150,7 +150,8 @@
 | 2026-11-28 | T19 stack/restore/MCP-001 | `53f588f` build + isolated `factoryhr-t19` | MySQL 8.4.13/Redis/MinIO private bucket healthy; clean install baseline; 99 migrations; backup/restore parity; synthetic upgrade probe; real MCP login/workspace/dashboard PASS; evidence `docs/implementation/v24/19-real-stack/`, `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/` | App-level concurrency, real release upgrade, remaining 20 modules/155 entries/458 cards, final GO remain. |
 | 2026-11-28 | Role anchor UI + MCP-002 | `aeccadc` + full gate + rebuilt nginx | CASE/PAYROLL_RUN numeric anchor ids; custom role copied/persisted; scopes screenshot/snapshot; log `gate-all-anchor-fix.log` | Run-scoped binding/role access still to execute. |
 | 2026-11-28 | T19 concurrent idempotency | real stack `factoryhr-t19` | concurrent same-key POST /v1/roles → 201 + replayed 200; DB one role/one idempotency row; evidence `docs/implementation/v24/19-real-stack/concurrency/` | Real previous-release upgrade and final GO remain. |
-| 2026-11-28 | PAYROLL_RUN scope + wildcard fix | `d79a2a7`, hot-patched real stack | UI role anchor saved; run #1 200/run #2 403; member API 201 after wildcard fix; T19-MCP-003 evidence | Final backend image and full role-assignment UI remain. |
+| 2026-11-28 | PAYROLL_RUN scope + wildcard fix | `d79a2a7`, hot-patched real stack | UI role anchor saved; run #1 200/run #2 403; member API 201 after wildcard fix; T19-MCP-003 evidence | Final backend image remains; role-assignment UI followed. |
+| 2026-11-28 | Role assignment UI + overlap repair | `2a3c46b` + gate 248.3s | UI added AUDITOR; effective roles exactly 2; overlapping TRAINING_ADMIN 500 fixed to 201 with merged bindings; T19-MCP-004 | Final image build and remaining matrix remain. |
 | 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: 2 MCP packs executed; remaining 20 modules/155 entries/458 cards and run-scoped role access NOT RUN; T19 concurrency/real upgrade pending | Continue T18 matrix and T19 hardening. |
 
 ---

@@ -76,3 +76,22 @@ cases=0, notification_deliveries=0.
 
 Remaining T19: real previous-release upgrade package, final backend image,
 deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
+
+
+## T19-MCP-004 role assignment and overlap repair
+
+- Real user-management UI assigned AUDITOR to `t19.payroll`; the role column
+  showed AUDITOR + PAYROLL_SPECIALIST_T19.
+- The effective projection at `auth_version=5` contained exactly those two
+  role codes. Older `user_roles` rows are immutable snapshot generations, not
+  duplicate active grants.
+- A real overlap probe found a 500 unique-constraint failure when adding
+  TRAINING_ADMIN. `assignRole` now locks and merges an existing binding at the
+  same principal/capability/anchor/window/version and widens only the field
+  profile.
+- Regression added; full gate passed (22 gates, 248.3s). Real retry returned
+  201; effective `auth_version=6` has one COMPANY binding each for
+  `org.tree.read` and `people.employee.read`.
+
+Remaining T19: real previous-release upgrade package, final backend image,
+deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
