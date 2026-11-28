@@ -5308,6 +5308,28 @@ components:
             - string
             - "null"
           maxLength: 64
+        contract_version_id:
+          type: [integer, "null"]
+          minimum: 1
+          description: Immutable contract version owned by People/Lifecycle.
+        payroll_scheme_id:
+          type: [integer, "null"]
+          minimum: 1
+          description: Published Payroll scheme resolved for this employee.
+        payroll_scheme_version:
+          type: [integer, "null"]
+          minimum: 1
+          description: Client value is ignored; server stores the scheme's published version.
+        parameter_overrides:
+          type: [object, "null"]
+          additionalProperties:
+            type: [string, integer, boolean, "null"]
+        effective_to:
+          type: [string, "null"]
+          format: date
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, SCHEDULED, ACTIVE, SUPERSEDED, ENDED]
     SalaryAdjustmentCreateRequest:
       type: object
       required: [employment_id, effective_from, base_salary_cents, reason, case_id]
@@ -5361,9 +5383,31 @@ components:
           type:
             - string
             - "null"
+        contract_version_id:
+          type: [integer, "null"]
+        effective_to:
+          type: [string, "null"]
+          format: date
+        status:
+          type: string
+          enum: [DRAFT, PENDING_APPROVAL, SCHEDULED, ACTIVE, SUPERSEDED, ENDED]
+        payroll_scheme_id:
+          type: [integer, "null"]
+        payroll_scheme_version:
+          type: [integer, "null"]
+        content_hash:
+          type: [string, "null"]
+          pattern: "^[a-f0-9]{64}$"
+        supersedes_id:
+          type: [integer, "null"]
         base_salary_cents:
           type: integer
           description: Base salary in minor currency units. Omitted when the caller is not a P3 field holder.
+        parameter_overrides:
+          type: object
+          additionalProperties:
+            type: [string, integer, boolean, "null"]
+          description: Omitted together with P3 amounts when the caller lacks the field profile.
         created_by:
           type: integer
         created_at:
@@ -12301,6 +12345,94 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: people.contract.terminate
       x-action-label: 终止劳动合同
+  /v1/employment-contracts/{id}/activate:
+    post:
+      operationId: activateEmploymentContract
+      tags:
+        - People
+      summary: Activate a draft contract at its signed start date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [effective_from]
+              properties:
+                effective_from:
+                  type: string
+                  format: date
+                reason:
+                  type: [string, "null"]
+                  minLength: 3
+                  maxLength: 500
+                agreed_salary_cents:
+                  type: [integer, "null"]
+                  minimum: 0
+                agreed_currency:
+                  type: [string, "null"]
+                  pattern: "^[A-Za-z]{3}$"
+      responses:
+        "200":
+          description: Contract activated and activation history appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractLifecycleEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.manage
+      x-action-label: 激活劳动合同
+  /v1/employments/{employmentId}/contract-versions:
+    get:
+      operationId: listEmploymentContractVersions
+      tags:
+        - People
+      summary: List scoped employment contract versions for selector and payroll links
+      parameters:
+        - name: employmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - $ref: "#/components/parameters/AsOf"
+      responses:
+        "200":
+          description: Contract version history for the selected employment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmploymentContractVersionPageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: people.contract.read
   /v1/employments:
     post:
       tags:

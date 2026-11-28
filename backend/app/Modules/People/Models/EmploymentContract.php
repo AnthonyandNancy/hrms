@@ -28,10 +28,13 @@ final class EmploymentContract extends Model
      * past end date and is accepted by the ledger filter. Expiry is derived
      * from the company business date, never from the browser clock.
      */
-    public const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRING', 'EXPIRED', 'RENEWED', 'TERMINATED', 'ARCHIVED'];
+    public const STATUSES = ['DRAFT', 'PENDING_EFFECTIVE', 'ACTIVE', 'EXPIRING', 'EXPIRED', 'RENEWED', 'TERMINATED', 'ARCHIVED'];
 
     /** States that may be amended, terminated, or used as a renewal source. */
     public const OPERATIONAL_STATUSES = ['ACTIVE', 'EXPIRING'];
+
+    /** States that reserve an effective period even before activation. */
+    public const PERIOD_RESERVING_STATUSES = ['PENDING_EFFECTIVE', 'ACTIVE', 'EXPIRING'];
 
     public const EXPIRY_WINDOW_DAYS = 60;
 

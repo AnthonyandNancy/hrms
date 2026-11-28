@@ -86,6 +86,12 @@ final class CompensationController
             'base_salary_cents' => ['required', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'regex:/^[A-Z]{3}$/'],
             'salary_scheme_code' => ['nullable', 'string', 'max:64'],
+            'contract_version_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'payroll_scheme_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'payroll_scheme_version' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'parameter_overrides' => ['sometimes', 'nullable', 'array'],
+            'effective_to' => ['sometimes', 'nullable', new BusinessDateRule],
+            'status' => ['sometimes', 'nullable', 'string', 'in:DRAFT,PENDING_APPROVAL,SCHEDULED,ACTIVE,SUPERSEDED,ENDED'],
         ]);
 
         $result = $this->commands->run(
@@ -160,6 +166,10 @@ final class CompensationController
             'reason' => ['required', 'string', 'max:500'],
             'case_id' => ['required', 'integer', 'min:1'],
             'salary_scheme_code' => ['nullable', 'string', 'max:64'],
+            'contract_version_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'payroll_scheme_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'parameter_overrides' => ['sometimes', 'nullable', 'array'],
+            'effective_to' => ['sometimes', 'nullable', new BusinessDateRule],
         ]);
 
         $result = $this->commands->run(
@@ -202,12 +212,22 @@ final class CompensationController
         return [
             'id' => (int) $row->id,
             'employment_id' => (int) $row->employment_id,
+            'contract_version_id' => $row->contract_version_id !== null ? (int) $row->contract_version_id : null,
             'effective_from' => (string) $row->effective_from,
+            'effective_to' => $row->effective_to !== null ? (string) $row->effective_to : null,
+            'status' => (string) $row->status,
             'currency' => (string) $row->currency,
             'salary_scheme_code' => $row->salary_scheme_code !== null ? (string) $row->salary_scheme_code : null,
+            'payroll_scheme_id' => $row->payroll_scheme_id !== null ? (int) $row->payroll_scheme_id : null,
+            'payroll_scheme_version' => $row->payroll_scheme_version !== null ? (int) $row->payroll_scheme_version : null,
+            'content_hash' => $row->content_hash !== null ? (string) $row->content_hash : null,
+            'supersedes_id' => $row->supersedes_id !== null ? (int) $row->supersedes_id : null,
             'created_by' => (int) $row->created_by,
             'created_at' => $row->created_at?->toIso8601ZuluString(),
-            ...($forWrite || ($fields !== null && $fields->isVisible('base_salary_cents')) ? ['base_salary_cents' => (int) $row->base_salary_cents] : []),
+            ...($forWrite || ($fields !== null && $fields->isVisible('base_salary_cents')) ? [
+                'base_salary_cents' => (int) $row->base_salary_cents,
+                'parameter_overrides' => $row->parameter_overrides_json ?? [],
+            ] : []),
         ];
     }
 

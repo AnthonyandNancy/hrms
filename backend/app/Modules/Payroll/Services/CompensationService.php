@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Lifecycle\Contracts\EmploymentContractVersionLedger;
 use App\Modules\Payroll\Models\EmployeeCompensation;
+use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\SalaryAdjustment;
 use App\Modules\People\Contracts\EmploymentTermsDirectory;
 use App\Modules\People\Contracts\PeopleDirectory;
@@ -15,6 +17,7 @@ use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\SensitiveAccessAuditor;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
+use App\Shared\Exceptions\ValidationException;
 use App\Shared\Money\Money;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\BusinessDate;
@@ -38,6 +41,7 @@ final class CompensationService
         private readonly AuditRecorder $audit,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
         private readonly Clock $clock,
+        private readonly EmploymentContractVersionLedger $contractVersions,
     ) {}
 
     /**
@@ -91,7 +95,23 @@ final class CompensationService
     }
 
     /**
-     * @param  array{employment_id: int, effective_from: string, base_salary_cents: int, currency?: string, salary_scheme_code?: string|null}  $data
+     * @param  array{
+     *     employment_id: int,
+     *     effective_from: string,
+     *     base_salary_cents: int,
+     *     currency?: string,
+     *     salary_scheme_code?: string|null,
+     *     contract_version_id?: int|null,
+     *     payroll_scheme_id?: int|null,
+     *     payroll_scheme_version?: int|null,
+     *     parameter_overrides?: array<string, scalar|null>|null,
+     *     effective_to?: string|null,
+     *     status?: string|null,
+     *     approved_case_id?: int|null,
+     *     source_type?: string|null,
+     *     source_id?: int|null,
+     *     supersedes_id?: int|null
+     * }  $data
      */
     public function createCompensation(
         int $actorUserId,
@@ -108,7 +128,110 @@ final class CompensationService
             throw new NotFoundOrForbiddenException;
         }
 
-        return DB::transaction(function () use ($actorUserId, $data, $caseId, $capability, $employmentId, $effectiveFrom, $baseSalary): EmployeeCompensation {
+        $effectiveTo = isset($data['effective_to'])
+            ? BusinessDate::from((string) $data['effective_to'])
+            : null;
+
+        if ($effectiveTo !== null && ! $effectiveTo->isAfter($effectiveFrom)) {
+            throw new ValidationException(['effective_to' => ['The end date must be after the effective date.']]);
+        }
+
+        $contractVersion = null;
+
+        if (isset($data['contract_version_id'])) {
+            $contractVersion = $this->contractVersions->findVersion((int) $data['contract_version_id']);
+
+            if ($contractVersion === null || (int) ($contractVersion['employment_id'] ?? 0) !== $employmentId) {
+                throw new ConflictException('The selected contract version belongs to another employment.', [
+                    'reason' => 'COMPENSATION_CONTRACT_EMPLOYMENT_MISMATCH',
+                ]);
+            }
+
+            $contractFrom = (string) ($contractVersion['effective_from'] ?? '');
+            $contractTo = (string) ($contractVersion['effective_to'] ?? BusinessDate::OPEN_END);
+
+            if ($contractFrom === '' || $effectiveFrom->value() < $contractFrom || $effectiveFrom->value() > $contractTo) {
+                throw new ConflictException('The compensation effective date is outside the contract version.', [
+                    'reason' => 'COMPENSATION_CONTRACT_NOT_EFFECTIVE',
+                ]);
+            }
+
+            $contractCurrency = $contractVersion['agreed_currency'] ?? null;
+
+            if (is_string($contractCurrency) && strtoupper($contractCurrency) !== $baseSalary->currency()) {
+                throw new ConflictException('Compensation currency must match the agreed contract currency.', [
+                    'reason' => 'COMPENSATION_CURRENCY_MISMATCH',
+                ]);
+            }
+        }
+
+        $scheme = null;
+
+        if (isset($data['payroll_scheme_id'])) {
+            $scheme = PayrollScheme::query()->whereKey((int) $data['payroll_scheme_id'])->first();
+
+            if ($scheme === null || (string) $scheme->status !== 'ACTIVE') {
+                throw new ConflictException('The payroll scheme is not active.', [
+                    'reason' => 'COMPENSATION_SCHEME_NOT_ACTIVE',
+                ]);
+            }
+
+            $schemeFrom = $scheme->valid_from instanceof \DateTimeInterface
+                ? $scheme->valid_from->format('Y-m-d')
+                : substr((string) $scheme->valid_from, 0, 10);
+            $schemeTo = $scheme->valid_to instanceof \DateTimeInterface
+                ? $scheme->valid_to->format('Y-m-d')
+                : substr((string) $scheme->valid_to, 0, 10);
+
+            if ($effectiveFrom->value() < $schemeFrom || $effectiveFrom->value() > $schemeTo) {
+                throw new ConflictException('The payroll scheme is not effective on the compensation date.', [
+                    'reason' => 'COMPENSATION_SCHEME_NOT_EFFECTIVE',
+                ]);
+            }
+
+            if (strtoupper((string) $scheme->currency) !== $baseSalary->currency()) {
+                throw new ConflictException('Compensation currency must match the payroll scheme currency.', [
+                    'reason' => 'COMPENSATION_CURRENCY_MISMATCH',
+                ]);
+            }
+        }
+
+        $parameterOverrides = $this->normalizeParameterOverrides($data['parameter_overrides'] ?? []);
+        $status = strtoupper((string) ($data['status'] ?? 'ACTIVE'));
+
+        if (! in_array($status, ['DRAFT', 'PENDING_APPROVAL', 'SCHEDULED', 'ACTIVE', 'SUPERSEDED', 'ENDED'], true)) {
+            throw new ValidationException(['status' => ['Unsupported compensation status.']]);
+        }
+
+        $contentHash = hash('sha256', json_encode([
+            'employment_id' => $employmentId,
+            'contract_version_id' => $data['contract_version_id'] ?? null,
+            'effective_from' => $effectiveFrom->value(),
+            'effective_to' => $effectiveTo?->value(),
+            'status' => $status,
+            'currency' => $baseSalary->currency(),
+            'base_salary_cents' => $baseSalary->minor(),
+            'salary_scheme_code' => $data['salary_scheme_code'] ?? null,
+            'payroll_scheme_id' => $data['payroll_scheme_id'] ?? null,
+            'payroll_scheme_version' => $scheme?->version,
+            'parameter_overrides' => $parameterOverrides,
+            'approved_case_id' => $data['approved_case_id'] ?? $caseId,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        return DB::transaction(function () use (
+            $actorUserId,
+            $data,
+            $caseId,
+            $capability,
+            $employmentId,
+            $effectiveFrom,
+            $effectiveTo,
+            $baseSalary,
+            $parameterOverrides,
+            $status,
+            $scheme,
+            $contentHash,
+        ): EmployeeCompensation {
             $existing = EmployeeCompensation::query()
                 ->where('employment_id', $employmentId)
                 ->where('effective_from', $effectiveFrom->value())
@@ -121,12 +244,31 @@ final class CompensationService
                 ]);
             }
 
+            $previousId = $data['supersedes_id']
+                ?? EmployeeCompensation::query()
+                    ->where('employment_id', $employmentId)
+                    ->where('effective_from', '<', $effectiveFrom->value())
+                    ->orderByDesc('effective_from')
+                    ->orderByDesc('id')
+                    ->value('id');
+
             $compensation = EmployeeCompensation::query()->create([
                 'employment_id' => $employmentId,
+                'contract_version_id' => $data['contract_version_id'] ?? null,
                 'effective_from' => $effectiveFrom->value(),
+                'effective_to' => $effectiveTo?->value(),
+                'status' => $status,
                 'currency' => $baseSalary->currency(),
                 'base_salary_cents' => $baseSalary->minor(),
-                'salary_scheme_code' => $data['salary_scheme_code'] ?? null,
+                'salary_scheme_code' => $data['salary_scheme_code'] ?? $scheme?->code,
+                'payroll_scheme_id' => $data['payroll_scheme_id'] ?? null,
+                'payroll_scheme_version' => $scheme?->version,
+                'parameter_overrides_json' => $parameterOverrides === [] ? null : $parameterOverrides,
+                'approved_case_id' => $data['approved_case_id'] ?? $caseId,
+                'source_type' => $data['source_type'] ?? null,
+                'source_id' => $data['source_id'] ?? null,
+                'content_hash' => $contentHash,
+                'supersedes_id' => $previousId !== null ? (int) $previousId : null,
                 'created_by' => $actorUserId,
                 'created_at' => $this->clock->now(),
             ]);
@@ -138,9 +280,13 @@ final class CompensationService
                 aggregateId: (int) $compensation->id,
                 after: [
                     'employment_id' => $employmentId,
+                    'contract_version_id' => $data['contract_version_id'] ?? null,
                     'effective_from' => $effectiveFrom->value(),
                     'currency' => $baseSalary->currency(),
                     'base_salary_cents' => $baseSalary->minor(),
+                    'payroll_scheme_id' => $data['payroll_scheme_id'] ?? null,
+                    'payroll_scheme_version' => $scheme?->version,
+                    'content_hash' => $contentHash,
                     'case_id' => $caseId,
                 ],
             );
@@ -201,6 +347,13 @@ final class CompensationService
                 'base_salary_cents' => (int) $data['base_salary_cents'],
                 'currency' => (string) ($data['currency'] ?? 'CNY'),
                 'salary_scheme_code' => $data['salary_scheme_code'] ?? $this->salarySchemeFor($employmentId, (string) $data['effective_from']),
+                'contract_version_id' => $data['contract_version_id'] ?? null,
+                'payroll_scheme_id' => $data['payroll_scheme_id'] ?? null,
+                'parameter_overrides' => $data['parameter_overrides'] ?? null,
+                'effective_to' => $data['effective_to'] ?? null,
+                'approved_case_id' => (int) $case->id,
+                'source_type' => 'SALARY_ADJUSTMENT',
+                'source_id' => (int) $case->id,
             ], (int) $case->id, 'payroll.salary-adjustment.manage');
 
             $adjustment = SalaryAdjustment::query()->create([
@@ -245,6 +398,44 @@ final class CompensationService
 
             return ['adjustment' => $adjustment->refresh(), 'compensation' => $compensation];
         });
+    }
+
+    /**
+     * Parameter overrides are a flat map of approved scalar values. Nested
+     * objects, floats and list-shaped payloads are rejected so no arbitrary
+     * structure can enter a payroll snapshot.
+     *
+     * @return array<string, string|int|bool|null>
+     */
+    private function normalizeParameterOverrides(mixed $value): array
+    {
+        if ($value === null || $value === []) {
+            return [];
+        }
+
+        if (! is_array($value) || array_is_list($value)) {
+            throw new ValidationException(['parameter_overrides' => ['Parameter overrides must be a flat object.']]);
+        }
+
+        $normalized = [];
+
+        foreach ($value as $key => $entry) {
+            if (! is_string($key) || preg_match('/^[a-z][a-z0-9_.-]{0,63}$/i', $key) !== 1) {
+                throw new ValidationException(['parameter_overrides' => ['Every parameter override needs a stable code key.']]);
+            }
+
+            if ($entry !== null && ! is_string($entry) && ! is_int($entry) && ! is_bool($entry)) {
+                throw new ValidationException([
+                    "parameter_overrides.{$key}" => ['Only scalar strings, integers, booleans or null are allowed.'],
+                ]);
+            }
+
+            $normalized[$key] = $entry;
+        }
+
+        ksort($normalized);
+
+        return $normalized;
     }
 
     private function salarySchemeFor(int $employmentId, string $effectiveOn): ?string

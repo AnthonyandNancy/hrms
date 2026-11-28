@@ -78,10 +78,18 @@ final class CapabilityAuthorizer implements Authorizer
         'employee_compensation' => [
             'id' => FieldProfile::P0_PUBLIC,
             'employment_id' => FieldProfile::P0_PUBLIC,
+            'contract_version_id' => FieldProfile::P1_INTERNAL,
             'effective_from' => FieldProfile::P0_PUBLIC,
+            'effective_to' => FieldProfile::P0_PUBLIC,
+            'status' => FieldProfile::P0_PUBLIC,
             'currency' => FieldProfile::P0_PUBLIC,
             'salary_scheme_code' => FieldProfile::P1_INTERNAL,
+            'payroll_scheme_id' => FieldProfile::P1_INTERNAL,
+            'payroll_scheme_version' => FieldProfile::P1_INTERNAL,
+            'content_hash' => FieldProfile::P1_INTERNAL,
+            'supersedes_id' => FieldProfile::P0_PUBLIC,
             'base_salary_cents' => FieldProfile::P3_RESTRICTED,
+            'parameter_overrides' => FieldProfile::P3_RESTRICTED,
         ],
         'salary_adjustment' => [
             'id' => FieldProfile::P0_PUBLIC,

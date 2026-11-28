@@ -35,6 +35,7 @@ final class ObjectAllowedActionResolver implements AllowedActionResolver
         'payroll.run.detail.correct' => ['PUBLISHED', 'PAID', 'CLOSED'],
         'payroll.run.detail.mark-paid' => ['PUBLISHED'],
         'payroll.run.detail.close' => ['PAID'],
+        'people.contract.detail.activate' => ['DRAFT', 'PENDING_EFFECTIVE'],
         'people.contract.detail.amend' => ['ACTIVE', 'EXPIRING'],
         'people.contract.detail.terminate' => ['ACTIVE', 'EXPIRING'],
         'leave.request.cancel' => ['DRAFT', 'SUBMITTED', 'IN_REVIEW', 'APPROVED'],

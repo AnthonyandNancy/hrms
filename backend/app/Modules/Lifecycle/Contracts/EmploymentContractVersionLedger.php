@@ -34,4 +34,11 @@ interface EmploymentContractVersionLedger
      * @return list<array<string, mixed>>
      */
     public function history(int $contractId): array;
+
+    /**
+     * Resolve one immutable version for a payroll compensation link.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findVersion(int $versionId): ?array;
 }

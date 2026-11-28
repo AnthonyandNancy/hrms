@@ -1707,6 +1707,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employment-contracts/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate a draft contract at its signed start date */
+        post: operations["activateEmploymentContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employments/{employmentId}/contract-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List scoped employment contract versions for selector and payroll links */
+        get: operations["listEmploymentContractVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employments": {
         parameters: {
             query?: never;
@@ -7691,6 +7725,19 @@ export interface components {
             /** @default CNY */
             currency: string;
             salary_scheme_code?: string | null;
+            /** @description Immutable contract version owned by People/Lifecycle. */
+            contract_version_id?: number | null;
+            /** @description Published Payroll scheme resolved for this employee. */
+            payroll_scheme_id?: number | null;
+            /** @description Client value is ignored; server stores the scheme's published version. */
+            payroll_scheme_version?: number | null;
+            parameter_overrides?: {
+                [key: string]: string | number | boolean | null;
+            } | null;
+            /** Format: date */
+            effective_to?: string | null;
+            /** @enum {string} */
+            status?: "DRAFT" | "PENDING_APPROVAL" | "SCHEDULED" | "ACTIVE" | "SUPERSEDED" | "ENDED";
         };
         SalaryAdjustmentCreateRequest: {
             employment_id: number;
@@ -7713,8 +7760,21 @@ export interface components {
             effective_from: string;
             currency: string;
             salary_scheme_code?: string | null;
+            contract_version_id?: number | null;
+            /** Format: date */
+            effective_to?: string | null;
+            /** @enum {string} */
+            status?: "DRAFT" | "PENDING_APPROVAL" | "SCHEDULED" | "ACTIVE" | "SUPERSEDED" | "ENDED";
+            payroll_scheme_id?: number | null;
+            payroll_scheme_version?: number | null;
+            content_hash?: string | null;
+            supersedes_id?: number | null;
             /** @description Base salary in minor currency units. Omitted when the caller is not a P3 field holder. */
             base_salary_cents?: number;
+            /** @description Omitted together with P3 amounts when the caller lacks the field profile. */
+            parameter_overrides?: {
+                [key: string]: string | number | boolean | null;
+            };
             created_by?: number;
             /** Format: date-time */
             created_at?: string | null;
@@ -12564,6 +12624,76 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    activateEmploymentContract: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    effective_from: string;
+                    reason?: string | null;
+                    agreed_salary_cents?: number | null;
+                    agreed_currency?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Contract activated and activation history appended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractLifecycleEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listEmploymentContractVersions: {
+        parameters: {
+            query?: {
+                /** @description Business date. Defaults to today in the legal entity timezone. */
+                as_of?: components["parameters"]["AsOf"];
+            };
+            header?: never;
+            path: {
+                employmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contract version history for the selected employment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmploymentContractVersionPageEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

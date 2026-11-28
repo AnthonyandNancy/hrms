@@ -1187,6 +1187,15 @@
       "api": "POST /v1/employment-contracts/{id}/terminate",
       "ui": "danger",
       "confirm": "danger"
+    },
+    {
+      "pageCode": "hr-contracts-by-id",
+      "key": "people.contract.detail.activate",
+      "label": "激活劳动合同",
+      "capability": "people.contract.manage",
+      "api": "POST /v1/employment-contracts/{id}/activate",
+      "ui": "primary",
+      "confirm": "none"
     }
   ]
 }

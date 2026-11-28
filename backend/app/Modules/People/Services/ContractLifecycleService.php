@@ -20,6 +20,7 @@ use App\Shared\Observability\AuditRecorder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +40,7 @@ final class ContractLifecycleService
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
         private readonly EmploymentContractVersionLedger $versions,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
@@ -164,6 +166,119 @@ final class ContractLifecycleService
             ->all();
     }
 
+    /**
+     * Activate a draft contract at its signed start date. A future activation
+     * stays PENDING_EFFECTIVE until the company business date reaches it; no
+     * scheduler is required for Payroll to resolve the date.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function activate(int $contractId, array $data, int $actorUserId): array
+    {
+        return DB::transaction(function () use ($contractId, $data, $actorUserId): array {
+            /** @var EmploymentContract $contract */
+            $contract = EmploymentContract::query()
+                ->whereKey($contractId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($contract === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if (! in_array((string) $contract->status, ['DRAFT', 'PENDING_EFFECTIVE'], true)) {
+                throw new ConflictException('Only a draft or pending contract can be activated.', [
+                    'reason' => 'CONTRACT_NOT_ACTIVATABLE',
+                    'status' => (string) $contract->status,
+                ]);
+            }
+
+            $effective = BusinessDate::from((string) ($data['effective_from'] ?? $contract->start_date));
+
+            if ($effective->value() !== (string) $contract->start_date) {
+                throw new ValidationException([
+                    'effective_from' => ['Activation must use the contract start date so signed terms are not rewritten.'],
+                ]);
+            }
+
+            $this->assertNoPeriodOverlap($contract, $effective->value());
+
+            $today = $this->businessDates->today()->value();
+            $nextStatus = $effective->isAfter(BusinessDate::from($today))
+                ? 'PENDING_EFFECTIVE'
+                : 'ACTIVE';
+            $before = $this->contractPayload($contract, $today);
+            $contract->forceFill(['status' => $nextStatus])->save();
+            $after = $this->contractPayload($contract, $today);
+            $agreed = $this->agreedTerms($contractId, $data);
+
+            $version = $this->versions->append(
+                contractId: (int) $contract->id,
+                employmentId: (int) $contract->employment_id,
+                changeType: 'ACTIVATION',
+                effectiveFrom: $effective->value(),
+                effectiveTo: $contract->end_date !== null ? (string) $contract->end_date : BusinessDate::OPEN_END,
+                reason: isset($data['reason']) ? (string) $data['reason'] : null,
+                snapshot: ['before' => $before, 'after' => $after, ...$agreed],
+                actorUserId: $actorUserId,
+            );
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'people.contract.activated',
+                aggregateType: 'employment_contract',
+                aggregateId: (int) $contract->id,
+                before: $before,
+                after: $after,
+                metadata: [
+                    'version_id' => $version['id'],
+                    'effective_from' => $effective->value(),
+                    'activation_status' => $nextStatus,
+                ],
+            );
+
+            return ['contract' => $after, 'version' => $version];
+        });
+    }
+
+    private function assertNoPeriodOverlap(EmploymentContract $contract, string $effectiveFrom): void
+    {
+        $effectiveTo = $contract->end_date !== null ? (string) $contract->end_date : BusinessDate::OPEN_END;
+        $overlap = EmploymentContract::query()
+            ->where('employment_id', (int) $contract->employment_id)
+            ->where('id', '!=', (int) $contract->id)
+            ->whereIn('status', EmploymentContract::PERIOD_RESERVING_STATUSES)
+            ->where('start_date', '<=', $effectiveTo)
+            ->where(function ($query) use ($effectiveFrom): void {
+                $query->whereNull('end_date')->orWhere('end_date', '>=', $effectiveFrom);
+            })
+            ->exists();
+
+        if ($overlap) {
+            throw new ConflictException('The contract period overlaps another effective contract.', [
+                'reason' => 'CONTRACT_PERIOD_OVERLAP',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{agreed_salary_cents: int|null, agreed_currency: string|null}
+     */
+    private function agreedTerms(int $contractId, array $data = []): array
+    {
+        $history = $this->versions->history($contractId);
+        $latest = $history !== [] ? $history[count($history) - 1] : [];
+        $salary = $data['agreed_salary_cents'] ?? ($latest['agreed_salary_minor'] ?? null);
+        $currency = $data['agreed_currency'] ?? ($latest['agreed_currency'] ?? null);
+
+        return [
+            'agreed_salary_cents' => $salary !== null ? (int) $salary : null,
+            'agreed_currency' => $currency !== null ? strtoupper((string) $currency) : null,
+        ];
+    }
+
     public function amendmentHistory(int $contractId, string $asOf, int $page, int $pageSize): ProjectionResult
     {
         $contract = $this->findContract($contractId);
@@ -266,7 +381,7 @@ final class ContractLifecycleService
                 effectiveFrom: $effective->value(),
                 effectiveTo: $effectiveTo,
                 reason: (string) $data['reason'],
-                snapshot: ['before' => $before, 'after' => $after, 'changes' => $changes],
+                snapshot: ['before' => $before, 'after' => $after, 'changes' => $changes, ...$this->agreedTerms($contractId)],
                 actorUserId: $actorUserId,
             );
 
@@ -336,7 +451,7 @@ final class ContractLifecycleService
                 effectiveFrom: $effective->value(),
                 effectiveTo: $effective->value(),
                 reason: (string) $data['reason'],
-                snapshot: ['before' => $before, 'after' => $after],
+                snapshot: ['before' => $before, 'after' => $after, ...$this->agreedTerms($contractId)],
                 actorUserId: $actorUserId,
             );
 

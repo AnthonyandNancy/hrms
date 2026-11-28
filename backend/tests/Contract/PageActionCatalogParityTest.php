@@ -50,7 +50,7 @@ final class PageActionCatalogParityTest extends TestCase
             $catalog->pagesForCapability('people.employee.manage'),
         );
         $this->assertSame(
-            ['hr-contracts', 'hr-employees'],
+            ['hr-contracts', 'hr-contracts-by-id', 'hr-employees'],
             $catalog->pagesForCapability('people.contract.manage'),
         );
     }

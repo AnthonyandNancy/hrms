@@ -174,6 +174,38 @@ final class ContractLifecycleController
         );
     }
 
+    public function activate(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $asOf = $this->businessDates->today();
+        $this->access->contract($principal, $id, 'people.contract.manage', $asOf->value());
+
+        $data = $request->validate([
+            'effective_from' => ['required', new BusinessDateRule],
+            'reason' => ['nullable', 'string', 'min:3', 'max:500'],
+            'agreed_salary_cents' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'agreed_currency' => ['sometimes', 'nullable', 'string', 'regex:/^[A-Za-z]{3}$/'],
+        ]);
+
+        return $this->command(
+            $request,
+            new CommandDefinition(
+                name: 'people.contract.activate',
+                capability: 'people.contract.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'people.contract.activated',
+            ),
+            ['contract_id' => $id, ...$data],
+            fn (): array => $this->projectMutation($this->contracts->activate($id, $data, $principal->userId()), $principal, (string) $data['effective_from']),
+            200,
+            'employment_contract',
+            (string) $id,
+        );
+    }
+
     public function destroy(Request $request, int $id): JsonResponse
     {
         $principal = $this->principals->resolve();

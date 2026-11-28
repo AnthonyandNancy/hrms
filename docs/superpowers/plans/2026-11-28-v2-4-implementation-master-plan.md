@@ -78,8 +78,8 @@
 | T00 | 基线与 ADR | COMPLETE | Step 4 | `docs/implementation/v24/00-baseline/gate-all.log` |
 | T01 | 安装状态与干净初始化 | COMPLETE | Step 5 | `docs/implementation/v24/01-install/evidence.md`; gate log |
 | T02 | 权限单一目录与对象动作 | COMPLETE | Step 5 | `docs/implementation/v24/02-action-catalog/evidence.md`; gate log |
-| T03 | 合同约定版本 | PENDING | — | — |
-| T04 | 员工执行薪酬版本 | PENDING | — | — |
+| T03 | 合同约定版本 | COMPLETE | Step 5 | `docs/implementation/v24/03-contracts/evidence.md` |
+| T04 | 员工执行薪酬版本 | COMPLETE | Step 5 | `docs/implementation/v24/04-compensation-chain/evidence.md` |
 | T05 | 单一入职与合同/薪酬待办 | PENDING | — | — |
 | T06 | Time 月度事实版本 | PENDING | — | — |
 | T07 | 请假审批 Effect 与净流水 | PENDING | — | — |
@@ -104,6 +104,7 @@
 | 2026-11-28 | T00 Step 4 | focused PHPUnit + `pnpm gate:all` | Focused 29 tests PASS; full 22-gate matrix PASS in 238.9s; evidence at `docs/implementation/v24/00-baseline/gate-all.log` | T00 complete. Continue with T01. |
 | 2026-11-28 | T01 Step 5 | `phpunit --filter 'Install|Health|SyncCapabilities|DemoSeed'`; `pnpm gate:all` | 28 adjacent tests PASS; 22 gates PASS in 222.5s; evidence at `docs/implementation/v24/01-install/evidence.md` | T01 complete. Continue with T02; do not claim AC-02 until real-stack/MCP evidence. |
 | 2026-11-28 | T02 Step 5 | 38 backend tests + 652 frontend tests + `pnpm gate:all` | 22 gates PASS in 245.3s; generated PHP/JSON/TS action artifacts; evidence at `docs/implementation/v24/02-action-catalog/evidence.md` | T02 complete with contract/Time detail wiring explicitly carried into T03/T07/T08. Continue T03. |
+| 2026-11-28 | T03/T04 Step 5 | combined focused 34 tests + full `pnpm gate:all` | 22 gates PASS in 247.7s; evidence in `docs/implementation/v24/03-contracts/` and `04-compensation-chain/` | Contract ladder and execution compensation link complete. Payroll still reads terms until T09. |
 
 ---
 
@@ -310,7 +311,7 @@ cd frontend && pnpm test:unit -- payrollAllowedActions.spec.ts
 
 ### T03：合同约定版本、激活与不可变
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - `backend/database/migrations/2026_11_27_000801_add_contract_detail_fields.php`（仅新建后续迁移，不修改该历史迁移）
@@ -348,17 +349,17 @@ pnpm openapi:validate && pnpm actions:check
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：版本不可 update/delete、DRAFT 不可直接 ACTIVE、activation 同员工/有效期/唯一主合同、未来生效不参与 as-of、合同金额被字段策略裁剪。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：前向迁移 + 模型防护 + activate 服务；不修改旧迁移。
-- [ ] Step 4：控制器/API/详情投影；聚焦测试 GREEN。
-- [ ] Step 5：补 OpenAPI/action/负测；提交 `feat(v2.4): add immutable contract agreed versions`。
+- [x] Step 1：写 failing tests：版本不可 update/delete、DRAFT 不可直接 ACTIVE、activation 同员工/有效期/唯一主合同、未来生效不参与 as-of、合同金额被字段策略裁剪。
+- [x] Step 2：运行确认 FAIL。
+- [x] Step 3：前向迁移 + 模型防护 + activate 服务；不修改旧迁移。
+- [x] Step 4：控制器/API/详情投影；聚焦测试 GREEN。
+- [x] Step 5：补 OpenAPI/action/负测；提交 `feat(v2.4): add immutable contract agreed versions`。
 
 ---
 
 ### T04：员工执行薪酬版本与合同/方案关联
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_000300_extend_employee_compensations_for_execution.php`
@@ -393,11 +394,11 @@ cd backend
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：contract/employment mismatch、日期重叠、未来版本、参数超限、历史 unresolved、P3 字段隐藏、同日期唯一。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：迁移 + model + service + resolver；保留旧行。
-- [ ] Step 4：API/字段策略/审计；聚焦测试 GREEN。
-- [ ] Step 5：提交 `feat(v2.4): bind execution compensation to contract and scheme versions`。
+- [x] Step 1：写 failing tests：contract/employment mismatch、日期重叠、未来版本、参数超限、历史 unresolved、P3 字段隐藏、同日期唯一。
+- [x] Step 2：运行确认 FAIL。
+- [x] Step 3：迁移 + model + service + resolver；保留旧行。
+- [x] Step 4：API/字段策略/审计；聚焦测试 GREEN。
+- [x] Step 5：提交 `feat(v2.4): bind execution compensation to contract and scheme versions`。
 
 ---
 

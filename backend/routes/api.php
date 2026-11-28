@@ -294,7 +294,16 @@ Route::prefix('employment-contracts/{id}')->middleware('auth.session')->group(fu
         ->whereNumber('id')
         ->middleware('capability:people.contract.terminate')
         ->name('employment-contracts.terminate');
+    Route::post('/activate', [ContractLifecycleController::class, 'activate'])
+        ->whereNumber('id')
+        ->middleware('capability:people.contract.manage')
+        ->name('employment-contracts.activate');
 });
+
+Route::get('/employments/{employmentId}/contract-versions', [EmploymentContractController::class, 'versions'])
+    ->whereNumber('employmentId')
+    ->middleware(['auth.session', 'capability:people.contract.read'])
+    ->name('employments.contract-versions.index');
 
 Route::prefix('contract-templates')->middleware('auth.session')->group(function (): void {
     Route::get('/', [ContractLifecycleController::class, 'templates'])

@@ -39,6 +39,16 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
             $documentVersion = (int) (EmploymentContractVersion::query()
                 ->where('contract_id', $contractId)
                 ->max('document_version') ?? 0) + 1;
+            $agreedSalary = $snapshot['agreed_salary_cents']
+                ?? $snapshot['agreed_salary_minor']
+                ?? null;
+            $agreedCurrency = isset($snapshot['agreed_currency'])
+                ? strtoupper((string) $snapshot['agreed_currency'])
+                : null;
+            $serializedSnapshot = json_encode(
+                $snapshot,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
 
             /** @var EmploymentContractVersion $row */
             $row = EmploymentContractVersion::query()->create([
@@ -50,6 +60,12 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
                 'file_object_id' => null,
                 'effective_from' => $effectiveFrom,
                 'effective_to' => $effectiveTo,
+                'agreed_salary_minor' => $agreedSalary !== null ? (int) $agreedSalary : null,
+                'agreed_currency' => $agreedCurrency !== null ? $agreedCurrency : null,
+                'terms_hash' => hash('sha256', $serializedSnapshot),
+                'status' => 'RECORDED',
+                'activated_at' => $changeType === 'ACTIVATION' ? $this->clock->now() : null,
+                'activated_by' => $changeType === 'ACTIVATION' ? $actorUserId : null,
                 'expires_at' => null,
                 'reason' => $reason,
                 'snapshot_json' => $snapshot,
@@ -87,6 +103,13 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
             ->all();
     }
 
+    public function findVersion(int $versionId): ?array
+    {
+        $row = EmploymentContractVersion::query()->whereKey($versionId)->first();
+
+        return $row instanceof EmploymentContractVersion ? $this->payload($row) : null;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -101,6 +124,12 @@ final class EmploymentContractVersionLedgerService implements EmploymentContract
             'document_version' => (int) $row->document_version,
             'effective_from' => (string) $row->effective_from,
             'effective_to' => (string) $row->effective_to,
+            'agreed_salary_minor' => $row->agreed_salary_minor !== null ? (int) $row->agreed_salary_minor : null,
+            'agreed_currency' => $row->agreed_currency !== null ? (string) $row->agreed_currency : null,
+            'terms_hash' => $row->terms_hash !== null ? (string) $row->terms_hash : null,
+            'status' => $row->status !== null ? (string) $row->status : 'RECORDED',
+            'activated_at' => $row->activated_at?->toIso8601ZuluString(),
+            'activated_by' => $row->activated_by !== null ? (int) $row->activated_by : null,
             'reason' => $row->reason,
             'snapshot' => $row->snapshot_json ?? [],
             'recorded_at' => $row->recorded_at?->toIso8601ZuluString(),

@@ -408,6 +408,21 @@ return [
     'hr-contracts-by-id' => [
         [
             'pageCode' => 'hr-contracts-by-id',
+            'key' => 'people.contract.detail.activate',
+            'label' => '激活劳动合同',
+            'capability' => 'people.contract.manage',
+            'api' => 'POST /v1/employment-contracts/{id}/activate',
+            'ui' => 'primary',
+            'confirm' => 'none',
+            'anchorTypes' => [
+                'ORG_UNIT',
+                'ORG_SUBTREE',
+                'COMPANY',
+            ],
+            'fieldProfileMax' => 'P2_SENSITIVE',
+        ],
+        [
+            'pageCode' => 'hr-contracts-by-id',
             'key' => 'people.contract.detail.amend',
             'label' => '新增合同变更',
             'capability' => 'people.contract.amend',
