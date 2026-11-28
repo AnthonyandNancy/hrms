@@ -231,7 +231,9 @@ final class SnapshotService
      */
     public function buildPayload(PayrollRun $run, PayrollScheme $scheme, int $employmentId, string $currency): array
     {
-        $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
+        $closedFact = $this->time->closedFactForPeriod($employmentId, (string) $run->period);
+        $attendance = null;
+        $blockers = [];
         $asOf = $this->dateOnly($run->earning_period_end);
         $compensation = $this->compensations->effectiveForEmployment($employmentId, $asOf);
         $terms = $this->terms->termsAsOf($employmentId, $asOf);
@@ -267,19 +269,49 @@ final class SnapshotService
         $siVersion = $this->parameters->versionFor('SOCIAL_INSURANCE', (string) $run->cutoff_at);
         $hfVersion = $this->parameters->versionFor('HOUSING_FUND', (string) $run->cutoff_at);
 
-        $attendanceSummary = $attendance === null
-            ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_hash' => hash('sha256', 'MISSING|'.$employmentId.'|'.$run->period)]
-            : [
-                'from' => $attendance->from,
-                'to' => $attendance->to,
-                'scheduled_minutes' => $attendance->scheduledMinutes,
-                'worked_minutes' => $attendance->workedMinutes,
-                'paid_leave_minutes' => $attendance->paidLeaveMinutes,
-                'unpaid_leave_minutes' => $attendance->unpaidLeaveMinutes,
-                'overtime_minutes' => $attendance->overtimeMinutes,
-                'leave_consumption' => $attendance->leaveConsumption,
-                'source_hash' => $attendance->sourceHash,
+        if ($closedFact !== null) {
+            $attendanceSummary = [
+                'from' => $closedFact->from,
+                'to' => $closedFact->to,
+                'scheduled_minutes' => $closedFact->scheduledMinutes,
+                'worked_minutes' => $closedFact->workedMinutes,
+                'paid_leave_minutes' => $closedFact->paidLeaveMinutes,
+                'partial_leave_minutes' => $closedFact->partialLeaveMinutes,
+                'unpaid_leave_minutes' => $closedFact->unpaidLeaveMinutes,
+                'overtime_minutes' => $closedFact->overtimePayMinutes,
+                'overtime_timeoff_minutes' => $closedFact->overtimeTimeoffMinutes,
+                'travel_minutes' => $closedFact->travelMinutes,
+                'source_type' => 'time_closed_fact',
+                'fact_version' => $closedFact->factVersion,
+                'fact_version_id' => $closedFact->factVersionId,
+                'source_hash' => $closedFact->sourceHash,
             ];
+        } else {
+            // Transitional compatibility: record the missing closed fact as a
+            // blocker but keep the legacy projection until Calculation v2
+            // honours blockers. Never treat this fallback as frozen evidence.
+            $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
+            $blockers[] = [
+                'code' => 'CLOSED_TIME_FACT_MISSING',
+                'message' => 'The payroll period has no closed Time fact version.',
+                'employment_id' => $employmentId,
+                'period' => (string) $run->period,
+            ];
+            $attendanceSummary = $attendance === null
+                ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_type' => 'missing', 'source_hash' => hash('sha256', 'MISSING|'.$employmentId.'|'.$run->period)]
+                : [
+                    'from' => $attendance->from,
+                    'to' => $attendance->to,
+                    'scheduled_minutes' => $attendance->scheduledMinutes,
+                    'worked_minutes' => $attendance->workedMinutes,
+                    'paid_leave_minutes' => $attendance->paidLeaveMinutes,
+                    'unpaid_leave_minutes' => $attendance->unpaidLeaveMinutes,
+                    'overtime_minutes' => $attendance->overtimeMinutes,
+                    'leave_consumption' => $attendance->leaveConsumption,
+                    'source_type' => 'live_fallback',
+                    'source_hash' => $attendance->sourceHash,
+                ];
+        }
 
         $payload = [
             'schema_version' => 2,
@@ -292,6 +324,7 @@ final class SnapshotService
             'pay_date' => $this->dateOnly($run->pay_date),
             'cutoff_at' => (string) $run->cutoff_at,
             'attendance' => $attendanceSummary,
+            'blockers' => $blockers,
             'compensation' => $compensation,
             'terms' => $terms === null ? null : [
                 'terms_id' => $terms->id,
