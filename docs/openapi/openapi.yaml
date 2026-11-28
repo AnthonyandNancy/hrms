@@ -15499,6 +15499,138 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.payslip.read.self
+  /v1/payroll/rules:
+    get:
+      operationId: payrollRulesIndex
+      tags: [Payroll]
+      summary: List payroll rule versions for a scheme item
+      parameters:
+        - name: scheme_item_id
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.read
+  /v1/payroll/scheme-items/{id}/rules:
+    post:
+      operationId: payrollRuleVersionStore
+      tags: [Payroll]
+      summary: Create a draft restricted payroll rule for a scheme item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ast]
+              properties:
+                ast: { type: object, additionalProperties: true }
+                stage: { type: string, maxLength: 24 }
+                dependencies: { type: array, items: { type: string } }
+                rounding_mode: { type: string, enum: [HALF_UP, HALF_EVEN, DOWN, UP] }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 创建薪酬规则版本
+  /v1/payroll/rules/{id}/publish:
+    post:
+      operationId: payrollRuleVersionPublish
+      tags: [Payroll]
+      summary: Publish a validated payroll rule version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 发布薪酬规则版本
+  /v1/payroll/rules/{id}/retire:
+    post:
+      operationId: payrollRuleVersionRetire
+      tags: [Payroll]
+      summary: Retire a published payroll rule version
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 5, maxLength: 500 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 退役薪酬规则版本
   /v1/payroll/runs:
     get:
       operationId: payrollv1_payroll_runs_get

@@ -1106,6 +1106,48 @@
       },
       {
         "pageCode": "payroll",
+        "key": "payroll.rule-version.create",
+        "label": "创建薪酬规则版本",
+        "capability": "payroll.run.prepare",
+        "api": "POST /v1/payroll/scheme-items/{id}/rules",
+        "ui": "primary",
+        "confirm": "none",
+        "anchorTypes": [
+          "PAYROLL_RUN",
+          "COMPANY"
+        ],
+        "fieldProfileMax": "P2_SENSITIVE"
+      },
+      {
+        "pageCode": "payroll",
+        "key": "payroll.rule-version.publish",
+        "label": "发布薪酬规则版本",
+        "capability": "payroll.run.prepare",
+        "api": "POST /v1/payroll/rules/{id}/publish",
+        "ui": "danger",
+        "confirm": "danger",
+        "anchorTypes": [
+          "PAYROLL_RUN",
+          "COMPANY"
+        ],
+        "fieldProfileMax": "P2_SENSITIVE"
+      },
+      {
+        "pageCode": "payroll",
+        "key": "payroll.rule-version.retire",
+        "label": "退役薪酬规则版本",
+        "capability": "payroll.run.prepare",
+        "api": "POST /v1/payroll/rules/{id}/retire",
+        "ui": "danger",
+        "confirm": "danger",
+        "anchorTypes": [
+          "PAYROLL_RUN",
+          "COMPANY"
+        ],
+        "fieldProfileMax": "P2_SENSITIVE"
+      },
+      {
+        "pageCode": "payroll",
         "key": "payroll.run.create",
         "label": "创建工资批次",
         "capability": "payroll.run.prepare",

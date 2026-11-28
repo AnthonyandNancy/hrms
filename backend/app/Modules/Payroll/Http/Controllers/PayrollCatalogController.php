@@ -6,7 +6,9 @@ namespace App\Modules\Payroll\Http\Controllers;
 
 use App\Modules\Payroll\Models\PayrollItem;
 use App\Modules\Payroll\Models\PayrollItemVersion;
+use App\Modules\Payroll\Models\PayrollRuleVersion;
 use App\Modules\Payroll\Services\PayrollItemService;
+use App\Modules\Payroll\Services\PayrollRuleVersionService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\PrincipalResolver;
@@ -31,6 +33,7 @@ final class PayrollCatalogController
         private readonly PrincipalResolver $principals,
         private readonly PayrollRunService $runs,
         private readonly PayrollItemService $items,
+        private readonly PayrollRuleVersionService $ruleVersions,
         private readonly CommandRunner $commands,
         private readonly CompanyBusinessDate $businessDates,
     ) {}
@@ -179,6 +182,118 @@ final class PayrollCatalogController
         );
 
         return $this->respond($result->status, $result->body, $result->replayed);
+    }
+
+    public function rules(Request $request): JsonResponse
+    {
+        $this->principals->resolve();
+        $data = $request->validate([
+            'scheme_item_id' => ['required', 'integer', 'min:1'],
+        ]);
+        $rows = PayrollRuleVersion::query()
+            ->where('scheme_item_id', (int) $data['scheme_item_id'])
+            ->orderByDesc('version')
+            ->get()
+            ->map(fn (PayrollRuleVersion $rule): array => $this->rulePayload($rule))
+            ->values()
+            ->all();
+
+        return ApiResponse::ok(ApiResponse::list($rows, 1, max(1, count($rows)), count($rows)));
+    }
+
+    public function storeRule(Request $request, int $schemeItemId): JsonResponse
+    {
+        $data = $request->validate([
+            'ast' => ['required', 'array'],
+            'stage' => ['nullable', 'string', 'max:24'],
+            'dependencies' => ['nullable', 'array'],
+            'rounding_mode' => ['nullable', 'string', 'in:HALF_UP,HALF_EVEN,DOWN,UP'],
+        ]);
+        $payload = [
+            'scheme_item_id' => $schemeItemId,
+            'ast' => $data['ast'],
+            'stage' => (string) ($data['stage'] ?? 'EARNING'),
+            'dependencies' => (array) ($data['dependencies'] ?? []),
+            'rounding_mode' => (string) ($data['rounding_mode'] ?? 'HALF_UP'),
+        ];
+        $result = $this->commands->run(
+            $this->definition('payroll.rule_version.create', 'payroll.rule_version.drafted'),
+            $payload,
+            function () use ($payload): array {
+                $principal = $this->principals->resolve();
+                $rule = $this->ruleVersions->createDraft(
+                    $principal->userId(),
+                    (int) $payload['scheme_item_id'],
+                    (array) $payload['ast'],
+                    (string) $payload['stage'],
+                    (array) $payload['dependencies'],
+                    (string) $payload['rounding_mode'],
+                );
+
+                return ['http_status' => 201, 'body' => $this->rulePayload($rule), 'resource_type' => 'payroll_rule_version', 'resource_id' => (string) $rule->id];
+            },
+            (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result->status, $result->body, $result->replayed);
+    }
+
+    public function publishRule(Request $request, int $id): JsonResponse
+    {
+        $result = $this->commands->run(
+            $this->definition('payroll.rule_version.publish', 'payroll.rule_version.published'),
+            ['rule_version_id' => $id],
+            function () use ($id): array {
+                $principal = $this->principals->resolve();
+                $rule = $this->ruleVersions->publish($principal->userId(), $id);
+
+                return ['http_status' => 200, 'body' => $this->rulePayload($rule), 'resource_type' => 'payroll_rule_version', 'resource_id' => (string) $rule->id];
+            },
+            (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result->status, $result->body, $result->replayed);
+    }
+
+    public function retireRule(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:500']]);
+        $result = $this->commands->run(
+            $this->definition('payroll.rule_version.retire', 'payroll.rule_version.retired'),
+            ['rule_version_id' => $id, 'reason' => (string) $data['reason']],
+            function () use ($id, $data): array {
+                $principal = $this->principals->resolve();
+                $rule = $this->ruleVersions->retire($principal->userId(), $id, (string) $data['reason']);
+
+                return ['http_status' => 200, 'body' => $this->rulePayload($rule), 'resource_type' => 'payroll_rule_version', 'resource_id' => (string) $rule->id];
+            },
+            (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result->status, $result->body, $result->replayed);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rulePayload(PayrollRuleVersion $rule): array
+    {
+        return [
+            'id' => (int) $rule->id,
+            'scheme_item_id' => (int) $rule->scheme_item_id,
+            'version' => (int) $rule->version,
+            'ast' => $rule->ast_json,
+            'stage' => (string) $rule->stage,
+            'dependencies' => $rule->dependencies_json ?? [],
+            'rounding_mode' => (string) $rule->rounding_mode,
+            'unit' => (string) $rule->unit,
+            'engine_version' => (string) $rule->engine_version,
+            'hash' => (string) $rule->hash,
+            'status' => (string) $rule->status,
+            'published_by' => $rule->published_by !== null ? (int) $rule->published_by : null,
+            'published_at' => $rule->published_at?->toIso8601ZuluString(),
+            'retire_reason' => $rule->retire_reason,
+        ];
     }
 
     public function schemes(Request $request): JsonResponse

@@ -66,3 +66,21 @@ rule hashes, rule editor and API.
 
 Remaining T10: rule version API/UI, dependency validation/graph and cascade
 publish/retire controls.
+
+## T10d — rule version HTTP surface
+
+- Added real capability-guarded routes:
+  - `GET /v1/payroll/rules?scheme_item_id=...`;
+  - `POST /v1/payroll/scheme-items/{id}/rules`;
+  - `POST /v1/payroll/rules/{id}/publish`;
+  - `POST /v1/payroll/rules/{id}/retire`.
+- Writes use CommandRunner, idempotency and `payroll.run.prepare` on COMPANY;
+  reads use `payroll.run.read`.
+- Added OpenAPI, action manifest entries, page required APIs, permission catalog
+  and legacy route ledger synchronization.
+- Added HTTP regression for draft → list → publish → retire with canonical hash.
+- Verification: governed contract tests 34 tests / 6,263 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: dependency graph validation/cascade controls and frontend
+restricted rule editor.

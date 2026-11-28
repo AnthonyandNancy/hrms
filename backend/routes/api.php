@@ -1280,6 +1280,24 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
     Route::get('/schemes', [PayrollCatalogController::class, 'schemes'])
         ->middleware('capability:payroll.run.read,COMPANY')
         ->name('payroll.schemes.index');
+    Route::get('/rules', [PayrollCatalogController::class, 'rules'])
+        ->middleware('capability:payroll.run.read,COMPANY')
+        ->name('payroll.rules.index');
+    Route::post('/scheme-items/{id}/rules', [PayrollCatalogController::class, 'storeRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.store');
+    Route::post('/rules/{id}/publish', [PayrollCatalogController::class, 'publishRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.publish');
+    Route::post('/rules/{id}/retire', [PayrollCatalogController::class, 'retireRule'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware('capability:payroll.run.prepare,COMPANY')
+        ->name('payroll.rules.retire');
     Route::post('/items/{id}/versions', [PayrollCatalogController::class, 'storeVersion'])
         ->whereNumber('id')
         ->middleware(IdempotentCommand::class)

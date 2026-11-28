@@ -432,7 +432,7 @@ final class PermissionResourceCatalog
                 'order' => 86,
                 'icon' => 'Menu',
                 'component_key' => 'payroll/index',
-                'required_apis' => ['GET /v1/payroll/runs', 'POST /v1/payroll/runs', 'POST /v1/payroll/runs/{id}/review', 'POST /v1/payroll/runs/{id}/publish', 'GET /v1/payroll/runs/{id}/exports/bank', 'POST /v1/payroll/items/{id}/versions', 'POST /v1/payroll/items/{id}/retire', 'GET /v1/payroll/reports/summary', 'GET /v1/payroll/payslips', 'POST /v1/payroll/employee-plans', 'POST /v1/payroll/items', 'POST /v1/payroll/schemes'],
+                'required_apis' => ['GET /v1/payroll/runs', 'POST /v1/payroll/runs', 'POST /v1/payroll/runs/{id}/review', 'POST /v1/payroll/runs/{id}/publish', 'GET /v1/payroll/runs/{id}/exports/bank', 'POST /v1/payroll/items/{id}/versions', 'POST /v1/payroll/items/{id}/retire', 'GET /v1/payroll/reports/summary', 'GET /v1/payroll/payslips', 'POST /v1/payroll/employee-plans', 'POST /v1/payroll/items', 'POST /v1/payroll/schemes', 'GET /v1/payroll/rules', 'POST /v1/payroll/scheme-items/{id}/rules', 'POST /v1/payroll/rules/{id}/publish', 'POST /v1/payroll/rules/{id}/retire'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'business',

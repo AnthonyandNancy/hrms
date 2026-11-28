@@ -416,3 +416,7 @@
 | 367 | `POST` | `/v1/performance/bonus-mappings` | `performance.result.publish` | `COMPANY` | kernel | — |
 | 368 | `POST` | `/v1/performance/bonus-mappings/{id}/approve` | `performance.result.publish` | `COMPANY` | kernel | — |
 | 369 | `POST` | `/v1/training/exams/{id}/attempts` | `training.exam.manage` | `COMPANY` | kernel | — |
+| 370 | `GET` | `/v1/payroll/rules` | `payroll.run.read` | `COMPANY` | kernel | — |
+| 371 | `POST` | `/v1/payroll/scheme-items/{id}/rules` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+| 372 | `POST` | `/v1/payroll/rules/{id}/publish` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+| 373 | `POST` | `/v1/payroll/rules/{id}/retire` | `payroll.run.prepare` | `COMPANY` | kernel | — |

@@ -10,6 +10,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollSchemeItem;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
@@ -34,6 +35,52 @@ use Tests\Support\PayrollTestCase;
  */
 final class PayrollWorkspaceTest extends PayrollTestCase
 {
+    public function test_rule_version_draft_publish_and_retire_are_real_http_commands(): void
+    {
+        $base = $this->seedPayrollBase();
+        $item = PayrollSchemeItem::query()->create([
+            'scheme_id' => (int) $base['scheme']->id,
+            'payroll_item_id' => null,
+            'item_code' => 'RULE_HTTP',
+            'label' => 'Rule HTTP',
+            'category' => 'EARNING',
+            'calculation' => 'FORMULA_LIMITED',
+            'amount_cents' => 0,
+            'rate_scaled' => null,
+            'basis' => 'BASE_SALARY',
+            'formula_json' => null,
+            'sort_order' => 10,
+            'taxable' => true,
+        ]);
+        $this->actAs(10);
+
+        $created = $this->postJson('/v1/payroll/scheme-items/'.(int) $item->id.'/rules', [
+            'ast' => ['type' => 'const', 'value' => '50000'],
+            'stage' => 'EARNING',
+            'dependencies' => [],
+            'rounding_mode' => 'HALF_UP',
+        ], ['Idempotency-Key' => 'rule-http-create'])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'DRAFT')
+            ->assertJsonPath('data.scheme_item_id', (int) $item->id);
+        $ruleId = (int) $created->json('data.id');
+        $this->assertSame(64, strlen((string) $created->json('data.hash')));
+
+        $this->getJson('/v1/payroll/rules?scheme_item_id='.(int) $item->id)
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.status', 'DRAFT');
+
+        $this->postJson('/v1/payroll/rules/'.$ruleId.'/publish', [], ['Idempotency-Key' => 'rule-http-publish'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'PUBLISHED');
+
+        $this->postJson('/v1/payroll/rules/'.$ruleId.'/retire', ['reason' => 'Synthetic retirement reason.'], ['Idempotency-Key' => 'rule-http-retire'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'RETIRED')
+            ->assertJsonPath('data.retire_reason', 'Synthetic retirement reason.');
+    }
+
     public function test_real_lifecycle_actions_advance_a_draft_run_to_published(): void
     {
         $base = $this->seedPayrollBase();
