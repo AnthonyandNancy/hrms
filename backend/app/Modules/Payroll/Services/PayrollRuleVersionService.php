@@ -46,6 +46,8 @@ final class PayrollRuleVersionService
             throw new ValidationException(['rounding_mode' => ['Unsupported rounding mode.']]);
         }
 
+        $dependencies = $this->normalizeDependencies($dependencies);
+        $this->assertDependencyGraph($dependencies);
         $compiled = $this->compiler->compile($ast, self::VARIABLES);
 
         return DB::transaction(function () use ($actorUserId, $schemeItemId, $ast, $stage, $dependencies, $roundingMode, $compiled): PayrollRuleVersion {
@@ -99,6 +101,8 @@ final class PayrollRuleVersionService
                 ]);
             }
 
+            $this->assertDependenciesPublished((int) $rule->id, (array) ($rule->dependencies_json ?? []));
+
             $rule->forceFill([
                 'status' => 'PUBLISHED',
                 'published_by' => $actorUserId,
@@ -118,6 +122,99 @@ final class PayrollRuleVersionService
         });
     }
 
+    /**
+     * Dependencies are rule-version ids. They must all exist and the existing
+     * graph must be acyclic before a new edge can be added.
+     *
+     * @param  array<mixed>  $dependencies
+     * @return list<int>
+     */
+    private function normalizeDependencies(array $dependencies): array
+    {
+        $normalized = [];
+        foreach ($dependencies as $dependency) {
+            if (is_string($dependency) && preg_match('/^\d+$/D', $dependency) === 1) {
+                $dependency = (int) $dependency;
+            }
+            if (! is_int($dependency) || $dependency < 1) {
+                throw new ValidationException(['dependencies' => ['Rule dependencies must be positive rule-version ids.']]);
+            }
+            $normalized[] = $dependency;
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    /**
+     * @param  list<int>  $dependencies
+     */
+    private function assertDependencyGraph(array $dependencies): void
+    {
+        foreach ($dependencies as $dependencyId) {
+            if (PayrollRuleVersion::query()->whereKey($dependencyId)->doesntExist()) {
+                throw new ConflictException('A payroll rule dependency does not exist.', [
+                    'reason' => 'PAYROLL_RULE_DEPENDENCY_MISSING',
+                    'dependency_id' => $dependencyId,
+                ]);
+            }
+        }
+
+        foreach ($dependencies as $dependencyId) {
+            $this->walkDependencies($dependencyId, []);
+        }
+    }
+
+    /**
+     * @param  list<int>  $path
+     */
+    private function walkDependencies(int $ruleVersionId, array $path): void
+    {
+        if (in_array($ruleVersionId, $path, true)) {
+            throw new ConflictException('Payroll rule dependencies contain a cycle.', [
+                'reason' => 'PAYROLL_RULE_DEPENDENCY_CYCLE',
+                'path' => [...$path, $ruleVersionId],
+            ]);
+        }
+
+        $rule = PayrollRuleVersion::query()->whereKey($ruleVersionId)->first();
+        if ($rule === null) {
+            return;
+        }
+
+        foreach ((array) ($rule->dependencies_json ?? []) as $dependencyId) {
+            $this->walkDependencies((int) $dependencyId, [...$path, $ruleVersionId]);
+        }
+    }
+
+    /**
+     * @param  array<mixed>  $dependencies
+     */
+    private function assertDependenciesPublished(int $ruleVersionId, array $dependencies): void
+    {
+        foreach ($dependencies as $dependencyId) {
+            $dependency = PayrollRuleVersion::query()->whereKey((int) $dependencyId)->first();
+            if ($dependency === null || (string) $dependency->status !== 'PUBLISHED') {
+                throw new ConflictException('Every payroll rule dependency must be published before this rule.', [
+                    'reason' => 'PAYROLL_RULE_DEPENDENCY_NOT_PUBLISHED',
+                    'dependency_id' => (int) $dependencyId,
+                ]);
+            }
+        }
+    }
+
+    private function assertNoPublishedDependents(int $ruleVersionId): void
+    {
+        foreach (PayrollRuleVersion::query()->where('status', 'PUBLISHED')->get() as $candidate) {
+            $dependencies = array_map('intval', (array) ($candidate->dependencies_json ?? []));
+            if (in_array($ruleVersionId, $dependencies, true)) {
+                throw new ConflictException('A published payroll rule still depends on this version.', [
+                    'reason' => 'PAYROLL_RULE_HAS_PUBLISHED_DEPENDENT',
+                    'dependent_rule_version_id' => (int) $candidate->id,
+                ]);
+            }
+        }
+    }
+
     public function retire(int $actorUserId, int $ruleVersionId, string $reason): PayrollRuleVersion
     {
         $reason = trim($reason);
@@ -135,6 +232,8 @@ final class PayrollRuleVersionService
                     'reason' => 'PAYROLL_RULE_NOT_PUBLISHED',
                 ]);
             }
+
+            $this->assertNoPublishedDependents((int) $rule->id);
 
             $rule->forceFill([
                 'status' => 'RETIRED',

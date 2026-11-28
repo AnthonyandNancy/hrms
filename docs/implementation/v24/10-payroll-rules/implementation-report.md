@@ -84,3 +84,24 @@ publish/retire controls.
 
 Remaining T10: dependency graph validation/cascade controls and frontend
 restricted rule editor.
+
+## T10e — dependency graph and restricted editor
+
+- Dependency ids now have real semantics:
+  - duplicate/non-positive/unknown rule-version ids are rejected;
+  - existing dependency edges are walked and cycles return a conflict;
+  - publishing requires every dependency to be PUBLISHED;
+  - retiring a version with a still-published dependent is rejected.
+- Added `PayrollRuleVersionEditor.vue` to the payroll scheme configuration:
+  - explicit `payroll.run.prepare` gate;
+  - scheme-item id + whitelist AST JSON only, never JS eval;
+  - dependency-id list with client validation;
+  - draft creation, publish, retire and status/hash display through real APIs.
+- Added frontend API normalizers and a real component regression for load/create/
+  publish/retire.
+- Backend regression also covers a deliberately corrupted dependency cycle.
+- Verification: payroll HTTP/version tests 11 tests / 90 assertions; editor +
+  payroll workspace 17 tests; typecheck/lint/Pint/PHPStan green.
+
+Remaining T10 hardening: SUM/currency validation, VALIDATED stage, legacy
+unresolved migration and richer visual AST editor.

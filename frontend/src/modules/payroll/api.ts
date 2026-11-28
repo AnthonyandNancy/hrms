@@ -625,6 +625,88 @@ export async function retirePayrollItem(
   )
 }
 
+export type PayrollRuleVersionRecord = {
+  id: number
+  schemeItemId: number
+  version: number
+  ast: Record<string, unknown>
+  stage: string
+  dependencies: number[]
+  roundingMode: string
+  unit: string
+  engineVersion: string
+  hash: string
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED'
+  publishedBy: number | null
+  publishedAt: string | null
+  retireReason: string | null
+}
+
+function normalisePayrollRuleVersion(raw: unknown): PayrollRuleVersionRecord {
+  const row = record(raw, 'payroll_rule_version')
+  const ast = row.ast
+  if (!isRecord(ast)) contractError('payroll_rule_version.ast')
+  return {
+    id: requiredInteger(row.id, 'payroll_rule_version.id'),
+    schemeItemId: requiredInteger(row.scheme_item_id, 'payroll_rule_version.scheme_item_id'),
+    version: requiredInteger(row.version, 'payroll_rule_version.version'),
+    ast,
+    stage: text(row.stage, 'payroll_rule_version.stage'),
+    dependencies: Array.isArray(row.dependencies) ? row.dependencies.map((value) => requiredInteger(value, 'payroll_rule_version.dependencies')) : [],
+    roundingMode: text(row.rounding_mode, 'payroll_rule_version.rounding_mode'),
+    unit: text(row.unit, 'payroll_rule_version.unit'),
+    engineVersion: text(row.engine_version, 'payroll_rule_version.engine_version'),
+    hash: text(row.hash, 'payroll_rule_version.hash'),
+    status: row.status === 'PUBLISHED' ? 'PUBLISHED' : row.status === 'RETIRED' ? 'RETIRED' : 'DRAFT',
+    publishedBy: nullableInteger(row.published_by, 'payroll_rule_version.published_by'),
+    publishedAt: nullableText(row.published_at, 'payroll_rule_version.published_at'),
+    retireReason: nullableText(row.retire_reason, 'payroll_rule_version.retire_reason'),
+  }
+}
+
+export async function listPayrollRuleVersions(schemeItemId: number): Promise<PayrollRuleVersionRecord[]> {
+  const payload = record(await resourceGet<unknown>('/v1/payroll/rules', { scheme_item_id: schemeItemId }), 'payroll_rules')
+  return listOf(payload.items, 'payroll_rules.items').map(normalisePayrollRuleVersion)
+}
+
+export async function createPayrollRuleVersion(
+  schemeItemId: number,
+  ast: Record<string, unknown>,
+  dependencies: number[] = [],
+  stage = 'EARNING',
+  roundingMode = 'HALF_UP',
+  idempotencyKey = newPayrollIdempotencyKey('rule-version'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/scheme-items/${schemeItemId}/rules`,
+    { ast, dependencies, stage, rounding_mode: roundingMode },
+    { idempotencyKey },
+  ))
+}
+
+export async function publishPayrollRuleVersion(
+  id: number,
+  idempotencyKey = newPayrollIdempotencyKey('rule-publish'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/rules/${id}/publish`,
+    {},
+    { idempotencyKey },
+  ))
+}
+
+export async function retirePayrollRuleVersion(
+  id: number,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('rule-retire'),
+): Promise<PayrollRuleVersionRecord> {
+  return normalisePayrollRuleVersion(await resourcePost<unknown>(
+    `/v1/payroll/rules/${id}/retire`,
+    { reason },
+    { idempotencyKey },
+  ))
+}
+
 export function normalisePayrollScheme(raw: unknown): PayrollSchemeRecord {
   const row = record(raw, 'scheme')
   const items = listOf(row.items ?? [], 'scheme.items')
