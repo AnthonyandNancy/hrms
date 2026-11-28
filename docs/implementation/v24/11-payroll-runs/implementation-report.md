@@ -16,3 +16,26 @@
 
 Remaining T11: preassignment HTTP/actions surface, orthogonal publish and
 disbursement states, close prerequisites, and blocked-run transition tests.
+
+## T11b1 — orthogonal publication and disbursement
+
+- Added `payslip_status`, `disbursement_status`, `disbursement_reference`,
+  `disbursement_registered_by` and `disbursement_registered_at` to payroll
+  runs; historical PUBLISHED/PAID/CLOSED rows are backfilled.
+- Publish now controls payslip visibility/YTD only; disbursement registration
+  controls bank/receipt evidence only. They may run in either order.
+- Lifecycle status remains as a compatibility projection: publish first gives
+  PUBLISHED, disbursement first gives PAID; a later second action preserves the
+  already-advanced status.
+- Close requires both `payslip_status=PUBLISHED` and
+  `disbursement_status=REGISTERED`; otherwise it returns
+  `RUN_CLOSE_PREREQUISITES_MISSING`.
+- SQLite sealed-row trigger now permits only the two YTD evidence flags when
+  publication happens after disbursement; amounts remain immutable.
+- Added lifecycle regression for publish→disburse→close, disburse→publish→close,
+  and the close prerequisite failure.
+- Verification: payroll suite 107 tests / 503 assertions; Pint, PHPStan and
+  arch green.
+
+Remaining T11: member preassignment HTTP/action projection and blocked-run
+action/state tests.

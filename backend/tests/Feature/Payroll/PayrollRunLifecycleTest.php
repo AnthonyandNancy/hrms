@@ -28,6 +28,49 @@ use Tests\Support\PayrollTestCase;
 
 final class PayrollRunLifecycleTest extends PayrollTestCase
 {
+    public function test_publish_and_disbursement_are_independent_and_close_requires_both(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $approval = app(ApprovalService::class);
+
+        $first = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-07']);
+        $first = $runs->lockInputs((int) $first->id, 10);
+        app(CalculationService::class)->calculate($first, 10);
+        $approval->review((int) $first->id, 11);
+        $approval->approve((int) $first->id, 12);
+        $first = $approval->publish((int) $first->id, 13);
+        $this->assertSame(PayrollRunStatus::PUBLISHED, $first->status);
+        $this->assertSame('PUBLISHED', (string) $first->payslip_status);
+        $this->assertSame('NOT_REGISTERED', (string) $first->disbursement_status);
+
+        try {
+            $approval->close((int) $first->id, 12);
+            $this->fail('Close must require disbursement registration.');
+        } catch (ConflictException $exception) {
+            $this->assertSame('RUN_CLOSE_PREREQUISITES_MISSING', $exception->details()['reason'] ?? null);
+        }
+
+        $first = $approval->markPaid((int) $first->id, 13, 'BANK-REF-1');
+        $this->assertSame('REGISTERED', (string) $first->disbursement_status);
+        $first = $approval->close((int) $first->id, 12);
+        $this->assertSame(PayrollRunStatus::CLOSED, $first->status);
+
+        $second = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-08']);
+        $second = $runs->lockInputs((int) $second->id, 10);
+        app(CalculationService::class)->calculate($second, 10);
+        $approval->review((int) $second->id, 11);
+        $approval->approve((int) $second->id, 12);
+        $second = $approval->markPaid((int) $second->id, 13, 'BANK-REF-2');
+        $this->assertSame(PayrollRunStatus::PAID, $second->status);
+        $this->assertSame('UNPUBLISHED', (string) $second->payslip_status);
+        $second = $approval->publish((int) $second->id, 13);
+        $this->assertSame(PayrollRunStatus::PAID, $second->status);
+        $this->assertSame('PUBLISHED', (string) $second->payslip_status);
+        $second = $approval->close((int) $second->id, 12);
+        $this->assertSame(PayrollRunStatus::CLOSED, $second->status);
+    }
+
     public function test_run_members_are_persisted_and_preassigned_reviewer_can_discover_the_run(): void
     {
         $base = $this->seedPayrollBase();

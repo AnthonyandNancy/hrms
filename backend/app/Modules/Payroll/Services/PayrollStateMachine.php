@@ -24,9 +24,9 @@ final class PayrollStateMachine
         'CALCULATED' => [PayrollRunStatus::REVIEWED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
         'CALCULATED_WITH_BLOCKERS' => [PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
         'REVIEWED' => [PayrollRunStatus::APPROVED, PayrollRunStatus::CALCULATED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
-        'APPROVED' => [PayrollRunStatus::PUBLISHED, PayrollRunStatus::REVIEWED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
-        'PUBLISHED' => [PayrollRunStatus::PAID],
-        'PAID' => [PayrollRunStatus::CLOSED],
+        'APPROVED' => [PayrollRunStatus::PUBLISHED, PayrollRunStatus::PAID, PayrollRunStatus::REVIEWED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
+        'PUBLISHED' => [PayrollRunStatus::PAID, PayrollRunStatus::CLOSED],
+        'PAID' => [PayrollRunStatus::PUBLISHED, PayrollRunStatus::CLOSED],
         'CLOSED' => [],
         'CANCELLED' => [],
     ];

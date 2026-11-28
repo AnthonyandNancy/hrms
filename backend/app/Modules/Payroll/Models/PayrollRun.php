@@ -51,6 +51,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Carbon\CarbonImmutable|null $approved_at
  * @property \Carbon\CarbonImmutable|null $published_at
  * @property \Carbon\CarbonImmutable|null $paid_at
+ * @property string $payslip_status
+ * @property string $disbursement_status
+ * @property string|null $disbursement_reference
+ * @property int|null $disbursement_registered_by
+ * @property \Carbon\CarbonImmutable|null $disbursement_registered_at
  * @property \Carbon\CarbonImmutable|null $closed_at
  * @property \Carbon\CarbonImmutable $created_at
  * @property \Carbon\CarbonImmutable $updated_at
@@ -96,6 +101,11 @@ final class PayrollRun extends Model
         'reviewed_at',
         'approved_at',
         'published_at',
+        'payslip_status',
+        'disbursement_status',
+        'disbursement_reference',
+        'disbursement_registered_by',
+        'disbursement_registered_at',
         'paid_at',
         'closed_at',
     ];
@@ -130,6 +140,8 @@ final class PayrollRun extends Model
             'approved_at' => 'immutable_datetime',
             'published_at' => 'immutable_datetime',
             'paid_at' => 'immutable_datetime',
+            'disbursement_registered_by' => 'integer',
+            'disbursement_registered_at' => 'immutable_datetime',
             'closed_at' => 'immutable_datetime',
             'earning_period_start' => 'immutable_date:Y-m-d',
             'earning_period_end' => 'immutable_date:Y-m-d',

@@ -117,7 +117,7 @@ final class PayrollWorkspaceTest extends PayrollTestCase
         $this->actAs(13);
         $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/publish')
             ->assertStatus(409)
-            ->assertJsonPath('data.reason', 'INVALID_RUN_TRANSITION');
+            ->assertJsonPath('data.reason', 'RUN_NOT_PUBLISHABLE');
     }
 
     public function test_published_run_is_read_only_and_exports_remain_available(): void
