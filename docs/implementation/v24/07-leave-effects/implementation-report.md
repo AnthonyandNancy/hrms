@@ -293,3 +293,15 @@ Not run: `gate:all` (out of the requested boundary).
   API projection for a real leave revocation.
 - Verification: 145 leave/workflow/IAM/OpenAPI tests / 16,724 assertions;
   Pint, PHPStan, arch, OpenAPI lint/validate/generate/check green.
+
+## T07c2 — company business dates for leave ledger writes
+
+- LeaveRequestService and LeaveApprovalService now resolve the current business
+  date through `CompanyBusinessDate`, not the raw UTC date.
+- RESERVE, RELEASE and REVERSE business dates therefore follow the company
+  profile timezone around UTC midnight.
+- Added a regression with the clock at `2026-12-10T23:30:00Z` (Asia/Shanghai
+  2026-12-11): pending reserve and rejection release are both posted on
+  2026-12-11.
+- Verification: 146 leave/workflow/IAM/OpenAPI tests / 16,740 assertions;
+  Pint, PHPStan and arch clean.

@@ -10,6 +10,7 @@ use App\Modules\Time\Models\LeaveRequestProjection;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,6 +29,7 @@ final class LeaveApprovalService
         private readonly PayrollFreezeGuard $freezeGuard,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
@@ -181,7 +183,7 @@ final class LeaveApprovalService
                     employmentId: (int) $projection->employment_id,
                     leaveTypeId: (int) $projection->leave_type_id,
                     minutes: $minutes,
-                    businessDate: $this->clock->now()->toDateString(),
+                    businessDate: $this->businessDates->today()->value(),
                     sourceType: 'LEAVE_REVOKE',
                     sourceId: (string) $caseId,
                     reason: $reason,
@@ -193,7 +195,7 @@ final class LeaveApprovalService
                     employmentId: (int) $projection->employment_id,
                     leaveTypeId: (int) $projection->leave_type_id,
                     minutes: (int) $projection->minutes,
-                    businessDate: $this->clock->now()->toDateString(),
+                    businessDate: $this->businessDates->today()->value(),
                     sourceType: 'LEAVE_REQUEST',
                     sourceId: (string) $caseId,
                     reason: $reason,
@@ -307,7 +309,7 @@ final class LeaveApprovalService
                         employmentId: (int) $projection->employment_id,
                         leaveTypeId: (int) $projection->leave_type_id,
                         minutes: $released,
-                        businessDate: $this->clock->now()->toDateString(),
+                        businessDate: $this->businessDates->today()->value(),
                         sourceType: 'LEAVE_REQUEST',
                         sourceId: (string) $caseId,
                         reason: $reason,

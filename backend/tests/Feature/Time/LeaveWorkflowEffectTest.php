@@ -453,6 +453,29 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'REVERSE')->count());
     }
 
+    public function test_pending_leave_reserve_and_release_use_the_company_business_date(): void
+    {
+        $this->clock->setNow(\Carbon\CarbonImmutable::parse('2026-12-10T23:30:00Z'));
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-08', '2026-12-08');
+
+        $this->assertSame('2026-12-11', substr((string) LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'RESERVE')
+            ->value('business_date'), 0, 10));
+
+        $this->actAs(20);
+        $this->decideThroughApi($caseId, 'leave-reject-timezone-'.$caseId, 'REJECT', ['comment' => 'Timezone rejection.'])
+            ->assertOk();
+
+        $this->assertSame('2026-12-11', substr((string) LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'RELEASE')
+            ->value('business_date'), 0, 10));
+    }
+
     private function leaveType(string $code): LeaveType
     {
         return LeaveType::query()->create([
