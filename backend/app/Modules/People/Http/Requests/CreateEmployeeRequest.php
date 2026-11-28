@@ -38,7 +38,7 @@ final class CreateEmployeeRequest extends FormRequest
             'employment' => ['required', 'array'],
             'employment.employee_no' => ['required', 'string', 'max:64'],
             'employment.hire_date' => ['required', new BusinessDateRule],
-            'employment.employment_type' => ['nullable', 'string', 'max:32'],
+            'employment.employment_type' => ['nullable', 'string', 'in:FULL_TIME,PART_TIME,FIXED_TERM,INTERN,CONTRACTOR'],
 
             'assignment' => ['required', 'array'],
             'assignment.org_unit_id' => ['required', 'integer', 'min:1'],

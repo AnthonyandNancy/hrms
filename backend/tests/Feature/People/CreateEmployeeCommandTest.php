@@ -108,6 +108,57 @@ final class CreateEmployeeCommandTest extends LifecycleTestCase
         $this->assertSame(0, EmploymentTerms::query()->count());
     }
 
+    public function test_a_second_key_for_the_same_pending_employee_number_returns_the_existing_case(): void
+    {
+        $first = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('dedup-a'))
+            ->assertStatus(202)
+            ->assertJsonPath('data.replayed', false)
+            ->json('data');
+
+        $second = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('dedup-b'))
+            ->assertStatus(202)
+            ->assertJsonPath('data.replayed', true)
+            ->assertJsonPath('data.case_id', $first['case_id'])
+            ->json('data');
+
+        $this->assertSame($first['case_no'], $second['case_no']);
+        $this->assertSame(1, LifecycleIntent::query()->count());
+        $this->assertSame(1, \App\Modules\People\Models\OnboardingDraft::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+    }
+
+    public function test_both_onboarding_entry_points_share_the_same_idempotency_scope(): void
+    {
+        $org = $this->peopleScenario->orgUnit('SHARED-IDEMPOTENCY-ORG');
+        $payload = [
+            'person' => ['legal_name' => 'Synthetic Shared Entry'],
+            'employee_no' => 'SHARED-IDEM-1',
+            'org_unit_id' => (int) $org->id,
+            'hire_date' => '2026-12-01',
+            'employment_type' => 'FULL_TIME',
+            'terms' => ['work_location' => 'SHANGHAI', 'work_schedule' => 'STANDARD'],
+        ];
+
+        $canonical = $this->postJson('/v1/lifecycle/onboarding', $payload, ['Idempotency-Key' => 'shared-scope-key'])
+            ->assertCreated()
+            ->json('data.case_id');
+
+        $compat = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('unused'))
+            ->assertStatus(202);
+
+        $this->assertNotSame($canonical, (int) $compat->json('data.case_id'));
+
+        $replay = $this->postJson('/v1/lifecycle/onboarding', $payload, ['Idempotency-Key' => 'shared-scope-key'])
+            ->assertOk()
+            ->assertHeader('Idempotency-Replayed', 'true')
+            ->json('data.case_id');
+
+        $this->assertSame($canonical, (int) $replay);
+        $this->assertSame(2, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+    }
+
     public function test_an_unknown_org_unit_never_creates_a_case_or_domain_row(): void
     {
         $payload = $this->payload();

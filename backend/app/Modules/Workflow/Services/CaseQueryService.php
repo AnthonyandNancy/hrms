@@ -473,6 +473,7 @@ final class CaseQueryService
             'audience_count',
             'employment_id',
             'employee_no',
+            'onboarding_draft_id',
             'effective_from',
             'effective_to',
             'valid_from',

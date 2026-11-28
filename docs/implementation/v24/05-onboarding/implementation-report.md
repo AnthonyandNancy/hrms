@@ -227,3 +227,21 @@ worktree.
   onboarding. No claim of T05 completion beyond the Mini Plan scope is made.
 - **No MySQL/browser acceptance evidence:** SQLite/PHPUnit and frontend unit
   tests only; MCP/browser evidence remains deferred to T18/T19.
+
+## T05a2a — encrypted People-owned onboarding draft
+
+- Added `people_onboarding_drafts` as a People-owned encrypted PII draft.
+- `POST /v1/employees/onboard` now stores person PII (legal name, ID, mobile,
+  email, birth date) only in that encrypted draft; Workflow Case/Intent and
+  Lifecycle/Workflow detail payloads carry only `onboarding_draft_id`.
+- The approved Onboarding Effect decrypts the People-owned draft through the
+  `OnboardingDraftStore` contract, creates the Person, and marks the draft
+  consumed. Case/Intent raw JSON contains no plaintext PII.
+- Preserved legacy execution semantics for the facade: initial employment
+  status ACTIVE, default work location HQ, and mapped
+  `assignment.valid_from` / `terms.effective_from`.
+- Added PII redaction regression coverage (57 assertions) and kept onboarding
+  focused suites green: 39 tests / 12,057 assertions.
+- Remaining T05a2 items: cross-entry idempotency scope, legacy capability/org
+  scope, 409 OpenAPI/error mapping, stale pendingCase link, and canonical
+  Lifecycle onboarding PII draft adoption.

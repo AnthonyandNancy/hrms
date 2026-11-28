@@ -6,6 +6,7 @@ namespace App\Modules\People\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Lifecycle\Contracts\OnboardingCaseCommand;
+use App\Modules\People\Contracts\OnboardingDraftStore;
 use App\Modules\People\Http\Requests\CreateEmployeeRequest;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\EmployeeImportBatch;
@@ -341,8 +342,11 @@ final class EmployeeController
      * canonical Lifecycle Onboarding Case. Person, Employment, Assignment and
      * Terms remain exclusive to the approved Lifecycle Onboarding Effect.
      */
-    public function onboard(CreateEmployeeRequest $request, OnboardingCaseCommand $onboarding): JsonResponse
-    {
+    public function onboard(
+        CreateEmployeeRequest $request,
+        OnboardingCaseCommand $onboarding,
+        OnboardingDraftStore $drafts,
+    ): JsonResponse {
         $principal = $this->principals->resolve();
         $data = $request->validated();
         $person = (array) $data['person'];
@@ -350,35 +354,45 @@ final class EmployeeController
         $assignment = (array) $data['assignment'];
         $terms = (array) $data['terms'];
         $legalName = trim((string) $person['given_name'].' '.(string) $person['family_name']);
+        $employeeNo = (string) $employment['employee_no'];
+        $draft = $drafts->reserve($employeeNo, (string) $request->header('Idempotency-Key', ''), [
+            'legal_name' => $legalName,
+            'id_type' => $person['id_type'] ?? null,
+            'id_number' => $person['national_id'] ?? null,
+            'birth_date' => $person['birth_date'] ?? null,
+            'mobile' => $person['mobile'] ?? null,
+            'email' => $person['email'] ?? null,
+        ], $principal->userId());
 
         $result = $onboarding->create(
             actorUserId: $principal->userId(),
             payload: [
-                'person' => array_filter([
-                    'legal_name' => $legalName,
-                    'id_type' => $person['id_type'] ?? null,
-                    'id_number' => $person['national_id'] ?? null,
-                    'birth_date' => $person['birth_date'] ?? null,
-                    'mobile' => $person['mobile'] ?? null,
-                    'email' => $person['email'] ?? null,
-                ], static fn (mixed $value): bool => $value !== null && $value !== ''),
-                'employee_no' => (string) $employment['employee_no'],
+                'onboarding_draft_id' => (int) $draft['draft_id'],
+                'employee_no' => $employeeNo,
                 'org_unit_id' => (int) $assignment['org_unit_id'],
                 'position_id' => $assignment['position_id'] ?? null,
                 'hire_date' => (string) $employment['hire_date'],
                 'employment_type' => (string) ($employment['employment_type'] ?? 'FULL_TIME'),
+                'initial_status' => 'ACTIVE',
+                'assignment_valid_from' => (string) ($assignment['valid_from'] ?? $employment['hire_date']),
                 'terms' => [
-                    'work_location' => $terms['work_location'] ?? 'Unspecified',
+                    'work_location' => $terms['work_location'] ?? 'HQ',
                     'work_schedule' => $terms['work_schedule'] ?? 'STANDARD',
                     'base_salary_minor' => (int) $terms['salary_minor'],
                     'salary_currency' => (string) $terms['currency'],
+                    'effective_from' => (string) ($terms['effective_from'] ?? $employment['hire_date']),
                 ],
                 'submit' => true,
             ],
-            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+            idempotencyKey: (string) $draft['idempotency_key'],
             businessDate: $this->businessDates->today()->value(),
         );
 
+        if ($draft['case_id'] === null) {
+            $drafts->attachCase((int) $draft['draft_id'], (int) $result['case_id']);
+        }
+
+        $result['onboarding_draft_id'] = (int) $draft['draft_id'];
         $response = ApiResponse::accepted($result, 'Onboarding approval case accepted.');
 
         if ($result['replayed']) {
