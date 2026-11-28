@@ -94,7 +94,7 @@
 | T16 | 通知状态与报表字段裁剪 | COMPLETE | T16 merged after critical-finding fixes | `d8a7f9a`; `docs/implementation/v24/16-notifications-reporting/implementation-report.md`; `gate-all-t16-merge.log`; MCP in T18 |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001/002/003/004 executed; login/dashboard, role anchor UI, PAYROLL_RUN allow/deny and role-assignment UI PASS; remaining modules/cards NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-004/` |
-| T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated stack, clean install, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment UI and overlap repair pass; v24-t19d overlay deployed (clean full build still pending); real previous-release upgrade/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md`; `.../concurrency/`; `.../T19-MCP-003/`, `T19-MCP-004/` |
+| T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated stack, clean install, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment/overlap repair, v24-t19d smoke and same-DB rollback/forward pass; clean full Dockerfile build/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md`; `.../upgrade-rollback/`, `t19d-smoke/` |
 
 ### 0.6 执行日志
 
@@ -153,6 +153,7 @@
 | 2026-11-28 | PAYROLL_RUN scope + wildcard fix | `d79a2a7`, hot-patched real stack | UI role anchor saved; run #1 200/run #2 403; member API 201 after wildcard fix; T19-MCP-003 evidence | Final backend image remains; role-assignment UI followed. |
 | 2026-11-28 | Role assignment UI + overlap repair | `2a3c46b` + gate 248.3s | UI added AUDITOR; effective roles exactly 2; overlapping TRAINING_ADMIN 500 fixed to 201 with merged bindings; T19-MCP-004 | Final clean image build and remaining matrix remain. |
 | 2026-11-28 | v24-t19d overlay smoke | `6167810` + overlay image | health 200; overlap API 201; effective bindings 1 each; run #1 200/run #2 403; `19-real-stack/t19d-smoke/` | Clean full Dockerfile build still pending. |
+| 2026-11-28 | Same-DB rollback/forward | `35a5aee` + v24-t19c/v24-t19d | both health 200; DB counts unchanged; post-deploy login 200 and run #1 200/#2 403; `upgrade-rollback/` | Clean full Dockerfile build remains. |
 | 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: 2 MCP packs executed; remaining 20 modules/155 entries/458 cards and run-scoped role access NOT RUN; T19 concurrency/real upgrade pending | Continue T18 matrix and T19 hardening. |
 
 ---

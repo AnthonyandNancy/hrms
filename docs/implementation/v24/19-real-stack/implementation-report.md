@@ -121,3 +121,17 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
 - Evidence: `t19d-smoke/`.
 - Boundary: this is an overlay image, not a fresh full Dockerfile build. The
   latter remains required before GO.
+
+
+## Same-database rollback/forward deployment
+
+- Baseline DB: users=2, employments=0, payroll_runs=2, cases=0,
+  migrations=99.
+- Deployed `factoryhr/php-app:v24-t19c`; health 200.
+- Deployed `factoryhr/php-app:v24-t19d`; health 200; DB counts unchanged.
+- Post-deploy synthetic payroll login 200; run #1 200 and run #2 403.
+- Evidence: `upgrade-rollback/`.
+- The runtime-code diff from the v24-t19c base is exactly the two backend
+  files overlaid in v24-t19d plus two frontend role-anchor files already in the
+  nginx v24-t19b image. This is an incremental release path; a fresh full
+  Dockerfile build remains outstanding.
