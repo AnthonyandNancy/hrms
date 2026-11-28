@@ -1841,6 +1841,21 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "training",
+      "key": "training.exam.attempt",
+      "label": "提交培训考试",
+      "capability": "training.exam.manage",
+      "api": "POST /v1/training/exams/{id}/attempts",
+      "ui": "primary",
+      "confirm": "none",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "training",
       "key": "training.program.create",
       "label": "新建培训项目",
       "capability": "training.program.manage",

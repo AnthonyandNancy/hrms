@@ -802,6 +802,15 @@
       "confirm": "danger"
     },
     {
+      "pageCode": "training",
+      "key": "training.exam.attempt",
+      "label": "提交培训考试",
+      "capability": "training.exam.manage",
+      "api": "POST /v1/training/exams/{id}/attempts",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
       "pageCode": "notices",
       "key": "engagement.notices.submit",
       "label": "提交公告审批",

@@ -1234,6 +1234,10 @@ Route::prefix('training')->middleware(['auth.session', 'csrf.header'])->group(fu
         ->whereNumber('id')
         ->middleware('capability:training.exam.manage,COMPANY')
         ->name('training.exams.publish');
+    Route::post('/exams/{id}/attempts', [TrainingController::class, 'submitExamAttempt'])
+        ->whereNumber('id')
+        ->middleware('capability:training.exam.manage,COMPANY')
+        ->name('training.exams.attempts.store');
     Route::get('/feedback', [TrainingController::class, 'feedback'])
         ->middleware('capability:training.feedback.manage,COMPANY')
         ->name('training.feedback.index');

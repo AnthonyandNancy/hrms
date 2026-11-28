@@ -65,3 +65,8 @@ Remaining T15: bonus mapping API/UI and training attempt source chain.
   and arch green.
 
 Remaining T15: mapping UI and training attempt HTTP surface/UI; MCP remains T18.
+
+- Added `POST /v1/training/exams/{id}/attempts` with CommandRunner,
+  idempotency and company exam-management capability; response includes
+  attempt number, score, pass flag and 64-char source hash.
+- Added HTTP regression for attempt submission after enrollment + check-in.

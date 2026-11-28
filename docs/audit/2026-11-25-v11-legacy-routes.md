@@ -415,3 +415,4 @@
 | 366 | `GET` | `/v1/performance/bonus-mappings` | `performance.report.read` | `—` | kernel | — |
 | 367 | `POST` | `/v1/performance/bonus-mappings` | `performance.result.publish` | `COMPANY` | kernel | — |
 | 368 | `POST` | `/v1/performance/bonus-mappings/{id}/approve` | `performance.result.publish` | `COMPANY` | kernel | — |
+| 369 | `POST` | `/v1/training/exams/{id}/attempts` | `training.exam.manage` | `COMPANY` | kernel | — |

@@ -5139,6 +5139,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/training/exams/{id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a training exam attempt only for an enrolled, checked-in learner */
+        post: operations["trainingExamAttemptStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/training/feedback": {
         parameters: {
             query?: never;
@@ -20531,6 +20548,39 @@ export interface operations {
                     "application/json": components["schemas"]["TrainingExamEnvelope"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    trainingExamAttemptStore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrollment_id: number;
+                    score: number;
+                    answers?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["Envelope"];
+            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

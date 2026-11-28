@@ -62,6 +62,26 @@ final class TrainingExamAttemptSourceTest extends TalentTestCase
         $this->assertSame(0, TrainingExamAttempt::query()->count());
     }
 
+    public function test_attempt_can_be_submitted_over_http_and_keeps_source_hash(): void
+    {
+        [$enrollment, $exam] = $this->activeEnrollmentWithExam();
+        $this->checkin((int) $enrollment->session_id, (int) $enrollment->employment_id);
+
+        $this->postJson("/v1/training/exams/{$exam->id}/attempts", [
+            'enrollment_id' => (int) $enrollment->id,
+            'score' => 80,
+            'answers' => ['q1' => 'A'],
+        ], ['Idempotency-Key' => 'training-attempt-http-1'])
+            ->assertCreated()
+            ->assertJsonPath('data.exam_id', (int) $exam->id)
+            ->assertJsonPath('data.enrollment_id', (int) $enrollment->id)
+            ->assertJsonPath('data.score', 80)
+            ->assertJsonPath('data.passed', true);
+
+        $attempt = TrainingExamAttempt::query()->firstOrFail();
+        $this->assertSame(64, strlen((string) $attempt->source_hash));
+    }
+
     /**
      * @return array{0:TrainingEnrollment,1:TrainingExam}
      */

@@ -22451,6 +22451,47 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: training.exam.manage
       x-action-label: 发布培训考试
+  /v1/training/exams/{id}/attempts:
+    post:
+      operationId: trainingExamAttemptStore
+      tags: [Talent]
+      summary: Submit a training exam attempt only for an enrolled, checked-in learner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enrollment_id, score]
+              properties:
+                enrollment_id: { type: integer, minimum: 1 }
+                score: { type: integer, minimum: 0, maximum: 10000 }
+                answers: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: training.exam.manage
+      x-action-label: 提交培训考试
   /v1/training/feedback:
     get:
       operationId: trainingFeedbackIndex
