@@ -6,9 +6,11 @@ namespace App\Modules\Talent\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Contracts\PeopleDirectory;
+use App\Modules\Talent\Models\PerformanceBonusMapping;
 use App\Modules\Talent\Models\PerformanceCycle;
 use App\Modules\Talent\Models\PerformanceGoal;
 use App\Modules\Talent\Models\PerformanceReview;
+use App\Modules\Talent\Services\PerformanceBonusMappingService;
 use App\Modules\Talent\Services\PerformanceService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
@@ -31,6 +33,7 @@ final class PerformanceController
         private readonly Authorizer $authorizer,
         private readonly CompanyBusinessDate $businessDates,
         private readonly PerformanceService $performance,
+        private readonly PerformanceBonusMappingService $bonusMappings,
         private readonly CommandRunner $commands,
         private readonly PeopleDirectory $people,
         private readonly Clock $clock,
@@ -114,6 +117,82 @@ final class PerformanceController
         })->values()->all();
 
         return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
+    }
+
+    public function bonusMappings(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->assertFeature($principal, 'performance.report.read', $this->businessDates->today()->value());
+        $data = $request->validate([
+            'employment_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'period' => ['sometimes', 'nullable', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'status' => ['sometimes', 'nullable', 'string', 'in:DRAFT,APPROVED,REVOKED'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'page_size' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        $page = (int) ($data['page'] ?? 1);
+        $pageSize = (int) ($data['page_size'] ?? 20);
+        $query = PerformanceBonusMapping::query()
+            ->when(isset($data['employment_id']), fn ($query) => $query->where('employment_id', (int) $data['employment_id']))
+            ->when(isset($data['period']), fn ($query) => $query->where('period', (string) $data['period']))
+            ->when(isset($data['status']), fn ($query) => $query->where('status', strtoupper((string) $data['status'])))
+            ->orderByDesc('id');
+        $total = (int) (clone $query)->count();
+        $items = $query->forPage($page, $pageSize)->get()
+            ->map(fn (PerformanceBonusMapping $mapping): array => $this->bonusMappingRow($mapping))
+            ->values()
+            ->all();
+
+        return ApiResponse::ok(ApiResponse::list($items, $page, $pageSize, $total));
+    }
+
+    public function storeBonusMapping(Request $request): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'performance.result.publish');
+        $data = $request->validate([
+            'snapshot_id' => ['required', 'integer', 'min:1'],
+            'payroll_item_code' => ['required', 'string', 'max:64'],
+            'period' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'amount_cents' => ['required', 'integer', 'min:0'],
+            'mapping_version' => ['sometimes', 'string', 'max:32'],
+        ]);
+
+        return $this->command(
+            $request,
+            'bonus_mapping.create',
+            $data,
+            function () use ($principal, $data): array {
+                $mapping = $this->bonusMappings->createDraft(
+                    $principal->userId(),
+                    (int) $data['snapshot_id'],
+                    (string) $data['payroll_item_code'],
+                    (string) $data['period'],
+                    (int) $data['amount_cents'],
+                    (string) ($data['mapping_version'] ?? 'V1'),
+                );
+
+                return $this->bonusMappingRow($mapping);
+            },
+            capability: 'performance.result.publish',
+        );
+    }
+
+    public function approveBonusMapping(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $this->allow($principal, 'performance.result.publish');
+
+        return $this->command(
+            $request,
+            'bonus_mapping.approve',
+            ['mapping_id' => $id],
+            function () use ($principal, $id): array {
+                return $this->bonusMappingRow($this->bonusMappings->approve($principal->userId(), $id));
+            },
+            successStatus: 200,
+            capability: 'performance.result.publish',
+        );
     }
 
     public function reviews(Request $request): JsonResponse
@@ -634,6 +713,27 @@ final class PerformanceController
         }
 
         return $response;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function bonusMappingRow(PerformanceBonusMapping $mapping): array
+    {
+        return [
+            'id' => (int) $mapping->id,
+            'performance_snapshot_id' => (int) $mapping->performance_snapshot_id,
+            'cycle_id' => (int) $mapping->cycle_id,
+            'employment_id' => (int) $mapping->employment_id,
+            'payroll_item_code' => (string) $mapping->payroll_item_code,
+            'period' => (string) $mapping->period,
+            'amount_cents' => (int) $mapping->amount_cents,
+            'mapping_version' => (string) $mapping->mapping_version,
+            'status' => (string) $mapping->status,
+            'approved_by' => $mapping->approved_by !== null ? (int) $mapping->approved_by : null,
+            'approved_at' => $mapping->approved_at?->toIso8601ZuluString(),
+            'source_revision' => (string) $mapping->source_revision,
+        ];
     }
 
     private function allow(Principal $principal, string $capability): void

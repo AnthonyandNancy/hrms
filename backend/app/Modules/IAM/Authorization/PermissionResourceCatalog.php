@@ -448,7 +448,7 @@ final class PermissionResourceCatalog
                 'order' => 98,
                 'icon' => 'Menu',
                 'component_key' => 'performance/index',
-                'required_apis' => ['GET /v1/performance/cycles', 'POST /v1/performance/cycles', 'POST /v1/performance/cycles/{id}/publish', 'POST /v1/performance/reviews/{id}/appeals'],
+                'required_apis' => ['GET /v1/performance/cycles', 'POST /v1/performance/cycles', 'POST /v1/performance/cycles/{id}/publish', 'POST /v1/performance/reviews/{id}/appeals', 'GET /v1/performance/bonus-mappings', 'POST /v1/performance/bonus-mappings', 'POST /v1/performance/bonus-mappings/{id}/approve'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'business',

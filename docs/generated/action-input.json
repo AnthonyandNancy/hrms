@@ -892,6 +892,24 @@
       "confirm": "danger"
     },
     {
+      "pageCode": "performance",
+      "key": "performance.bonus-mapping.create",
+      "label": "创建绩效奖金映射",
+      "capability": "performance.result.publish",
+      "api": "POST /v1/performance/bonus-mappings",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
+      "pageCode": "performance",
+      "key": "performance.bonus-mapping.approve",
+      "label": "审批绩效奖金映射",
+      "capability": "performance.result.publish",
+      "api": "POST /v1/performance/bonus-mappings/{id}/approve",
+      "ui": "primary",
+      "confirm": "none"
+    },
+    {
       "pageCode": "recruitment-candidates",
       "key": "recruitment.candidates.import",
       "label": "导入候选人",

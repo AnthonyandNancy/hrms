@@ -40,3 +40,28 @@ attempt source chain; MCP evidence remains T18.
   124 assertions; Pint, PHPStan and arch green.
 
 Remaining T15: bonus mapping API/UI and training attempt source chain.
+
+## T15c — mapping API and exam-attempt source
+
+- Added authenticated bonus mapping API:
+  - `GET /v1/performance/bonus-mappings` (`performance.report.read`);
+  - `POST /v1/performance/bonus-mappings` (`performance.result.publish`);
+  - `POST /v1/performance/bonus-mappings/{id}/approve`.
+- Writes use CommandRunner/idempotency, company anchor and audit; OpenAPI,
+  action manifest, page registry and route ledger updated.
+- Added `training_exam_attempts` and `TrainingExamAttemptService`:
+  - attempt requires published exam, active enrollment, matching
+    session/course and check-in;
+  - score/pass is stored on the attempt with a source hash;
+  - retries append attempt numbers.
+- `TrainingService::complete()` now derives PASS/FAIL and score from the
+  latest attempt whenever a published exam exists; client-supplied `score`
+  cannot overwrite the attempt evidence. Completion without an attempt returns
+  `TRAINING_EXAM_ATTEMPT_REQUIRED`.
+- Added HTTP mapping create/list/approve regression and attempt-source
+  regressions (valid attempt, missing check-in, completion without attempt).
+- Verification: focused Talent/Payroll 33 tests / 271 assertions plus
+  TrainingAttemptSource/Lifecycle 11 tests / 110 assertions; Pint, PHPStan
+  and arch green.
+
+Remaining T15: mapping UI and training attempt HTTP surface/UI; MCP remains T18.

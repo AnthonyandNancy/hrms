@@ -16373,6 +16373,105 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: performance.result.publish
       x-action-label: 发布绩效结果
+  /v1/performance/bonus-mappings:
+    get:
+      operationId: listPerformanceBonusMappings
+      tags: [Talent]
+      summary: List performance-to-payroll bonus mappings
+      parameters:
+        - name: employment_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: period
+          in: query
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, APPROVED, REVOKED] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.report.read
+    post:
+      operationId: createPerformanceBonusMapping
+      tags: [Talent]
+      summary: Create a draft performance bonus mapping
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snapshot_id, payroll_item_code, period, amount_cents]
+              properties:
+                snapshot_id: { type: integer, minimum: 1 }
+                payroll_item_code: { type: string, maxLength: 64 }
+                period: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+                amount_cents: { type: integer, minimum: 0 }
+                mapping_version: { type: string, maxLength: 32 }
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+      x-action-label: 创建绩效奖金映射
+  /v1/performance/bonus-mappings/{id}/approve:
+    post:
+      operationId: approvePerformanceBonusMapping
+      tags: [Talent]
+      summary: Approve a draft performance bonus mapping
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: performance.result.publish
+      x-action-label: 审批绩效奖金映射
   /v1/performance/feedback:
     get:
       operationId: listPerformanceFeedback

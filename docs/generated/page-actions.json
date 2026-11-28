@@ -1335,6 +1335,36 @@
       },
       {
         "pageCode": "performance",
+        "key": "performance.bonus-mapping.approve",
+        "label": "审批绩效奖金映射",
+        "capability": "performance.result.publish",
+        "api": "POST /v1/performance/bonus-mappings/{id}/approve",
+        "ui": "primary",
+        "confirm": "none",
+        "anchorTypes": [
+          "ORG_UNIT",
+          "ORG_SUBTREE",
+          "COMPANY"
+        ],
+        "fieldProfileMax": "P2_SENSITIVE"
+      },
+      {
+        "pageCode": "performance",
+        "key": "performance.bonus-mapping.create",
+        "label": "创建绩效奖金映射",
+        "capability": "performance.result.publish",
+        "api": "POST /v1/performance/bonus-mappings",
+        "ui": "primary",
+        "confirm": "none",
+        "anchorTypes": [
+          "ORG_UNIT",
+          "ORG_SUBTREE",
+          "COMPANY"
+        ],
+        "fieldProfileMax": "P2_SENSITIVE"
+      },
+      {
+        "pageCode": "performance",
         "key": "performance.cycle.create",
         "label": "新建绩效周期",
         "capability": "performance.cycle.manage",

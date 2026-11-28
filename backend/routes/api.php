@@ -1097,6 +1097,16 @@ Route::prefix('performance')->middleware(['auth.session'])->group(function (): v
     Route::get('/cycles', [PerformanceController::class, 'cycles'])
         ->middleware('capability:performance.cycle.read')
         ->name('performance.cycles.index');
+    Route::get('/bonus-mappings', [PerformanceController::class, 'bonusMappings'])
+        ->middleware('capability:performance.report.read')
+        ->name('performance.bonus-mappings.index');
+    Route::post('/bonus-mappings', [PerformanceController::class, 'storeBonusMapping'])
+        ->middleware(['csrf.header', 'capability:performance.result.publish,COMPANY'])
+        ->name('performance.bonus-mappings.store');
+    Route::post('/bonus-mappings/{id}/approve', [PerformanceController::class, 'approveBonusMapping'])
+        ->whereNumber('id')
+        ->middleware(['csrf.header', 'capability:performance.result.publish,COMPANY'])
+        ->name('performance.bonus-mappings.approve');
     Route::post('/cycles', [PerformanceController::class, 'storeCycle'])
         ->middleware('capability:performance.cycle.manage')
         ->name('performance.cycles.store');

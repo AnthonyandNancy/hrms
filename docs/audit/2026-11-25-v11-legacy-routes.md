@@ -412,3 +412,6 @@
 | 363 | `POST` | `/v1/travel/requests/{id}/change` | `time.travel.request` | `—` | kernel | — |
 | 364 | `POST` | `/v1/payroll/runs/{id}/members` | `payroll.run.prepare` | `PAYROLL_RUN` | kernel | — |
 | 365 | `POST` | `/v1/benefits/transactions/{id}/reverse` | `benefit.manage` | `COMPANY` | kernel | — |
+| 366 | `GET` | `/v1/performance/bonus-mappings` | `performance.report.read` | `—` | kernel | — |
+| 367 | `POST` | `/v1/performance/bonus-mappings` | `performance.result.publish` | `COMPANY` | kernel | — |
+| 368 | `POST` | `/v1/performance/bonus-mappings/{id}/approve` | `performance.result.publish` | `COMPANY` | kernel | — |
