@@ -233,10 +233,25 @@ describe('role authorization workbench', () => {
     expect(wrapper.find('[data-testid="org-unit-picker-people.employee.archive"]').exists()).toBe(true)
 
     await wrapper.setProps({
-      grants: [{ capability: 'people.employee.archive', anchor_type: 'CASE', anchor_id: null, field_profile: 'P0_PUBLIC' }],
+      grants: [{ capability: 'people.employee.archive', anchor_type: 'CASE', anchor_id: 77, field_profile: 'P0_PUBLIC' }],
     })
     expect(wrapper.find('[data-testid="org-unit-picker-people.employee.archive"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="case-anchor-hint-people.employee.archive"]').text()).toContain('案例')
+    const caseInput = wrapper.get('[data-testid="anchor-id-people.employee.archive"]')
+    expect((caseInput.element as HTMLInputElement).value).toBe('77')
+    await caseInput.setValue('88')
+    const caseEmits = wrapper.emitted('update-anchor') ?? []
+    expect(caseEmits[caseEmits.length - 1]?.[0]).toEqual({
+      capability: 'people.employee.archive',
+      anchor_type: 'CASE',
+      anchor_id: 88,
+    })
+
+    await wrapper.setProps({
+      grants: [{ capability: 'people.employee.archive', anchor_type: 'PAYROLL_RUN', anchor_id: 9, field_profile: 'P0_PUBLIC' }],
+    })
+    expect(wrapper.get('[data-testid="payroll-run-anchor-hint-people.employee.archive"]').text()).toContain('工资批次')
+    expect((wrapper.get('[data-testid="anchor-id-people.employee.archive"]').element as HTMLInputElement).value).toBe('9')
   })
 
   it('warns when a field profile exceeds the capability ceiling and emits only the changed row', async () => {

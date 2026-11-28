@@ -1,0 +1,22 @@
+# T18 role-anchor construction fix
+
+## Gap
+
+The role scope editor exposed CASE and PAYROLL_RUN anchor types in the selector
+but only rendered explanatory text. It always submitted `anchor_id = null`, while
+the backend correctly requires an id for both anchor types. This blocked R04/R08
+and any case/run-scoped role construction in MCP.
+
+## Change
+
+- Added numeric 案例编号 / 工资批次编号 inputs for CASE and PAYROLL_RUN.
+- Preserve the current anchor id when switching between anchor types that
+  require an id.
+- SystemRolesPage now validates and submits `anchor_id` for ORG_UNIT,
+  ORG_SUBTREE, CASE and PAYROLL_RUN, while keeping SELF/MANAGED/COMPANY id-less.
+- Added component regressions for CASE id 77→88 and PAYROLL_RUN id 9.
+
+## Verification
+
+- `systemRolesPage.spec.ts`: 8 tests pass; typecheck/lint green.
+- Full gate run follows before the image rebuild.

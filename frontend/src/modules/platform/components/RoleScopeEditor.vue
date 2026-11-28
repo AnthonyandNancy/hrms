@@ -32,6 +32,7 @@ const ANCHOR_LABELS: Record<string, string> = {
   PAYROLL_RUN: '指定工资批次',
 }
 const ORG_ANCHORS = new Set(['ORG_UNIT', 'ORG_SUBTREE'])
+const ID_ANCHORS = new Set(['CASE', 'PAYROLL_RUN'])
 const EXPLANATION_ANCHORS = new Set(['CASE', 'PAYROLL_RUN'])
 
 const props = defineProps<{
@@ -81,6 +82,10 @@ function showsExplanation(anchorType: string): boolean {
   return EXPLANATION_ANCHORS.has(anchorType)
 }
 
+function showsIdInput(anchorType: string): boolean {
+  return ID_ANCHORS.has(anchorType)
+}
+
 function explanation(anchorType: string): string {
   if (anchorType === 'CASE') {
     return '指定案例：授权范围由被指派案例的成员范围决定，此处不选择组织单元。'
@@ -118,7 +123,18 @@ function onAnchor(grant: ScopeGrant, event: Event): void {
   emit('update-anchor', {
     capability: grant.capability,
     anchor_type: anchorType,
-    anchor_id: ORG_ANCHORS.has(anchorType) ? (grant.anchor_id ?? null) : null,
+    anchor_id: ORG_ANCHORS.has(anchorType) || ID_ANCHORS.has(anchorType) ? (grant.anchor_id ?? null) : null,
+  })
+}
+
+function onAnchorId(grant: ScopeGrant, event: Event): void {
+  if (props.disabled === true) return
+  const raw = (event.target as HTMLInputElement).value.trim()
+  const parsed = raw === '' ? null : Number(raw)
+  emit('update-anchor', {
+    capability: grant.capability,
+    anchor_type: grant.anchor_type,
+    anchor_id: parsed !== null && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null,
   })
 }
 
@@ -173,6 +189,18 @@ function onOrgUnit(grant: ScopeGrant, event: Event): void {
         </select>
         <span v-if="props.orgUnitsUnavailable === true" class="inline-warning">组织树暂时不可用，请稍后重试。</span>
         <span v-else-if="flatOrgUnits.length === 0" class="muted small">组织树没有返回组织单元。</span>
+      </label>
+
+      <label v-if="showsIdInput(grant.anchor_type)" class="platform-field">
+        <span>{{ grant.anchor_type === 'CASE' ? '案例编号' : '工资批次编号' }}</span>
+        <input
+          type="number"
+          min="1"
+          :data-testid="`anchor-id-${grant.capability}`"
+          :value="grant.anchor_id ?? ''"
+          :disabled="props.disabled"
+          @input="onAnchorId(grant, $event)"
+        />
       </label>
 
       <p
