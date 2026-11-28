@@ -20,3 +20,13 @@ and any case/run-scoped role construction in MCP.
 
 - `systemRolesPage.spec.ts`: 8 tests pass; typecheck/lint green.
 - Full gate run follows before the image rebuild.
+
+## Real MCP confirmation
+
+- Rebuilt nginx SPA at `aeccadc`; real stack health stayed db/cache/storage=true.
+- `T19-MCP-002` copied `PAYROLL_SPECIALIST` to custom role
+  `PAYROLL_SPECIALIST_T19` through the real UI and observed numeric
+  `工资批次编号` inputs on the 数据范围 tab.
+- MySQL confirmed the custom role persisted (`is_template=0`).
+- Remaining role-construction step: create a real run, save its id into the
+  binding, assign the role, then verify scoped access.

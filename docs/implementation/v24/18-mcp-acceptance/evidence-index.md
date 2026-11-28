@@ -222,3 +222,14 @@ NOT RUN: remaining 20 modules, 155 entries, 12 cross-module flows, 458 cards
 - Evidence: `evidence/T19-MCP-001/README.md`, `workspace.png`, `workspace.yml`,
   `dashboard.png`, `dashboard.yml`.
 - T18 remains **IN PROGRESS**; this entry does not imply module-wide PASS.
+
+## 10. Execution update — T19-MCP-002
+
+```text
+MCP executed: 2 evidence packs total
+PASS: +1 scoped observation (real role copy + PAYROLL_RUN anchor-id controls)
+FAIL: 0 in executed scope
+NOT RUN: saving/binding a real run anchor, role-scoped allow/deny, remaining matrix
+```
+
+- Evidence: `evidence/T19-MCP-002/`.

@@ -42,7 +42,7 @@ It is **not** a completed V2.4 business delivery:
 | T17 frontend precision/actions/self-service | COMPLETE | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17d.log` | Money, self payslips, server actions and Chinese sweep complete; MCP remains T18 |
 | T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
-| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/` | Login/workspace/dashboard executed; 20 modules/155 entries/458 cards remain NOT RUN |
+| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`, `T19-MCP-002/` | Login/dashboard + role-copy/CASE-PAYROLL_RUN anchor-id UI executed; scoped binding and remaining matrix NOT RUN |
 | T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md` | MySQL/Redis/MinIO, clean install, 99 migrations, backup/restore, synthetic upgrade probe pass; concurrency/real upgrade/final GO pending |
 
 ### Full gate result
@@ -113,7 +113,7 @@ This proves the merged technical foundation passes the existing automated gates.
 | AC-18 unified UI/Chinese | ✅ MET (code/UI) | BigInt money, self payslips, allowed_actions-only actions and Chinese enum/copy audit pass; MCP pending |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
 | AC-20 history/regression | ❌ PARTIAL | Real install/backup/restore/synthetic upgrade probe pass; real previous-release upgrade/replay/concurrency remain |
-| AC-21 full MCP acceptance | ❌ PARTIAL | T19-MCP-001 executed login/workspace/dashboard on real stack; remaining 20 modules/155 entries/458 cards NOT RUN |
+| AC-21 full MCP acceptance | ❌ PARTIAL | T19-MCP-001/002 executed login/workspace/dashboard and role-copy/anchor-id UI on real stack; remaining 20 modules/155 entries/458 cards and scoped role access NOT RUN |
 | AC-22 release GO | ❌ NO-GO | P0/P1 blockers, unmerged tasks, no MCP evidence |
 
 ## 6. Resume protocol

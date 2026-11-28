@@ -1,0 +1,262 @@
+ Image factoryhr/frontend:v24-t19b Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.23kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from php.Dockerfile
+#2 transferring dockerfile: 3.65kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:24-alpine
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#4 DONE 0.0s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 839B done
+#5 DONE 0.0s
+
+#6 [frontend 1/9] FROM docker.io/library/node:24-alpine
+#6 DONE 0.0s
+
+#7 [frontend-runtime 1/3] FROM docker.io/library/nginx:1.27-alpine
+#7 DONE 0.0s
+
+#8 [frontend 2/9] WORKDIR /app/frontend
+#8 CACHED
+
+#9 [internal] load build context
+#9 transferring context: 79.34kB 0.0s done
+#9 DONE 0.1s
+
+#10 [frontend 3/9] RUN corepack enable
+#10 DONE 0.4s
+
+#11 [frontend 4/9] COPY frontend/package.json frontend/pnpm-lock.yaml ./
+#11 DONE 0.1s
+
+#12 [frontend 5/9] RUN pnpm install --frozen-lockfile
+#12 0.506 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-10.34.5.tgz
+#12 95.28 Lockfile is up to date, resolution step is skipped
+#12 95.31 Progress: resolved 1, reused 0, downloaded 0, added 0
+#12 95.50 Packages: +346
+#12 95.50 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#12 96.31 Progress: resolved 346, reused 0, downloaded 0, added 0
+#12 97.31 Progress: resolved 346, reused 0, downloaded 65, added 65
+#12 97.68  WARN  Tarball download average speed 11 KiB/s (size 11 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.46.tgz (GET)
+#12 98.32 Progress: resolved 346, reused 0, downloaded 140, added 140
+#12 98.48  WARN  Tarball download average speed 35 KiB/s (size 35 KiB) is below 50 KiB/s: https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz (GET)
+#12 98.95 
+#12 98.95    ╭───────────────────────────────────────────────╮
+#12 98.95    │                                               │
+#12 98.95    │     Update available! 10.34.5 → 12.23.0.      │
+#12 98.95    │     Changelog: https://pnpm.io/v/12.23.0      │
+#12 98.95    │   To update, run: corepack use pnpm@12.23.0   │
+#12 98.95    │                                               │
+#12 98.95    ╰───────────────────────────────────────────────╯
+#12 98.95 
+#12 99.32 Progress: resolved 346, reused 0, downloaded 253, added 253
+#12 100.2  WARN  Tarball download average speed 2 KiB/s (size 8 KiB) is below 50 KiB/s: https://registry.npmjs.org/@playwright/test/-/test-1.62.1.tgz (GET)
+#12 100.3 Progress: resolved 346, reused 0, downloaded 332, added 332
+#12 101.3 Progress: resolved 346, reused 0, downloaded 341, added 341
+#12 103.4 Progress: resolved 346, reused 0, downloaded 342, added 341
+#12 104.4 Progress: resolved 346, reused 0, downloaded 345, added 345
+#12 106.0 Progress: resolved 346, reused 0, downloaded 346, added 345
+#12 106.2 Progress: resolved 346, reused 0, downloaded 346, added 346, done
+#12 106.4 
+#12 106.4 dependencies:
+#12 106.4 + @element-plus/icons-vue 2.3.2
+#12 106.4 + axios 1.21.1
+#12 106.4 + dayjs 1.11.23
+#12 106.4 + echarts 5.6.0
+#12 106.4 + element-plus 2.14.8
+#12 106.4 + pinia 3.0.4
+#12 106.4 + vue 3.5.46
+#12 106.4 + vue-router 4.6.5
+#12 106.4 + zod 3.25.76
+#12 106.4 
+#12 106.4 devDependencies:
+#12 106.4 + @axe-core/playwright 4.14.0
+#12 106.4 + @eslint/js 9.39.5
+#12 106.4 + @playwright/test 1.62.1
+#12 106.4 + @types/node 24.10.1
+#12 106.4 + @vitejs/plugin-vue 6.0.11
+#12 106.4 + @vue/test-utils 2.6.0
+#12 106.4 + eslint 9.39.5
+#12 106.4 + eslint-plugin-vue 10.12.1
+#12 106.4 + globals 16.5.0
+#12 106.4 + jsdom 27.4.0
+#12 106.4 + openapi-typescript 7.13.0
+#12 106.4 + typescript 5.9.3
+#12 106.4 + typescript-eslint 8.73.0
+#12 106.4 + vite 7.3.8
+#12 106.4 + vitest 3.2.7
+#12 106.4 + vue-tsc 3.3.14
+#12 106.4 
+#12 106.4 ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+#12 106.4 │                                                                              │
+#12 106.4 │   Ignored build scripts: esbuild@0.28.2.                                     │
+#12 106.4 │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+#12 106.4 │   to run scripts.                                                            │
+#12 106.4 │                                                                              │
+#12 106.4 ╰──────────────────────────────────────────────────────────────────────────────╯
+#12 106.4 Done in 11.6s using pnpm v10.34.5
+#12 DONE 106.7s
+
+#13 [frontend 6/9] COPY frontend/src ./src
+#13 DONE 0.2s
+
+#14 [frontend 7/9] COPY frontend/public ./public
+#14 DONE 0.1s
+
+#15 [frontend 8/9] COPY frontend/index.html frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json frontend/vite.config.ts frontend/env.d.ts ./
+#15 DONE 0.1s
+
+#16 [frontend 9/9] RUN pnpm build
+#16 0.703 
+#16 0.703 > @hrms/frontend@0.1.0 build /app/frontend
+#16 0.703 > vue-tsc -b && vite build
+#16 0.703 
+#16 13.96 vite v7.3.8 building client environment for production...
+#16 14.03 transforming...
+#16 22.52 ✓ 2253 modules transformed.
+#16 22.89 rendering chunks...
+#16 23.29 computing gzip size...
+#16 23.36 dist/index.html                                                               0.67 kB │ gzip:   0.46 kB
+#16 23.36 dist/assets/ActionGate-CJ6ZQKXI.css                                           0.08 kB │ gzip:   0.10 kB
+#16 23.36 dist/assets/NoActiveEmploymentState-CHP5bZuj.css                              0.09 kB │ gzip:   0.10 kB
+#16 23.36 dist/assets/SystemPagesPage-CyyzNqbr.css                                      0.23 kB │ gzip:   0.17 kB
+#16 23.36 dist/assets/PageShell-BOD6O3lG.css                                            0.26 kB │ gzip:   0.16 kB
+#16 23.36 dist/assets/NotFoundView-KWHvMnJ9.css                                         0.55 kB │ gzip:   0.30 kB
+#16 23.36 dist/assets/PayrollPayslipsPanel-CJOJR6Fg.css                                 0.57 kB │ gzip:   0.26 kB
+#16 23.36 dist/assets/ResourcePage-88PEkdeF.css                                         0.63 kB │ gzip:   0.29 kB
+#16 23.36 dist/assets/SystemUsersPage-DCwTaReM.css                                      2.10 kB │ gzip:   0.64 kB
+#16 23.36 dist/assets/BenefitsPage-BhhhmyRk.css                                         2.17 kB │ gzip:   0.66 kB
+#16 23.36 dist/assets/SystemAuditPage-BOVstSHU.css                                      2.21 kB │ gzip:   0.65 kB
+#16 23.36 dist/assets/ContractFormDrawer-gFMl2cWQ.css                                   2.22 kB │ gzip:   0.59 kB
+#16 23.36 dist/assets/NotificationsPage-FdwruWYo.css                                    2.35 kB │ gzip:   0.73 kB
+#16 23.36 dist/assets/SystemRolesPage-BhhrWkGh.css                                      2.53 kB │ gzip:   0.71 kB
+#16 23.36 dist/assets/ContractLedgerPage-DabRtZyD.css                                   2.63 kB │ gzip:   0.63 kB
+#16 23.36 dist/assets/WorkflowCaseDetailPage-BV4xfKP-.css                               3.33 kB │ gzip:   0.89 kB
+#16 23.36 dist/assets/ReportsPage-H8sr46ft.css                                          3.68 kB │ gzip:   0.98 kB
+#16 23.36 dist/assets/DashboardPage-CVlCWC8c.css                                        4.00 kB │ gzip:   1.10 kB
+#16 23.36 dist/assets/ContractDetailPage-BA6LaJuo.css                                   4.10 kB │ gzip:   1.00 kB
+#16 23.36 dist/assets/WorkflowCenterPage-zE6-VgW1.css                                   4.32 kB │ gzip:   0.95 kB
+#16 23.36 dist/assets/AccountSecurityPage-DRU2M725.css                                  4.39 kB │ gzip:   1.05 kB
+#16 23.36 dist/assets/PerformanceWorkspacePage-DDVx7xRk.css                             4.60 kB │ gzip:   1.19 kB
+#16 23.36 dist/assets/LoginView-x94JsS-h.css                                            5.16 kB │ gzip:   1.52 kB
+#16 23.36 dist/assets/CandidateListPage-D6nGMEYo.css                                    6.07 kB │ gzip:   1.37 kB
+#16 23.36 dist/assets/EmployeeListPage-BztWizX3.css                                     6.63 kB │ gzip:   1.45 kB
+#16 23.36 dist/assets/NoticesPage-DI_qz87s.css                                          7.24 kB │ gzip:   1.51 kB
+#16 23.36 dist/assets/SystemSettingsPage-DfkIXYu8.css                                   7.36 kB │ gzip:   1.28 kB
+#16 23.36 dist/assets/MovementListPage-EXS_dRTP.css                                     7.41 kB │ gzip:   1.61 kB
+#16 23.36 dist/assets/MovementDetailPage-CAPyqzTn.css                                   7.64 kB │ gzip:   1.48 kB
+#16 23.36 dist/assets/WorkspaceView-BiiMCJAP.css                                        7.77 kB │ gzip:   1.66 kB
+#16 23.36 dist/assets/PayrollRunDetailPage-BtUyMdgv.css                                 8.53 kB │ gzip:   1.75 kB
+#16 23.36 dist/assets/RequisitionListPage-Cw-Krve8.css                                  8.54 kB │ gzip:   1.68 kB
+#16 23.36 dist/assets/PayrollWorkspacePage-Rv38ihxe.css                                 8.72 kB │ gzip:   1.78 kB
+#16 23.36 dist/assets/PerformanceCycleDetailPage-CGZHKIax.css                           9.79 kB │ gzip:   1.84 kB
+#16 23.36 dist/assets/DepartmentTreePage-DRoqm6pt.css                                   9.89 kB │ gzip:   1.65 kB
+#16 23.36 dist/assets/CandidateDetailPage-DwJjlRYF.css                                  9.97 kB │ gzip:   1.51 kB
+#16 23.36 dist/assets/EmployeeDetailPage-D3lMi9tm.css                                  15.15 kB │ gzip:   2.54 kB
+#16 23.36 dist/assets/PositionCatalogPage-D-VHQINX.css                                 15.70 kB │ gzip:   2.34 kB
+#16 23.36 dist/assets/OvertimeWorkspacePage-CsZhOXXF.css                               16.24 kB │ gzip:   2.48 kB
+#16 23.36 dist/assets/TravelWorkspacePage-BOsRaxkZ.css                                 16.54 kB │ gzip:   2.52 kB
+#16 23.36 dist/assets/TrainingWorkspacePage-B9rziCIu.css                               19.71 kB │ gzip:   2.26 kB
+#16 23.36 dist/assets/LeaveWorkspacePage-CyaFdBwV.css                                  26.89 kB │ gzip:   3.97 kB
+#16 23.36 dist/assets/AttendanceWorkspacePage-vpXrbrZ6.css                             27.30 kB │ gzip:   3.49 kB
+#16 23.36 dist/assets/index-DaqBIahH.css                                              384.14 kB │ gzip:  52.98 kB
+#16 23.36 dist/assets/_plugin-vue_export-helper-DlAUqK2U.js                             0.09 kB │ gzip:   0.10 kB
+#16 23.36 dist/assets/peopleRead-CSuviFo6.js                                            0.16 kB │ gzip:   0.17 kB
+#16 23.36 dist/assets/index-BbOup_F5.js                                                 0.17 kB │ gzip:   0.16 kB
+#16 23.36 dist/assets/LoadingState.vue_vue_type_script_setup_true_lang-B94W1Zix.js      0.58 kB │ gzip:   0.40 kB
+#16 23.36 dist/assets/PageShell-_Z2wr-Jk.js                                             0.66 kB │ gzip:   0.40 kB
+#16 23.36 dist/assets/NotFoundView-fVkaPi0G.js                                          0.74 kB │ gzip:   0.57 kB
+#16 23.36 dist/assets/FormDrawer.vue_vue_type_script_setup_true_lang-qoU7bWzI.js        0.77 kB │ gzip:   0.47 kB
+#16 23.36 dist/assets/FormDialog.vue_vue_type_script_setup_true_lang-CVZ2b9Ki.js        0.77 kB │ gzip:   0.48 kB
+#16 23.36 dist/assets/ActionGate-D5BL3gDR.js                                            0.81 kB │ gzip:   0.49 kB
+#16 23.36 dist/assets/EmptyState.vue_vue_type_script_setup_true_lang-BIvyWSRs.js        0.81 kB │ gzip:   0.54 kB
+#16 23.36 dist/assets/ErrorState.vue_vue_type_script_setup_true_lang-DETvCCbA.js        1.23 kB │ gzip:   0.76 kB
+#16 23.36 dist/assets/platformRead-CP8wjwcy.js                                          1.25 kB │ gzip:   0.64 kB
+#16 23.36 dist/assets/NoActiveEmploymentState-BqHVUxYu.js                               1.44 kB │ gzip:   0.91 kB
+#16 23.36 dist/assets/ForbiddenView-D-PPckEv.js                                         1.51 kB │ gzip:   1.00 kB
+#16 23.36 dist/assets/resourceClient-0QRvxuG3.js                                        1.87 kB │ gzip:   0.85 kB
+#16 23.36 dist/assets/format-CbxjAHew.js                                                1.98 kB │ gzip:   1.04 kB
+#16 23.36 dist/assets/usePageError-Dlht25zD.js                                          2.27 kB │ gzip:   1.06 kB
+#16 23.36 dist/assets/DataTable.vue_vue_type_script_setup_true_lang-Cj1coieM.js         3.66 kB │ gzip:   1.77 kB
+#16 23.36 dist/assets/ResourcePage-B9Abj8JV.js                                          3.88 kB │ gzip:   1.94 kB
+#16 23.37 dist/assets/dictionary-BlAZLC0J.js                                            4.89 kB │ gzip:   1.69 kB
+#16 23.37 dist/assets/PayrollPayslipsPanel-D0OCp7ip.js                                  5.70 kB │ gzip:   2.34 kB
+#16 23.37 dist/assets/api-DamPyUtC.js                                                   6.43 kB │ gzip:   2.37 kB
+#16 23.37 dist/assets/labels-BqExMhIE.js                                                8.18 kB │ gzip:   3.99 kB
+#16 23.37 dist/assets/settings-DME4D472.js                                              9.50 kB │ gzip:   3.49 kB
+#16 23.37 dist/assets/AppShell-BxkatlcG.js                                             10.87 kB │ gzip:   4.47 kB
+#16 23.37 dist/assets/api-CTrXvOjf.js                                                  12.77 kB │ gzip:   4.73 kB
+#16 23.37 dist/assets/NotificationsPage-B4kExoSY.js                                    12.83 kB │ gzip:   4.88 kB
+#16 23.37 dist/assets/SystemPagesPage-CNKHzBqU.js                                      12.90 kB │ gzip:   5.12 kB
+#16 23.37 dist/assets/api-CjD7fvWo.js                                                  14.02 kB │ gzip:   4.59 kB
+#16 23.37 dist/assets/api-VXm4OU-T.js                                                  14.33 kB │ gzip:   5.45 kB
+#16 23.37 dist/assets/SystemAuditPage-DOufqjpk.js                                      15.59 kB │ gzip:   5.79 kB
+#16 23.37 dist/assets/ReportsPage-DZvcHBmV.js                                          15.71 kB │ gzip:   6.07 kB
+#16 23.37 dist/assets/ContractDetailPage--cXastX_.js                                   15.96 kB │ gzip:   5.81 kB
+#16 23.37 dist/assets/api-Dr6JkgjV.js                                                  16.43 kB │ gzip:   4.53 kB
+#16 23.37 dist/assets/PerformanceWorkspacePage-BbokBF0r.js                             16.51 kB │ gzip:   5.88 kB
+#16 23.37 dist/assets/CandidateListPage-CEDsTtgd.js                                    16.52 kB │ gzip:   6.37 kB
+#16 23.37 dist/assets/ContractLedgerPage-CEqW3Zpx.js                                   17.98 kB │ gzip:   6.19 kB
+#16 23.37 dist/assets/api-BTJDgGc4.js                                                  18.12 kB │ gzip:   6.00 kB
+#16 23.37 dist/assets/WorkflowCenterPage-k_JbJ01s.js                                   19.65 kB │ gzip:   7.13 kB
+#16 23.37 dist/assets/DashboardPage-myhcKEDm.js                                        21.03 kB │ gzip:   6.84 kB
+#16 23.37 dist/assets/WorkflowCaseDetailPage-C-j2BR6z.js                               21.40 kB │ gzip:   7.49 kB
+#16 23.37 dist/assets/MovementDetailPage-ul-kYvwN.js                                   21.53 kB │ gzip:   7.65 kB
+#16 23.37 dist/assets/WorkspaceView-B7_5p9vf.js                                        21.70 kB │ gzip:   7.60 kB
+#16 23.37 dist/assets/ContractFormDrawer-DwT_3qsC.js                                   23.73 kB │ gzip:   7.81 kB
+#16 23.37 dist/assets/AccountSecurityPage-DQFG6Zi8.js                                  25.44 kB │ gzip:   8.86 kB
+#16 23.37 dist/assets/RequisitionListPage-0zZ_0pw_.js                                  28.67 kB │ gzip:   8.89 kB
+#16 23.37 dist/assets/SystemUsersPage-CU3qTdfx.js                                      33.85 kB │ gzip:  11.86 kB
+#16 23.37 dist/assets/MovementListPage-gcyow6KK.js                                     36.08 kB │ gzip:  11.03 kB
+#16 23.37 dist/assets/EmployeeListPage-Ca9HUB89.js                                     36.89 kB │ gzip:  11.86 kB
+#16 23.37 dist/assets/PayrollRunDetailPage-C1YaHiaK.js                                 40.38 kB │ gzip:  12.58 kB
+#16 23.37 dist/assets/SystemRolesPage-1rX0VdG1.js                                      40.72 kB │ gzip:  12.84 kB
+#16 23.37 dist/assets/SystemSettingsPage-9Lp9S5jv.js                                   40.94 kB │ gzip:  12.34 kB
+#16 23.37 dist/assets/CandidateDetailPage-BKOxnmLL.js                                  40.97 kB │ gzip:  11.33 kB
+#16 23.37 dist/assets/PerformanceCycleDetailPage-buPlepYi.js                           43.92 kB │ gzip:  12.47 kB
+#16 23.37 dist/assets/NoticesPage-DO4Eq4Rh.js                                          44.48 kB │ gzip:  13.62 kB
+#16 23.37 dist/assets/BenefitsPage-D7HThnzl.js                                         48.75 kB │ gzip:  13.61 kB
+#16 23.37 dist/assets/DepartmentTreePage-BhgoWjbo.js                                   49.87 kB │ gzip:  15.22 kB
+#16 23.37 dist/assets/PayrollWorkspacePage-DreLiiLr.js                                 50.70 kB │ gzip:  15.17 kB
+#16 23.37 dist/assets/OvertimeWorkspacePage-C3IECSgd.js                                51.81 kB │ gzip:  14.83 kB
+#16 23.37 dist/assets/PositionCatalogPage-B9i47SO7.js                                  52.16 kB │ gzip:  14.94 kB
+#16 23.37 dist/assets/TravelWorkspacePage-DwE6WLq8.js                                  57.64 kB │ gzip:  16.08 kB
+#16 23.37 dist/assets/EmployeeDetailPage-DTHun4mD.js                                   61.79 kB │ gzip:  18.52 kB
+#16 23.37 dist/assets/LoginView-C_eLWcIA.js                                            63.31 kB │ gzip:  16.67 kB
+#16 23.37 dist/assets/AttendanceWorkspacePage-DzSi1Zh7.js                              79.08 kB │ gzip:  22.89 kB
+#16 23.37 dist/assets/LeaveWorkspacePage-CGESfjQc.js                                   82.87 kB │ gzip:  24.63 kB
+#16 23.37 dist/assets/TrainingWorkspacePage-D8Q0yEly.js                                93.06 kB │ gzip:  24.56 kB
+#16 23.37 dist/assets/index-PsIyksw8.js                                             1,213.52 kB │ gzip: 393.30 kB
+#16 23.37 
+#16 23.37 (!) Some chunks are larger than 1200 kB after minification. Consider:
+#16 23.37 - Using dynamic import() to code-split the application
+#16 23.37 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#16 23.37 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#16 23.37 ✓ built in 9.38s
+#16 DONE 23.7s
+
+#7 [frontend-runtime 1/3] FROM docker.io/library/nginx:1.27-alpine
+#7 CACHED
+
+#17 [frontend-runtime 2/3] COPY --from=frontend /app/frontend/dist /usr/share/nginx/html
+#17 DONE 0.1s
+
+#18 [frontend-runtime 3/3] COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
+#18 DONE 0.1s
+
+#19 exporting to image
+#19 exporting layers 0.1s done
+#19 writing image sha256:1b507bd2be3a44071dac11d7ca36ae036a5b11a2d9c380c846f4f1dc3b96abda done
+#19 naming to docker.io/factoryhr/frontend:v24-t19b 0.0s done
+#19 DONE 0.2s
+
+#20 resolving provenance for metadata file
+#20 DONE 0.0s
+ Image factoryhr/frontend:v24-t19b Built 
