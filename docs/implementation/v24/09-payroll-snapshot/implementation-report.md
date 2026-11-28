@@ -82,3 +82,20 @@ exposure.
 
 Remaining T09d: benefits/performance frozen input ports and real downstream
 wiring after T14/T15.
+
+## T09d2 — benefit and performance frozen input ports
+
+- Added Payroll-owned `BenefitPayrollInputDirectory` and
+  `PerformanceBonusDirectory` contracts with empty/default adapters. They are
+  replaceable by T14/T15 without changing the snapshot schema or calculator.
+- Snapshot v2 freezes `benefits` (employee/employer amounts, source, taxable,
+  order) and `performance_bonuses` per employee.
+- Calculation now turns frozen employee benefit amounts into explicit
+  deductions and performance amounts into one-time taxable/non-taxable earning
+  lines; both retain source type/id and sort order.
+- Added a fake-adapter regression proving snapshot freezing and gross salary
+  impact (base + bonus), while all payroll feature/integration tests remain
+  green.
+- Verification: Payroll suite 105 tests / 485 assertions; Pint, PHPStan and
+  arch green. T14/T15 must replace the default adapters and rerun this suite
+  before final benefit/performance acceptance.

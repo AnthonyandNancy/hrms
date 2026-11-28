@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Payroll;
 
+use App\Modules\Payroll\Contracts\BenefitPayrollInputDirectory;
+use App\Modules\Payroll\Contracts\PerformanceBonusDirectory;
 use App\Modules\Payroll\Enums\PayrollEmployeeStatus;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\EmployeeCompensation;
@@ -167,6 +169,53 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame((int) $version->id, (int) $payload['attendance']['fact_version_id']);
         $this->assertSame(480, (int) $payload['attendance']['scheduled_minutes']);
         $this->assertSame(400, (int) $payload['attendance']['worked_minutes']);
+    }
+
+    public function test_benefit_and_performance_inputs_are_frozen_and_enter_calculation(): void
+    {
+        $base = $this->seedPayrollBase();
+        $this->app->instance(BenefitPayrollInputDirectory::class, new class implements BenefitPayrollInputDirectory
+        {
+            public function frozenForPeriod(int $employmentId, string $period): array
+            {
+                return [[
+                    'item_code' => 'MEAL_INSURANCE',
+                    'label' => 'Meal benefit',
+                    'employee_amount_cents' => 10_000,
+                    'employer_amount_cents' => 15_000,
+                    'source_type' => 'benefit_transaction',
+                    'source_id' => 'b-1',
+                    'taxable' => false,
+                    'sort_order' => 800,
+                ]];
+            }
+        });
+        $this->app->instance(PerformanceBonusDirectory::class, new class implements PerformanceBonusDirectory
+        {
+            public function frozenForPeriod(int $employmentId, string $period): array
+            {
+                return [[
+                    'item_code' => 'PERF_BONUS',
+                    'label' => 'Performance bonus',
+                    'amount_cents' => 20_000,
+                    'source_type' => 'performance_result',
+                    'source_id' => 'p-1',
+                    'taxable' => true,
+                    'sort_order' => 700,
+                ]];
+            }
+        });
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-11']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $payload = (array) PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail()->payload_json;
+        $this->assertSame('MEAL_INSURANCE', (string) ($payload['benefits'][0]['item_code'] ?? ''));
+        $this->assertSame('PERF_BONUS', (string) ($payload['performance_bonuses'][0]['item_code'] ?? ''));
+
+        $result = app(CalculationService::class)->calculate($run, 10);
+        $this->assertSame(1_020_000, $result['gross_cents']);
+        $this->assertSame(PayrollRunStatus::CALCULATED, $run->refresh()->status);
     }
 
     public function test_calculation_blocks_missing_closed_fact_and_prevents_review(): void

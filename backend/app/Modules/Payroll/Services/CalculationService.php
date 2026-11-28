@@ -237,6 +237,7 @@ final class CalculationService
         }
 
         $allowances = [];
+        $oneTimeBonuses = [];
         $otherDeductions = [];
         foreach ((array) ($payload['scheme']['items'] ?? []) as $item) {
             $item = (array) $item;
@@ -266,6 +267,50 @@ final class CalculationService
                     taxable: false,
                 );
             }
+        }
+
+        foreach ((array) ($payload['benefits'] ?? []) as $benefit) {
+            $benefit = (array) $benefit;
+            $amountCents = (int) ($benefit['employee_amount_cents'] ?? 0);
+
+            if ($amountCents < 0) {
+                throw new \InvalidArgumentException('Benefit employee amount cannot be negative.');
+            }
+
+            if ($amountCents === 0) {
+                continue;
+            }
+
+            $otherDeductions[] = new DeductionLine(
+                itemCode: (string) ($benefit['item_code'] ?? ''),
+                label: (string) ($benefit['label'] ?? ''),
+                amount: Money::fromMinor($amountCents, $currency),
+                source: new PayrollLineSource((string) ($benefit['source_type'] ?? 'benefit'), (string) ($benefit['source_id'] ?? '')),
+                sortOrder: (int) ($benefit['sort_order'] ?? 800),
+                taxable: (bool) ($benefit['taxable'] ?? false),
+            );
+        }
+
+        foreach ((array) ($payload['performance_bonuses'] ?? []) as $bonus) {
+            $bonus = (array) $bonus;
+            $amountCents = (int) ($bonus['amount_cents'] ?? 0);
+
+            if ($amountCents < 0) {
+                throw new \InvalidArgumentException('Performance bonus amount cannot be negative.');
+            }
+
+            if ($amountCents === 0) {
+                continue;
+            }
+
+            $oneTimeBonuses[] = new EarningLine(
+                itemCode: (string) ($bonus['item_code'] ?? ''),
+                label: (string) ($bonus['label'] ?? ''),
+                amount: Money::fromMinor($amountCents, $currency),
+                source: new PayrollLineSource((string) ($bonus['source_type'] ?? 'performance'), (string) ($bonus['source_id'] ?? '')),
+                sortOrder: (int) ($bonus['sort_order'] ?? 700),
+                taxable: (bool) ($bonus['taxable'] ?? true),
+            );
         }
 
         $manual = [];
@@ -318,6 +363,7 @@ final class CalculationService
             attendanceSourceType: 'time_payroll_input',
             attendanceSourceId: (string) ($payload['attendance']['source_hash'] ?? 'missing'),
             allowances: $allowances,
+            oneTimeBonuses: $oneTimeBonuses,
             manualAdjustments: $manual,
             otherDeductions: $otherDeductions,
         );

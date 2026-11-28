@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Payroll\Contracts\BenefitPayrollInputDirectory;
 use App\Modules\Payroll\Contracts\CompensationVersionDirectory;
+use App\Modules\Payroll\Contracts\PerformanceBonusDirectory;
 use App\Modules\Payroll\Domain\AttendanceSummary;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollAdjustment;
@@ -35,6 +37,8 @@ final class SnapshotService
         private readonly CompanyProfileReader $company,
         private readonly TaxParameterResolver $parameters,
         private readonly CompensationVersionDirectory $compensations,
+        private readonly BenefitPayrollInputDirectory $benefits,
+        private readonly PerformanceBonusDirectory $performanceBonuses,
     ) {}
 
     /**
@@ -332,6 +336,8 @@ final class SnapshotService
             'attendance' => $attendanceSummary,
             'blockers' => $blockers,
             'compensation' => $compensation,
+            'benefits' => $this->benefits->frozenForPeriod($employmentId, (string) $run->period),
+            'performance_bonuses' => $this->performanceBonuses->frozenForPeriod($employmentId, (string) $run->period),
             'terms' => $terms === null ? null : [
                 'terms_id' => $terms->id,
                 'version' => $terms->version,
