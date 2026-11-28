@@ -83,6 +83,7 @@ final class LeavePolicyService
 
         $appliesTo = $this->appliesTo($input['applies_to'] ?? ['scope' => 'COMPANY']);
         $accrual = $this->accrual($input['accrual'] ?? []);
+        [$payrollTreatment, $paidRatioScaled] = $this->payrollTreatment($input);
         $carryover = $this->nullableJsonObject($input['carryover'] ?? null, 'carryover');
         $minNoticeDays = $this->nonNegativeInteger($input['min_notice_days'] ?? 0, 'min_notice_days');
         $maxConsecutiveDays = $this->nullablePositiveInteger($input['max_consecutive_days'] ?? null, 'max_consecutive_days');
@@ -97,6 +98,8 @@ final class LeavePolicyService
             $effectiveTo,
             $appliesTo,
             $accrual,
+            $payrollTreatment,
+            $paidRatioScaled,
             $carryover,
             $minNoticeDays,
             $maxConsecutiveDays,
@@ -143,6 +146,8 @@ final class LeavePolicyService
                 'effective_to' => $effectiveTo,
                 'applies_to_json' => $appliesTo,
                 'accrual_json' => $accrual,
+                'payroll_treatment' => $payrollTreatment,
+                'paid_ratio_scaled' => $paidRatioScaled,
                 'carryover_json' => $carryover,
                 'min_notice_days' => $minNoticeDays,
                 'max_consecutive_days' => $maxConsecutiveDays,
@@ -253,10 +258,8 @@ final class LeavePolicyService
             'effective_to' => $policy->effective_to->format('Y-m-d'),
             'applies_to' => (array) $policy->applies_to_json,
             'accrual' => (array) $policy->accrual_json,
-            'payroll_treatment' => (string) (((array) $policy->accrual_json)['payroll_treatment'] ?? 'UNRESOLVED'),
-            'paid_ratio_scaled' => isset(((array) $policy->accrual_json)['paid_ratio_scaled'])
-                ? (int) ((array) $policy->accrual_json)['paid_ratio_scaled']
-                : null,
+            'payroll_treatment' => $this->storedPayrollTreatment($policy),
+            'paid_ratio_scaled' => $this->storedPaidRatioScaled($policy),
             'carryover' => $policy->carryover_json,
             'min_notice_days' => (int) $policy->min_notice_days,
             'max_consecutive_days' => $policy->max_consecutive_days,
@@ -301,36 +304,72 @@ final class LeavePolicyService
             ? 0
             : $this->nonNegativeInteger($value['minutes_per_year'] ?? 0, 'accrual.minutes_per_year');
 
-        $normalised = ['mode' => $mode, 'minutes_per_year' => $minutes];
+        return ['mode' => $mode, 'minutes_per_year' => $minutes];
+    }
 
-        if (array_key_exists('payroll_treatment', $value)) {
-            $treatment = strtoupper((string) $value['payroll_treatment']);
+    /**
+     * Resolve the first-class input, accepting the legacy nested accrual shape
+     * for one rollout window. New writes never put treatment back into
+     * accrual_json.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{0: string|null, 1: int|null}
+     */
+    private function payrollTreatment(array $input): array
+    {
+        $legacy = is_array($input['accrual'] ?? null) ? (array) $input['accrual'] : [];
+        $rawTreatment = $input['payroll_treatment'] ?? $legacy['payroll_treatment'] ?? null;
+        $rawRatio = $input['paid_ratio_scaled'] ?? $legacy['paid_ratio_scaled'] ?? null;
 
-            if (! in_array($treatment, ['PAID', 'PARTIAL', 'UNPAID'], true)) {
-                throw new ValidationException([
-                    'accrual.payroll_treatment' => ['Payroll treatment must be PAID, PARTIAL or UNPAID.'],
-                ]);
-            }
-
-            $normalised['payroll_treatment'] = $treatment;
-
-            if ($treatment === 'PARTIAL') {
-                $ratio = $this->nonNegativeInteger(
-                    $value['paid_ratio_scaled'] ?? 0,
-                    'accrual.paid_ratio_scaled',
-                );
-
-                if ($ratio < 1 || $ratio > 999_999) {
-                    throw new ValidationException([
-                        'accrual.paid_ratio_scaled' => ['A partial treatment requires a paid ratio between 1 and 999999.'],
-                    ]);
-                }
-
-                $normalised['paid_ratio_scaled'] = $ratio;
-            }
+        if ($rawTreatment === null || trim((string) $rawTreatment) === '') {
+            return [null, null];
         }
 
-        return $normalised;
+        $treatment = strtoupper(trim((string) $rawTreatment));
+
+        if (! in_array($treatment, ['PAID', 'PARTIAL', 'UNPAID', 'UNRESOLVED'], true)) {
+            throw new ValidationException([
+                'payroll_treatment' => ['Payroll treatment must be PAID, PARTIAL, UNPAID or UNRESOLVED.'],
+            ]);
+        }
+
+        if ($treatment !== 'PARTIAL') {
+            return [$treatment, null];
+        }
+
+        $ratio = $this->nonNegativeInteger($rawRatio ?? 0, 'paid_ratio_scaled');
+
+        if ($ratio < 1 || $ratio > 999_999) {
+            throw new ValidationException([
+                'paid_ratio_scaled' => ['A partial treatment requires a paid ratio between 1 and 999999.'],
+            ]);
+        }
+
+        return [$treatment, $ratio];
+    }
+
+    private function storedPayrollTreatment(LeavePolicyVersion $policy): string
+    {
+        $column = is_string($policy->payroll_treatment) ? strtoupper(trim($policy->payroll_treatment)) : '';
+
+        if ($column !== '') {
+            return $column;
+        }
+
+        $legacy = is_array($policy->accrual_json) ? (array) $policy->accrual_json : [];
+
+        return strtoupper((string) ($legacy['payroll_treatment'] ?? 'UNRESOLVED'));
+    }
+
+    private function storedPaidRatioScaled(LeavePolicyVersion $policy): ?int
+    {
+        if ($policy->paid_ratio_scaled !== null) {
+            return (int) $policy->paid_ratio_scaled;
+        }
+
+        $legacy = is_array($policy->accrual_json) ? (array) $policy->accrual_json : [];
+
+        return isset($legacy['paid_ratio_scaled']) ? (int) $legacy['paid_ratio_scaled'] : null;
     }
 
     /**

@@ -41,6 +41,32 @@ final class SeedWorkflowTemplatesCommand extends Command
     }
 
     /**
+     * Leave approval must run the real Time effect. Every other reference
+     * template keeps the explicit no-op until its owning module wires one.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function effectsFor(string $code): array
+    {
+        if ($code === 'leave.request') {
+            return [[
+                'type' => 'time.leave.apply',
+                'execution' => 'LOCAL',
+                'aggregate_type' => 'case',
+                'aggregate_id_field' => 'case_id',
+                'reverse_effect_type' => 'time.leave.reverse',
+            ]];
+        }
+
+        return [[
+            'type' => 'workflow.noop',
+            'execution' => 'LOCAL',
+            'aggregate_type' => 'case',
+            'aggregate_id_field' => 'case_id',
+        ]];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function definitions(): array
@@ -82,14 +108,7 @@ final class SeedWorkflowTemplatesCommand extends Command
                         ],
                         ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
                     ],
-                    'effects' => [
-                        [
-                            'type' => 'workflow.noop',
-                            'execution' => 'LOCAL',
-                            'aggregate_type' => 'case',
-                            'aggregate_id_field' => 'case_id',
-                        ],
-                    ],
+                    'effects' => $this->effectsFor((string) $code),
                 ],
             ];
         }

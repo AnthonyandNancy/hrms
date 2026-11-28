@@ -8,6 +8,7 @@ use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\LeaveLedgerEntry;
+use App\Modules\Time\Models\LeavePolicyVersion;
 use App\Modules\Time\Models\LeaveType;
 use App\Modules\Time\Services\PayrollInputDirectoryService;
 use Tests\Support\PayrollTestCase;
@@ -25,6 +26,8 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
 
         $annual = $this->leaveType('ANNUAL', 'Annual leave');
         $unpaid = $this->leaveType('UNPAID', 'Unpaid leave');
+        $this->policy($annual, 'PAID');
+        $this->policy($unpaid, 'UNPAID');
 
         // 480 scheduled minutes; 240 worked, 240 annual paid, zero unpaid.
         $this->attendance($base['employment_id'], '2026-01-05', 480, 240, 0);
@@ -61,6 +64,30 @@ final class TimeToPayrollIntegrationTest extends PayrollTestCase
         $this->attendance($base['employment_id'], '2026-05-05', 480, 480, 0);
 
         $this->assertTrue($directory->hasRecordedAttendance((int) $base['employment_id'], '2026-05'));
+    }
+
+    private function policy(LeaveType $type, string $treatment): LeavePolicyVersion
+    {
+        return LeavePolicyVersion::query()->create([
+            'leave_type_id' => (int) $type->id,
+            'version' => 1,
+            'status' => 'PUBLISHED',
+            'effective_from' => '2026-01-01',
+            'effective_to' => '9999-12-31',
+            'applies_to_json' => ['scope' => 'COMPANY'],
+            'accrual_json' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'payroll_treatment' => $treatment,
+            'paid_ratio_scaled' => null,
+            'carryover_json' => null,
+            'min_notice_days' => 0,
+            'max_consecutive_days' => null,
+            'requires_attachment_over_days' => null,
+            'allow_half_day' => true,
+            'legal_basis' => 'DEMO',
+            'published_at' => $this->clock->now(),
+            'published_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
     }
 
     private function leaveType(string $code, string $name): LeaveType

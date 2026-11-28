@@ -69,6 +69,18 @@ final class EffectService
                 throw new ValidationException(['effects' => ["Effect {$index} has an invalid outbox_event_type."]], 'Invalid effect declaration.');
             }
 
+            if (isset($spec['reverse_effect_type'])) {
+                $reverseType = $spec['reverse_effect_type'];
+
+                if (! is_string($reverseType) || $reverseType === '') {
+                    throw new ValidationException(['effects' => ["Effect {$index} has an invalid reverse_effect_type."]], 'Invalid effect declaration.');
+                }
+
+                // Fail before the Decision is written when a template declares
+                // a reversal that no module can execute.
+                $this->registry->resolve($reverseType);
+            }
+
             if (isset($spec['aggregate_id_field'])
                 && ! in_array($spec['aggregate_id_field'], ['case_id', 'subject_id', 'requester_user_id', 'template_version'], true)) {
                 throw new ValidationException(['effects' => ["Effect {$index} has an unsupported aggregate_id_field."]], 'Invalid effect declaration.');
@@ -128,6 +140,9 @@ final class EffectService
                     'decision_id' => $decision->id,
                     'template_version' => $case->template_version,
                     'case_payload' => $case->payload_json,
+                    'reverse_effect_type' => isset($spec['reverse_effect_type']) && is_string($spec['reverse_effect_type'])
+                        ? $spec['reverse_effect_type']
+                        : null,
                 ],
                 'requires_escalation' => false,
             ]);

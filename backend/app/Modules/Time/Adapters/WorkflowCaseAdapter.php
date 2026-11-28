@@ -100,6 +100,20 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         $this->cases->withdraw($this->principalFor($actorUserId), $caseId, $reason);
     }
 
+    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): void
+    {
+        $principal = $this->principals->resolve();
+
+        if ($principal === null) {
+            throw new ConflictException(
+                'The workflow principal does not match the request actor.',
+                ['reason' => 'WORKFLOW_PRINCIPAL_MISMATCH'],
+            );
+        }
+
+        $this->cases->reverseEffect($principal, $caseId, $reason, $effectiveOn);
+    }
+
     private function principalFor(int $userId): WorkflowPrincipal
     {
         $principal = $this->principals->resolve();

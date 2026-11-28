@@ -53,6 +53,19 @@ interface CaseCommandPort
     ): array;
 
     /**
+     * Apply the case's declared reverse effect(s) to already-applied effects.
+     * Idempotent: terminal REVERSED effects return their existing result.
+     *
+     * @return array{case_id: int, effect_status: string, reversed: int}
+     */
+    public function reverseEffect(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+    ): array;
+
+    /**
      * @return array{id: int, case_no: string, title: string, status: string, effect_status: string, requester_user_id: int, type: string, subject_type: string, subject_id: int|null, payload: array<string, mixed>, business_date: string, submitted_at: string|null, current_node: string|null, due_at: string|null}|null
      */
     public function find(int $caseId): ?array;

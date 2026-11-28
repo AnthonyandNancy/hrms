@@ -17,6 +17,7 @@ use App\Modules\Time\Contracts\LeaveRequestReader;
 use App\Modules\Time\Contracts\LegalEntityCalendarDirectory;
 use App\Modules\Time\Contracts\PayrollInputDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
+use App\Modules\Time\EffectHandlers\LeaveApprovalEffectHandler;
 use App\Modules\Time\Services\AttendanceWorkspaceReaderService;
 use App\Modules\Time\Services\BusinessCalendar;
 use App\Modules\Time\Services\EloquentLeaveLiabilityDirectory;
@@ -24,6 +25,7 @@ use App\Modules\Time\Services\LeaveBalanceReaderService;
 use App\Modules\Time\Services\LeaveRequestReaderService;
 use App\Modules\Time\Services\PayrollInputDirectoryService;
 use App\Modules\Workflow\Contracts\CaseCommandPort;
+use App\Modules\Workflow\Contracts\DomainEffectHandler;
 use App\Modules\Workflow\Contracts\WorkflowPrincipalResolver;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -34,6 +36,17 @@ use Illuminate\Support\ServiceProvider;
  */
 final class TimeServiceProvider extends ServiceProvider
 {
+    /** @var list<class-string<DomainEffectHandler>> */
+    public const EFFECT_HANDLERS = [
+        LeaveApprovalEffectHandler::class,
+    ];
+
+    /** @var list<string> */
+    public const EFFECT_TYPES = [
+        LeaveApprovalEffectHandler::APPLY,
+        LeaveApprovalEffectHandler::REVERSE,
+    ];
+
     public function register(): void
     {
         $this->app->bind(EmploymentDirectory::class, function (Application $app): PeopleEmploymentDirectory {
@@ -54,6 +67,20 @@ final class TimeServiceProvider extends ServiceProvider
         $this->app->bind(LeaveRequestReader::class, LeaveRequestReaderService::class);
         $this->app->bind(PayrollInputDirectory::class, PayrollInputDirectoryService::class);
         $this->app->bindIf(LeaveLiabilityDirectory::class, EloquentLeaveLiabilityDirectory::class);
+
+        /** @var list<class-string<DomainEffectHandler>> $existingHandlers */
+        $existingHandlers = (array) config('workflow.domain_effect_handlers', []);
+        config()->set('workflow.domain_effect_handlers', array_values(array_unique([
+            ...$existingHandlers,
+            ...self::EFFECT_HANDLERS,
+        ])));
+
+        /** @var list<string> $existingTypes */
+        $existingTypes = (array) config('workflow.effect_types', []);
+        config()->set('workflow.effect_types', array_values(array_unique([
+            ...$existingTypes,
+            ...self::EFFECT_TYPES,
+        ])));
     }
 
     public function boot(): void

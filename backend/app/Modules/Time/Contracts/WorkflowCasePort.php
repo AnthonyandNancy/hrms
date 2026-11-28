@@ -31,4 +31,10 @@ interface WorkflowCasePort
     public function case(int $caseId): ?WorkflowCaseSnapshot;
 
     public function requestCancel(int $caseId, int $actorUserId, string $reason): void;
+
+    /**
+     * Execute the declared reversal for an already applied case effect.
+     * Workflow remains the owner of the effect row and status.
+     */
+    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): void;
 }

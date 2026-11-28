@@ -69,6 +69,8 @@ final class WorkflowServiceProvider extends ServiceProvider
         'workflow.leave.reserve',
         'workflow.contract.renew',
         'workflow.payroll.publish',
+        'time.leave.apply',
+        'time.leave.reverse',
     ];
 
     public function register(): void

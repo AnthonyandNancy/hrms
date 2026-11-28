@@ -14,6 +14,9 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
 
     private int $nextId = 1001;
 
+    /** @var list<array{case_id: int, reason: string, effective_on: string}> */
+    public array $reversals = [];
+
     public function createCase(
         int $requesterUserId,
         string $type,
@@ -86,6 +89,12 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
     public function requestCancel(int $caseId, int $actorUserId, string $reason): void
     {
         $this->decideCase($caseId, 'CANCELLED');
+    }
+
+    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): void
+    {
+        $this->reversals[] = ['case_id' => $caseId, 'reason' => $reason, 'effective_on' => $effectiveOn];
+        $this->decideCase($caseId, 'REVERSED');
     }
 
     /** Test helper: approve the case so an effect may apply. */

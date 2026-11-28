@@ -8,6 +8,7 @@ use App\Modules\Workflow\Contracts\CaseCommandPort;
 use App\Modules\Workflow\Contracts\WorkflowPrincipal;
 use App\Modules\Workflow\Enums\DecisionAction;
 use App\Modules\Workflow\Models\CaseModel;
+use App\Modules\Workflow\Models\Effect;
 use App\Modules\Workflow\Models\WorkflowTemplate;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
@@ -115,6 +116,54 @@ final class CaseCommandService implements CaseCommandPort
         $withdrawn = $this->cases->withdraw($principal, $case, $reason);
 
         return $this->summary($withdrawn);
+    }
+
+    /**
+     * @return array{case_id: int, effect_status: string, reversed: int}
+     */
+    public function reverseEffect(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+    ): array {
+        $case = CaseModel::query()->whereKey($caseId)->first();
+
+        if ($case === null) {
+            throw NotFoundException::forResource();
+        }
+
+        if ((int) $case->requester_user_id !== $principal->userId
+            && ! $principal->can('workflow.case.admin')) {
+            throw NotFoundException::forResource();
+        }
+
+        $effects = Effect::query()
+            ->where('case_id', $caseId)
+            ->whereNull('reversal_of_id')
+            ->where('status', \App\Modules\Workflow\Enums\EffectStatus::APPLIED->value)
+            ->orderBy('id')
+            ->get();
+
+        if ($effects->isEmpty()) {
+            return [
+                'case_id' => $caseId,
+                'effect_status' => $case->effect_status->value,
+                'reversed' => 0,
+            ];
+        }
+
+        foreach ($effects as $effect) {
+            app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn);
+        }
+
+        $case->refresh();
+
+        return [
+            'case_id' => $caseId,
+            'effect_status' => $case->effect_status->value,
+            'reversed' => $effects->count(),
+        ];
     }
 
     public function find(int $caseId): ?array
