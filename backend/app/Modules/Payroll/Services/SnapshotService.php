@@ -267,15 +267,50 @@ final class SnapshotService
                 $resolvedScheme = $candidate;
             }
         }
-        $adjustments = PayrollAdjustment::query()
-            ->where(function ($query) use ($run): void {
-                $query->where('run_id', $run->id)->orWhere(function ($inner) use ($run): void {
-                    $inner->whereNull('run_id')->where('effective_period', (string) $run->period);
-                });
-            })
-            ->where('employment_id', $employmentId)
-            ->orderBy('id')
-            ->get();
+        $isCorrection = ($run->run_type instanceof \App\Modules\Payroll\Enums\PayrollRunType
+            ? $run->run_type
+            : \App\Modules\Payroll\Enums\PayrollRunType::from((string) $run->run_type)) === \App\Modules\Payroll\Enums\PayrollRunType::CORRECTION;
+
+        if ($isCorrection && $run->correction_of_run_id !== null) {
+            $original = PayrollRun::query()->whereKey((int) $run->correction_of_run_id)->first();
+            $priorCorrectionIds = PayrollRun::query()
+                ->where('correction_of_run_id', (int) $run->correction_of_run_id)
+                ->whereIn('status', ['PUBLISHED', 'PAID', 'CLOSED'])
+                ->pluck('id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+            $chainRunIds = array_values(array_unique([
+                ...($original === null ? [] : [(int) $original->id]),
+                ...$priorCorrectionIds,
+                (int) $run->id,
+            ]));
+            $periodBounds = $original === null
+                ? [(string) $run->period, (string) $run->period]
+                : [min((string) $original->period, (string) $run->period), max((string) $original->period, (string) $run->period)];
+
+            $adjustments = PayrollAdjustment::query()
+                ->where('employment_id', $employmentId)
+                ->where(function ($query) use ($chainRunIds, $periodBounds): void {
+                    $query->whereIn('run_id', $chainRunIds)
+                        ->orWhere(function ($inner) use ($periodBounds): void {
+                            $inner->whereNull('run_id')
+                                ->whereBetween('effective_period', $periodBounds);
+                        });
+                })
+                ->orderBy('effective_period')
+                ->orderBy('id')
+                ->get();
+        } else {
+            $adjustments = PayrollAdjustment::query()
+                ->where(function ($query) use ($run): void {
+                    $query->where('run_id', $run->id)->orWhere(function ($inner) use ($run): void {
+                        $inner->whereNull('run_id')->where('effective_period', (string) $run->period);
+                    });
+                })
+                ->where('employment_id', $employmentId)
+                ->orderBy('id')
+                ->get();
+        }
 
         $year = (int) substr((string) $run->period, 0, 4);
         $ytd = PayrollYtd::query()

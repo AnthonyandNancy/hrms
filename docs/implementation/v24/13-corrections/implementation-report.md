@@ -43,3 +43,23 @@ cumulative target/delta fields on the run; MCP evidence remains T18.
   column; model writes no tenant identifier.
 - Targeted single-company, no-tenant and correction tests: 16 tests / 422
   assertions PASS.
+
+## T13c — cumulative target, approved baseline and current delta
+
+- Correction snapshots now include the original plus all prior effective
+  correction adjustments, not only the current settlement period.
+- Correction calculation baseline is `original + all prior published
+  corrections`; the current delta is `target - approved baseline`.
+- Runs persist `correction_target_net_cents`,
+  `correction_baseline_net_cents`, `correction_delta_net_cents` and
+  `correction_cumulative_net_cents`.
+- Fixed prior-correction line merging that double-counted the first
+  correction's payslip line.
+- AC-12 golden now uses a 9,617.96 salary fixture whose tax/SI/HF rounding
+  yields original net `808000` cents; gross adjustments `26681` and `6065`
+  produce target nets `830000` and `835000`, deltas `22000` and `5000`, and
+  cumulative `835000` — exactly 8080.00 → 8300.00 → 8350.00.
+- Payroll run detail renders correction target, approved baseline, current
+  delta, cumulative amount and original/baseline run links.
+- Verification: payroll 114 tests / 580 assertions; payroll UI 15 tests;
+  typecheck/lint, Pint, PHPStan and arch green.

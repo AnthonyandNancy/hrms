@@ -271,7 +271,17 @@ describe('payroll run detail and action bar', () => {
           differences: [], chain: { ytd_ledger: [{ source_run_id: 7, source_type: 'PAYROLL', gross_cents: 800000, net_cents: -120000, carry_forward_cents: -120000, source_hash: 'c'.repeat(64) }] }, passed: true,
         })
       }
-      return Promise.resolve(detailRaw())
+      return Promise.resolve(detailRaw({
+        run_type: 'CORRECTION',
+        correction_of_run_id: 3,
+        correction_sequence: 2,
+        correction_baseline_run_id: 4,
+        prior_correction_ids: [4],
+        correction_target_net_cents: 835000,
+        correction_baseline_net_cents: 830000,
+        correction_delta_net_cents: 5000,
+        correction_cumulative_net_cents: 835000,
+      }))
     })
 
     const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=inputs')
@@ -284,6 +294,10 @@ describe('payroll run detail and action bar', () => {
     expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('2026年11月1日')
     expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('8,000.00')
     expect(wrapper.get('[data-testid="payroll-ytd-ledger"]').text()).toContain('结转')
+    const correction = wrapper.get('[data-testid="payroll-correction-chain"]').text()
+    expect(correction).toContain('第 2 次更正')
+    expect(correction).toContain('8,350.00')
+    expect(correction).toContain('50.00')
     expect(wrapper.get('[data-testid="payroll-reconciliation-status"]').text()).toContain('对账通过')
     expect(wrapper.text()).toContain('2026 年 11 月')
   })

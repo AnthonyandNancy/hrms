@@ -101,7 +101,6 @@ final class CorrectionRunTest extends PayrollTestCase
 
         $firstEmployee = PayrollRunEmployee::query()->where('run_id', $first->id)->firstOrFail();
         $secondEmployee = PayrollRunEmployee::query()->where('run_id', $second->id)->firstOrFail();
-
         // A retro deduction is net-only; a retro earning is gross and still
         // attracts employee SI, housing fund and cumulative tax.
         $this->assertSame(-50_000, (int) $firstEmployee->net_cents);
@@ -124,6 +123,33 @@ final class CorrectionRunTest extends PayrollTestCase
         // earning adds its full gross.
         $this->assertSame(1_000_000 + 20_000, (int) $ytd->gross_cents);
         $this->assertSame((int) $ytdAfterOriginal->net_cents - 50_000 + 16_490, (int) $ytd->net_cents);
+    }
+
+    public function test_correction_target_baseline_and_delta_are_cumulative_for_ac12_pattern(): void
+    {
+        $base = $this->seedPayrollBase(961_796);
+        $original = $this->closedJanuaryRun($base);
+        $originalNet = (int) PayrollRunEmployee::query()->where('run_id', $original->id)->firstOrFail()->net_cents;
+        $this->assertSame(808_000, $originalNet);
+
+        // Synthetic gross adjustments chosen so 8% SI/7% HF/3% tax rounding
+        // produces AC-12's exact 8300.00 and 8350.00 target net.
+        $first = $this->postAdjustmentAndPublish($original, 26_681, '2026-02', 11)->refresh();
+        $this->assertSame($originalNet, (int) $first->correction_baseline_net_cents);
+        $this->assertSame(830_000, (int) $first->correction_target_net_cents);
+        $this->assertSame(22_000, (int) $first->correction_delta_net_cents);
+        $this->assertSame(830_000, (int) $first->correction_cumulative_net_cents);
+
+        $second = $this->postAdjustmentAndPublish($original, 6_065, '2026-03', 12)->refresh();
+        $this->assertSame(830_000, (int) $second->correction_baseline_net_cents);
+        $this->assertSame(835_000, (int) $second->correction_target_net_cents);
+        $this->assertSame(5_000, (int) $second->correction_delta_net_cents);
+        $this->assertSame(835_000, (int) $second->correction_cumulative_net_cents);
+        $this->assertSame(5_000, (int) PayrollRunEmployee::query()->where('run_id', $second->id)->firstOrFail()->net_cents);
+
+        $chain = app(ReconciliationService::class)->chain($second);
+        $this->assertTrue($chain['passed'], json_encode($chain));
+        $this->assertSame(835_000, (int) $chain['payable_net_cents']);
     }
 
     public function test_ytd_ledger_is_signed_idempotent_and_carries_negative_balance(): void

@@ -86,6 +86,10 @@ export type PayrollRunDetail = PayrollRunSummary & {
   correctionBaselineRunId?: number | null
   correctionSequence?: number
   priorCorrectionIds?: number[]
+  correctionTargetNetCents?: number | null
+  correctionBaselineNetCents?: number | null
+  correctionDeltaNetCents?: number | null
+  correctionCumulativeNetCents?: number | null
   state?: string
   version?: number
   sourceVersion?: string | null
@@ -283,6 +287,10 @@ export function normalisePayrollRunDetail(raw: unknown): PayrollRunDetail {
     priorCorrectionIds: Array.isArray(row.prior_correction_ids)
       ? row.prior_correction_ids.map((id, index) => requiredInteger(id, `prior_correction_ids.${index}`))
       : [],
+    correctionTargetNetCents: nullableInteger(row.correction_target_net_cents, 'correction_target_net_cents'),
+    correctionBaselineNetCents: nullableInteger(row.correction_baseline_net_cents, 'correction_baseline_net_cents'),
+    correctionDeltaNetCents: nullableInteger(row.correction_delta_net_cents, 'correction_delta_net_cents'),
+    correctionCumulativeNetCents: nullableInteger(row.correction_cumulative_net_cents, 'correction_cumulative_net_cents'),
     state: typeof row.state === 'string' ? row.state : undefined,
     version: typeof row.version === 'number' && Number.isSafeInteger(row.version) ? row.version : undefined,
     sourceVersion: row.source_version === null || row.source_version === undefined

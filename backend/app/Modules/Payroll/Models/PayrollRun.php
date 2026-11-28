@@ -28,6 +28,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $correction_baseline_run_id
  * @property int $correction_sequence
  * @property array<int, int>|null $prior_correction_ids_json
+ * @property int|null $correction_target_net_cents
+ * @property int|null $correction_baseline_net_cents
+ * @property int|null $correction_delta_net_cents
+ * @property int|null $correction_cumulative_net_cents
  * @property int $prepared_by
  * @property int|null $reviewed_by
  * @property int|null $approved_by
@@ -82,6 +86,10 @@ final class PayrollRun extends Model
         'correction_baseline_run_id',
         'correction_sequence',
         'prior_correction_ids_json',
+        'correction_target_net_cents',
+        'correction_baseline_net_cents',
+        'correction_delta_net_cents',
+        'correction_cumulative_net_cents',
         'prepared_by',
         'reviewed_by',
         'approved_by',
@@ -129,6 +137,10 @@ final class PayrollRun extends Model
             'correction_baseline_run_id' => 'integer',
             'correction_sequence' => 'integer',
             'prior_correction_ids_json' => 'array',
+            'correction_target_net_cents' => 'integer',
+            'correction_baseline_net_cents' => 'integer',
+            'correction_delta_net_cents' => 'integer',
+            'correction_cumulative_net_cents' => 'integer',
             'prepared_by' => 'integer',
             'reviewed_by' => 'integer',
             'approved_by' => 'integer',

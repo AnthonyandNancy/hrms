@@ -4512,6 +4512,22 @@ components:
               type: array
               items:
                 type: integer
+            correction_target_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_baseline_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_delta_net_cents:
+              type:
+                - integer
+                - "null"
+            correction_cumulative_net_cents:
+              type:
+                - integer
+                - "null"
             prepared_by:
               type: integer
             reviewed_by:

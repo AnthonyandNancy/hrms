@@ -106,6 +106,8 @@ final class CalculationService
             $calculated = 0;
             $failed = 0;
             $blocked = 0;
+            $correctionTargetNet = 0;
+            $correctionBaselineNet = 0;
             $isCorrection = ($locked->run_type instanceof PayrollRunType ? $locked->run_type : PayrollRunType::from((string) $locked->run_type)) === PayrollRunType::CORRECTION;
 
             foreach ($snapshots as $snapshot) {
@@ -126,6 +128,8 @@ final class CalculationService
                         $stored = $this->storeCorrection($locked, $snapshot, $payload, $result);
                         $lines = $stored['lines'];
                         $amounts = $stored['amounts'];
+                        $correctionTargetNet = $this->checkedAdd($correctionTargetNet, (int) $stored['target_net_cents']);
+                        $correctionBaselineNet = $this->checkedAdd($correctionBaselineNet, (int) $stored['baseline_net_cents']);
                     } else {
                         $stored = $this->storeRegular($locked, $snapshot, $payload, $result);
                         $lines = $stored['lines'];
@@ -155,17 +159,24 @@ final class CalculationService
                 ? PayrollRunStatus::CALCULATED_WITH_BLOCKERS
                 : PayrollRunStatus::CALCULATED;
 
-            $locked = $this->stateMachine->transition(
-                $locked,
-                $targetStatus,
-                [
-                    'gross_cents' => $totals['gross_cents'],
-                    'deductions_cents' => $totals['deductions_cents'],
-                    'net_cents' => $totals['net_cents'],
-                    'employer_cost_cents' => $totals['employer_cost_cents'],
-                    'calculated_at' => $this->clock->now(),
-                ],
-            );
+            $transitionColumns = [
+                'gross_cents' => $totals['gross_cents'],
+                'deductions_cents' => $totals['deductions_cents'],
+                'net_cents' => $totals['net_cents'],
+                'employer_cost_cents' => $totals['employer_cost_cents'],
+                'calculated_at' => $this->clock->now(),
+            ];
+
+            if ($isCorrection) {
+                $transitionColumns += [
+                    'correction_target_net_cents' => $correctionTargetNet,
+                    'correction_baseline_net_cents' => $correctionBaselineNet,
+                    'correction_delta_net_cents' => $totals['net_cents'],
+                    'correction_cumulative_net_cents' => $correctionTargetNet,
+                ];
+            }
+
+            $locked = $this->stateMachine->transition($locked, $targetStatus, $transitionColumns);
 
             $this->audit->record(
                 actorUserId: $actorUserId,
@@ -435,7 +446,7 @@ final class CalculationService
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array{amounts: array{gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}, lines: list<PayslipLine>}
+     * @return array{amounts: array{gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}, lines: list<PayslipLine>, target_net_cents: int, baseline_net_cents: int}
      */
     private function storeCorrection(PayrollRun $run, PayrollInputSnapshot $snapshot, array $payload, PayrollCalculationResult $revised): array
     {
@@ -500,14 +511,15 @@ final class CalculationService
                 'employer_cost_cents' => $employee->employer_cost_cents,
             ],
             'lines' => $lines,
+            'target_net_cents' => $revised->net->minor(),
+            'baseline_net_cents' => $baseline['net'],
         ];
     }
 
     /**
-     * Baseline is the original full payslip. Each correction run is a
-     * delta against the original; prior correction deltas are separate
-     * payable rows and must not be folded into this baseline or the same
-     * adjustment would be counted twice.
+     * Baseline is the original plus every prior effective correction. The
+     * target snapshot contains all adjustments up to this correction, so the
+     * delta subtracts original + prior corrections rather than original alone.
      *
      * @return array{gross: int, taxable: int, employee_si: int, employee_hf: int, tax: int, deductions: int, employer_si: int, employer_hf: int, employer_cost: int, net: int, ytd_taxable: int, ytd_withheld: int, lines: array<string, array{category: string, amount: int}>}
      */
@@ -549,6 +561,52 @@ final class CalculationService
             'ytd_withheld' => (int) $originalEmployee->ytd_tax_withheld_opening_cents,
             'lines' => $this->linesByKey((int) $originalPayslip->id),
         ];
+
+        // Target-delta semantics: the approved baseline is the original plus
+        // every prior effective correction, never the original alone.
+        $priorCorrections = PayrollRun::query()
+            ->where('correction_of_run_id', $originalRunId)
+            ->whereIn('status', ['PUBLISHED', 'PAID', 'CLOSED'])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($priorCorrections as $prior) {
+            $priorPayslip = Payslip::query()
+                ->where('run_id', $prior->id)
+                ->where('employment_id', $employmentId)
+                ->first();
+            $priorEmployee = PayrollRunEmployee::query()
+                ->where('run_id', $prior->id)
+                ->where('employment_id', $employmentId)
+                ->first();
+
+            if ($priorPayslip === null || $priorEmployee === null) {
+                continue;
+            }
+
+            foreach ([
+                'gross' => (int) $priorPayslip->gross_cents,
+                'deductions' => (int) $priorPayslip->deductions_cents,
+                'net' => (int) $priorPayslip->net_cents,
+                'employer_cost' => (int) $priorPayslip->employer_cost_cents,
+                'taxable' => (int) $priorEmployee->taxable_cents,
+                'employee_si' => (int) $priorEmployee->employee_si_cents,
+                'employee_hf' => (int) $priorEmployee->employee_hf_cents,
+                'tax' => (int) $priorEmployee->tax_cents,
+                'employer_si' => (int) $priorEmployee->employer_si_cents,
+                'employer_hf' => (int) $priorEmployee->employer_hf_cents,
+            ] as $field => $amount) {
+                $baseline[$field] += $amount;
+            }
+
+            foreach ($this->linesByKey((int) $priorPayslip->id) as $key => $line) {
+                if (! isset($baseline['lines'][$key])) {
+                    $baseline['lines'][$key] = $line;
+                } else {
+                    $baseline['lines'][$key]['amount'] += $line['amount'];
+                }
+            }
+        }
 
         return $baseline;
     }

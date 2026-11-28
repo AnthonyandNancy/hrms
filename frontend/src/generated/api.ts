@@ -7442,6 +7442,10 @@ export interface components {
             correction_baseline_run_id?: number | null;
             correction_sequence?: number;
             prior_correction_ids?: number[];
+            correction_target_net_cents?: number | null;
+            correction_baseline_net_cents?: number | null;
+            correction_delta_net_cents?: number | null;
+            correction_cumulative_net_cents?: number | null;
             prepared_by: number;
             reviewed_by: number | null;
             approved_by: number | null;

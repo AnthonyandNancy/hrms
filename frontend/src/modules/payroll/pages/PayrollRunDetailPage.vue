@@ -630,6 +630,61 @@ onMounted(() => {
       </section>
 
       <section
+        v-if="detail !== null && detail.runType === 'CORRECTION'"
+        class="panel payroll-detail__correction"
+        aria-label="更正链"
+        data-testid="payroll-correction-chain"
+      >
+        <div class="panel__header">
+          <div>
+            <h2 class="panel__title">更正累计基线</h2>
+            <p class="panel__subtitle">
+              目标结果减去原批次和全部已批准更正；本次差额不会重复支付此前更正。
+            </p>
+          </div>
+          <span class="plain-chip">第 {{ detail.correctionSequence ?? 1 }} 次更正</span>
+        </div>
+        <dl class="payroll-detail__facts payroll-detail__facts--inline">
+          <div>
+            <dt>原始批次</dt>
+            <dd>#{{ detail.correctionOfRunId ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>基线批次</dt>
+            <dd>#{{ detail.correctionBaselineRunId ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>目标实发</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionTargetNetCents !== undefined && detail.correctionTargetNetCents !== null" :cents="detail.correctionTargetNetCents" size="sm" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>已批准基线</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionBaselineNetCents !== undefined && detail.correctionBaselineNetCents !== null" :cents="detail.correctionBaselineNetCents" size="sm" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>本次差额</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionDeltaNetCents !== undefined && detail.correctionDeltaNetCents !== null" :cents="detail.correctionDeltaNetCents" size="sm" tone="strong" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+          <div>
+            <dt>累计实发</dt>
+            <dd>
+              <MoneyText v-if="detail.correctionCumulativeNetCents !== undefined && detail.correctionCumulativeNetCents !== null" :cents="detail.correctionCumulativeNetCents" size="sm" tone="strong" />
+              <span v-else>待计算</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section
         v-if="activeDetailTab === 'inputs'"
         class="panel payroll-detail__inputs"
         aria-label="计薪输入证据"
