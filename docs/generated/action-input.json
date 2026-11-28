@@ -1018,6 +1018,15 @@
       "confirm": "none"
     },
     {
+      "pageCode": "benefits",
+      "key": "benefit.transaction.reverse",
+      "label": "冲销福利缴款",
+      "capability": "benefit.manage",
+      "api": "POST /v1/benefits/transactions/{id}/reverse",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
       "pageCode": "hr-movements",
       "key": "lifecycle.checklist.update",
       "label": "更新入职任务",

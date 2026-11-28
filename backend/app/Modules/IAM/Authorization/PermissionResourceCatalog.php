@@ -626,7 +626,7 @@ final class PermissionResourceCatalog
                 'order' => 110,
                 'icon' => 'Menu',
                 'component_key' => 'benefits',
-                'required_apis' => ['GET /v1/benefits/plans', 'GET /v1/benefits/enrollments', 'GET /v1/benefits/transactions', 'POST /v1/benefits/plans', 'POST /v1/benefits/enrollments', 'POST /v1/benefits/transactions'],
+                'required_apis' => ['GET /v1/benefits/plans', 'GET /v1/benefits/enrollments', 'GET /v1/benefits/transactions', 'POST /v1/benefits/plans', 'POST /v1/benefits/enrollments', 'POST /v1/benefits/transactions', 'POST /v1/benefits/transactions/{id}/reverse'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'platform',

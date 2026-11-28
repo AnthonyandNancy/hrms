@@ -9491,6 +9491,60 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: benefit.manage
       x-action-label: 登记福利缴款
+  /v1/benefits/transactions/{id}/reverse:
+    post:
+      operationId: benefitsTransactionsReverse
+      tags:
+        - Benefits
+      summary: Append a reversal for a monthly contribution
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 500
+      responses:
+        "201":
+          description: Reversal recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "200":
+          description: Idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BenefitTransactionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: benefit.manage
+      x-action-label: 冲销福利缴款
   /v1/bindings/{id}:
     delete:
       operationId: deleteBinding

@@ -287,18 +287,10 @@ final class BenefitService
         return DB::transaction(function () use ($actorUserId, $enrollment, $period, $employeeAmount, $employerAmount, $payrollRunId): BenefitTransaction {
             $this->assertPayrollRunNotFrozen($payrollRunId);
 
-            if ($payrollRunId !== null && BenefitTransaction::query()
-                ->where('payroll_run_id', $payrollRunId)
-                ->exists()) {
-                throw new ConflictException(
-                    'This payroll run is already linked to a benefit transaction.',
-                    ['reason' => 'BENEFIT_PAYROLL_LINK_DUPLICATE', 'payroll_run_id' => $payrollRunId],
-                );
-            }
-
             if (BenefitTransaction::query()
                 ->where('enrollment_id', (int) $enrollment->id)
                 ->where('period', $period)
+                ->where('entry_type', 'RECORD')
                 ->exists()) {
                 throw new ConflictException(
                     'This enrollment period is already recorded.',
@@ -315,6 +307,11 @@ final class BenefitService
                 'employer_amount_cents' => $employerAmount,
                 'total_amount_cents' => $employeeAmount + $employerAmount,
                 'payroll_run_id' => $payrollRunId,
+                'entry_type' => 'RECORD',
+                'reversal_of_id' => null,
+                'reversed_by_id' => null,
+                'reason' => null,
+                'source_hash' => hash('sha256', implode('|', [(string) $enrollment->id, $period, (string) $employeeAmount, (string) $employerAmount, (string) ($payrollRunId ?? '')])),
                 'status' => 'RECORDED',
                 'created_by' => $actorUserId,
                 'created_at' => $this->clock->now(),
@@ -334,6 +331,80 @@ final class BenefitService
             );
 
             return $transaction;
+        });
+    }
+
+    /**
+     * Append a reversal row for an existing benefit contribution. The original
+     * row is never modified; the unique reversal_of_id prevents a double
+     * reversal and the payroll input port nets RECORD minus REVERSAL.
+     */
+    public function reverseTransaction(int $actorUserId, int $transactionId, string $reason): BenefitTransaction
+    {
+        $reason = trim($reason);
+
+        if (mb_strlen($reason) < 10) {
+            throw new ValidationException(['reason' => ['A reversal reason of at least 10 characters is required.']]);
+        }
+
+        return DB::transaction(function () use ($actorUserId, $transactionId, $reason): BenefitTransaction {
+            $original = BenefitTransaction::query()
+                ->whereKey($transactionId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($original === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            if ((string) $original->entry_type !== 'RECORD') {
+                throw new ConflictException('Only a recorded benefit transaction can be reversed.', [
+                    'reason' => 'BENEFIT_REVERSAL_TARGET_INVALID',
+                    'transaction_id' => $transactionId,
+                ]);
+            }
+
+            if (BenefitTransaction::query()->where('reversal_of_id', $transactionId)->exists()) {
+                throw new ConflictException('This benefit transaction is already reversed.', [
+                    'reason' => 'BENEFIT_REVERSAL_DUPLICATE',
+                    'transaction_id' => $transactionId,
+                ]);
+            }
+
+            $this->assertPayrollRunNotFrozen($original->payroll_run_id !== null ? (int) $original->payroll_run_id : null);
+
+            $reversal = BenefitTransaction::query()->create([
+                'employment_id' => (int) $original->employment_id,
+                'enrollment_id' => (int) $original->enrollment_id,
+                'period' => (string) $original->period,
+                'base_amount_cents' => (int) $original->base_amount_cents,
+                'employee_amount_cents' => (int) $original->employee_amount_cents,
+                'employer_amount_cents' => (int) $original->employer_amount_cents,
+                'total_amount_cents' => (int) $original->total_amount_cents,
+                'payroll_run_id' => $original->payroll_run_id !== null ? (int) $original->payroll_run_id : null,
+                'entry_type' => 'REVERSAL',
+                'reversal_of_id' => (int) $original->id,
+                'reversed_by_id' => null,
+                'reason' => $reason,
+                'source_hash' => hash('sha256', implode('|', [(string) $original->id, (string) $original->source_hash, $reason])),
+                'status' => 'REVERSAL',
+                'created_by' => $actorUserId,
+                'created_at' => $this->clock->now(),
+            ]);
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'benefit.transaction.reversed',
+                aggregateType: 'benefit_transaction',
+                aggregateId: (int) $reversal->id,
+                after: [
+                    'reversal_of_id' => (int) $original->id,
+                    'reason' => $reason,
+                    'total_amount_cents' => (int) $original->total_amount_cents,
+                ],
+            );
+
+            return $reversal;
         });
     }
 
@@ -415,6 +486,11 @@ final class BenefitService
             'employer_amount_cents' => (int) $transaction->employer_amount_cents,
             'total_amount_cents' => (int) $transaction->total_amount_cents,
             'payroll_run_id' => $transaction->payroll_run_id !== null ? (int) $transaction->payroll_run_id : null,
+            'entry_type' => (string) $transaction->entry_type,
+            'reversal_of_id' => $transaction->reversal_of_id !== null ? (int) $transaction->reversal_of_id : null,
+            'reversed_by_id' => $transaction->reversed_by_id !== null ? (int) $transaction->reversed_by_id : null,
+            'reason' => $transaction->reason,
+            'source_hash' => $transaction->source_hash,
             'status' => (string) $transaction->status,
         ];
     }

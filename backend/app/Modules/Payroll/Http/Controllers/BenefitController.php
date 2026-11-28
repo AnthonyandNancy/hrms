@@ -238,6 +238,40 @@ final class BenefitController
         return $this->commandResponse($result->status, $result->body, $result->replayed);
     }
 
+    public function reverseTransaction(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+        ]);
+
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'payroll.benefit.transaction.reverse',
+                capability: 'benefit.manage',
+                anchor: AnchorType::COMPANY,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'benefit.transaction.reversed',
+            ),
+            ['transaction_id' => $id, ...$data],
+            function () use ($id, $data): array {
+                $principal = $this->principals->resolve();
+                $transaction = $this->benefits->reverseTransaction($principal->userId(), $id, (string) $data['reason']);
+
+                return [
+                    'http_status' => 201,
+                    'body' => $this->benefits->transactionPayload($transaction),
+                    'resource_type' => 'benefit_transaction',
+                    'resource_id' => (string) $transaction->id,
+                ];
+            },
+            $this->idempotencyKey($request),
+        );
+
+        return $this->commandResponse($result->status, $result->body, $result->replayed);
+    }
+
     private function idempotencyKey(Request $request): string
     {
         $key = $request->header('Idempotency-Key');

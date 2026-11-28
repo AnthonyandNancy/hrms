@@ -111,7 +111,7 @@ final class BenefitTest extends PeopleTestCase
             ->assertStatus(422);
     }
 
-    public function test_monthly_transaction_cannot_be_paid_twice_through_the_same_payroll_run(): void
+    public function test_multiple_plans_and_periods_can_share_a_payroll_run_but_duplicate_record_is_rejected(): void
     {
         $this->benefitEmployment();
 
@@ -140,20 +140,52 @@ final class BenefitTest extends PeopleTestCase
             ->assertJsonPath('data.employee_amount_cents', 80_000)
             ->assertJsonPath('data.employer_amount_cents', 160_000)
             ->assertJsonPath('data.total_amount_cents', 240_000)
-            ->assertJsonPath('data.payroll_run_id', 77);
+            ->assertJsonPath('data.payroll_run_id', 77)
+            ->assertJsonPath('data.entry_type', 'RECORD');
+
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $enrollmentId,
+            'period' => '2026-01',
+            'payroll_run_id' => 77,
+        ], ['Idempotency-Key' => 'benefit-transaction-duplicate'])
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'BENEFIT_PERIOD_DUPLICATE');
+
+        $secondPlanId = (int) $this->postJson('/v1/benefits/plans', [
+            'code' => 'SUPPLEMENTARY_MEDICAL',
+            'name' => 'Supplementary medical',
+            'employer_rate' => '0.030000',
+            'employee_rate' => '0.020000',
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-plan-tx-2'])->json('data.id');
+        $secondEnrollmentId = (int) $this->postJson('/v1/benefits/enrollments', [
+            'plan_id' => $secondPlanId,
+            'employment_id' => $this->benefitEmploymentId,
+            'base_amount_cents' => 1_000_000,
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-enrollment-tx-2'])->json('data.id');
+
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $secondEnrollmentId,
+            'period' => '2026-01',
+            'payroll_run_id' => 77,
+        ], ['Idempotency-Key' => 'benefit-transaction-2-plan'])
+            ->assertCreated()
+            ->assertJsonPath('data.employee_amount_cents', 20_000)
+            ->assertJsonPath('data.employer_amount_cents', 30_000);
 
         $this->postJson('/v1/benefits/transactions', [
             'enrollment_id' => $enrollmentId,
             'period' => '2026-02',
             'payroll_run_id' => 77,
         ], ['Idempotency-Key' => 'benefit-transaction-2'])
-            ->assertStatus(409)
-            ->assertJsonPath('data.reason', 'BENEFIT_PAYROLL_LINK_DUPLICATE');
+            ->assertCreated()
+            ->assertJsonPath('data.period', '2026-02');
 
         $this->getJson('/v1/benefits/transactions?employment_id='.$this->benefitEmploymentId)
             ->assertOk()
             ->assertJsonStructure(['data' => ['items', 'page', 'page_size', 'total', 'as_of', 'freshness', 'source_hash', 'partial', 'partial_reason', 'drilldown']])
-            ->assertJsonPath('data.total', 1);
+            ->assertJsonPath('data.total', 3);
     }
 
     public function test_write_requires_idempotency_and_plan_catalogue_is_instance_wide(): void

@@ -1440,6 +1440,11 @@ Route::prefix('benefits')->middleware(['auth.session', 'csrf.header'])->group(fu
     Route::post('/transactions', [BenefitController::class, 'storeTransaction'])
         ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
         ->name('benefits.transactions.store');
+
+    Route::post('/transactions/{id}/reverse', [BenefitController::class, 'reverseTransaction'])
+        ->whereNumber('id')
+        ->middleware(['mfa.enrolled', 'mfa.step-up', 'capability:benefit.manage,COMPANY'])
+        ->name('benefits.transactions.reverse');
 });
 
 /*

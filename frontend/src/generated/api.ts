@@ -893,6 +893,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/benefits/transactions/{id}/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append a reversal for a monthly contribution */
+        post: operations["benefitsTransactionsReverse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bindings/{id}": {
         parameters: {
             query?: never;
@@ -10571,6 +10588,52 @@ export interface operations {
                 };
             };
             /** @description Transaction recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    benefitsTransactionsReverse: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Idempotent replay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenefitTransactionEnvelope"];
+                };
+            };
+            /** @description Reversal recorded */
             201: {
                 headers: {
                     [name: string]: unknown;

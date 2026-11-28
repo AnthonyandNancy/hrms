@@ -7,6 +7,10 @@ namespace App\Modules\Payroll\Domain;
 use App\Shared\Money\Money;
 use InvalidArgumentException;
 
+/**
+ * Employer-only cost supplied by an authorized payroll input port (for
+ * example an employee benefit plan). It never changes gross or net.
+ */
 final readonly class EmployerCostLine
 {
     public string $sourceType;
@@ -19,17 +23,20 @@ final readonly class EmployerCostLine
         public Money $amount,
         public PayrollLineSource $source,
         public int $sortOrder,
+        public int $quantityScaled = 0,
+        public string $unit = 'MONTH',
+        public int $rateScaled = 0,
     ) {
         if (trim($itemCode) === '' || trim($label) === '') {
             throw new InvalidArgumentException('Employer cost line code and label are mandatory.');
         }
 
         if ($amount->isNegative()) {
-            throw new InvalidArgumentException('Employer cost lines cannot hold negative amounts.');
+            throw new InvalidArgumentException('Employer cost lines must hold a non-negative amount.');
         }
 
-        if ($sortOrder < 0) {
-            throw new InvalidArgumentException('Employer cost line sort order cannot be negative.');
+        if ($sortOrder < 0 || $quantityScaled < 0 || $rateScaled < 0) {
+            throw new InvalidArgumentException('Employer cost line sort order, quantity, and rate cannot be negative.');
         }
 
         $this->sourceType = $source->type;
@@ -44,6 +51,9 @@ final readonly class EmployerCostLine
             amount: $this->amount,
             source: $this->source,
             sortOrder: $sortOrder ?? $this->sortOrder,
+            quantityScaled: $this->quantityScaled,
+            unit: $this->unit,
+            rateScaled: $this->rateScaled,
             taxable: false,
         );
     }

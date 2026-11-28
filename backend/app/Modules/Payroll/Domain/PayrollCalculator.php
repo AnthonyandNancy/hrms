@@ -223,6 +223,11 @@ final class PayrollCalculator
             $sort += 10;
         }
 
+        foreach ($input->otherEmployerCosts as $line) {
+            $lines[] = $line->toPayslipLine($sort);
+            $sort += 10;
+        }
+
         foreach ($input->manualAdjustments as $adjustment) {
             if (! $adjustment->isEarning()) {
                 $lines[] = $adjustment->toPayslipLine($sort);
@@ -271,9 +276,14 @@ final class PayrollCalculator
             'employee deductions',
         );
         $netCents = $this->checkedDifference($grossCents, $employeeDeductions, 'net');
+        $otherEmployerCostCents = $this->sumEmployerCosts($input->otherEmployerCosts);
         $employerCost = $this->checkedAdd(
-            $this->checkedAdd($grossCents, $employerSi, 'employer cost'),
-            $employerHf,
+            $this->checkedAdd(
+                $this->checkedAdd($grossCents, $employerSi, 'employer cost'),
+                $employerHf,
+                'employer cost',
+            ),
+            $otherEmployerCostCents,
             'employer cost',
         );
         $warnings = [];
@@ -304,6 +314,7 @@ final class PayrollCalculator
             cumulativeTax: $taxDetail,
             lines: $lines,
             warnings: $warnings,
+            otherEmployerCosts: Money::fromMinor($otherEmployerCostCents, $currency),
         );
     }
 
@@ -413,6 +424,20 @@ final class PayrollCalculator
         $total = 0;
         foreach ($deductions as $line) {
             $total = $this->checkedAdd($total, $line->amount->minor(), 'deductions');
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param  list<EmployerCostLine>  $lines
+     */
+    private function sumEmployerCosts(array $lines): int
+    {
+        $total = 0;
+
+        foreach ($lines as $line) {
+            $total = $this->checkedAdd($total, $line->amount->minor(), 'employer costs');
         }
 
         return $total;

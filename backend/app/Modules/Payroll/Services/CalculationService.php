@@ -7,6 +7,7 @@ namespace App\Modules\Payroll\Services;
 use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Payroll\Domain\DeductionLine;
 use App\Modules\Payroll\Domain\EarningLine;
+use App\Modules\Payroll\Domain\EmployerCostLine;
 use App\Modules\Payroll\Domain\HousingFundRule;
 use App\Modules\Payroll\Domain\ManualAdjustment;
 use App\Modules\Payroll\Domain\PayrollCalculationInput;
@@ -258,6 +259,7 @@ final class CalculationService
         $allowances = [];
         $oneTimeBonuses = [];
         $otherDeductions = [];
+        $otherEmployerCosts = [];
         foreach ((array) ($payload['scheme']['items'] ?? []) as $item) {
             $item = (array) $item;
             $amount = Money::fromMinor((int) ($item['amount_cents'] ?? 0), $currency);
@@ -291,23 +293,41 @@ final class CalculationService
         foreach ((array) ($payload['benefits'] ?? []) as $benefit) {
             $benefit = (array) $benefit;
             $amountCents = (int) ($benefit['employee_amount_cents'] ?? 0);
+            $employerAmountCents = (int) ($benefit['employer_amount_cents'] ?? 0);
 
-            if ($amountCents < 0) {
-                throw new \InvalidArgumentException('Benefit employee amount cannot be negative.');
+            if ($amountCents < 0 || $employerAmountCents < 0) {
+                throw new \InvalidArgumentException('Benefit amounts cannot be negative.');
             }
 
-            if ($amountCents === 0) {
+            if ($amountCents === 0 && $employerAmountCents === 0) {
                 continue;
             }
 
-            $otherDeductions[] = new DeductionLine(
-                itemCode: (string) ($benefit['item_code'] ?? ''),
-                label: (string) ($benefit['label'] ?? ''),
-                amount: Money::fromMinor($amountCents, $currency),
-                source: new PayrollLineSource((string) ($benefit['source_type'] ?? 'benefit'), (string) ($benefit['source_id'] ?? '')),
-                sortOrder: (int) ($benefit['sort_order'] ?? 800),
-                taxable: (bool) ($benefit['taxable'] ?? false),
-            );
+            $source = new PayrollLineSource((string) ($benefit['source_type'] ?? 'benefit'), (string) ($benefit['source_id'] ?? ''));
+            $itemCode = (string) ($benefit['item_code'] ?? '');
+            $label = (string) ($benefit['label'] ?? '');
+            $sortOrder = (int) ($benefit['sort_order'] ?? 800);
+
+            if ($amountCents > 0) {
+                $otherDeductions[] = new DeductionLine(
+                    itemCode: $itemCode,
+                    label: $label,
+                    amount: Money::fromMinor($amountCents, $currency),
+                    source: $source,
+                    sortOrder: $sortOrder,
+                    taxable: (bool) ($benefit['taxable'] ?? false),
+                );
+            }
+
+            if ($employerAmountCents > 0) {
+                $otherEmployerCosts[] = new EmployerCostLine(
+                    itemCode: $itemCode.'_EMPLOYER',
+                    label: $label.'（单位）',
+                    amount: Money::fromMinor($employerAmountCents, $currency),
+                    source: $source,
+                    sortOrder: $sortOrder + 1,
+                );
+            }
         }
 
         foreach ((array) ($payload['performance_bonuses'] ?? []) as $bonus) {
@@ -385,6 +405,7 @@ final class CalculationService
             oneTimeBonuses: $oneTimeBonuses,
             manualAdjustments: $manual,
             otherDeductions: $otherDeductions,
+            otherEmployerCosts: $otherEmployerCosts,
         );
 
         return $this->calculator->calculate($input);

@@ -265,6 +265,21 @@ return [
             ],
             'fieldProfileMax' => 'P2_SENSITIVE',
         ],
+        [
+            'pageCode' => 'benefits',
+            'key' => 'benefit.transaction.reverse',
+            'label' => '冲销福利缴款',
+            'capability' => 'benefit.manage',
+            'api' => 'POST /v1/benefits/transactions/{id}/reverse',
+            'ui' => 'danger',
+            'confirm' => 'danger',
+            'anchorTypes' => [
+                'ORG_UNIT',
+                'ORG_SUBTREE',
+                'COMPANY',
+            ],
+            'fieldProfileMax' => 'P2_SENSITIVE',
+        ],
     ],
     'employee-detail' => [
         [

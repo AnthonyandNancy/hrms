@@ -21,6 +21,7 @@ final readonly class PayrollCalculationInput
      * @param  list<ManualAdjustment>  $manualAdjustments
      * @param  list<DeductionLine>  $specialDeductions
      * @param  list<DeductionLine>  $otherDeductions
+     * @param  list<EmployerCostLine>  $otherEmployerCosts
      */
     public function __construct(
         public int $employmentId,
@@ -45,6 +46,7 @@ final readonly class PayrollCalculationInput
         public array $manualAdjustments = [],
         public array $specialDeductions = [],
         public array $otherDeductions = [],
+        public array $otherEmployerCosts = [],
     ) {
         if ($employmentId < 1) {
             throw new InvalidArgumentException('Employment id must be positive.');
@@ -97,6 +99,12 @@ final readonly class PayrollCalculationInput
         foreach ($otherDeductions as $line) {
             if (! $line instanceof DeductionLine) {
                 throw new InvalidArgumentException('Other deductions must be DeductionLine instances.');
+            }
+            $this->assertCurrency($line->amount);
+        }
+        foreach ($otherEmployerCosts as $line) {
+            if (! $line instanceof EmployerCostLine) {
+                throw new InvalidArgumentException('Other employer costs must be EmployerCostLine instances.');
             }
             $this->assertCurrency($line->amount);
         }

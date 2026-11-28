@@ -19,6 +19,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $employer_amount_cents
  * @property int $total_amount_cents
  * @property int|null $payroll_run_id
+ * @property string $entry_type
+ * @property int|null $reversal_of_id
+ * @property int|null $reversed_by_id
+ * @property string|null $reason
+ * @property string|null $source_hash
  * @property string $status
  * @property int $created_by
  */
@@ -38,6 +43,11 @@ final class BenefitTransaction extends Model
         'employer_amount_cents',
         'total_amount_cents',
         'payroll_run_id',
+        'entry_type',
+        'reversal_of_id',
+        'reversed_by_id',
+        'reason',
+        'source_hash',
         'status',
         'created_by',
         'created_at',
