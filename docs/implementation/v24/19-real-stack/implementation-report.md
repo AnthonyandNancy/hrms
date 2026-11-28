@@ -49,3 +49,17 @@ cases=0, notification_deliveries=0.
 - Object upload/download/export lifecycle through application jobs at scale.
 - TLS/secret-manager cutover, restore drill under deployment traffic, and final
   GO/NO-GO.
+
+## App-level MySQL concurrency probe
+
+- Executed two concurrent authenticated `POST /v1/roles` requests with the same
+  `Idempotency-Key`.
+- Result: HTTP 201 + HTTP 200, second response carried
+  `Idempotency-Replayed: true`.
+- DB result: one role row and one idempotency key row.
+- Evidence: `concurrency/README.md` and files in that directory.
+- This proves the application's idempotency/row-locking path under MySQL, not
+  only a raw unique-index test.
+
+Remaining T19: real previous-release upgrade package, deployment-traffic restore
+drill, TLS/secret-manager cutover and final GO.

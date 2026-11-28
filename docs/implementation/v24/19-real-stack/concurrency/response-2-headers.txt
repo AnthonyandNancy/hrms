@@ -1,0 +1,14 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: no-cache, private
+Date: Sat, 28 Nov 2026 10:02:55 GMT
+Idempotency-Replayed: true
+Vary: Origin
+X-Request-Id: 01M8GSQ6BQC7R524P4S1NYATSA
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+
