@@ -104,39 +104,74 @@ final class PayrollApprovalWorkflowService implements PayrollApprovalWorkflow
             ->orderByDesc('version')
             ->first();
 
-        if ($template !== null) {
+        if ($template !== null && $this->isDeterministicPayrollTemplate($template)) {
             return $template;
         }
 
-        // Payroll approval is a narrow built-in workflow. It is created on
-        // first use; each case names its approver as an APPROVER case member.
-        // Review and SOD are enforced by the Payroll domain before a case is
-        // opened; the case is the durable Decision/Effect evidence.
+        // Legacy installations seeded payroll.approval with MANAGER_OF_SUBJECT
+        // plus workflow.noop. That template cannot assign the run approver or
+        // apply the payroll effect. Create the next deterministic version
+        // without mutating historical template evidence.
+        $nextVersion = $template === null
+            ? 1
+            : ((int) WorkflowTemplate::query()->where('code', self::TEMPLATE_CODE)->max('version') + 1);
+
         return $this->templates->create(1, [
             'code' => self::TEMPLATE_CODE,
             'name' => 'Payroll run approval',
-            'version' => 1,
+            'version' => $nextVersion,
             'status' => 'PUBLISHED',
-            'definition' => [
-                'nodes' => [
-                    ['key' => 'start', 'sequence' => 1, 'type' => 'START'],
-                    [
-                        'key' => 'approve',
-                        'sequence' => 2,
-                        'type' => 'APPROVAL',
-                        'assignee_rule' => ['type' => 'CASE_MEMBER', 'role' => 'APPROVER'],
-                        'required_count' => 1,
-                    ],
-                    ['key' => 'end', 'sequence' => 3, 'type' => 'END'],
-                ],
-                'effects' => [[
-                    'type' => 'workflow.payroll.publish',
-                    'aggregate_type' => 'payroll_run',
-                    'aggregate_id_field' => 'subject_id',
-                    'execution' => 'LOCAL',
-                ]],
-            ],
+            'definition' => $this->deterministicDefinition(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function deterministicDefinition(): array
+    {
+        return [
+            'nodes' => [
+                ['key' => 'start', 'sequence' => 1, 'type' => 'START'],
+                [
+                    'key' => 'approve',
+                    'sequence' => 2,
+                    'type' => 'APPROVAL',
+                    'assignee_rule' => ['type' => 'CASE_MEMBER', 'role' => 'APPROVER'],
+                    'required_count' => 1,
+                ],
+                ['key' => 'end', 'sequence' => 3, 'type' => 'END'],
+            ],
+            'effects' => [[
+                'type' => 'workflow.payroll.publish',
+                'aggregate_type' => 'payroll_run',
+                'aggregate_id_field' => 'subject_id',
+                'execution' => 'LOCAL',
+            ]],
+        ];
+    }
+
+    private function isDeterministicPayrollTemplate(WorkflowTemplate $template): bool
+    {
+        $definition = (array) ($template->definition_json ?? []);
+        $nodes = (array) ($definition['nodes'] ?? []);
+        $hasCaseMember = false;
+        foreach ($nodes as $node) {
+            if (is_array($node) && ($node['assignee_rule']['type'] ?? null) === 'CASE_MEMBER') {
+                $hasCaseMember = true;
+                break;
+            }
+        }
+        $effects = (array) ($definition['effects'] ?? []);
+        $hasPayrollEffect = false;
+        foreach ($effects as $effect) {
+            if (is_array($effect) && ($effect['type'] ?? null) === 'workflow.payroll.publish') {
+                $hasPayrollEffect = true;
+                break;
+            }
+        }
+
+        return $hasCaseMember && $hasPayrollEffect;
     }
 
     private function principal(int $userId): WorkflowPrincipal

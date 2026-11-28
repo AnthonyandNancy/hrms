@@ -1,0 +1,2 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+2	CASE-20261128-000001	ASSIGNMENT_CHANGE	DRAFT	1	1	2026-11-28 11:25:57

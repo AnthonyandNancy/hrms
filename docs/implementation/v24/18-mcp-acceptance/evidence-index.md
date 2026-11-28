@@ -366,3 +366,15 @@ NOT RUN: full prepare/calculate/approve action matrix, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-011/`.
+
+## 23. Execution update — T19-MCP-012
+
+```text
+MCP executed: 15 evidence packs total
+PASS: payroll lifecycle to PUBLISHED with 4 payslips and 4 YTD rows
+PASS: SoD denial for same reviewer→approver and approver→publisher
+FIXED: GAP-25 legacy payroll.approval template
+NOT RUN: full role/action matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-012/`.

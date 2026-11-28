@@ -39,7 +39,7 @@ class CommandsTest extends TestCase
         ] as $code) {
             $this->assertDatabaseHas('workflow_templates', [
                 'code' => $code,
-                'version' => $code === 'leave.request' ? 2 : 1,
+                'version' => in_array($code, ['leave.request', 'payroll.approval'], true) ? 2 : 1,
                 'status' => 'PUBLISHED',
             ]);
         }

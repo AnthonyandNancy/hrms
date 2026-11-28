@@ -68,6 +68,33 @@ final class SeedWorkflowTemplatesCommand extends Command
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function payrollApprovalDefinition(): array
+    {
+        return [
+            'nodes' => [
+                ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
+                [
+                    'key' => 'approve',
+                    'name' => 'Payroll approver',
+                    'type' => 'APPROVAL',
+                    'sequence' => 2,
+                    'assignee_rule' => ['type' => 'CASE_MEMBER', 'role' => 'APPROVER'],
+                    'required_count' => 1,
+                ],
+                ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
+            ],
+            'effects' => [[
+                'type' => 'workflow.payroll.publish',
+                'aggregate_type' => 'payroll_run',
+                'aggregate_id_field' => 'subject_id',
+                'execution' => 'LOCAL',
+            ]],
+        ];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function definitions(): array
@@ -94,24 +121,26 @@ final class SeedWorkflowTemplatesCommand extends Command
             $definitions[] = [
                 'code' => $code,
                 'name' => ucwords(str_replace(['.', '-'], ' ', $code)),
-                'version' => $code === 'leave.request' ? 2 : 1,
+                'version' => in_array($code, ['leave.request', 'payroll.approval'], true) ? 2 : 1,
                 'status' => 'PUBLISHED',
-                'definition' => [
-                    'nodes' => [
-                        ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
-                        [
-                            'key' => 'approval',
-                            'name' => 'Manager approval',
-                            'type' => 'APPROVAL',
-                            'sequence' => 2,
-                            'assignee_rule' => ['type' => 'MANAGER_OF_SUBJECT'],
-                            'required_count' => 1,
-                            'sla_hours' => 24,
+                'definition' => $code === 'payroll.approval'
+                    ? $this->payrollApprovalDefinition()
+                    : [
+                        'nodes' => [
+                            ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
+                            [
+                                'key' => 'approval',
+                                'name' => 'Manager approval',
+                                'type' => 'APPROVAL',
+                                'sequence' => 2,
+                                'assignee_rule' => ['type' => 'MANAGER_OF_SUBJECT'],
+                                'required_count' => 1,
+                                'sla_hours' => 24,
+                            ],
+                            ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
                         ],
-                        ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
+                        'effects' => $this->effectsFor((string) $code),
                     ],
-                    'effects' => $this->effectsFor((string) $code),
-                ],
             ];
         }
 

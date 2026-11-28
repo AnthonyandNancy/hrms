@@ -186,3 +186,15 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
   and all six checks were true.
 - Auditor `/system/audit` and `/v1/audit/events` returned 200; only the expected
   pre-login `/v1/me` 401 remains.
+
+
+## v24-t19k payroll approval lifecycle
+
+- Added synthetic TAX/SI/HF parameter versions so statutory inputs are explicit.
+- R04 locked/calculated run #1 (4 employees, gross 5,000,000 cents).
+- R05 reviewed; same-person approve was rejected by SOD. A second approver
+  approved; same-person publish was rejected by SOD; a third publisher
+  published.
+- Result: PUBLISHED, 4 payslips, 4 YTD rows, 2 notification deliveries.
+- Fixed legacy payroll.approval template (wrong assignee + noop effect) by
+  creating deterministic v2 and auto-upgrading legacy definitions.

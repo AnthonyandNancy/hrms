@@ -725,3 +725,14 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
   exactly one.
 - Regression proves 0 admins is unhealthy and 2 admins is healthy.
 - Auditor audit page returns 200 with readiness 200 and audit events 200.
+
+## GAP-25 — seeded payroll.approval template had wrong assignee/effect
+
+- FIXED in v24-t19k.
+- Legacy v1 used MANAGER_OF_SUBJECT + workflow.noop, so approval returned 422
+  “Approval node has no eligible assignee” and could not apply the payroll
+  effect.
+- Seed now emits v2 with CASE_MEMBER/APPROVER + workflow.payroll.publish;
+  the adapter upgrades legacy definitions to the next deterministic version.
+- Real lifecycle approved and published; SoD blocked same-person
+  review→approve and approve→publish.
