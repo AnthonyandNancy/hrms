@@ -83,6 +83,9 @@ export type PayrollRunDetail = PayrollRunSummary & {
   inputHash: string | null
   snapshotVersion: number
   reopenCount: number
+  correctionBaselineRunId?: number | null
+  correctionSequence?: number
+  priorCorrectionIds?: number[]
   state?: string
   version?: number
   sourceVersion?: string | null
@@ -118,6 +121,7 @@ export type PayrollReconciliation = {
   netCents: number
   employerCostCents: number
   differences: Array<Record<string, unknown>>
+  chain: Record<string, unknown>
   passed: boolean
 }
 
@@ -272,6 +276,13 @@ export function normalisePayrollRunDetail(raw: unknown): PayrollRunDetail {
     inputHash: nullableText(row.input_hash, 'input_hash'),
     snapshotVersion: requiredInteger(row.snapshot_version, 'snapshot_version'),
     reopenCount: requiredInteger(row.reopen_count, 'reopen_count'),
+    correctionBaselineRunId: nullableInteger(row.correction_baseline_run_id, 'correction_baseline_run_id'),
+    correctionSequence: row.correction_sequence === undefined
+      ? 1
+      : requiredInteger(row.correction_sequence, 'correction_sequence'),
+    priorCorrectionIds: Array.isArray(row.prior_correction_ids)
+      ? row.prior_correction_ids.map((id, index) => requiredInteger(id, `prior_correction_ids.${index}`))
+      : [],
     state: typeof row.state === 'string' ? row.state : undefined,
     version: typeof row.version === 'number' && Number.isSafeInteger(row.version) ? row.version : undefined,
     sourceVersion: row.source_version === null || row.source_version === undefined
@@ -364,6 +375,7 @@ export function normalisePayrollReconciliation(raw: unknown): PayrollReconciliat
     netCents: requiredInteger(row.net_cents, 'net_cents'),
     employerCostCents: requiredInteger(row.employer_cost_cents, 'employer_cost_cents'),
     differences: differences as Array<Record<string, unknown>>,
+    chain: isRecord(row.chain) ? row.chain : {},
     passed: row.passed === true,
   }
 }

@@ -25,6 +25,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property PayrollRunStatus $status
  * @property PayrollRunType $run_type
  * @property int|null $correction_of_run_id
+ * @property int|null $correction_baseline_run_id
+ * @property int $correction_sequence
+ * @property array<int, int>|null $prior_correction_ids_json
  * @property int $prepared_by
  * @property int|null $reviewed_by
  * @property int|null $approved_by
@@ -76,6 +79,9 @@ final class PayrollRun extends Model
         'status',
         'run_type',
         'correction_of_run_id',
+        'correction_baseline_run_id',
+        'correction_sequence',
+        'prior_correction_ids_json',
         'prepared_by',
         'reviewed_by',
         'approved_by',
@@ -120,6 +126,9 @@ final class PayrollRun extends Model
             'run_type' => PayrollRunType::class,
             'scheme_id' => 'integer',
             'correction_of_run_id' => 'integer',
+            'correction_baseline_run_id' => 'integer',
+            'correction_sequence' => 'integer',
+            'prior_correction_ids_json' => 'array',
             'prepared_by' => 'integer',
             'reviewed_by' => 'integer',
             'approved_by' => 'integer',

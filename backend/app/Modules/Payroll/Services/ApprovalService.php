@@ -99,12 +99,13 @@ final class ApprovalService
     {
         return DB::transaction(function () use ($runId, $actorUserId, $reason): PayrollRun {
             $run = $this->stateMachine->lockRun($runId);
-            $this->assertSod($run, $actorUserId, 'publish');
             $status = $run->status instanceof PayrollRunStatus ? $run->status : PayrollRunStatus::from((string) $run->status);
 
             if ((string) $run->payslip_status === 'PUBLISHED') {
                 return $run;
             }
+
+            $this->assertSod($run, $actorUserId, 'publish');
 
             if (! in_array($status, [PayrollRunStatus::APPROVED, PayrollRunStatus::PAID], true)) {
                 throw new ConflictException('Only an approved or disbursed run can publish payslips.', [

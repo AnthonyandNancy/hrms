@@ -268,7 +268,7 @@ describe('payroll run detail and action bar', () => {
         return Promise.resolve({
           run_id: 7, period: '2026-11', status: 'DRAFT', employee_count: 2, payslip_count: 1,
           gross_cents: 800000, deductions_cents: 200000, net_cents: 600000, employer_cost_cents: 1000000,
-          differences: [], passed: true,
+          differences: [], chain: { ytd_ledger: [{ source_run_id: 7, source_type: 'PAYROLL', gross_cents: 800000, net_cents: -120000, carry_forward_cents: -120000, source_hash: 'c'.repeat(64) }] }, passed: true,
         })
       }
       return Promise.resolve(detailRaw())
@@ -283,6 +283,7 @@ describe('payroll run detail and action bar', () => {
     expect(wrapper.get('[data-testid="payroll-input-table"]').text()).toContain('员工 #21')
     expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('2026年11月1日')
     expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('8,000.00')
+    expect(wrapper.get('[data-testid="payroll-ytd-ledger"]').text()).toContain('结转')
     expect(wrapper.get('[data-testid="payroll-reconciliation-status"]').text()).toContain('对账通过')
     expect(wrapper.text()).toContain('2026 年 11 月')
   })

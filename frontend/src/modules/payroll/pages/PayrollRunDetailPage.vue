@@ -269,6 +269,43 @@ watch(routeId, () => {
   void load()
 })
 
+type YtdLedgerRow = {
+  sourceRunId: number
+  sourceType: string
+  netCents: number
+  carryForwardCents: number
+  sourceHash: string
+}
+
+const ytdLedger = computed<YtdLedgerRow[]>(() => {
+  const rawEntries = reconciliation.value?.chain.ytd_ledger
+  if (!Array.isArray(rawEntries)) return []
+
+  return rawEntries.flatMap((raw) => {
+    if (typeof raw !== 'object' || raw === null) return []
+    const entry = raw as Record<string, unknown>
+    const sourceRunId = entry.source_run_id
+    const sourceType = entry.source_type
+    const netCents = entry.net_cents
+    const carryForwardCents = entry.carry_forward_cents
+    const sourceHash = entry.source_hash
+    if (
+      typeof sourceRunId !== 'number'
+      || !Number.isSafeInteger(sourceRunId)
+      || typeof sourceType !== 'string'
+      || typeof netCents !== 'number'
+      || !Number.isSafeInteger(netCents)
+      || typeof carryForwardCents !== 'number'
+      || !Number.isSafeInteger(carryForwardCents)
+      || typeof sourceHash !== 'string'
+    ) {
+      return []
+    }
+
+    return [{ sourceRunId, sourceType, netCents, carryForwardCents, sourceHash }]
+  })
+})
+
 type CompensationSegmentRow = {
   compensationId: number
   employmentId: number
@@ -728,6 +765,30 @@ onMounted(() => {
           </div>
         </dl>
 
+        <section
+          v-if="ytdLedger.length > 0"
+          class="payroll-detail__ytd-ledger"
+          aria-label="YTD 台账"
+          data-testid="payroll-ytd-ledger"
+        >
+          <h3 class="payroll-detail__segments-title">YTD 签字台账</h3>
+          <p class="payroll-detail__segments-note">
+            每条记录来自已发布批次或更正；负净额保留为负数并明确结转，不会截断为零。
+          </p>
+          <ul class="payroll-detail__segments-list">
+            <li v-for="entry in ytdLedger" :key="entry.sourceRunId" class="payroll-detail__segment">
+              <span>
+                批次 #{{ entry.sourceRunId }} · {{ entry.sourceType === 'CORRECTION' ? '更正' : '工资' }} ·
+                摘要 {{ entry.sourceHash.slice(0, 12) }}
+              </span>
+              <MoneyText :cents="entry.netCents" size="sm" :tone="entry.netCents < 0 ? 'negative' : 'default'" />
+              <span v-if="entry.carryForwardCents < 0" class="payroll-detail__carry">
+                结转 <MoneyText :cents="entry.carryForwardCents" size="sm" tone="negative" />
+              </span>
+            </li>
+          </ul>
+        </section>
+
         <ul v-if="reconciliation.differences.length > 0" class="payroll-detail__differences" role="alert">
           <li v-for="(difference, index) in reconciliation.differences" :key="index">
             {{ difference.code ?? 'UNKNOWN_DIFFERENCE' }}
@@ -1110,5 +1171,15 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   font-size: 13px;
+}
+.payroll-detail__ytd-ledger {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle, #e5e7eb);
+}
+
+.payroll-detail__carry {
+  color: var(--color-danger, #b91c1c);
+  font-size: 12px;
 }
 </style>

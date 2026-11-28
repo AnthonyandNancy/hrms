@@ -7,6 +7,7 @@ namespace App\Modules\Payroll\Services;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
+use App\Modules\Payroll\Models\PayrollYtdLedgerEntry;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 
@@ -189,6 +190,18 @@ final class ReconciliationService
 
         $payslipGross = (int) ($payslipTotals->gross ?? 0);
         $payslipNet = (int) ($payslipTotals->net ?? 0);
+        $ledger = PayrollYtdLedgerEntry::query()
+            ->whereIn('source_run_id', [$original->id, ...$corrections->pluck('id')->all()])
+            ->orderBy('id')
+            ->get()
+            ->map(static fn (PayrollYtdLedgerEntry $entry): array => [
+                'source_run_id' => (int) $entry->source_run_id,
+                'source_type' => (string) $entry->source_type,
+                'gross_cents' => (int) $entry->gross_cents,
+                'net_cents' => (int) $entry->net_cents,
+                'carry_forward_cents' => (int) $entry->carry_forward_cents,
+                'source_hash' => (string) $entry->source_hash,
+            ])->values()->all();
 
         return [
             'original_run_id' => (int) $original->id,
@@ -201,6 +214,7 @@ final class ReconciliationService
             'payable_net_cents' => $totals['payable_net_cents'],
             'payslip_gross_cents' => $payslipGross,
             'payslip_net_cents' => $payslipNet,
+            'ytd_ledger' => $ledger,
             'passed' => $payslipGross === $totals['payable_gross_cents']
                 && $payslipNet === $totals['payable_net_cents'],
         ];

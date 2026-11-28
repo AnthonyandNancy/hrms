@@ -4501,6 +4501,17 @@ components:
             cutoff_at:
               type: string
               format: date-time
+            correction_baseline_run_id:
+              type:
+                - integer
+                - "null"
+            correction_sequence:
+              type: integer
+              minimum: 1
+            prior_correction_ids:
+              type: array
+              items:
+                type: integer
             prepared_by:
               type: integer
             reviewed_by:

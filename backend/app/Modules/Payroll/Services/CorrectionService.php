@@ -55,6 +55,19 @@ final class CorrectionService
 
             $correctionPeriod = $this->periodDetails($period);
 
+            $priorCorrections = PayrollRun::query()
+                ->where('correction_of_run_id', $originalRunId)
+                ->where('run_type', PayrollRunType::CORRECTION->value)
+                ->whereIn('status', [
+                    PayrollRunStatus::PUBLISHED->value,
+                    PayrollRunStatus::PAID->value,
+                    PayrollRunStatus::CLOSED->value,
+                ])
+                ->orderBy('correction_sequence')
+                ->orderBy('id')
+                ->get();
+            $baseline = $priorCorrections->isEmpty() ? (int) $original->id : (int) $priorCorrections->last()->id;
+
             $existing = PayrollRun::query()
                 ->where('correction_of_run_id', $originalRunId)
                 ->where('period', $period)
@@ -76,6 +89,9 @@ final class CorrectionService
                 'status' => PayrollRunStatus::DRAFT,
                 'run_type' => PayrollRunType::CORRECTION,
                 'correction_of_run_id' => $originalRunId,
+                'correction_baseline_run_id' => (int) $baseline,
+                'correction_sequence' => $priorCorrections->count() + 1,
+                'prior_correction_ids_json' => $priorCorrections->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all(),
                 'prepared_by' => $actorUserId,
                 'rule_version' => $original->rule_version,
                 'snapshot_version' => 1,
@@ -88,6 +104,9 @@ final class CorrectionService
                 aggregateId: (int) $run->id,
                 after: [
                     'correction_of_run_id' => $originalRunId,
+                    'correction_baseline_run_id' => (int) $baseline,
+                    'correction_sequence' => $priorCorrections->count() + 1,
+                    'prior_correction_ids' => $priorCorrections->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all(),
                     'period' => $period,
                     'reason' => $reason,
                 ],

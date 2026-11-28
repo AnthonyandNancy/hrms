@@ -7439,6 +7439,9 @@ export interface components {
             posting_period: string;
             /** Format: date-time */
             cutoff_at: string;
+            correction_baseline_run_id?: number | null;
+            correction_sequence?: number;
+            prior_correction_ids?: number[];
             prepared_by: number;
             reviewed_by: number | null;
             approved_by: number | null;
