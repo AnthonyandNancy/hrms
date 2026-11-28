@@ -40,7 +40,7 @@ It is **not** a completed V2.4 business delivery:
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
 | T17a/T17b frontend money/self payslip/action bar | PARTIAL | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`, `gate-all-t17b.log` | BigInt money/self payslip/payroll action allowlist done; other detail actions/Chinese sweep remain |
-| T08a overtime/timeoff/travel facts | PARTIAL | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gate `gate-all-t08a.log` | Ledger/travel conflict/travel payroll done; overtime Workflow/effect and travel revision remain |
+| T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log` | Ledger, travel facts, Workflow approval, policy method constraints complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
@@ -101,7 +101,7 @@ This proves the merged technical foundation passes the existing automated gates.
 | AC-07 payroll sample 9480/1400/8080/9980 | ✅ MET (code) | `PayrollAcceptanceSampleTest` exact gross/deduction/net/employer cost + stored run/payslip evidence |
 | AC-08 leave cancel/dynamic recalc | ❌ PARTIAL | T06/T07 merged; T09 Snapshot/MCP remain |
 | AC-09 mid-month raise 8500 | ✅ MET (code) | T12 golden 10×8000 + 10×9000 = 8500 regression passes |
-| AC-10 overtime/timeoff/travel | ❌ PARTIAL | Ledger, TIMEOFF credit, travel conflict and travel payroll formula pass; overtime Workflow/effect and travel revision remain |
+| AC-10 overtime/timeoff/travel | ✅ MET (code/UI) | Overtime case/approve + policy method constraint, append-only TIMEOFF ledger, travel conflicts/facts/payroll and travel change regressions pass; MCP pending |
 | AC-11 rule validation | ✅ MET (code/UI) | Restricted AST compiler/engine, published hash snapshot, dependency graph and editor regressions pass |
 | AC-12 cumulative corrections | ✅ MET (code/UI) | Exact 8080→8300→8350 cumulative regression, signed YTD, unpaid void/retry and action UI pass |
 | AC-13 approval/execution consistency | ❌ PARTIAL | T07 complete; T09 Snapshot/MCP remain |
@@ -118,11 +118,11 @@ This proves the merged technical foundation passes the existing automated gates.
 ## 6. Resume protocol
 
 1. Keep this branch/HEAD as the stable foundation; T05/T07/T16 are merged with full-gate evidence.
-2. Execute remaining T17 detail actions/Chinese sweep and T08b overtime Workflow.
+2. Execute remaining T17 detail actions/Chinese sweep.
 3. Run `pnpm gate:all` after each merge.
 4. Execute T18 Playwright MCP matrix and T19 real-stack/migration/restore verification.
 5. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T08b/T17 remaining actions/T19 outstanding and MCP/real-stack evidence absent.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T17 remaining actions/T19 outstanding and MCP/real-stack evidence absent.
