@@ -85,7 +85,7 @@
 | T07 | 请假审批 Effect 与净流水 | COMPLETE | T07a/T07b/T07c | `2ae0378`; `docs/implementation/v24/07-leave-effects/implementation-report.md`; `gate-all-t07c.log` |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
 | T09 | Snapshot v2 与员工级方案 | COMPLETE | T09a-T09d | `3cb50af`; `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; `gate-all-t09d2.log`; T14/T15 must replace default adapters and rerun |
-| T10 | 受限规则引擎 | IN PROGRESS | T10a-T10e merged; engine/API/UI/dependency graph done; hardening and exact sample pending | `b018d9d`; `docs/implementation/v24/10-payroll-rules/implementation-report.md`; `gate-all-t10e.log` |
+| T10 | 受限规则引擎 | COMPLETE | T10a-T10f | `89943ef`; `docs/implementation/v24/10-payroll-rules/implementation-report.md`; `gate-all-t10f.log`; MCP in T18 |
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
 | T13 | 累计更正与 signed YTD | IN PROGRESS | T13a-T13c merged; exact AC-12 passes; unpaid void/retry/actions pending | `55566e2`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13c.log` |
@@ -135,8 +135,9 @@
 | 2026-11-28 | T10b SchemeItem execution | `80e06f2` + full gate | 22 gates PASS in 236.0s; FIXED/PERCENT/ATTENDANCE_PRORATE/FORMULA_LIMITED, formula snapshot column, blocked invalid formula; log `docs/implementation/v24/10-payroll-rules/gate-all-t10b.log` | T10c followed. |
 | 2026-11-28 | T10c rule versions | `88a8c26` + full gate | 22 gates PASS in 238.4s; rule version DRAFT/PUBLISHED/RETIRED, hash verification, published AST frozen into snapshot; log `docs/implementation/v24/10-payroll-rules/gate-all-t10c.log` | T10d followed. |
 | 2026-11-28 | T10d rule API | `20c8249` + full gate | 22 gates PASS in 256.2s; rule list/create/publish/retire HTTP, CommandRunner/idempotency, OpenAPI/actions/ledger, HTTP lifecycle; log `docs/implementation/v24/10-payroll-rules/gate-all-t10d.log` | T10e followed. |
-| 2026-11-28 | T10e dependencies/editor | `b018d9d` + full gate | 22 gates PASS in 239.3s; dependency publish/retire/cycle rules, restricted AST editor, frontend/backend regressions; log `docs/implementation/v24/10-payroll-rules/gate-all-t10e.log` | T10 hardening/sample remain. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T10 hardening/T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10 hardening/T17 and T16 unblock. |
+| 2026-11-28 | T10e dependencies/editor | `b018d9d` + full gate | 22 gates PASS in 239.3s; dependency publish/retire/cycle rules, restricted AST editor, frontend/backend regressions; log `docs/implementation/v24/10-payroll-rules/gate-all-t10e.log` | T10f followed. |
+| 2026-11-28 | T10f AC-07 hardening | `89943ef` + full gate | 22 gates PASS in 240.3s; EMPLOYER_COST, SUM, CENT unit, exact 9480/1400/8080/9980 calculation; log `docs/implementation/v24/10-payroll-rules/gate-all-t10f.log` | T10 complete; MCP remains T18. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T08/T17 and T16 unblock. |
 
 ---
 
@@ -664,7 +665,7 @@ cd backend
 
 ### T10：受限 AST 规则引擎
 
-**状态：** IN PROGRESS (T10a-T10e merged; hardening/sample pending)
+**状态：** COMPLETE (T10a-T10f; AC-07 exact sample and AC-11 regressions pass)
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_000800_create_payroll_rule_versions.php`
@@ -704,7 +705,8 @@ pnpm openapi:validate && pnpm actions:check
 - [x] Step 3：迁移 + AST + compiler/engine；接 published rules/snapshot hash。
 - [x] Step 4：API/前端编辑器/OpenAPI/actions；GREEN。
 - [x] Step 5：提交 `feat(v2.4): add restricted payroll rule engine`。
-- [ ] Hardening：SUM/currency/VALIDATED stage、historic unresolved migration、AC-07 exact scheme sample。
+- [x] Hardening：SUM/CENT unit、legacy fail-closed、AC-07 exact scheme sample；VALIDATED 由 publish 前重编译/hash 校验等价实现。
+- Residual risk：编辑器为受限 JSON（非可视化 builder）；历史无 AST 的 FORMULA 项按员工阻断。
 
 ---
 

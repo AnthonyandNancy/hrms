@@ -38,7 +38,7 @@ It is **not** a completed V2.4 business delivery:
 | T13 signed YTD/corrections | PARTIAL | `docs/implementation/v24/13-corrections/implementation-report.md`; gates `gate-all-t13ab.log`, `gate-all-t13c.log` | Signed ledger/chain + exact AC-12 complete; unpaid void/retry/action UI remain |
 | T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log` | Multi-plan/reversal/employer cost/frozen snapshot/UI reversal pass; field-profile masking remains |
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
-| T10a-T10e payroll rule engine | PARTIAL | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10e.log` | Engine/execution/snapshot/API/dependencies/editor done; hardening and exact sample remain |
+| T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
@@ -95,15 +95,15 @@ These branches are intentionally **not merged** because independent review found
 | AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04/T05 merged; MCP/real-stack evidence still missing |
 | AC-05 permission/field isolation | ❌ PARTIAL | T02 catalog/actions merged; T16 report leakage unresolved |
 | AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
-| AC-07 payroll sample 9480/1400/8080/9980 | ❌ NOT MET | T09/T10 not implemented |
+| AC-07 payroll sample 9480/1400/8080/9980 | ✅ MET (code) | `PayrollAcceptanceSampleTest` exact gross/deduction/net/employer cost + stored run/payslip evidence |
 | AC-08 leave cancel/dynamic recalc | ❌ PARTIAL | T06/T07 merged; T09 Snapshot/MCP remain |
-| AC-09 mid-month raise 8500 | ❌ NOT MET | T09/T12 not implemented |
+| AC-09 mid-month raise 8500 | ✅ MET (code) | T12 golden 10×8000 + 10×9000 = 8500 regression passes |
 | AC-10 overtime/timeoff/travel | ❌ NOT MET | T08 not implemented |
-| AC-11 rule validation | ❌ NOT MET | T10 not implemented |
-| AC-12 cumulative corrections | ❌ NOT MET | T13 not implemented |
+| AC-11 rule validation | ✅ MET (code/UI) | Restricted AST compiler/engine, published hash snapshot, dependency graph and editor regressions pass |
+| AC-12 cumulative corrections | ✅ MET (code/UI) | T13 exact 8080→8300→8350 cumulative regression passes; unpaid void/retry remains T13d |
 | AC-13 approval/execution consistency | ❌ PARTIAL | T07 complete; T09 Snapshot/MCP remain |
-| AC-14 benefits/performance payroll | ❌ NOT MET | T14/T15/T09 not implemented |
-| AC-15 recruitment/training | ❌ NOT MET | T15 not implemented |
+| AC-14 benefits/performance payroll | ✅ MET (code/UI) | T14 multi-plan/reversal/employer cost + T15 bonus mapping regressions pass; field masking remains |
+| AC-15 recruitment/training | ✅ MET (code/UI) | Offer→compensation, bonus mapping UI, training attempt/source UI regressions pass; MCP pending |
 | AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
 | AC-17 notices/notifications | ❌ PARTIAL/BLOCKED | Delivery/retry/audience issues unresolved |
 | AC-18 unified UI/Chinese | ❌ PARTIAL | Existing frontend gates pass; T17 not done |
@@ -116,7 +116,7 @@ These branches are intentionally **not merged** because independent review found
 
 1. Keep this branch/HEAD as the stable foundation; T05 and T07 are merged, while the blocked T16 branch must not be merged wholesale.
 2. Continue T16 or the Payroll chain on top of merged T05/T07.
-3. Execute T10 hardening/AC-07 sample, T17 action surface, and T16 unblock/review.
+3. Execute T08 effects, T17 action surface, T13d unpaid void/retry and T16 unblock/review.
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
 6. Run `pnpm gate:all` after each merge.
@@ -125,4 +125,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T10 hardening/T16/T13d blocked and T08/T14 masking/T17/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16/T13d blocked and T08/T14 masking/T17/T19 outstanding.
