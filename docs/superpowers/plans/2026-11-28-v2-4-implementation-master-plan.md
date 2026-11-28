@@ -83,7 +83,7 @@
 | T05 | 单一入职与合同/薪酬待办 | COMPLETE | T05a + T05b | `da57e57`; `docs/implementation/v24/05-onboarding/implementation-report.md`; `gate-all-t05b.log` |
 | T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
 | T07 | 请假审批 Effect 与净流水 | COMPLETE | T07a/T07b/T07c | `2ae0378`; `docs/implementation/v24/07-leave-effects/implementation-report.md`; `gate-all-t07c.log` |
-| T08 | 加班/调休/出差事实 | PENDING | — | — |
+| T08 | 加班/调休/出差事实 | IN PROGRESS | T08a ledger/travel facts merged; overtime Workflow/effects and travel revision API pending | `236a6e3`; `docs/implementation/v24/08-overtime-travel/implementation-report.md`; `gate-all-t08a.log` |
 | T09 | Snapshot v2 与员工级方案 | COMPLETE | T09a-T09d | `3cb50af`; `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; `gate-all-t09d2.log`; T14/T15 must replace default adapters and rerun |
 | T10 | 受限规则引擎 | COMPLETE | T10a-T10f | `89943ef`; `docs/implementation/v24/10-payroll-rules/implementation-report.md`; `gate-all-t10f.log`; MCP in T18 |
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
@@ -137,7 +137,8 @@
 | 2026-11-28 | T10d rule API | `20c8249` + full gate | 22 gates PASS in 256.2s; rule list/create/publish/retire HTTP, CommandRunner/idempotency, OpenAPI/actions/ledger, HTTP lifecycle; log `docs/implementation/v24/10-payroll-rules/gate-all-t10d.log` | T10e followed. |
 | 2026-11-28 | T10e dependencies/editor | `b018d9d` + full gate | 22 gates PASS in 239.3s; dependency publish/retire/cycle rules, restricted AST editor, frontend/backend regressions; log `docs/implementation/v24/10-payroll-rules/gate-all-t10e.log` | T10f followed. |
 | 2026-11-28 | T10f AC-07 hardening | `89943ef` + full gate | 22 gates PASS in 240.3s; EMPLOYER_COST, SUM, CENT unit, exact 9480/1400/8080/9980 calculation; log `docs/implementation/v24/10-payroll-rules/gate-all-t10f.log` | T10 complete; MCP remains T18. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T08/T17 and T16 unblock. |
+| 2026-11-28 | T08a timeoff/travel facts | `236a6e3` + full gate | 22 gates PASS in 237.8s; append-only ledger/TIMEOFF EARN, travel conflicts, payroll travel formula; log `docs/implementation/v24/08-overtime-travel/gate-all-t08a.log` | Overtime Workflow and travel revision API remain T08b. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16/T13d blocked; T08b/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T08b/T17 and T16 unblock. |
 
 ---
 
@@ -572,7 +573,7 @@ cd backend
 
 ### T08：加班 PAY/TIMEOFF 互斥与出差计勤
 
-**状态：** PENDING
+**状态：** IN PROGRESS (T08a append-only ledger/travel conflicts/payroll travel done)
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_000600_create_timeoff_ledger_and_overtime_reversals.php`
@@ -605,11 +606,11 @@ cd backend
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：PAY/TIMEOFF 二选一、重复结算、反向记账、出差重叠阻断、无 punch 事实、Payroll 不支付 TIMEOFF。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：迁移账本/结算版本/出差事实；实现 effect。
-- [ ] Step 4：接 closed facts 与 API；聚焦测试 GREEN。
-- [ ] Step 5：提交 `feat(v2.4): enforce overtime timeoff and travel facts`。
+- [x] Step 1：PAY/TIMEOFF 二选一、重复结算、ledger append-only、出差重叠、Payroll travel 测试。
+- [x] Step 2：T08a focused RED/GREEN。
+- [x] Step 3：timeoff ledger + TIMEOFF EARN + travel conflict facts。
+- [x] Step 4：closed fact travel → payroll/formula；API balance 读 ledger。
+- [ ] Step 5：加班申请统一 Workflow effect、travel change/reversal allowed_actions 后完成 T08。
 
 ---
 
