@@ -50,6 +50,7 @@ interface CaseCommandPort
         WorkflowPrincipal $principal,
         int $caseId,
         string $reason,
+        ?string $authorizingCapability = null,
     ): array;
 
     /**
@@ -63,6 +64,7 @@ interface CaseCommandPort
         int $caseId,
         string $reason,
         string $effectiveOn,
+        ?string $authorizingCapability = null,
     ): array;
 
     /**

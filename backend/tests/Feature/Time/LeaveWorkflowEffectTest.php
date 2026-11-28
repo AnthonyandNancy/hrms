@@ -394,6 +394,48 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame(0, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'CONSUME')->count());
     }
 
+    public function test_attendance_admin_can_cancel_another_users_pending_leave_with_the_narrow_time_capability(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-11', '2026-12-11');
+
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide', 'time.leave.admin']);
+        $result = app(LeaveRequestService::class)->cancel(
+            caseId: $caseId,
+            actorUserId: 20,
+            reason: 'Attendance admin pending cancellation.',
+            revoke: false,
+            managerOverride: true,
+        );
+
+        $this->assertSame('CANCELLED', $result['state']);
+        $this->assertSame('WITHDRAWN', \App\Modules\Workflow\Models\CaseModel::query()->whereKey($caseId)->firstOrFail()->status->value);
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RELEASE')->count());
+    }
+
+    public function test_attendance_admin_can_revoke_another_users_approved_leave_with_the_narrow_time_capability(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->requestLeave((int) $type->id, 'ANNUAL', '2026-12-14', '2026-12-14');
+
+        $this->actAs(20, ['workflow.case.read', 'workflow.case.create', 'workflow.case.decide', 'time.leave.admin']);
+        $result = app(LeaveRequestService::class)->cancel(
+            caseId: $caseId,
+            actorUserId: 20,
+            reason: 'Attendance admin approved revocation.',
+            revoke: true,
+            managerOverride: true,
+        );
+
+        $this->assertSame('REVOKED', $result['state']);
+        $this->assertSame(EffectStatus::REVERSED, Effect::query()->where('case_id', $caseId)->where('effect_type', 'time.leave.apply')->firstOrFail()->status);
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'REVERSE')->count());
+    }
+
     private function leaveType(string $code): LeaveType
     {
         return LeaveType::query()->create([

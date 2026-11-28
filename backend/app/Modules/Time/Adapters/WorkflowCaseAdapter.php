@@ -85,23 +85,31 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         $this->cases->decide($principal, $caseId, $action, $comment);
     }
 
-    public function requestCancel(int $caseId, int $actorUserId, string $reason): void
-    {
+    public function requestCancel(
+        int $caseId,
+        int $actorUserId,
+        string $reason,
+        ?string $authorizingCapability = null,
+    ): void {
         $case = $this->case($caseId);
 
         if ($case === null) {
             throw new ConflictException('The workflow case was not found.', ['reason' => 'CASE_NOT_FOUND']);
         }
 
-        if ($case->requesterUserId !== $actorUserId) {
+        if ($case->requesterUserId !== $actorUserId && $authorizingCapability === null) {
             throw new ConflictException('Only the requester may cancel this case.', ['reason' => 'CASE_NOT_CANCELLABLE']);
         }
 
-        $this->cases->withdraw($this->principalFor($actorUserId), $caseId, $reason);
+        $this->cases->withdraw($this->principalFor($actorUserId), $caseId, $reason, $authorizingCapability);
     }
 
-    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): array
-    {
+    public function reverseEffect(
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+        ?string $authorizingCapability = null,
+    ): array {
         $principal = $this->principals->resolve();
 
         if ($principal === null) {
@@ -111,7 +119,7 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
             );
         }
 
-        return $this->cases->reverseEffect($principal, $caseId, $reason, $effectiveOn);
+        return $this->cases->reverseEffect($principal, $caseId, $reason, $effectiveOn, $authorizingCapability);
     }
 
     private function principalFor(int $userId): WorkflowPrincipal

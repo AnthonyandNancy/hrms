@@ -86,16 +86,24 @@ final class FakeWorkflowCasePort implements WorkflowCasePort
         $this->decideCase($caseId, $status, $comment);
     }
 
-    public function requestCancel(int $caseId, int $actorUserId, string $reason): void
-    {
+    public function requestCancel(
+        int $caseId,
+        int $actorUserId,
+        string $reason,
+        ?string $authorizingCapability = null,
+    ): void {
         $this->decideCase($caseId, 'CANCELLED');
     }
 
     /**
      * @return array{case_id: int, effect_status: string, reversed: int}
      */
-    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): array
-    {
+    public function reverseEffect(
+        int $caseId,
+        string $reason,
+        string $effectiveOn,
+        ?string $authorizingCapability = null,
+    ): array {
         $this->reversals[] = ['case_id' => $caseId, 'reason' => $reason, 'effective_on' => $effectiveOn];
         $this->decideCase($caseId, 'REVERSED');
 

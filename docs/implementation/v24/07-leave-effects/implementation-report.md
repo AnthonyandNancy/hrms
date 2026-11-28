@@ -250,3 +250,18 @@ Not run: `gate:all` (out of the requested boundary).
   no CONSUME and the expected Time state.
 - Verification: workflow/leave adjacent suite 90 tests / 541 assertions;
   PHPStan and arch clean. Full gate follows the remaining T07 work.
+
+## T07b2 — narrow admin cancel/revoke authorization
+
+- Workflow command ports accept an optional `authorizingCapability` for
+  business-owned manager commands. Workflow still requires either the
+  requester or that explicit capability; it never trusts a client flag.
+- Time passes `time.leave.admin` only when `managerOverride` is true, for both
+  pending-case withdrawal and approved-effect reversal.
+- `HR_ADMIN` now receives `time.leave.admin` at COMPANY; attendance specialist
+  already held it at ORG_UNIT. No broad `workflow.case.admin` grant was added.
+- Added service-level regression tests proving an attendance/HR admin can
+  cancel another user's pending leave and revoke another user's approved leave;
+  both write exactly one RELEASE/REVERSE.
+- Verification: leave/workflow/IAM adjacent suite 92 tests / 551 assertions;
+  IAM-focused 45 tests / 4,433 assertions; Pint, PHPStan and arch clean.

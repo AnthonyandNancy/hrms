@@ -101,13 +101,22 @@ final class CaseCommandService implements CaseCommandPort
         ];
     }
 
-    public function withdraw(WorkflowPrincipal $principal, int $caseId, string $reason): array
-    {
+    public function withdraw(
+        WorkflowPrincipal $principal,
+        int $caseId,
+        string $reason,
+        ?string $authorizingCapability = null,
+    ): array {
         $case = CaseModel::query()
             ->whereKey($caseId)
             ->first();
 
-        if ($case === null || (int) $case->requester_user_id !== $principal->userId) {
+        $authorized = $case !== null && (
+            (int) $case->requester_user_id === $principal->userId
+            || ($authorizingCapability !== null && $principal->can($authorizingCapability))
+        );
+
+        if (! $authorized) {
             throw NotFoundException::forResource();
         }
 
@@ -115,7 +124,7 @@ final class CaseCommandService implements CaseCommandPort
             return $this->summary($case);
         }
 
-        $withdrawn = $this->cases->withdraw($principal, $case, $reason);
+        $withdrawn = $this->cases->withdraw($principal, $case, $reason, $authorizingCapability);
 
         return $this->summary($withdrawn);
     }
@@ -128,8 +137,9 @@ final class CaseCommandService implements CaseCommandPort
         int $caseId,
         string $reason,
         string $effectiveOn,
+        ?string $authorizingCapability = null,
     ): array {
-        return DB::transaction(function () use ($principal, $caseId, $reason, $effectiveOn): array {
+        return DB::transaction(function () use ($principal, $caseId, $reason, $effectiveOn, $authorizingCapability): array {
             $case = CaseModel::query()
                 ->whereKey($caseId)
                 ->lockForUpdate()
@@ -140,7 +150,8 @@ final class CaseCommandService implements CaseCommandPort
             }
 
             if ((int) $case->requester_user_id !== $principal->userId
-                && ! $principal->can('workflow.case.admin')) {
+                && ! $principal->can('workflow.case.admin')
+                && ($authorizingCapability === null || ! $principal->can($authorizingCapability))) {
                 throw NotFoundException::forResource();
             }
 

@@ -130,6 +130,7 @@ final class RoleTemplateCatalog
                 $grant('HR_ADMIN', 'time.leave.policy.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.leave.policy.manage', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'time.leave.request.on-behalf', $le, FieldProfile::P1_INTERNAL),
+                $grant('HR_ADMIN', 'time.leave.admin', $le, FieldProfile::P2_SENSITIVE),
                 $grant('HR_ADMIN', 'time.calendar.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'time.shift.read', $le, FieldProfile::P1_INTERNAL),
                 $grant('HR_ADMIN', 'iam.user.read', $le, FieldProfile::P1_INTERNAL),

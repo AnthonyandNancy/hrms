@@ -432,6 +432,7 @@ final class LeaveRequestService
                     projection: $projection,
                     reason: $reason !== '' ? $reason : 'Leave revoked',
                     caseStatus: $case !== null ? (string) $case->status : null,
+                    authorizingCapability: $managerOverride ? 'time.leave.admin' : null,
                 );
 
                 if ($reversed === 0) {
@@ -470,7 +471,12 @@ final class LeaveRequestService
                 }
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'REVOKED', 'updated_at' => $this->clock->now()])->save();
@@ -489,7 +495,12 @@ final class LeaveRequestService
                 $released = $minutes;
 
                 if ($case !== null && in_array($case->status, ['SUBMITTED', 'IN_REVIEW', 'DRAFT'], true)) {
-                    $this->workflow->requestCancel($caseId, $actorUserId, $reason);
+                    $this->workflow->requestCancel(
+                        $caseId,
+                        $actorUserId,
+                        $reason,
+                        $managerOverride ? 'time.leave.admin' : null,
+                    );
                 }
 
                 $projection->forceFill(['state' => 'CANCELLED', 'updated_at' => $this->clock->now()])->save();
@@ -729,6 +740,7 @@ final class LeaveRequestService
         LeaveRequestProjection $projection,
         string $reason,
         ?string $caseStatus,
+        ?string $authorizingCapability = null,
     ): int {
         if (! in_array(strtoupper((string) $caseStatus), ['APPROVED'], true)) {
             return 0;
@@ -750,6 +762,7 @@ final class LeaveRequestService
             caseId: (int) $projection->case_id,
             reason: $reason,
             effectiveOn: $this->clock->now()->toDateString(),
+            authorizingCapability: $authorizingCapability,
         );
 
         if ((int) ($result['reversed'] ?? 0) < 1) {
