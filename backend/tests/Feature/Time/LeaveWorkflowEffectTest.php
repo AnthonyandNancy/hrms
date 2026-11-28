@@ -156,6 +156,23 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertNotNull($after);
         $this->assertSame(0, $after->unpaidLeaveMinutes);
         $this->assertSame(0, $after->paidLeaveMinutes);
+
+        $applyEffect = Effect::query()
+            ->where('case_id', $caseId)
+            ->where('effect_type', 'time.leave.apply')
+            ->firstOrFail();
+        $reversalEffect = Effect::query()
+            ->where('case_id', $caseId)
+            ->where('effect_type', 'time.leave.reverse')
+            ->firstOrFail();
+        $this->assertSame((int) $applyEffect->id, (int) $reversalEffect->reversal_of_id);
+        $this->assertSame('Synthetic management revocation.', (string) ($reversalEffect->payload_json['reversal_reason'] ?? ''));
+        $this->assertDatabaseHas('audit_events', ['action' => 'workflow.effect.reversed']);
+        $this->assertDatabaseHas('outbox_events', ['event_type' => 'workflow.effect.reversed.v1']);
+        $this->getJson("/v1/cases/{$caseId}")
+            ->assertOk()
+            ->assertJsonPath('data.effects.1.reversal_of_id', (int) $applyEffect->id)
+            ->assertJsonPath('data.effects.1.reversal_reason', 'Synthetic management revocation.');
     }
 
     public function test_failed_reverse_handler_keeps_original_effect_and_time_projection_approved_then_retry_succeeds(): void
@@ -252,20 +269,30 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame(720, $input->unpaidLeaveMinutes);
     }
 
-    public function test_unresolved_policy_fails_closed_in_payroll_input(): void
+    public function test_unresolved_policy_blocks_submission_before_a_case_is_created(): void
     {
         $type = $this->leaveType('UNRESOLVED_CARE');
         $this->policy((int) $type->id, null);
         $this->fundAccount($type);
 
-        $this->requestLeave((int) $type->id, 'UNRESOLVED_CARE', '2026-12-08', '2026-12-08');
-
+        $this->actAs(10);
         try {
-            $this->app->make(PayrollInputDirectory::class)->attendanceForPeriod(1, '2026-12');
-            $this->fail('Unresolved payroll treatment must not be guessed from a leave code.');
+            app(LeaveRequestService::class)->request(
+                employmentId: 1,
+                userId: 10,
+                leaveTypeCode: 'UNRESOLVED_CARE',
+                fromDate: '2026-12-08',
+                toDate: '2026-12-08',
+                halfDay: false,
+                reason: 'Unresolved treatment must be blocked.',
+            );
+            $this->fail('Unresolved payroll treatment must block submission.');
         } catch (ConflictException $exception) {
             $this->assertSame('LEAVE_PAYROLL_TREATMENT_UNRESOLVED', $exception->details()['reason'] ?? null);
         }
+
+        $this->assertSame(0, \App\Modules\Workflow\Models\CaseModel::query()->where('type', 'LEAVE_REQUEST')->count());
+        $this->assertSame(0, LeaveLedgerEntry::query()->where('source_type', 'LEAVE_REQUEST')->count());
     }
 
     public function test_revoke_of_an_approved_leave_in_a_closed_month_returns_period_closed(): void
@@ -434,6 +461,29 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame('REVOKED', $result['state']);
         $this->assertSame(EffectStatus::REVERSED, Effect::query()->where('case_id', $caseId)->where('effect_type', 'time.leave.apply')->firstOrFail()->status);
         $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'REVERSE')->count());
+    }
+
+    public function test_pending_leave_reserve_and_release_use_the_company_business_date(): void
+    {
+        $this->clock->setNow(\Carbon\CarbonImmutable::parse('2026-12-10T23:30:00Z'));
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-08', '2026-12-08');
+
+        $this->assertSame('2026-12-11', substr((string) LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'RESERVE')
+            ->value('business_date'), 0, 10));
+
+        $this->actAs(20);
+        $this->decideThroughApi($caseId, 'leave-reject-timezone-'.$caseId, 'REJECT', ['comment' => 'Timezone rejection.'])
+            ->assertOk();
+
+        $this->assertSame('2026-12-11', substr((string) LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'RELEASE')
+            ->value('business_date'), 0, 10));
     }
 
     private function leaveType(string $code): LeaveType

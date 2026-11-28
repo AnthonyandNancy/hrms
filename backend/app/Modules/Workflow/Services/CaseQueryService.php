@@ -234,6 +234,9 @@ final class CaseQueryService
                 'requires_escalation' => $effect->requires_escalation,
                 'failure_summary' => $this->effectFailureSummary($effect),
                 'failed_at' => $effect->failed_at?->toIso8601ZuluString(),
+                'reversal_of_id' => $effect->reversal_of_id !== null ? (int) $effect->reversal_of_id : null,
+                'reversal_reason' => is_string($effect->payload_json['reversal_reason'] ?? null) ? $effect->payload_json['reversal_reason'] : null,
+                'effective_on' => is_string($effect->payload_json['effective_on'] ?? null) ? $effect->payload_json['effective_on'] : null,
                 'scheduled_for' => $effect->scheduled_for?->toDateString(),
                 'occurred_at' => ($effect->applied_at ?? $effect->failed_at ?? $effect->updated_at)?->toIso8601ZuluString(),
             ];
@@ -421,6 +424,9 @@ final class CaseQueryService
         // are outside the timeline projection contract.
         $allowed = [
             'case_id',
+            'reversal_of_id',
+            'reversal_reason',
+            'effective_on',
             'decision_id',
             'node_key',
             'action',
@@ -508,6 +514,9 @@ final class CaseQueryService
             'requires_escalation' => (bool) $effect->requires_escalation,
             'failure_summary' => $this->effectFailureSummary($effect),
             'failed_at' => $effect->failed_at?->toIso8601ZuluString(),
+            'reversal_of_id' => $effect->reversal_of_id !== null ? (int) $effect->reversal_of_id : null,
+            'reversal_reason' => is_string($effect->payload_json['reversal_reason'] ?? null) ? $effect->payload_json['reversal_reason'] : null,
+            'effective_on' => is_string($effect->payload_json['effective_on'] ?? null) ? $effect->payload_json['effective_on'] : null,
         ];
     }
 

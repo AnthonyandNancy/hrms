@@ -14,6 +14,7 @@ use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use App\Shared\Time\CompanyBusinessDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -38,6 +39,7 @@ final class LeaveRequestService
         private readonly LeavePolicyService $policies,
         private readonly PayrollFreezeGuard $freezeGuard,
         private readonly AuditRecorder $audit,
+        private readonly CompanyBusinessDate $businessDates,
     ) {}
 
     /**
@@ -210,6 +212,7 @@ final class LeaveRequestService
 
         $type = $this->type($leaveTypeCode);
         $policy = $this->policy($type, $fromDate, false);
+        $this->assertPayrollTreatmentResolved($policy);
         $workingDays = $this->workingDays($fromDate, $toDate);
         $ruleConflicts = $this->ruleConflicts(
             policy: $policy,
@@ -289,7 +292,7 @@ final class LeaveRequestService
                 businessDate: $fromDate,
             );
 
-            $postedOn = $this->clock->now()->toDateString();
+            $postedOn = $this->businessDates->today()->value();
 
             $this->ledger->reserve(
                 employmentId: $employmentId,
@@ -422,7 +425,7 @@ final class LeaveRequestService
                 $this->freezeGuard->assertNotFrozen((int) $projection->employment_id, $periods);
             }
 
-            $businessDate = $this->clock->now()->toDateString();
+            $businessDate = $this->businessDates->today()->value();
             $minutes = (int) $projection->minutes;
             $released = 0;
             $reversed = 0;
@@ -537,7 +540,7 @@ final class LeaveRequestService
      */
     public function forEmployment(int $employmentId, ?string $asOf = null, ?string $toDate = null): array
     {
-        $asOf ??= $this->clock->now()->toDateString();
+        $asOf ??= $this->businessDates->today()->value();
 
         $query = LeaveRequestProjection::query()
             ->where('employment_id', $employmentId)
@@ -657,7 +660,7 @@ final class LeaveRequestService
         ?string $attachmentReference = null,
     ): array {
         $conflicts = [];
-        $today = $this->clock->now()->toDateString();
+        $today = $this->businessDates->today()->value();
         $minNoticeDays = (int) $policy->min_notice_days;
 
         if ($minNoticeDays > 0) {
@@ -761,7 +764,7 @@ final class LeaveRequestService
         $result = $this->workflow->reverseEffect(
             caseId: (int) $projection->case_id,
             reason: $reason,
-            effectiveOn: $this->clock->now()->toDateString(),
+            effectiveOn: $this->businessDates->today()->value(),
             authorizingCapability: $authorizingCapability,
         );
 
@@ -802,7 +805,7 @@ final class LeaveRequestService
             return $halfDay ? 30 : max(1, $workingDays * 60);
         }
 
-        $standardDay = $this->accounts->standardDayMinutes($employmentId, $this->clock->now()->toDateString());
+        $standardDay = $this->accounts->standardDayMinutes($employmentId, $this->businessDates->today()->value());
 
         return ($halfDay ? 1 : max(1, $workingDays)) * $standardDay;
     }
@@ -811,6 +814,21 @@ final class LeaveRequestService
      * Walk the company calendar day by day; weekends and holidays are not
      * silently counted as leave.
      */
+    private function assertPayrollTreatmentResolved(\App\Modules\Time\Models\LeavePolicyVersion $policy): void
+    {
+        $treatment = is_string($policy->payroll_treatment) ? strtoupper(trim($policy->payroll_treatment)) : '';
+        $legacy = (array) $policy->accrual_json;
+        $treatment = $treatment !== '' ? $treatment : strtoupper((string) ($legacy['payroll_treatment'] ?? 'UNRESOLVED'));
+
+        if ($treatment === 'UNRESOLVED' || $treatment === '') {
+            throw new ConflictException('The leave policy payroll treatment must be configured before submission.', [
+                'reason' => 'LEAVE_PAYROLL_TREATMENT_UNRESOLVED',
+                'leave_type_id' => (int) $policy->leave_type_id,
+                'policy_version_id' => (int) $policy->id,
+            ]);
+        }
+    }
+
     private function workingDays(string $fromDate, string $toDate): int
     {
         $cursor = CarbonImmutable::parse($fromDate, 'UTC')->startOfDay();

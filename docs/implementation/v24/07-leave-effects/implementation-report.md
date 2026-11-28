@@ -277,3 +277,43 @@ Not run: `gate:all` (out of the requested boundary).
   command, and asserts v2 has the real Time effects while v1 is unchanged.
 - Verification: 125 leave/workflow/IAM adjacent tests / 4,881 assertions;
   Pint, PHPStan and arch clean.
+
+## T07c1 — reversible effect evidence and uniqueness
+
+- `EffectExecutor::reverse()` now accepts the acting principal and, on success,
+  records `workflow.effect.reversed` audit evidence plus an ID-only
+  `workflow.effect.reversed.v1` outbox event.
+- Case effects/timeline expose `reversal_of_id`, `reversal_reason` and
+  `effective_on`; OpenAPI `CaseEffect` documents the nullable fields and
+  generated TypeScript is synchronized.
+- Added a unique index on `effects.reversal_of_id`, and reversal creation uses
+  `firstOrCreate` so a concurrent replay resolves to the existing reversal
+  instead of appending a second row.
+- Regression coverage asserts the audit/outbox rows, original/reversal link and
+  API projection for a real leave revocation.
+- Verification: 145 leave/workflow/IAM/OpenAPI tests / 16,724 assertions;
+  Pint, PHPStan, arch, OpenAPI lint/validate/generate/check green.
+
+## T07c2 — company business dates for leave ledger writes
+
+- LeaveRequestService and LeaveApprovalService now resolve the current business
+  date through `CompanyBusinessDate`, not the raw UTC date.
+- RESERVE, RELEASE and REVERSE business dates therefore follow the company
+  profile timezone around UTC midnight.
+- Added a regression with the clock at `2026-12-10T23:30:00Z` (Asia/Shanghai
+  2026-12-11): pending reserve and rejection release are both posted on
+  2026-12-11.
+- Verification: 146 leave/workflow/IAM/OpenAPI tests / 16,740 assertions;
+  Pint, PHPStan and arch clean.
+
+## T07c3 — unresolved policy boundary
+
+- New leave submissions now fail fast with
+  `LEAVE_PAYROLL_TREATMENT_UNRESOLVED` when the effective policy has no
+  first-class payroll treatment (legacy missing value reads as UNRESOLVED).
+- Approval also rejects UNRESOLVED, so a legacy pending case cannot consume
+  balance under an unknown payroll treatment.
+- Updated existing test fixtures to declare PAID treatment and added a
+  submission-boundary regression proving no Case or RESERVE is written.
+- Verification: 146 leave/workflow/IAM/OpenAPI tests / 16,740 assertions;
+  Pint, PHPStan and arch clean.

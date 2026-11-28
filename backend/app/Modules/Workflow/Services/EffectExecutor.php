@@ -226,9 +226,13 @@ final class EffectExecutor
      * effect row linked through reversal_of_id. Terminal replays return the
      * existing REVERSED outcome without invoking the handler again.
      */
-    public function reverse(int $effectId, string $reason = '', string $effectiveOn = ''): EffectResult
-    {
-        return DB::transaction(function () use ($effectId, $reason, $effectiveOn): EffectResult {
+    public function reverse(
+        int $effectId,
+        string $reason = '',
+        string $effectiveOn = '',
+        ?int $actorUserId = null,
+    ): EffectResult {
+        return DB::transaction(function () use ($effectId, $reason, $effectiveOn, $actorUserId): EffectResult {
             /** @var Effect $original */
             $original = Effect::query()
                 ->whereKey($effectId)
@@ -251,7 +255,7 @@ final class EffectExecutor
                 // A failed reversal is retryable while the original effect is
                 // still APPLIED. Never flip the original to REVERSED until the
                 // reverse handler actually succeeds.
-                $retried = $this->executeReversalLocked($existing);
+                $retried = $this->executeReversalLocked($existing, $actorUserId);
                 if ($retried->status === EffectStatus::REVERSED) {
                     $original->forceFill(['status' => EffectStatus::REVERSED, 'updated_at' => $this->clock->now()])->save();
                     $this->projection->refresh($original->case);
@@ -280,29 +284,36 @@ final class EffectExecutor
                 : $original->effect_type;
 
             /** @var Effect $reversal */
-            $reversal = Effect::query()->create([
-                'case_id' => $original->case_id,
-                'decision_id' => $original->decision_id,
-                'effect_type' => $reversalType,
-                'aggregate_type' => $original->aggregate_type,
-                'aggregate_id' => $original->aggregate_id,
-                'effect_seq' => $effectSeq,
-                'status' => EffectStatus::SCHEDULED,
-                'scheduled_for' => null,
-                'applied_at' => null,
-                'failed_at' => null,
-                'failure_reason' => null,
-                'attempts' => 0,
-                'reversal_of_id' => $original->id,
-                'payload_json' => [
-                    ...((array) ($original->payload_json ?? [])),
-                    'reversal_reason' => $reason,
-                    'effective_on' => $effectiveOn,
+            $reversal = Effect::query()->firstOrCreate(
+                ['reversal_of_id' => $original->id],
+                [
+                    'case_id' => $original->case_id,
+                    'decision_id' => $original->decision_id,
+                    'effect_type' => $reversalType,
+                    'aggregate_type' => $original->aggregate_type,
+                    'aggregate_id' => $original->aggregate_id,
+                    'effect_seq' => $effectSeq,
+                    'status' => EffectStatus::SCHEDULED,
+                    'scheduled_for' => null,
+                    'applied_at' => null,
+                    'failed_at' => null,
+                    'failure_reason' => null,
+                    'attempts' => 0,
+                    'reversal_of_id' => $original->id,
+                    'payload_json' => [
+                        ...((array) ($original->payload_json ?? [])),
+                        'reversal_reason' => $reason,
+                        'effective_on' => $effectiveOn,
+                    ],
+                    'requires_escalation' => false,
                 ],
-                'requires_escalation' => false,
-            ]);
+            );
 
-            $result = $this->executeReversalLocked($reversal);
+            if (! $reversal->wasRecentlyCreated && $reversal->status === EffectStatus::REVERSED) {
+                return EffectResult::reversed();
+            }
+
+            $result = $this->executeReversalLocked($reversal, $actorUserId);
 
             if ($result->status !== EffectStatus::REVERSED) {
                 // The original stays APPLIED, and the reversal row remains
@@ -318,7 +329,7 @@ final class EffectExecutor
         });
     }
 
-    private function executeReversalLocked(Effect $effect): EffectResult
+    private function executeReversalLocked(Effect $effect, ?int $actorUserId = null): EffectResult
     {
         $handler = $this->registry->resolve($effect->effect_type);
         $now = $this->clock->now();
@@ -347,16 +358,45 @@ final class EffectExecutor
         CaseEvent::query()->create([
             'case_id' => $effect->case_id,
             'event_type' => 'effect.reversed',
-            'actor_user_id' => null,
+            'actor_user_id' => $actorUserId,
             'payload_json' => [
                 'case_id' => $effect->case_id,
                 'effect_id' => $effect->id,
                 'effect_type' => $effect->effect_type,
                 'reversal_of_id' => $effect->reversal_of_id,
                 'status' => EffectStatus::REVERSED->value,
+                'effective_on' => $effect->payload_json['effective_on'] ?? null,
             ],
             'occurred_at' => $now,
         ]);
+
+        $this->audit->record(
+            $actorUserId,
+            'workflow.effect.reversed',
+            'workflow_effect',
+            (int) $effect->id,
+            after: [
+                'case_id' => (int) $effect->case_id,
+                'effect_id' => (int) $effect->id,
+                'effect_type' => (string) $effect->effect_type,
+                'reversal_of_id' => $effect->reversal_of_id !== null ? (int) $effect->reversal_of_id : null,
+                'reason' => $effect->payload_json['reversal_reason'] ?? null,
+                'effective_on' => $effect->payload_json['effective_on'] ?? null,
+            ],
+        );
+        $this->outbox->record(
+            eventType: 'workflow.effect.reversed.v1',
+            aggregateType: (string) $effect->aggregate_type,
+            aggregateId: (string) $effect->aggregate_id,
+            aggregateVersion: (int) $effect->effect_seq,
+            payload: [
+                'case_id' => (int) $effect->case_id,
+                'effect_id' => (int) $effect->id,
+                'effect_type' => (string) $effect->effect_type,
+                'reversal_of_id' => $effect->reversal_of_id !== null ? (int) $effect->reversal_of_id : null,
+                'status' => EffectStatus::REVERSED->value,
+            ],
+        );
 
         return EffectResult::reversed();
     }
