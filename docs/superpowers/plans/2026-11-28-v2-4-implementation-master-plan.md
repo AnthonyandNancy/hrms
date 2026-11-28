@@ -82,7 +82,7 @@
 | T04 | 员工执行薪酬版本 | COMPLETE | Step 5 | `docs/implementation/v24/04-compensation-chain/evidence.md` |
 | T05 | 单一入职与合同/薪酬待办 | COMPLETE | T05a + T05b | `da57e57`; `docs/implementation/v24/05-onboarding/implementation-report.md`; `gate-all-t05b.log` |
 | T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
-| T07 | 请假审批 Effect 与净流水 | BLOCKED | T07a/T07b/T07c 拆分；分支未合并 | `27a8b5c` on `v24-t07-leave-effects`; review findings |
+| T07 | 请假审批 Effect 与净流水 | IN PROGRESS | T07a/T07b merged; T07c PENDING | `0209113`; `docs/implementation/v24/07-leave-effects/implementation-report.md`; `gate-all-t07b.log` |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
 | T09 | Snapshot v2 与员工级方案 | PENDING | — | — |
 | T10 | 受限规则引擎 | PENDING | — | — |
@@ -111,7 +111,8 @@
 | 2026-11-28 | T06 final gate | clean `pnpm gate:all` on merged main | 22 gates PASS in 344.3s; log `docs/implementation/v24/06-time-facts/gate-all-final.log` | T06 approved-with-risk; MySQL concurrency/T19 outstanding. |
 | 2026-11-28 | T05a onboarding merge | `a304379` + full gate | 22 gates PASS in 272.6s; encrypted PII draft, 202 pending Case, capability/org scope, pending dedup; log `docs/implementation/v24/05-onboarding/gate-all.log` | T05b followed. |
 | 2026-11-28 | T05b contract/comp drafts | `da57e57` + full gate | 22 gates PASS in 225.1s; contract DRAFT+CREATION version and compensation DRAFT linked to case/contract; rollback test; log `docs/implementation/v24/05-onboarding/gate-all-t05b.log` | T05 complete; payroll activation remains T09/T11. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T05b/T07/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Do not merge blocked branches wholesale; resume from split tasks and rerun each gate. |
+| 2026-11-28 | T07b merge | `0209113` + full gate | 22 gates PASS in 247.6s; real leave apply/reverse + outcome release, narrow admin auth, template v2; log `docs/implementation/v24/07-leave-effects/gate-all-t07b.log` | T07c remains: audit/outbox/reversal link, UNRESOLVED/timezone, real HTTP revoke, T09 snapshot. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T07c/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Do not merge blocked branches wholesale; resume from split tasks and rerun each gate. |
 
 ---
 

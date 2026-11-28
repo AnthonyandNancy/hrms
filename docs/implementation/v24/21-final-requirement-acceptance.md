@@ -15,7 +15,7 @@ The current branch contains a stable, reviewed foundation (T00–T04, hardened T
 It is **not** a completed V2.4 business delivery:
 
 - T05a/T05b onboarding, contract draft and compensation draft are merged.
-- T07 leave effects and T16 notification/report work exist only in isolated branches and are not merged.
+- T07a/T07b leave effects are merged; T07c hardening and T16 notification/report remain incomplete.
 - T08–T15, T17, and T19 have not been implemented.
 - No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
 - Real MySQL/Redis/object-storage migration, concurrency and restore verification is not complete.
@@ -32,6 +32,7 @@ It is **not** a completed V2.4 business delivery:
 | T04 execution compensation link | COMPLETE | `docs/implementation/v24/04-compensation-chain/evidence.md` | Snapshot still reads terms until T09 |
 | T06 monthly Time fact versions | COMPLETE / Approved-with-risk | `docs/implementation/v24/06-time-facts/implementation-report.md`; final gate | MySQL true concurrency deferred to T19; complete workday coverage deferred to T09 |
 | T05 onboarding/contract/compensation | COMPLETE | `docs/implementation/v24/05-onboarding/implementation-report.md`; gates `gate-all.log`, `gate-all-t05b.log` | T05b included; payroll activation/approval is T09/T11 |
+| T07a/T07b leave workflow effects | PARTIAL | `docs/implementation/v24/07-leave-effects/implementation-report.md`; gate `gate-all-t07b.log` | T07c hardening and T09 snapshot consumption remain |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
 ### Full gate result
@@ -47,20 +48,18 @@ This proves the merged technical foundation passes the existing automated gates.
 These branches are intentionally **not merged** because independent review found Critical issues.
 
 
-### T07 leave Workflow effects — BLOCKED
+### T07c leave Workflow hardening — PENDING
 
-- Branch: `v24-t07-leave-effects`
-- Commit: `27a8b5c` (rebased work)
-- What works: real `time.leave.apply`, signed-net payroll input, first-class payroll treatment, basic approve/revoke tests.
-- Blocking findings:
-  - Reject/return/withdraw do not release the Time hold.
-  - A failed reverse handler can still mark the original effect REVERSED and Time projection REVOKED.
-  - Admin revoke fails for real HR/attendance role capability sets.
-  - Existing installs with a v1 `workflow.noop` leave template are not migrated.
-  - Reversal audit/outbox/reversal link and multi-effect atomicity are missing.
-  - `UNRESOLVED` treatment is blocked too late; business dates need company timezone.
-  - Real HTTP/Workflow coverage and T09 snapshot consumption are incomplete.
-- T07a/T07b/T07c split is required before resuming.
+- T07a/T07b merged at `0209113`; full gate PASS in 247.6s.
+- What works: real `time.leave.apply` / `time.leave.reverse`, signed-net
+  payroll input, atomic reversal, reject/return/withdraw release, narrow
+  `time.leave.admin` authorization, and leave template v2 upgrade.
+- Remaining:
+  - reversal audit/outbox/reversal-of link and multi-effect unique guard;
+  - first-class `UNRESOLVED` submission boundary;
+  - company-timezone business dates for RESERVE/RELEASE/REVERSE;
+  - complete real HTTP revoke/reversal replay coverage;
+  - T09 Snapshot consumption of closed Time facts.
 
 ### T16 notification/report — BLOCKED
 
@@ -103,12 +102,12 @@ These branches are intentionally **not merged** because independent review found
 | AC-05 permission/field isolation | ❌ PARTIAL | T02 catalog/actions merged; T16 report leakage unresolved |
 | AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
 | AC-07 payroll sample 9480/1400/8080/9980 | ❌ NOT MET | T09/T10 not implemented |
-| AC-08 leave cancel/dynamic recalc | ❌ NOT MET | T06 facts pass; T07/T09 blocked |
+| AC-08 leave cancel/dynamic recalc | ❌ PARTIAL | T06/T07a/T07b merged; T07c and T09 remain |
 | AC-09 mid-month raise 8500 | ❌ NOT MET | T09/T12 not implemented |
 | AC-10 overtime/timeoff/travel | ❌ NOT MET | T08 not implemented |
 | AC-11 rule validation | ❌ NOT MET | T10 not implemented |
 | AC-12 cumulative corrections | ❌ NOT MET | T13 not implemented |
-| AC-13 approval/execution consistency | ❌ NOT MET | T07 Workflow effects blocked |
+| AC-13 approval/execution consistency | ❌ PARTIAL | T07a/T07b merged; T07c and T09 remain |
 | AC-14 benefits/performance payroll | ❌ NOT MET | T14/T15/T09 not implemented |
 | AC-15 recruitment/training | ❌ NOT MET | T15 not implemented |
 | AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
@@ -121,9 +120,9 @@ These branches are intentionally **not merged** because independent review found
 
 ## 6. Resume protocol
 
-1. Keep this branch/HEAD as the stable foundation; T05a is merged, while the blocked T07/T16 branches must not be merged wholesale.
-2. Continue T07/T16 or the Payroll chain on top of merged T05.
-3. Execute T07a2 (atomic reversal), then T07b (outcome effects/roles/template upgrade), then T07c (audit/UNRESOLVED/timezone/real-HTTP coverage).
+1. Keep this branch/HEAD as the stable foundation; T05 and T07a/T07b are merged, while the blocked T16 branch must not be merged wholesale.
+2. Continue T07c/T16 or the Payroll chain on top of merged T05/T07b.
+3. Execute T07c (audit/UNRESOLVED/timezone/real-HTTP coverage).
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
 6. Run `pnpm gate:all` after each merge.
@@ -132,4 +131,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T07/T16 blocked and T08–T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T07c/T16 blocked and T08–T19 outstanding.
