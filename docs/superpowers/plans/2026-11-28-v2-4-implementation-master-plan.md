@@ -145,7 +145,8 @@
 | 2026-11-28 | T16 merge | `d8a7f9a` + full gate | merge of notification delivery/report field projection; 22 gates PASS in 290.2s; provider receipt, retry, notice expiry/audience, payslip IDs, per-row report fields and export crop regressions; log `docs/implementation/v24/16-notifications-reporting/gate-all-t16-merge.log` | Reference transport only; real provider/MySQL/MCP remain T19/T18. |
 | 2026-11-28 | T08b overtime workflow | `6f6ddd8` + full gate | 22 gates PASS in 248.9s; OVERTIME_REQUEST case/approve, allowed_actions, policy PAY/TIMEOFF rejection, TIMEOFF ledger; log `docs/implementation/v24/08-overtime-travel/gate-all-t08b.log` | T08c UI followed. |
 | 2026-11-28 | T08c overtime approval UI | `3d35a85` + full gate | 22 gates PASS in 244.7s; list allowed_actions, approve/reject UI, stable key, server confirm gating, read-only hiding; log `docs/implementation/v24/08-overtime-travel/gate-all-t08c.log` | T08 complete; MCP remains T18. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T17 remaining actions/T19 outstanding; MCP 0 executed | Continue T17 then T18/T19. |
+| 2026-11-28 | T17c payroll object actions | `e462840` + full gate | 22 gates PASS in 240.9s; allowed_actions-only cancel/reopen/correct/assign-member forms and payload tests; log `docs/implementation/v24/17-frontend/gate-all-t17c.log` | Chinese enum/error sweep remains. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T17 Chinese sweep/T19 outstanding; MCP 0 executed | Continue T17 sweep then T18/T19. |
 
 ---
 
@@ -1034,7 +1035,8 @@ pnpm actions:check && pnpm page-components:check && pnpm page-model:check && pnp
 - [x] Step 3：formatMoney/parse/MoneyText BigInt；workspace 接自 payslip panel。
 - [x] Step 4：self payslip period/pay_date + 自助 API 范围；聚焦和全门禁 GREEN。
 - [x] Step 5a：PayrollActionBar 只消费 allowed_actions、无 capability 文案。
-- [ ] Step 5b：其他详情动作、中文枚举/错误 sweep 后完成 T17。
+- [x] Step 5b：Payroll cancel/reopen/correct/assign-member 动作与表单。
+- [ ] Step 5c：全站中文枚举/错误 sweep 后完成 T17。
 
 ---
 
