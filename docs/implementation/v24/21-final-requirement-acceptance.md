@@ -37,7 +37,7 @@ It is **not** a completed V2.4 business delivery:
 | T12 mid-month compensation | COMPLETE | `docs/implementation/v24/12-midmonth/implementation-report.md`; gates `gate-all-t12a.log`, `gate-all-t12b.log` | MCP end-to-end evidence remains T18 |
 | T13 signed YTD/corrections | PARTIAL | `docs/implementation/v24/13-corrections/implementation-report.md`; gates `gate-all-t13ab.log`, `gate-all-t13c.log` | Signed ledger/chain + exact AC-12 complete; unpaid void/retry/action UI remain |
 | T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log` | Multi-plan/reversal/employer cost/frozen snapshot/UI reversal pass; field-profile masking remains |
-| T15a-T15d performance/Offer/training | PARTIAL | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`, `gate-all-t15b.log`, `gate-all-t15c.log`, `gate-all-t15d.log` | Bonus mapping API + attempt HTTP/source complete; mapping/attempt UI remains |
+| T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
@@ -115,7 +115,7 @@ These branches are intentionally **not merged** because independent review found
 
 1. Keep this branch/HEAD as the stable foundation; T05 and T07 are merged, while the blocked T16 branch must not be merged wholesale.
 2. Continue T16 or the Payroll chain on top of merged T05/T07.
-3. Execute T15 mapping/attempt UI, then T10 rule engine and T17 action surface.
+3. Execute T10 rule engine, T17 action surface, and T16 unblock/review; T14 masking and T13d remain.
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
 6. Run `pnpm gate:all` after each merge.
@@ -124,4 +124,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T15 UI/T14 masking/T16/T13d blocked and T08/T10/T17/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16/T13d blocked and T08/T10/T14 masking/T17/T19 outstanding.

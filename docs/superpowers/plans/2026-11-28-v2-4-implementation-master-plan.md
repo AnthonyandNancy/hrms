@@ -90,7 +90,7 @@
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
 | T13 | 累计更正与 signed YTD | IN PROGRESS | T13a-T13c merged; exact AC-12 passes; unpaid void/retry/actions pending | `55566e2`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13c.log` |
 | T14 | 福利计薪输入与冲销 | IN PROGRESS | T14a-T14c merged; UI reversal done; field-profile masking pending | `894f056`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14-ui.log` |
-| T15 | 绩效奖金与 Offer/培训链路 | IN PROGRESS | T15a-T15d merged; APIs/source chain done; mapping/attempt UI pending | `4eb491b`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15d.log` |
+| T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
 | T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
@@ -129,8 +129,9 @@
 | 2026-11-28 | T15a performance bonus | `6527940` + full gate | 22 gates PASS in 236.6s; published snapshot grade/revision, approved bonus mapping, real Payroll port, DRAFT/future exclusion; log `docs/implementation/v24/15-performance-bonus/gate-all-t15a.log` | T15b followed. |
 | 2026-11-28 | T15b Offer compensation | `f4d11f8` + full gate | 22 gates PASS in 239.4s; offer salary/scheme→onboarding→one EmployeeCompensation draft; log `docs/implementation/v24/15-performance-bonus/gate-all-t15b.log` | T15c followed. |
 | 2026-11-28 | T15c mapping/exam attempts | `04bf8ab` + full gate | 22 gates PASS in 247.7s; bonus mapping API/list/approve, training attempt source/checkin enforcement, completion derives from latest attempt; log `docs/implementation/v24/15-performance-bonus/gate-all-t15c.log` | T15d followed. |
-| 2026-11-28 | T15d attempt HTTP | `4eb491b` + full gate | 22 gates PASS in 240.8s; POST exam attempts, capability/action/OpenAPI/ledger, source-hash HTTP regression; log `docs/implementation/v24/15-performance-bonus/gate-all-t15d.log` | Mapping/attempt UI remains T15e/T17. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T15 UI/T14 masking/T16/T13d blocked; T08/T10/T17/T19 not fully implemented; MCP 0 executed | Continue T15 UI or T10/T17. |
+| 2026-11-28 | T15d attempt HTTP | `4eb491b` + full gate | 22 gates PASS in 240.8s; POST exam attempts, capability/action/OpenAPI/ledger, source-hash HTTP regression; log `docs/implementation/v24/15-performance-bonus/gate-all-t15d.log` | T15e followed. |
+| 2026-11-28 | T15e performance/training UI | `b848a46` + full gate | 22 gates PASS in 242.7s; bonus mapping dialog + approve, attempt form/source result; log `docs/implementation/v24/15-performance-bonus/gate-all-t15e.log` | T15 complete; MCP remains T18. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T15 complete, T16/T13d blocked; T08/T10/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10/T17 and T16 unblock effort. |
 
 ---
 
