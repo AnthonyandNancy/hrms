@@ -93,7 +93,7 @@ final class SeedWorkflowTemplatesCommand extends Command
             $definitions[] = [
                 'code' => $code,
                 'name' => ucwords(str_replace(['.', '-'], ' ', $code)),
-                'version' => 1,
+                'version' => $code === 'leave.request' ? 2 : 1,
                 'status' => 'PUBLISHED',
                 'definition' => [
                     'nodes' => [

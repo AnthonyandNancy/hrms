@@ -265,3 +265,15 @@ Not run: `gate:all` (out of the requested boundary).
   both write exactly one RELEASE/REVERSE.
 - Verification: leave/workflow/IAM adjacent suite 92 tests / 551 assertions;
   IAM-focused 45 tests / 4,433 assertions; Pint, PHPStan and arch clean.
+
+## T07b3 — upgrade path for existing leave templates
+
+- The seed command now publishes `leave.request` as version 2 with
+  `time.leave.apply`, `time.leave.reverse` and
+  `time.leave.pending.release`; all other reference templates stay at v1.
+- Existing v1 no-op templates remain immutable for in-flight cases, while new
+  leave cases resolve the latest published v2.
+- Added a regression that creates an old v1 no-op template, runs the seed
+  command, and asserts v2 has the real Time effects while v1 is unchanged.
+- Verification: 125 leave/workflow/IAM adjacent tests / 4,881 assertions;
+  Pint, PHPStan and arch clean.

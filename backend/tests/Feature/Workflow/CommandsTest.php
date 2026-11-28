@@ -38,10 +38,42 @@ class CommandsTest extends TestCase
         ] as $code) {
             $this->assertDatabaseHas('workflow_templates', [
                 'code' => $code,
-                'version' => 1,
+                'version' => $code === 'leave.request' ? 2 : 1,
                 'status' => 'PUBLISHED',
             ]);
         }
+    }
+
+    public function test_seed_adds_leave_template_v2_over_an_existing_v1_noop(): void
+    {
+        $templates = app(\App\Modules\Workflow\Services\TemplateService::class);
+        $templates->create(0, [
+            'code' => 'leave.request',
+            'name' => 'Leave request',
+            'version' => 1,
+            'status' => 'PUBLISHED',
+            'definition' => [
+                'nodes' => [
+                    ['key' => 'start', 'name' => 'Start', 'type' => 'START', 'sequence' => 1],
+                    ['key' => 'approval', 'name' => 'Approval', 'type' => 'APPROVAL', 'sequence' => 2, 'assignee_rule' => ['type' => 'MANAGER_OF_SUBJECT'], 'required_count' => 1],
+                    ['key' => 'end', 'name' => 'End', 'type' => 'END', 'sequence' => 3],
+                ],
+                'effects' => [[
+                    'type' => 'workflow.noop',
+                    'execution' => 'LOCAL',
+                    'aggregate_type' => 'case',
+                    'aggregate_id_field' => 'case_id',
+                ]],
+            ],
+        ]);
+
+        $this->artisan('workflow:seed-templates')->assertSuccessful();
+
+        $v1 = WorkflowTemplate::query()->where('code', 'leave.request')->where('version', 1)->firstOrFail();
+        $v2 = WorkflowTemplate::query()->where('code', 'leave.request')->where('version', 2)->firstOrFail();
+        $this->assertSame('workflow.noop', (string) ($v1->definition_json['effects'][0]['type'] ?? ''));
+        $this->assertSame('time.leave.apply', (string) ($v2->definition_json['effects'][0]['type'] ?? ''));
+        $this->assertSame('time.leave.pending.release', (string) ($v2->definition_json['effects'][0]['outcome_effect_type'] ?? ''));
     }
 
     public function test_workflow_check_fails_when_an_approved_case_has_no_effect_rows(): void
