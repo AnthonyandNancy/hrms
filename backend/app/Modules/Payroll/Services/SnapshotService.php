@@ -256,6 +256,7 @@ final class SnapshotService
             (string) $run->period,
         ));
         $resolvedScheme = $scheme;
+        $publishedRules = [];
 
         if ($compensation !== null && $compensation['payroll_scheme_id'] !== null) {
             $candidate = PayrollScheme::query()
@@ -310,6 +311,18 @@ final class SnapshotService
                 ->where('employment_id', $employmentId)
                 ->orderBy('id')
                 ->get();
+        }
+
+        $schemeItemIds = $resolvedScheme->items->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+        if ($schemeItemIds !== []) {
+            $publishedRules = \App\Modules\Payroll\Models\PayrollRuleVersion::query()
+                ->whereIn('scheme_item_id', $schemeItemIds)
+                ->where('status', 'PUBLISHED')
+                ->orderByDesc('version')
+                ->get()
+                ->unique('scheme_item_id')
+                ->keyBy('scheme_item_id')
+                ->all();
         }
 
         $year = (int) substr((string) $run->period, 0, 4);
@@ -416,6 +429,10 @@ final class SnapshotService
                     'rate_scaled' => $item->rate_scaled !== null ? (int) $item->rate_scaled : null,
                     'basis' => (string) $item->basis,
                     'formula_json' => $item->formula_json,
+                    'rule_version' => isset($publishedRules[(int) $item->id]) ? (int) $publishedRules[(int) $item->id]->version : null,
+                    'rule_hash' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->hash : null,
+                    'rule_engine_version' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->engine_version : null,
+                    'rule_ast' => isset($publishedRules[(int) $item->id]) ? $publishedRules[(int) $item->id]->ast_json : null,
                     'sort_order' => (int) $item->sort_order,
                     'taxable' => (bool) $item->taxable,
                 ])->values()->all(),

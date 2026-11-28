@@ -828,9 +828,15 @@ final class CalculationService
         }
 
         if ($calculation === 'FORMULA_LIMITED') {
-            $formula = $item['formula_json'] ?? null;
+            $formula = is_array($item['rule_ast'] ?? null) ? $item['rule_ast'] : ($item['formula_json'] ?? null);
             if (! is_array($formula)) {
-                throw new \InvalidArgumentException('FORMULA_LIMITED scheme item requires formula_json.');
+                throw new \InvalidArgumentException('FORMULA_LIMITED scheme item requires formula_json or a published rule AST.');
+            }
+            if (isset($item['rule_hash']) && is_string($item['rule_hash'])) {
+                $encoded = json_encode($formula, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                if (! hash_equals($item['rule_hash'], hash('sha256', $encoded))) {
+                    throw new \InvalidArgumentException('Published payroll rule hash does not match the frozen AST.');
+                }
             }
 
             $compiled = $this->ruleCompiler->compile($formula, [

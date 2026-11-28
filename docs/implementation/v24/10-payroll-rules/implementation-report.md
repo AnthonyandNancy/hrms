@@ -45,3 +45,24 @@ rule hashes and frontend restricted editor.
 
 Remaining T10: rule version persistence/publish/retire, dependencies, snapshot
 rule hashes, rule editor and API.
+
+## T10c — rule version persistence and published snapshot
+
+- Added `payroll_rule_versions` with scheme item/version, immutable AST,
+  dependencies, stage, rounding, engine version, canonical hash, DRAFT/
+  PUBLISHED/RETIRED status and publish/retire evidence.
+- Added `PayrollRuleVersionService`:
+  - draft creation compiles and hashes the restricted AST;
+  - publish recompiles and rejects hash mismatch/non-draft;
+  - retire is explicit and audited.
+- Snapshot v2 resolves the newest PUBLISHED rule per scheme item and freezes
+  `rule_version`, `rule_hash`, `rule_engine_version` and `rule_ast`.
+- Calculation verifies the frozen AST hash before evaluation, preventing a
+  tampered snapshot or stale rule from being used.
+- Added regression: draft is not used; published AST overrides legacy formula;
+  retired rule returns to legacy fallback; snapshot freezes published hash.
+- Verification: payroll/integration/unit 206 tests / 30,867 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: rule version API/UI, dependency validation/graph and cascade
+publish/retire controls.
