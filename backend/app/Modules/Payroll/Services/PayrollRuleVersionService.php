@@ -18,7 +18,7 @@ final class PayrollRuleVersionService
 {
     private const VARIABLES = [
         'base_salary', 'base_salary_cents', 'scheduled_minutes', 'worked_minutes',
-        'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes',
+        'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes', 'travel_minutes',
     ];
 
     public function __construct(

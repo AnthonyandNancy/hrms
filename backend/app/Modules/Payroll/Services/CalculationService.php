@@ -852,7 +852,7 @@ final class CalculationService
 
             $compiled = $this->ruleCompiler->compile($formula, [
                 'base_salary', 'base_salary_cents', 'scheduled_minutes', 'worked_minutes',
-                'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes',
+                'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes', 'travel_minutes',
             ]);
             $evaluation = $this->ruleEngine->evaluate($compiled, [
                 'base_salary' => Decimal::fromScaledInt($baseSalaryCents, 2)->toDecimalString(),
@@ -862,6 +862,7 @@ final class CalculationService
                 'paid_leave_minutes' => (string) $attendance->paidLeaveMinutes,
                 'unpaid_leave_minutes' => (string) $attendance->unpaidLeaveMinutes,
                 'overtime_minutes' => (string) $attendance->overtimeMinutes,
+                'travel_minutes' => (string) $attendance->travelMinutes,
             ]);
             $cents = Decimal::fromString($evaluation->value)->roundTo(0)->toScaledInt(0);
             if ($cents < 0) {

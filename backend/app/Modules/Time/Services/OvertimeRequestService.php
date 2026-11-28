@@ -11,6 +11,7 @@ use App\Modules\Time\Models\OvertimePolicyVersion;
 use App\Modules\Time\Models\OvertimeRecord;
 use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
+use App\Modules\Time\Models\TimeoffLedgerEntry;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -51,6 +52,7 @@ final class OvertimeRequestService
         private readonly EmploymentDirectory $employments,
         private readonly Container $container,
         private readonly PayrollFreezeGuard $freezeGuard,
+        private readonly TimeoffLedgerService $timeoffLedger,
     ) {}
 
     public function apply(
@@ -596,46 +598,41 @@ final class OvertimeRequestService
      */
     public function timeoffBalances(int $employmentId, string $asOf): ProjectionResult
     {
+        $ledgerEntries = $this->timeoffLedger->entries($employmentId, $asOf);
+        $settlementIds = array_values(array_filter(
+            array_map(static fn (TimeoffLedgerEntry $entry): ?int => $entry->overtime_settlement_id, $ledgerEntries),
+            static fn (?int $id): bool => $id !== null,
+        ));
+        $settlements = OvertimeSettlement::query()
+            ->whereIn('id', $settlementIds === [] ? [-1] : $settlementIds)
+            ->get()
+            ->keyBy('id');
+        $recordIds = $settlements->pluck('overtime_record_id')->map(static fn (mixed $id): int => (int) $id)->all();
         $records = OvertimeRecord::query()
-            ->where('employment_id', $employmentId)
-            ->where('business_date', '<=', $asOf)
+            ->whereIn('id', $recordIds === [] ? [-1] : $recordIds)
             ->get()
             ->keyBy('id');
 
-        $settlements = OvertimeSettlement::query()
-            ->where('employment_id', $employmentId)
-            ->where('method', 'TIMEOFF')
-            ->whereIn('overtime_record_id', $records->keys()->all())
-            ->orderByDesc('recorded_at')
-            ->orderByDesc('id')
-            ->get();
-
-        /** @var list<array<string, mixed>> $items */
         $items = [];
-
-        /** @var OvertimeSettlement $settlement */
-        foreach ($settlements as $settlement) {
-            $record = $records->get((int) $settlement->overtime_record_id);
-
+        foreach ($ledgerEntries as $entry) {
+            $settlement = $entry->overtime_settlement_id !== null
+                ? $settlements->get((int) $entry->overtime_settlement_id)
+                : null;
+            $record = $settlement !== null ? $records->get((int) $settlement->overtime_record_id) : null;
             $items[] = [
-                'settlement_id' => (int) $settlement->id,
-                'overtime_record_id' => (int) $settlement->overtime_record_id,
-                'employment_id' => (int) $settlement->employment_id,
+                'ledger_entry_id' => (int) $entry->id,
+                'settlement_id' => $settlement !== null ? (int) $settlement->id : null,
+                'overtime_record_id' => $settlement !== null ? (int) $settlement->overtime_record_id : null,
+                'employment_id' => (int) $entry->employment_id,
                 'business_date' => $record instanceof OvertimeRecord ? $record->business_date->format('Y-m-d') : null,
-                'method' => (string) $settlement->method,
-                'entry_type' => 'EARNED',
-                'minutes' => (int) $settlement->minutes,
-                'reason' => (string) $settlement->reason,
+                'method' => 'TIMEOFF',
+                'entry_type' => $entry->entry_type === TimeoffLedgerEntry::TYPE_EARN ? 'EARNED' : $entry->entry_type,
+                'minutes' => (int) $entry->quantity_minutes,
+                'reason' => (string) $entry->reason,
                 'expires_at' => null,
-                'recorded_at' => $settlement->recorded_at?->toIso8601String(),
+                'recorded_at' => $entry->recorded_at?->toIso8601String(),
             ];
         }
-
-        $available = array_reduce(
-            $items,
-            static fn (int $total, array $item): int => $total + (int) $item['minutes'],
-            0,
-        );
 
         return new ProjectionResult(
             items: $items,
@@ -648,8 +645,8 @@ final class OvertimeRequestService
             partial: false,
             partialReason: null,
             drilldown: [
-                'resource' => 'overtime_settlements',
-                'filters' => ['employment_id' => $employmentId, 'method' => 'TIMEOFF'],
+                'resource' => 'timeoff_ledger_entries',
+                'filters' => ['employment_id' => $employmentId],
             ],
         );
     }

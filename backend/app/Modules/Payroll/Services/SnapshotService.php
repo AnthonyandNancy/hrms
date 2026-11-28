@@ -580,11 +580,11 @@ final class SnapshotService
     }
 
     /**
-     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
+     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int, travel_minutes: int}
      */
     /**
      * @param  array<string, mixed>  $payload
-     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int}
+     * @return array{employment_id: int, scheduled_minutes: int, worked_minutes: int, paid_leave_minutes: int, unpaid_leave_minutes: int, overtime_minutes: int, travel_minutes: int}
      */
     public function attendanceValues(array $payload): array
     {
@@ -597,6 +597,7 @@ final class SnapshotService
             'paid_leave_minutes' => (int) ($attendance['paid_leave_minutes'] ?? 0),
             'unpaid_leave_minutes' => (int) ($attendance['unpaid_leave_minutes'] ?? 0),
             'overtime_minutes' => (int) ($attendance['overtime_minutes'] ?? 0),
+            'travel_minutes' => (int) ($attendance['travel_minutes'] ?? 0),
         ];
     }
 
@@ -613,6 +614,7 @@ final class SnapshotService
             paidLeaveMinutes: $values['paid_leave_minutes'],
             unpaidLeaveMinutes: $values['unpaid_leave_minutes'],
             overtimeMinutes: $values['overtime_minutes'],
+            travelMinutes: $values['travel_minutes'],
         );
     }
 }

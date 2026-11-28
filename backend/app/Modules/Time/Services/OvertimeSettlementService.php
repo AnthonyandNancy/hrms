@@ -34,6 +34,7 @@ final class OvertimeSettlementService
         private readonly AuditRecorder $audit,
         private readonly Container $container,
         private readonly PayrollFreezeGuard $freezeGuard,
+        private readonly TimeoffLedgerService $timeoffLedger,
     ) {}
 
     /**
@@ -108,6 +109,11 @@ final class OvertimeSettlementService
                 return $this->payload($existing, true);
             }
 
+            if ($method === 'TIMEOFF') {
+                $entry = $this->timeoffLedger->earnFromSettlement($settlement, $record->business_date->format('Y-m-d'), $actorUserId);
+                $settlement->forceFill(['leave_ledger_entry_id' => (int) $entry->id])->save();
+            }
+
             $this->audit->record($actorUserId, 'time.overtime.settled', 'overtime_settlement', (int) $settlement->id, after: [
                 'overtime_record_id' => $recordId,
                 'method' => $method,
@@ -156,6 +162,7 @@ final class OvertimeSettlementService
             'employment_id' => (int) $settlement->employment_id,
             'method' => (string) $settlement->method,
             'minutes' => (int) $settlement->minutes,
+            'timeoff_ledger_entry_id' => $settlement->leave_ledger_entry_id !== null ? (int) $settlement->leave_ledger_entry_id : null,
             'replayed' => $replayed,
         ];
     }

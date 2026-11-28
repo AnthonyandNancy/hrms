@@ -7,7 +7,10 @@ namespace App\Modules\Time\Services;
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Contracts\WorkflowCaseSnapshot;
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\BusinessTripRecord;
+use App\Modules\Time\Models\LeaveRequestProjection;
+use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\TravelAttendanceLink;
 use App\Modules\Time\Models\TravelExpense;
 use App\Modules\Time\Models\TravelPolicy;
@@ -169,6 +172,38 @@ final class TravelService
 
             if ($overlap) {
                 throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
+            }
+
+            if (LeaveRequestProjection::query()
+                ->where('employment_id', $employmentId)
+                ->whereIn('state', ['SUBMITTED', 'APPROVED', 'CONSUMED'])
+                ->where('from_date', '<=', $toDate)
+                ->where('to_date', '>=', $fromDate)
+                ->exists()) {
+                throw new ConflictException('Travel overlaps a leave request; resolve the conflict before applying.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'LEAVE',
+                ]);
+            }
+            if (OvertimeRequest::query()
+                ->where('employment_id', $employmentId)
+                ->whereIn('status', [OvertimeRequest::STATUS_APPROVED, OvertimeRequest::STATUS_CONFIRMED])
+                ->whereBetween('business_date', [$fromDate, $toDate])
+                ->exists()) {
+                throw new ConflictException('Travel overlaps approved overtime; resolve the conflict before applying.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'OVERTIME',
+                ]);
+            }
+            if (AttendanceDay::query()
+                ->where('employment_id', $employmentId)
+                ->whereBetween('business_date', [$fromDate, $toDate])
+                ->where('worked_minutes', '>', 0)
+                ->exists()) {
+                throw new ConflictException('Travel overlaps recorded attendance; travel credit cannot double-count work.', [
+                    'reason' => 'TRAVEL_TIME_CONFLICT',
+                    'conflict_type' => 'ATTENDANCE',
+                ]);
             }
 
             $caseId = $this->workflow->createCase(

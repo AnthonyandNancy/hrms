@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\BusinessTripRecord;
+use App\Modules\Time\Models\LeaveRequestProjection;
+use App\Modules\Time\Models\OvertimeRequest;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Observability\AuditRecorder;
@@ -37,6 +40,40 @@ final class TravelRequestService
 
         if ($overlap) {
             throw new ConflictException('An active travel request overlaps this period.', ['reason' => 'TRAVEL_OVERLAP']);
+        }
+
+        $from = (string) $input['from_date'];
+        $to = (string) $input['to_date'];
+        if (LeaveRequestProjection::query()
+            ->where('employment_id', $employmentId)
+            ->whereIn('state', ['SUBMITTED', 'APPROVED', 'CONSUMED'])
+            ->where('from_date', '<=', $to)
+            ->where('to_date', '>=', $from)
+            ->exists()) {
+            throw new ConflictException('Travel overlaps a leave request; resolve the conflict before applying.', [
+                'reason' => 'TRAVEL_TIME_CONFLICT',
+                'conflict_type' => 'LEAVE',
+            ]);
+        }
+        if (OvertimeRequest::query()
+            ->where('employment_id', $employmentId)
+            ->whereIn('status', [OvertimeRequest::STATUS_APPROVED, OvertimeRequest::STATUS_CONFIRMED])
+            ->whereBetween('business_date', [$from, $to])
+            ->exists()) {
+            throw new ConflictException('Travel overlaps approved overtime; resolve the conflict before applying.', [
+                'reason' => 'TRAVEL_TIME_CONFLICT',
+                'conflict_type' => 'OVERTIME',
+            ]);
+        }
+        if (AttendanceDay::query()
+            ->where('employment_id', $employmentId)
+            ->whereBetween('business_date', [$from, $to])
+            ->where('worked_minutes', '>', 0)
+            ->exists()) {
+            throw new ConflictException('Travel overlaps recorded attendance; travel credit cannot double-count work.', [
+                'reason' => 'TRAVEL_TIME_CONFLICT',
+                'conflict_type' => 'ATTENDANCE',
+            ]);
         }
 
         /** @var BusinessTripRecord $record */
