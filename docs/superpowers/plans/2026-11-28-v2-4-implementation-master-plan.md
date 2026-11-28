@@ -133,8 +133,9 @@
 | 2026-11-28 | T15e performance/training UI | `b848a46` + full gate | 22 gates PASS in 242.7s; bonus mapping dialog + approve, attempt form/source result; log `docs/implementation/v24/15-performance-bonus/gate-all-t15e.log` | T15 complete; MCP remains T18. |
 | 2026-11-28 | T10a rule engine core | `bc3335e` + full gate | 22 gates PASS in 234.9s; strict AST whitelist/depth/node/variable validation, Decimal evaluator, IF/TIER/MIN/MAX/ROUND trace; log `docs/implementation/v24/10-payroll-rules/gate-all-t10a.log` | T10b followed. |
 | 2026-11-28 | T10b SchemeItem execution | `80e06f2` + full gate | 22 gates PASS in 236.0s; FIXED/PERCENT/ATTENDANCE_PRORATE/FORMULA_LIMITED, formula snapshot column, blocked invalid formula; log `docs/implementation/v24/10-payroll-rules/gate-all-t10b.log` | T10c followed. |
-| 2026-11-28 | T10c rule versions | `88a8c26` + full gate | 22 gates PASS in 238.4s; rule version DRAFT/PUBLISHED/RETIRED, hash verification, published AST frozen into snapshot; log `docs/implementation/v24/10-payroll-rules/gate-all-t10c.log` | Rule version API/dependency graph/editor remain T10d. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T10d/T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10d and T17. |
+| 2026-11-28 | T10c rule versions | `88a8c26` + full gate | 22 gates PASS in 238.4s; rule version DRAFT/PUBLISHED/RETIRED, hash verification, published AST frozen into snapshot; log `docs/implementation/v24/10-payroll-rules/gate-all-t10c.log` | T10d followed. |
+| 2026-11-28 | T10d rule API | `20c8249` + full gate | 22 gates PASS in 256.2s; rule list/create/publish/retire HTTP, CommandRunner/idempotency, OpenAPI/actions/ledger, HTTP lifecycle; log `docs/implementation/v24/10-payroll-rules/gate-all-t10d.log` | Dependency graph and restricted editor remain T10e. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T10e/T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10e and T17. |
 
 ---
 
