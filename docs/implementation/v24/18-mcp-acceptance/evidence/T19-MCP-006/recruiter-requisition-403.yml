@@ -1,0 +1,44 @@
+- generic [ref=e3]:
+  - link "跳到主要内容" [ref=e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=e5]:
+    - generic [ref=e6]:
+      - generic [aria-hidden] [ref=e7]: 澄
+      - generic [ref=e8]:
+        - generic [ref=e9]: 澄明 HR
+        - generic [ref=e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=e15]:
+      - link "我的工作台" [ref=e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=e23] [cursor=pointer]
+      - button "系统管理" [ref=e32] [cursor=pointer]
+      - generic [ref=e41]:
+        - button "招聘需求" [expanded] [ref=e42] [cursor=pointer]
+        - link "招聘需求列表" [ref=e51] [cursor=pointer]:
+          - /url: /recruitment/requests
+      - button "候选人" [ref=e57] [cursor=pointer]
+  - generic [ref=e65]:
+    - banner [ref=e66]:
+      - generic [ref=e67]:
+        - paragraph [ref=e68]: 澄明科技 · 人力资源
+        - generic [ref=e69]: 招聘需求列表
+      - link "查看未读公告" [ref=e70] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=e78] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e79]: T1
+        - generic [ref=e80]: t18.recruiter
+    - main [ref=e85]:
+      - generic [ref=e86]:
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - heading "招聘需求" [level=1] [ref=e89]
+            - paragraph [ref=e90]: 按组织单元维护招聘需求、编制和预算。创建后进入服务端审批；审批通过前不能发布岗位或安排面试。
+          - button "刷新" [ref=e92] [cursor=pointer]
+        - alert [ref=e94]:
+          - heading "无权查看招聘需求" [level=2] [ref=e95]
+          - paragraph [ref=e96]: 当前账号缺少 recruitment.requisition.read，页面不会发起任何招聘需求读取请求。
+    - contentinfo [ref=e97]:
+      - generic [ref=e98]: 澄明科技 HRMS
+      - generic [ref=e99]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=e100]: 构建 11c54ba

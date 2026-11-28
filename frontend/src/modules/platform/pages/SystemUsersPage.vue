@@ -172,12 +172,21 @@ async function loadRoles(): Promise<void> {
   rolePermissionDenied.value = false
   try {
     const payload = await resourceGet<unknown>('/v1/roles')
-    roleChoices.value = rowsFrom(payload, 'roles').map((role) => ({
-      code: rowText(role, 'code', ''),
-      name: rowText(role, 'name', rowText(role, 'code', '')),
-      is_template: role.is_template === true,
-      page_count: typeof role.page_count === 'number' ? role.page_count : undefined,
-    }))
+    roleChoices.value = rowsFrom(payload, 'roles').map((role) => {
+      const capabilities = Array.isArray(role.capabilities) ? role.capabilities : []
+      const anchorTypes = [...new Set(capabilities.flatMap((capability) => {
+        if (typeof capability !== 'object' || capability === null) return []
+        const anchorType = (capability as Record<string, unknown>).anchor_type
+        return typeof anchorType === 'string' && anchorType !== '' ? [anchorType] : []
+      }))]
+      return {
+        code: rowText(role, 'code', ''),
+        name: rowText(role, 'name', rowText(role, 'code', '')),
+        is_template: role.is_template === true,
+        page_count: typeof role.page_count === 'number' ? role.page_count : undefined,
+        anchor_types: anchorTypes,
+      }
+    })
   } catch (reason) {
     roleChoices.value = []
     rolePermissionDenied.value = reason instanceof ApiError && reason.code === 'FORBIDDEN'

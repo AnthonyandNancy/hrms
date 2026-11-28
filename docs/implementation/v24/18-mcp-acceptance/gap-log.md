@@ -696,3 +696,16 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 - Real-stack recheck `T19-CRAWL-002`: all four pages have zero non-2xx `/v1`
   responses and zero console errors.
 - Regression: backend devices test plus four frontend no-employment tests.
+
+## GAP-22 — recruitment/shared routes hardcode COMPANY while RECRUITER uses ORG_UNIT
+
+- `T19-MCP-006` assigned RECRUITER with ORG_UNIT=4 and CASE=2 successfully.
+- The synthetic recruiter could log in, but its real pages returned 403:
+  - `/v1/recruitment/requisitions`;
+  - `/v1/engagement/notices`;
+  - `/v1/org-units/tree`.
+- Root cause: recruitment controller and shared read routes call
+  `AnchorRef::company()` despite role-template ORG_UNIT grants.
+- Required fix: use `permits` plus `constrain` for collection reads and
+  resolve resource org-unit anchors for detail/write paths; add org-unit
+  scoped recruiter regressions. This affects R08 and M14-M17.

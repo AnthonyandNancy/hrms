@@ -44,6 +44,7 @@ const users = [
 const roles = [
   { code: 'HR_SPECIALIST', name: '人事专员' },
   { code: 'HR_ADMIN', name: '人事管理员' },
+  { code: 'PAYROLL_SPECIALIST', name: '薪酬专员', capabilities: [{ anchor_type: 'ORG_UNIT' }, { anchor_type: 'PAYROLL_RUN' }] },
 ]
 
 const preview = {
@@ -156,6 +157,35 @@ describe('system users permissions management', () => {
       '/v1/users/12/roles',
       expect.objectContaining({ role_code: 'HR_ADMIN', reason: 'Synthetic acceptance assignment' }),
       expect.objectContaining({ idempotencyKey: expect.stringContaining('role-assign-12-HR_ADMIN') }),
+    )
+  })
+
+  it('requires and submits binding anchors for org and payroll-run roles', async () => {
+    const wrapper = await mountPage()
+    await wrapper.find('[data-testid="assign-roles"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-testid="role-add-PAYROLL_SPECIALIST"]').setValue(true)
+    await wrapper.find('[data-testid="role-reason"]').setValue('Synthetic scoped role assignment')
+    await buttonByText(wrapper, '保存').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="role-error"]').text()).toContain('组织单元')
+    expect(resourcePost).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-testid="role-anchor-PAYROLL_SPECIALIST-ORG_UNIT"]').setValue('3')
+    await wrapper.find('[data-testid="role-anchor-PAYROLL_SPECIALIST-PAYROLL_RUN"]').setValue('7')
+    await buttonByText(wrapper, '保存').trigger('click')
+    await flushPromises()
+
+    expect(resourcePost).toHaveBeenCalledWith(
+      '/v1/users/12/roles',
+      expect.objectContaining({
+        role_code: 'PAYROLL_SPECIALIST',
+        reason: 'Synthetic scoped role assignment',
+        binding_anchors: { ORG_UNIT: 3, PAYROLL_RUN: 7 },
+      }),
+      expect.objectContaining({ idempotencyKey: expect.stringContaining('role-assign-12-PAYROLL_SPECIALIST') }),
     )
   })
 

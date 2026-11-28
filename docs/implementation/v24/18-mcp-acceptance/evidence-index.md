@@ -289,3 +289,13 @@ NOT RUN: role matrix, 155 historical entries, 458 cards, every destructive inter
 ```
 
 - Evidence: `evidence/T19-CRAWL-003/`.
+
+## 16. Execution update — T19-MCP-006
+
+```text
+MCP executed: 8 evidence packs total
+PASS: real UI role assignment with ORG_UNIT and CASE anchor IDs (201)
+PARTIAL/BLOCKED: R08 page access after login (GAP-22 hardcoded COMPANY checks)
+```
+
+- Evidence: `evidence/T19-MCP-006/`.

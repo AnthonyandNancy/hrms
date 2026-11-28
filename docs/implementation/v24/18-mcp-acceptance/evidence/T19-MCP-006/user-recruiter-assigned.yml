@@ -1,0 +1,157 @@
+- generic [ref=f117e3]:
+  - link "跳到主要内容" [ref=f117e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f117e5]:
+    - generic [ref=f117e6]:
+      - generic [aria-hidden] [ref=f117e7]: 澄
+      - generic [ref=f117e8]:
+        - generic [ref=f117e9]: 澄明 HR
+        - generic [ref=f117e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f117e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f117e15]:
+      - link "我的工作台" [ref=f117e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f117e23] [cursor=pointer]
+      - button "报表中心" [ref=f117e32] [cursor=pointer]
+      - button "员工档案" [ref=f117e41] [cursor=pointer]
+      - button "组织与岗位" [ref=f117e50] [cursor=pointer]
+      - button "员工异动" [ref=f117e59] [cursor=pointer]
+      - button "劳动合同" [ref=f117e68] [cursor=pointer]
+      - button "考勤打卡" [ref=f117e77] [cursor=pointer]
+      - button "请假管理" [ref=f117e88] [cursor=pointer]
+      - button "加班管理" [ref=f117e97] [cursor=pointer]
+      - button "出差管理" [ref=f117e108] [cursor=pointer]
+      - button "薪资管理" [ref=f117e117] [cursor=pointer]
+      - button "绩效考核" [ref=f117e128] [cursor=pointer]
+      - generic [ref=f117e136]:
+        - button "系统管理" [expanded] [ref=f117e137] [cursor=pointer]
+        - generic [ref=f117e146]:
+          - link "登录与账号安全" [ref=f117e147] [cursor=pointer]:
+            - /url: /account
+          - link "用户管理" [ref=f117e153] [cursor=pointer]:
+            - /url: /system/users
+          - link "角色管理" [ref=f117e159] [cursor=pointer]:
+            - /url: /system/roles
+          - link "页面目录" [ref=f117e165] [cursor=pointer]:
+            - /url: /system/pages
+          - link "审批流程中心" [ref=f117e171] [cursor=pointer]:
+            - /url: /workflow
+          - link "社保公积金与福利" [ref=f117e177] [cursor=pointer]:
+            - /url: /benefits
+          - link "公司设置" [ref=f117e183] [cursor=pointer]:
+            - /url: /system/settings
+          - link "消息与通知中心" [ref=f117e189] [cursor=pointer]:
+            - /url: /notifications
+          - link "日志审计与运维" [ref=f117e195] [cursor=pointer]:
+            - /url: /system/audit
+      - button "招聘需求" [ref=f117e202] [cursor=pointer]
+      - button "候选人" [ref=f117e211] [cursor=pointer]
+      - button "培训管理" [ref=f117e220] [cursor=pointer]
+      - button "公告通知" [ref=f117e230] [cursor=pointer]
+  - generic [ref=f117e240]:
+    - banner [ref=f117e241]:
+      - generic [ref=f117e242]:
+        - paragraph [ref=f117e243]: 澄明科技 · 人力资源
+        - generic [ref=f117e244]: 用户管理
+      - link "查看未读公告" [ref=f117e245] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f117e253] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f117e254]: IN
+        - generic [ref=f117e255]: installer
+    - main [ref=f117e260]:
+      - generic [ref=f117e261]:
+        - generic [ref=f117e262]:
+          - generic [ref=f117e263]:
+            - heading "用户与角色" [level=1] [ref=f117e264]
+            - paragraph [ref=f117e265]: 维护登录账号、角色与员工任职；所有变更均按能力校验并记录审计。
+          - button "新增用户" [ref=f117e267] [cursor=pointer]
+        - generic [ref=f117e269]:
+          - paragraph [ref=f117e392]: 角色变更已提交；该用户的旧会话已撤销，下一次请求将按新权限求值。
+          - generic [ref=f117e270]:
+            - generic [ref=f117e271]:
+              - heading "账号列表" [level=2] [ref=f117e272]
+              - generic [ref=f117e273]: 共 3 个账号
+            - generic [ref=f117e274]:
+              - generic [ref=f117e275]:
+                - text: 状态
+                - generic [ref=f117e277] [cursor=pointer]:
+                  - generic:
+                    - combobox "状态 请选择" [ref=f117e279]
+                    - generic [ref=f117e280]: 请选择
+              - generic [ref=f117e285]:
+                - text: 角色
+                - generic [ref=f117e287] [cursor=pointer]:
+                  - generic:
+                    - combobox "角色 请选择" [ref=f117e289]
+                    - generic [ref=f117e290]: 请选择
+              - button "刷新" [ref=f117e295] [cursor=pointer]
+            - generic [ref=f117e297]:
+              - textbox "搜索列表" [ref=f117e305]:
+                - /placeholder: 搜索用户名或邮箱
+              - region "数据表格，可横向滚动" [ref=f117e307]:
+                - table "共 3 条记录，第 1 页，共 1 页" [ref=f117e308]:
+                  - caption [ref=f117e309]: 共 3 条记录，第 1 页，共 1 页
+                  - rowgroup [ref=f117e310]:
+                    - row [ref=f117e311]:
+                      - columnheader "用户名" [ref=f117e312]
+                      - columnheader "显示名称" [ref=f117e313]
+                      - columnheader "状态" [ref=f117e314]
+                      - columnheader "角色" [ref=f117e315]
+                      - columnheader "员工任职" [ref=f117e316]
+                      - columnheader "最近登录" [ref=f117e317]
+                      - columnheader "操作" [ref=f117e318]
+                  - rowgroup [ref=f117e393]:
+                    - row [ref=f117e394]:
+                      - cell "installer" [ref=f117e395]
+                      - cell "installer" [ref=f117e396]
+                      - cell "在职" [ref=f117e397]
+                      - cell "SYSTEM_ADMIN" [ref=f117e398]
+                      - cell "未绑定" [ref=f117e399]
+                      - cell "2026-11-28 19:34" [ref=f117e400]
+                      - cell [ref=f117e401]:
+                        - generic [ref=f117e402]:
+                          - button "分配角色" [ref=f117e403] [cursor=pointer]
+                          - button "权限预览" [ref=f117e405] [cursor=pointer]
+                          - button "停用" [ref=f117e407] [cursor=pointer]
+                          - button "撤销全部会话" [ref=f117e409] [cursor=pointer]
+                    - row [ref=f117e411]:
+                      - cell "t19.payroll" [ref=f117e412]
+                      - cell "t19.payroll" [ref=f117e413]
+                      - cell "在职" [ref=f117e414]
+                      - cell "AUDITOR、AUDITOR、PAYROLL_SPECIALIST_T19、TRAINING_ADMIN" [ref=f117e415]
+                      - cell "未绑定" [ref=f117e416]
+                      - cell "2026-11-28 19:08" [ref=f117e417]
+                      - cell [ref=f117e418]:
+                        - generic [ref=f117e419]:
+                          - button "分配角色" [ref=f117e420] [cursor=pointer]
+                          - button "权限预览" [ref=f117e422] [cursor=pointer]
+                          - button "停用" [ref=f117e424] [cursor=pointer]
+                          - button "撤销全部会话" [ref=f117e426] [cursor=pointer]
+                    - row [ref=f117e428]:
+                      - cell "t18.recruiter" [ref=f117e429]
+                      - cell "t18.recruiter" [ref=f117e430]
+                      - cell "在职" [ref=f117e431]
+                      - cell "RECRUITER" [ref=f117e432]
+                      - cell "未绑定" [ref=f117e433]
+                      - cell "从未登录" [ref=f117e434]
+                      - cell [ref=f117e435]:
+                        - generic [ref=f117e436]:
+                          - button "分配角色" [ref=f117e437] [cursor=pointer]
+                          - button "权限预览" [ref=f117e439] [cursor=pointer]
+                          - button "停用" [ref=f117e441] [cursor=pointer]
+                          - button "撤销全部会话" [ref=f117e443] [cursor=pointer]
+              - generic [ref=f117e371]:
+                - generic [ref=f117e372]: 共 3 条
+                - generic [ref=f117e373]:
+                  - generic [ref=f117e376] [cursor=pointer]:
+                    - generic:
+                      - combobox [ref=f117e378]
+                      - generic [ref=f117e379]: 20条/页
+                  - button "上一页" [disabled] [ref=f117e384]
+                  - list [ref=f117e385]:
+                    - listitem "第 1 页" [ref=f117e386]: "1"
+                  - button "下一页" [disabled] [ref=f117e387]
+    - contentinfo [ref=f117e388]:
+      - generic [ref=f117e389]: 澄明科技 HRMS
+      - generic [ref=f117e390]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f117e391]: 构建 11c54ba

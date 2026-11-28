@@ -147,3 +147,13 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
   responses and zero console errors; evidence under T19-CRAWL-002.
 - This remains an incremental image path on the validated release base; a fresh
   full Dockerfile build is still a release-hardening item.
+
+
+## v24-t19f role-assignment UI
+
+- Frontend image `factoryhr/frontend:v24-t19f` adds required anchor-id inputs
+  to UserRoleDrawer.
+- Real RECRUITER assignment with ORG_UNIT=4 and CASE=2 returned 201.
+- Recruiter login returned 200.
+- R08 page access is still blocked by GAP-22 (hardcoded COMPANY checks in
+  recruitment/shared routes); this is not accepted as R08 PASS.
