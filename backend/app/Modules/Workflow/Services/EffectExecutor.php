@@ -240,9 +240,24 @@ final class EffectExecutor
                 ->first();
 
             if ($existing !== null) {
-                return $existing->status === EffectStatus::REVERSED
-                    ? EffectResult::reversed()
-                    : new EffectResult($existing->status);
+                if ($existing->status === EffectStatus::REVERSED) {
+                    return EffectResult::reversed();
+                }
+
+                if ($existing->status !== EffectStatus::FAILED) {
+                    return new EffectResult($existing->status);
+                }
+
+                // A failed reversal is retryable while the original effect is
+                // still APPLIED. Never flip the original to REVERSED until the
+                // reverse handler actually succeeds.
+                $retried = $this->executeReversalLocked($existing);
+                if ($retried->status === EffectStatus::REVERSED) {
+                    $original->forceFill(['status' => EffectStatus::REVERSED, 'updated_at' => $this->clock->now()])->save();
+                    $this->projection->refresh($original->case);
+                }
+
+                return $retried;
             }
 
             if ($original->status !== EffectStatus::APPLIED) {
@@ -288,6 +303,14 @@ final class EffectExecutor
             ]);
 
             $result = $this->executeReversalLocked($reversal);
+
+            if ($result->status !== EffectStatus::REVERSED) {
+                // The original stays APPLIED, and the reversal row remains
+                // retryable. Returning FAILED would let business callers falsely
+                // treat a revoked projection as committed.
+                return $result;
+            }
+
             $original->forceFill(['status' => EffectStatus::REVERSED, 'updated_at' => $now])->save();
             $this->projection->refresh($original->case);
 

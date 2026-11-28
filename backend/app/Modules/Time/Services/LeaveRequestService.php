@@ -746,11 +746,19 @@ final class LeaveRequestService
             return 0;
         }
 
-        $this->workflow->reverseEffect(
+        $result = $this->workflow->reverseEffect(
             caseId: (int) $projection->case_id,
             reason: $reason,
             effectiveOn: $this->clock->now()->toDateString(),
         );
+
+        if ((int) ($result['reversed'] ?? 0) < 1) {
+            throw new ConflictException('The Workflow effect reversal did not complete.', [
+                'reason' => 'EFFECT_REVERSAL_FAILED',
+                'case_id' => (int) $projection->case_id,
+                'effect_status' => (string) ($result['effect_status'] ?? 'UNKNOWN'),
+            ]);
+        }
 
         return $consumed;
     }

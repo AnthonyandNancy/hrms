@@ -34,7 +34,10 @@ interface WorkflowCasePort
 
     /**
      * Execute the declared reversal for an already applied case effect.
-     * Workflow remains the owner of the effect row and status.
+     * Workflow remains the owner of the effect row and status. The caller must
+     * only commit its own projection when the returned reversal succeeded.
+     *
+     * @return array{case_id: int, effect_status: string, reversed: int}
      */
-    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): void;
+    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): array;
 }

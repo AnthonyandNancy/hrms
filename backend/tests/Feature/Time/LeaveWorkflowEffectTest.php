@@ -20,6 +20,9 @@ use App\Modules\Time\Services\LeavePolicyService;
 use App\Modules\Time\Services\LeaveRequestService;
 use App\Modules\Time\Services\TimeFactVersionService;
 use App\Modules\Workflow\Contracts\AssigneeDirectory;
+use App\Modules\Workflow\Contracts\EffectHandler;
+use App\Modules\Workflow\Domain\EffectRegistry;
+use App\Modules\Workflow\Domain\EffectResult;
 use App\Modules\Workflow\Enums\EffectStatus;
 use App\Modules\Workflow\Models\Effect;
 use App\Modules\Workflow\Services\EffectExecutor;
@@ -153,6 +156,78 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertNotNull($after);
         $this->assertSame(0, $after->unpaidLeaveMinutes);
         $this->assertSame(0, $after->paidLeaveMinutes);
+    }
+
+    public function test_failed_reverse_handler_keeps_original_effect_and_time_projection_approved_then_retry_succeeds(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->requestLeave((int) $type->id, 'ANNUAL', '2026-12-08', '2026-12-08');
+        $effect = Effect::query()->where('case_id', $caseId)->firstOrFail();
+        $workingRegistry = $this->app->make(EffectRegistry::class);
+
+        $failing = new class implements EffectHandler
+        {
+            public function supports(string $effectType): bool
+            {
+                return $effectType === 'time.leave.reverse';
+            }
+
+            public function apply(Effect $effect): EffectResult
+            {
+                throw new \RuntimeException('Synthetic apply failure.');
+            }
+
+            public function reverse(Effect $effect): EffectResult
+            {
+                throw new \RuntimeException('Synthetic reverse handler failure.');
+            }
+        };
+        $this->bindEffectHandler($failing, 'time.leave.reverse');
+
+        $this->actAs(20);
+        try {
+            app(LeaveRequestService::class)->cancel(
+                caseId: $caseId,
+                actorUserId: 20,
+                reason: 'Synthetic reversal failure.',
+                revoke: true,
+                managerOverride: true,
+            );
+            $this->fail('A failed Workflow reversal must abort Time revocation.');
+        } catch (ConflictException $exception) {
+            $this->assertContains(
+                $exception->details()['reason'] ?? '',
+                ['EFFECT_REVERSAL_FAILED', 'PERIOD_CLOSED'],
+            );
+        }
+
+        $this->assertSame(EffectStatus::APPLIED, Effect::query()->whereKey($effect->id)->firstOrFail()->status);
+        $this->assertSame('APPROVED', (string) LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+        $this->assertSame(0, LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'REVERSE')
+            ->count());
+        $this->assertDatabaseCount('effects', 1);
+
+        $this->app->instance(EffectRegistry::class, $workingRegistry);
+        $retry = app(LeaveRequestService::class)->cancel(
+            caseId: $caseId,
+            actorUserId: 20,
+            reason: 'Synthetic reversal retry.',
+            revoke: true,
+            managerOverride: true,
+        );
+
+        $this->assertSame('REVOKED', $retry['state']);
+        $this->assertSame(480, $retry['reversed_minutes']);
+        $this->assertSame(EffectStatus::REVERSED, Effect::query()->whereKey($effect->id)->firstOrFail()->status);
+        $this->assertSame(1, LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'REVERSE')
+            ->count());
+        $this->assertDatabaseCount('effects', 2);
     }
 
     public function test_partial_and_unpaid_policies_enter_payroll_from_first_class_treatment_columns(): void

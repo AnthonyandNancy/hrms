@@ -100,7 +100,7 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
         $this->cases->withdraw($this->principalFor($actorUserId), $caseId, $reason);
     }
 
-    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): void
+    public function reverseEffect(int $caseId, string $reason, string $effectiveOn): array
     {
         $principal = $this->principals->resolve();
 
@@ -111,7 +111,7 @@ final class WorkflowCaseAdapter implements WorkflowCasePort
             );
         }
 
-        $this->cases->reverseEffect($principal, $caseId, $reason, $effectiveOn);
+        return $this->cases->reverseEffect($principal, $caseId, $reason, $effectiveOn);
     }
 
     private function principalFor(int $userId): WorkflowPrincipal

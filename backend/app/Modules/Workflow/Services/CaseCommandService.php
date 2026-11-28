@@ -10,8 +10,10 @@ use App\Modules\Workflow\Enums\DecisionAction;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\Effect;
 use App\Modules\Workflow\Models\WorkflowTemplate;
+use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Exceptions\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Workflow-owned implementation of the business-module case command port. The
@@ -127,43 +129,61 @@ final class CaseCommandService implements CaseCommandPort
         string $reason,
         string $effectiveOn,
     ): array {
-        $case = CaseModel::query()->whereKey($caseId)->first();
+        return DB::transaction(function () use ($principal, $caseId, $reason, $effectiveOn): array {
+            $case = CaseModel::query()
+                ->whereKey($caseId)
+                ->lockForUpdate()
+                ->first();
 
-        if ($case === null) {
-            throw NotFoundException::forResource();
-        }
+            if ($case === null) {
+                throw NotFoundException::forResource();
+            }
 
-        if ((int) $case->requester_user_id !== $principal->userId
-            && ! $principal->can('workflow.case.admin')) {
-            throw NotFoundException::forResource();
-        }
+            if ((int) $case->requester_user_id !== $principal->userId
+                && ! $principal->can('workflow.case.admin')) {
+                throw NotFoundException::forResource();
+            }
 
-        $effects = Effect::query()
-            ->where('case_id', $caseId)
-            ->whereNull('reversal_of_id')
-            ->where('status', \App\Modules\Workflow\Enums\EffectStatus::APPLIED->value)
-            ->orderBy('id')
-            ->get();
+            $effects = Effect::query()
+                ->where('case_id', $caseId)
+                ->whereNull('reversal_of_id')
+                ->where('status', \App\Modules\Workflow\Enums\EffectStatus::APPLIED->value)
+                ->orderBy('id')
+                ->get();
 
-        if ($effects->isEmpty()) {
+            if ($effects->isEmpty()) {
+                return [
+                    'case_id' => $caseId,
+                    'effect_status' => $case->effect_status->value,
+                    'reversed' => 0,
+                ];
+            }
+
+            $reversed = 0;
+
+            foreach ($effects as $effect) {
+                $result = app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn);
+
+                if ($result->status !== \App\Modules\Workflow\Enums\EffectStatus::REVERSED) {
+                    throw new ConflictException('The Workflow effect reversal failed and remains retryable.', [
+                        'reason' => 'EFFECT_REVERSAL_FAILED',
+                        'effect_id' => (int) $effect->id,
+                        'effect_type' => (string) $effect->effect_type,
+                        'effect_status' => $result->status->value,
+                    ]);
+                }
+
+                $reversed++;
+            }
+
+            $case->refresh();
+
             return [
                 'case_id' => $caseId,
                 'effect_status' => $case->effect_status->value,
-                'reversed' => 0,
+                'reversed' => $reversed,
             ];
-        }
-
-        foreach ($effects as $effect) {
-            app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn);
-        }
-
-        $case->refresh();
-
-        return [
-            'case_id' => $caseId,
-            'effect_status' => $case->effect_status->value,
-            'reversed' => $effects->count(),
-        ];
+        });
     }
 
     public function find(int $caseId): ?array

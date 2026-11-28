@@ -28,7 +28,6 @@ final class LeaveApprovalService
         private readonly PayrollFreezeGuard $freezeGuard,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
-        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -84,9 +83,12 @@ final class LeaveApprovalService
 
             $this->policyForProjection($projection, $fromDate, $minutes);
 
-            // Ledger money/facts belong to the leave month. Lock the same
-            // durable Time month mutex used by close and all other mutations.
-            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
+            // Ledger money/facts belong to every month spanned by the request.
+            // Hold the same durable Time month mutexes used by close and all
+            // other fact mutations for the entire consume transaction.
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $projection->to_date->format('Y-m-d')) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
 
             $this->ledger->consume(
                 employmentId: $employmentId,

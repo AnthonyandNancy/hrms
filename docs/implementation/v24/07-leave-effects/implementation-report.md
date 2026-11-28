@@ -208,3 +208,26 @@ Not run: `gate:all` (out of the requested boundary).
   historical imports are migrated to explicit policies.
 - OpenAPI already declared `LeavePolicyCatalog.payroll_treatment` and
   `paid_ratio_scaled`; no contract change was required.
+
+## T07a update — reversal atomicity and lock preservation
+
+- Rebased the T07 branch onto the hardened T06 main (`b888693`, containing
+  `58fbe80` month locks and signed-net allocation).
+- `LeaveApprovalService` now locks every month in the request range using
+  `PayrollFreezeGuard::periodsForRange()` before writing CONSUME.
+- Added a regression test proving a throwing reverse handler cannot mark the
+  original Workflow effect or Time projection as successful. The original
+  effect remains `APPLIED`, the projection remains `APPROVED`, no REVERSE is
+  written, and a later retry with a working handler succeeds.
+- `EffectExecutor::reverse()` flips the original effect to REVERSED only after
+  the reverse handler returns REVERSED; FAILED reversal rows are retryable.
+- `CaseCommandService::reverseEffect()` runs inside one transaction with the
+  case lock and throws `EFFECT_REVERSAL_FAILED` instead of reporting a failed
+  reversal as successful.
+- `WorkflowCasePort::reverseEffect()` and its adapter now return the Workflow
+  outcome so Time commits `REVOKED` only after both Workflow and ledger
+  reversal succeed.
+- This is **T07a only**. Reject/return/withdraw release, real admin-role
+  authorization, existing template upgrade, reversal audit/outbox, first-class
+  UNRESOLVED submission boundary, company-timezone dates, real HTTP revoke
+  coverage and Payroll Snapshot consumption remain T07b/T07c.
