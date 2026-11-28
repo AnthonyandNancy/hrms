@@ -176,3 +176,13 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
 - EmployeeListPage gates department/position lookups by their capabilities.
 - Real `demo.manager` receives 3 scoped rows and zero post-login non-2xx; the
   employee page has no department/position selector errors.
+
+
+## v24-t19j readiness and R09 audit
+
+- Readiness now treats one-or-more active administrators as healthy; zero
+  remains unhealthy. This removes a false 503 in normal multi-admin deployments.
+- With the synthetic second admin still present, `/v1/health/ready` returned 200
+  and all six checks were true.
+- Auditor `/system/audit` and `/v1/audit/events` returned 200; only the expected
+  pre-login `/v1/me` 401 remains.

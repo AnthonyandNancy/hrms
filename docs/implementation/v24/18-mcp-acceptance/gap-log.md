@@ -718,3 +718,10 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
   `engagement.notice.read`.
 - Real recruiter verification: requisitions/candidates/org-tree 200; no shell
   notices request; only the pre-login `/v1/me` 401 remains.
+
+### GAP-24 status — FIXED in v24-t19j
+
+- Readiness now requires at least one active privileged administrator, not
+  exactly one.
+- Regression proves 0 admins is unhealthy and 2 admins is healthy.
+- Auditor audit page returns 200 with readiness 200 and audit events 200.

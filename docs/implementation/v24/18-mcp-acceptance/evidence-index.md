@@ -334,3 +334,14 @@ NOT RUN: full R01–R09 module/action matrix, 155 entries, 458 cards
 - Evidence: `evidence/T19-ROLES-001/`.
 - GAP-24: R09 audit readiness is blocked by the synthetic second privileged
   administrator; final T19 clean baseline must be re-run without demo admin.
+
+## 20. Execution update — T19-MCP-008
+
+```text
+MCP executed: 12 evidence packs total
+PASS: R09 auditor audit page, readiness 200 with two admins
+FIXED: GAP-24 readiness over-strict administrator count
+NOT RUN: full module/action matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-008/`.

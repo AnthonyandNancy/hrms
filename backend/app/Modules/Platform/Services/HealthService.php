@@ -94,7 +94,7 @@ class HealthService
     public function administratorHealthy(): bool
     {
         try {
-            return $this->administrators->count() === 1;
+            return $this->administrators->count() > 0;
         } catch (Throwable) {
             return false;
         }

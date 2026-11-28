@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\Platform\Contracts\InstallationStateStore;
 use App\Modules\Platform\Services\HealthService;
+use App\Shared\Health\ActiveAdministratorDirectory;
 use Mockery;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class HealthProbeTest extends TestCase
@@ -102,6 +105,23 @@ class HealthProbeTest extends TestCase
             ->assertJsonPath('data.checks.migrations', true)
             ->assertJsonPath('data.checks.installation', true)
             ->assertJsonPath('data.checks.administrator', true);
+    }
+
+    public function test_administrator_readiness_accepts_one_or_more_active_administrators(): void
+    {
+        /** @var InstallationStateStore&MockInterface $store */
+        $store = Mockery::mock(InstallationStateStore::class);
+        /** @var ActiveAdministratorDirectory&MockInterface $admins */
+        $admins = Mockery::mock(ActiveAdministratorDirectory::class);
+        $admins->shouldReceive('count')->once()->andReturn(0);
+        $service = new HealthService($store, $admins);
+        $this->assertFalse($service->administratorHealthy());
+
+        /** @var ActiveAdministratorDirectory&MockInterface $admins */
+        $admins = Mockery::mock(ActiveAdministratorDirectory::class);
+        $admins->shouldReceive('count')->once()->andReturn(2);
+        $service = new HealthService($store, $admins);
+        $this->assertTrue($service->administratorHealthy(), 'A second administrator is a normal production state, not unreadiness.');
     }
 
     public function test_legacy_health_remains_degraded_not_unavailable_for_cache_failure(): void

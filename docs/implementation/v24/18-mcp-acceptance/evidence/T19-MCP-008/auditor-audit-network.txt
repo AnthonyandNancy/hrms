@@ -1,0 +1,19 @@
+555. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+557. [GET] http://127.0.0.1:5190/v1/auth/csrf => [200] OK
+558. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+559. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+578. [GET] http://127.0.0.1:5190/v1/me/workspace => [200] OK
+579. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+580. [GET] http://127.0.0.1:5190/v1/engagement/notices?filter=unread => [200] OK
+581. [GET] http://127.0.0.1:5190/v1/tasks/my => [200] OK
+582. [GET] http://127.0.0.1:5190/v1/payroll/payslips => [200] OK
+586. [GET] http://127.0.0.1:5190/v1/me => [401] Unauthorized
+591. [POST] http://127.0.0.1:5190/v1/auth/login => [200] OK
+592. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+593. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+594. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+607. [GET] http://127.0.0.1:5190/v1/health/ready => [200] OK
+608. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+609. [GET] http://127.0.0.1:5190/v1/audit/events?page=1&page_size=20 => [200] OK
+
+Note: 41 static requests not shown, run with "static" option to see them.
