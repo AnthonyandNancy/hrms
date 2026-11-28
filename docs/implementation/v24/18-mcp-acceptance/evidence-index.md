@@ -32,26 +32,63 @@
 | `MCP-ENV-004` | 生产拒绝 demo/reset | 独立 test env | `NOT RUN` | `evidence/env/MCP-ENV-004.md` |
 | `MCP-ENV-005` | 合成数据清单与 ID | 账号/锚点 | `NOT RUN` | `evidence/env/MCP-ENV-005.md` |
 
-## 3. 开始前已知阻塞 / 未映射
+## 3. 开始前已知阻塞 / 未映射（GAP-01–GAP-20 全量）
 
-> 这些不是“执行后的 BLOCKED 结论”，而是 T18 开始前已确认的阻塞或未映射。执行时每个受影响证据项必须单独登记，不得只在总索引写一句话。
+> 这些不是“执行后的 BLOCKED 结论”，而是 T18 开始前已确认的阻塞或未映射。执行时每个受影响证据项必须单独登记，不得只在总索引写一句话。完整事实、影响与解除条件见 `gap-log.md`。
 
 | ID | 类型 | 问题 | 影响 | 解除条件 | 当前状态 |
 |---|---|---|---|---|---|
-| `GAP-01` | `BLOCKED` | 458 功能卡明细不在仓库，只有模块汇总数 | AC-01/AC-21 的 458 卡逐项覆盖 | 提供权威 458 卡清单/整改包，或用户正式修订口径 | `OPEN` |
-| `GAP-02` | `UNMAPPED` | master plan 只有 T00–T19，AC/计划要求 T01–T24 | AC-01/AC-21 任务覆盖 | 提供 T20–T24 权威任务卡或修订 | `OPEN` |
+| `GAP-01` | `BLOCKED` | 458 卡源包存在但**权威性待确认**（包内“待审批/待确认”） | AC-01/AC-21 不能把草稿当批准需求 | 源包获批/修订；卡明细已提取到 `458-card-index.md` | `OPEN` |
+| `GAP-02` | `UNMAPPED` | master plan 只有 T00–T19；AC/计划要求 T01–T24 | AC-01/AC-21 任务覆盖 | 提供 T20–T24 权威任务卡或修订 | `OPEN` |
 | `GAP-03` | `BLOCKED` | T05–T17 在 master plan 仍为 PENDING | T18 依赖；MCP 业务执行 | 相关任务完成并有证据 | `OPEN` |
 | `GAP-04` | `CONFLICT` | T06 计划表 PENDING vs `06-time-facts/implementation-report.md` COMPLETE | M09–M12 前置状态 | 统一计划/证据状态 | `OPEN` |
-| `GAP-05` | `BLOCKED` | 角色分配 UI 无 `binding_anchors` | R03/R05/R08 无法通过 UI 构造 | 补锚点 UI 或用户批准受控 CLI 仅造前置数据 | `OPEN` |
+| `GAP-05` | `BLOCKED` | R03/R04/R05/R08 需要 ORG_UNIT/PAYROLL_RUN/CASE anchor_id，但 `iam:bind-role` 只写 null、`UserRoleDrawer` 不传 `binding_anchors` | 4 个角色无法构造；M09–M16 相关角色验收 | T02/T19 增加 anchor binding UI/命令 | `OPEN` |
 | `GAP-06` | `UNMAPPED` | M21 无备份/恢复/升级 UI | 6 卡中的安装/升级/备份恢复 | 转 T19 运维证据；T18 不伪造 | `OPEN` |
 | `GAP-07` | `UNMAPPED` | M17 员工档案无培训记录 Tab | E2E-09/M17 卡片 | 补只读入口或用户接受未映射 | `OPEN` |
 | `GAP-08` | `UNMAPPED` | M09 无本人打卡写端点 | “打卡”卡片可能不可执行 | 导航确认；无入口则标 UNMAPPED | `OPEN` |
 | `GAP-09` | `UNMAPPED` | M08 manifest 声明 activate，但 ContractDetailPage 无按钮 | 激活动作 UI 验收 | 补按钮/页面或改口径 | `OPEN` |
 | `GAP-10` | `COUNT` | M19 入口数摘要 6 vs 附录 A 7 页 | 模块计数口径 | 统一为 V2.3 矩阵 6 条 | `OPEN` |
-| `GAP-11` | `COUNT` | V2.3 模块汇总 M01=7 页 vs 矩阵 8 条；M19=7 vs 6 | 附录 A 汇总与矩阵不完全一致 | 以 155 行矩阵为准，保留目标口径 | `OPEN` |
+| `GAP-11` | `COUNT` | M01=7 页（源包）vs 155 矩阵 8 入口；M19=7 页（源包）vs 6 入口 | 页面数≠入口数口径 | 以 155 行台账为准，页面数单独引用源包 | `OPEN` |
 | `GAP-12` | `CONTRACT` | Dashboard metric OpenAPI 旧 schema 与实现 DTO 漂移 | M02/M03 契约断言 | 以实际响应+契约测试统一 | `OPEN` |
 | `GAP-13` | `DOC` | `registry.ts` 头注释仍写 155，实际 37 | 计数阅读 | 以数组/测试为准 | `OPEN` |
 | `GAP-14` | `ENV` | `frontend/.env.example` 写 `VITE_PROXY_TARGET`，`vite.config.ts` 用 `VITE_DEV_API_PROXY_TARGET` | 本地代理启动 | 统一变量或明确使用正确变量 | `OPEN` |
+| `GAP-15` | `ACTION` | 页面可见写动作未入 generated action manifest（M03/M04/M05/M09/M13/M14/M15/M16/M17/M18/M20 等） | 动作覆盖/AC-05/AC-21 | T02/T17 补齐 manifest/registry；或按 UI 验收并保留风险 | `OPEN` |
+| `GAP-16` | `EVIDENCE` | T00–T04 evidence 引用 `gate-all.log`，文件不存在 | 证据可复核性 | 补原始日志或 T19 重跑 | `OPEN` |
+| `GAP-17` | `ROLE` | `ATTENDANCE_SPECIALIST`/`PAYROLL_APPROVER`/`RECRUITER`/`AUDITOR` 无 demo 账号 | R01–R09（7 核心 + 2 补充）覆盖 | 补 seed/账号；锚点部分仍受 GAP-05 | `OPEN` |
+| `GAP-18` | `ENV` | MFA 默认关闭，但 demo seed 创建并打印 TOTP；`backend/.env` 可被改 true | 登录 200 vs 202 分支 | 固定 compose `IAM_MFA_ENABLED=false` 并记录；MFA=true 单独证据 | `OPEN` |
+| `GAP-19` | `COUNT` | 当前 37 页面含 `/performance/cycles/:id`，不在 V2.3 目标 36 清单 | 页面计数 | 用户确认 37 为正式口径或后续改为 36 | `OPEN` |
+| `GAP-20` | `CARD-MAP` | 458 卡已提取 ID/标题，但源卡没有“卡→`page_code`/action/API”稳定映射 | 卡级执行槽 | 用户/评审确认卡到当前页面/动作映射规则；不得猜 | `OPEN` |
+
+## 3A. 458 功能卡索引
+
+完整 155 页/458 卡 ID 与标题见 `458-card-index.md`。源包状态为**待审批/待确认**；本索引只建立可追溯槽位，不把卡片当已批准需求，也不预写 PASS。
+
+| 模块 | 页面数 | 卡数 | 卡索引范围 | 执行结论 |
+|---|---:|---:|---|---|
+| M01 | 7 | 18 | `M01-P001`–`M01-P006`,`M01-P150` | `NOT RUN` |
+| M02 | 6 | 13 | `M02-P007`–`M02-P012` | `NOT RUN` |
+| M03 | 9 | 26 | `M03-P013`–`M03-P021` | `NOT RUN` |
+| M04 | 10 | 29 | `M04-P022`–`M04-P031` | `NOT RUN` |
+| M05 | 5 | 11 | `M05-P032`–`M05-P036` | `NOT RUN` |
+| M06 | 5 | 14 | `M06-P037`–`M06-P041` | `NOT RUN` |
+| M07 | 9 | 30 | `M07-P042`–`M07-P050` | `NOT RUN` |
+| M08 | 6 | 19 | `M08-P051`–`M08-P056` | `NOT RUN` |
+| M09 | 10 | 37 | `M09-P057`–`M09-P066` | `NOT RUN` |
+| M10 | 8 | 21 | `M10-P067`–`M10-P074` | `NOT RUN` |
+| M11 | 6 | 18 | `M11-P075`–`M11-P080` | `NOT RUN` |
+| M12 | 7 | 17 | `M12-P081`–`M12-P087` | `NOT RUN` |
+| M13 | 13 | 49 | `M13-P088`–`M13-P100` | `NOT RUN` |
+| M14 | 1 | 2 | `M14-P151` | `NOT RUN` |
+| M15 | 10 | 30 | `M15-P101`–`M15-P110` | `NOT RUN` |
+| M16 | 16 | 43 | `M16-P111`–`M16-P126` | `NOT RUN` |
+| M17 | 9 | 36 | `M17-P127`–`M17-P135` | `NOT RUN` |
+| M18 | 6 | 17 | `M18-P136`–`M18-P140`,`M18-P154` | `NOT RUN` |
+| M19 | 7 | 15 | `M19-P141`–`M19-P147` | `NOT RUN` |
+| M20 | 2 | 7 | `M20-P148`–`M20-P149` | `NOT RUN` |
+| M21 | 3 | 6 | `M21-P152`,`M21-P153`,`M21-P155` | `NOT RUN` |
+| **合计** | **155** | **458** | 完整 ID/标题见 `458-card-index.md` | **全部 NOT RUN** |
+
+> 源包页面数按工作区归属为 M01=7、M19=7；155 入口矩阵按入口号归属为 M01=8、M19=6。两者总数都是 155，但口径不同，见 GAP-11。
 
 ## 4. 21 模块证据索引
 
@@ -108,20 +145,30 @@
 - 12 条跨模块闭环。
 - 环境/安装/健康/账号/数据前置证据。
 - 155 个历史入口逐条的“当前可达/404/目标页/证据”结论。
-- 458 卡逐卡结论（仅在权威卡片源补齐后）。
+- 458 卡逐卡结论（卡索引已齐；源包权威确认与 card→page/action 映射仍 OPEN）。
 - T20–T24 逐任务结论（仅在权威任务卡补齐后）。
 
 ### 6.2 当前阻塞/未映射
 
-- 458 卡明细缺失（GAP-01）。
+- 458 卡源包存在但权威性待确认（GAP-01）；ID/标题已提取到 `458-card-index.md`。
 - T20–T24 缺任务卡（GAP-02）。
 - T05–T17 未完成（GAP-03）。
 - T06 状态冲突（GAP-04）。
-- 角色锚点 UI 缺失（GAP-05）。
+- R03/R04/R05/R08 锚点 UI/命令缺失（GAP-05）。
 - M21 备份/恢复/升级无 UI（GAP-06）。
 - M17 员工档案培训入口缺失（GAP-07）。
 - M09 打卡写入口缺失/未确认（GAP-08）。
 - M08 activate UI 缺失（GAP-09）。
+- M19/附录 A 入口计数冲突（GAP-10/GAP-11）。
+- Dashboard metric 契约漂移（GAP-12）。
+- registry 头注释过期（GAP-13）。
+- Vite 代理变量名不一致（GAP-14）。
+- 页面写动作未入 action manifest（GAP-15）。
+- T00–T04 gate 日志缺失（GAP-16）。
+- 缺角色 demo 账号（GAP-17）。
+- MFA 开关/seed 行为需固定（GAP-18）。
+- `/performance/cycles/:id` 不在 36 目标清单（GAP-19）。
+- 458 卡无稳定 card→page/action 映射（GAP-20）。
 
 ### 6.3 完成条件
 
@@ -130,11 +177,11 @@ T18 只有同时满足以下条件才可判 `PASS`：
 1. 21 模块证据齐全，且无未解释 `FAIL`；已明确 `BLOCKED/UNMAPPED` 的项由用户正式接受或补齐。
 2. 12 条跨模块闭环全部真实执行并通过。
 3. 155 历史入口逐条有证据或明确的 404/目标页结论。
-4. 458 卡逐卡有结论；若源缺失，AC-01/AC-21 不能 PASS。
+4. 458 卡逐卡有结论，且源包已获权威确认；未确认时 AC-01/AC-21 不能 PASS。
 5. T01–T24 逐项有结论；T20–T24 缺失时不能 PASS。
 6. 所有证据按模板保存，索引与实际文件一致。
 7. 无未关闭 Sev1/Sev2 缺陷；金额泄漏=0；旧标签撤权写=拒绝；工资通知无金额。
-8. 真实 `VITE_API_MODE=http`、MySQL/Redis/对象存储、干净安装、5+ 角色均可复核。
+8. 真实 `VITE_API_MODE=http`、MySQL/Redis/对象存储、干净安装、R01–R09（7 核心 + 2 补充）均可复核。
 
 ## 7. 更新规则
 
@@ -155,7 +202,7 @@ PASS: 0
 FAIL: 0
 BLOCKED (executed): 0
 NOT RUN: 21 modules + 12 cross-module flows + env items
-Known gaps: GAP-01..GAP-14
+Known gaps: GAP-01..GAP-20
 ```
 
 上述计数是本文件的真实初始值，不构成任何业务验收结论。

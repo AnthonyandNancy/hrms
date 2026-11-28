@@ -2,9 +2,9 @@
 
 - **状态：** RUNBOOK READY；MCP 尚未执行
 - **日期：** 2026-11-28
-- **适用范围：** T18 全后台 21 模块、37 当前页面、155 历史入口 dispositions、12 个跨模块闭环；458 卡明细缺失时按 `CARD-DETAIL BLOCKED` 处理
+- **适用范围：** T18 全后台 21 模块、37 当前页面、155 历史入口、458 张源包功能卡、12 个跨模块闭环；源包存在但**权威性待确认**
 - **禁止：** 用 mock、SQLite、自动 Playwright test、`--list`、OpenAPI lint、API 调用记录或代码审阅替代人工 MCP 证据
-- **配套文件：** `21-module-mcp-acceptance-matrix.md`、`evidence-template.md`、`evidence-index.md`、`gap-log.md`
+- **配套文件：** `21-module-mcp-acceptance-matrix.md`、`458-card-index.md`、`evidence-template.md`、`evidence-index.md`、`gap-log.md`
 
 ---
 
@@ -18,8 +18,8 @@
 2. 真实前端以 `VITE_API_MODE=http` 启动，且页面加载的是真实 Laravel `/v1`，不是 mock。
 3. 隔离 MySQL、Redis、S3/MinIO 对象存储已启动，并使用**本 worktree/本批次专用**的 Compose project 与数据库；不得复用其他 worktree 或主工作区栈。
 4. 干净安装完成：空库执行 `hrms:install` 后，只有一个启用管理员，零员工、零工资批次、零流程案例。
-5. 已准备 5 个核心角色 + 2 个补充角色（见矩阵 §3）：至少 R01/R02/R03/R04/R05/R06/R07；R08/R09 可选但涉及招聘/审计时必须具备。
-6. 角色锚点可构造：`ORG_UNIT`、`PAYROLL_RUN`、`CASE` 不能靠猜 ID；当前角色分配 UI 没有锚点输入，见 §3.4 的阻塞处理。
+5. 已准备 R01–R09 共 9 个验收角色：**R01–R07 为 7 个核心角色，R08–R09 为 2 个补充角色**。其中 R03/R04/R05/R08 的锚点构造当前 `BLOCKED`（见 §3.1），T18 不得用替代命令绕过。
+6. 角色锚点只有 R01/R02/R06/R07/R09 可构造；R03/R04/R05/R08 因无法写 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` anchor_id 而 `BLOCKED`，见 §3.1/§3.4。
 7. 测试数据全部合成，明显虚构；禁止真实姓名、证件、手机号、工资、公司信息。
 8. 操作人明确知道每一步对应矩阵的证据 ID，并能在同一浏览器会话记录 URL、角色、前置数据、动作、网络响应、截图/snapshot。
 
@@ -38,14 +38,15 @@
 
 | 阻塞 | 影响 | 处理 |
 |---|---|---|
-| 458 功能卡明细不在仓库 | AC-01/AC-21 的“458 卡”全覆盖无法逐卡闭合 | 逐模块引用附录 A 汇总数；明细 `CARD-DETAIL BLOCKED`；不得伪造卡片 |
-| T05–T17 在 master plan 仍为 PENDING | T18 的依赖不成立 | 先由 lead/用户决定是否接受非最终 T18 资产；MCP 业务执行必须 `BLOCKED` |
-| T06 计划表 PENDING 与 `06-time-facts/implementation-report.md` COMPLETE 冲突 | M09–M12 前置结论不唯一 | 先核实并统一状态；未统一前标 `BLOCKED` |
+| 458 卡源包存在但权威性待确认 | AC-01/AC-21 的逐卡验收不能把草稿当批准需求 | 458 个唯一卡 ID/标题已提取到 `458-card-index.md`；验收执行时逐卡结论仍为 `NOT RUN`，并注明源包“待审批/待确认” |
+| T05–T17 在 master plan 仍为 PENDING | T18 的依赖不成立 | MCP 业务执行必须 `BLOCKED`；不得以静态审计或自动测试代替 |
+| T06 计划表 PENDING 与 `06-time-facts/implementation-report.md` COMPLETE 冲突 | M09–M12 前置结论不唯一 | 先核实并统一状态；未统一前相关执行项 `BLOCKED` |
 | T20–T24 无任务卡 | AC-01/AC-21 的 T01–T24 唯一覆盖不成立 | 保留目标口径；标 `UNMAPPED`；等待权威任务卡或修订 |
-| 角色分配 UI 无 `binding_anchors` | R03/R05/R08 不能仅靠 UI 构造 | 用受控、可审计的 CLI/seed 仅构造**前置数据**，仍必须用 UI 完成验收；若用户禁止 CLI，则 `BLOCKED` |
+| R03/R04/R05/R08 无法构造 | 考勤专员、薪酬专员、薪酬复核人、招聘专员无法用现有 UI/CLI 写入 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` 锚点 | 明确 `BLOCKED`；依赖 T02/T19 增加 anchor binding UI 或命令；不得用 `iam:bind-role`/`UserRoleDrawer` 假构造 |
 | M21 无备份/恢复/升级 UI | 该 6 卡中的安装/升级/备份恢复不能做 MCP | 转 T19 运维证据；T18 标 `BLOCKED/UNMAPPED`，不得用 API 代替 |
 | M17 员工档案无培训记录 Tab | E2E-09/M17 卡片不可执行 | 标 `UNMAPPED/BLOCKED`；不得新造入口 |
 | M09 无本人打卡写端点 | “打卡”入口可能不可执行 | 导航确认；无入口则标 `UNMAPPED`，不伪造 API |
+| M08 manifest 声明 activate 但详情页无按钮 | 合同激活 UI 项不可执行 | 标 `UNMAPPED/BLOCKED`；不得以 API 代替 UI |
 
 ---
 
@@ -91,38 +92,154 @@ VITE_API_MODE=http pnpm build
 - 构建日志路径；
 - **不得**运行 `pnpm gate:all` 作为本任务动作；T18 只要求资产与 MCP 执行，不替代 T19 门禁。
 
-### 2.3 真实依赖
+### 2.3 真实依赖、php-app 与代理启动
 
-使用仓库提供的 `deploy/compose/docker-compose.yml` 与 `deploy/scripts/docker_up.sh`，但必须先验证它指向本批次 project / env：
+以下命令使用本批次 Compose project `factoryhr-t18`。**`php-app` 是 FPM，不能直接给浏览器访问；必须同时启动 nginx（默认发布 `HTTP_PORT=5184`）或改用后文的 `php artisan serve --port=8000` 方案。** 所有命令都在本 worktree 根目录执行。
+
+#### 2.3.1 启动 MySQL 8.4 / Redis / MinIO
 
 ```bash
-COMPOSE_PROJECT_NAME=factoryhr-t18 \
-docker compose -f deploy/compose/docker-compose.yml config
+export COMPOSE_PROJECT_NAME=factoryhr-t18
+export T18_HTTP_PORT=5184
+export T18_FRONTEND_PORT=5185
+export DB_DATABASE=factoryhr_t18
+export DB_USERNAME=factoryhr_t18
+export DB_PASSWORD='<synthetic-db-password>'
+export MYSQL_ROOT_PASSWORD='<synthetic-root-password>'
+export MINIO_ROOT_USER='factoryhr-t18'
+export MINIO_ROOT_PASSWORD='<synthetic-minio-password>'
+export AWS_BUCKET='factoryhr-t18-private'
 
-COMPOSE_PROJECT_NAME=factoryhr-t18 \
-docker compose -f deploy/compose/docker-compose.yml up -d mysql redis minio minio-init
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml config --quiet
+
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   up -d mysql redis minio
+
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   ps mysql redis minio
 ```
 
-必须验证：
+等待三个服务 `healthy`（`docker compose ps` 的 Health 列），再执行**一次性** `minio-init`：
+
+```bash
+# 一次性任务：创建私有 bucket，运行后容器退出；不要对已退出容器使用 exec。
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   up -d minio-init
+
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   logs --no-color minio-init | tee /tmp/t18-minio-init.log
+
+# 必须看到 bucket ready: factoryhr-t18-private
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   ps -a minio-init
+```
+
+如果 `minio-init` 已退出且日志没有 `bucket ready`，重新执行一次 `up -d minio-init`（它是幂等的），不要 `exec` 退出的容器。
+
+验证存储与依赖：
 
 ```bash
 # MySQL 8.4
-docker compose -p factoryhr-t18 exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e 'SELECT VERSION();'
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   exec -T mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e 'SELECT VERSION();'
 
 # Redis
-docker compose -p factoryhr-t18 exec -T redis redis-cli PING
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   exec -T redis redis-cli PING
 
-# MinIO bucket 存在且私有
-docker compose -p factoryhr-t18 exec -T minio-init sh -lc 'mc ls local'
+# MinIO 内的 bucket 必须存在且 private
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   exec -T minio sh -lc 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc ls local'
 ```
 
-要求：
+#### 2.3.2 启动 php-app 和 nginx
 
-- `DB_CONNECTION=mysql`；
+```bash
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   up -d php-app php-worker nginx
+
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml   ps php-app php-worker nginx
+```
+
+`php-app` 必须为 `healthy`，nginx 才能代理 `/v1`。浏览器和 MCP 访问：
+
+```text
+SPA/API 同源入口：http://127.0.0.1:5184
+API 健康：http://127.0.0.1:5184/v1/health/live
+API 就绪：http://127.0.0.1:5184/v1/health/ready
+```
+
+本批次 `php-app` 的环境必须满足：
+
+- `DB_CONNECTION=mysql`，`DB_HOST=mysql`，`DB_DATABASE=factoryhr_t18`；
 - `CACHE_STORE=redis`、`QUEUE_CONNECTION=redis`、`SESSION_DRIVER=redis`；
-- `FILESYSTEM_DISK=s3`，`AWS_ENDPOINT=http://minio:9000`，`AWS_BUCKET` 为本批次桶；
+- `FILESYSTEM_DISK=s3`，`AWS_ENDPOINT=http://minio:9000`，`AWS_BUCKET=factoryhr-t18-private`；
 - `APP_TIMEZONE=UTC`，公司时区在安装时显式输入；
-- `IAM_MFA_ENABLED=false` 是默认验收配置；只有单独验证 MFA 可选路径时才临时改 true，并单独记录，不得混入主流程。
+- `IAM_MFA_ENABLED=false` 是默认验收配置；只有单独验证 MFA 可选路径时才临时改 true，并单独记录，不得混入主流程；
+- 若用 Vite dev server（§2.3.3），`HRMS_CORS_ALLOWED_ORIGINS` 必须包含 `http://127.0.0.1:5185,http://localhost:5185`。
+
+#### 2.3.3 前端 dev server、CORS 与 `VITE_DEV_API_PROXY_TARGET`
+
+如果前端用 Vite dev server，浏览器打开 `http://127.0.0.1:5185`，代理必须指向本批次 nginx：
+
+```bash
+cd frontend
+VITE_API_MODE=http VITE_API_BASE_URL=/v1 VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:5184 pnpm dev --host 127.0.0.1 --port 5185
+```
+
+固定规则：
+
+- Vite 代理变量名是 **`VITE_DEV_API_PROXY_TARGET`**（`frontend/vite.config.ts`）；
+- `frontend/.env.example` 里的 `VITE_PROXY_TARGET` 是过期/不一致名称，不能使用（GAP-14）；
+- 后端 `HRMS_CORS_ALLOWED_ORIGINS` 必须包含 `http://127.0.0.1:5185` 与 `http://localhost:5185`；
+- 不允许用 `*`；cookie 是 credentialed（`supports_credentials=true`），CORS 必须精确白名单；
+- 不得把代理指向其他 worktree 的 8000/5174。
+
+#### 2.3.4 备选：宿主机 `php artisan serve --port=8000`
+
+只有需要 Laravel 内置服务器/调试时才使用。此时必须给 Compose 的 MySQL/Redis/MinIO 发布宿主机端口，并用独立的 override 文件，不得改默认 compose：
+
+```bash
+# deploy/compose/docker-compose.t18-serve.yml（一次性、不提交；示例）
+services:
+  mysql:
+    ports: ["13306:3306"]
+  redis:
+    ports: ["16379:6379"]
+  minio:
+    ports: ["19000:9000", "19001:9001"]
+```
+
+```bash
+docker compose -p "$COMPOSE_PROJECT_NAME"   -f deploy/compose/docker-compose.yml   -f deploy/compose/docker-compose.t18-serve.yml   up -d mysql redis minio
+
+# backend/.env 使用宿主机地址（示例，不得提交）
+# DB_HOST=127.0.0.1 DB_PORT=13306 REDIS_HOST=127.0.0.1 REDIS_PORT=16379
+# AWS_ENDPOINT=http://127.0.0.1:19000
+
+cd backend
+php artisan migrate --force
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+此时前端：
+
+```bash
+cd frontend
+VITE_API_MODE=http VITE_API_BASE_URL=/v1 VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:8000 pnpm dev --host 127.0.0.1 --port 5185
+```
+
+后端 CORS 仍必须包含 `http://127.0.0.1:5185`，`APP_URL=http://127.0.0.1:8000`（或实际对外地址）。如果无法发布依赖端口或无法保持隔离，**不要使用本备选**，回到 §2.3.2 的 php-app+nginx 路径。
+
+#### 2.3.5 健康检查顺序
+
+必须按顺序记录，前一步失败不得跳下一步：
+
+1. `docker compose ps`：mysql/redis/minio/php-app/nginx 均为 `healthy`，`minio-init` 已成功退出；
+2. liveness：`curl -fsS http://127.0.0.1:5184/v1/health/live`，期望 `status=ok`；
+3. 依赖直连：MySQL `SELECT VERSION()`、Redis `PING`、MinIO bucket 存在且 private；
+4. 迁移：`php artisan migrate --force` 退出码 0；
+5. 安装：`php artisan hrms:install ...` 退出码 0；
+6. readiness：`curl -fsS http://127.0.0.1:5184/v1/health/ready`，期望 HTTP 200 且 `db/cache/storage/migrations/installation/administrator` 全为 `true`；
+7. `/v1/meta`：commit、build_time、spa_build_sha 与本次构建记录一致；
+8. 前端 `/login` 可打开且网络请求真实打到本批次 `/v1`（不是 mock）。
+
+```bash
+curl -fsS http://127.0.0.1:5184/v1/health/live
+curl -fsS http://127.0.0.1:5184/v1/health/ready
+curl -fsS http://127.0.0.1:5184/v1/meta
+```
 
 ### 2.4 干净安装
 
@@ -169,34 +286,42 @@ docker compose -p factoryhr-t18 exec -T php-app php backend/artisan hrms:install
 
 ## 3. 账号与测试数据合成
 
-### 3.1 角色账号
+### 3.1 角色账号（R01–R09：7 核心 + 2 补充）
 
-| 账号 | 角色 | 锚点 | 合成方式 | 密码要求 |
+| 代号 | 角色 | 需要锚点 | 计划账号 | 构造状态与依赖 |
 |---|---|---|---|---|
-| `t18.admin` | `SYSTEM_ADMIN` | COMPANY | `hrms:install` 或 `iam:bind-role` | 至少 12 位、明显合成 |
-| `t18.hr` | `HR_ADMIN` | COMPANY | 先 `POST /v1/users` 创建，再由受控 CLI/seed 绑角色 | 同上 |
-| `t18.attendance` | `ATTENDANCE_SPECIALIST` | ORG_UNIT + COMPANY | 同上；锚点用本批次根/子部门 | 同上 |
-| `t18.payroll` | `PAYROLL_SPECIALIST` | PAYROLL_RUN + COMPANY | 需要先有 `T18-RUN-01` 才能绑定 PAYROLL_RUN | 同上 |
-| `t18.approver` | `PAYROLL_APPROVER` | PAYROLL_RUN + COMPANY | 同上；必须与 payroll 不同账号 | 同上 |
-| `t18.manager` | `LINE_MANAGER` | MANAGED | 与 A/B 建立直接下属关系 | 同上 |
-| `t18.employee` | `EMPLOYEE` | SELF | 绑定 A 的 employment | 同上 |
-| `t18.recruiter` | `RECRUITER` | ORG_UNIT + CASE | 可选；无 CASE 锚点时 `BLOCKED` | 同上 |
-| `t18.auditor` | `AUDITOR` | COMPANY | 可选；用于只读审计 | 同上 |
-| `t18.unlinked-admin` | `SYSTEM_ADMIN` | COMPANY | **无 employment link**；用于 M01 未绑定场景 | 同上 |
+| R01 | `SYSTEM_ADMIN` | COMPANY | `t18.admin` | 可由 `hrms:install` 管理员承担；COMPANY 不需要 anchor_id |
+| R02 | `HR_ADMIN` | COMPANY | `t18.hr` | 可创建用户后由 `iam:bind-role` 绑定；仅 COMPANY 锚点，可执行 |
+| R03 | `ATTENDANCE_SPECIALIST` | ORG_UNIT + COMPANY | `t18.attendance` | **BLOCKED**：需要 ORG_UNIT anchor_id；现有命令/UI 都不能写 |
+| R04 | `PAYROLL_SPECIALIST` | PAYROLL_RUN + COMPANY | `t18.payroll` | **BLOCKED**：需要 PAYROLL_RUN anchor_id；现有命令/UI 都不能写 |
+| R05 | `PAYROLL_APPROVER` | PAYROLL_RUN + COMPANY | `t18.approver` | **BLOCKED**：需要 PAYROLL_RUN anchor_id；现有命令/UI 都不能写 |
+| R06 | `LINE_MANAGER` | MANAGED | `t18.manager` | 可创建用户后由 `iam:bind-role` 绑定；MANAGED 不需要 anchor_id；需 A/B 直接下属 |
+| R07 | `EMPLOYEE` | SELF | `t18.employee` | 可创建用户后由 `iam:bind-role` 绑定；SELF 不需要 anchor_id；需绑定 A 的 employment |
+| R08 | `RECRUITER` | ORG_UNIT + CASE | `t18.recruiter` | **BLOCKED**：需要 ORG_UNIT/CASE anchor_id；现有命令/UI 都不能写 |
+| R09 | `AUDITOR` | COMPANY | `t18.auditor` | 可创建用户后由 `iam:bind-role` 绑定；仅 COMPANY 锚点，可执行 |
 
-> 角色分配 UI 当前 `UserRoleDrawer` 未提供 `binding_anchors`，带 ORG_UNIT/CASE/PAYROLL_RUN 的模板无法仅靠 UI 完整绑定。**这不影响“必须用 UI 验证权限”；只允许用受控 CLI/一次性 seed 构造前置角色，并在证据中记录命令和审计。** 若用户要求完全禁止 CLI 造数，则 R03/R05/R08 的 MCP 执行为 `BLOCKED`。
+**口径：** R01–R07 是 7 个核心角色，R08–R09 是 2 个补充角色；`t18.unlinked-admin` 是 R01 的**变体**（COMPANY、无 employment link），不是 R10。`HR_SPECIALIST`、`TRAINING_ADMIN`、`BENEFITS_ADMIN`、`REPORT_VIEWER` 只作为模块可选代表角色，不计入 R01–R09 的 9 个验收角色；若临时使用，必须单独记录账号/锚点/证据，不能改变核心口径。
+
+**不可执行替代步骤（明确禁止）：**
+
+- `iam:bind-role` 的签名只有 `{--user=} {--role=} {--days=}`；其实现把每个 grant 的 `anchor_id` 写成 `null`，只适用于 COMPANY/MANAGED/SELF。**它不能写 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` 的 anchor_id。**
+- `UserRoleDrawer` 保存只发送 `{role_code, reason}`，**不发送 `binding_anchors`**；`POST /v1/users/{id}/roles` 对 `ORG_UNIT/PAYROLL_RUN/CASE` 会返回 `ROLE_ANCHOR_REQUIRED`。
+- 因此 R03/R04/R05/R08 的账号与权限前置**无法在当前代码构造**，必须标 `BLOCKED`，等待 **T02/T19 增加 anchor binding UI 或命令**。
+- 不得用“先绑角色再改库”“手写 authority_bindings”“复用 demo.payroll 的 run 锚点”“调用未授权 API”等步骤绕过；这些不是 MCP 验收，也不能产生可信证据。
+
+**不可用账号说明：** `iam:seed-demo` 产生 `demo.admin/demo.hr/demo.manager/demo.employee/demo.payroll`，但 seed 只在已有 payroll run 时才给 PAYROLL_RUN 锚点，且不会解决 ORG_UNIT/CASE；demo 账号不能替代 R03/R04/R05/R08 的正式验收角色。
 
 ### 3.2 用户与绑定
 
-优先通过 UI 路径创建用户（`/system/users` → 新增用户），并要求：
+对可构造角色（R01/R02/R06/R07/R09）：
 
-- 用户名不含真实姓名；
-- 邮箱使用 `example.test`；
-- 显示名称含 `T18`；
-- 绑定 employment 时只选合成员工；
-- 初始密码通过安全渠道输入，不落盘；
-- 记录 user id、employment id、角色模板、`auth_version`；
-- 创建后先用新账号登录、强制改一次密码（如果流程要求）。
+- 优先用 `/system/users` UI 创建用户（`username`、`email`、密码、可选 employment）；
+- R01 必须由 `hrms:install` 创建；`t18.unlinked-admin` 作为 R01 变体单独创建，确保无 employment link；
+- R06 需要 A/B 直接下属关系；R07 绑定 A 的 employment；R09 只读审计；
+- 角色绑定使用 `iam:bind-role --user=<id> --role=<ROLE>`（仅 COMPANY/MANAGED/SELF 可执行），并记录 user id、role、auth_version、命令退出码；
+- 初始密码不落盘、不写入证据；
+- 创建后先用新账号登录，确认 `/v1/me` 的 capabilities 与页面菜单符合角色；
+- 每次角色变更后刷新/重登，旧标签页下一次写请求必须 403。
 
 ### 3.3 业务前置数据顺序
 
@@ -225,10 +350,11 @@ P. 审计事件
 
 ### 3.4 前置数据缺陷的处理
 
-- 无法通过 UI 或受控 CLI 构造的前置数据：标 `BLOCKED`，写缺什么、为什么、影响哪些证据 ID。
+- R03/R04/R05/R08：唯一处理是标 `BLOCKED`，写明依赖 T02/T19 的 anchor binding UI/命令；不提供 CLI/DB/API 替代步骤。
+- 无法通过 UI 或已明确可执行的受控命令构造的其他前置数据：标 `BLOCKED`，写缺什么、为什么、影响哪些证据 ID。
 - 页面没有功能入口但 API 存在：标 `UNMAPPED`；不能用 API 结果判 PASS。
-- 角色锚点缺失：先补受控构造；若不允许，则所有依赖该角色的验收 `BLOCKED`。
 - 不得为了继续执行而修改角色模板、权限、租户或数据库来“绕过”能力；任何前置修复必须有独立提交/记录，不能混入验收证据。
+- 不得把 demo seed、自动测试、fixture、SQL 或 curl 结果当作 MCP 证据。
 
 ---
 
@@ -333,7 +459,7 @@ pnpm dev --host 127.0.0.1 --port 5185
 | `MCP-ENV-002` | `/v1/health/ready` | 200，db/cache/storage/migrations/installation/administrator 全 true | 任一 false |
 | `MCP-ENV-003` | 空库安装/重复安装 | 唯一管理员、零业务行；重复安装不改密码 | 重复管理员或 demo 行 |
 | `MCP-ENV-004` | 生产拒绝 demo/reset | 非零退出且无数据写入 | 能执行则 FAIL |
-| `MCP-ENV-005` | 合成数据清单 | 所有 T18 数据存在，ID 可追溯 | 数据缺失则该模块 BLOCKED |
+| `MCP-ENV-005` | 合成数据清单与 458 卡索引 | 所有 T18 数据存在；155 页/458 卡索引可追溯 | 数据/索引缺失则该模块 BLOCKED |
 
 ### 5.2 阶段 1：M01/M19/M21 基础权限与设置
 
@@ -575,7 +701,7 @@ FAIL 后必须：
 - 前置任务（T05–T17 等）未完成；
 - 角色/锚点/数据无法构造；
 - 页面入口不存在或明确不可达；
-- 458 卡/任务卡明细缺失；
+- 458 卡源包权威性未确认、卡→页面/动作映射缺失，或 T20–T24 任务卡缺失；
 - 环境依赖不可用；
 - 需要用户业务决策或正式修订口径；
 - 备份/恢复/升级等没有 MCP UI。
@@ -644,7 +770,7 @@ BLOCKED 必须写：
 
 - 21 模块全部 PASS，或用户正式接受某些 BLOCKED；
 - 12 条跨模块闭环全部 PASS；
-- 458 卡若有权威源则逐卡有结论；否则 AC-01/AC-21 不能 PASS；
+- 458 卡逐卡有结论且源包已获权威确认；否则 AC-01/AC-21 不能 PASS；
 - T01–T24 有权威定义且逐项有结论；否则不能 PASS；
 - 所有证据保存在 `docs/implementation/v24/18-mcp-acceptance/evidence/`；
 - evidence index 无 PASS 但无证据的项；
@@ -678,7 +804,7 @@ AC-21 判定:
 - [ ] `VITE_API_MODE=http`，不是 mock
 - [ ] MySQL/Redis/S3 为本批次隔离
 - [ ] 空库干净安装完成
-- [ ] 5+ 角色账号可用，锚点可追溯
+- [ ] R01–R09（7 核心 + 2 补充）已按 §3.1 核对：可构造的已登录，R03/R04/R05/R08 已按 BLOCKED 登记
 - [ ] 合成数据 A/B/C、合同、薪酬、时间、批次、通知齐备
 - [ ] 浏览器 MCP 已连接并能截图/snapshot/网络记录
 
@@ -697,4 +823,5 @@ AC-21 判定:
 - [ ] 失败/阻塞/未执行清单完整
 - [ ] 12 个闭环有结论
 - [ ] 458/T20–T24 的缺失已如实记录
+- [ ] 458 卡逐卡/按组结论与 `458-card-index.md` 一致
 - [ ] 交给 T19 的清单明确

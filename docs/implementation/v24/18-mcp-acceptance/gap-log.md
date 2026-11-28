@@ -12,58 +12,58 @@
 
 | ID | 类型 | 严重度 | 问题摘要 | 影响 AC/交付 | 当前状态 |
 |---|---|---|---|---|---|
-| GAP-01 | 缺失源 | 阻断 | 458 功能卡明细不在仓库 | AC-01/AC-21 | OPEN |
+| GAP-01 | 源权威性 | 阻断 | 458 卡源包存在，但包内明确“待审批/待确认” | AC-01/AC-21 | OPEN |
 | GAP-02 | 缺失源 | 阻断 | master plan 只有 T00–T19；AC/计划要求 T01–T24 | AC-01/AC-21 | OPEN |
 | GAP-03 | 依赖 | 阻断 | T05–T17 在 master plan 仍为 PENDING | AC-01/AC-21 | OPEN |
 | GAP-04 | 状态冲突 | 高 | T06 计划表 PENDING vs `06-time-facts` COMPLETE | AC-08/AC-10/AC-21 | OPEN |
-| GAP-05 | 功能缺口 | 阻断 | 角色分配 UI 无 `binding_anchors` | AC-03/AC-05/AC-21 | OPEN |
+| GAP-05 | 功能缺口 | 阻断 | R03/R04/R05/R08 需要 ORG_UNIT/PAYROLL_RUN/CASE anchor_id；`iam:bind-role` 只写 null、`UserRoleDrawer` 不传 `binding_anchors` | AC-03/AC-05/AC-21 | OPEN |
 | GAP-06 | 入口缺失 | 阻断 | M21 无备份/恢复/升级 UI | AC-02/AC-21/AC-22 | OPEN |
 | GAP-07 | 入口缺失 | 高 | M17 员工档案无培训记录 Tab | AC-15/AC-21 | OPEN |
 | GAP-08 | 入口缺失 | 高 | M09 无本人打卡写端点/入口 | AC-10/AC-21 | OPEN |
 | GAP-09 | UI/契约 | 高 | M08 manifest 声明 activate，页面无按钮 | AC-04/AC-13/AC-21 | OPEN |
 | GAP-10 | 计数冲突 | 中 | M19 入口数摘要 6 vs 附录 A 7 页 | AC-01 | OPEN |
-| GAP-11 | 计数冲突 | 中 | M01、M19 附录 A 页数与 155 矩阵不一致 | AC-01 | OPEN |
+| GAP-11 | 计数冲突 | 中 | 源包 M01=7 页/M19=7 页，155 入口矩阵 M01=8/M19=6 | AC-01 | OPEN |
 | GAP-12 | 契约漂移 | 高 | Dashboard metric OpenAPI schema 与实现 DTO 不一致 | AC-16/AC-19 | OPEN |
 | GAP-13 | 文档过期 | 低 | `registry.ts` 头注释仍写 155，实际 37 | AC-01 | OPEN |
 | GAP-14 | 环境命名 | 中 | `.env.example` 的代理变量名与 `vite.config.ts` 不一致 | AC-21 环境准备 | OPEN |
 | GAP-15 | action 缺失 | 高 | 大量页面可见写动作未入 generated action manifest | AC-05/AC-21 | OPEN |
-| GAP-16 | 任务状态 | 中 | T00–T04 evidence 引用 `gate-all.log`，但文件不存在 | 证据可复核性 | OPEN |
+| GAP-16 | 证据缺失 | 高 | T00–T04 evidence 引用 `gate-all.log`，但文件不存在 | 证据可复核性 | OPEN |
 | GAP-17 | 角色缺失 | 高 | `ATTENDANCE_SPECIALIST` / `PAYROLL_APPROVER` / `RECRUITER` / `AUDITOR` 无 demo 账号 | AC-03/AC-21 | OPEN |
-| GAP-18 | 环境/账号 | 中 | MFA 默认关闭与 `iam:seed-demo` 打印 TOTP 的行为需明确 | AC-03/AC-21 | OPEN |
-| GAP-19 | 入口计数 | 中 | 当前 37 页面中 `/performance/cycles/:id` 不在 V2.3 目标 36 页面清单 | AC-01 | OPEN |
-| GAP-20 | 卡片映射 | 阻断 | 无可确认的“卡号→当前页面/动作”映射 | AC-21 | OPEN |
+| GAP-18 | 环境/账号 | 中 | MFA 默认关闭，但 seed 创建并打印 TOTP；env 可被改为 true | AC-03/AC-21 | OPEN |
+| GAP-19 | 入口计数 | 中 | 当前 37 页面含 `/performance/cycles/:id`，不在 V2.3 目标 36 清单 | AC-01 | OPEN |
+| GAP-20 | 卡片映射 | 阻断 | 458 卡 ID/标题已提取，但源卡无稳定 card→page_code/action/API 映射 | AC-21 | OPEN |
 
 ---
 
 ## 2. 逐项详情
 
-### GAP-01｜458 功能卡明细缺失
+### GAP-01｜458 卡源存在但权威性待确认
 
 **事实：**
 
-- 设计规格 `2026-11-27-factoryhr-v2-3-module-closure-design.md` 与 V2.4 设计说明书都声明存在 “458 张功能卡”，但仓库只有：
-  - V2.4 附录 A 的 21 行模块汇总（每行 1 个卡数）；
-  - 各模块汇总合计确实为 458（18+13+26+29+11+14+30+19+37+21+18+17+49+2+30+43+36+17+15+7+6 = 458）。
-- 未找到 `FactoryHR_V2.3整改包.zip`、卡清单、卡号、每卡验收文本或卡→页面/动作映射。
-- 本 worktree 的 `docs/implementation/M*/integration.json` 是页面/API 移交记录，不是 458 卡清单。
+- 根目录 `FactoryHR_V2.3整改包.zip` 确实存在（SHA-256 `b801485ecd18f2f072105020e85581f91413b4d6ee536f7d34c63fcb4f9788b5`），并被 `.gitignore` 第 38 行 `/FactoryHR_*.zip` 忽略。
+- 包内 `FactoryHR_V2.3_模块闭环实施方案_待确认/06_全域逐页面逐功能AI施工卡_合订版.md` 已解析出：
+  - 155 个唯一 `Mxx-Pxxx` 页面；
+  - 458 个唯一 `Mxx-Pxxx-Fxx` 功能卡；
+  - 模块分布 18+13+26+29+11+14+30+19+37+21+18+17+49+2+30+43+36+17+15+7+6 = 458。
+- 包内 `00_阅读说明` 明写“版本状态：待审批，未修改任何业务源码”“审批状态：待确认”；因此它是**可追溯源**，不是已批准需求。
+- 卡级 ID/标题已完整保存在 `458-card-index.md`；不再声称“找不到”。
 
 **影响：**
 
-- AC-01 要求 458 卡唯一覆盖；AC-21 要求按卡验收。
-- 不能从 21 行汇总“反推”出 458 条具体卡片文本；那将是伪造需求。
+- AC-01/AC-21 的 458 卡逐项验收可以建立槽位，但不能把待审批草稿当批准口径。
+- 源卡没有稳定的“卡→当前 `page_code`/action/API”映射字段；矩阵只能按页面/模块给出当前页面/动作，不能伪造一键对应。
 
 **本任务处理：**
 
-- 每个模块保留“卡片汇总数”并标 `CARD-DETAIL BLOCKED`；
-- 矩阵只引用模块汇总和现有页面/动作/API；
-- 不创建 `458-card-matrix` 以免伪造。
+- 新增 `458-card-index.md`，完整列出 458 个唯一卡 ID 与标题；
+- 矩阵新增 155 行台账，每行引用完整卡范围，执行结论均为 `NOT RUN`；
+- 不复制卡片正文成需求，不声称卡片已实现/已通过。
 
 **解除条件：**
 
-1. 用户提供 V2.3 整改包/458 卡权威清单；或
-2. 用户正式修订 AC-01/AC-21，明确以“模块汇总+当前页面动作+155 入口”为最低覆盖口径，并把 458 卡标为历史基线，不要求逐卡 UI 证据。
-
----
+1. 用户/评审确认源包为批准基线；或
+2. 提供正式修订的卡清单/映射；在此之前 AC-01/AC-21 不能 PASS。
 
 ### GAP-02｜T20–T24 无任务卡
 
@@ -147,33 +147,36 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 ---
 
-### GAP-05｜角色分配 UI 无锚点
+### GAP-05｜R03/R04/R05/R08 无法构造锚点角色
 
 **事实：**
 
-- `POST /v1/users/{id}/roles` OpenAPI 请求体有 `binding_anchors`（`PAYROLL_RUN`、`ORG_UNIT`、`CASE` 等），`UserAdminController::resolveRoleAnchors()` 对需要 anchor id 的角色返回 `ROLE_ANCHOR_REQUIRED`。
+- `POST /v1/users/{id}/roles` OpenAPI 请求体有 `binding_anchors`；`UserAdminController::resolveRoleAnchors()` 对 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` 等需要 id 的锚点返回 `ROLE_ANCHOR_REQUIRED`。
 - `frontend/src/modules/platform/components/UserRoleDrawer.vue` 的保存只发送 `{ role_code, reason }`，没有 `binding_anchors` 输入。
-- 因此 `PAYROLL_APPROVER`（PAYROLL_RUN）、`RECRUITER`（CASE + ORG_UNIT）、`ATTENDANCE_SPECIALIST`（ORG_UNIT + COMPANY）无法通过当前 UI 分配。
-- `demo.hr` / `demo.payroll` / `demo.manager` / `demo.employee` 由 seed 产生，但缺少部分锚点角色账号。
+- `iam:bind-role` 的签名只有 `{--user=} {--role=} {--days=}`；实现中 `$anchorId = null`，无法写 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` 的 anchor_id。
+- 因此：
+  - R03 `ATTENDANCE_SPECIALIST`（ORG_UNIT + COMPANY）无法通过当前 UI/CLI 构造；
+  - R04 `PAYROLL_SPECIALIST`（PAYROLL_RUN + COMPANY）无法构造；
+  - R05 `PAYROLL_APPROVER`（PAYROLL_RUN + COMPANY）无法构造；
+  - R08 `RECRUITER`（ORG_UNIT + CASE）无法构造。
 
 **影响：**
 
-- AC-03 七类角色中的考勤专员、薪酬复核人、招聘专员无法仅靠 UI 构造；
-- AC-21 五+角色验收无法覆盖完整；
-- M19 的“角色分配”主流程本身也不完整。
+- AC-03 的七类角色/补充角色无法完整覆盖；
+- M09–M16 相关角色差异与撤权证据无法开始；
+- 不能用 `demo.payroll` 的既有 run 锚点冒充任意批次。
 
 **本任务处理：**
 
-- 标 `BLOCKED`（前置角色无法通过 UI 构造）；
-- runbook 允许“受控 CLI/seed 仅构造前置数据”，但验收仍必须用 UI；
-- 不把 CLI/seed 当作角色分配 UI 的 PASS。
+- runbook §3.1 明确把这四个角色标 `BLOCKED`；
+- 明确依赖 **T02/T19 增加 anchor binding UI/命令**；
+- 不提供 `iam:bind-role`/`UserRoleDrawer`/SQL/API 的替代步骤；任何此类步骤都不能作为 MCP 证据。
 
 **解除条件：**
 
-- 补角色分配 UI 的锚点选择/校验（推荐）；或
-- 用户批准“受控 CLI 造前置角色 + UI 验收”并接受角色分配 UI 本身仍为已知缺口。
-
----
+- 角色分配 UI 增加 ORG_UNIT/PAYROLL_RUN/CASE 锚点选择与校验；或
+- T19 提供可审计的 anchor binding 命令，并有单测/契约；
+- 在此之前，依赖 R03/R04/R05/R08 的项只能 `BLOCKED`。
 
 ### GAP-06｜M21 无备份/恢复/升级 UI
 
@@ -302,25 +305,30 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 ---
 
-### GAP-11｜M01/M19 附录 A 与 155 矩阵不一致
+### GAP-11｜源包页面数与 155 入口矩阵不一致
 
 **事实：**
 
-- 附录 A M01 = 7 页，但 155 矩阵 M01 = 8 条（1–6、141、150）。
-- 附录 A M19 = 7 页，但 155 矩阵 M19 = 6 条。
-- 两者总计都为 155，说明是模块归属/计数口径不同，不是简单加总错误。
+- 源包 `06_...施工卡` 按页面归属：M01=7、M19=7。
+- V2.3 处置矩阵按入口号归属：M01=8（1–6、141、150）、M19=6（142–147）。
+- 两者总数都为 155；差异是“页面”与“入口”的归属口径，不是缺号。
+- 附录 A 又写 M01=7 页、M19=7 页，与 155 入口矩阵的 M19=6 冲突。
 
 **影响：**
 
-- 模块级卡数/入口数在 T18 中不能混用。
+- “155 页面/155 入口”不能混为一谈；
+- 模块卡数来自源包（M01=18、M19=15），入口数来自 155 矩阵。
 
 **本任务处理：**
 
-- 入口数与 155 矩阵一致；
-- 卡数与附录 A 汇总一致；
-- 在矩阵中分别注记来源，不强行相加。
+- 矩阵 §1.1/§2.1 分别列“页面口径=源包 7/7”和“入口口径=155 矩阵 8/6”；
+- 155 行台账按入口号唯一覆盖；
+- 不把模块页数/入口数强行相加。
 
----
+**解除条件：**
+
+- 用户确认以“入口号”为唯一覆盖口径，卡片页面仅作来源；
+- 或提供统一后的页面/入口清单。
 
 ### GAP-12｜Dashboard metric 契约漂移
 
@@ -474,31 +482,29 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 ---
 
-### GAP-17｜缺少部分角色账号
+### GAP-17｜缺少部分角色账号与锚点
 
 **事实：**
 
 - `iam:seed-demo` 当前产生 5 个账号：`demo.admin`、`demo.hr`、`demo.manager`、`demo.employee`、`demo.payroll`。
 - 需要的 `ATTENDANCE_SPECIALIST`、`PAYROLL_APPROVER`、`RECRUITER`、`AUDITOR` 没有对应 demo 账号。
 - `TRAINING_ADMIN`、`BENEFITS_ADMIN`、`REPORT_VIEWER` 也未 seed。
-- v21 五角色 UAT 只覆盖 SYSTEM_ADMIN/HR_ADMIN/LINE_MANAGER/EMPLOYEE/PAYROLL_SPECIALIST。
+- 即使补账号，R03/R04/R05/R08 仍受 GAP-05 的 anchor binding 阻塞。
 
 **影响：**
 
 - AC-03 的七类角色（特别是考勤专员、复核人）无法直接登录验收；
-- 部分模块（M14/M16/M17）没有专用管理员角色，可能需要用 HR/超管代替，但会改变角色差异结论。
+- 部分模块（M14/M16/M17）没有专用管理员角色，不能把 HR/超管结果冒充为角色差异结论。
 
 **本任务处理：**
 
-- 在 runbook §3 给出必须补建的账号清单；
-- 不修改 seeder（业务代码范围外）；
-- 未补建前相关模块的“代表角色”证据标 `BLOCKED`，不得用相似角色冒充。
+- runbook §3.1 区分可构造的 R01/R02/R06/R07/R09 与 BLOCKED 的 R03/R04/R05/R08；
+- 可选角色不计入 R01–R09 的 7 核心 + 2 补充口径；
+- 不修改 seeder（业务代码范围外）。
 
 **解除条件：**
 
-- 由 T02/T17 或后续任务补 seed/角色账号；或用户批准受控 CLI 构造前置账号。
-
----
+- T02/T19 补 seed/角色账号，并解决 GAP-05 的锚点构造；在此之前相关项 `BLOCKED`。
 
 ### GAP-18｜MFA 开关与 demo seed 行为不一致
 
@@ -557,35 +563,35 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 **事实：**
 
-- 即使承认 458 卡存在，仓库只有 21 行模块汇总，缺少每张卡的稳定编号、名称、来源、目标页面/动作。
-- 无法把“M04 29 张卡”拆成 29 条可验收项，也无法把某条卡绑定到某个 action/API。
-- 现有 `M*/integration.json` 记录的是页面/接口变更，不是卡片清单。
+- 458 个唯一卡 ID/标题已从源包 `06_...施工卡` 提取并保存在 `458-card-index.md`。
+- 源卡只有页面归属（`Mxx-Pxxx`）、标题、功能交付、前后端要求、权限、验收，没有稳定的 `page_code`/action/API 字段。
+- 一个源卡可能落在目标页的多个 Tab、Drawer 或 action 上；当前 manifest 也不是按源卡号生成。
+- 因此可以逐卡建立“验收槽”，但不能把某卡强行映射成某个 action key 或 API。
 
 **影响：**
 
-- AC-21 的“按功能卡逐卡验收”无法执行；
-- 任何“458 卡已通过”的声明都会是虚假。
+- AC-21 的“逐卡验收”需要先定义“卡→当前页面/动作”的映射规则；
+- 若直接用页面动作代替卡片，会漏掉卡片级字段/权限/验收差异；
+- 若强行一一映射，则会伪造关系。
 
 **本任务处理：**
 
-- 标 `CARD-DETAIL BLOCKED`；
-- 矩阵只以“当前页面+动作+API+AC”作为实际可执行验收单元；
-- 不创建假卡号、不复制页面文案当卡片。
+- 458 卡索引保留完整卡 ID/标题；
+- 155 行台账按“页面 ID + 卡范围”登记，执行结论 `NOT RUN`；
+- 卡片→action/API 的精确映射标 `UNMAPPED`，不编造。
 
 **解除条件：**
 
-- 提供 458 卡权威清单（含卡号）；或
-- 用户正式修订 AC-21，把验收单元定义为“当前页面/动作 + 155 历史入口”，458 卡只作为历史基线引用。
-
----
+- 用户/评审确认卡片验收以“源卡 ID + 源卡验收文本”直接在目标页面/Tab/动作上执行；或
+- 提供权威的卡→页面/action 映射表。
 
 ## 3. 计数冲突明细
 
-### 3.1 入口数
+### 3.1 入口数 vs 源包页面数
 
-| 模块 | 155 矩阵行数 | 附录 A 页数 | 本任务采用 |
+| 模块 | V2.3 入口矩阵行数 | 源包 `06` 页面数 | 本任务台账采用 |
 |---|---:|---:|---|
-| M01 | 8 | 7 | 8（矩阵） |
+| M01 | 8 | 7 | 8 个入口，页面 7 |
 | M02 | 6 | 6 | 6 |
 | M03 | 9 | 9 | 9 |
 | M04 | 10 | 10 | 10 |
@@ -603,19 +609,20 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 | M16 | 16 | 16 | 16 |
 | M17 | 9 | 9 | 9 |
 | M18 | 6 | 6 | 6 |
-| M19 | 6 | 7 | 6（矩阵） |
+| M19 | 6 | 7 | 6 个入口，页面 7 |
 | M20 | 2 | 2 | 2 |
 | M21 | 3 | 3 | 3 |
-| **合计** | **155** | **155** | **155** |
+| **合计** | **155** | **155** | **155 入口** |
 
-> M01/M19 的差异互相抵消；但模块级归属不同，不能互换使用。本任务入口数以 155 矩阵逐行为准。
+> 源包页面数与入口矩阵在 M01/M19 的模块归属不同，但总数都为 155。台账按入口号逐行；卡数按源包页面/卡片统计，二者不混用。
 
 ### 3.2 卡数
 
 | 来源 | 合计 | 可逐卡验证？ |
 |---|---:|---|
-| V2.4 附录 A 模块汇总 | 458 | 否（只有 21 行汇总） |
-| V2.3 矩阵 | 无卡号 | 否 |
+| 源包 `06_...施工卡` | 155 页 / 458 唯一卡 | 是（`458-card-index.md` 完整 ID/标题；无稳定 card→page/action 映射，GAP-20） |
+| V2.4 附录 A 模块汇总 | 458 | 仅汇总 |
+| V2.3 155 矩阵 | 无卡号 | 入口维度 |
 | M*/integration.json | 页面/API 变更 | 否 |
 
 ### 3.3 当前页面
@@ -635,6 +642,7 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 - 21 模块唯一矩阵；
 - 155 历史入口编号唯一引用；
+- 458 个唯一卡 ID/标题索引（源包待确认）；
 - 37 当前页面与 132 action manifest 的映射；
 - 角色/前置数据/状态/边界/AC 的验收骨架；
 - MCP runbook；
@@ -644,12 +652,12 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 
 ## 5. 明确不可由本任务自行决定的事项
 
-1. 458 卡的文本/编号/归属；
+1. 458 卡源包的权威性确认与 card→page/action 映射；
 2. T20–T24 的任务定义；
 3. 是否接受“以页面动作替代 458 卡逐卡验收”；
 4. 是否接受“T19 覆盖备份/恢复/升级，T18 不做 MCP”；
 5. 是否补合同激活 UI、员工培训 Tab、本人打卡入口；
-6. 是否补角色锚点 UI 或允许受控 CLI 造前置角色；
+6. 是否由 T02/T19 补角色锚点 UI/命令（R03/R04/R05/R08 当前 BLOCKED）；
 7. 是否统一 M01/M19 的入口归属；
 8. 是否把 `/performance/cycles/:id` 纳入正式 37 页面口径。
 

@@ -15,7 +15,7 @@
 | 对应矩阵行 | `<模块>-<页面/动作/AC>` |
 | 场景 | `<导航/查询/筛选/分页/表单/提交/取消/审批/刷新/重登/撤权/异常/边界>` |
 | 验收项类型 | `<主流程/状态流程/权限差异/历史入口/跨模块闭环/安装/报表/导出>` |
-| 结论 | `PASS` / `FAIL` / `BLOCKED` |
+| 结论 | `NOT RUN` / `PASS` / `FAIL` / `BLOCKED` |
 | 执行人 | `<姓名/代号>` |
 | 执行时间（UTC） | `<YYYY-MM-DDTHH:MM:SSZ>` |
 | 重试次数 | `<0/1/2...>` |
@@ -57,7 +57,7 @@
 | 锚点 | `<COMPANY/ORG_UNIT:id/PAYROLL_RUN:id/CASE:id/MANAGED/SELF>` |
 | `auth_version` | `<值/不可见则写 NOT OBSERVED>` |
 | 前置数据 ID | `<T18-ORG-01 / T18-EMP-A / ...>` |
-| 数据构造方式 | `<UI/受控 CLI/seed；命令不入库记录敏感值>` |
+| 数据构造方式 | `<UI；或已明确可执行的受控命令；不得用不可执行替代步骤>` |
 | 数据状态 | `<DRAFT/ACTIVE/...>` |
 | 关联对象 | `<employment_id/contract_id/run_id/case_id 等>` |
 
@@ -154,7 +154,7 @@
 ## 9. 结论
 
 ```text
-<PASS|FAIL|BLOCKED>
+<NOT RUN|PASS|FAIL|BLOCKED>
 ```
 
 **判定理由：**
