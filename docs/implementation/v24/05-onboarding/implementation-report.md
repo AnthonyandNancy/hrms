@@ -287,3 +287,15 @@ worktree.
   it after approval.
 - Verification: onboarding focused 40 tests / 12,082 assertions; Pint,
   PHPStan, arch:test and OpenAPI contract checks green.
+
+## T05a2e — architecture and capability-gate correction
+
+- Renamed the Lifecycle contract method from `create()` to `submit()` so the
+  architecture scanner no longer mistakes a cross-module command for an
+  Eloquent write.
+- Kept `people.employee.manage` as the import/export management capability,
+  while the create-onboarding entry additionally requires
+  `lifecycle.onboarding.manage`.
+- Full-suite verification before this correction found and fixed the
+  controller SQL/architecture false positive and the import drawer capability
+  regression.

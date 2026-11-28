@@ -89,7 +89,8 @@ const tableRows = computed(() =>
 )
 const errorMessage = computed(() => (pageError.value === null ? '' : errorCopy(pageError.value)))
 const errorRequestId = computed(() => (pageError.value === null ? null : requestIdFromError(pageError.value)))
-const canManage = computed(() => session.can('people.employee.manage') && session.can('lifecycle.onboarding.manage'))
+const canManage = computed(() => session.can('people.employee.manage'))
+const canOnboard = computed(() => canManage.value && session.can('lifecycle.onboarding.manage'))
 const canReadLifecycleCase = computed(() => session.can('lifecycle.case.read'))
 const canExport = computed(() => session.can('people.employee.export'))
 const canArchive = computed(() => session.can('people.employee.archive'))
@@ -292,7 +293,7 @@ onBeforeUnmount(() => {
       <el-button :disabled="loading" @click="load">刷新</el-button>
       <ActionGate capability="people.employee.manage">
         <el-button data-testid="employee-imports" @click="openImports">导入结果</el-button>
-        <el-button v-if="canManage" type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
+        <el-button v-if="canOnboard" type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
       </ActionGate>
       <ActionGate capability="people.employee.export">
         <el-button
@@ -360,8 +361,8 @@ onBeforeUnmount(() => {
         v-if="isEmpty"
         title="暂无员工"
         description="当前筛选条件下没有员工记录。可以调整筛选，或直接新建一名员工。"
-        :action-label="canManage ? '新建员工' : '清空筛选'"
-        @action="canManage ? openCreate() : resetFilters()"
+        :action-label="canOnboard ? '新建员工' : '清空筛选'"
+        @action="canOnboard ? openCreate() : resetFilters()"
       />
 
       <EmployeeTable

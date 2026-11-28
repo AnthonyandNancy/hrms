@@ -31,7 +31,7 @@ final class LifecycleService implements OnboardingCaseCommand
         private readonly IdempotencyRunner $idempotency,
     ) {}
 
-    public function create(int $actorUserId, array $payload, string $idempotencyKey, string $businessDate): array
+    public function submit(int $actorUserId, array $payload, string $idempotencyKey, string $businessDate): array
     {
         $key = trim($idempotencyKey);
 

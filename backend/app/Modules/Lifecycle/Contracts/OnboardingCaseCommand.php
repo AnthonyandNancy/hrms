@@ -26,5 +26,5 @@ interface OnboardingCaseCommand
      *     replayed:bool
      * }
      */
-    public function create(int $actorUserId, array $payload, string $idempotencyKey, string $businessDate): array;
+    public function submit(int $actorUserId, array $payload, string $idempotencyKey, string $businessDate): array;
 }

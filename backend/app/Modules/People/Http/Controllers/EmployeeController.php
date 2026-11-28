@@ -383,7 +383,7 @@ final class EmployeeController
             'email' => $person['email'] ?? null,
         ], $principal->userId());
 
-        $result = $onboarding->create(
+        $result = $onboarding->submit(
             actorUserId: $principal->userId(),
             payload: [
                 'onboarding_draft_id' => (int) $draft['draft_id'],

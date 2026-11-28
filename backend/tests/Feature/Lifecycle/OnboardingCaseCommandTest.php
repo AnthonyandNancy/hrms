@@ -19,7 +19,7 @@ final class OnboardingCaseCommandTest extends LifecycleTestCase
         $org = $this->peopleScenario->orgUnit('CONTRACT-ONB-ORG');
         $command = app(OnboardingCaseCommand::class);
 
-        $created = $command->create(
+        $created = $command->submit(
             actorUserId: 10,
             payload: [
                 'person' => ['legal_name' => 'Synthetic Contract Onboarding'],
@@ -65,8 +65,8 @@ final class OnboardingCaseCommandTest extends LifecycleTestCase
         ];
         $command = app(OnboardingCaseCommand::class);
 
-        $first = $command->create(10, $payload, 'contract-replay-key', '2026-11-23');
-        $second = $command->create(10, $payload, 'contract-replay-key', '2026-11-23');
+        $first = $command->submit(10, $payload, 'contract-replay-key', '2026-11-23');
+        $second = $command->submit(10, $payload, 'contract-replay-key', '2026-11-23');
 
         $this->assertSame($first['case_id'], $second['case_id']);
         $this->assertSame($first['case_no'], $second['case_no']);
