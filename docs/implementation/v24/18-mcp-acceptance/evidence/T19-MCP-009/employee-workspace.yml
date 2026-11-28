@@ -1,0 +1,170 @@
+- generic [ref=f30e3]:
+  - link "跳到主要内容" [ref=f30e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f30e5]:
+    - generic [ref=f30e6]:
+      - generic [aria-hidden] [ref=f30e7]: 澄
+      - generic [ref=f30e8]:
+        - generic [ref=f30e9]: 澄明 HR
+        - generic [ref=f30e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f30e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f30e15]:
+      - link "我的工作台" [ref=f30e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "员工档案" [ref=f30e23] [cursor=pointer]
+      - button "劳动合同" [ref=f30e32] [cursor=pointer]
+      - button "考勤打卡" [ref=f30e41] [cursor=pointer]
+      - button "请假管理" [ref=f30e52] [cursor=pointer]
+      - button "加班管理" [ref=f30e61] [cursor=pointer]
+      - button "出差管理" [ref=f30e72] [cursor=pointer]
+      - button "绩效考核" [ref=f30e81] [cursor=pointer]
+      - button "系统管理" [ref=f30e90] [cursor=pointer]
+      - button "培训管理" [ref=f30e100] [cursor=pointer]
+      - button "公告通知" [ref=f30e110] [cursor=pointer]
+  - generic [ref=f30e120]:
+    - banner [ref=f30e121]:
+      - generic [ref=f30e122]:
+        - paragraph [ref=f30e123]: 澄明科技 · 人力资源
+        - generic [ref=f30e124]: workspace
+      - link "查看未读公告" [ref=f30e125] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f30e133] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f30e134]: DE
+        - generic [ref=f30e135]: demo.employee
+    - main [ref=f30e140]:
+      - generic [ref=f30e141]:
+        - generic [ref=f30e142]:
+          - generic [ref=f30e143]:
+            - generic [aria-hidden] [ref=f30e144]: DE
+            - generic [ref=f30e145]:
+              - paragraph [ref=f30e146]: 我的工作台 · 2026年11月28日
+              - heading "Demo Employee，下午好" [level=1] [ref=f30e147]
+              - paragraph [ref=f30e148]: 岗位待维护 · Demo Platform · 工号 DEMO-0002
+          - generic [ref=f30e149]:
+            - button "发起请假" [ref=f30e150] [cursor=pointer]
+            - button "查看工资条" [ref=f30e152] [cursor=pointer]
+        - generic [ref=f30e154]:
+          - button "本月考勤 暂无待处理异常 本月已记录出勤 0 天，异常以打卡与日历为准。 查看考勤 →" [ref=f30e155] [cursor=pointer]:
+            - generic [ref=f30e156]: 本月考勤
+            - strong [ref=f30e157]: 暂无待处理异常
+            - generic [ref=f30e158]: 本月已记录出勤 0 天，异常以打卡与日历为准。
+            - generic [ref=f30e159]: 查看考勤 →
+          - button "未读公告 0 条需确认 需确认公告会进入待办；公告可见范围由受众规则决定。 查看公告 →" [ref=f30e160] [cursor=pointer]:
+            - generic [ref=f30e161]: 未读公告
+            - strong [ref=f30e162]: 0 条需确认
+            - generic [ref=f30e163]: 需确认公告会进入待办；公告可见范围由受众规则决定。
+            - generic [ref=f30e164]: 查看公告 →
+          - button "假期余额 尚无假期账户 假期余额来自不可变账本，需先开通账户并发放额度。 查看假期 →" [ref=f30e165] [cursor=pointer]:
+            - generic [ref=f30e166]: 假期余额
+            - strong [ref=f30e167]: 尚无假期账户
+            - generic [ref=f30e168]: 假期余额来自不可变账本，需先开通账户并发放额度。
+            - generic [ref=f30e169]: 查看假期 →
+        - generic [ref=f30e170]:
+          - generic [ref=f30e171]:
+            - generic [ref=f30e172]:
+              - generic [ref=f30e173]:
+                - heading "我的档案" [level=2] [ref=f30e174]
+                - paragraph [ref=f30e175]: 当前有效任职与合同摘要
+              - button "查看完整档案" [ref=f30e176] [cursor=pointer]
+            - generic [ref=f30e179]:
+              - generic [ref=f30e180]:
+                - generic [ref=f30e181]: 岗位
+                - text: —
+              - generic [ref=f30e182]:
+                - generic [ref=f30e183]: 组织
+                - text: Demo Platform
+              - generic [ref=f30e184]:
+                - generic [ref=f30e185]: 直属经理
+                - text: Demo Manager
+              - generic [ref=f30e186]:
+                - generic [ref=f30e187]: 工作地点
+                - text: Shanghai
+              - generic [ref=f30e188]:
+                - generic [ref=f30e189]: 工作邮箱
+                - text: demo-employee@example.test
+              - generic [ref=f30e190]: 手机号
+            - generic [ref=f30e192]:
+              - generic [ref=f30e193]:
+                - generic [ref=f30e194]: 当前条款版本
+                - strong [ref=f30e195]: TERMS-DEMO-0002-V1
+                - text: · 未知
+              - generic [ref=f30e196]: 2026年1月1日 — 无固定期限
+          - generic [ref=f30e197]:
+            - generic [ref=f30e198]:
+              - generic [ref=f30e199]:
+                - heading "本月考勤" [level=2] [ref=f30e200]
+                - paragraph [ref=f30e201]: 2026年11月 · Asia/Shanghai
+              - button "打开日历" [ref=f30e202] [cursor=pointer]
+            - generic [ref=f30e204]:
+              - generic [ref=f30e205]:
+                - strong [ref=f30e206]: "0"
+                - generic [ref=f30e207]: 出勤天数
+              - generic [ref=f30e208]:
+                - strong [ref=f30e209]: "0"
+                - generic [ref=f30e210]: 迟到
+              - generic [ref=f30e211]:
+                - strong [ref=f30e212]: "0"
+                - generic [ref=f30e213]: 缺勤
+              - generic [ref=f30e214]:
+                - strong [ref=f30e215]: "0"
+                - generic [ref=f30e216]: 远程
+            - generic [ref=f30e217]:
+              - generic [ref=f30e218]: 应出勤 0 天 · 休息日不计入
+              - generic [ref=f30e219]: 数据源：考勤投影
+          - generic [ref=f30e220]:
+            - generic [ref=f30e221]:
+              - generic [ref=f30e222]:
+                - heading "假期余额" [level=2] [ref=f30e223]
+                - paragraph [ref=f30e224]: 账本汇总，不直接修改余额
+              - button "账本明细" [ref=f30e225] [cursor=pointer]
+            - list
+          - generic [ref=f30e227]:
+            - generic [ref=f30e228]:
+              - generic [ref=f30e229]:
+                - heading "我的申请" [level=2] [ref=f30e230]
+                - paragraph [ref=f30e231]: 申请状态与生效状态分开显示
+              - button "全部申请" [ref=f30e232] [cursor=pointer]
+            - list
+          - generic [ref=f30e234]:
+            - generic [ref=f30e235]:
+              - generic [ref=f30e236]:
+                - heading "工资条" [level=2] [ref=f30e237]
+                - paragraph [ref=f30e238]: 本人工资条只显示已发布记录；金额按字段策略返回，缺失时显示隐藏说明而不是 0。
+              - button "刷新" [ref=f30e239] [cursor=pointer]
+            - generic [ref=f30e241]:
+              - generic [aria-hidden] [ref=f30e242]: —
+              - generic [ref=f30e243]:
+                - heading "还没有已发布工资条" [level=2] [ref=f30e244]
+                - paragraph [ref=f30e245]: 工资批次发布后，本人工资条会出现在这里；未发布批次不会提前显示。
+          - generic [ref=f30e246]:
+            - generic [ref=f30e247]:
+              - generic [ref=f30e248]:
+                - heading "最新公告" [level=2] [ref=f30e249]
+                - paragraph [ref=f30e250]: 需确认公告会进入待办
+              - button "公告中心" [ref=f30e251] [cursor=pointer]
+            - list
+        - region "快捷业务" [ref=f30e253]:
+          - generic [ref=f30e255]:
+            - heading "快捷业务" [level=2] [ref=f30e256]
+            - paragraph [ref=f30e257]: 员工自助入口已并入工作台；缺少能力的入口仍由服务端拒绝。
+          - generic [ref=f30e258]:
+            - button "账号安全 密码、登录会话与可选双因素认证" [ref=f30e259] [cursor=pointer]:
+              - strong [ref=f30e260]: 账号安全
+              - generic [ref=f30e261]: 密码、登录会话与可选双因素认证
+            - button "我的加班 查看加班记录与调休余额" [ref=f30e262] [cursor=pointer]:
+              - strong [ref=f30e263]: 我的加班
+              - generic [ref=f30e264]: 查看加班记录与调休余额
+            - button "我的出差 查看出差申请与行程" [ref=f30e265] [cursor=pointer]:
+              - strong [ref=f30e266]: 我的出差
+              - generic [ref=f30e267]: 查看出差申请与行程
+            - button "我的培训 查看培训项目与报名记录" [ref=f30e268] [cursor=pointer]:
+              - strong [ref=f30e269]: 我的培训
+              - generic [ref=f30e270]: 查看培训项目与报名记录
+        - note [ref=f30e271]:
+          - text: 数据更新于
+          - time [ref=f30e273]: 2026-11-28 20:35
+          - generic [ref=f30e274]: （Asia/Shanghai）
+    - contentinfo [ref=f30e275]:
+      - generic [ref=f30e276]: 澄明科技 HRMS
+      - generic [ref=f30e277]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f30e278]: 构建 04b874e0

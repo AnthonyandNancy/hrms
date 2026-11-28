@@ -93,7 +93,7 @@
 | T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
 | T16 | 通知状态与报表字段裁剪 | COMPLETE | T16 merged after critical-finding fixes | `d8a7f9a`; `docs/implementation/v24/16-notifications-reporting/implementation-report.md`; `gate-all-t16-merge.log`; MCP in T18 |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
-| T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001–008: routes/details/role anchors/R06/R08/R09 scoped pages pass; GAP-21/22/24 fixed; full role matrix/155/458 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/` |
+| T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001–010: routes/details/role anchors/R03/R05/R06/R07/R08/R09 scoped pages pass; GAP-21/22/24 fixed; full role matrix/155/458 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/` |
 | T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated stack, clean install, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment/overlap repair, v24-t19d smoke, same-DB rollback/forward and v24-t19e GAP-21 fix pass; clean full Dockerfile build/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md`; `.../upgrade-rollback/`, `t19d-smoke/` |
 
 ### 0.6 执行日志

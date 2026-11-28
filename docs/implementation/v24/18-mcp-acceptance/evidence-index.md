@@ -345,3 +345,14 @@ NOT RUN: full module/action matrix, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-008/`.
+
+## 21. Execution update — T19-MCP-010
+
+```text
+MCP executed: 13 evidence packs total
+PASS: R03 attendance-specialist scoped punches/records; R05 payroll-approver run detail
+PASS: SoD acknowledgement path for PAYROLL_APPROVER
+NOT RUN: full action matrix, R04 template, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-010/`.

@@ -1,0 +1,30 @@
+788. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+790. [GET] http://127.0.0.1:5190/v1/auth/csrf => [200] OK
+791. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+792. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+810. [GET] http://127.0.0.1:5190/v1/me/workspace => [200] OK
+811. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+812. [GET] http://127.0.0.1:5190/v1/engagement/notices?filter=unread => [200] OK
+813. [GET] http://127.0.0.1:5190/v1/payroll/payslips => [200] OK
+817. [GET] http://127.0.0.1:5190/v1/me => [401] Unauthorized
+822. [POST] http://127.0.0.1:5190/v1/auth/login => [200] OK
+823. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+824. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+825. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+837. [GET] http://127.0.0.1:5190/v1/payroll/runs/1 => [200] OK
+838. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+839. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/employees => [200] OK
+840. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/reconciliation => [200] OK
+841. [GET] http://127.0.0.1:5190/v1/payroll/runs/1/inputs => [200] OK
+845. [GET] http://127.0.0.1:5190/v1/me => [401] Unauthorized
+850. [POST] http://127.0.0.1:5190/v1/auth/login => [200] OK
+851. [GET] http://127.0.0.1:5190/v1/me => [200] OK
+852. [GET] http://127.0.0.1:5190/v1/me/capabilities => [200] OK
+853. [GET] http://127.0.0.1:5190/v1/me/permissions => [200] OK
+867. [GET] http://127.0.0.1:5190/v1/time/attendance/devices?page=1&page_size=100&active=true => [200] OK
+869. [GET] http://127.0.0.1:5190/v1/reporting/dashboard => [200] OK
+870. [GET] http://127.0.0.1:5190/v1/time/attendance/records?from=2026-11-01&to=2026-11-30&employment_id=2&page=1&page_size=20 => [200] OK
+871. [GET] http://127.0.0.1:5190/v1/time/attendance/devices?page=1&page_size=100&active=true => [200] OK
+872. [GET] http://127.0.0.1:5190/v1/time/attendance/records?from=2026-11-01&to=2026-11-30&employment_id=2&page=1&page_size=20 => [200] OK
+
+Note: 60 static requests not shown, run with "static" option to see them.
