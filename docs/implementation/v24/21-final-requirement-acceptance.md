@@ -39,7 +39,7 @@ It is **not** a completed V2.4 business delivery:
 | T14 benefits→Payroll | COMPLETE | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log`, `gate-all-t14d.log` | Multi-plan/reversal/employer cost/snapshot/UI/P3 masking complete; T16 report leakage separate |
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
-| T17a-T17c frontend money/self payslip/actions | PARTIAL | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17c.log` | BigInt money/self payslip/payroll action allowlist + remaining payroll object actions done; Chinese sweep remains |
+| T17 frontend precision/actions/self-service | COMPLETE | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17d.log` | Money, self payslips, server actions and Chinese sweep complete; MCP remains T18 |
 | T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
@@ -109,7 +109,7 @@ This proves the merged technical foundation passes the existing automated gates.
 | AC-15 recruitment/training | ✅ MET (code/UI) | Offer→compensation, bonus mapping UI, training attempt/source UI regressions pass; MCP pending |
 | AC-16 reports/exports | ✅ MET (code/UI) | T16 report/export field crop, no-zero leakage and export reauthorization regressions pass; MCP pending |
 | AC-17 notices/notifications | ✅ MET (code/UI) | T16 receipt-based delivery/retry, revocation/expiry/audience checks and payslip ID-only notifications pass; real provider/MCP pending |
-| AC-18 unified UI/Chinese | ❌ PARTIAL | BigInt money/self payslip, payroll allowed_actions and remaining payroll object actions done; Chinese sweep remains |
+| AC-18 unified UI/Chinese | ✅ MET (code/UI) | BigInt money, self payslips, allowed_actions-only actions and Chinese enum/copy audit pass; MCP pending |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
 | AC-20 history/regression | ❌ NOT PROVEN | No real migration/replay/restore acceptance |
 | AC-21 full MCP acceptance | ❌ NOT RUN | 0 MCP items executed |
@@ -118,7 +118,7 @@ This proves the merged technical foundation passes the existing automated gates.
 ## 6. Resume protocol
 
 1. Keep this branch/HEAD as the stable foundation; T05/T07/T16 are merged with full-gate evidence.
-2. Execute remaining T17 detail actions/Chinese sweep.
+2. Execute the T18 MCP matrix.
 3. Run `pnpm gate:all` after each merge.
 4. Execute T18 Playwright MCP matrix and T19 real-stack/migration/restore verification.
 5. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
