@@ -299,3 +299,21 @@ worktree.
 - Full-suite verification before this correction found and fixed the
   controller SQL/architecture false positive and the import drawer capability
   regression.
+
+## T05b — contract and execution-compensation drafts
+
+- Added People-owned `OnboardingContractDraftWriter` and Payroll-owned
+  `OnboardingCompensationDraftWriter` contracts; the onboarding effect never
+  imports another module's concrete writer.
+- After the approved effect creates Person/Employment/Assignment/Terms, it
+  creates a DRAFT employment contract and CREATION contract version, then a
+  DRAFT employee compensation version linked to that contract version and case.
+- Employment contract `source_type/source_id` now preserves ONBOARDING/case
+  provenance without introducing a second contract writer.
+- Lifecycle case detail exposes `contract_draft` and `compensation_draft`
+  references derived from the frozen `effect_result`.
+- Added regression coverage for draft creation, replay idempotency and
+  compensation-draft failure rollback of all People/contract/compensation rows.
+- Verification: T05b adjacent suite 62 tests / 12,220 assertions PASS; Pint,
+  PHPStan, arch:test and OpenAPI contract checks green. Full gate follows this
+  commit.

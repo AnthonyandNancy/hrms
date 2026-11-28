@@ -9,6 +9,7 @@ use App\Modules\Payroll\Console\PayrollParallelCheckCommand;
 use App\Modules\Payroll\Console\PayrollReconciliationCommand;
 use App\Modules\Payroll\Console\SeedDemoPayrollRunCommand;
 use App\Modules\Payroll\Console\SeedPayrollParametersCommand;
+use App\Modules\Payroll\Contracts\OnboardingCompensationDraftWriter;
 use App\Modules\Payroll\Contracts\PayrollApprovalEffectPort;
 use App\Modules\Payroll\Contracts\PayrollCostDirectory;
 use App\Modules\Payroll\Contracts\PayrollRunDirectory;
@@ -20,6 +21,7 @@ use App\Modules\Payroll\Services\CorrectionService;
 use App\Modules\Payroll\Services\EloquentPayrollRunDirectory;
 use App\Modules\Payroll\Services\EloquentPayslipWorkspaceDirectory;
 use App\Modules\Payroll\Services\ExportService;
+use App\Modules\Payroll\Services\OnboardingCompensationDraftService;
 use App\Modules\Payroll\Services\PayrollApprovalEffectService;
 use App\Modules\Payroll\Services\PayrollParallelCheckService;
 use App\Modules\Payroll\Services\PayrollPeriodLockReaderService;
@@ -45,6 +47,7 @@ final class PayrollServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PayrollApprovalEffectPort::class, PayrollApprovalEffectService::class);
+        $this->app->bind(OnboardingCompensationDraftWriter::class, OnboardingCompensationDraftService::class);
         $this->app->bindIf(PayrollCostDirectory::class, UnavailablePayrollCostDirectory::class);
         $this->app->bind(PayslipWorkspaceDirectory::class, EloquentPayslipWorkspaceDirectory::class);
         $this->app->bindIf(PayrollRunDirectory::class, EloquentPayrollRunDirectory::class);

@@ -134,7 +134,8 @@ final class EmploymentContractService
                 'work_location' => isset($data['work_location']) ? (string) $data['work_location'] : null,
                 'probation_end_date' => isset($data['probation_end_date']) ? (string) $data['probation_end_date'] : null,
                 'recorded_at' => $this->clock->now(),
-                'source_type' => 'API',
+                'source_type' => (string) ($data['source_type'] ?? 'API'),
+                'source_id' => isset($data['source_id']) ? (int) $data['source_id'] : null,
             ]);
 
             if ($current !== null) {

@@ -9,7 +9,9 @@ use App\Modules\Lifecycle\Domain\LifecycleCaseType;
 use App\Modules\Lifecycle\Services\LifecycleEffectSupport;
 use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Organization\Contracts\OrganizationFacts;
+use App\Modules\Payroll\Contracts\OnboardingCompensationDraftWriter;
 use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
+use App\Modules\People\Contracts\OnboardingContractDraftWriter;
 use App\Modules\People\Contracts\OnboardingDraftStore;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Modules\Workflow\Contracts\DomainEffectCommand;
@@ -29,6 +31,8 @@ final class OnboardingEffectHandler implements DomainEffectHandler
         private readonly CompanyProfileReader $company,
         private readonly UserDirectory $users,
         private readonly OnboardingDraftStore $onboardingDrafts,
+        private readonly OnboardingContractDraftWriter $contractDrafts,
+        private readonly OnboardingCompensationDraftWriter $compensationDrafts,
     ) {}
 
     public function supports(string $effectType): bool
@@ -42,9 +46,13 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             $existing = $this->support->alreadyApplied($command->caseId);
 
             if ($existing !== null) {
+                $existingResult = (array) ($existing->effect_result_json ?? []);
+
                 return DomainEffectResult::appliedWithOutbox('employment.created.v1', [
                     'employment_id' => (int) $existing->result_employment_id,
                     'case_id' => $command->caseId,
+                    'contract_draft_id' => $existingResult['contract_draft_id'] ?? null,
+                    'compensation_draft_id' => $existingResult['compensation_draft_id'] ?? null,
                 ]);
             }
 
@@ -118,6 +126,29 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                 'source_id' => $command->caseId,
             ], null);
 
+            $actorUserId = 0;
+            $contractDraft = $this->contractDrafts->createDraft(
+                employmentId: $employmentId,
+                caseId: $command->caseId,
+                employeeNo: (string) $payload['employee_no'],
+                employmentType: (string) $payload['employment_type'],
+                hireDate: $hireDate,
+                terms: $terms,
+                actorUserId: $actorUserId,
+            );
+            $compensationDraft = null;
+
+            if (array_key_exists('base_salary_minor', $terms) && $terms['base_salary_minor'] !== null && $terms['base_salary_minor'] !== '') {
+                $compensationDraft = $this->compensationDrafts->createDraft(
+                    actorUserId: $actorUserId,
+                    employmentId: $employmentId,
+                    caseId: $command->caseId,
+                    contractVersionId: (int) $contractDraft['contract_version_id'],
+                    hireDate: $hireDate,
+                    terms: $terms,
+                );
+            }
+
             $this->linkUserIfPresent($command, $payload, $personId, $employmentId);
             $this->support->createOnboardingChecklist($command->caseId, $employmentId, $hireDate);
             $this->support->markEffective(
@@ -131,12 +162,18 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                     'assignment_id' => $assignmentId,
                     'org_unit_id' => (int) $payload['org_unit_id'],
                     'hire_date' => $hireDate,
+                    'contract_draft_id' => (int) $contractDraft['contract_id'],
+                    'contract_version_id' => (int) $contractDraft['contract_version_id'],
+                    'compensation_draft_id' => $compensationDraft !== null ? (int) $compensationDraft['compensation_id'] : null,
                 ],
                 result: [
                     'employment_id' => $employmentId,
                     'person_id' => $personId,
                     'assignment_id' => $assignmentId,
                     'hire_date' => $hireDate,
+                    'contract_draft_id' => (int) $contractDraft['contract_id'],
+                    'contract_version_id' => (int) $contractDraft['contract_version_id'],
+                    'compensation_draft_id' => $compensationDraft !== null ? (int) $compensationDraft['compensation_id'] : null,
                 ],
             );
 
@@ -145,6 +182,8 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                 'person_id' => $personId,
                 'assignment_id' => $assignmentId,
                 'case_id' => $command->caseId,
+                'contract_draft_id' => (int) $contractDraft['contract_id'],
+                'compensation_draft_id' => $compensationDraft !== null ? (int) $compensationDraft['compensation_id'] : null,
             ]);
         });
     }
