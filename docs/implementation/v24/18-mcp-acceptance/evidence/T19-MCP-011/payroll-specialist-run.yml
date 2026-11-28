@@ -1,0 +1,142 @@
+- generic [ref=f35e3]:
+  - link "跳到主要内容" [ref=f35e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f35e5]:
+    - generic [ref=f35e6]:
+      - generic [aria-hidden] [ref=f35e7]: 澄
+      - generic [ref=f35e8]:
+        - generic [ref=f35e9]: 澄明 HR
+        - generic [ref=f35e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f35e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f35e15]:
+      - link "我的工作台" [ref=f35e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f35e23] [cursor=pointer]
+      - button "薪资管理" [ref=f35e32] [cursor=pointer]
+      - button "系统管理" [ref=f35e43] [cursor=pointer]
+  - generic [ref=f35e52]:
+    - banner [ref=f35e53]:
+      - generic [ref=f35e54]:
+        - paragraph [ref=f35e55]: 澄明科技 · 人力资源
+        - generic [ref=f35e56]: payroll-run-detail
+      - link "查看未读公告" [ref=f35e57] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f35e65] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f35e66]: T1
+        - generic [ref=f35e67]: t18.payroll
+    - main [ref=f35e72]:
+      - generic [ref=f35e73]:
+        - generic [ref=f35e74]:
+          - generic [ref=f35e75]:
+            - button "← 返回薪资工作台" [ref=f35e76] [cursor=pointer]
+            - paragraph [ref=f35e77]: 薪酬 · 工资批次详情
+            - heading "2026 年 1 月 工资批次" [level=1] [ref=f35e78]
+            - paragraph [ref=f35e79]: "常规批次 · 批次 #1 · 发放日 2026年1月31日"
+          - generic [ref=f35e80]:
+            - generic [ref=f35e81]: 草稿
+            - generic [ref=f35e82]: 草稿
+        - region "批次基本信息" [ref=f35e83]:
+          - generic [ref=f35e84]:
+            - term [ref=f35e85]: 期间
+            - definition [ref=f35e86]: 2026-01（2026 年 1 月）
+          - generic [ref=f35e87]:
+            - term [ref=f35e88]: 发放日
+            - definition [ref=f35e89]: 2026年1月31日
+          - generic [ref=f35e90]:
+            - term [ref=f35e91]: 人数
+            - definition [ref=f35e92]: 0 人
+          - generic [ref=f35e93]:
+            - term [ref=f35e94]: 应发合计
+            - definition [ref=f35e95]:
+              - generic "¥0.00" [ref=f35e96]
+          - generic [ref=f35e98]:
+            - term [ref=f35e99]: 扣款合计
+            - definition [ref=f35e100]:
+              - generic "¥0.00" [ref=f35e101]
+          - generic [ref=f35e103]:
+            - term [ref=f35e104]: 实发合计
+            - definition [ref=f35e105]:
+              - generic "¥0.00" [ref=f35e106]
+          - generic [ref=f35e108]:
+            - term [ref=f35e109]: 输入锁定时间
+            - definition [ref=f35e110]: 2026-11-28 18:03
+          - generic [ref=f35e111]:
+            - term [ref=f35e112]: 快照版本
+            - definition [ref=f35e113]: v1
+        - generic [ref=f35e114]:
+          - generic [ref=f35e116]:
+            - heading "批次操作" [level=2] [ref=f35e117]
+            - paragraph [ref=f35e118]: 每个动作独立授权；按钮禁用时会说明原因，服务端仍会再次校验状态与职责分离。
+          - generic [ref=f35e119]:
+            - button "准备（锁定输入）" [ref=f35e121] [cursor=pointer]
+            - generic [ref=f35e122]:
+              - button "试算" [disabled] [ref=f35e123]
+              - paragraph [ref=f35e124]: 当前状态或授权不允许此操作。
+            - generic [ref=f35e125]:
+              - button "提交复核" [disabled] [ref=f35e126]
+              - paragraph [ref=f35e127]: 当前状态或授权不允许此操作。
+            - generic [ref=f35e128]:
+              - button "批准" [disabled] [ref=f35e129]
+              - paragraph [ref=f35e130]: 当前状态或授权不允许此操作。
+            - generic [ref=f35e131]:
+              - button "发布" [disabled] [ref=f35e132]
+              - paragraph [ref=f35e133]: 当前状态或授权不允许此操作。
+            - generic [ref=f35e134]:
+              - button "标记发放" [disabled] [ref=f35e135]
+              - paragraph [ref=f35e136]: 当前状态或授权不允许此操作。
+            - generic [ref=f35e137]:
+              - button "关闭批次" [disabled] [ref=f35e138]
+              - paragraph [ref=f35e139]: 当前状态或授权不允许此操作。
+        - generic [ref=f35e140]:
+          - generic [ref=f35e142]:
+            - heading "其他批次操作" [level=2] [ref=f35e143]
+            - paragraph [ref=f35e144]: 按钮来自服务端 allowed_actions。
+          - generic [ref=f35e145]:
+            - button "取消批次" [ref=f35e146] [cursor=pointer]
+            - button "分配成员" [ref=f35e148] [cursor=pointer]
+        - tablist "工资批次详情分区" [ref=f35e150]:
+          - tab "计薪输入" [selected] [ref=f35e151] [cursor=pointer]
+          - tab "复核" [ref=f35e152] [cursor=pointer]
+          - tab "发放登记" [ref=f35e153] [cursor=pointer]
+          - tab "工资条" [ref=f35e154] [cursor=pointer]
+          - tab "导出" [ref=f35e155] [cursor=pointer]
+        - region "计薪输入证据" [ref=f35e156]:
+          - generic [ref=f35e157]:
+            - generic [ref=f35e158]:
+              - heading "计薪输入证据" [level=2] [ref=f35e159]
+              - paragraph [ref=f35e160]: "来自 /v1/payroll/runs/{id}/inputs 的不可变输入快照；金额键只有具备工资条字段权限时才返回。"
+            - generic [ref=f35e161]: 0 条快照
+          - generic [ref=f35e162]:
+            - generic [aria-hidden] [ref=f35e163]: —
+            - generic [ref=f35e164]:
+              - heading "暂无计薪输入快照" [level=2] [ref=f35e165]
+              - paragraph [ref=f35e166]: 锁定输入并试算后，服务端会写入该批次的不可变输入证据。
+        - region "批次对账" [ref=f35e167]:
+          - generic [ref=f35e168]:
+            - generic [ref=f35e169]:
+              - heading "批次对账" [level=2] [ref=f35e170]
+              - paragraph [ref=f35e171]: 工资条、员工结果与批次合计必须一致；差异会逐条列出，不会自动忽略。
+            - generic [ref=f35e172]: 对账通过
+          - generic [ref=f35e173]:
+            - generic [ref=f35e174]:
+              - term [ref=f35e175]: 员工数
+              - definition [ref=f35e176]: "0"
+            - generic [ref=f35e177]:
+              - term [ref=f35e178]: 工资条数
+              - definition [ref=f35e179]: "0"
+            - generic [ref=f35e180]:
+              - term [ref=f35e181]: 应发合计
+              - definition [ref=f35e182]:
+                - generic "¥0.00" [ref=f35e183]
+            - generic [ref=f35e185]:
+              - term [ref=f35e186]: 实发合计
+              - definition [ref=f35e187]:
+                - generic "¥0.00" [ref=f35e188]
+            - generic [ref=f35e190]:
+              - term [ref=f35e191]: 单位成本
+              - definition [ref=f35e192]:
+                - generic "¥0.00" [ref=f35e193]
+    - contentinfo [ref=f35e195]:
+      - generic [ref=f35e196]: 澄明科技 HRMS
+      - generic [ref=f35e197]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f35e198]: 构建 04b874e0

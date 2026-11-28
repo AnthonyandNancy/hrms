@@ -356,3 +356,13 @@ NOT RUN: full action matrix, R04 template, 155 entries, 458 cards
 ```
 
 - Evidence: `evidence/T19-MCP-010/`.
+
+## 22. Execution update — T19-MCP-011
+
+```text
+MCP executed: 14 evidence packs total
+PASS: R04 standard PAYROLL_SPECIALIST template with PAYROLL_RUN anchor; payroll run reads
+NOT RUN: full prepare/calculate/approve action matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-011/`.
