@@ -80,9 +80,9 @@
 | T02 | 权限单一目录与对象动作 | COMPLETE | Step 5 | `docs/implementation/v24/02-action-catalog/evidence.md`; gate log |
 | T03 | 合同约定版本 | COMPLETE | Step 5 | `docs/implementation/v24/03-contracts/evidence.md` |
 | T04 | 员工执行薪酬版本 | COMPLETE | Step 5 | `docs/implementation/v24/04-compensation-chain/evidence.md` |
-| T05 | 单一入职与合同/薪酬待办 | PENDING | Step 0（已拆 T05a Mini Plan） | `docs/superpowers/plans/2026-11-28-t05a-single-onboarding-entry-mini-plan.md` |
+| T05 | 单一入职与合同/薪酬待办 | BLOCKED | T05a 未合并；PII/日期/能力/幂等审查未过 | `1667746` on `v24-t05-onboarding`; mini-plan |
 | T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
-| T07 | 请假审批 Effect 与净流水 | PENDING | — | — |
+| T07 | 请假审批 Effect 与净流水 | BLOCKED | T07a/T07b/T07c 拆分；分支未合并 | `27a8b5c` on `v24-t07-leave-effects`; review findings |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
 | T09 | Snapshot v2 与员工级方案 | PENDING | — | — |
 | T10 | 受限规则引擎 | PENDING | — | — |
@@ -91,7 +91,7 @@
 | T13 | 累计更正与 signed YTD | PENDING | — | — |
 | T14 | 福利计薪输入与冲销 | PENDING | — | — |
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
-| T16 | 通知状态与报表字段裁剪 | PENDING | — | — |
+| T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
 | T19 | 真实栈、迁移恢复与发布判定 | PENDING | — | — |
@@ -108,6 +108,8 @@
 | 2026-11-28 | T06 hardening review | 58fbe80 + 33 fact tests + independent re-review | Spec ✅ / Approved-with-risk; MySQL true concurrency explicitly deferred T19; final full gate pending T16/T07 merges | Do not claim concurrency verified until T19. |
 | 2026-11-28 | T18 acceptance assets | merged 1517c56 | 155/458 matrix, 21-module runbook and evidence index merged; all MCP conclusions NOT RUN; R02–R05/R08 anchor setup BLOCKED | T18 remains IN PROGRESS until real MCP execution. |
 | 2026-11-28 | T05 re-scope | Mini Plan created | Legacy direct onboarding will become a Lifecycle facade in three small steps; contract/compensation drafts deferred to T05b | Execute after current parallel branches merge; do not claim T05 complete. |
+| 2026-11-28 | T06 final gate | clean `pnpm gate:all` on merged main | 22 gates PASS in 344.3s; log `docs/implementation/v24/06-time-facts/gate-all-final.log` | T06 approved-with-risk; MySQL concurrency/T19 outstanding. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T05/T07/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Do not merge blocked branches wholesale; resume from split tasks and rerun each gate. |
 
 ---
 

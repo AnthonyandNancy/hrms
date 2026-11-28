@@ -1,0 +1,145 @@
+# FactoryHR V2.4 — Final Requirement Acceptance (NO-GO)
+
+- **Date:** 2026-11-28
+- **Branch:** `v2.4-implementation`
+- **Current HEAD:** `b888693` (plus this acceptance record)
+- **Requirement:** `docs/FactoryHR_V2.4_需求与技术设计说明书.md`
+- **Plan:** `docs/superpowers/plans/2026-11-28-v2-4-implementation-master-plan.md`
+- **Full gate:** `docs/implementation/v24/06-time-facts/gate-all-final.log`
+- **Decision:** **NO-GO**
+
+## 1. Conclusion
+
+The current branch contains a stable, reviewed foundation (T00–T04, hardened T06) and complete MCP acceptance assets (T18). The authoritative 22-gate technical matrix passes.
+
+It is **not** a completed V2.4 business delivery:
+
+- T05 onboarding, T07 leave effects and T16 notification/report work exist only in isolated branches, failed review, and are not merged.
+- T08–T15, T17, and T19 have not been implemented.
+- No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
+- Real MySQL/Redis/object-storage migration, concurrency and restore verification is not complete.
+- Therefore AC-01/AC-21/AC-22 can not pass, and no Requirement-wide completion claim is allowed.
+
+## 2. Merged and verified work
+
+| Task | State | Evidence | Limitation |
+|---|---|---|---|
+| T00 baseline + ADR | COMPLETE | `docs/implementation/v24/00-baseline.md`; gate log | Baseline only |
+| T01 install/demo/readiness | COMPLETE | `docs/implementation/v24/01-install/evidence.md` | Unit gate only; no browser install flow |
+| T02 generated action catalog and object actions | COMPLETE | `docs/implementation/v24/02-action-catalog/evidence.md` | Contract/Time detail wiring is in later tasks |
+| T03 contract agreed versions | COMPLETE | `docs/implementation/v24/03-contracts/evidence.md` | MySQL trigger/UI waits for T19/T17 |
+| T04 execution compensation link | COMPLETE | `docs/implementation/v24/04-compensation-chain/evidence.md` | Snapshot still reads terms until T09 |
+| T06 monthly Time fact versions | COMPLETE / Approved-with-risk | `docs/implementation/v24/06-time-facts/implementation-report.md`; final gate | MySQL true concurrency deferred to T19; complete workday coverage deferred to T09 |
+| T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
+
+### Full gate result
+
+```text
+GATE:ALL PASS (22 gates, 344.3s)
+```
+
+This proves the merged technical foundation passes the existing automated gates. It does not prove unmerged work, remote/provider integration, MySQL concurrency, browser behavior, or V2.4 business acceptance.
+
+## 3. Unmerged / blocked branches
+
+These branches are intentionally **not merged** because independent review found Critical issues.
+
+### T05 onboarding — BLOCKED
+
+- Branch: `v24-t05-onboarding`
+- Commit: `1667746` (`feat(v2.4): route onboarding through lifecycle case`)
+- What works: `/v1/employees/onboard` becomes a Lifecycle Case facade; no direct People writes; 202 pending-Case frontend; focused tests pass.
+- Blocking findings:
+  - PII (ID number/mobile/email) enters plaintext Workflow Case / Lifecycle Intent payloads and may be exposed by Case detail.
+  - `assignment.valid_from` / `terms.effective_from` are silently dropped.
+  - Legacy route capability and canonical payload validation are inconsistent.
+  - Cross-entry idempotency scope and pending-case deduplication are not unified.
+  - Frontend error mapping, OpenAPI 409 and stale pendingCase link need correction.
+- Re-entry plan: `docs/superpowers/plans/2026-11-28-t05a-single-onboarding-entry-mini-plan.md`; T05b contract/compensation drafts remain untouched.
+
+### T07 leave Workflow effects — BLOCKED
+
+- Branch: `v24-t07-leave-effects`
+- Commit: `27a8b5c` (rebased work)
+- What works: real `time.leave.apply`, signed-net payroll input, first-class payroll treatment, basic approve/revoke tests.
+- Blocking findings:
+  - Reject/return/withdraw do not release the Time hold.
+  - A failed reverse handler can still mark the original effect REVERSED and Time projection REVOKED.
+  - Admin revoke fails for real HR/attendance role capability sets.
+  - Existing installs with a v1 `workflow.noop` leave template are not migrated.
+  - Reversal audit/outbox/reversal link and multi-effect atomicity are missing.
+  - `UNRESOLVED` treatment is blocked too late; business dates need company timezone.
+  - Real HTTP/Workflow coverage and T09 snapshot consumption are incomplete.
+- T07a/T07b/T07c split is required before resuming.
+
+### T16 notification/report — BLOCKED
+
+- Branch: `v24-t16-engagement-reporting`
+- Commit: `79de276`
+- What works: notification delivery ledger foundation, list/read revalidation, identifier-only payslip intent, report field resolver skeleton, extensive focused tests.
+- Blocking findings:
+  - Default log transport can fabricate success; `SENT` must require a real provider receipt.
+  - Provider send occurs before durable PENDING reservation; concurrent replays can send twice.
+  - Engagement FAILED delivery cannot be correctly retried through Platform payload/channel.
+  - Export principal/authVersion and queued execution are not proven safe.
+  - Report field tier is resolved as a global maximum across rows instead of per-row authority; mixed P1/P3 grants can over-expose fields.
+  - Report row scope sometimes uses dashboard capability; unauthorized money fields can be reconstructed or shown as zero.
+  - Notice audience snapshot fail-open, expiry on home, and governance response drift remain.
+- T16a (delivery truth/retry), T16b (report row/field scoping), T16c (notice/queue/copy) must be completed separately.
+
+## 4. Not implemented
+
+- **T05b:** contract and execution-compensation drafts created by approved onboarding.
+- **T08:** overtime PAY/TIMEOFF ledger and travel time-fact closure.
+- **T09:** Snapshot v2 consuming contract + execution compensation + closed Time facts + employee-level schemes; no-zero/blocker integration.
+- **T10:** restricted payroll AST rule engine and published rule versions.
+- **T11:** payroll run members, blockers, independent publication/disbursement.
+- **T12:** mid-month compensation segmentation and period-level statutory calculation.
+- **T13:** cumulative corrections and signed YTD ledger.
+- **T14:** benefit payroll inputs, multi-plan and reversal.
+- **T15:** performance bonus mapping, Offer→compensation, training exam attempts.
+- **T17:** exact money display, complete object actions, self-service payslip and all detail/list state/Chinese copy.
+- **T18 execution:** Playwright MCP human acceptance (assets only, all NOT RUN).
+- **T19:** MySQL/Redis/object storage, upgrade, backup restore, migration reconciliation and final GO/NO-GO.
+
+## 5. Requirement acceptance
+
+| AC | Result | Reason |
+|---|---|---|
+| AC-01 traceability | ❌ NOT ACCEPTED | 155/458/T01–T19 assets exist, but T20–T24 unmapped and execution is NOT RUN |
+| AC-02 clean install | ❌ NOT ACCEPTED | Installer tests pass; no real-stack/browser proof |
+| AC-03 roles/login | ❌ NOT ACCEPTED | Existing IAM only; no five+ role MCP evidence |
+| AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04 merged; T05 onboarding blocked |
+| AC-05 permission/field isolation | ❌ PARTIAL | T02 catalog/actions merged; T16 report leakage unresolved |
+| AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
+| AC-07 payroll sample 9480/1400/8080/9980 | ❌ NOT MET | T09/T10 not implemented |
+| AC-08 leave cancel/dynamic recalc | ❌ NOT MET | T06 facts pass; T07/T09 blocked |
+| AC-09 mid-month raise 8500 | ❌ NOT MET | T09/T12 not implemented |
+| AC-10 overtime/timeoff/travel | ❌ NOT MET | T08 not implemented |
+| AC-11 rule validation | ❌ NOT MET | T10 not implemented |
+| AC-12 cumulative corrections | ❌ NOT MET | T13 not implemented |
+| AC-13 approval/execution consistency | ❌ NOT MET | T07 Workflow effects blocked |
+| AC-14 benefits/performance payroll | ❌ NOT MET | T14/T15/T09 not implemented |
+| AC-15 recruitment/training | ❌ NOT MET | T15 not implemented |
+| AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
+| AC-17 notices/notifications | ❌ PARTIAL/BLOCKED | Delivery/retry/audience issues unresolved |
+| AC-18 unified UI/Chinese | ❌ PARTIAL | Existing frontend gates pass; T17 not done |
+| AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
+| AC-20 history/regression | ❌ NOT PROVEN | No real migration/replay/restore acceptance |
+| AC-21 full MCP acceptance | ❌ NOT RUN | 0 MCP items executed |
+| AC-22 release GO | ❌ NO-GO | P0/P1 blockers, unmerged tasks, no MCP evidence |
+
+## 6. Resume protocol
+
+1. Keep this branch/HEAD as the stable foundation; do not merge the blocked T05/T07/T16 branches wholesale.
+2. Execute T05a2 (encrypted People-owned onboarding draft + capability/idempotency/valid-date fixes) and review before T05b.
+3. Execute T07a2 (atomic reversal), then T07b (outcome effects/roles/template upgrade), then T07c (audit/UNRESOLVED/timezone/real-HTTP coverage).
+4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
+5. Continue T08–T17 in dependency order; T09 must not be skipped.
+6. Run `pnpm gate:all` after each merge.
+7. Only then execute the merged T18 matrix with Playwright MCP and complete T19 real-stack/migration/restore verification.
+8. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
+
+## 7. Final statement
+
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T05/T07/T16 blocked and T08–T19 outstanding.
