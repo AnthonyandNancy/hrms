@@ -148,6 +148,7 @@ export type PayrollAction =
   | 'mark-paid'
   | 'close'
   | 'cancel'
+  | 'reopen'
 
 export type PayrollExportKind = 'bank' | 'tax'
 
@@ -451,6 +452,33 @@ export async function voidPayrollCorrection(
     { reason },
     { idempotencyKey },
   ))
+}
+
+export async function createPayrollCorrection(
+  runId: number,
+  period: string,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('correction'),
+): Promise<PayrollRunDetail> {
+  return normalisePayrollRunDetail(await resourcePost<unknown>(
+    `/v1/payroll/runs/${runId}/corrections`,
+    { period, reason },
+    { idempotencyKey },
+  ))
+}
+
+export async function assignPayrollRunMember(
+  runId: number,
+  userId: number,
+  memberRole: string,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('member'),
+): Promise<unknown> {
+  return resourcePost<unknown>(
+    `/v1/payroll/runs/${runId}/members`,
+    { user_id: userId, member_role: memberRole, reason },
+    { idempotencyKey },
+  )
 }
 
 export async function runPayrollAction(
@@ -1000,6 +1028,7 @@ export function payrollActionLabel(action: PayrollAction): string {
     'mark-paid': '标记发放',
     close: '关闭批次',
     cancel: '取消批次',
+    reopen: '重开批次',
   }[action]
 }
 

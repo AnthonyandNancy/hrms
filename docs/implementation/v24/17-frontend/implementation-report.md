@@ -38,3 +38,18 @@ Chinese enum/error sweep.
   DRAFT/REVIEWED fixtures and to assert capability-free disabled reasons.
 - Verification: payroll allowed-actions + workspace 16 tests; typecheck/lint
   green.
+
+## T17c — remaining Payroll object actions
+
+- Added API clients for correction creation and member assignment; `reopen` is
+  part of the payroll action union and Chinese labels.
+- Payroll detail now renders cancel/reopen/correct/assign-member controls only
+  when the corresponding server `allowed_actions` key is present.
+- Added one dialog with action-appropriate fields:
+  - cancel/reopen reason;
+  - at least two approver ids for reopen;
+  - correction period + reason;
+  - member user id, role and reason.
+- Added frontend regressions asserting server-action visibility and exact
+  cancel/correction payloads/idempotency keys.
+- Verification: PayrollWorkspace 17 tests; typecheck/lint green.

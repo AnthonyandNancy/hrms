@@ -87,6 +87,7 @@ const OBJECT_ACTION_KEYS: Record<PayrollAction, string> = {
   'mark-paid': 'payroll.run.detail.mark-paid',
   close: 'payroll.run.detail.close',
   cancel: 'payroll.run.detail.cancel',
+  reopen: 'payroll.run.detail.reopen',
 }
 
 const emit = defineEmits<{

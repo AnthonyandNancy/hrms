@@ -373,6 +373,48 @@ describe('payroll run detail and action bar', () => {
     expect(wrapper.text()).not.toContain('Invalid transition.')
   })
 
+  it('posts cancellation and correction only when the server action is present', async () => {
+    resource.get.mockResolvedValue(detailRaw({ allowed_actions: ['payroll.run.detail.cancel'] }))
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export')
+    expect(wrapper.find('[data-testid="payroll-more-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="payroll-more-correction"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="payroll-more-cancel"]').trigger('click')
+    await wrapper.get('[data-testid="payroll-more-reason"]').setValue('Synthetic cancellation reason.')
+    await wrapper.get('[data-testid="payroll-more-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/payroll/runs/7/cancel',
+      { reason: 'Synthetic cancellation reason.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
+  it('creates a correction with the server action and exact period/reason', async () => {
+    resource.get.mockResolvedValue(detailRaw({
+      status: 'PUBLISHED',
+      allowed_actions: ['payroll.run.detail.correct'],
+    }))
+    resource.post.mockResolvedValue(detailRaw({
+      status: 'PUBLISHED',
+      allowed_actions: ['payroll.run.detail.correct'],
+    }))
+
+    const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export')
+    await wrapper.get('[data-testid="payroll-more-correction"]').trigger('click')
+    await wrapper.get('[data-testid="payroll-more-period"]').setValue('2026-12')
+    await wrapper.get('[data-testid="payroll-more-reason"]').setValue('Synthetic correction reason.')
+    await wrapper.get('[data-testid="payroll-more-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/payroll/runs/7/corrections',
+      { period: '2026-12', reason: 'Synthetic correction reason.' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
   it('keeps exports available on a published run and downloads the real API response', async () => {
     resource.get.mockImplementation((path: string) => {
       if (path === '/v1/payroll/runs/7') return Promise.resolve(detailRaw({ status: 'PUBLISHED' }))

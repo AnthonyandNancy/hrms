@@ -12,6 +12,8 @@ import LoadingState from '@/components/LoadingState.vue'
 import PayrollActionBar from '../components/PayrollActionBar.vue'
 import PayslipDrawer from '../components/PayslipDrawer.vue'
 import {
+  assignPayrollRunMember,
+  createPayrollCorrection,
   exportPayrollRun,
   getPayrollEmployees,
   getPayrollInputs,
@@ -68,6 +70,81 @@ const canVoidCorrection = computed(() => detail.value?.runType === 'CORRECTION'
   && canCorrect.value)
 const actionError = ref('')
 const actionSuccess = ref('')
+type MoreAction = 'cancel' | 'reopen' | 'correction' | 'assign-member'
+const moreOpen = ref(false)
+const moreAction = ref<MoreAction | null>(null)
+const moreSaving = ref(false)
+const moreError = ref('')
+const moreReason = ref('')
+const morePeriod = ref('')
+const moreApprovers = ref('')
+const moreUserId = ref('')
+const moreRole = ref('REVIEWER')
+const moreTitle = computed(() => ({
+  cancel: '取消工资批次',
+  reopen: '重开工资批次',
+  correction: '创建更正批次',
+  'assign-member': '分配批次成员',
+}[moreAction.value ?? 'cancel']))
+const hasMoreActions = computed(() => detail.value !== null && [
+  'payroll.run.detail.cancel',
+  'payroll.run.detail.reopen',
+  'payroll.run.detail.correct',
+  'payroll.run.detail.assign-member',
+].some((key) => allows(key)))
+function allows(key: string): boolean {
+  return detail.value?.allowedActions?.includes(key) === true
+}
+function openMore(action: MoreAction): void {
+  moreAction.value = action
+  moreError.value = ''
+  moreSaving.value = false
+  moreReason.value = ''
+  morePeriod.value = detail.value?.period ?? ''
+  moreApprovers.value = ''
+  moreUserId.value = ''
+  moreRole.value = 'REVIEWER'
+  moreOpen.value = true
+}
+function closeMore(): void {
+  if (moreSaving.value) return
+  moreOpen.value = false
+  moreAction.value = null
+}
+async function submitMore(): Promise<void> {
+  const current = detail.value
+  const action = moreAction.value
+  if (current === null || action === null) return
+  moreError.value = ''
+  if (moreReason.value.trim().length < 10) {
+    moreError.value = '原因至少 10 个字符。'
+    return
+  }
+  moreSaving.value = true
+  try {
+    if (action === 'cancel') {
+      await runPayrollAction(current.id, 'cancel', { reason: moreReason.value.trim() })
+    } else if (action === 'reopen') {
+      const ids = moreApprovers.value.split(',').map((value) => Number(value.trim())).filter((value) => Number.isSafeInteger(value) && value > 0)
+      if (ids.length < 2) throw new Error('重开至少需要两个审批人编号。')
+      await runPayrollAction(current.id, 'reopen', { reason: moreReason.value.trim(), approver_user_ids: ids })
+    } else if (action === 'correction') {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(morePeriod.value.trim())) throw new Error('更正期间必须使用 YYYY-MM 格式。')
+      await createPayrollCorrection(current.id, morePeriod.value.trim(), moreReason.value.trim())
+    } else {
+      const userId = Number(moreUserId.value)
+      if (!Number.isSafeInteger(userId) || userId < 1) throw new Error('请输入有效的成员用户编号。')
+      await assignPayrollRunMember(current.id, userId, moreRole.value, moreReason.value.trim())
+    }
+    moreOpen.value = false
+    actionSuccess.value = '其他批次操作已完成。'
+    await load()
+  } catch (reason) {
+    moreError.value = reason instanceof Error ? reason.message : errorCopy(reason)
+  } finally {
+    moreSaving.value = false
+  }
+}
 
 const exportKind = ref<PayrollExportKind | null>(null)
 const exportError = ref('')
@@ -263,6 +340,7 @@ function payrollActionLabelText(action: PayrollAction): string {
     'mark-paid': '标记发放',
     close: '关闭批次',
     cancel: '取消批次',
+    reopen: '重开批次',
   }[action]
 }
 
@@ -518,6 +596,33 @@ onMounted(() => {
         :read-only="readOnly"
         @action="performAction"
       />
+
+      <section v-if="hasMoreActions" class="panel payroll-detail__more-actions" data-testid="payroll-more-actions">
+        <div class="panel__header"><div><h2 class="panel__title">其他批次操作</h2><p class="panel__subtitle">按钮来自服务端 allowed_actions。</p></div></div>
+        <div class="payroll-detail__more-buttons">
+          <el-button v-if="allows('payroll.run.detail.cancel')" type="danger" plain data-testid="payroll-more-cancel" @click="openMore('cancel')">取消批次</el-button>
+          <el-button v-if="allows('payroll.run.detail.reopen')" type="danger" plain data-testid="payroll-more-reopen" @click="openMore('reopen')">重开批次</el-button>
+          <el-button v-if="allows('payroll.run.detail.correct')" type="danger" plain data-testid="payroll-more-correction" @click="openMore('correction')">创建更正</el-button>
+          <el-button v-if="allows('payroll.run.detail.assign-member')" data-testid="payroll-more-assign-member" @click="openMore('assign-member')">分配成员</el-button>
+        </div>
+      </section>
+
+      <el-dialog v-model="moreOpen" :title="moreTitle" width="520px" :close-on-click-modal="false" data-testid="payroll-more-dialog">
+        <div class="payroll-detail__more-form">
+          <label v-if="moreAction === 'correction'">更正期间<el-input v-model="morePeriod" maxlength="7" placeholder="YYYY-MM" data-testid="payroll-more-period" /></label>
+          <label v-if="moreAction === 'reopen'">审批人用户编号（逗号分隔，至少两人）<el-input v-model="moreApprovers" data-testid="payroll-more-approvers" /></label>
+          <label v-if="moreAction === 'assign-member'">成员用户编号<el-input v-model="moreUserId" inputmode="numeric" data-testid="payroll-more-user" /></label>
+          <label v-if="moreAction === 'assign-member'">成员角色
+            <el-select v-model="moreRole" data-testid="payroll-more-role">
+              <el-option label="复核人" value="REVIEWER" /><el-option label="批准人" value="APPROVER" />
+              <el-option label="发布人" value="PUBLISHER" /><el-option label="发放人" value="DISBURSER" />
+            </el-select>
+          </label>
+          <label>原因<el-input v-model="moreReason" type="textarea" maxlength="1000" data-testid="payroll-more-reason" /></label>
+          <p v-if="moreError" class="payroll-detail__error" role="alert" data-testid="payroll-more-error">{{ moreError }}</p>
+        </div>
+        <template #footer><el-button @click="closeMore">取消</el-button><el-button type="primary" :loading="moreSaving" data-testid="payroll-more-submit" @click="submitMore">确认</el-button></template>
+      </el-dialog>
 
       <p v-if="actionError !== ''" class="payroll-detail__error" role="alert">{{ actionError }}</p>
       <p v-if="actionSuccess !== ''" class="payroll-detail__success" role="status">{{ actionSuccess }}</p>
