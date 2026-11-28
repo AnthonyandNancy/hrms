@@ -88,7 +88,7 @@
 | T10 | 受限规则引擎 | PENDING | — | — |
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
-| T13 | 累计更正与 signed YTD | IN PROGRESS | T13a/T13b merged; exact 8080→8300→8350 target/delta evidence pending | `6dc0a81`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13ab.log` |
+| T13 | 累计更正与 signed YTD | IN PROGRESS | T13a-T13c merged; exact AC-12 passes; unpaid void/retry/actions pending | `55566e2`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13c.log` |
 | T14 | 福利计薪输入与冲销 | PENDING | — | — |
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
 | T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
@@ -122,8 +122,9 @@
 | 2026-11-28 | T11b2 member actions | `0dfd885` + full gate | 22 gates PASS in 241.3s; member HTTP/actions, blocked/orthogonal action projection; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b2.log` | T11 complete; member form visual polish in T17. |
 | 2026-11-28 | T12a mid-month segments | `9cb0709` + full gate | 22 gates PASS in 238.6s; 8500 golden weighted base from two compensation segments; log `docs/implementation/v24/12-midmonth/gate-all-t12a.log` | T12b followed. |
 | 2026-11-28 | T12b segment evidence | `8b97b38` + full gate | 22 gates PASS in 234.5s; once-only SI/HF/tax control, segment provenance/UI, overlap/gap blockers; log `docs/implementation/v24/12-midmonth/gate-all-t12b.log` | T12 complete; MCP AC evidence still pending. |
-| 2026-11-28 | T13a/T13b signed YTD | `6dc0a81` + full gate | 22 gates PASS in 284.2s; signed append-only ledger, negative carry-forward, idempotent publish, correction chain identity and UI; log `docs/implementation/v24/13-corrections/gate-all-t13ab.log` | Exact 8080→8300→8350 target/delta scenario remains T13c. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T13c/T16 blocked; T08/T10/T14/T15/T17/T19 not implemented; MCP 0 executed | Continue T13c and T10/T14/T15. |
+| 2026-11-28 | T13a/T13b signed YTD | `6dc0a81` + full gate | 22 gates PASS in 284.2s; signed append-only ledger, negative carry-forward, idempotent publish, correction chain identity and UI; log `docs/implementation/v24/13-corrections/gate-all-t13ab.log` | T13c followed. |
+| 2026-11-28 | T13c cumulative target/delta | `55566e2` + full gate | 22 gates PASS in 237.7s; AC-12 exact 8080→8300→8350, +220/+50, target/baseline/delta/cumulative and UI; log `docs/implementation/v24/13-corrections/gate-all-t13c.log` | Unpaid correction void/retry and action buttons remain T13d/T17. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T13d/T16 blocked; T08/T10/T14/T15/T17/T19 not implemented; MCP 0 executed | Continue unpaid correction lifecycle or T10/T14/T15. |
 
 ---
 
