@@ -58,6 +58,7 @@ final class PayrollRuleVersionSnapshotTest extends PayrollTestCase
         $secondSnapshot = PayrollInputSnapshot::query()->where('run_id', $second->id)->firstOrFail();
         $this->assertSame(1, (int) $secondSnapshot->payload_json['scheme']['items'][0]['rule_version']);
         $this->assertSame($published->hash, $secondSnapshot->payload_json['scheme']['items'][0]['rule_hash']);
+        $this->assertSame('CENT', $secondSnapshot->payload_json['scheme']['items'][0]['rule_unit']);
         $this->assertSame(70_000, $this->formulaAmount($second));
 
         $rules->retire(10, (int) $published->id, 'Superseded by synthetic test.');

@@ -56,6 +56,7 @@ final class PayrollRuleEngine
                 ->roundTo((int) $node['scale'], RoundingMode::from((string) $node['mode'])),
             'min' => $this->minMax($node['items'], $path, $variables, $trace, false),
             'max' => $this->minMax($node['items'], $path, $variables, $trace, true),
+            'sum' => $this->sum($node['items'], $path, $variables, $trace),
             'clamp' => $this->clamp(
                 $this->evaluateNode($node['value'], $path.'.value', $variables, $trace),
                 $this->evaluateNode($node['min'], $path.'.min', $variables, $trace),
@@ -109,6 +110,21 @@ final class PayrollRuleEngine
         }
 
         return $value;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @param  array<string, Decimal>  $variables
+     * @param  list<array{path:string,type:string,value:string}>  $trace
+     */
+    private function sum(array $items, string $path, array $variables, array &$trace): Decimal
+    {
+        $total = Decimal::fromString('0');
+        foreach ($items as $index => $item) {
+            $total = $total->add($this->evaluateNode($item, $path.'.items.'.$index, $variables, $trace));
+        }
+
+        return $total;
     }
 
     private function clamp(Decimal $value, Decimal $min, Decimal $max): Decimal

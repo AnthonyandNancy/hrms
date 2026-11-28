@@ -56,6 +56,20 @@ final class PayrollRuleEngineTest extends TestCase
         $this->assertSame(0, Decimal::fromString($evaluation->value)->compare(Decimal::fromString('70')));
     }
 
+    public function test_sum_aggregates_explicit_children(): void
+    {
+        $rule = (new PayrollRuleCompiler)->compile([
+            'type' => 'sum',
+            'items' => [
+                ['type' => 'const', 'value' => '1.25'],
+                ['type' => 'const', 'value' => '2.75'],
+            ],
+        ]);
+
+        $evaluation = (new PayrollRuleEngine)->evaluate($rule, []);
+        $this->assertSame(0, Decimal::fromString($evaluation->value)->compare(Decimal::fromString('4')));
+    }
+
     public function test_compiler_rejects_unknown_variable_and_unknown_node_property(): void
     {
         try {

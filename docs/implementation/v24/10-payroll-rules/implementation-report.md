@@ -105,3 +105,23 @@ restricted rule editor.
 
 Remaining T10 hardening: SUM/currency validation, VALIDATED stage, legacy
 unresolved migration and richer visual AST editor.
+
+## T10f — AC-07 exact sample and hardening
+
+- Added explicit `EMPLOYER_COST` scheme-item execution into `otherEmployerCosts`
+  (previously only earning/deduction categories were consumed).
+- Added `SUM` to the restricted AST/compiler/engine with explicit child
+  collection and unit coverage.
+- Published rule snapshots now freeze `rule_unit`; Calculation rejects any unit
+  other than `CENT`, preserving the single-currency integer-minor-unit contract.
+- Added a real CalculationService acceptance fixture:
+  - zero synthetic tax/insurance fixture;
+  - base salary 948,000 cents;
+  - fixed deduction 140,000;
+  - employer-cost item 50,000;
+  - asserted gross 948,000 / deductions 140,000 / net 808,000 /
+    employer cost 998,000, plus stored run, payslip and line evidence.
+- Historical non-AST FORMULA items without a frozen/published AST continue to
+  fail closed (employee blocked), matching the unresolved-migration policy.
+- Verification: payroll/integration/unit 212 tests / 30,896 assertions; rule
+  unit + AC-07 7 tests / 20 assertions; Pint/PHPStan/arch green.

@@ -293,6 +293,14 @@ final class CalculationService
                     sortOrder: (int) ($item['sort_order'] ?? 0),
                     taxable: false,
                 );
+            } elseif (($item['category'] ?? '') === 'EMPLOYER_COST') {
+                $otherEmployerCosts[] = new EmployerCostLine(
+                    itemCode: (string) $item['item_code'],
+                    label: (string) $item['label'],
+                    amount: $amount,
+                    source: $source,
+                    sortOrder: (int) ($item['sort_order'] ?? 0),
+                );
             }
         }
 
@@ -831,6 +839,9 @@ final class CalculationService
             $formula = is_array($item['rule_ast'] ?? null) ? $item['rule_ast'] : ($item['formula_json'] ?? null);
             if (! is_array($formula)) {
                 throw new \InvalidArgumentException('FORMULA_LIMITED scheme item requires formula_json or a published rule AST.');
+            }
+            if (isset($item['rule_unit']) && $item['rule_unit'] !== 'CENT') {
+                throw new \InvalidArgumentException('Published payroll rule unit must be CENT.');
             }
             if (isset($item['rule_hash']) && is_string($item['rule_hash'])) {
                 $encoded = json_encode($formula, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);

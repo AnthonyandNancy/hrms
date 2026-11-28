@@ -14,7 +14,7 @@ final class PayrollRuleCompiler
 
     private const TYPES = [
         'const', 'var', 'add', 'sub', 'mul', 'div', 'neg', 'abs',
-        'round', 'min', 'max', 'clamp', 'if', 'compare', 'and', 'or', 'not', 'tier',
+        'round', 'min', 'max', 'sum', 'clamp', 'if', 'compare', 'and', 'or', 'not', 'tier',
     ];
 
     /**
@@ -83,7 +83,7 @@ final class PayrollRuleCompiler
             'add', 'sub', 'mul', 'div' => ['type', 'left', 'right'],
             'neg', 'abs', 'not' => ['type', 'value'],
             'round' => ['type', 'value', 'scale', 'mode'],
-            'min', 'max', 'and', 'or' => ['type', 'items'],
+            'min', 'max', 'sum', 'and', 'or' => ['type', 'items'],
             'clamp' => ['type', 'value', 'min', 'max'],
             'if' => ['type', 'condition', 'then', 'else'],
             'compare' => ['type', 'op', 'left', 'right'],
@@ -133,16 +133,17 @@ final class PayrollRuleCompiler
             $this->validate($node[$childKey], $path.'.'.$childKey, $depth + 1, $allowedVariables, $count, $variables, $errors);
         }
 
-        if (in_array($type, ['min', 'max', 'and', 'or', 'tier'], true) && ! is_array($node['items'] ?? $node['tiers'] ?? null)) {
+        if (in_array($type, ['min', 'max', 'sum', 'and', 'or', 'tier'], true) && ! is_array($node['items'] ?? $node['tiers'] ?? null)) {
             $errors[] = ['path' => $path, 'code' => 'RULE_COLLECTION_INVALID', 'message' => 'Rule collection must be an array.'];
 
             return;
         }
 
-        if (in_array($type, ['min', 'max', 'and', 'or'], true)) {
+        if (in_array($type, ['min', 'max', 'sum', 'and', 'or'], true)) {
             $items = $node['items'];
-            if (count($items) < 2) {
-                $errors[] = ['path' => $path.'.items', 'code' => 'RULE_ARITY', 'message' => 'Rule collection requires at least two items.'];
+            $minimum = $type === 'sum' ? 1 : 2;
+            if (count($items) < $minimum) {
+                $errors[] = ['path' => $path.'.items', 'code' => 'RULE_ARITY', 'message' => 'Rule collection requires at least '.$minimum.' item(s).'];
             }
             foreach ($items as $index => $child) {
                 if (! is_array($child)) {

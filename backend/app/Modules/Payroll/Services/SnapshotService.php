@@ -432,6 +432,7 @@ final class SnapshotService
                     'rule_version' => isset($publishedRules[(int) $item->id]) ? (int) $publishedRules[(int) $item->id]->version : null,
                     'rule_hash' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->hash : null,
                     'rule_engine_version' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->engine_version : null,
+                    'rule_unit' => isset($publishedRules[(int) $item->id]) ? (string) $publishedRules[(int) $item->id]->unit : null,
                     'rule_ast' => isset($publishedRules[(int) $item->id]) ? $publishedRules[(int) $item->id]->ast_json : null,
                     'sort_order' => (int) $item->sort_order,
                     'taxable' => (bool) $item->taxable,
