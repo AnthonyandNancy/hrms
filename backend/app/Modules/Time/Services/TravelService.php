@@ -153,9 +153,12 @@ final class TravelService
     {
         $fromDate = (string) $input['from_date'];
         $toDate = (string) $input['to_date'];
-        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
 
         return DB::transaction(function () use ($employmentId, $fromDate, $toDate, $input, $actorUserId): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $overlap = BusinessTripRecord::query()
                 ->where('employment_id', $employmentId)
                 ->whereIn('status', ['PENDING_APPROVAL', 'APPROVED'])
@@ -234,12 +237,14 @@ final class TravelService
                 throw new NotFoundOrForbiddenException;
             }
 
-            $this->freezeGuard->assertPeriodsOpen(
-                PayrollFreezeGuard::periodsForRange(
-                    $trip->from_date->format('Y-m-d'),
-                    $trip->to_date->format('Y-m-d'),
-                ),
+            $periods = PayrollFreezeGuard::periodsForRange(
+                $trip->from_date->format('Y-m-d'),
+                $trip->to_date->format('Y-m-d'),
             );
+
+            foreach ($periods as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
 
             $employment = $this->employments->snapshot(
                 (int) $trip->employment_id,
@@ -276,10 +281,13 @@ final class TravelService
 
             if ($pendingChange !== null && $action === 'APPROVE') {
                 $proposed = (array) $pendingChange->proposed_json;
-                $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange(
+
+                foreach (PayrollFreezeGuard::periodsForRange(
                     (string) ($proposed['from_date'] ?? $trip->from_date->format('Y-m-d')),
                     (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
-                ));
+                ) as $period) {
+                    $this->freezeGuard->lockAndAssertOpen($period);
+                }
             }
 
             $applicationCaseId = (int) $trip->case_id;
@@ -746,12 +754,12 @@ final class TravelService
                 ]);
             }
 
-            $this->freezeGuard->assertPeriodsOpen(
-                PayrollFreezeGuard::periodsForRange(
-                    $record->from_date->format('Y-m-d'),
-                    $record->to_date->format('Y-m-d'),
-                ),
-            );
+            foreach (PayrollFreezeGuard::periodsForRange(
+                $record->from_date->format('Y-m-d'),
+                $record->to_date->format('Y-m-d'),
+            ) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
 
             $this->assertExpensesCancellable((int) $record->id);
 
@@ -801,9 +809,11 @@ final class TravelService
             throw new ValidationException(['reason' => ['A change reason is required.']]);
         }
 
-        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
-
         return DB::transaction(function () use ($employmentId, $travelId, $input, $actorUserId, $fromDate, $toDate, $reason): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $trip = BusinessTripRecord::query()
                 ->where('employment_id', $employmentId)
                 ->whereKey($travelId)
@@ -940,9 +950,12 @@ final class TravelService
                 (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
             ),
         ];
-        $this->freezeGuard->assertPeriodsOpen($periods);
 
-        return DB::transaction(function () use ($trip, $change): TravelRequestChange {
+        return DB::transaction(function () use ($trip, $change, $periods): TravelRequestChange {
+            foreach (array_values(array_unique($periods)) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             $this->applyChangeToTrip($trip, $change);
             $change->forceFill([
                 'status' => TravelRequestChange::STATUS_APPLIED,

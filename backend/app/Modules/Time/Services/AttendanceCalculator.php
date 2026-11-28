@@ -17,7 +17,6 @@ use App\Shared\Exceptions\ConflictException;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 
 final class AttendanceCalculator
 {
@@ -42,9 +41,9 @@ final class AttendanceCalculator
     public function recalculate(int $employmentId, string $businessDate): AttendanceDay
     {
         BusinessDate::parse($businessDate);
-        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
+        $period = substr($businessDate, 0, 7);
 
-        return DB::transaction(function () use ($employmentId, $businessDate): AttendanceDay {
+        return $this->freezeGuard->withOpenPeriods([$period], function () use ($employmentId, $businessDate): AttendanceDay {
             $snapshot = $this->employments->snapshot($employmentId, $businessDate);
 
             if ($snapshot === null) {

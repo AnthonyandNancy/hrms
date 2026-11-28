@@ -6,84 +6,109 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\AttendancePeriodClosure;
+use App\Modules\Time\Models\TimePeriodLock;
 use App\Shared\Exceptions\ConflictException;
+use Closure;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
  * Single closed-period gate for every Time fact mutation.
  *
- * The existing payroll freeze reader remains the Payroll-owned lock source.
- * Time closing is a separate Time-owned boundary: a month is writable only
- * when it has no CLOSED attendance-period closure. Reopening restores writes
- * because the closure status becomes REOPENED.
+ * Every month has one durable `time_period_locks` row. A mutation and a close
+ * must lock that row inside the same transaction as their write, which makes a
+ * close and a concurrent write mutually exclusive on databases with row
+ * locking (MySQL/InnoDB). SQLite serializes writers, so its regression test
+ * verifies transaction rollback and closed/reopened mutex semantics while T19
+ * owns true parallel MySQL verification.
  *
- * A missing or failing reader fails closed, matching the existing freeze
- * guard: Time never assumes an unknown period is safe to modify.
+ * The payroll lock reader remains the Payroll-owned freeze source. A missing or
+ * failing reader fails closed because Time cannot prove a period is safe.
  */
 final class PayrollFreezeGuard
 {
     public function __construct(private readonly Container $container) {}
 
     /**
-     * @param  list<string>  $periods  Payroll periods (YYYY-MM) touched by the fact.
+     * Run one mutation inside the write transaction while holding the one
+     * durable lock row for every touched month. The closure row is created on
+     * first write so a later close and the write contend on the same record.
+     *
+     * @template T
+     *
+     * @param  list<string>  $periods
+     * @param  Closure(): T  $operation
+     * @return T
      */
-    public function assertNotFrozen(int $employmentId, array $periods): void
+    public function withOpenPeriods(array $periods, Closure $operation): mixed
     {
-        $reader = $this->reader();
         $periods = array_values(array_unique($periods));
 
-        foreach ($periods as $period) {
-            if ($this->isClosed($period)) {
-                throw new ConflictException(
-                    '该考勤月份已关闭，请先重开并生成新事实版本后再修改。',
-                    ['reason' => 'PERIOD_CLOSED', 'period' => $period],
-                );
+        return DB::transaction(function () use ($periods, $operation): mixed {
+            foreach ($periods as $period) {
+                $this->lockAndAssertOpen($period);
             }
 
-            if ($reader === null) {
-                throw new ConflictException(
-                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
-                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READER_UNAVAILABLE', 'period' => $period],
-                );
-            }
+            return $operation();
+        });
+    }
 
-            try {
-                $frozen = $reader->isFrozen($employmentId, $period);
-            } catch (Throwable $exception) {
-                report($exception);
+    /**
+     * Acquire and check the lock row for a month without starting an outer
+     * transaction. Callers must already be inside their write transaction.
+     */
+    public function lockAndAssertOpen(string $period): void
+    {
+        $this->lockPeriod($period);
 
-                throw new ConflictException(
-                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
-                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READ_FAILED', 'period' => $period],
-                );
-            }
+        $closed = AttendancePeriodClosure::query()
+            ->where('month', $period)
+            ->where('status', AttendancePeriodClosure::STATUS_CLOSED)
+            ->exists();
 
-            if ($frozen) {
-                throw new ConflictException(
-                    '工资期间已冻结，本次变更已被拒绝。',
-                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'period' => $period],
-                );
-            }
+        if ($closed) {
+            throw new ConflictException(
+                '该考勤月份已关闭，请先重开并生成新事实版本后再修改。',
+                ['reason' => 'PERIOD_CLOSED', 'period' => $period],
+            );
         }
     }
 
     /**
-     * Pure closing check used by operational entrypoints that do not require a
-     * Payroll run lock (for example shift scheduling).
-     *
-     * @param  list<string>  $periods
+     * Lock the durable month mutex. Must be called inside a write transaction.
      */
-    public function assertPeriodsOpen(array $periods): void
+    public function lockPeriod(string $period): TimePeriodLock
     {
-        foreach (array_values(array_unique($periods)) as $period) {
-            if ($this->isClosed($period)) {
-                throw new ConflictException(
-                    '该考勤月份已关闭，请先重开并生成新事实版本后再修改。',
-                    ['reason' => 'PERIOD_CLOSED', 'period' => $period],
-                );
-            }
+        $lock = TimePeriodLock::query()
+            ->where('month', $period)
+            ->lockForUpdate()
+            ->first();
+
+        if ($lock !== null) {
+            return $lock;
         }
+
+        try {
+            return TimePeriodLock::query()->create([
+                'month' => $period,
+                'created_at' => now('UTC'),
+                'updated_at' => now('UTC'),
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            return TimePeriodLock::query()
+                ->where('month', $period)
+                ->lockForUpdate()
+                ->firstOrFail();
+        }
+    }
+
+    /**
+     * @param  list<string>  $periods  Payroll periods (YYYY-MM) touched by the fact.
+     */
+    public function assertNotFrozen(int $employmentId, array $periods): void
+    {
+        $this->assertNotFrozenLocked($employmentId, array_values(array_unique($periods)));
     }
 
     /**
@@ -110,12 +135,41 @@ final class PayrollFreezeGuard
         return array_keys($periods);
     }
 
-    private function isClosed(string $period): bool
+    /**
+     * @param  list<string>  $periods
+     */
+    private function assertNotFrozenLocked(int $employmentId, array $periods): void
     {
-        return AttendancePeriodClosure::query()
-            ->where('month', $period)
-            ->where('status', AttendancePeriodClosure::STATUS_CLOSED)
-            ->exists();
+        $reader = $this->reader();
+
+        foreach ($periods as $period) {
+            $this->lockAndAssertOpen($period);
+
+            if ($reader === null) {
+                throw new ConflictException(
+                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
+                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READER_UNAVAILABLE', 'period' => $period],
+                );
+            }
+
+            try {
+                $frozen = $reader->isFrozen($employmentId, $period);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                throw new ConflictException(
+                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
+                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READ_FAILED', 'period' => $period],
+                );
+            }
+
+            if ($frozen) {
+                throw new ConflictException(
+                    '工资期间已冻结，本次变更已被拒绝。',
+                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'period' => $period],
+                );
+            }
+        }
     }
 
     private function reader(): ?PayrollPeriodLockReader

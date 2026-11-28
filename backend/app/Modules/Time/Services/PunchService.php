@@ -51,24 +51,33 @@ final class PunchService
 
         $timezone = $this->calendar->timezone()
             ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
-        $this->freezeGuard->assertPeriodsOpen([$punched->setTimezone($timezone)->format('Y-m')]);
+        $period = $punched->setTimezone($timezone)->format('Y-m');
 
-        try {
-            return PunchRecord::query()->create([
-                'employment_id' => $employmentId,
-                'device_id' => $deviceId,
-                'punched_at_utc' => $punched,
-                'source_local_offset' => $sourceLocalOffset,
-                'source' => $source,
-                'raw_payload_hash' => $rawPayloadHash,
-                'created_at' => $this->clock->now(),
-            ]);
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
-            return PunchRecord::query()
-                ->where('employment_id', $employmentId)
-                ->where('raw_payload_hash', $rawPayloadHash)
-                ->firstOrFail();
-        }
+        return $this->freezeGuard->withOpenPeriods([$period], function () use (
+            $employmentId,
+            $deviceId,
+            $punched,
+            $sourceLocalOffset,
+            $source,
+            $rawPayloadHash,
+        ): PunchRecord {
+            try {
+                return PunchRecord::query()->create([
+                    'employment_id' => $employmentId,
+                    'device_id' => $deviceId,
+                    'punched_at_utc' => $punched,
+                    'source_local_offset' => $sourceLocalOffset,
+                    'source' => $source,
+                    'raw_payload_hash' => $rawPayloadHash,
+                    'created_at' => $this->clock->now(),
+                ]);
+            } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+                return PunchRecord::query()
+                    ->where('employment_id', $employmentId)
+                    ->where('raw_payload_hash', $rawPayloadHash)
+                    ->firstOrFail();
+            }
+        });
     }
 
     /**

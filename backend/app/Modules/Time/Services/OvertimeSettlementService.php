@@ -71,7 +71,7 @@ final class OvertimeSettlementService
             }
 
             $period = $record->business_date->format('Y-m');
-            $this->freezeGuard->assertPeriodsOpen([$period]);
+            $this->freezeGuard->lockAndAssertOpen($period);
 
             if ($method === 'PAY' && $this->isFrozen((int) $record->employment_id, $period)) {
                 throw new ConflictException(

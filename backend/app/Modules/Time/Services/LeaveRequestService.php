@@ -203,7 +203,6 @@ final class LeaveRequestService
         ?string $attachmentReference,
     ): array {
         $this->assertDates($fromDate, $toDate, $halfDay);
-        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
 
         if (trim($reason) === '') {
             throw new ValidationException(['reason' => ['A leave request reason is required.']]);
@@ -248,6 +247,10 @@ final class LeaveRequestService
             $onBehalf,
             $orgUnitId,
         ): array {
+            foreach (PayrollFreezeGuard::periodsForRange($fromDate, $toDate) as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             // Serialize requests for one leave account before checking the
             // overlap window. The projection lock alone is insufficient when
             // the caller has not yet created a row.
@@ -406,14 +409,17 @@ final class LeaveRequestService
                 throw new NotFoundOrForbiddenException;
             }
 
+            $periods = PayrollFreezeGuard::periodsForRange(
+                $projection->from_date->format('Y-m-d'),
+                $projection->to_date->format('Y-m-d'),
+            );
+
+            foreach ($periods as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
             if ($shouldRevoke) {
-                $this->freezeGuard->assertNotFrozen(
-                    (int) $projection->employment_id,
-                    PayrollFreezeGuard::periodsForRange(
-                        $projection->from_date->format('Y-m-d'),
-                        $projection->to_date->format('Y-m-d'),
-                    ),
-                );
+                $this->freezeGuard->assertNotFrozen((int) $projection->employment_id, $periods);
             }
 
             $businessDate = $this->clock->now()->toDateString();

@@ -38,7 +38,6 @@ final class AttendanceCorrectionService
         array $correctedPunches,
     ): AttendanceCorrection {
         BusinessDate::parse($businessDate);
-        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
 
         if (trim($reason) === '') {
             throw new ValidationException(['reason' => ['A correction reason is required.']]);
@@ -65,7 +64,7 @@ final class AttendanceCorrectionService
             );
         }
 
-        return DB::transaction(function () use ($employmentId, $businessDate, $requestedBy, $reason, $correctedPunches): AttendanceCorrection {
+        return $this->freezeGuard->withOpenPeriods([substr($businessDate, 0, 7)], function () use ($employmentId, $businessDate, $requestedBy, $reason, $correctedPunches): AttendanceCorrection {
             $caseId = $this->workflow->createCase(
                 requesterUserId: $requestedBy,
                 type: 'ATTENDANCE_CORRECTION',
@@ -113,9 +112,7 @@ final class AttendanceCorrectionService
                 throw new ConflictException('The attendance correction was not found.');
             }
 
-            $this->freezeGuard->assertPeriodsOpen([
-                $correction->business_date->format('Y-m'),
-            ]);
+            $this->freezeGuard->lockAndAssertOpen($correction->business_date->format('Y-m'));
 
             if (! $case->isApproved() && $correction->applied_at === null) {
                 throw new ConflictException('The attendance correction has not been approved.');

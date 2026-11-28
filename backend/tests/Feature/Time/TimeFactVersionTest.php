@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Time;
 
 use App\Modules\Time\Contracts\PayrollInputDirectory;
+use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Contracts\PayrollTimeFactExport;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\AttendancePeriodClosure;
@@ -21,6 +22,8 @@ use App\Modules\Time\Models\TimePayrollFactRow;
 use App\Modules\Time\Models\TimePayrollFactVersion;
 use App\Modules\Time\Models\TravelAttendanceLink;
 use App\Modules\Time\Services\AttendanceClosingService;
+use App\Modules\Time\Services\LeaveApprovalService;
+use App\Modules\Time\Services\LeaveLedgerService;
 use App\Modules\Time\Services\PayrollFreezeGuard;
 use Illuminate\Testing\TestResponse;
 use RuntimeException;
@@ -180,7 +183,7 @@ final class TimeFactVersionTest extends TimeHttpTestCase
                 ->record(1, '2026-11-12T01:00:00Z', 'IMPORT', 'closed-period-punch'),
             static fn () => app(\App\Modules\Time\Services\AttendanceCalculator::class)
                 ->recalculate(1, '2026-11-12'),
-            static fn () => app(\App\Modules\Time\Services\LeaveLedgerService::class)
+            static fn () => app(LeaveLedgerService::class)
                 ->grant(1, 1, 480, '2026-11-12', 'ACCRUAL', 'CLOSED-TEST', 'Synthetic closed grant'),
             static fn () => app(\App\Modules\Time\Services\OvertimeRequestService::class)
                 ->apply(1, '2026-11-12', 60, 'Synthetic closed overtime', 10),
@@ -325,10 +328,10 @@ final class TimeFactVersionTest extends TimeHttpTestCase
 
         $this->assertCount(2, $jan);
         $this->assertCount(2, $feb);
-        $this->assertSame([480, 480], array_column($jan, 'paid_leave_minutes'));
-        $this->assertSame([240, 240], array_column($feb, 'paid_leave_minutes'));
-        $this->assertSame(960, array_sum(array_column($jan, 'paid_leave_minutes')));
-        $this->assertSame(480, array_sum(array_column($feb, 'paid_leave_minutes')));
+        $this->assertSame([360, 360], array_column($jan, 'paid_leave_minutes'));
+        $this->assertSame([360, 360], array_column($feb, 'paid_leave_minutes'));
+        $this->assertSame(720, array_sum(array_column($jan, 'paid_leave_minutes')));
+        $this->assertSame(720, array_sum(array_column($feb, 'paid_leave_minutes')));
     }
 
     public function test_scheduled_working_day_without_any_fact_blocks_close(): void
@@ -677,13 +680,13 @@ final class TimeFactVersionTest extends TimeHttpTestCase
         $directory = app(PayrollInputDirectory::class);
         $this->assertNull($directory->closedFactForPeriod(1, '2026-11'));
 
-        $closed = $this->closeMonth('2026-11', 'empty-directory-close')->assertCreated();
-        $this->assertNull($directory->closedFactForPeriod(1, '2026-11'));
-
-        $closureId = (int) $closed->json('data.closure_id');
-        $this->postJson("/v1/time/attendance/closings/{$closureId}/reopen", [
-            'reason' => 'Synthetic empty reopen.',
-        ], ['Idempotency-Key' => 'empty-directory-reopen'])->assertOk();
+        $empty = $this->closeMonth('2026-11', 'empty-directory-close')
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'TIME_FACT_PRECHECK_FAILED');
+        $this->assertContains(
+            'NO_ELIGIBLE_TIME_FACTS',
+            array_column((array) $empty->json('data.blockers'), 'code'),
+        );
         $this->assertNull($directory->closedFactForPeriod(1, '2026-11'));
 
         $version = TimePayrollFactVersion::query()->create([
@@ -783,6 +786,173 @@ final class TimeFactVersionTest extends TimeHttpTestCase
             AttendancePeriodClosure::STATUS_CLOSED,
             (string) AttendancePeriodClosure::query()->whereKey($closureId)->value('status'),
         );
+    }
+
+    public function test_real_http_revoke_after_the_original_month_closed_reduces_the_reopened_fact(): void
+    {
+        $this->calendar();
+        $type = $this->leaveType();
+        $this->leavePolicy((int) $type->id, [
+            'mode' => 'ANNUAL_FIXED',
+            'minutes_per_year' => 4800,
+            'payroll_treatment' => 'PAID',
+            'paid_ratio_scaled' => 1_000_000,
+        ]);
+        $this->leaveAccount($type);
+        app(LeaveLedgerService::class)->grant(1, (int) $type->id, 4800, '2026-01-01', 'ACCRUAL', '2026', 'Opening');
+
+        $this->actAsHttp(TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'COMPANY',
+            capabilities: [
+                'time.attendance.read',
+                'time.attendance.manage',
+                'time.attendance.reopen',
+                'time.leave.read',
+                'time.leave.request',
+                'time.leave.request.cancel',
+                'time.leave.admin',
+                'time.leave.ledger.read',
+                'time.calendar.read',
+                'time.shift.read',
+            ],
+        ));
+
+        $this->app->instance(PayrollPeriodLockReader::class, new class implements PayrollPeriodLockReader
+        {
+            public function isFrozen(int $employmentId, string $period): bool
+            {
+                return false;
+            }
+        });
+
+        $created = $this->postJson('/v1/time/leave/requests', [
+            'leaveTypeCode' => 'ANNUAL',
+            'startDate' => '2026-11-10',
+            'endDate' => '2026-11-11',
+            'reason' => 'Synthetic real-path revoke.',
+        ], ['Idempotency-Key' => 'real-revoke-submit'])->assertStatus(201)->json('data');
+        $caseId = (int) $created['caseId'];
+        $this->workflow->approve($caseId);
+        app(LeaveApprovalService::class)->applyApprovedCase($caseId, 10);
+        $this->assertEquals('APPROVED', LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+
+        // The original month has a real attendance day so it can be closed.
+        $this->attendance('2026-11-02', 480, 480, 'NORMAL');
+        $closed = $this->closeMonth('2026-11', 'real-revoke-close-v1')->assertCreated();
+        $v1Id = (int) $closed->json('data.fact_version_id');
+        $originalNet = (int) TimePayrollFactRow::query()
+            ->where('fact_version_id', $v1Id)
+            ->where('source_id', (string) $caseId)
+            ->sum('paid_leave_minutes');
+        $this->assertSame(960, $originalNet);
+
+        $closureId = (int) $closed->json('data.closure_id');
+        $this->postJson("/v1/time/attendance/closings/{$closureId}/reopen", [
+            'reason' => 'Synthetic real-path revoke reopen.',
+        ], ['Idempotency-Key' => 'real-revoke-reopen'])->assertOk();
+
+        // Move the simulated clock into December: the revoke business date is
+        // December, while the original leave month is November.
+        $this->clock->setNow('2026-12-02T09:00:00Z');
+
+        $this->postJson("/v1/time/leave/requests/{$caseId}/revoke", [
+            'reason' => 'Synthetic real management revoke in a later month.',
+        ], ['Idempotency-Key' => 'real-revoke-cancel'])->assertOk()
+            ->assertJsonPath('data.state', 'REVOKED');
+
+        $reversal = LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'REVERSE')
+            ->where('source_type', 'LEAVE_REVOKE')
+            ->firstOrFail();
+        $this->assertSame(960, (int) $reversal->quantity_minutes);
+        $this->assertSame('2026-12-02', substr((string) $reversal->business_date, 0, 10));
+
+        $v2 = $this->closeMonth('2026-11', 'real-revoke-close-v2')->assertCreated();
+        $v2Id = (int) $v2->json('data.fact_version_id');
+
+        $this->assertSame(0, (int) TimePayrollFactRow::query()
+            ->where('fact_version_id', $v2Id)
+            ->where('source_id', (string) $caseId)
+            ->sum('paid_leave_minutes'));
+        $this->assertSame(0, (int) TimePayrollFactRow::query()
+            ->where('fact_version_id', $v2Id)
+            ->where('source_id', (string) $caseId)
+            ->sum('partial_leave_minutes'));
+        $this->assertSame(480, (int) TimePayrollFactRow::query()
+            ->where('fact_version_id', $v2Id)
+            ->where('source_type', 'ATTENDANCE_DAY')
+            ->sum('worked_minutes'));
+    }
+
+    public function test_a_completely_empty_month_blocks_close_with_no_eligible_facts(): void
+    {
+        $this->calendar();
+        $this->actingAsCloser();
+
+        $response = $this->closeMonth('2026-08', 'empty-month-block')
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'TIME_FACT_PRECHECK_FAILED');
+
+        $this->assertContains(
+            'NO_ELIGIBLE_TIME_FACTS',
+            array_column((array) $response->json('data.blockers'), 'code'),
+        );
+        $this->assertDatabaseCount('time_payroll_fact_versions', 0);
+        $this->assertDatabaseCount('time_payroll_fact_rows', 0);
+        $this->assertNull(app(PayrollInputDirectory::class)->closedFactForPeriod(1, '2026-08'));
+    }
+
+    public function test_month_mutex_rolls_back_a_write_when_its_transaction_fails(): void
+    {
+        $this->calendar();
+        $this->actingAsCloser();
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(PayrollFreezeGuard::class)->withOpenPeriods(['2026-11'], function (): void {
+                ShiftSchedule::query()->create([
+                    'employment_id' => 1,
+                    'business_date' => '2026-11-19',
+                    'shift_template_id' => 1,
+                    'created_by' => 10,
+                    'created_at' => $this->clock->now(),
+                ]);
+
+                throw new RuntimeException('Synthetic write transaction failure.');
+            });
+        } finally {
+            $this->assertDatabaseCount('shift_schedules', 0);
+            $this->assertDatabaseCount('time_period_locks', 0);
+        }
+    }
+
+    public function test_closed_month_locks_out_a_mutation_and_reopen_restores_the_same_mutex(): void
+    {
+        $this->calendar();
+        $this->actingAsCloser();
+        $this->attendance('2026-11-02', 480, 480, 'NORMAL');
+
+        $this->closeMonth('2026-11', 'mutex-close')->assertCreated();
+        $this->assertDatabaseCount('time_period_locks', 1);
+
+        try {
+            app(PayrollFreezeGuard::class)->withOpenPeriods(['2026-11'], static fn (): null => null);
+            $this->fail('Expected the locked closed month to reject a write.');
+        } catch (\App\Shared\Exceptions\ConflictException $exception) {
+            $this->assertSame('PERIOD_CLOSED', $exception->details()['reason'] ?? null);
+        }
+
+        $closureId = (int) AttendancePeriodClosure::query()->where('month', '2026-11')->value('id');
+        $this->postJson("/v1/time/attendance/closings/{$closureId}/reopen", [
+            'reason' => 'Synthetic mutex reopen.',
+        ], ['Idempotency-Key' => 'mutex-reopen'])->assertOk();
+
+        app(PayrollFreezeGuard::class)->withOpenPeriods(['2026-11'], static fn (): string => 'writable');
+
+        $this->assertSame(1, \App\Modules\Time\Models\TimePeriodLock::query()->where('month', '2026-11')->count());
     }
 
     private function actingAsCloser(): void

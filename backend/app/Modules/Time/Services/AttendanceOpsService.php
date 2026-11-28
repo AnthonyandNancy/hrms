@@ -18,6 +18,7 @@ use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Attendance operations read/write surface for K4.
@@ -188,70 +189,72 @@ final class AttendanceOpsService
         int $shiftTemplateId,
         int $actorUserId,
     ): array {
-        $this->closings->assertOpen(substr($businessDate, 0, 7));
+        return DB::transaction(function () use ($employmentId, $businessDate, $shiftTemplateId, $actorUserId): array {
+            $this->closings->assertOpen(substr($businessDate, 0, 7));
 
-        $template = ShiftTemplate::query()
-            ->whereKey($shiftTemplateId)
-            ->first();
+            $template = ShiftTemplate::query()
+                ->whereKey($shiftTemplateId)
+                ->first();
 
-        if ($template === null) {
-            throw new NotFoundOrForbiddenException;
-        }
-
-        if ($template->valid_from->format('Y-m-d') > $businessDate || $template->valid_to->format('Y-m-d') <= $businessDate) {
-            throw new ValidationException(
-                ['shift_template_id' => ['The shift template is not effective on the requested business date.']],
-                'The shift template is not effective on the requested business date.',
-                ['reason' => 'SHIFT_TEMPLATE_NOT_EFFECTIVE'],
-            );
-        }
-
-        $existing = ShiftSchedule::query()
-            ->where('employment_id', $employmentId)
-            ->where('business_date', $businessDate)
-            ->first();
-
-        if ($existing !== null) {
-            if ((int) $existing->shift_template_id === $shiftTemplateId) {
-                return ['row' => $existing, 'replayed' => true];
+            if ($template === null) {
+                throw new NotFoundOrForbiddenException;
             }
 
-            throw new ConflictException(
-                'The employment already has a different shift scheduled on this business date.',
-                ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+            if ($template->valid_from->format('Y-m-d') > $businessDate || $template->valid_to->format('Y-m-d') <= $businessDate) {
+                throw new ValidationException(
+                    ['shift_template_id' => ['The shift template is not effective on the requested business date.']],
+                    'The shift template is not effective on the requested business date.',
+                    ['reason' => 'SHIFT_TEMPLATE_NOT_EFFECTIVE'],
+                );
+            }
+
+            $existing = ShiftSchedule::query()
+                ->where('employment_id', $employmentId)
+                ->where('business_date', $businessDate)
+                ->first();
+
+            if ($existing !== null) {
+                if ((int) $existing->shift_template_id === $shiftTemplateId) {
+                    return ['row' => $existing, 'replayed' => true];
+                }
+
+                throw new ConflictException(
+                    'The employment already has a different shift scheduled on this business date.',
+                    ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+                );
+            }
+
+            try {
+                $row = ShiftSchedule::query()->create([
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'shift_template_id' => $shiftTemplateId,
+                    'created_by' => $actorUserId,
+                    'created_at' => $this->clock->now(),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // The service check and the unique index are belt and braces: a
+                // concurrent insert still surfaces as the same stable conflict.
+                throw new ConflictException(
+                    'The employment already has a different shift scheduled on this business date.',
+                    ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
+                );
+            }
+
+            $this->audit->record(
+                $actorUserId,
+                'time.shift.schedule.created',
+                'shift_schedule',
+                (int) $row->id,
+                after: [
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'shift_template_id' => $shiftTemplateId,
+                ],
             );
-        }
 
-        try {
-            $row = ShiftSchedule::query()->create([
-                'employment_id' => $employmentId,
-                'business_date' => $businessDate,
-                'shift_template_id' => $shiftTemplateId,
-                'created_by' => $actorUserId,
-                'created_at' => $this->clock->now(),
-            ]);
-        } catch (UniqueConstraintViolationException) {
-            // The service check and the unique index are belt and braces: a
-            // concurrent insert still surfaces as the same stable conflict.
-            throw new ConflictException(
-                'The employment already has a different shift scheduled on this business date.',
-                ['reason' => 'SCHEDULE_CONFLICT', 'business_date' => $businessDate],
-            );
-        }
-
-        $this->audit->record(
-            $actorUserId,
-            'time.shift.schedule.created',
-            'shift_schedule',
-            (int) $row->id,
-            after: [
-                'employment_id' => $employmentId,
-                'business_date' => $businessDate,
-                'shift_template_id' => $shiftTemplateId,
-            ],
-        );
-
-        return ['row' => $row->refresh(), 'replayed' => false];
+            return ['row' => $row->refresh(), 'replayed' => false];
+        });
     }
 
     /**

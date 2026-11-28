@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Services;
 
+use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Modules\Time\Models\BusinessTripRecord;
@@ -47,6 +48,8 @@ final class TimeFactVersionService
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
         private readonly BusinessCalendar $calendar,
+        private readonly EmploymentDirectory $employments,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -63,6 +66,8 @@ final class TimeFactVersionService
         $this->assertMonth($month);
 
         return DB::transaction(function () use ($month, $actorUserId): array {
+            $this->freezeGuard->lockPeriod($month);
+
             /** @var AttendancePeriodClosure|null $closure */
             $closure = AttendancePeriodClosure::query()
                 ->where('month', $month)
@@ -198,6 +203,8 @@ final class TimeFactVersionService
     public function reopen(AttendancePeriodClosure $closure, string $reason, int $actorUserId): AttendancePeriodClosure
     {
         return DB::transaction(function () use ($closure, $reason, $actorUserId): AttendancePeriodClosure {
+            $this->freezeGuard->lockPeriod((string) $closure->month);
+
             /** @var AttendancePeriodClosure $locked */
             $locked = AttendancePeriodClosure::query()
                 ->whereKey((int) $closure->id)
@@ -342,6 +349,8 @@ final class TimeFactVersionService
         foreach ($rows as $row) {
             $factDays[(int) $row['employment_id'].'|'.$row['business_date']] = true;
         }
+
+        $this->assertEligibleFacts($month, $start, $end, $rows, $schedules, $blockers);
 
         foreach ($schedules as $schedule) {
             $employmentId = (int) $schedule->employment_id;
@@ -506,7 +515,7 @@ final class TimeFactVersionService
         $caseIds = $projections->pluck('case_id')->map(static fn (mixed $id): int => (int) $id)->all();
         $entries = LeaveLedgerEntry::query()
             ->whereIn('case_id', $caseIds)
-            ->whereIn('account', ['CONSUME', 'REVERSE', 'RELEASE'])
+            ->whereIn('account', ['CONSUME', 'REVERSE'])
             ->orderBy('id')
             ->get()
             ->groupBy(static fn (LeaveLedgerEntry $entry): int => (int) $entry->case_id);
@@ -520,11 +529,11 @@ final class TimeFactVersionService
             $state = strtoupper((string) $projection->state);
             $caseId = (int) $projection->case_id;
 
-            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED', 'REVOKED'], true)) {
+            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'], true)) {
                 continue;
             }
 
-            if (! in_array($state, ['APPROVED', 'CONSUMED'], true)) {
+            if (! in_array($state, ['APPROVED', 'CONSUMED', 'REVOKED'], true)) {
                 $blockers[] = $this->blocker(
                     'LEAVE_APPROVAL_UNRESOLVED',
                     "员工 {$projection->employment_id} 的请假申请 {$caseId} 审批状态未闭环。",
@@ -570,38 +579,30 @@ final class TimeFactVersionService
             $requestEnd = $projection->to_date->format('Y-m-d');
             $effectiveStart = max($requestStart, $start);
             $effectiveEnd = min($requestEnd, $end);
-            $workingDays = $this->workingDates($effectiveStart, $effectiveEnd);
+            $monthWorkingDays = $this->workingDates($effectiveStart, $effectiveEnd);
 
-            if ($workingDays === []) {
+            if ($monthWorkingDays === []) {
                 continue;
             }
 
             /** @var \Illuminate\Support\Collection<int, LeaveLedgerEntry> $caseEntries */
             $caseEntries = $entries->get($caseId, collect());
-            $consumed = 0;
-            $reversed = 0;
-            $monthReversed = 0;
+            $signedNet = 0;
+            $hasConsumption = false;
 
             foreach ($caseEntries as $entry) {
-                $minutes = abs((int) $entry->quantity_minutes);
+                $signedNet += (int) $entry->quantity_minutes;
 
                 if ($entry->account === 'CONSUME') {
-                    $consumed += $minutes;
-                } elseif ($entry->account === 'REVERSE') {
-                    $reversed += $minutes;
-                    $effectiveOn = $entry->effective_on !== null
-                        ? CarbonImmutable::parse((string) $entry->effective_on, 'UTC')->format('Y-m-d')
-                        : '';
-
-                    if ($effectiveOn !== '' && $effectiveOn >= $effectiveStart && $effectiveOn <= $effectiveEnd) {
-                        $monthReversed += $minutes;
-                    }
+                    $hasConsumption = true;
                 }
             }
 
-            $caseNet = $consumed;
+            if (! $hasConsumption) {
+                if ($state === 'REVOKED') {
+                    continue;
+                }
 
-            if ($caseNet <= 0) {
                 $blockers[] = $this->blocker(
                     'LEAVE_LEDGER_NET_MISSING',
                     "员工 {$projection->employment_id} 的已批准请假 {$caseId} 缺少有效消费流水。",
@@ -613,24 +614,45 @@ final class TimeFactVersionService
                 continue;
             }
 
-            // The case's net minutes are apportioned across all working days of
-            // the application. A closed month sees only its own effective share;
-            // reversal entries reduce the month where they take effect.
-            $allWorkingDays = $this->workingDates($requestStart, $requestEnd);
-            $totalWorkingDays = max(1, count($allWorkingDays));
-            $monthWorkingDays = count($workingDays);
-            $monthBase = intdiv($caseNet * $monthWorkingDays, $totalWorkingDays);
-            $monthNet = max(0, $monthBase - $monthReversed);
+            if ($signedNet > 0) {
+                $blockers[] = $this->blocker(
+                    'LEAVE_LEDGER_NET_UNRESOLVED',
+                    "员工 {$projection->employment_id} 的请假 {$caseId} 冲销分钟超过消费分钟，无法确定净额。",
+                    (int) $projection->employment_id,
+                    $projection->from_date->format('Y-m-d'),
+                    (string) $caseId,
+                );
 
-            if ($monthNet <= 0) {
                 continue;
             }
 
-            $perDay = intdiv($monthNet, $monthWorkingDays);
-            $remainder = $monthNet % $monthWorkingDays;
+            // Signed net is computed from the whole case across all dates. It is
+            // apportioned by cumulative integer division over every working day
+            // of the application, so month shares add up exactly and a later
+            // revoke reduces the original month rather than only its own month.
+            $caseNet = -$signedNet;
 
-            foreach ($workingDays as $index => $date) {
-                $minutes = $perDay + ($index === 0 ? $remainder : 0);
+            if ($caseNet === 0) {
+                continue;
+            }
+
+            $allWorkingDays = $this->workingDates($requestStart, $requestEnd);
+            $allocation = [];
+            $previousCumulative = 0;
+
+            foreach ($allWorkingDays as $index => $date) {
+                $cumulative = intdiv($caseNet * ($index + 1), count($allWorkingDays));
+                $allocation[$date] = $cumulative - $previousCumulative;
+                $previousCumulative = $cumulative;
+            }
+
+            foreach ($monthWorkingDays as $date) {
+                $minutes = (int) ($allocation[$date] ?? 0);
+
+                if ($minutes <= 0) {
+                    continue;
+                }
+
                 [$paid, $partial, $unpaid] = $this->splitLeaveMinutes($minutes, $treatment);
 
                 $rows[] = [
@@ -653,7 +675,7 @@ final class TimeFactVersionService
                     'source_type' => 'LEAVE_REQUEST',
                     'source_id' => (string) $caseId,
                     'source_revision' => 'POLICY-'.$policy->version.'|ENTRY-'.$this->maxLedgerEntryId($caseEntries),
-                    'approval_status' => 'APPROVED',
+                    'approval_status' => $state === 'REVOKED' ? 'REVOKED' : 'APPROVED',
                     'source_hash' => hash('sha256', implode('|', [
                         'leave',
                         (int) $projection->employment_id,
@@ -663,6 +685,7 @@ final class TimeFactVersionService
                         $treatment['treatment'],
                         $treatment['paid_ratio_scaled'],
                         (int) $policy->id,
+                        $signedNet,
                     ])),
                 ];
             }
@@ -980,6 +1003,60 @@ final class TimeFactVersionService
         // Partial leave keeps the paid and unpaid split in the dedicated
         // partial column; downstream payroll can derive either component.
         return [0, $paid, $unpaid];
+    }
+
+    /**
+     * A month with no operational facts is only closable when there is a
+     * published calendar rule proving there is no applicable employee or no
+     * working day at all. Silently closing an unconfigured/empty month would
+     * tell Payroll that a whole month of work is worth zero.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  \Illuminate\Support\Collection<string, ShiftSchedule>  $schedules
+     * @param  list<array{code: string, message: string, employment_id: int|null, business_date: string|null, source_id: string|null}>  $blockers
+     */
+    private function assertEligibleFacts(
+        string $month,
+        string $start,
+        string $end,
+        array $rows,
+        \Illuminate\Support\Collection $schedules,
+        array &$blockers,
+    ): void {
+        if ($rows !== []) {
+            return;
+        }
+
+        if (! $this->calendar->calendar() instanceof \App\Modules\Time\Models\LegalEntityCalendar) {
+            $blockers[] = $this->blocker(
+                'NO_ELIGIBLE_TIME_FACTS',
+                "{$month} 没有任何考勤事实，且公司工作日历未配置，无法证明本月无需计薪时间事实。",
+                null,
+                $start,
+                null,
+            );
+
+            return;
+        }
+
+        if ($this->workingDates($start, $end) === []) {
+            return;
+        }
+
+        // No applicable employee is a valid empty month only when the People
+        // bulk contract can prove it. Otherwise a completely empty month is a
+        // configuration/data error, never a zero payroll fact.
+        if ($this->employments->activeEmploymentIds($start) === []) {
+            return;
+        }
+
+        $blockers[] = $this->blocker(
+            'NO_ELIGIBLE_TIME_FACTS',
+            "{$month} 没有任何考勤、请假、加班或出差事实，不能静默生成零工资事实。",
+            null,
+            $start,
+            null,
+        );
     }
 
     /**

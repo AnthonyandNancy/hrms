@@ -39,10 +39,10 @@ final class PeopleEmploymentDirectory implements EmploymentDirectory
 
     public function activeEmploymentIds(string $businessDate): array
     {
-        // Time never needs a full company employment scan for its HTTP reads;
-        // scoped reads always carry an employment id. Keep the port fail-closed
-        // rather than inventing a cross-module bulk query outside People's API.
-        return [];
+        // Monthly close needs to distinguish "no applicable employee" from a
+        // misconfigured empty month, so this uses People's frozen as-of bulk
+        // contract rather than scanning People tables.
+        return $this->people->employmentIdsAsOf($businessDate);
     }
 
     public function employmentForUser(int $userId, string $businessDate): ?int

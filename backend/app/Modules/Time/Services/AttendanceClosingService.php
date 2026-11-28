@@ -6,7 +6,6 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Modules\Time\Models\TimePayrollFactVersion;
-use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\AuditRecorder;
@@ -21,6 +20,7 @@ final class AttendanceClosingService
     public function __construct(
         private readonly AuditRecorder $audit,
         private readonly TimeFactVersionService $facts,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -75,14 +75,7 @@ final class AttendanceClosingService
 
     public function assertOpen(string $month): void
     {
-        $closed = AttendancePeriodClosure::query()
-            ->where('month', $month)
-            ->where('status', AttendancePeriodClosure::STATUS_CLOSED)
-            ->exists();
-
-        if ($closed) {
-            throw new ConflictException('该考勤月份已关闭，请先重开并生成新事实版本后再修改。', ['reason' => 'PERIOD_CLOSED', 'period' => $month]);
-        }
+        $this->freezeGuard->lockAndAssertOpen($month);
     }
 
     /**

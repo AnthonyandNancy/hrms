@@ -18,6 +18,10 @@ unchanged; their existing live `attendanceForPeriod` preview path is untouched.
 
 ### Schema
 
+- `backend/database/migrations/2026_11_28_000900_create_time_period_locks.php`
+  - adds `time_period_locks`, one durable mutex row per touched month. All Time
+    mutations, schedule writes, close and reopen lock this row inside the same
+    transaction as their write.
 - `backend/database/migrations/2026_11_28_000500_create_time_payroll_fact_versions.php`
   - `time_payroll_fact_versions`: `period`, `version`, `status`
     (`OPEN/CLOSING/CLOSED/REOPENED`), `source_hash`, `exception_count`,
@@ -201,11 +205,11 @@ has a focused failing-test → GREEN mapping:
 
 | # | Review finding | Regression test | Production fix |
 |---|---|---|---|
-| 1 | Cross-month leave repeated the whole case net in every month | `test_leave_crossing_months_uses_each_months_effective_days_and_reversal` | `leaveFacts()` apportions gross consumption across the application's full working-day range; reversal entries reduce only the month containing their `effective_on` |
-| 2 | Scheduled working day with no attendance/leave/travel/explicit absence was silently omitted; closed month with no rows returned a zero export | `test_scheduled_working_day_without_any_fact_blocks_close`, `test_open_reopened_and_hash_missing_facts_do_not_yield_a_payroll_export` | New `SCHEDULE_WITHOUT_FACT` blocker; `closedFactForPeriod()` returns `null` when the employment has zero rows |
+| 1 | Cross-month leave repeated the whole case net in every month; a later-month revoke left the original month full | `test_leave_crossing_months_uses_each_months_effective_days_and_reversal`, `test_real_http_revoke_after_the_original_month_closed_reduces_the_reopened_fact` | `leaveFacts()` computes one signed case net from all `CONSUME + REVERSE` ledger rows and allocates it by cumulative working-day share across the application. There is no second reversal deduction inside a month. The real-path test uses the HTTP revoke route plus `LeaveRequestService`, moves the clock to December, reopens and closes November, and asserts v2 has zero leave instead of 960 |
+| 2 | Scheduled working day with no attendance/leave/travel/explicit absence was silently omitted; closed month with no rows returned a zero export; completely empty month closed | `test_scheduled_working_day_without_any_fact_blocks_close`, `test_a_completely_empty_month_blocks_close_with_no_eligible_facts`, `test_open_reopened_and_hash_missing_facts_do_not_yield_a_payroll_export` | New `SCHEDULE_WITHOUT_FACT` and `NO_ELIGIBLE_TIME_FACTS` blockers; empty month is only allowed when the People as-of bulk contract proves no applicable employment (or the calendar proves no working day); `closedFactForPeriod()` returns `null` when the employment has zero rows |
 | 3 | `SUBMITTED/IN_REVIEW` leave/overtime was skipped | `test_non_terminal_leave_and_overtime_requests_block_close` | Terminal rejects are ignored; every other non-approved state raises `LEAVE_APPROVAL_UNRESOLVED` / `OVERTIME_APPROVAL_UNRESOLVED` |
 | 4 | Travel change approval checked only the original date range | `test_travel_change_approval_checks_the_proposed_month_after_the_original_was_opened` | `approve()` checks the pending proposed range and `applyPendingChange()` checks original + proposed before moving the link |
-| 5 | Reopen/close and mutations lacked consistent transaction + row-lock semantics | `test_reopen_rolls_back_every_change_when_a_later_step_fails` | Reopen now runs in `DB::transaction` with `lockForUpdate()` on the closure; close already locks the closure and writes version/rows/pointer atomically. Idempotency reservation shares the same transaction. SQLite serializes writers, so true concurrent locking is verified on MySQL in T19 |
+| 5 | Reopen/close and mutations lacked consistent transaction + row-lock semantics | `test_reopen_rolls_back_every_change_when_a_later_step_fails`, `test_month_mutex_rolls_back_a_write_when_its_transaction_fails`, `test_closed_month_locks_out_a_mutation_and_reopen_restores_the_same_mutex` | New durable `time_period_locks` month mutex (migration `2026_11_28_000900`). `PayrollFreezeGuard::withOpenPeriods()`/`lockAndAssertOpen()` lock that row inside the mutation transaction; every Time mutation, schedule write, close and reopen lock the same row. Close/reopen also lock the closure row. SQLite serializes writers, so the SQLite test proves transaction rollback and closed/reopened mutex semantics; true MySQL parallel contention remains T19 |
 | 6 | `periodsForRange()` skipped February from Jan 31 | `test_periods_for_range_does_not_skip_february_after_january_31` | Iteration uses year/month integers, never `DateTime::modify('+1 month')` |
 | 7 | Close/reopen idempotency was not unified | `test_close_and_reopen_use_required_idempotency_and_replay_stably` | New `TimeIdempotentCommand`: missing key → 422 `IDEMPOTENCY_KEY_REQUIRED`; replay → 200 + `Idempotency-Replayed: true`; reused key with different payload → 409 `IDEMPOTENCY_PAYLOAD_MISMATCH`; OpenAPI requires the header |
 | 8 | REST/HOLIDAY attendance incorrectly demanded a schedule | `test_rest_day_attendance_without_schedule_is_not_mistaken_for_missing_shift` | Schedule blockers and `SCHEDULED_MINUTES_UNRESOLVED` apply only on working days |
@@ -216,28 +220,28 @@ has a focused failing-test → GREEN mapping:
 | 13 | Precheck returned a rolled-back, unqueryable `fact_version_id` | `test_incomplete_or_missing_schedule_facts_block_close_with_chinese_location` | The rolled-back id is removed; blocker evidence is returned inline as `precheck_json`, while version/row/closure counts stay zero |
 | 14 | v1 snapshot compared only three columns | `test_reopen_keeps_v1_and_the_next_close_creates_v2` | `factRows()` snapshots all row attributes |
 
-Focused result after remediation:
+Focused result after the second review remediation:
 
 ```text
-OK (26 tests, 148 assertions)
+OK (30 tests, 175 assertions)
 ```
 
 Adjacent Time/payroll regression suite:
 
 ```text
-OK (80 tests, 435 assertions)
+OK (93 tests, 506 assertions)
 ```
 
 Full backend suite:
 
 ```text
-OK (1535 tests, 59282 assertions)
+OK (1539 tests, 59316 assertions)
 ```
 
 Formatting/static analysis:
 
 ```text
-vendor/bin/pint --test      PASS (1357 files)
+vendor/bin/pint --test      PASS (1359 files)
 vendor/bin/phpstan analyse  [OK] No errors
 php artisan capability:audit Capability audit OK
 php artisan arch:test        Module boundaries OK
@@ -271,3 +275,6 @@ pnpm openapi:validate        valid (2 pre-existing health warnings)
 - The migration adds nullable `current_fact_version_id` without a foreign key to
   keep the existing closure row usable during forward-only rollout. Referential
   integrity is enforced by the service and the immutable version status check.
+- Concurrent row-lock contention is implemented through
+  `time_period_locks.month`, but SQLite only serializes writers. The true
+  simultaneous close-vs-write race must be exercised against MySQL in T19.

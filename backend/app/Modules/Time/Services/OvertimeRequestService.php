@@ -67,9 +67,10 @@ final class OvertimeRequestService
         }
 
         BusinessDate::parse($businessDate);
-        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
 
         return DB::transaction(function () use ($employmentId, $businessDate, $declaredMinutes, $reason, $actorUserId): OvertimeRequest {
+            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
+
             $duplicate = OvertimeRequest::query()
                 ->where('employment_id', $employmentId)
                 ->where('business_date', $businessDate)
@@ -156,7 +157,7 @@ final class OvertimeRequestService
             }
 
             $businessDate = $request->business_date->format('Y-m-d');
-            $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
+            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
             $policy = $this->effectiveFor($businessDate);
 
             if ($policy === null) {

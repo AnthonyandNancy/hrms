@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class AttendancePeriodClosure extends Model
 {
+    public const STATUS_OPEN = 'OPEN';
+
     public const STATUS_CLOSED = 'CLOSED';
 
     public const STATUS_REOPENED = 'REOPENED';

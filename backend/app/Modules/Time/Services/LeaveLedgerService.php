@@ -277,9 +277,9 @@ final class LeaveLedgerService
             throw LeaveBalanceException::invalidQuantity($account, $minutes);
         }
 
-        $this->assertFactPeriodsOpen($businessDate, $effectiveOn);
+        $periods = $this->factPeriods($businessDate, $effectiveOn);
 
-        return DB::transaction(function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
+        return $this->freezeGuard->withOpenPeriods($periods, function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
             $existing = LeaveLedgerEntry::query()
                 ->where('employment_id', $employmentId)
                 ->where('leave_type_id', $leaveTypeId)
@@ -396,12 +396,15 @@ final class LeaveLedgerService
      * GRANT/RESERVE: the closed fact version is the payroll boundary and no
      * later ledger row may silently reinterpret it.
      */
-    private function assertFactPeriodsOpen(string $businessDate, string $effectiveOn): void
+    /**
+     * @return list<string>
+     */
+    private function factPeriods(string $businessDate, string $effectiveOn): array
     {
-        $this->freezeGuard->assertPeriodsOpen([
+        return array_values(array_unique([
             CarbonImmutable::parse($businessDate, 'UTC')->format('Y-m'),
             CarbonImmutable::parse($effectiveOn, 'UTC')->format('Y-m'),
-        ]);
+        ]));
     }
 
     private function lockAccount(int $employmentId, int $leaveTypeId): LeaveAccount
