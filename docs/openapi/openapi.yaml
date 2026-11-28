@@ -10767,8 +10767,8 @@ paths:
         Employment, Assignment or Terms rows. Those writes remain exclusive to
         the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay
         with the same Idempotency-Key returns the same Case with
-        `data.replayed = true`. Requires capability `people.employee.manage` at
-        COMPANY.
+        `data.replayed = true`. Requires capability `people.employee.manage` and
+        `lifecycle.onboarding.manage` at COMPANY.
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
@@ -10794,11 +10794,13 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.manage
+      x-capability: people.employee.manage,lifecycle.onboarding.manage
       x-action-label: 员工入职建档
   /v1/employees/{employmentId}/certificates:
     get:

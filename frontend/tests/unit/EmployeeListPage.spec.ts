@@ -220,7 +220,7 @@ describe('EmployeeListPage', () => {
 
   it('shows the empty state and its create call to action', async () => {
     api.listEmployees.mockResolvedValue(list([]))
-    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage'])
     await flushPromises()
 
     expect(wrapper.text()).toContain('暂无员工')
@@ -303,8 +303,8 @@ describe('EmployeeListPage', () => {
     expect(restorer.wrapper.findAll('[data-testid="employee-restore"]')).toHaveLength(1)
   })
 
-  it('hides the create entry point when people.employee.manage is absent', async () => {
-    const { wrapper } = await mountPage(['people.employee.read'])
+  it('hides the create entry point when the canonical lifecycle capability is absent', async () => {
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
     await flushPromises()
 
     expect(wrapper.find('[data-testid="employee-create"]').exists()).toBe(false)
@@ -314,7 +314,7 @@ describe('EmployeeListPage', () => {
   it('submits onboarding as a pending case, closes the drawer and shows the case link', async () => {
     api.listOrgUnits.mockResolvedValue([{ id: 10, name: '研发部', code: 'DEV' }])
     api.listEmployees.mockResolvedValue(list([employee()]))
-    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage', 'lifecycle.case.read'])
     await flushPromises()
 
     await wrapper.get('[data-testid="employee-create"]').trigger('click')
@@ -403,10 +403,11 @@ describe('EmployeeCreateDrawer', () => {
     expect(secondKey).toBe(firstKey)
   })
 
-  it('shows a duplicate employee number in Chinese for a 409 conflict', async () => {
+  it('shows a duplicate employee number in Chinese for a 422 validation reason', async () => {
     api.onboardEmployee.mockRejectedValue(
-      new ApiError('CONFLICT', 'Employee number must be unique.', {
-        status: 409,
+      new ApiError('VALIDATION_FAILED', 'The given data was invalid.', {
+        status: 422,
+        fieldErrors: { employee_no: ['The employee number has already been taken.'] },
         details: { reason: 'EMPLOYEE_NO_DUPLICATE' },
       }),
     )

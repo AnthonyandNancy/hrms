@@ -315,7 +315,9 @@ final class LifecycleController
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
             principalId: $principal->userId(),
-            scope: "POST:/v1/lifecycle/{$path}",
+            scope: $type === LifecycleCaseType::ONBOARDING
+                ? 'CMD:lifecycle.onboarding.create'
+                : "POST:/v1/lifecycle/{$path}",
             key: $key,
             payload: $data,
             operation: function () use ($principal, $data, $type, $businessDate): array {

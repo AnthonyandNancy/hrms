@@ -1369,7 +1369,7 @@ export interface paths {
         put?: never;
         /**
          * Submit the canonical onboarding Case through the legacy People payload
-         * @description Compatibility facade. The historical payload is mapped to the Lifecycle onboarding payload and submitted as a Workflow Case. The response is always 202 with pending Case metadata; this route never creates Person, Employment, Assignment or Terms rows. Those writes remain exclusive to the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay with the same Idempotency-Key returns the same Case with `data.replayed = true`. Requires capability `people.employee.manage` at COMPANY.
+         * @description Compatibility facade. The historical payload is mapped to the Lifecycle onboarding payload and submitted as a Workflow Case. The response is always 202 with pending Case metadata; this route never creates Person, Employment, Assignment or Terms rows. Those writes remain exclusive to the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay with the same Idempotency-Key returns the same Case with `data.replayed = true`. Requires capability `people.employee.manage` and `lifecycle.onboarding.manage` at COMPANY.
          */
         post: operations["onboardEmployee"];
         delete?: never;
@@ -11530,6 +11530,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

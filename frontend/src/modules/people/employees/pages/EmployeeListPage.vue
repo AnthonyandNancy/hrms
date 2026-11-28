@@ -89,7 +89,8 @@ const tableRows = computed(() =>
 )
 const errorMessage = computed(() => (pageError.value === null ? '' : errorCopy(pageError.value)))
 const errorRequestId = computed(() => (pageError.value === null ? null : requestIdFromError(pageError.value)))
-const canManage = computed(() => session.can('people.employee.manage'))
+const canManage = computed(() => session.can('people.employee.manage') && session.can('lifecycle.onboarding.manage'))
+const canReadLifecycleCase = computed(() => session.can('lifecycle.case.read'))
 const canExport = computed(() => session.can('people.employee.export'))
 const canArchive = computed(() => session.can('people.employee.archive'))
 const canRestore = computed(() => session.can('people.employee.restore'))
@@ -198,6 +199,7 @@ async function onArchive(row: EmployeeRow): Promise<void> {
   if (reason.length < 3) return
   try {
     await archiveEmployee(row.employment_id, reason)
+    pendingCase.value = null
     successMessage.value = `员工 ${row.employee_no} 已归档。`
     page.value = 1
     await load()
@@ -220,6 +222,7 @@ async function onRestore(row: EmployeeRow): Promise<void> {
   }
   try {
     await restoreEmployee(row.employment_id)
+    pendingCase.value = null
     successMessage.value = `员工 ${row.employee_no} 已恢复。`
     page.value = 1
     await load()
@@ -257,6 +260,7 @@ async function onExport(): Promise<void> {
       include_archived: includeArchived.value,
     })
     saveEmployeeExport(file)
+    pendingCase.value = null
     successMessage.value = `员工导出已生成（${file.filename}）。`
   } catch (error) {
     ElMessageBox.alert(errorCopy(error), '导出未完成', { confirmButtonText: '知道了' }).catch(() => undefined)
@@ -288,7 +292,7 @@ onBeforeUnmount(() => {
       <el-button :disabled="loading" @click="load">刷新</el-button>
       <ActionGate capability="people.employee.manage">
         <el-button data-testid="employee-imports" @click="openImports">导入结果</el-button>
-        <el-button type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
+        <el-button v-if="canManage" type="primary" data-testid="employee-create" @click="openCreate">新建员工</el-button>
       </ActionGate>
       <ActionGate capability="people.employee.export">
         <el-button
@@ -312,11 +316,11 @@ onBeforeUnmount(() => {
       @change="onFilterChange"
     />
 
-    <el-alert v-if="successMessage" type="success" :closable="true" show-icon data-testid="employee-created-message" @close="successMessage = ''">
+    <el-alert v-if="successMessage" type="success" :closable="true" show-icon data-testid="employee-created-message" @close="successMessage = ''; pendingCase = null">
       <template #title>
         {{ successMessage }}
         <RouterLink
-          v-if="pendingCase"
+          v-if="pendingCase && canReadLifecycleCase"
           :to="`/hr/movements/${pendingCase.case_id}`"
           data-testid="onboarding-case-link"
         >

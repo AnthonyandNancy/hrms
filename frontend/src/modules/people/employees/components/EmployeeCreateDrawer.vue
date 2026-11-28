@@ -126,7 +126,25 @@ function clearErrors(): void {
   for (const key of Object.keys(fieldErrors) as FieldKey[]) delete fieldErrors[key]
 }
 
+const FIELD_ALIASES: Readonly<Record<string, FieldKey>> = {
+  employee_no: 'employment.employee_no',
+  hire_date: 'employment.hire_date',
+  employment_type: 'employment.employment_type',
+  org_unit_id: 'assignment.org_unit_id',
+  position_id: 'assignment.position_id',
+  valid_from: 'assignment.valid_from',
+  salary_minor: 'terms.salary_minor',
+  currency: 'terms.currency',
+  work_location: 'terms.work_location',
+  work_schedule: 'terms.work_schedule',
+  effective_from: 'terms.effective_from',
+  national_id: 'person.national_id',
+  mobile: 'person.mobile',
+  email: 'person.email',
+}
+
 function setFieldError(field: string, message: string): boolean {
+  const normalized = FIELD_ALIASES[field] ?? field
   const known: readonly FieldKey[] = [
     'person.family_name',
     'person.given_name',
@@ -145,8 +163,8 @@ function setFieldError(field: string, message: string): boolean {
     'terms.work_schedule',
     'terms.effective_from',
   ]
-  if (!known.includes(field as FieldKey)) return false
-  fieldErrors[field as FieldKey] = message
+  if (!known.includes(normalized as FieldKey)) return false
+  fieldErrors[normalized as FieldKey] = message
   return true
 }
 
@@ -204,6 +222,11 @@ function conflictReason(error: ApiError): string | null {
 function applyError(error: unknown): void {
   clearErrors()
   if (error instanceof ApiError && error.code === 'VALIDATION_FAILED') {
+    if (conflictReason(error) === 'EMPLOYEE_NO_DUPLICATE') {
+      fieldErrors['employment.employee_no'] = `员工编号 ${draft.employee_no.trim()} 已存在，请更换后再提交。`
+      summaryError.value = '员工编号重复，无法创建员工。'
+      return
+    }
     const mapped = Object.entries(error.fieldErrors).filter(([field, messages]) =>
       setFieldError(
         field,

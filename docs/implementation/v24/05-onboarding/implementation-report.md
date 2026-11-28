@@ -245,3 +245,19 @@ worktree.
 - Remaining T05a2 items: cross-entry idempotency scope, legacy capability/org
   scope, 409 OpenAPI/error mapping, stale pendingCase link, and canonical
   Lifecycle onboarding PII draft adoption.
+
+## T05a2b — capability, OpenAPI and frontend contract alignment
+
+- Legacy `/v1/employees/onboard` now requires both
+  `people.employee.manage` and canonical `lifecycle.onboarding.manage`.
+- The create action is hidden unless both capabilities are present; the Case
+  link is hidden unless `lifecycle.case.read` is present.
+- Duplicate employee number is mapped from the real 422
+  `VALIDATION_FAILED + EMPLOYEE_NO_DUPLICATE` contract, including alias fields
+  `employee_no` / `org_unit_id`.
+- Added OpenAPI 409 for idempotency conflicts and synchronized
+  `x-capability` with route middleware.
+- Stale `pendingCase` links are cleared on other success messages/alert close.
+- Verification: onboarding focused 39 tests / 12,057 assertions; frontend
+  EmployeeListPage + onboarding response 14 tests; typecheck/lint, Pint,
+  PHPStan, arch, OpenAPI lint/validate/generate/check green.
