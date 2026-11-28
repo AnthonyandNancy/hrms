@@ -140,7 +140,8 @@
 | 2026-11-28 | T08a timeoff/travel facts | `236a6e3` + full gate | 22 gates PASS in 237.8s; append-only ledger/TIMEOFF EARN, travel conflicts, payroll travel formula; log `docs/implementation/v24/08-overtime-travel/gate-all-t08a.log` | Overtime Workflow and travel revision API remain T08b. |
 | 2026-11-28 | T13d correction void/retry | `207cb39` + full gate | 22 gates PASS in 245.3s; independent OPEN/VOID state, HTTP void, retry same period, UI evidence; log `docs/implementation/v24/13-corrections/gate-all-t13d.log` | T13 complete; MCP remains T18. |
 | 2026-11-28 | T14d benefit masking | `39183a6` + full gate | 22 gates PASS in 240.0s; P3 amount schemas, per-row benefit.read projection, masked frontend labels, backend/frontend regressions; log `docs/implementation/v24/14-benefits/gate-all-t14d.log` | T14 complete; T16 report/export security remains. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T17/T19 not fully implemented; MCP 0 executed | Continue T08b/T17 and T16 unblock. |
+| 2026-11-28 | T17a exact money/self payslip | `093cc63` + full gate | 22 gates PASS in 239.5s; BigInt money, unsafe rejection, period/pay_date, self panel no payroll.run.read; log `docs/implementation/v24/17-frontend/gate-all-t17a.log` | T17 action/Chinese sweep remains. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T17 actions/T19 outstanding; MCP 0 executed | Continue T17 actions and T08b/T16 unblock. |
 
 ---
 
@@ -981,7 +982,7 @@ cd frontend && pnpm test:unit -- reportCatalog.spec.ts reportErrorState.spec.ts
 
 ### T17：前端精确金额、对象动作、自助工资条与详情补全
 
-**状态：** PENDING
+**状态：** IN PROGRESS (T17a exact money/self payslip done; action/Chinese sweep pending)
 
 **修改位置：**
 - `frontend/src/utils/format.ts`
@@ -1024,11 +1025,11 @@ pnpm actions:check && pnpm page-components:check && pnpm page-model:check && pnp
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing unit tests：超过 Number 安全位金额、负数、两位小数、无 P3 金额隐藏、自助入口不要求 payroll.run.read、内部 capability 不显示。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：改 format/MoneyText/API client/session/Button；接服务端 allowed_actions。
-- [ ] Step 4：补详情/自助/中文状态/错误；运行 typecheck/lint/build 与审计。
-- [ ] Step 5：提交 `feat(v2.4): make money actions and self service exact`。
+- [x] Step 1：BigInt/unsafe money、负数/币种、self payslip 不要求 payroll.run.read 测试。
+- [x] Step 2：T17a focused RED/GREEN。
+- [x] Step 3：formatMoney/parse/MoneyText BigInt；workspace 接自 payslip panel。
+- [x] Step 4：self payslip period/pay_date + 自助 API 范围；聚焦和全门禁 GREEN。
+- [ ] Step 5：服务端 allowed_actions 详情动作、中文枚举/错误 sweep 后完成 T17。
 
 ---
 

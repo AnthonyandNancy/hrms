@@ -39,6 +39,7 @@ It is **not** a completed V2.4 business delivery:
 | T14 benefits→Payroll | COMPLETE | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log`, `gate-all-t14d.log` | Multi-plan/reversal/employer cost/snapshot/UI/P3 masking complete; T16 report leakage separate |
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
+| T17a frontend money/self payslip | PARTIAL | `docs/implementation/v24/17-frontend/implementation-report.md`; gate `gate-all-t17a.log` | BigInt money/self payslip done; allowed_actions/Chinese sweep remain |
 | T08a overtime/timeoff/travel facts | PARTIAL | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gate `gate-all-t08a.log` | Ledger/travel conflict/travel payroll done; overtime Workflow/effect and travel revision remain |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
@@ -107,7 +108,7 @@ These branches are intentionally **not merged** because independent review found
 | AC-15 recruitment/training | ✅ MET (code/UI) | Offer→compensation, bonus mapping UI, training attempt/source UI regressions pass; MCP pending |
 | AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
 | AC-17 notices/notifications | ❌ PARTIAL/BLOCKED | Delivery/retry/audience issues unresolved |
-| AC-18 unified UI/Chinese | ❌ PARTIAL | Existing frontend gates pass; T17 not done |
+| AC-18 unified UI/Chinese | ❌ PARTIAL | BigInt money/self payslip done; T17 allowed_actions/Chinese sweep remains |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
 | AC-20 history/regression | ❌ NOT PROVEN | No real migration/replay/restore acceptance |
 | AC-21 full MCP acceptance | ❌ NOT RUN | 0 MCP items executed |
@@ -117,7 +118,7 @@ These branches are intentionally **not merged** because independent review found
 
 1. Keep this branch/HEAD as the stable foundation; T05 and T07 are merged, while the blocked T16 branch must not be merged wholesale.
 2. Continue T16 or the Payroll chain on top of merged T05/T07.
-3. Execute T08b overtime Workflow/travel revision, T17 action surface and T16 unblock/review.
+3. Execute T17 detail actions/Chinese sweep, T08b overtime Workflow and T16 unblock/review.
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
 6. Run `pnpm gate:all` after each merge.
@@ -126,4 +127,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16 blocked and T08b/T17/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16 blocked and T08b/T17 actions/T19 outstanding.
