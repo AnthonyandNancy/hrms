@@ -3810,6 +3810,19 @@ components:
           type: integer
         requires_escalation:
           type: boolean
+        reversal_of_id:
+          type:
+            - integer
+            - "null"
+        reversal_reason:
+          type:
+            - string
+            - "null"
+        effective_on:
+          type:
+            - string
+            - "null"
+          format: date
     CaseSummary:
       type: object
       required:

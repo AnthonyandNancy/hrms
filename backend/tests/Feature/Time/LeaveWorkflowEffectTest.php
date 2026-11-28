@@ -156,6 +156,23 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertNotNull($after);
         $this->assertSame(0, $after->unpaidLeaveMinutes);
         $this->assertSame(0, $after->paidLeaveMinutes);
+
+        $applyEffect = Effect::query()
+            ->where('case_id', $caseId)
+            ->where('effect_type', 'time.leave.apply')
+            ->firstOrFail();
+        $reversalEffect = Effect::query()
+            ->where('case_id', $caseId)
+            ->where('effect_type', 'time.leave.reverse')
+            ->firstOrFail();
+        $this->assertSame((int) $applyEffect->id, (int) $reversalEffect->reversal_of_id);
+        $this->assertSame('Synthetic management revocation.', (string) ($reversalEffect->payload_json['reversal_reason'] ?? ''));
+        $this->assertDatabaseHas('audit_events', ['action' => 'workflow.effect.reversed']);
+        $this->assertDatabaseHas('outbox_events', ['event_type' => 'workflow.effect.reversed.v1']);
+        $this->getJson("/v1/cases/{$caseId}")
+            ->assertOk()
+            ->assertJsonPath('data.effects.1.reversal_of_id', (int) $applyEffect->id)
+            ->assertJsonPath('data.effects.1.reversal_reason', 'Synthetic management revocation.');
     }
 
     public function test_failed_reverse_handler_keeps_original_effect_and_time_projection_approved_then_retry_succeeds(): void

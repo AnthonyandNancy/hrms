@@ -7179,6 +7179,10 @@ export interface components {
             status: string;
             attempts: number;
             requires_escalation: boolean;
+            reversal_of_id?: number | null;
+            reversal_reason?: string | null;
+            /** Format: date */
+            effective_on?: string | null;
         };
         CaseSummary: {
             id: number;

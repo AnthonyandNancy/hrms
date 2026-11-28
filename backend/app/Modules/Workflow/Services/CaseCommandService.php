@@ -173,7 +173,7 @@ final class CaseCommandService implements CaseCommandPort
             $reversed = 0;
 
             foreach ($effects as $effect) {
-                $result = app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn);
+                $result = app(EffectExecutor::class)->reverse((int) $effect->id, $reason, $effectiveOn, $principal->userId);
 
                 if ($result->status !== \App\Modules\Workflow\Enums\EffectStatus::REVERSED) {
                     throw new ConflictException('The Workflow effect reversal failed and remains retryable.', [

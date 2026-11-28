@@ -277,3 +277,19 @@ Not run: `gate:all` (out of the requested boundary).
   command, and asserts v2 has the real Time effects while v1 is unchanged.
 - Verification: 125 leave/workflow/IAM adjacent tests / 4,881 assertions;
   Pint, PHPStan and arch clean.
+
+## T07c1 — reversible effect evidence and uniqueness
+
+- `EffectExecutor::reverse()` now accepts the acting principal and, on success,
+  records `workflow.effect.reversed` audit evidence plus an ID-only
+  `workflow.effect.reversed.v1` outbox event.
+- Case effects/timeline expose `reversal_of_id`, `reversal_reason` and
+  `effective_on`; OpenAPI `CaseEffect` documents the nullable fields and
+  generated TypeScript is synchronized.
+- Added a unique index on `effects.reversal_of_id`, and reversal creation uses
+  `firstOrCreate` so a concurrent replay resolves to the existing reversal
+  instead of appending a second row.
+- Regression coverage asserts the audit/outbox rows, original/reversal link and
+  API projection for a real leave revocation.
+- Verification: 145 leave/workflow/IAM/OpenAPI tests / 16,724 assertions;
+  Pint, PHPStan, arch, OpenAPI lint/validate/generate/check green.
