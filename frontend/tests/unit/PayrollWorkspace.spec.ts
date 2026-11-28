@@ -261,7 +261,7 @@ describe('payroll run detail and action bar', () => {
       }
       if (path === '/v1/payroll/runs/7/inputs') {
         return Promise.resolve(page([
-          { id: 1, employment_id: 21, snapshot_type: 'INPUT', snapshot_version: 2, source_hash: 'b'.repeat(64), payload: {}, created_at: '2026-11-25T16:00:00Z' },
+          { id: 1, employment_id: 21, snapshot_type: 'INPUT', snapshot_version: 2, source_hash: 'b'.repeat(64), payload: { compensation_segments: [{ compensation_id: 41, segment_from: '2026-11-01', segment_to: '2026-11-15', base_salary_cents: 800000 }, { compensation_id: 42, segment_from: '2026-11-16', segment_to: '2026-11-30', base_salary_cents: 900000 }] }, created_at: '2026-11-25T16:00:00Z' },
         ]))
       }
       if (path === '/v1/payroll/runs/7/reconciliation') {
@@ -281,6 +281,8 @@ describe('payroll run detail and action bar', () => {
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/inputs')
     expect(resource.get).toHaveBeenCalledWith('/v1/payroll/runs/7/reconciliation')
     expect(wrapper.get('[data-testid="payroll-input-table"]').text()).toContain('员工 #21')
+    expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('2026年11月1日')
+    expect(wrapper.get('[data-testid="payroll-compensation-segments"]').text()).toContain('8,000.00')
     expect(wrapper.get('[data-testid="payroll-reconciliation-status"]').text()).toContain('对账通过')
     expect(wrapper.text()).toContain('2026 年 11 月')
   })

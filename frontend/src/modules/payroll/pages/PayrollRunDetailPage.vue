@@ -269,6 +269,48 @@ watch(routeId, () => {
   void load()
 })
 
+type CompensationSegmentRow = {
+  compensationId: number
+  employmentId: number
+  from: string
+  to: string
+  baseSalaryCents: number
+}
+
+const compensationSegments = computed<CompensationSegmentRow[]>(() =>
+  inputs.value.flatMap((input) => {
+    const rawSegments = input.payload.compensation_segments
+    if (!Array.isArray(rawSegments)) return []
+
+    return rawSegments.flatMap((raw) => {
+      if (typeof raw !== 'object' || raw === null) return []
+      const segment = raw as Record<string, unknown>
+      const compensationId = segment.compensation_id
+      const baseSalaryCents = segment.base_salary_cents
+      const from = segment.segment_from
+      const to = segment.segment_to
+      if (
+        typeof compensationId !== 'number'
+        || !Number.isSafeInteger(compensationId)
+        || typeof baseSalaryCents !== 'number'
+        || !Number.isSafeInteger(baseSalaryCents)
+        || typeof from !== 'string'
+        || typeof to !== 'string'
+      ) {
+        return []
+      }
+
+      return [{
+        compensationId,
+        employmentId: input.employmentId,
+        from,
+        to,
+        baseSalaryCents,
+      }]
+    })
+  }),
+)
+
 const inputColumns: DataTableColumn[] = [
   { key: 'employee', label: '员工关系', minWidth: '130px' },
   { key: 'snapshotType', label: '快照类型', minWidth: '140px' },
@@ -588,6 +630,32 @@ onMounted(() => {
             </template>
             <template #cell-createdAt="{ row }">{{ formatDateTimeInTimezone(String(row.createdAt)) }}</template>
           </DataTable>
+
+          <section
+            v-if="compensationSegments.length > 0"
+            class="payroll-detail__segments"
+            aria-label="薪酬分段"
+            data-testid="payroll-compensation-segments"
+          >
+            <h3 class="payroll-detail__segments-title">薪酬分段</h3>
+            <p class="payroll-detail__segments-note">
+              按执行薪酬生效边界冻结；基础工资按工作日加权，税费与社保仍按月一次计算。
+            </p>
+            <ul class="payroll-detail__segments-list">
+              <li
+                v-for="segment in compensationSegments"
+                :key="`${segment.employmentId}-${segment.compensationId}`"
+                class="payroll-detail__segment"
+              >
+                <span>
+                  员工 #{{ segment.employmentId }} ·
+                  {{ formatBusinessDate(segment.from) }} 至 {{ formatBusinessDate(segment.to) }} ·
+                  来源 #{{ segment.compensationId }}
+                </span>
+                <MoneyText :cents="segment.baseSalaryCents" size="sm" />
+              </li>
+            </ul>
+          </section>
         </div>
       </section>
 
@@ -1011,5 +1079,36 @@ onMounted(() => {
   margin: 0;
   color: #475569;
   font-size: 12px;
+}
+.payroll-detail__segments {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle, #e5e7eb);
+}
+
+.payroll-detail__segments-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.payroll-detail__segments-note {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 12px;
+}
+
+.payroll-detail__segments-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payroll-detail__segment {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
 }
 </style>

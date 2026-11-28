@@ -246,6 +246,15 @@ final class SnapshotService
             $this->dateOnly($run->earning_period_end),
         );
         $terms = $this->terms->termsAsOf($employmentId, $asOf);
+        $blockers = array_merge($blockers, $this->compensationSegmentBlockers(
+            $compensationSegments,
+            $this->dateOnly($run->earning_period_start),
+            $this->dateOnly($run->earning_period_end),
+            $terms === null ? null : $terms->effectiveFrom,
+            $terms === null ? null : $terms->effectiveTo,
+            $employmentId,
+            (string) $run->period,
+        ));
         $resolvedScheme = $scheme;
 
         if ($compensation !== null && $compensation['payroll_scheme_id'] !== null) {
@@ -399,6 +408,73 @@ final class SnapshotService
         ];
 
         return $payload;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $segments
+     * @return list<array<string, mixed>>
+     */
+    private function compensationSegmentBlockers(
+        array $segments,
+        string $periodStart,
+        string $periodEnd,
+        ?string $termsFrom,
+        ?string $termsTo,
+        int $employmentId,
+        string $period,
+    ): array {
+        if ($segments === []) {
+            return [];
+        }
+
+        $expectedStart = $periodStart;
+        if ($termsFrom !== null && $termsFrom > $expectedStart && $termsFrom <= $periodEnd) {
+            $expectedStart = $termsFrom;
+        }
+
+        $expectedEnd = $periodEnd;
+        if ($termsTo !== null && $termsTo < $expectedEnd) {
+            $expectedEnd = $termsTo;
+        }
+
+        $overlap = false;
+        $previousTo = null;
+
+        foreach ($segments as $segment) {
+            $from = (string) ($segment['segment_from'] ?? '');
+            $to = (string) ($segment['segment_to'] ?? '');
+
+            if ($previousTo !== null && $from <= $previousTo) {
+                $overlap = true;
+            }
+
+            $previousTo = $to;
+        }
+
+        if ($overlap) {
+            return [[
+                'code' => 'COMPENSATION_SEGMENT_OVERLAP',
+                'message' => 'Execution compensation segments overlap; payroll cannot choose a single rate.',
+                'employment_id' => $employmentId,
+                'period' => $period,
+            ]];
+        }
+
+        $firstFrom = (string) ($segments[0]['segment_from'] ?? '');
+        $lastTo = (string) ($segments[count($segments) - 1]['segment_to'] ?? '');
+
+        if ($firstFrom > $expectedStart || $lastTo < $expectedEnd) {
+            return [[
+                'code' => 'COMPENSATION_SEGMENT_GAP',
+                'message' => 'Execution compensation segments do not cover the whole payable period.',
+                'employment_id' => $employmentId,
+                'period' => $period,
+                'expected_from' => $expectedStart,
+                'expected_to' => $expectedEnd,
+            ]];
+        }
+
+        return [];
     }
 
     private function dateOnly(mixed $value): string

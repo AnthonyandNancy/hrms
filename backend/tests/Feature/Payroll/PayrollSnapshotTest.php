@@ -12,6 +12,8 @@ use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Payroll\Models\PayslipLine;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
@@ -218,6 +220,54 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame(PayrollRunStatus::CALCULATED, $run->refresh()->status);
     }
 
+    public function test_overlapping_compensation_segments_are_a_payroll_blocker(): void
+    {
+        $base = $this->seedPayrollBase();
+        $employmentId = (int) $base['employment_id'];
+        $scheme = $base['scheme'];
+
+        foreach ([
+            ['effective_from' => '2026-01-01', 'effective_to' => '2026-04-20', 'base_salary_cents' => 800_000, 'source_id' => 1],
+            ['effective_from' => '2026-04-01', 'effective_to' => null, 'base_salary_cents' => 900_000, 'source_id' => 2],
+        ] as $segment) {
+            EmployeeCompensation::query()->create([
+                'employment_id' => $employmentId,
+                'contract_version_id' => null,
+                'effective_from' => $segment['effective_from'],
+                'effective_to' => $segment['effective_to'],
+                'status' => 'ACTIVE',
+                'currency' => 'CNY',
+                'base_salary_cents' => $segment['base_salary_cents'],
+                'salary_scheme_code' => (string) $scheme->code,
+                'payroll_scheme_id' => (int) $scheme->id,
+                'payroll_scheme_version' => (int) $scheme->version,
+                'parameter_overrides_json' => [],
+                'approved_case_id' => null,
+                'source_type' => 'TEST',
+                'source_id' => $segment['source_id'],
+                'content_hash' => hash('sha256', 'overlap-'.$segment['source_id']),
+                'supersedes_id' => null,
+                'created_by' => 10,
+                'created_at' => $this->clock->now(),
+            ]);
+        }
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $scheme->id, 'period' => '2026-04']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $snapshot = PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
+        $codes = array_column((array) $snapshot->payload_json['blockers'], 'code');
+        $this->assertContains('COMPENSATION_SEGMENT_OVERLAP', $codes);
+
+        app(CalculationService::class)->calculate($run, 10);
+        $this->assertSame(PayrollRunStatus::CALCULATED_WITH_BLOCKERS, $run->refresh()->status);
+        $employee = PayrollRunEmployee::query()->where('run_id', $run->id)->firstOrFail();
+        $this->assertSame(PayrollEmployeeStatus::BLOCKED, $employee->status);
+
+        $this->expectException(ConflictException::class);
+        app(ApprovalService::class)->review((int) $run->id, 11);
+    }
+
     public function test_mid_month_compensation_segments_weight_base_salary_by_working_days(): void
     {
         $base = $this->seedPayrollBase();
@@ -226,7 +276,8 @@ final class PayrollSnapshotTest extends PayrollTestCase
 
         foreach ([
             ['effective_from' => '2026-01-01', 'effective_to' => '2026-04-15', 'base_salary_cents' => 800_000],
-            ['effective_from' => '2026-04-16', 'effective_to' => null, 'base_salary_cents' => 900_000],
+            ['effective_from' => '2026-04-16', 'effective_to' => '2026-04-30', 'base_salary_cents' => 900_000],
+            ['effective_from' => '2026-06-01', 'effective_to' => null, 'base_salary_cents' => 850_000],
         ] as $index => $segment) {
             EmployeeCompensation::query()->create([
                 'employment_id' => $employmentId,
@@ -280,6 +331,31 @@ final class PayrollSnapshotTest extends PayrollTestCase
         }
         $this->assertSame(850_000, $result['gross_cents']);
         $this->assertSame(PayrollRunStatus::CALCULATED, $run->refresh()->status);
+        $payslip = Payslip::query()->where('run_id', $run->id)->firstOrFail();
+        $baseLine = PayslipLine::query()
+            ->where('payslip_id', $payslip->id)
+            ->where('item_code', 'BASE_SALARY')
+            ->firstOrFail();
+        $this->assertSame('employee_compensation_segments', (string) $baseLine->source_type);
+        $this->assertStringContainsString((string) $payload['compensation_segments'][0]['compensation_id'], (string) $baseLine->source_id);
+        $this->assertStringContainsString((string) $payload['compensation_segments'][1]['compensation_id'], (string) $baseLine->source_id);
+
+        // Control month: one 8,500 segment. Tax/SI/HF must match the segmented
+        // month exactly; the two base segments must not repeat monthly charges.
+        $this->closeTimeFact($employmentId, '2026-06', [
+            ['business_date' => '2026-06-01', 'scheduled_minutes' => 10_560, 'worked_minutes' => 10_560],
+        ]);
+        $control = $runs->createRun(10, ['scheme_id' => (int) $scheme->id, 'period' => '2026-06']);
+        $control = $runs->lockInputs((int) $control->id, 10);
+        $controlResult = app(CalculationService::class)->calculate($control, 10);
+        $this->assertSame(850_000, $controlResult['gross_cents']);
+
+        $segmentedEmployee = PayrollRunEmployee::query()->where('run_id', $run->id)->firstOrFail();
+        $controlEmployee = PayrollRunEmployee::query()->where('run_id', $control->id)->firstOrFail();
+        $this->assertSame((int) $controlEmployee->employee_si_cents, (int) $segmentedEmployee->employee_si_cents);
+        $this->assertSame((int) $controlEmployee->employee_hf_cents, (int) $segmentedEmployee->employee_hf_cents);
+        $this->assertSame((int) $controlEmployee->tax_cents, (int) $segmentedEmployee->tax_cents);
+        $this->assertSame((int) $controlEmployee->deductions_cents, (int) $segmentedEmployee->deductions_cents);
     }
 
     public function test_calculation_blocks_missing_closed_fact_and_prevents_review(): void
@@ -312,7 +388,7 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $employee = PayrollRunEmployee::query()->where('run_id', $run->id)->firstOrFail();
         $this->assertSame(PayrollEmployeeStatus::BLOCKED, $employee->status);
         $this->assertStringContainsString('CLOSED_TIME_FACT_MISSING', (string) $employee->failure_reason);
-        $this->assertSame(0, \App\Modules\Payroll\Models\Payslip::query()->where('run_id', $run->id)->count());
+        $this->assertSame(0, Payslip::query()->where('run_id', $run->id)->count());
 
         $this->expectException(ConflictException::class);
         app(ApprovalService::class)->review((int) $run->id, 11);
