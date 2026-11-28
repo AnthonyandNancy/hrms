@@ -90,7 +90,7 @@
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
 | T13 | 累计更正与 signed YTD | IN PROGRESS | T13a-T13c merged; exact AC-12 passes; unpaid void/retry/actions pending | `55566e2`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13c.log` |
 | T14 | 福利计薪输入与冲销 | IN PROGRESS | T14a-T14c merged; UI reversal done; field-profile masking pending | `894f056`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14-ui.log` |
-| T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
+| T15 | 绩效奖金与 Offer/培训链路 | IN PROGRESS | T15a approved bonus mapping→Payroll merged; Offer salary draft and training attempt chain pending | `6527940`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15a.log` |
 | T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
@@ -125,8 +125,9 @@
 | 2026-11-28 | T13a/T13b signed YTD | `6dc0a81` + full gate | 22 gates PASS in 284.2s; signed append-only ledger, negative carry-forward, idempotent publish, correction chain identity and UI; log `docs/implementation/v24/13-corrections/gate-all-t13ab.log` | T13c followed. |
 | 2026-11-28 | T13c cumulative target/delta | `55566e2` + full gate | 22 gates PASS in 237.7s; AC-12 exact 8080→8300→8350, +220/+50, target/baseline/delta/cumulative and UI; log `docs/implementation/v24/13-corrections/gate-all-t13c.log` | T14 followed. |
 | 2026-11-28 | T14 benefit linkage | `4bc2edb` + full gate | 22 gates PASS in 243.2s; multi-plan/period transactions, append-only reversal, real benefit input port, employer cost lines, frozen-snapshot regression; log `docs/implementation/v24/14-benefits/gate-all-t14.log` | T14 UI followed. |
-| 2026-11-28 | T14 reversal UI | `894f056` + full gate | 22 gates PASS in 237.5s; ledger reversal button/prompt/API/idempotency and Chinese failure copy; log `docs/implementation/v24/14-benefits/gate-all-t14-ui.log` | Field-profile masking and T15 performance remain. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T14 masking/T16/T13d blocked; T08/T10/T15/T17/T19 not fully implemented; MCP 0 executed | Continue T14 masking or T15/T10. |
+| 2026-11-28 | T14 reversal UI | `894f056` + full gate | 22 gates PASS in 237.5s; ledger reversal button/prompt/API/idempotency and Chinese failure copy; log `docs/implementation/v24/14-benefits/gate-all-t14-ui.log` | T15 followed. |
+| 2026-11-28 | T15a performance bonus | `6527940` + full gate | 22 gates PASS in 236.6s; published snapshot grade/revision, approved bonus mapping, real Payroll port, DRAFT/future exclusion; log `docs/implementation/v24/15-performance-bonus/gate-all-t15a.log` | Mapping API/UI, Offer salary draft and training attempt chain remain T15b. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T15b/T14 masking/T16/T13d blocked; T08/T10/T17/T19 not fully implemented; MCP 0 executed | Continue T15b or T10/T17. |
 
 ---
 
