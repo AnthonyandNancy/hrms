@@ -234,6 +234,7 @@ final class TimeEndpointsTest extends TimeHttpTestCase
             'effective_from' => '2026-01-01',
             'effective_to' => '2026-12-31',
             'accrual' => ['mode' => 'ANNUAL_FIXED', 'minutes_per_year' => 4800],
+            'payroll_treatment' => 'PAID',
             'min_notice_days' => 0,
             'allow_half_day' => true,
         ], 10);
