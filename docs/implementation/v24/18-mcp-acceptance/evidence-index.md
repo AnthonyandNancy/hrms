@@ -233,3 +233,14 @@ NOT RUN: saving/binding a real run anchor, role-scoped allow/deny, remaining mat
 ```
 
 - Evidence: `evidence/T19-MCP-002/`.
+
+## 11. Execution update — T19-MCP-003
+
+```text
+MCP executed: 3 evidence packs total
+PASS: +1 scoped observation (PAYROLL_RUN #1 allow / #2 deny)
+FAIL: 0 in executed scope
+NOT RUN: role-assignment UI, remaining modules/entries/cards
+```
+
+- Evidence: `evidence/T19-MCP-003/`.

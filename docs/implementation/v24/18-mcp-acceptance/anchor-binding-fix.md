@@ -30,3 +30,14 @@ and any case/run-scoped role construction in MCP.
 - MySQL confirmed the custom role persisted (`is_template=0`).
 - Remaining role-construction step: create a real run, save its id into the
   binding, assign the role, then verify scoped access.
+
+## T19-MCP-003 confirmation
+
+- Real UI saved `payroll.run.read / PAYROLL_RUN / 1`.
+- Real API run #1 = 200, run #2 = 403 for the synthetic payroll specialist.
+- A second real defect was found and fixed: the installer's COMPANY wildcard was
+  not matching PAYROLL_RUN-guarded routes. The regression is in
+  `SuperuserFullAuthorityTest`; after the fix the member API returned 201 in the
+  running stack.
+- Final backend image rebuild is still pending; the running validation used a
+  hot-patched same-release runtime and is labeled accordingly.

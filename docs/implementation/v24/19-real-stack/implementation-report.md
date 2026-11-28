@@ -61,5 +61,18 @@ cases=0, notification_deliveries=0.
 - This proves the application's idempotency/row-locking path under MySQL, not
   only a raw unique-index test.
 
-Remaining T19: real previous-release upgrade package, deployment-traffic restore
-drill, TLS/secret-manager cutover and final GO.
+## T19-MCP-003 and wildcard authorization fix
+
+- Real scheme/runs/user fixtures and custom PAYROLL_RUN role created.
+- UI role scope saved `payroll.run.read / PAYROLL_RUN / 1`; real MCP showed
+  run #1 allowed and run #2 forbidden.
+- Found and fixed an authorization defect: installer COMPANY wildcard did not
+  match PAYROLL_RUN-guarded routes. Regression added to
+  `SuperuserFullAuthorityTest`; full gate passed.
+- Real member API after the fix: **201**. Real user API parity: run #1 **200**,
+  run #2 **403**.
+- The runtime validation used a hot-patched same-release backend; rebuilding the
+  final backend image is still required before release.
+
+Remaining T19: real previous-release upgrade package, final backend image,
+deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
