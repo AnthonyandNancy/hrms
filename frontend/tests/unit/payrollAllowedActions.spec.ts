@@ -21,13 +21,6 @@ describe('payroll object allowed actions', () => {
       props: {
         status: 'REVIEWED',
         period: '2026-11',
-        capabilities: [
-          'payroll.run.prepare',
-          'payroll.run.review',
-          'payroll.run.approve',
-          'payroll.run.publish',
-          'payroll.run.close',
-        ],
         allowedActions: ['payroll.run.detail.approve'],
       },
       global: { plugins: [ElementPlus], stubs: { ElDialog: OverlayStub, teleport: true } },

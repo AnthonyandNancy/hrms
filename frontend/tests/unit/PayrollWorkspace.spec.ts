@@ -70,6 +70,15 @@ function detailRaw(overrides: Record<string, unknown> = {}): Record<string, unkn
     input_hash: 'abc',
     snapshot_version: 2,
     reopen_count: 0,
+    allowed_actions: [
+      'payroll.run.detail.lock-inputs',
+      'payroll.run.detail.calculate',
+      'payroll.run.detail.review',
+      'payroll.run.detail.approve',
+      'payroll.run.detail.publish',
+      'payroll.run.detail.mark-paid',
+      'payroll.run.detail.close',
+    ],
     employees: [
       {
         employment_id: 21,
@@ -303,16 +312,14 @@ describe('payroll run detail and action bar', () => {
   })
 
   it('disables actions with Chinese reasons when the transition or capability is missing', async () => {
-    resource.get.mockResolvedValue(detailRaw())
+    resource.get.mockResolvedValue(detailRaw({ allowed_actions: [] }))
 
     const wrapper = await mountAt(PayrollRunDetailPage, '/payroll/runs/7?tab=export', ['payroll.run.read'])
 
     const lock = wrapper.get('[data-testid="payroll-action-lock-inputs"]')
     expect(lock.attributes('disabled')).toBeDefined()
-    expect(wrapper.get('[data-testid="payroll-action-reason-lock-inputs"]').text()).toContain(
-      'payroll.run.prepare',
-    )
-    expect(wrapper.get('[data-testid="payroll-action-reason-approve"]').text()).toContain('缺少能力')
+    expect(wrapper.get('[data-testid="payroll-action-reason-lock-inputs"]').text()).toContain('当前状态或授权不允许')
+    expect(wrapper.get('[data-testid="payroll-action-reason-approve"]').text()).toContain('当前状态或授权不允许')
   })
 
   it('explains illegal transitions for an allowed capability without issuing a request', async () => {
@@ -418,7 +425,11 @@ describe('payroll action bar and payslip drawer', () => {
       props: {
         status: 'REVIEWED',
         period: '2026-11',
-        capabilities: CAPABILITIES,
+        allowedActions: [
+          'payroll.run.detail.lock-inputs',
+          'payroll.run.detail.approve',
+          'payroll.run.detail.publish',
+        ],
       },
       global: { plugins: [ElementPlus], stubs: { ElDialog: OverlayStub, teleport: true } },
     })

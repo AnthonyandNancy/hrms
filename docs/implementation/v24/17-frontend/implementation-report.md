@@ -25,3 +25,16 @@
 Remaining T17: replace remaining capability-derived action bars with server
 allowed_actions, exact action manifest coverage for detail pages, and broader
 Chinese enum/error sweep.
+
+## T17b — payroll action bar uses server allowed_actions only
+
+- Removed the capability fallback from `PayrollActionBar`; permissions are now
+  derived exclusively from the detail response's `allowed_actions`.
+- Missing/omitted server actions fail closed and show a generic Chinese reason;
+  internal capability names are never rendered.
+- `PayrollRunDetailPage` no longer passes the client capability list to the
+  action bar.
+- Updated action-bar/detail tests to provide explicit server action keys for
+  DRAFT/REVIEWED fixtures and to assert capability-free disabled reasons.
+- Verification: payroll allowed-actions + workspace 16 tests; typecheck/lint
+  green.
