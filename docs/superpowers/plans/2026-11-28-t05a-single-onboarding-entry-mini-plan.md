@@ -1,6 +1,6 @@
 # T05a — Single onboarding entry (small-step plan)
 
-**Status:** PLANNED — execution deferred until current parallel branches are merged.
+**Status:** COMPLETE (Step 1-3; T05b contract/compensation drafts deferred).
 **Parent task:** `docs/superpowers/plans/2026-11-28-v2-4-implementation-master-plan.md` T05
 **Baseline:** `f63fe3e`
 **Worktree:** `D:\code\ai\factoryHR-worktrees\t05-onboarding`
@@ -80,3 +80,29 @@ Update the employee create API/UI to handle 202: display a Chinese “已提交�
 ## Execution rule
 
 Execute this small plan only after merging current parallel worktrees. Each step must update its evidence and must not expand into contract/compensation draft creation until T05a is green.
+
+
+## Changed Files Log
+
+| File | Change | Step |
+|---|---|---|
+| `backend/app/Modules/Lifecycle/Contracts/OnboardingCaseCommand.php` | New People → Lifecycle onboarding Case contract; documented zero-domain-row guarantee. | 1 |
+| `backend/app/Modules/Lifecycle/Services/LifecycleService.php` | Implements the contract with idempotent Case submission; no People writes. | 1 |
+| `backend/app/Modules/Lifecycle/Providers/LifecycleServiceProvider.php` | Binds `OnboardingCaseCommand` to `LifecycleService`. | 1 |
+| `backend/tests/Feature/Lifecycle/OnboardingCaseCommandTest.php` | Contract RED/GREEN coverage, idempotent replay and zero domain rows. | 1 |
+| `backend/app/Modules/People/Http/Controllers/EmployeeController.php` | Legacy endpoint maps request to Lifecycle payload; calls only the Contract; 202 + Case metadata; removed `CreateEmployeeService` dependency. | 2 |
+| `backend/tests/Feature/People/CreateEmployeeCommandTest.php` | 202/pending Case/zero domain rows, replay identity, invalid input no-write, and approval-effect-only write coverage. | 2 |
+| `frontend/src/modules/people/employees/api.ts` | Returns typed `PendingOnboardingCase`; rejects legacy employee-shaped success bodies. | 3 |
+| `frontend/src/modules/people/employees/components/EmployeeCreateDrawer.vue` | Emits the pending-Case result instead of an employee. | 3 |
+| `frontend/src/modules/people/employees/pages/EmployeeListPage.vue` | Shows “已提交入职审批”, Case number/link, and does not refetch as if an employee existed. | 3 |
+| `frontend/tests/unit/EmployeeListPage.spec.ts` | Updated create-flow assertions for pending Case and link. | 3 |
+| `frontend/tests/unit/onboardingCaseResponse.spec.ts` | API normalisation RED/GREEN and malformed-response rejection. | 3 |
+| `docs/openapi/openapi.yaml` | `/v1/employees/onboard` 202 + `PendingOnboardingCase`; deprecated 201/employee and 200 replay shapes. | 3 |
+| `frontend/src/generated/api.ts` | Regenerated OpenAPI TypeScript types. | 3 |
+| `docs/implementation/v24/05-onboarding/implementation-report.md` | TDD, verification, deviation and risk evidence. | 1-3 |
+
+### Plan deviations
+
+- The Mini Plan names `OnboardingSingleEntryTest`; that file does not exist on this baseline. Equivalent single-entry coverage is `OnboardingCaseCommandTest` plus the rewritten `CreateEmployeeCommandTest` (including approval-only domain writes); `OnboardingDedupTest` and `OnboardingEffectTest` remain green.
+- `CreateEmployeeService` is not wired into `OnboardingEffectHandler`; the Effect uses `PeopleEmploymentWriter` directly. The service is now unreferenced by HTTP and is retained unchanged as requested, rather than being falsely described as the Effect's current implementation. No T05b work was attempted.
+- No migration was added or edited; no contract/compensation draft logic was introduced.

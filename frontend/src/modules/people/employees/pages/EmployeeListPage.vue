@@ -18,8 +18,8 @@ import {
   restoreEmployee,
   type EmployeeListResult,
   type EmployeeRow,
-  type OnboardedEmployee,
   type OrgUnitOption,
+  type PendingOnboardingCase,
   type PositionOption,
 } from '../api'
 import EmployeeFilter, { type EmployeeFilterValue } from '../components/EmployeeFilter.vue'
@@ -57,6 +57,7 @@ const exporting = ref(false)
 const orgUnits = ref<OrgUnitOption[]>([])
 const positions = ref<PositionOption[]>([])
 const successMessage = ref('')
+const pendingCase = ref<PendingOnboardingCase | null>(null)
 
 let requestSequence = 0
 
@@ -167,13 +168,11 @@ function openCreate(): void {
   createOpen.value = true
 }
 
-function onCreated(created: OnboardedEmployee): void {
-  const employeeNo = created.employee_no || `#${created.employment_id}`
+function onCreated(created: PendingOnboardingCase): void {
+  pendingCase.value = created
   successMessage.value = created.replayed
-    ? `员工 ${employeeNo} 已存在（幂等重放，未重复创建）。`
-    : `员工 ${employeeNo} 已创建。`
-  page.value = 1
-  void load()
+    ? `入职审批 Case ${created.case_no} 已存在（幂等重放，未重复提交）。`
+    : '已提交入职审批。'
 }
 
 async function onArchive(row: EmployeeRow): Promise<void> {
@@ -314,7 +313,16 @@ onBeforeUnmount(() => {
     />
 
     <el-alert v-if="successMessage" type="success" :closable="true" show-icon data-testid="employee-created-message" @close="successMessage = ''">
-      <template #title>{{ successMessage }}</template>
+      <template #title>
+        {{ successMessage }}
+        <RouterLink
+          v-if="pendingCase"
+          :to="`/hr/movements/${pendingCase.case_id}`"
+          data-testid="onboarding-case-link"
+        >
+          查看 Case {{ pendingCase.case_no }}
+        </RouterLink>
+      </template>
     </el-alert>
 
     <el-alert v-if="isPartial" type="warning" :closable="false" show-icon data-testid="employee-partial">

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\People\Http\Controllers;
 
 use App\Modules\IAM\Contracts\Principal;
+use App\Modules\Lifecycle\Contracts\OnboardingCaseCommand;
 use App\Modules\People\Http\Requests\CreateEmployeeRequest;
 use App\Modules\People\Models\Document;
 use App\Modules\People\Models\EmployeeImportBatch;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
-use App\Modules\People\Services\CreateEmployeeService;
 use App\Modules\People\Services\EmploymentService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\Authorizer;
@@ -335,19 +335,57 @@ final class EmployeeController
     }
 
     /**
-     * Atomic onboarding: person, employment, assignment and first terms version
-     * are created in one transaction (see CreateEmployeeService).
+     * Compatibility facade for the historical People onboarding payload.
+     *
+     * The route still accepts the old request shape, but it only submits the
+     * canonical Lifecycle Onboarding Case. Person, Employment, Assignment and
+     * Terms remain exclusive to the approved Lifecycle Onboarding Effect.
      */
-    public function onboard(CreateEmployeeRequest $request, CreateEmployeeService $employees): JsonResponse
+    public function onboard(CreateEmployeeRequest $request, OnboardingCaseCommand $onboarding): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $result = $employees->onboard(
-            input: $request->validated(),
+        $data = $request->validated();
+        $person = (array) $data['person'];
+        $employment = (array) $data['employment'];
+        $assignment = (array) $data['assignment'];
+        $terms = (array) $data['terms'];
+        $legalName = trim((string) $person['given_name'].' '.(string) $person['family_name']);
+
+        $result = $onboarding->create(
             actorUserId: $principal->userId(),
+            payload: [
+                'person' => array_filter([
+                    'legal_name' => $legalName,
+                    'id_type' => $person['id_type'] ?? null,
+                    'id_number' => $person['national_id'] ?? null,
+                    'birth_date' => $person['birth_date'] ?? null,
+                    'mobile' => $person['mobile'] ?? null,
+                    'email' => $person['email'] ?? null,
+                ], static fn (mixed $value): bool => $value !== null && $value !== ''),
+                'employee_no' => (string) $employment['employee_no'],
+                'org_unit_id' => (int) $assignment['org_unit_id'],
+                'position_id' => $assignment['position_id'] ?? null,
+                'hire_date' => (string) $employment['hire_date'],
+                'employment_type' => (string) ($employment['employment_type'] ?? 'FULL_TIME'),
+                'terms' => [
+                    'work_location' => $terms['work_location'] ?? 'Unspecified',
+                    'work_schedule' => $terms['work_schedule'] ?? 'STANDARD',
+                    'base_salary_minor' => (int) $terms['salary_minor'],
+                    'salary_currency' => (string) $terms['currency'],
+                ],
+                'submit' => true,
+            ],
             idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+            businessDate: $this->businessDates->today()->value(),
         );
 
-        return ApiResponse::ok($result, $result['replayed'] ? 200 : 201);
+        $response = ApiResponse::accepted($result, 'Onboarding approval case accepted.');
+
+        if ($result['replayed']) {
+            $response->headers->set('Idempotency-Replayed', 'true');
+        }
+
+        return $response;
     }
 
     /** @var list<string> */

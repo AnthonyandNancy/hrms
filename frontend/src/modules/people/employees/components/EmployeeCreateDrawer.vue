@@ -7,8 +7,8 @@ import { DISPLAY_CODES, translate } from '@/shared/display/dictionary'
 import {
   onboardEmployee,
   type OnboardPayload,
-  type OnboardedEmployee,
   type OrgUnitOption,
+  type PendingOnboardingCase,
   type PositionOption,
 } from '../api'
 
@@ -23,7 +23,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  created: [result: OnboardedEmployee]
+  created: [result: PendingOnboardingCase]
 }>()
 
 type FieldKey =

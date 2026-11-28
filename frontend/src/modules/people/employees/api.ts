@@ -83,12 +83,13 @@ export type OnboardPayload = {
   }
 }
 
-export type OnboardedEmployee = {
-  person_id: number
-  employment_id: number
-  employee_no: string
-  assignment_id: number
-  terms_id: number
+export type PendingOnboardingCase = {
+  case_id: number
+  case_no: string
+  case_type: 'ONBOARDING'
+  application_status: string
+  effect_status: string
+  canonical_endpoint: '/v1/lifecycle/onboarding'
   replayed: boolean
 }
 
@@ -232,19 +233,34 @@ export async function restoreEmployee(employmentId: number): Promise<ArchiveResu
 export async function onboardEmployee(
   payload: OnboardPayload,
   idempotencyKey: string,
-): Promise<OnboardedEmployee> {
+): Promise<PendingOnboardingCase> {
   const raw = await resourcePost<unknown>('/v1/employees/onboard', payload, { idempotencyKey })
-  if (!isRecord(raw)) throw new TypeError('员工入职接口未返回结果。')
+  if (!isRecord(raw)) throw new TypeError('员工入职接口未返回待审批入职 Case。')
 
-  const employmentId = numberOrNull(raw.employment_id)
-  if (employmentId === null) throw new TypeError('员工入职接口未返回员工关系编号。')
+  const caseId = numberOrNull(raw.case_id)
+  const caseNo = stringOrNull(raw.case_no)
+  const applicationStatus = stringOrNull(raw.application_status)
+  const effectStatus = stringOrNull(raw.effect_status)
+
+  if (
+    caseId === null ||
+    caseId <= 0 ||
+    caseNo === null ||
+    raw.case_type !== 'ONBOARDING' ||
+    applicationStatus === null ||
+    effectStatus === null ||
+    raw.canonical_endpoint !== '/v1/lifecycle/onboarding'
+  ) {
+    throw new TypeError('员工入职接口未返回待审批入职 Case。')
+  }
 
   return {
-    person_id: numberOrNull(raw.person_id) ?? 0,
-    employment_id: employmentId,
-    employee_no: stringOrNull(raw.employee_no) ?? '',
-    assignment_id: numberOrNull(raw.assignment_id) ?? 0,
-    terms_id: numberOrNull(raw.terms_id) ?? 0,
+    case_id: caseId,
+    case_no: caseNo,
+    case_type: 'ONBOARDING',
+    application_status: applicationStatus,
+    effect_status: effectStatus,
+    canonical_endpoint: '/v1/lifecycle/onboarding',
     replayed: raw.replayed === true,
   }
 }

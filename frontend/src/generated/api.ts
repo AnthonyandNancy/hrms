@@ -1368,8 +1368,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create a person, employment, assignment and first terms version atomically
-         * @description One transactional business act. A replay with the same Idempotency-Key returns the original employee with `data.replayed = true` and creates no duplicate. Requires capability `people.employee.manage` at COMPANY.
+         * Submit the canonical onboarding Case through the legacy People payload
+         * @description Compatibility facade. The historical payload is mapped to the Lifecycle onboarding payload and submitted as a Workflow Case. The response is always 202 with pending Case metadata; this route never creates Person, Employment, Assignment or Terms rows. Those writes remain exclusive to the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay with the same Idempotency-Key returns the same Case with `data.replayed = true`. Requires capability `people.employee.manage` at COMPANY.
          */
         post: operations["onboardEmployee"];
         delete?: never;
@@ -5788,12 +5788,16 @@ export interface components {
                 effective_from?: string | null;
             };
         };
-        OnboardedEmployee: {
-            person_id: number;
-            employment_id: number;
-            employee_no: string;
-            assignment_id: number;
-            terms_id: number;
+        /** @description Pending Lifecycle onboarding Case. No Person, Employment, Assignment or Terms row exists until the canonical Onboarding Effect is applied. */
+        PendingOnboardingCase: {
+            case_id: number;
+            case_no: string;
+            /** @enum {string} */
+            case_type: "ONBOARDING";
+            application_status: string;
+            effect_status: string;
+            /** @enum {string} */
+            canonical_endpoint: "/v1/lifecycle/onboarding";
             replayed: boolean;
         };
         DepartmentWriteRequest: {
@@ -11513,31 +11517,19 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Idempotent replay of a previous onboarding */
-            200: {
+            /** @description Pending onboarding Case accepted (including idempotent replay) */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["OnboardedEmployee"];
-                    };
-                };
-            };
-            /** @description Employee onboarded */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope"] & {
-                        data?: components["schemas"]["OnboardedEmployee"];
+                        data?: components["schemas"]["PendingOnboardingCase"];
                     };
                 };
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

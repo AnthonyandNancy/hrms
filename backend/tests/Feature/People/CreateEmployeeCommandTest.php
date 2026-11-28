@@ -4,98 +4,168 @@ declare(strict_types=1);
 
 namespace Tests\Feature\People;
 
+use App\Modules\Lifecycle\Models\LifecycleIntent;
 use App\Modules\People\Models\Assignment;
 use App\Modules\People\Models\Employment;
 use App\Modules\People\Models\EmploymentTerms;
 use App\Modules\People\Models\Person;
-use Tests\Support\PeopleTestCase;
+use Tests\Support\LifecycleTestCase;
 
 /**
- * Volume 3 Task 1: atomic employee onboarding.
- *
- * The important guarantees are atomicity (nothing partial survives a failure),
- * idempotency (a replay never creates a second employee) and authorization
- * (the capability is required and cannot be satisfied by another anchor).
+ * The legacy People route is a compatibility facade over Lifecycle's canonical
+ * onboarding command. It must return a pending Case and never write People.
  */
-final class CreateEmployeeCommandTest extends PeopleTestCase
+final class CreateEmployeeCommandTest extends LifecycleTestCase
 {
-    public function test_it_creates_person_employment_assignment_and_terms_in_one_command(): void
+    public function test_it_returns_a_pending_onboarding_case_and_no_domain_rows(): void
     {
         $response = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('onboard-1'))
-            ->assertCreated()
-            ->assertJsonPath('data.employee_no', 'SYNTH-ONB-001');
+            ->assertStatus(202)
+            ->assertJsonPath('data.case_type', 'ONBOARDING')
+            ->assertJsonPath('data.application_status', 'SUBMITTED')
+            ->assertJsonPath('data.effect_status', 'NONE')
+            ->assertJsonPath('data.canonical_endpoint', '/v1/lifecycle/onboarding')
+            ->assertJsonPath('data.replayed', false)
+            ->assertJsonStructure(['data' => ['case_id', 'case_no', 'case_type', 'application_status', 'effect_status', 'canonical_endpoint', 'replayed']]);
 
-        $employmentId = (int) $response->json('data.employment_id');
+        $caseId = (int) $response->json('data.case_id');
+        $this->assertGreaterThan(0, $caseId);
+        $this->assertNotSame('', (string) $response->json('data.case_no'));
+        $this->assertDatabaseHas('lifecycle_intents', ['case_id' => $caseId, 'case_type' => 'ONBOARDING']);
+        $this->assertSame(1, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+        $this->assertSame(0, Assignment::query()->count());
+        $this->assertSame(0, EmploymentTerms::query()->count());
+    }
+
+    public function test_only_approving_the_case_creates_the_domain_rows(): void
+    {
+        $created = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('approval-path'))
+            ->assertStatus(202)
+            ->json('data');
+        $caseId = (int) $created['case_id'];
+
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+
+        $this->approveCase($caseId, 'onboarding-approval-path')
+            ->assertOk()
+            ->assertJsonPath('data.effect_status', 'APPLIED');
+
         $this->assertSame(1, Person::query()->count());
         $this->assertSame(1, Employment::query()->count());
         $this->assertSame(1, Assignment::query()->count());
         $this->assertSame(1, EmploymentTerms::query()->count());
-        $this->assertDatabaseHas('employments', ['id' => $employmentId, 'employee_no' => 'SYNTH-ONB-001']);
+        $this->assertDatabaseHas('employments', [
+            'employee_no' => 'SYNTH-ONB-001',
+            'source_type' => 'ONBOARDING',
+            'source_id' => $caseId,
+        ]);
+        $this->assertDatabaseHas('employment_terms', [
+            'base_salary_minor' => 1_000_000,
+            'salary_currency' => 'CNY',
+        ]);
     }
 
-    public function test_a_failure_in_the_last_step_rolls_back_everything(): void
-    {
-        // Force the terms step to fail after person/employment/assignment have
-        // already been written: an assignment valid_from earlier than the
-        // employment start is rejected by the writer's range check.
-        $payload = $this->payload();
-        // Employee number already taken by a committed employee: the writer
-        // rejects it with 409 after person creation has happened.
-        $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('rollback-seed'))
-            ->assertCreated();
-
-        $seeded = Employment::query()->count();
-
-        $this->postJson('/v1/employees/onboard', $payload, $this->headers('rollback-1'))
-            ->assertStatus(409);
-
-        // The seed employee is the only survivor; the failed attempt added nothing.
-        $this->assertSame(1, Person::query()->count(), 'person must be rolled back');
-        $this->assertSame($seeded, Employment::query()->count(), 'employment must be rolled back');
-        $this->assertSame(1, Assignment::query()->count(), 'assignment must be rolled back');
-        $this->assertSame(1, EmploymentTerms::query()->count(), 'terms must be rolled back');
-    }
-
-    public function test_the_same_idempotency_key_returns_the_same_employee_without_duplicating(): void
+    public function test_the_same_idempotency_key_returns_the_same_pending_case(): void
     {
         $first = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('replay-key'))
-            ->assertCreated()
+            ->assertStatus(202)
             ->json('data');
 
         $second = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('replay-key'))
-            ->assertOk()
+            ->assertStatus(202)
+            ->assertHeader('Idempotency-Replayed', 'true')
             ->assertJsonPath('data.replayed', true)
             ->json('data');
 
-        $this->assertSame($first['employment_id'], $second['employment_id']);
-        $this->assertSame(1, Employment::query()->count());
-        $this->assertSame(1, Person::query()->count());
+        $this->assertSame($first['case_id'], $second['case_id']);
+        $this->assertSame($first['case_no'], $second['case_no']);
+        $this->assertSame(1, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
     }
 
-    public function test_a_different_idempotency_key_creates_a_second_employee(): void
+    public function test_a_different_idempotency_key_creates_a_second_pending_case_without_domain_rows(): void
     {
-        $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('key-a'))->assertCreated();
+        $first = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('key-a'))
+            ->assertStatus(202)
+            ->json('data.case_id');
 
         $payload = $this->payload();
         $payload['employment']['employee_no'] = 'SYNTH-ONB-002';
         $payload['person']['national_id'] = 'SYNTH-ID-002';
-        $this->postJson('/v1/employees/onboard', $payload, $this->headers('key-b'))->assertCreated();
+        $second = $this->postJson('/v1/employees/onboard', $payload, $this->headers('key-b'))
+            ->assertStatus(202)
+            ->json('data.case_id');
 
-        $this->assertSame(2, Employment::query()->count());
+        $this->assertNotSame($first, $second);
+        $this->assertSame(2, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+        $this->assertSame(0, Assignment::query()->count());
+        $this->assertSame(0, EmploymentTerms::query()->count());
     }
 
-    public function test_a_duplicate_employee_number_is_rejected(): void
+    public function test_an_unknown_org_unit_never_creates_a_case_or_domain_row(): void
     {
-        $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('dup-a'))->assertCreated();
-
         $payload = $this->payload();
-        $payload['person']['national_id'] = 'SYNTH-ID-999';
+        $payload['assignment']['org_unit_id'] = 999_999;
 
-        $this->postJson('/v1/employees/onboard', $payload, $this->headers('dup-b'))
-            ->assertStatus(409)
+        $this->postJson('/v1/employees/onboard', $payload, $this->headers('unknown-org'))
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['data' => ['fields' => ['org_unit_id']]]);
+
+        $this->assertSame(0, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+    }
+
+    public function test_a_missing_org_unit_never_creates_a_case_or_domain_row(): void
+    {
+        $payload = $this->payload();
+        unset($payload['assignment']['org_unit_id']);
+
+        $this->postJson('/v1/employees/onboard', $payload, $this->headers('missing-org'))
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['data' => ['fields' => ['assignment.org_unit_id']]]);
+
+        $this->assertSame(0, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+    }
+
+    public function test_an_invalid_hire_date_never_creates_a_case_or_domain_row(): void
+    {
+        $payload = $this->payload();
+        $payload['employment']['hire_date'] = '2026-13-01';
+
+        $this->postJson('/v1/employees/onboard', $payload, $this->headers('invalid-date'))
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'VALIDATION_FAILED')
+            ->assertJsonStructure(['data' => ['fields' => ['employment.hire_date']]]);
+
+        $this->assertSame(0, LifecycleIntent::query()->count());
+        $this->assertSame(0, Person::query()->count());
+        $this->assertSame(0, Employment::query()->count());
+    }
+
+    public function test_a_duplicate_employee_number_is_rejected_before_creating_another_case(): void
+    {
+        $person = $this->peopleScenario->person();
+        $this->peopleScenario->employment($person, 'SYNTH-ONB-001');
+        $existingCases = LifecycleIntent::query()->count();
+
+        $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('dup-b'))
+            ->assertUnprocessable()
             ->assertJsonPath('data.reason', 'EMPLOYEE_NO_DUPLICATE');
 
+        $this->assertSame($existingCases, LifecycleIntent::query()->count());
         $this->assertSame(1, Employment::query()->count());
+        $this->assertSame(1, Person::query()->count());
     }
 
     public function test_an_invalid_payload_is_rejected_with_field_errors(): void
@@ -109,12 +179,14 @@ final class CreateEmployeeCommandTest extends PeopleTestCase
             ->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonStructure(['data' => ['fields' => ['employment.employee_no', 'terms.salary_minor']]]);
 
+        $this->assertSame(0, LifecycleIntent::query()->count());
         $this->assertSame(0, Employment::query()->count());
     }
 
     public function test_the_capability_is_required(): void
     {
-        $this->forgetPrincipal();
+        $this->app->forgetInstance(\App\Modules\IAM\Contracts\Principal::class);
+        $this->app->forgetInstance(\App\Shared\Auth\AuthenticatedPrincipal::class);
 
         $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('no-auth'))
             ->assertUnauthorized();
@@ -165,7 +237,7 @@ final class CreateEmployeeCommandTest extends PeopleTestCase
 
     private function orgUnitId(): int
     {
-        return $this->cachedOrgUnitId ??= (int) $this->scenario()
+        return $this->cachedOrgUnitId ??= (int) $this->peopleScenario
             ->orgUnit('SYNTH-ONB-DEPT-'.bin2hex(random_bytes(3)), null, '建档部门')
             ->id;
     }

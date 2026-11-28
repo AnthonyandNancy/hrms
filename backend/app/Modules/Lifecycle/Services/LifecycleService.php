@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Lifecycle\Services;
 
+use App\Modules\Lifecycle\Contracts\OnboardingCaseCommand;
 use App\Modules\Lifecycle\Domain\CaseTemplateCatalog;
 use App\Modules\Lifecycle\Domain\LifecycleCaseType;
 use App\Modules\Lifecycle\Domain\LifecycleEffectiveDate;
 use App\Modules\Lifecycle\Domain\LifecycleValidator;
 use App\Modules\Lifecycle\Models\LifecycleIntent;
+use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Modules\Workflow\Contracts\WorkflowCaseGateway;
 use App\Modules\Workflow\Contracts\WorkflowCaseRecord;
 use App\Shared\Exceptions\ValidationException;
@@ -19,14 +21,61 @@ use Illuminate\Support\Facades\DB;
  * Creates lifecycle business intent as a Workflow Case. This service never
  * mutates People state; the registered LOCAL effect is the only writer.
  */
-final class LifecycleService
+final class LifecycleService implements OnboardingCaseCommand
 {
     public function __construct(
         private readonly WorkflowCaseGateway $workflow,
         private readonly LifecycleValidator $validator,
         private readonly CaseTemplateCatalog $templates,
         private readonly AuditRecorder $audit,
+        private readonly IdempotencyRunner $idempotency,
     ) {}
+
+    public function create(int $actorUserId, array $payload, string $idempotencyKey, string $businessDate): array
+    {
+        $key = trim($idempotencyKey);
+
+        if ($key === '' || mb_strlen($key) > 128) {
+            throw new ValidationException(
+                ['idempotency_key' => ['A valid Idempotency-Key header is required (1-128 characters).']],
+                'A valid Idempotency-Key header is required.',
+                ['reason' => 'IDEMPOTENCY_KEY_REQUIRED'],
+            );
+        }
+
+        $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
+            principalId: $actorUserId,
+            scope: 'CMD:lifecycle.onboarding.create',
+            key: $key,
+            payload: $payload,
+            operation: function () use ($actorUserId, $payload, $businessDate): array {
+                $created = $this->createCase(
+                    requesterUserId: $actorUserId,
+                    type: LifecycleCaseType::ONBOARDING,
+                    payload: $payload,
+                    businessDate: $businessDate,
+                    submit: (bool) ($payload['submit'] ?? true),
+                );
+                $case = $created['case'];
+
+                return [
+                    'http_status' => 201,
+                    'body' => [
+                        'case_id' => $case->id,
+                        'case_no' => $case->caseNo,
+                        'case_type' => $case->type,
+                        'application_status' => $case->applicationStatus,
+                        'effect_status' => $case->effectStatus,
+                        'canonical_endpoint' => '/v1/lifecycle/onboarding',
+                    ],
+                    'resource_type' => 'case',
+                    'resource_id' => (string) $case->id,
+                ];
+            },
+        ));
+
+        return [...$result->body, 'replayed' => $result->replayed];
+    }
 
     /**
      * @param  array<string, mixed>  $payload
