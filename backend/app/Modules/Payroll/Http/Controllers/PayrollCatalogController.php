@@ -216,6 +216,7 @@ final class PayrollCatalogController
             'items.*.rate_scaled' => ['nullable', 'integer', 'min:0'],
             'items.*.rate' => ['nullable', 'string', 'regex:/^\d{1,6}(\.\d{1,6})?$/'],
             'items.*.basis' => ['nullable', 'string', 'max:24'],
+            'items.*.formula' => ['nullable', 'array'],
             'items.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'items.*.taxable' => ['nullable', 'boolean'],
         ]);

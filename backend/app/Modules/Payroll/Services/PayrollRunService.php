@@ -498,6 +498,7 @@ final class PayrollRunService
                     'amount_cents' => (int) ($itemData['amount_cents'] ?? 0),
                     'rate_scaled' => $this->rateScaled($itemData),
                     'basis' => (string) ($itemData['basis'] ?? 'BASE_SALARY'),
+                    'formula_json' => isset($itemData['formula_json']) && is_array($itemData['formula_json']) ? $itemData['formula_json'] : null,
                     'sort_order' => (int) ($itemData['sort_order'] ?? ($position + 1) * 10),
                     'taxable' => (bool) ($itemData['taxable'] ?? true),
                 ]);

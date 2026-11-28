@@ -415,6 +415,7 @@ final class SnapshotService
                     'amount_cents' => (int) $item->amount_cents,
                     'rate_scaled' => $item->rate_scaled !== null ? (int) $item->rate_scaled : null,
                     'basis' => (string) $item->basis,
+                    'formula_json' => $item->formula_json,
                     'sort_order' => (int) $item->sort_order,
                     'taxable' => (bool) $item->taxable,
                 ])->values()->all(),

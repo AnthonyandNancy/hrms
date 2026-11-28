@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payroll\Services;
 
 use App\Modules\Organization\Contracts\CompanyProfileReader;
+use App\Modules\Payroll\Domain\AttendanceSummary;
 use App\Modules\Payroll\Domain\DeductionLine;
 use App\Modules\Payroll\Domain\EarningLine;
 use App\Modules\Payroll\Domain\EmployerCostLine;
@@ -17,6 +18,8 @@ use App\Modules\Payroll\Domain\PayrollContext;
 use App\Modules\Payroll\Domain\PayrollCorrectionDelta;
 use App\Modules\Payroll\Domain\PayrollLineSource;
 use App\Modules\Payroll\Domain\PayrollPeriod;
+use App\Modules\Payroll\Domain\PayrollRuleCompiler;
+use App\Modules\Payroll\Domain\PayrollRuleEngine;
 use App\Modules\Payroll\Domain\ProrationDivisor;
 use App\Modules\Payroll\Domain\RoundingConfig;
 use App\Modules\Payroll\Domain\SocialInsuranceRule;
@@ -31,6 +34,7 @@ use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Models\PayslipLine;
 use App\Shared\Exceptions\ConflictException;
+use App\Shared\Money\Decimal;
 use App\Shared\Money\Money;
 use App\Shared\Money\RoundingMode;
 use App\Shared\Observability\AuditRecorder;
@@ -54,6 +58,8 @@ final class CalculationService
         private readonly PayrollStateMachine $stateMachine,
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
+        private readonly PayrollRuleCompiler $ruleCompiler,
+        private readonly PayrollRuleEngine $ruleEngine,
     ) {}
 
     /**
@@ -262,7 +268,7 @@ final class CalculationService
         $otherEmployerCosts = [];
         foreach ((array) ($payload['scheme']['items'] ?? []) as $item) {
             $item = (array) $item;
-            $amount = Money::fromMinor((int) ($item['amount_cents'] ?? 0), $currency);
+            $amount = Money::fromMinor($this->schemeItemAmount($item, $baseSalary, $attendance), $currency);
             $source = new PayrollLineSource('payroll_scheme_item', (string) ($run->scheme_id).':'.(string) ($item['item_code'] ?? ''));
 
             if ($amount->isZero()) {
@@ -394,7 +400,7 @@ final class CalculationService
                 employeeRate: $hf['employee_rate'],
                 employerRate: $hf['employer_rate'],
             ),
-            overtimeMultiplier: \App\Shared\Money\Decimal::fromString((string) ($schemeData['overtime_multiplier'] ?? $scheme->overtime_multiplier)),
+            overtimeMultiplier: Decimal::fromString((string) ($schemeData['overtime_multiplier'] ?? $scheme->overtime_multiplier)),
             salarySourceType: $segments !== [] ? 'employee_compensation_segments' : ($compensationSalary !== null ? 'employee_compensation' : (isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme')),
             salarySourceId: $segments !== []
                 ? implode(',', array_map(static fn (array $segment): string => (string) ($segment['compensation_id'] ?? ''), $segments))
@@ -780,6 +786,75 @@ final class CalculationService
                 'failure_reason' => mb_substr($reason, 0, 1000),
             ],
         );
+    }
+
+    /**
+     * Resolve one scheme item to integer cents. The item calculation column is
+     * the execution contract; amount_cents is not a fallback for a malformed
+     * PERCENT/FORMULA item.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function schemeItemAmount(array $item, int $baseSalaryCents, AttendanceSummary $attendance): int
+    {
+        $calculation = strtoupper((string) ($item['calculation'] ?? 'FIXED'));
+
+        if ($calculation === 'FIXED') {
+            return max(0, (int) ($item['amount_cents'] ?? 0));
+        }
+
+        if ($calculation === 'PERCENT') {
+            $rateScaled = $item['rate_scaled'] ?? null;
+            if (! is_int($rateScaled) || $rateScaled < 0) {
+                throw new \InvalidArgumentException('PERCENT scheme item requires a non-negative rate_scaled.');
+            }
+
+            return Decimal::fromScaledInt($baseSalaryCents, 0)
+                ->multiply(Decimal::fromScaledInt($rateScaled, 6))
+                ->roundTo(0)
+                ->toScaledInt(0);
+        }
+
+        if ($calculation === 'ATTENDANCE_PRORATE') {
+            $amount = (int) ($item['amount_cents'] ?? 0);
+            if ($attendance->scheduledMinutes <= 0) {
+                return max(0, $amount);
+            }
+
+            return Decimal::fromScaledInt($amount, 0)
+                ->multiply(Decimal::fromScaledInt($attendance->paidMinutes(), 0))
+                ->divide(Decimal::fromScaledInt($attendance->scheduledMinutes, 0), 0)
+                ->toScaledInt(0);
+        }
+
+        if ($calculation === 'FORMULA_LIMITED') {
+            $formula = $item['formula_json'] ?? null;
+            if (! is_array($formula)) {
+                throw new \InvalidArgumentException('FORMULA_LIMITED scheme item requires formula_json.');
+            }
+
+            $compiled = $this->ruleCompiler->compile($formula, [
+                'base_salary', 'base_salary_cents', 'scheduled_minutes', 'worked_minutes',
+                'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_minutes',
+            ]);
+            $evaluation = $this->ruleEngine->evaluate($compiled, [
+                'base_salary' => Decimal::fromScaledInt($baseSalaryCents, 2)->toDecimalString(),
+                'base_salary_cents' => (string) $baseSalaryCents,
+                'scheduled_minutes' => (string) $attendance->scheduledMinutes,
+                'worked_minutes' => (string) $attendance->workedMinutes,
+                'paid_leave_minutes' => (string) $attendance->paidLeaveMinutes,
+                'unpaid_leave_minutes' => (string) $attendance->unpaidLeaveMinutes,
+                'overtime_minutes' => (string) $attendance->overtimeMinutes,
+            ]);
+            $cents = Decimal::fromString($evaluation->value)->roundTo(0)->toScaledInt(0);
+            if ($cents < 0) {
+                throw new \InvalidArgumentException('Scheme item formula produced a negative amount.');
+            }
+
+            return $cents;
+        }
+
+        throw new \InvalidArgumentException('Unknown scheme item calculation '.$calculation.'.');
     }
 
     /**

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $rate_scaled
  * @property string $basis
  * @property int $sort_order
+ * @property array<string, mixed>|null $formula_json
  * @property bool $taxable
  */
 final class PayrollSchemeItem extends Model
@@ -35,6 +36,7 @@ final class PayrollSchemeItem extends Model
         'amount_cents',
         'rate_scaled',
         'basis',
+        'formula_json',
         'sort_order',
         'taxable',
     ];
@@ -47,6 +49,7 @@ final class PayrollSchemeItem extends Model
         return [
             'amount_cents' => 'integer',
             'rate_scaled' => 'integer',
+            'formula_json' => 'array',
             'sort_order' => 'integer',
             'taxable' => 'boolean',
         ];

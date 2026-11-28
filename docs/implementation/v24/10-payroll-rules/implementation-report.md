@@ -25,3 +25,23 @@
 Remaining T10: rule-version persistence/publish/retire API, SchemeItem
 FIXED/PERCENT/ATTENDANCE_PRORATE integration, dependency graph, snapshot
 rule hashes and frontend restricted editor.
+
+## T10b — SchemeItem execution
+
+- Added `payroll_scheme_items.formula_json`; scheme item creation, snapshot v2
+  and model casts carry the AST unchanged.
+- CalculationService now executes each item by `calculation`:
+  - FIXED → `amount_cents`;
+  - PERCENT → base salary cents × `rate_scaled` / 1e6, rounded once;
+  - ATTENDANCE_PRORATE → amount × paid minutes / scheduled minutes;
+  - FORMULA_LIMITED → restricted AST compiled/evaluated with base salary,
+    attendance variables and integer-cent variables.
+- Missing rate/Formula and unknown variables fail the employee rather than
+  defaulting the item to zero; failed run becomes `CALCULATED_WITH_BLOCKERS`.
+- Added integration coverage for all four calculations and malformed formula
+  rejection.
+- Verification: payroll/integration/unit 205 tests / 30,858 assertions; Pint,
+  PHPStan and arch green.
+
+Remaining T10: rule version persistence/publish/retire, dependencies, snapshot
+rule hashes, rule editor and API.
