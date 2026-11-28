@@ -91,7 +91,7 @@
 | T13 | 累计更正与 signed YTD | COMPLETE | T13a-T13d | `207cb39`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13d.log`; MCP in T18 |
 | T14 | 福利计薪输入与冲销 | COMPLETE | T14a-T14d | `39183a6`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14d.log`; MCP in T18 |
 | T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
-| T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
+| T16 | 通知状态与报表字段裁剪 | COMPLETE | T16 merged after critical-finding fixes | `d8a7f9a`; `docs/implementation/v24/16-notifications-reporting/implementation-report.md`; `gate-all-t16-merge.log`; MCP in T18 |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
 | T19 | 真实栈、迁移恢复与发布判定 | PENDING | — | — |
@@ -142,7 +142,8 @@
 | 2026-11-28 | T14d benefit masking | `39183a6` + full gate | 22 gates PASS in 240.0s; P3 amount schemas, per-row benefit.read projection, masked frontend labels, backend/frontend regressions; log `docs/implementation/v24/14-benefits/gate-all-t14d.log` | T14 complete; T16 report/export security remains. |
 | 2026-11-28 | T17a exact money/self payslip | `093cc63` + full gate | 22 gates PASS in 239.5s; BigInt money, unsafe rejection, period/pay_date, self panel no payroll.run.read; log `docs/implementation/v24/17-frontend/gate-all-t17a.log` | T17b followed. |
 | 2026-11-28 | T17b server action bar | `f8f6b38` + full gate | 22 gates PASS in 239.6s; allowed_actions-only payroll actions, capability-free reasons, tests updated; log `docs/implementation/v24/17-frontend/gate-all-t17b.log` | Other detail actions/Chinese sweep remain. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T17 actions/T19 outstanding; MCP 0 executed | Continue T17 actions and T08b/T16 unblock. |
+| 2026-11-28 | T16 merge | `d8a7f9a` + full gate | merge of notification delivery/report field projection; 22 gates PASS in 290.2s; provider receipt, retry, notice expiry/audience, payslip IDs, per-row report fields and export crop regressions; log `docs/implementation/v24/16-notifications-reporting/gate-all-t16-merge.log` | Reference transport only; real provider/MySQL/MCP remain T19/T18. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T08b/T17 remaining actions/T19 outstanding; MCP 0 executed | Continue T17/T08b then T18/T19. |
 
 ---
 

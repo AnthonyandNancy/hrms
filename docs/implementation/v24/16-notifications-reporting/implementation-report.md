@@ -241,3 +241,13 @@ does not need it. The main workspace was never modified.
   deliveries remain `FAILED` by design.
 - `docs/openapi` still emits two pre-existing health-operation 4xx warnings
   unrelated to T16.
+
+## Post-merge verification (main)
+
+- Merge commit: `d8a7f9a`.
+- `pnpm gate:all`: **PASS**, 22 gates, 290.2s.
+- Log: `docs/implementation/v24/16-notifications-reporting/gate-all-t16-merge.log`.
+- Contract generation (`openapi:generate`, `actions:generate`) produced no drift
+  after the merge.
+- This verifies the branch against the current combined V2.4 mainline; production
+  transport, true MySQL concurrency and browser MCP remain T19/T18.

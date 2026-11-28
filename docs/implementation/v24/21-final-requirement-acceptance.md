@@ -15,7 +15,7 @@ The current branch contains a stable, reviewed foundation (T00–T04, hardened T
 It is **not** a completed V2.4 business delivery:
 
 - T05a/T05b onboarding, contract draft and compensation draft are merged.
-- T07 leave effects are complete and merged; T16 notification/report remains incomplete.
+- T07 leave effects are complete and merged; T16 notification/report is merged with full-gate evidence.
 - T08–T15, T17, and T19 have not been implemented.
 - No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
 - Real MySQL/Redis/object-storage migration, concurrency and restore verification is not complete.
@@ -52,25 +52,26 @@ GATE:ALL PASS (22 gates, 344.3s)
 
 This proves the merged technical foundation passes the existing automated gates. It does not prove unmerged work, remote/provider integration, MySQL concurrency, browser behavior, or V2.4 business acceptance.
 
-## 3. Unmerged / blocked branches
+## 3. Merged branch evidence
 
-These branches are intentionally **not merged** because independent review found Critical issues.
-
-
-### T16 notification/report — BLOCKED
+### T16 notification/report — MERGED / COMPLETE (code)
 
 - Branch: `v24-t16-engagement-reporting`
-- Commit: `79de276`
-- What works: notification delivery ledger foundation, list/read revalidation, identifier-only payslip intent, report field resolver skeleton, extensive focused tests.
-- Blocking findings:
-  - Default log transport can fabricate success; `SENT` must require a real provider receipt.
-  - Provider send occurs before durable PENDING reservation; concurrent replays can send twice.
-  - Engagement FAILED delivery cannot be correctly retried through Platform payload/channel.
-  - Export principal/authVersion and queued execution are not proven safe.
-  - Report field tier is resolved as a global maximum across rows instead of per-row authority; mixed P1/P3 grants can over-expose fields.
-  - Report row scope sometimes uses dashboard capability; unauthorized money fields can be reconstructed or shown as zero.
-  - Notice audience snapshot fail-open, expiry on home, and governance response drift remain.
-- T16a (delivery truth/retry), T16b (report row/field scoping), T16c (notice/queue/copy) must be completed separately.
+- Merge commit: `d8a7f9a`
+- Full gate: `GATE:ALL PASS (22 gates, 290.2s)`, log
+  `docs/implementation/v24/16-notifications-reporting/gate-all-t16-merge.log`.
+- Critical findings addressed by merged implementation/tests:
+  - provider receipt required before `SENT`; missing receipt is `FAILED` and
+    retryable on the same row;
+  - deterministic event keys prevent duplicate notification/send on replay;
+  - notice retraction/expiry/audience changes invalidate old links and reads;
+  - payslip notifications carry identifiers only and recheck publication/self scope;
+  - report columns, rows, totals, charts and exports use per-row field authority
+    and omit unauthorized money rather than zero-filling;
+  - export creation returns an honest `422 EXPORT_FIELD_FORBIDDEN`.
+- Residual risks: the reference transport is not a real vendor integration;
+  SQLite cannot prove true concurrent delivery locking; browser/MCP proof remains
+  T18 and real-stack verification remains T19.
 
 ## 4. Not implemented
 
@@ -95,7 +96,7 @@ These branches are intentionally **not merged** because independent review found
 | AC-02 clean install | ❌ NOT ACCEPTED | Installer tests pass; no real-stack/browser proof |
 | AC-03 roles/login | ❌ NOT ACCEPTED | Existing IAM only; no five+ role MCP evidence |
 | AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04/T05 merged; MCP/real-stack evidence still missing |
-| AC-05 permission/field isolation | ❌ PARTIAL | T02 catalog/actions merged; T16 report leakage unresolved |
+| AC-05 permission/field isolation | ✅ MET (code/UI) | T02 action catalog + T14 benefit masking + T16 per-row report/export field projection pass; MCP pending |
 | AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
 | AC-07 payroll sample 9480/1400/8080/9980 | ✅ MET (code) | `PayrollAcceptanceSampleTest` exact gross/deduction/net/employer cost + stored run/payslip evidence |
 | AC-08 leave cancel/dynamic recalc | ❌ PARTIAL | T06/T07 merged; T09 Snapshot/MCP remain |
@@ -106,8 +107,8 @@ These branches are intentionally **not merged** because independent review found
 | AC-13 approval/execution consistency | ❌ PARTIAL | T07 complete; T09 Snapshot/MCP remain |
 | AC-14 benefits/performance payroll | ✅ MET (code/UI) | Multi-plan/reversal/employer cost, P3 field masking and bonus mapping regressions pass; T16 report security separate |
 | AC-15 recruitment/training | ✅ MET (code/UI) | Offer→compensation, bonus mapping UI, training attempt/source UI regressions pass; MCP pending |
-| AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
-| AC-17 notices/notifications | ❌ PARTIAL/BLOCKED | Delivery/retry/audience issues unresolved |
+| AC-16 reports/exports | ✅ MET (code/UI) | T16 report/export field crop, no-zero leakage and export reauthorization regressions pass; MCP pending |
+| AC-17 notices/notifications | ✅ MET (code/UI) | T16 receipt-based delivery/retry, revocation/expiry/audience checks and payslip ID-only notifications pass; real provider/MCP pending |
 | AC-18 unified UI/Chinese | ❌ PARTIAL | BigInt money/self payslip and payroll allowed_actions done; remaining detail actions/Chinese sweep |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
 | AC-20 history/regression | ❌ NOT PROVEN | No real migration/replay/restore acceptance |
@@ -116,15 +117,12 @@ These branches are intentionally **not merged** because independent review found
 
 ## 6. Resume protocol
 
-1. Keep this branch/HEAD as the stable foundation; T05 and T07 are merged, while the blocked T16 branch must not be merged wholesale.
-2. Continue T16 or the Payroll chain on top of merged T05/T07.
-3. Execute T17 detail actions/Chinese sweep, T08b overtime Workflow and T16 unblock/review.
-4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
-5. Continue T08–T17 in dependency order; T09 must not be skipped.
-6. Run `pnpm gate:all` after each merge.
-7. Only then execute the merged T18 matrix with Playwright MCP and complete T19 real-stack/migration/restore verification.
-8. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
+1. Keep this branch/HEAD as the stable foundation; T05/T07/T16 are merged with full-gate evidence.
+2. Execute remaining T17 detail actions/Chinese sweep and T08b overtime Workflow.
+3. Run `pnpm gate:all` after each merge.
+4. Execute T18 Playwright MCP matrix and T19 real-stack/migration/restore verification.
+5. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16 blocked and T08b/T17 remaining actions/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T08b/T17 remaining actions/T19 outstanding and MCP/real-stack evidence absent.
