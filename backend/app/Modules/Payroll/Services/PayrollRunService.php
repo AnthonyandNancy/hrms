@@ -6,9 +6,11 @@ namespace App\Modules\Payroll\Services;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Enums\PayrollRunType;
+use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollItem;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollRunEmployee;
+use App\Modules\Payroll\Models\PayrollRunMember;
 use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\PayrollSchemeItem;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
@@ -16,6 +18,7 @@ use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Money\Decimal;
 use App\Shared\Observability\AuditRecorder;
 use App\Shared\Time\Clock;
 use Illuminate\Support\Facades\DB;
@@ -98,6 +101,17 @@ final class PayrollRunService
                 'snapshot_version' => 1,
             ]);
 
+            PayrollRunMember::query()->create([
+                'run_id' => (int) $run->id,
+                'user_id' => $actorUserId,
+                'member_role' => PayrollRunMember::ROLE_PREPARER,
+                'assigned_by' => $actorUserId,
+                'reason' => 'Run creator',
+                'valid_from' => $this->clock->now(),
+                'created_at' => $this->clock->now(),
+                'updated_at' => $this->clock->now(),
+            ]);
+
             $this->audit->record(
                 actorUserId: $actorUserId,
                 action: 'payroll.run.created',
@@ -143,6 +157,75 @@ final class PayrollRunService
             );
 
             return $run->refresh();
+        });
+    }
+
+    /**
+     * Assign a run member before review/approval/publication. The actor must
+     * already belong to the run; the HTTP route separately gates the prepare
+     * capability on the PAYROLL_RUN anchor.
+     *
+     * @return array{run_id:int,user_id:int,member_role:string,assigned_by:int,reason:string,valid_from:string}
+     */
+    public function assignMember(
+        int $runId,
+        int $actorUserId,
+        int $targetUserId,
+        string $memberRole,
+        string $reason,
+    ): array {
+        $memberRole = strtoupper(trim($memberRole));
+        $reason = trim($reason);
+
+        if (! in_array($memberRole, PayrollRunMember::ROLES, true) || $memberRole === PayrollRunMember::ROLE_PREPARER) {
+            throw new ValidationException(['member_role' => ['The payroll member role is invalid.']]);
+        }
+
+        if ($targetUserId < 1 || $reason === '') {
+            throw new ValidationException(['member' => ['Target user and reason are required.']]);
+        }
+
+        return DB::transaction(function () use ($runId, $actorUserId, $targetUserId, $memberRole, $reason): array {
+            $run = $this->stateMachine->lockRun($runId);
+            $actorIsMember = PayrollRunMember::query()
+                ->where('run_id', $runId)
+                ->where('user_id', $actorUserId)
+                ->exists() || (int) $run->prepared_by === $actorUserId;
+
+            if (! $actorIsMember) {
+                throw new NotFoundOrForbiddenException;
+            }
+
+            $member = PayrollRunMember::query()->updateOrCreate(
+                ['run_id' => $runId, 'user_id' => $targetUserId, 'member_role' => $memberRole],
+                [
+                    'assigned_by' => $actorUserId,
+                    'reason' => mb_substr($reason, 0, 500),
+                    'valid_from' => $this->clock->now(),
+                    'updated_at' => $this->clock->now(),
+                ],
+            );
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'payroll.run.member.assigned',
+                aggregateType: 'payroll_run',
+                aggregateId: $runId,
+                after: [
+                    'user_id' => $targetUserId,
+                    'member_role' => $memberRole,
+                    'reason' => $reason,
+                ],
+            );
+
+            return [
+                'run_id' => (int) $member->run_id,
+                'user_id' => (int) $member->user_id,
+                'member_role' => (string) $member->member_role,
+                'assigned_by' => (int) $member->assigned_by,
+                'reason' => (string) $member->reason,
+                'valid_from' => $member->valid_from->toIso8601ZuluString(),
+            ];
         });
     }
 
@@ -229,6 +312,16 @@ final class PayrollRunService
             'snapshot_version' => (int) $run->snapshot_version,
             'reopen_count' => (int) $run->reopen_count,
             'employee_count' => $employees->count(),
+            'members' => PayrollRunMember::query()
+                ->where('run_id', $run->id)
+                ->orderBy('id')
+                ->get()
+                ->map(static fn (PayrollRunMember $member): array => [
+                    'user_id' => (int) $member->user_id,
+                    'member_role' => (string) $member->member_role,
+                    'assigned_by' => (int) $member->assigned_by,
+                    'reason' => (string) $member->reason,
+                ])->all(),
             'employees' => $employees->map(function (PayrollRunEmployee $employee) use ($includeAmounts): array {
                 $row = [
                     'employment_id' => (int) $employee->employment_id,
@@ -265,13 +358,13 @@ final class PayrollRunService
         ];
         $showAmounts = $fields->isVisible('net');
 
-        return \App\Modules\Payroll\Models\PayrollInputSnapshot::query()
+        return PayrollInputSnapshot::query()
             ->where('run_id', $run->id)
             ->orderBy('employment_id')
             ->orderBy('snapshot_type')
             ->orderBy('snapshot_version')
             ->get()
-            ->map(static function (\App\Modules\Payroll\Models\PayrollInputSnapshot $snapshot) use ($moneyKeys, $showAmounts): array {
+            ->map(static function (PayrollInputSnapshot $snapshot) use ($moneyKeys, $showAmounts): array {
                 $payload = (array) $snapshot->payload_json;
 
                 if (! $showAmounts) {
@@ -472,7 +565,7 @@ final class PayrollRunService
             return null;
         }
 
-        $decimal = \App\Shared\Money\Decimal::fromString($itemData['rate']);
+        $decimal = Decimal::fromString($itemData['rate']);
 
         return $decimal->toScaledInt(6);
     }
