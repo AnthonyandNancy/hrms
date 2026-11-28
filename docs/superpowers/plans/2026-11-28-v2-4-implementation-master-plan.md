@@ -131,7 +131,8 @@
 | 2026-11-28 | T15c mapping/exam attempts | `04bf8ab` + full gate | 22 gates PASS in 247.7s; bonus mapping API/list/approve, training attempt source/checkin enforcement, completion derives from latest attempt; log `docs/implementation/v24/15-performance-bonus/gate-all-t15c.log` | T15d followed. |
 | 2026-11-28 | T15d attempt HTTP | `4eb491b` + full gate | 22 gates PASS in 240.8s; POST exam attempts, capability/action/OpenAPI/ledger, source-hash HTTP regression; log `docs/implementation/v24/15-performance-bonus/gate-all-t15d.log` | T15e followed. |
 | 2026-11-28 | T15e performance/training UI | `b848a46` + full gate | 22 gates PASS in 242.7s; bonus mapping dialog + approve, attempt form/source result; log `docs/implementation/v24/15-performance-bonus/gate-all-t15e.log` | T15 complete; MCP remains T18. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T15 complete, T16/T13d blocked; T08/T10/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10/T17 and T16 unblock effort. |
+| 2026-11-28 | T10a rule engine core | `bc3335e` + full gate | 22 gates PASS in 234.9s; strict AST whitelist/depth/node/variable validation, Decimal evaluator, IF/TIER/MIN/MAX/ROUND trace; log `docs/implementation/v24/10-payroll-rules/gate-all-t10a.log` | DB rule versions, SchemeItem execution, dependency graph and editor remain T10b. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T10b/T16/T13d blocked; T08/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T10b and T17. |
 
 ---
 
