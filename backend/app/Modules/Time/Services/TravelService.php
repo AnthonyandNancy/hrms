@@ -39,6 +39,7 @@ final class TravelService
         private readonly EmploymentDirectory $employments,
         private readonly AuditRecorder $audit,
         private readonly SensitiveAccessAuditor $sensitiveAuditor,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -152,6 +153,7 @@ final class TravelService
     {
         $fromDate = (string) $input['from_date'];
         $toDate = (string) $input['to_date'];
+        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
 
         return DB::transaction(function () use ($employmentId, $fromDate, $toDate, $input, $actorUserId): array {
             $overlap = BusinessTripRecord::query()
@@ -231,6 +233,13 @@ final class TravelService
             if ($trip === null) {
                 throw new NotFoundOrForbiddenException;
             }
+
+            $this->freezeGuard->assertPeriodsOpen(
+                PayrollFreezeGuard::periodsForRange(
+                    $trip->from_date->format('Y-m-d'),
+                    $trip->to_date->format('Y-m-d'),
+                ),
+            );
 
             $employment = $this->employments->snapshot(
                 (int) $trip->employment_id,
@@ -729,6 +738,13 @@ final class TravelService
                 ]);
             }
 
+            $this->freezeGuard->assertPeriodsOpen(
+                PayrollFreezeGuard::periodsForRange(
+                    $record->from_date->format('Y-m-d'),
+                    $record->to_date->format('Y-m-d'),
+                ),
+            );
+
             $this->assertExpensesCancellable((int) $record->id);
 
             $record->forceFill([
@@ -776,6 +792,8 @@ final class TravelService
         if ($reason === '') {
             throw new ValidationException(['reason' => ['A change reason is required.']]);
         }
+
+        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
 
         return DB::transaction(function () use ($employmentId, $travelId, $input, $actorUserId, $fromDate, $toDate, $reason): array {
             $trip = BusinessTripRecord::query()
@@ -902,6 +920,11 @@ final class TravelService
         if ($change === null) {
             return null;
         }
+
+        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange(
+            $trip->from_date->format('Y-m-d'),
+            $trip->to_date->format('Y-m-d'),
+        ));
 
         return DB::transaction(function () use ($trip, $change): TravelRequestChange {
             $this->applyChangeToTrip($trip, $change);

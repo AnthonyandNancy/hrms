@@ -10,6 +10,7 @@ use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Modules\Time\Models\AttendanceRuleVersion;
 use App\Modules\Time\Models\ShiftSchedule;
 use App\Modules\Time\Models\ShiftTemplate;
+use App\Modules\Time\Models\TimePayrollFactVersion;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -276,16 +277,42 @@ final class AttendanceOpsService
             ->get()
             ->all();
 
-        $items = array_map(static fn (AttendancePeriodClosure $row): array => [
-            'id' => (int) $row->id,
-            'month' => (string) $row->month,
-            'status' => (string) $row->status,
-            'closed_by' => $row->closed_by !== null ? (int) $row->closed_by : null,
-            'closed_at' => $row->closed_at?->toIso8601ZuluString(),
-            'reopened_by' => $row->reopened_by !== null ? (int) $row->reopened_by : null,
-            'reopened_at' => $row->reopened_at?->toIso8601ZuluString(),
-            'reopen_reason' => $row->reopen_reason !== null ? (string) $row->reopen_reason : null,
-        ], $rows);
+        $versionIds = array_values(array_filter(array_map(
+            static fn (AttendancePeriodClosure $row): ?int => $row->current_fact_version_id !== null
+                ? (int) $row->current_fact_version_id
+                : null,
+            $rows,
+        )));
+
+        /** @var array<int, TimePayrollFactVersion> $versions */
+        $versions = $versionIds === []
+            ? []
+            : TimePayrollFactVersion::query()
+                ->whereIn('id', $versionIds)
+                ->get()
+                ->keyBy(static fn (TimePayrollFactVersion $version): int => (int) $version->id)
+                ->all();
+
+        $items = array_map(static function (AttendancePeriodClosure $row) use ($versions): array {
+            $version = $row->current_fact_version_id !== null
+                ? ($versions[(int) $row->current_fact_version_id] ?? null)
+                : null;
+
+            return [
+                'id' => (int) $row->id,
+                'month' => (string) $row->month,
+                'status' => (string) $row->status,
+                'closed_by' => $row->closed_by !== null ? (int) $row->closed_by : null,
+                'closed_at' => $row->closed_at?->toIso8601ZuluString(),
+                'reopened_by' => $row->reopened_by !== null ? (int) $row->reopened_by : null,
+                'reopened_at' => $row->reopened_at?->toIso8601ZuluString(),
+                'reopen_reason' => $row->reopen_reason !== null ? (string) $row->reopen_reason : null,
+                'current_fact_version_id' => $row->current_fact_version_id !== null ? (int) $row->current_fact_version_id : null,
+                'fact_version' => $version?->version !== null ? (int) $version->version : null,
+                'source_hash' => $version?->source_hash,
+                'exception_count' => $version !== null ? (int) $version->exception_count : null,
+            ];
+        }, $rows);
 
         return ['items' => $items, 'total' => $total, 'page' => $page, 'page_size' => $pageSize];
     }

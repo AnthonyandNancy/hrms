@@ -11,6 +11,7 @@ use App\Modules\Time\Models\LeaveType;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Time\BusinessDate;
 use App\Shared\Time\Clock;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +26,7 @@ final class LeaveLedgerService
     public function __construct(
         private readonly Clock $clock,
         private readonly LeaveBalanceService $balances,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     public function grant(
@@ -275,6 +277,8 @@ final class LeaveLedgerService
             throw LeaveBalanceException::invalidQuantity($account, $minutes);
         }
 
+        $this->assertFactPeriodsOpen($businessDate, $effectiveOn);
+
         return DB::transaction(function () use ($employmentId, $leaveTypeId, $account, $minutes, $businessDate, $effectiveOn, $sourceType, $sourceId, $caseId, $reason, $allowNegative): LeaveLedgerEntry {
             $existing = LeaveLedgerEntry::query()
                 ->where('employment_id', $employmentId)
@@ -385,6 +389,19 @@ final class LeaveLedgerService
             $effectiveOn,
             allowNegative: true,
         );
+    }
+
+    /**
+     * A closed Time month is immutable for every ledger account, including
+     * GRANT/RESERVE: the closed fact version is the payroll boundary and no
+     * later ledger row may silently reinterpret it.
+     */
+    private function assertFactPeriodsOpen(string $businessDate, string $effectiveOn): void
+    {
+        $this->freezeGuard->assertPeriodsOpen([
+            CarbonImmutable::parse($businessDate, 'UTC')->format('Y-m'),
+            CarbonImmutable::parse($effectiveOn, 'UTC')->format('Y-m'),
+        ]);
     }
 
     private function lockAccount(int $employmentId, int $leaveTypeId): LeaveAccount

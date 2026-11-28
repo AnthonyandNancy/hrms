@@ -35,11 +35,13 @@ final class AttendanceCalculator
         private readonly BusinessCalendar $calendar,
         private readonly ShiftWindow $windows,
         private readonly EmploymentDirectory $employments,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     public function recalculate(int $employmentId, string $businessDate): AttendanceDay
     {
         BusinessDate::parse($businessDate);
+        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
 
         return DB::transaction(function () use ($employmentId, $businessDate): AttendanceDay {
             $snapshot = $this->employments->snapshot($employmentId, $businessDate);

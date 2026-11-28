@@ -253,6 +253,10 @@ final class LeavePolicyService
             'effective_to' => $policy->effective_to->format('Y-m-d'),
             'applies_to' => (array) $policy->applies_to_json,
             'accrual' => (array) $policy->accrual_json,
+            'payroll_treatment' => (string) (((array) $policy->accrual_json)['payroll_treatment'] ?? 'UNRESOLVED'),
+            'paid_ratio_scaled' => isset(((array) $policy->accrual_json)['paid_ratio_scaled'])
+                ? (int) ((array) $policy->accrual_json)['paid_ratio_scaled']
+                : null,
             'carryover' => $policy->carryover_json,
             'min_notice_days' => (int) $policy->min_notice_days,
             'max_consecutive_days' => $policy->max_consecutive_days,
@@ -279,7 +283,7 @@ final class LeavePolicyService
     }
 
     /**
-     * @return array{mode: string, minutes_per_year: int}
+     * @return array{mode: string, minutes_per_year: int, payroll_treatment?: string, paid_ratio_scaled?: int}
      */
     private function accrual(mixed $value): array
     {
@@ -297,7 +301,36 @@ final class LeavePolicyService
             ? 0
             : $this->nonNegativeInteger($value['minutes_per_year'] ?? 0, 'accrual.minutes_per_year');
 
-        return ['mode' => $mode, 'minutes_per_year' => $minutes];
+        $normalised = ['mode' => $mode, 'minutes_per_year' => $minutes];
+
+        if (array_key_exists('payroll_treatment', $value)) {
+            $treatment = strtoupper((string) $value['payroll_treatment']);
+
+            if (! in_array($treatment, ['PAID', 'PARTIAL', 'UNPAID'], true)) {
+                throw new ValidationException([
+                    'accrual.payroll_treatment' => ['Payroll treatment must be PAID, PARTIAL or UNPAID.'],
+                ]);
+            }
+
+            $normalised['payroll_treatment'] = $treatment;
+
+            if ($treatment === 'PARTIAL') {
+                $ratio = $this->nonNegativeInteger(
+                    $value['paid_ratio_scaled'] ?? 0,
+                    'accrual.paid_ratio_scaled',
+                );
+
+                if ($ratio < 1 || $ratio > 999_999) {
+                    throw new ValidationException([
+                        'accrual.paid_ratio_scaled' => ['A partial treatment requires a paid ratio between 1 and 999999.'],
+                    ]);
+                }
+
+                $normalised['paid_ratio_scaled'] = $ratio;
+            }
+        }
+
+        return $normalised;
     }
 
     /**

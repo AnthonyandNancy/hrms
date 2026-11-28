@@ -305,6 +305,10 @@ export type AttendanceClosure = {
   reopenedBy: number | null
   reopenedAt: string | null
   reopenReason: string | null
+  currentFactVersionId: number | null
+  factVersion: number | null
+  sourceHash: string | null
+  exceptionCount: number | null
 }
 
 export type AttendanceDevice = {
@@ -460,6 +464,10 @@ function normaliseClosure(raw: RawRecord): AttendanceClosure | null {
     reopenedBy: nullableInteger(firstValue(raw, ['reopened_by', 'reopenedBy'])),
     reopenedAt: nullableText(firstValue(raw, ['reopened_at', 'reopenedAt'])),
     reopenReason: nullableText(firstValue(raw, ['reopen_reason', 'reopenReason'])),
+    currentFactVersionId: nullableInteger(firstValue(raw, ['current_fact_version_id', 'currentFactVersionId'])),
+    factVersion: nullableInteger(firstValue(raw, ['fact_version', 'factVersion'])),
+    sourceHash: nullableText(firstValue(raw, ['source_hash', 'sourceHash'])),
+    exceptionCount: nullableInteger(firstValue(raw, ['exception_count', 'exceptionCount'])),
   }
 }
 
@@ -686,32 +694,47 @@ export async function getAttendanceClosures(
   return pageOf(await resourceGet<unknown>('/v1/time/attendance/closings', params), normaliseClosure)
 }
 
+export type AttendanceClosureCommandResult = {
+  closureId: number
+  status: string
+  replayed: boolean
+  factVersion: number | null
+  factVersionId: number | null
+  sourceHash: string | null
+  exceptionCount: number
+}
+
+function closureCommandResult(raw: RawRecord, fallbackStatus: string): AttendanceClosureCommandResult {
+  return {
+    closureId: integer(firstValue(raw, ['closure_id', 'closureId'])),
+    status: text(raw.status, fallbackStatus).toUpperCase(),
+    replayed: raw.replayed === true,
+    factVersion: nullableInteger(firstValue(raw, ['fact_version', 'factVersion'])),
+    factVersionId: nullableInteger(firstValue(raw, ['fact_version_id', 'factVersionId'])),
+    sourceHash: nullableText(firstValue(raw, ['source_hash', 'sourceHash'])),
+    exceptionCount: nullableInteger(firstValue(raw, ['exception_count', 'exceptionCount'])) ?? 0,
+  }
+}
+
 export async function closeAttendancePeriod(
   month: string,
   idempotencyKey: string,
-): Promise<{ closureId: number; status: string; replayed: boolean }> {
+): Promise<AttendanceClosureCommandResult> {
   const raw = await resourcePost<RawRecord>('/v1/time/attendance/closings', { month }, { idempotencyKey })
-  return {
-    closureId: integer(firstValue(raw, ['closure_id', 'closureId'])),
-    status: text(raw.status, 'CLOSED').toUpperCase(),
-    replayed: raw.replayed === true,
-  }
+  return closureCommandResult(raw, 'CLOSED')
 }
 
 export async function reopenAttendancePeriod(
   closureId: number,
   reason: string,
   idempotencyKey: string,
-): Promise<{ status: string; replayed: boolean }> {
+): Promise<AttendanceClosureCommandResult> {
   const raw = await resourcePost<RawRecord>(
     `/v1/time/attendance/closings/${closureId}/reopen`,
     { reason },
     { idempotencyKey },
   )
-  return {
-    status: text(raw.status, 'REOPENED').toUpperCase(),
-    replayed: raw.replayed === true,
-  }
+  return closureCommandResult(raw, 'REOPENED')
 }
 
 export async function recalculateAttendancePeriod(

@@ -30,6 +30,7 @@ final class AttendancePeriodClosure extends Model
         'closed_at',
         'reopened_at',
         'reopen_reason',
+        'current_fact_version_id',
         'created_at',
         'updated_at',
     ];
@@ -44,6 +45,7 @@ final class AttendancePeriodClosure extends Model
             'reopened_by' => 'integer',
             'closed_at' => 'immutable_datetime',
             'reopened_at' => 'immutable_datetime',
+            'current_fact_version_id' => 'integer',
         ];
     }
 }

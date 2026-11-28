@@ -33,6 +33,7 @@ final class OvertimeSettlementService
         private readonly Clock $clock,
         private readonly AuditRecorder $audit,
         private readonly Container $container,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -70,6 +71,7 @@ final class OvertimeSettlementService
             }
 
             $period = $record->business_date->format('Y-m');
+            $this->freezeGuard->assertPeriodsOpen([$period]);
 
             if ($method === 'PAY' && $this->isFrozen((int) $record->employment_id, $period)) {
                 throw new ConflictException(

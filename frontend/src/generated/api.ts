@@ -5583,6 +5583,9 @@ export interface components {
             } | null;
             legal_basis: string | null;
             version: number;
+            /** @enum {string} */
+            payroll_treatment?: "PAID" | "PARTIAL" | "UNPAID" | "UNRESOLVED";
+            paid_ratio_scaled?: number | null;
         };
         OvertimeRecordCatalog: {
             id: number;
@@ -7895,6 +7898,10 @@ export interface components {
             /** @enum {string} */
             status: "CLOSED" | "REOPENED";
             replayed: boolean;
+            fact_version: number | null;
+            fact_version_id?: number | null;
+            source_hash: string | null;
+            exception_count: number;
         };
         AttendanceRuleConfig: {
             /** @enum {string} */
@@ -7950,6 +7957,10 @@ export interface components {
             /** Format: date-time */
             reopened_at?: string | null;
             reopen_reason?: string | null;
+            current_fact_version_id?: number | null;
+            fact_version?: number | null;
+            source_hash?: string | null;
+            exception_count?: number | null;
         };
         AttendanceDevice: {
             id: number;

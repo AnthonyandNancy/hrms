@@ -203,6 +203,7 @@ final class LeaveRequestService
         ?string $attachmentReference,
     ): array {
         $this->assertDates($fromDate, $toDate, $halfDay);
+        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange($fromDate, $toDate));
 
         if (trim($reason) === '') {
             throw new ValidationException(['reason' => ['A leave request reason is required.']]);

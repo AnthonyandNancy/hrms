@@ -11,7 +11,11 @@ use Carbon\CarbonImmutable;
 
 final class PunchService
 {
-    public function __construct(private readonly Clock $clock) {}
+    public function __construct(
+        private readonly Clock $clock,
+        private readonly BusinessCalendar $calendar,
+        private readonly PayrollFreezeGuard $freezeGuard,
+    ) {}
 
     public function record(
         int $employmentId,
@@ -43,6 +47,10 @@ final class PunchService
         if ($existing !== null) {
             return $existing;
         }
+
+        $timezone = $this->calendar->timezone()
+            ?? (string) config('hrms.default_timezone', 'Asia/Shanghai');
+        $this->freezeGuard->assertPeriodsOpen([$punched->setTimezone($timezone)->format('Y-m')]);
 
         try {
             return PunchRecord::query()->create([

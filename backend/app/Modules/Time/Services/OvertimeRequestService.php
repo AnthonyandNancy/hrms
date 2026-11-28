@@ -50,6 +50,7 @@ final class OvertimeRequestService
         private readonly AuditRecorder $audit,
         private readonly EmploymentDirectory $employments,
         private readonly Container $container,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     public function apply(
@@ -64,6 +65,9 @@ final class OvertimeRequestService
                 'reason' => 'OVERTIME_REQUEST_INVALID_MINUTES',
             ]);
         }
+
+        BusinessDate::parse($businessDate);
+        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
 
         return DB::transaction(function () use ($employmentId, $businessDate, $declaredMinutes, $reason, $actorUserId): OvertimeRequest {
             $duplicate = OvertimeRequest::query()
@@ -152,6 +156,7 @@ final class OvertimeRequestService
             }
 
             $businessDate = $request->business_date->format('Y-m-d');
+            $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
             $policy = $this->effectiveFor($businessDate);
 
             if ($policy === null) {

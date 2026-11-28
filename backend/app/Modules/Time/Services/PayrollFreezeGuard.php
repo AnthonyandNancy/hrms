@@ -5,52 +5,82 @@ declare(strict_types=1);
 namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
+use App\Modules\Time\Models\AttendancePeriodClosure;
 use App\Shared\Exceptions\ConflictException;
 use Illuminate\Contracts\Container\Container;
 use Throwable;
 
 /**
- * Fail-closed payroll freeze guard. Payroll owns its tables and supplies the
- * read-only adapter; Time never queries payroll_runs/payroll_run_employees.
+ * Single closed-period gate for every Time fact mutation.
  *
- * When the contract is not bound (for example before the Payroll integration
- * lands) or the adapter throws, revoke/cancel of an applied leave is rejected
- * with LEAVE_PERIOD_FROZEN rather than silently changing a frozen input.
+ * The existing payroll freeze reader remains the Payroll-owned lock source.
+ * Time closing is a separate Time-owned boundary: a month is writable only
+ * when it has no CLOSED attendance-period closure. Reopening restores writes
+ * because the closure status becomes REOPENED.
+ *
+ * A missing or failing reader fails closed, matching the existing freeze
+ * guard: Time never assumes an unknown period is safe to modify.
  */
 final class PayrollFreezeGuard
 {
     public function __construct(private readonly Container $container) {}
 
     /**
-     * @param  list<string>  $periods  Payroll periods (YYYY-MM) touched by the leave.
+     * @param  list<string>  $periods  Payroll periods (YYYY-MM) touched by the fact.
      */
     public function assertNotFrozen(int $employmentId, array $periods): void
     {
         $reader = $this->reader();
+        $periods = array_values(array_unique($periods));
 
-        if ($reader === null) {
-            throw new ConflictException(
-                'The payroll freeze status cannot be verified, so this leave cannot be revoked.',
-                ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READER_UNAVAILABLE'],
-            );
-        }
+        foreach ($periods as $period) {
+            if ($this->isClosed($period)) {
+                throw new ConflictException(
+                    '该考勤月份已关闭，请先重开并生成新事实版本后再修改。',
+                    ['reason' => 'PERIOD_CLOSED', 'period' => $period],
+                );
+            }
 
-        foreach (array_values(array_unique($periods)) as $period) {
+            if ($reader === null) {
+                throw new ConflictException(
+                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
+                    ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READER_UNAVAILABLE', 'period' => $period],
+                );
+            }
+
             try {
                 $frozen = $reader->isFrozen($employmentId, $period);
             } catch (Throwable $exception) {
                 report($exception);
 
                 throw new ConflictException(
-                    'The payroll freeze status cannot be verified, so this leave cannot be revoked.',
+                    '无法确认工资期间冻结状态，本次变更已被拒绝。',
                     ['reason' => 'LEAVE_PERIOD_FROZEN', 'failure' => 'PAYROLL_LOCK_READ_FAILED', 'period' => $period],
                 );
             }
 
             if ($frozen) {
                 throw new ConflictException(
-                    'The payroll period is frozen; approved leave cannot be revoked.',
+                    '工资期间已冻结，本次变更已被拒绝。',
                     ['reason' => 'LEAVE_PERIOD_FROZEN', 'period' => $period],
+                );
+            }
+        }
+    }
+
+    /**
+     * Pure closing check used by operational entrypoints that do not require a
+     * Payroll run lock (for example shift scheduling).
+     *
+     * @param  list<string>  $periods
+     */
+    public function assertPeriodsOpen(array $periods): void
+    {
+        foreach (array_values(array_unique($periods)) as $period) {
+            if ($this->isClosed($period)) {
+                throw new ConflictException(
+                    '该考勤月份已关闭，请先重开并生成新事实版本后再修改。',
+                    ['reason' => 'PERIOD_CLOSED', 'period' => $period],
                 );
             }
         }
@@ -71,6 +101,14 @@ final class PayrollFreezeGuard
         }
 
         return array_keys($periods);
+    }
+
+    private function isClosed(string $period): bool
+    {
+        return AttendancePeriodClosure::query()
+            ->where('month', $period)
+            ->where('status', AttendancePeriodClosure::STATUS_CLOSED)
+            ->exists();
     }
 
     private function reader(): ?PayrollPeriodLockReader

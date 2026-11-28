@@ -21,6 +21,7 @@ final class AttendanceCorrectionService
         private readonly WorkflowCasePort $workflow,
         private readonly Clock $clock,
         private readonly AttendanceCalculator $calculator,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -37,6 +38,7 @@ final class AttendanceCorrectionService
         array $correctedPunches,
     ): AttendanceCorrection {
         BusinessDate::parse($businessDate);
+        $this->freezeGuard->assertPeriodsOpen([substr($businessDate, 0, 7)]);
 
         if (trim($reason) === '') {
             throw new ValidationException(['reason' => ['A correction reason is required.']]);
@@ -110,6 +112,10 @@ final class AttendanceCorrectionService
             if ($correction === null) {
                 throw new ConflictException('The attendance correction was not found.');
             }
+
+            $this->freezeGuard->assertPeriodsOpen([
+                $correction->business_date->format('Y-m'),
+            ]);
 
             if (! $case->isApproved() && $correction->applied_at === null) {
                 throw new ConflictException('The attendance correction has not been approved.');

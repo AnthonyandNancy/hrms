@@ -293,6 +293,13 @@ components:
         expiry_rule: { type: [object, "null"], additionalProperties: true }
         legal_basis: { type: [string, "null"] }
         version: { type: integer }
+        payroll_treatment:
+          type: string
+          enum: [PAID, PARTIAL, UNPAID, UNRESOLVED]
+        paid_ratio_scaled:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 999999
     OvertimeRecordCatalog:
       type: object
       required: [id, employment_id, business_date, minutes, status, case_id, settlement_method, settlement_id]
@@ -5696,6 +5703,9 @@ components:
         - month
         - status
         - replayed
+        - fact_version
+        - source_hash
+        - exception_count
       properties:
         closure_id:
           type: integer
@@ -5708,6 +5718,22 @@ components:
             - REOPENED
         replayed:
           type: boolean
+        fact_version:
+          type:
+            - integer
+            - "null"
+        fact_version_id:
+          type:
+            - integer
+            - "null"
+        source_hash:
+          type:
+            - string
+            - "null"
+          pattern: ^[a-f0-9]{64}$
+        exception_count:
+          type: integer
+          minimum: 0
     AttendanceRuleConfig:
       type: object
       additionalProperties: false
@@ -5861,6 +5887,24 @@ components:
           type:
             - string
             - "null"
+        current_fact_version_id:
+          type:
+            - integer
+            - "null"
+        fact_version:
+          type:
+            - integer
+            - "null"
+        source_hash:
+          type:
+            - string
+            - "null"
+          pattern: ^[a-f0-9]{64}$
+        exception_count:
+          type:
+            - integer
+            - "null"
+          minimum: 0
     AttendanceDevice:
       type: object
       required:
