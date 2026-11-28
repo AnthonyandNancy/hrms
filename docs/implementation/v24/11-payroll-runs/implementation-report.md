@@ -72,3 +72,7 @@ action/state tests.
 
 Remaining T11: blocked-run action projection regression and frontend member
 assignment form (T17 surface).
+
+- Added an allowed-action regression for blocked and orthogonal states:
+  blocked runs cannot review/approve/publish/close; approved runs expose
+  publish and disbursement; fully published+registered runs expose close only.

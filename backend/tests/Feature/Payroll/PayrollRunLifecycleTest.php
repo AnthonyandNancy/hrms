@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Payroll;
 
 use App\Modules\IAM\Auth\CapabilityAuthorizer;
+use App\Modules\IAM\Contracts\AllowedActionResolver;
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\Payroll\Authorization\EloquentPayrollRunMembershipDirectory;
@@ -28,6 +29,44 @@ use Tests\Support\PayrollTestCase;
 
 final class PayrollRunLifecycleTest extends PayrollTestCase
 {
+    public function test_blocked_and_orthogonal_states_project_only_permitted_actions(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-10']);
+        $this->registerRunMembership($run, 10);
+        $principal = $this->actAs(10);
+        $resolver = app(AllowedActionResolver::class);
+
+        $blocked = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'CALCULATED_WITH_BLOCKERS',
+            'payslip_status' => 'UNPUBLISHED',
+            'disbursement_status' => 'NOT_REGISTERED',
+        ], '2026-11-23');
+        $this->assertNotContains('payroll.run.detail.review', $blocked);
+        $this->assertNotContains('payroll.run.detail.approve', $blocked);
+        $this->assertNotContains('payroll.run.detail.publish', $blocked);
+        $this->assertNotContains('payroll.run.detail.close', $blocked);
+
+        $approved = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'APPROVED',
+            'payslip_status' => 'UNPUBLISHED',
+            'disbursement_status' => 'NOT_REGISTERED',
+        ], '2026-11-23');
+        $this->assertContains('payroll.run.detail.publish', $approved);
+        $this->assertContains('payroll.run.detail.mark-paid', $approved);
+        $this->assertNotContains('payroll.run.detail.close', $approved);
+
+        $paid = $resolver->for($principal, 'payroll_run', (int) $run->id, [
+            'status' => 'PAID',
+            'payslip_status' => 'PUBLISHED',
+            'disbursement_status' => 'REGISTERED',
+        ], '2026-11-23');
+        $this->assertNotContains('payroll.run.detail.publish', $paid);
+        $this->assertNotContains('payroll.run.detail.mark-paid', $paid);
+        $this->assertContains('payroll.run.detail.close', $paid);
+    }
+
     public function test_publish_and_disbursement_are_independent_and_close_requires_both(): void
     {
         $base = $this->seedPayrollBase();
