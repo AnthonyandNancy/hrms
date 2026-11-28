@@ -11,6 +11,7 @@ use App\Modules\Workflow\Models\CaseEvent;
 use App\Modules\Workflow\Models\CaseModel;
 use App\Modules\Workflow\Models\Decision;
 use App\Modules\Workflow\Models\Effect;
+use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use App\Shared\Observability\OutboxRecorder;
 use App\Shared\Time\Clock;
@@ -67,6 +68,16 @@ final class EffectService
             if (isset($spec['outbox_event_type'])
                 && (! is_string($spec['outbox_event_type']) || preg_match('/^[a-z][a-z0-9_.-]{2,127}$/', $spec['outbox_event_type']) !== 1)) {
                 throw new ValidationException(['effects' => ["Effect {$index} has an invalid outbox_event_type."]], 'Invalid effect declaration.');
+            }
+
+            if (isset($spec['outcome_effect_type'])) {
+                $outcomeType = $spec['outcome_effect_type'];
+
+                if (! is_string($outcomeType) || $outcomeType === '') {
+                    throw new ValidationException(['effects' => ["Effect {$index} has an invalid outcome_effect_type."]], 'Invalid effect declaration.');
+                }
+
+                $this->registry->resolve($outcomeType);
             }
 
             if (isset($spec['reverse_effect_type'])) {
@@ -175,6 +186,102 @@ final class EffectService
         $this->refreshCaseEffectStatus($case);
 
         return array_map(static fn (Effect $effect): Effect => $effect->fresh() ?? $effect, $created);
+    }
+
+    /**
+     * @param  array<string, mixed>  $spec
+     */
+    /**
+     * Materialize and execute the template's declared outcome effect for a
+     * rejected, returned or withdrawn case. Outcome effects are not approval
+     * effects: they release holds and settle a pending domain projection.
+     */
+    public function materializeOutcome(CaseModel $case, ?Decision $decision = null): ?Effect
+    {
+        $snapshot = (array) ($case->template_snapshot_json ?? []);
+        $outcomeType = null;
+
+        foreach ((array) ($snapshot['effects'] ?? []) as $spec) {
+            if (is_array($spec) && is_string($spec['outcome_effect_type'] ?? null) && $spec['outcome_effect_type'] !== '') {
+                $outcomeType = (string) $spec['outcome_effect_type'];
+                break;
+            }
+        }
+
+        if ($outcomeType === null) {
+            return null;
+        }
+
+        $this->registry->resolve($outcomeType);
+        $existing = Effect::query()
+            ->where('case_id', $case->id)
+            ->where('effect_type', $outcomeType)
+            ->whereNull('reversal_of_id')
+            ->first();
+
+        if ($existing instanceof Effect) {
+            return $existing;
+        }
+
+        $aggregateId = (string) $case->id;
+        $effectSeq = ((int) Effect::query()
+            ->where('effect_type', $outcomeType)
+            ->where('aggregate_id', $aggregateId)
+            ->max('effect_seq')) + 1;
+        $now = $this->clock->now();
+
+        /** @var Effect $effect */
+        $effect = Effect::query()->create([
+            'case_id' => $case->id,
+            'decision_id' => $decision?->id,
+            'effect_type' => $outcomeType,
+            'aggregate_type' => 'case',
+            'aggregate_id' => $aggregateId,
+            'effect_seq' => $effectSeq,
+            'status' => EffectStatus::SCHEDULED,
+            'scheduled_for' => null,
+            'applied_at' => null,
+            'failed_at' => null,
+            'failure_reason' => null,
+            'attempts' => 0,
+            'reversal_of_id' => null,
+            'payload_json' => [
+                'case_id' => $case->id,
+                'decision_id' => $decision?->id,
+                'template_version' => $case->template_version,
+                'case_payload' => $case->payload_json,
+                'reverse_effect_type' => null,
+            ],
+            'requires_escalation' => false,
+        ]);
+
+        CaseEvent::query()->create([
+            'case_id' => $case->id,
+            'event_type' => 'effect.created',
+            'actor_user_id' => null,
+            'payload_json' => [
+                'case_id' => $case->id,
+                'effect_id' => $effect->id,
+                'effect_type' => $outcomeType,
+                'execution' => 'LOCAL',
+            ],
+            'occurred_at' => $now,
+        ]);
+
+        $result = $this->executor->apply((int) $effect->id);
+        $this->refreshCaseEffectStatus($case->refresh());
+        $effect->refresh();
+
+        if ($result->status !== EffectStatus::APPLIED) {
+            throw new ConflictException('The Workflow outcome effect failed and remains retryable.', [
+                'reason' => 'OUTCOME_EFFECT_FAILED',
+                'effect_id' => (int) $effect->id,
+                'effect_type' => $outcomeType,
+                'effect_status' => $result->status->value,
+            ]);
+        }
+
+        return $effect;
     }
 
     /**

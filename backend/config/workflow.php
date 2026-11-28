@@ -26,5 +26,6 @@ return [
         'people.employee.change.apply',
         'time.leave.apply',
         'time.leave.reverse',
+        'time.leave.pending.release',
     ],
 ];

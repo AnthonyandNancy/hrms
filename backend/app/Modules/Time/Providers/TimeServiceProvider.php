@@ -45,6 +45,7 @@ final class TimeServiceProvider extends ServiceProvider
     public const EFFECT_TYPES = [
         LeaveApprovalEffectHandler::APPLY,
         LeaveApprovalEffectHandler::REVERSE,
+        LeaveApprovalEffectHandler::PENDING_RELEASE,
     ];
 
     public function register(): void

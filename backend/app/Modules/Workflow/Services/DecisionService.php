@@ -363,6 +363,7 @@ final class DecisionService
                 $case->forceFill(['status' => CaseStatus::REJECTED, 'closed_at' => $now])->save();
                 $instance->forceFill(['status' => InstanceStatus::CANCELLED, 'completed_at' => $now])->save();
                 $this->event($case, 'case.rejected', $principal->userId, ['decision_id' => $decision->id], $now);
+                $this->effects->materializeOutcome($case, $decision);
                 break;
 
             case DecisionAction::RETURN:
@@ -377,6 +378,7 @@ final class DecisionService
                 $case->forceFill(['status' => CaseStatus::SUBMITTED, 'closed_at' => null])->save();
                 $instance->forceFill(['status' => InstanceStatus::CANCELLED, 'completed_at' => $now])->save();
                 $this->event($case, 'case.returned', $principal->userId, ['decision_id' => $decision->id], $now);
+                $this->effects->materializeOutcome($case, $decision);
                 break;
 
             case DecisionAction::WITHDRAW:

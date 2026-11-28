@@ -55,6 +55,7 @@ final class SeedWorkflowTemplatesCommand extends Command
                 'aggregate_type' => 'case',
                 'aggregate_id_field' => 'case_id',
                 'reverse_effect_type' => 'time.leave.reverse',
+                'outcome_effect_type' => 'time.leave.pending.release',
             ]];
         }
 

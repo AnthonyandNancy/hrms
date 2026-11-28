@@ -530,7 +530,7 @@ final class TimeFactVersionService
             $state = strtoupper((string) $projection->state);
             $caseId = (int) $projection->case_id;
 
-            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'], true)) {
+            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'RETURNED', 'CANCELLED', 'RELEASED'], true)) {
                 continue;
             }
 
@@ -1063,7 +1063,7 @@ final class TimeFactVersionService
         $leaveEmploymentIds = LeaveRequestProjection::query()
             ->where('from_date', '<=', $end)
             ->where('to_date', '>=', $start)
-            ->whereNotIn('state', ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'])
+            ->whereNotIn('state', ['REJECTED', 'WITHDRAWN', 'RETURNED', 'CANCELLED', 'RELEASED'])
             ->pluck('employment_id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();

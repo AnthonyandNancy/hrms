@@ -231,3 +231,22 @@ Not run: `gate:all` (out of the requested boundary).
   authorization, existing template upgrade, reversal audit/outbox, first-class
   UNRESOLVED submission boundary, company-timezone dates, real HTTP revoke
   coverage and Payroll Snapshot consumption remain T07b/T07c.
+
+## T07b1 — reject/return/withdraw release pending leave holds
+
+- Workflow templates may now declare one `outcome_effect_type` on an effect
+  specification. The leave template declares
+  `time.leave.pending.release`.
+- DecisionService materializes and executes the outcome effect for REJECT and
+  RETURN; CaseService does the same for WITHDRAW, inside the same transaction.
+- `time.leave.pending.release` maps the Workflow outcome to Time:
+  - REJECTED → Time projection REJECTED;
+  - WITHDRAWN → Time projection WITHDRAWN;
+  - RETURNED → Time projection RETURNED.
+- It releases exactly one outstanding RESERVE via the append-only ledger,
+  settles the projection, and is replay-safe through the ledger source key.
+- RETURNED is excluded from active Time facts and may be approved again.
+- Added HTTP-level tests for reject, return and withdraw asserting one RELEASE,
+  no CONSUME and the expected Time state.
+- Verification: workflow/leave adjacent suite 90 tests / 541 assertions;
+  PHPStan and arch clean. Full gate follows the remaining T07 work.

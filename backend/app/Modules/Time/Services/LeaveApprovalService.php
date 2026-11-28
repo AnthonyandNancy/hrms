@@ -56,7 +56,7 @@ final class LeaveApprovalService
                 return ['case_id' => $caseId, 'state' => $state, 'replayed' => true];
             }
 
-            if ($state !== 'SUBMITTED') {
+            if (! in_array($state, ['SUBMITTED', 'RETURNED'], true)) {
                 throw new ConflictException('The leave request is not awaiting approval.', [
                     'reason' => 'LEAVE_REQUEST_NOT_APPROVABLE',
                     'state' => $state,
@@ -222,6 +222,118 @@ final class LeaveApprovalService
                 'case_id' => $caseId,
                 'state' => 'REVOKED',
                 'reversed_minutes' => $minutes,
+                'replayed' => false,
+            ];
+        });
+    }
+
+    /**
+     * Release the submit-time reservation when Workflow rejects, returns or
+     * withdraws a leave case. The projection state is the Time-owned outcome;
+     * Workflow remains the owner of the application status.
+     *
+     * @return array{case_id:int,state:string,released_minutes:int,replayed:bool}
+     */
+    public function settlePendingCase(
+        int $caseId,
+        string $targetState,
+        ?int $actorUserId = null,
+        string $reason = 'Leave request closed',
+    ): array {
+        $targetState = strtoupper(trim($targetState));
+
+        if (! in_array($targetState, ['REJECTED', 'WITHDRAWN', 'RETURNED'], true)) {
+            throw new ConflictException('The pending leave settlement state is invalid.', [
+                'reason' => 'LEAVE_SETTLEMENT_STATE_INVALID',
+                'state' => $targetState,
+            ]);
+        }
+
+        return DB::transaction(function () use ($caseId, $targetState, $actorUserId, $reason): array {
+            /** @var LeaveRequestProjection|null $projection */
+            $projection = LeaveRequestProjection::query()
+                ->where('case_id', $caseId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($projection === null) {
+                throw new ConflictException('The leave request was not found.', ['reason' => 'LEAVE_REQUEST_NOT_FOUND']);
+            }
+
+            $state = strtoupper((string) $projection->state);
+
+            if ($state === $targetState) {
+                return [
+                    'case_id' => $caseId,
+                    'state' => $state,
+                    'released_minutes' => 0,
+                    'replayed' => true,
+                ];
+            }
+
+            if (! in_array($state, ['SUBMITTED', 'RETURNED'], true)) {
+                throw new ConflictException('The leave request is no longer pending.', [
+                    'reason' => 'LEAVE_REQUEST_NOT_PENDING',
+                    'state' => $state,
+                ]);
+            }
+
+            $periods = PayrollFreezeGuard::periodsForRange(
+                $projection->from_date->format('Y-m-d'),
+                $projection->to_date->format('Y-m-d'),
+            );
+
+            foreach ($periods as $period) {
+                $this->freezeGuard->lockAndAssertOpen($period);
+            }
+
+            $reserve = LeaveLedgerEntry::query()
+                ->where('case_id', $caseId)
+                ->where('source_type', 'LEAVE_REQUEST')
+                ->where('account', 'RESERVE')
+                ->first();
+            $released = 0;
+
+            if ($reserve !== null) {
+                $existingRelease = LeaveLedgerEntry::query()
+                    ->where('case_id', $caseId)
+                    ->where('source_type', 'LEAVE_REQUEST')
+                    ->where('account', 'RELEASE')
+                    ->exists();
+
+                if (! $existingRelease) {
+                    $released = abs((int) $reserve->quantity_minutes);
+                    $this->ledger->release(
+                        employmentId: (int) $projection->employment_id,
+                        leaveTypeId: (int) $projection->leave_type_id,
+                        minutes: $released,
+                        businessDate: $this->clock->now()->toDateString(),
+                        sourceType: 'LEAVE_REQUEST',
+                        sourceId: (string) $caseId,
+                        reason: $reason,
+                        caseId: $caseId,
+                    );
+                }
+            }
+
+            $projection->forceFill([
+                'state' => $targetState,
+                'updated_at' => $this->clock->now(),
+            ])->save();
+
+            $this->audit->record(
+                $actorUserId,
+                'time.leave.request.pending_settled',
+                'leave_request',
+                $caseId,
+                before: ['state' => $state],
+                after: ['state' => $targetState, 'released_minutes' => $released],
+            );
+
+            return [
+                'case_id' => $caseId,
+                'state' => $targetState,
+                'released_minutes' => $released,
                 'replayed' => false,
             ];
         });

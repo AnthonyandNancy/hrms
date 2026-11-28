@@ -329,6 +329,71 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'CONSUME')->count());
     }
 
+    public function test_rejecting_a_pending_leave_releases_the_reservation_and_settles_projection(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-08', '2026-12-08');
+
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RESERVE')->count());
+        $this->assertSame('SUBMITTED', (string) LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+
+        $this->actAs(20);
+        $this->decideThroughApi($caseId, 'leave-reject-'.$caseId, 'REJECT', ['comment' => 'Synthetic rejection.'])
+            ->assertOk()
+            ->assertJsonPath('data.application_status', 'REJECTED');
+
+        $this->assertSame('REJECTED', (string) LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RELEASE')->count());
+        $this->assertSame(480, (int) LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'RELEASE')
+            ->value('quantity_minutes'));
+        $this->assertSame(0, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'CONSUME')->count());
+        $this->assertDatabaseHas('effects', [
+            'case_id' => $caseId,
+            'effect_type' => 'time.leave.pending.release',
+            'status' => 'APPLIED',
+        ]);
+    }
+
+    public function test_returning_a_pending_leave_releases_the_reservation_without_changing_workflow_to_withdrawn(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-09', '2026-12-09');
+
+        $this->actAs(20);
+        $this->decideThroughApi($caseId, 'leave-return-'.$caseId, 'RETURN', ['comment' => 'Need more evidence.'])
+            ->assertOk()
+            ->assertJsonPath('data.application_status', 'SUBMITTED');
+
+        $this->assertSame('RETURNED', (string) LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RELEASE')->count());
+        $this->assertSame(0, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'CONSUME')->count());
+    }
+
+    public function test_withdrawing_a_pending_leave_releases_the_reservation(): void
+    {
+        $type = $this->leaveType('ANNUAL');
+        $this->policy((int) $type->id, 'PAID');
+        $this->fundAccount($type);
+        $caseId = $this->pendingLeave((int) $type->id, 'ANNUAL', '2026-12-10', '2026-12-10');
+
+        $this->actAs(10);
+        $this->postJson("/v1/cases/{$caseId}/withdraw", [
+            'comment' => 'Synthetic withdrawal.',
+        ], ['Idempotency-Key' => 'leave-withdraw-'.$caseId])
+            ->assertOk()
+            ->assertJsonPath('data.application_status', 'WITHDRAWN');
+
+        $this->assertSame('WITHDRAWN', (string) LeaveRequestProjection::query()->where('case_id', $caseId)->value('state'));
+        $this->assertSame(1, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'RELEASE')->count());
+        $this->assertSame(0, LeaveLedgerEntry::query()->where('case_id', $caseId)->where('account', 'CONSUME')->count());
+    }
+
     private function leaveType(string $code): LeaveType
     {
         return LeaveType::query()->create([
@@ -383,6 +448,22 @@ final class LeaveWorkflowEffectTest extends TestCase
             sourceId: '2026',
             reason: 'Synthetic opening grant.',
         );
+    }
+
+    private function pendingLeave(int $typeId, string $code, string $from, string $to): int
+    {
+        $this->actAs(10);
+        $result = app(LeaveRequestService::class)->request(
+            employmentId: 1,
+            userId: 10,
+            leaveTypeCode: $code,
+            fromDate: $from,
+            toDate: $to,
+            halfDay: false,
+            reason: 'Synthetic pending T07 leave.',
+        );
+
+        return (int) $result['case_id'];
     }
 
     private function requestLeave(int $typeId, string $code, string $from, string $to): int

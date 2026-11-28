@@ -27,6 +27,8 @@ final class LeaveApprovalEffectHandler implements DomainEffectHandler
 
     public const REVERSE = 'time.leave.reverse';
 
+    public const PENDING_RELEASE = 'time.leave.pending.release';
+
     public function __construct(
         private readonly LeaveApprovalService $leave,
         private readonly CaseCommandPort $cases,
@@ -34,11 +36,38 @@ final class LeaveApprovalEffectHandler implements DomainEffectHandler
 
     public function supports(string $effectType): bool
     {
-        return in_array($effectType, [self::APPLY, self::REVERSE], true);
+        return in_array($effectType, [self::APPLY, self::REVERSE, self::PENDING_RELEASE], true);
     }
 
     public function apply(DomainEffectCommand $command): DomainEffectResult
     {
+        if ($command->effectType === self::PENDING_RELEASE) {
+            $case = $this->approvedCase($command, requireApproved: false);
+            $payload = $this->casePayload($command);
+            $status = strtoupper((string) ($case['status'] ?? ''));
+            $targetState = match ($status) {
+                'REJECTED' => 'REJECTED',
+                'WITHDRAWN' => 'WITHDRAWN',
+                'SUBMITTED' => 'RETURNED',
+                default => throw new ConflictException('The leave case is not in a releasable state.', [
+                    'reason' => 'LEAVE_CASE_NOT_RELEASABLE',
+                    'case_id' => $command->caseId,
+                    'status' => $status,
+                ]),
+            };
+
+            $this->leave->settlePendingCase(
+                caseId: $command->caseId,
+                targetState: $targetState,
+                actorUserId: RequestContext::userId(),
+                reason: is_string($payload['reason'] ?? null) && trim((string) $payload['reason']) !== ''
+                    ? (string) $payload['reason']
+                    : 'Leave request closed',
+            );
+
+            return DomainEffectResult::applied();
+        }
+
         if ($command->effectType !== self::APPLY) {
             throw new \RuntimeException('Unsupported leave apply effect type '.$command->effectType.'.');
         }

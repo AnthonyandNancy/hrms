@@ -31,6 +31,7 @@ final class CaseService
     public function __construct(
         private readonly Clock $clock,
         private readonly AssigneeDirectory $assignees,
+        private readonly EffectService $effects,
     ) {}
 
     /**
@@ -197,6 +198,7 @@ final class CaseService
                 'case_id' => $locked->id,
                 'comment' => $comment,
             ], $now);
+            $this->effects->materializeOutcome($locked);
 
             return $locked->fresh() ?? $locked;
         });
