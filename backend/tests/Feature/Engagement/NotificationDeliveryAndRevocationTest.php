@@ -9,8 +9,11 @@ use App\Modules\Engagement\Services\NotificationService;
 use App\Modules\Engagement\Services\PayslipNotificationService;
 use App\Modules\Payroll\Contracts\PayslipNotificationDirectory;
 use App\Modules\Payroll\Contracts\PublishedPayslipRef;
+use App\Modules\Platform\Contracts\NotificationTransport;
+use App\Modules\Platform\Models\NotificationDelivery;
 use App\Shared\Notifications\NotificationReceipt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\Support\EngagementFixture;
 use Tests\Support\PeopleTestCase;
 
@@ -88,6 +91,160 @@ final class NotificationDeliveryAndRevocationTest extends PeopleTestCase
         $this->assertSame(1, DB::table('notifications')->count());
         $this->assertSame(1, DB::table('notification_deliveries')->count());
         $this->assertSame('SENT', (string) DB::table('notification_deliveries')->value('status'));
+        $this->assertCount(1, $channel->calls);
+    }
+
+    public function test_default_channel_without_a_real_provider_keeps_delivery_failed(): void
+    {
+        $fixture = $this->workforceFixture();
+        $service = $this->app->make(NotificationService::class);
+
+        $service->notify(
+            [$fixture['user_a_id']],
+            'APPROVAL_PENDING',
+            ['case_id' => 92],
+            eventKey: 'case-92-approved-pending',
+        );
+
+        $delivery = DB::table('notification_deliveries')->first();
+        $this->assertNotNull($delivery);
+        $this->assertSame('FAILED', (string) $delivery->status);
+        $this->assertSame('NO_PROVIDER_CONFIGURED', (string) $delivery->last_error);
+        $this->assertNull($delivery->provider_message_id);
+        $this->assertNull($delivery->sent_at);
+        $this->assertSame(1, (int) $delivery->attempts);
+        $this->assertSame(1, DB::table('notifications')->count());
+    }
+
+    public function test_reentrant_duplicate_notify_only_invokes_the_provider_once(): void
+    {
+        $fixture = $this->workforceFixture();
+        $service = null;
+        $reentered = false;
+        $secondIds = null;
+
+        $channel = new CallbackReceiptNotificationChannel(
+            function (string $type, int $userId, array $payload) use (&$service, &$reentered, &$secondIds, $fixture): NotificationReceipt {
+                if (! $reentered) {
+                    $reentered = true;
+                    $secondIds = $service->notify(
+                        [$fixture['user_a_id']],
+                        $type,
+                        $payload,
+                        eventKey: 'case-93-approved-pending',
+                    );
+                }
+
+                return NotificationReceipt::delivered('single-provider-receipt');
+            },
+        );
+        $this->app->instance(ExternalNotificationChannel::class, $channel);
+        $service = $this->app->make(NotificationService::class);
+
+        $firstIds = $service->notify(
+            [$fixture['user_a_id']],
+            'APPROVAL_PENDING',
+            ['case_id' => 93],
+            eventKey: 'case-93-approved-pending',
+        );
+
+        $this->assertSame($firstIds, $secondIds);
+        $this->assertSame(1, $channel->calls);
+        $this->assertSame(1, DB::table('notifications')->count());
+        $delivery = DB::table('notification_deliveries')->first();
+        $this->assertNotNull($delivery);
+        $this->assertSame('SENT', (string) $delivery->status);
+        $this->assertSame(1, (int) $delivery->attempts);
+        $this->assertSame('single-provider-receipt', (string) $delivery->provider_message_id);
+    }
+
+    public function test_provider_success_with_failed_ledger_completion_leaves_the_delivery_pending(): void
+    {
+        $fixture = $this->workforceFixture();
+        $this->app->instance(ExternalNotificationChannel::class, new ReceiptNotificationChannel([
+            NotificationReceipt::delivered('provider-accepted-before-db-failure'),
+        ]));
+        Event::listen('eloquent.updating: '.NotificationDelivery::class, function (): void {
+            throw new \RuntimeException('SYNTHETIC_DELIVERY_UPDATE_FAILURE');
+        });
+
+        try {
+            $this->app->make(NotificationService::class)->notify(
+                [$fixture['user_a_id']],
+                'APPROVAL_PENDING',
+                ['case_id' => 94],
+                eventKey: 'case-94-approved-pending',
+            );
+        } catch (\RuntimeException) {
+            // The failure is contained; the evidence row must remain PENDING.
+        }
+
+        $delivery = DB::table('notification_deliveries')->first();
+        $this->assertNotNull($delivery);
+        $this->assertSame('PENDING', (string) $delivery->status);
+        $this->assertNull($delivery->provider_message_id);
+        $this->assertNull($delivery->sent_at);
+        $this->assertSame(0, (int) $delivery->attempts);
+    }
+
+    public function test_failed_engagement_delivery_retries_through_the_platform_api_with_the_original_payload(): void
+    {
+        $fixture = $this->workforceFixture();
+        $channel = new ReceiptNotificationChannel([
+            NotificationReceipt::failed('SYNTHETIC_PROVIDER_TIMEOUT'),
+        ]);
+        $this->app->instance(ExternalNotificationChannel::class, $channel);
+        $wrongTransport = new RecordingPlatformNotificationTransport;
+        $this->app->instance(NotificationTransport::class, $wrongTransport);
+
+        $this->app->make(NotificationService::class)->notify(
+            [$fixture['user_a_id']],
+            'APPROVAL_PENDING',
+            ['case_id' => 91],
+            eventKey: 'case-91-retry-payload',
+        );
+
+        $deliveryId = (int) DB::table('notification_deliveries')->value('id');
+        $this->assertSame('FAILED', (string) DB::table('notification_deliveries')->value('status'));
+
+        $channel->queue(NotificationReceipt::delivered('engagement-retry-receipt'));
+        $this->postJson('/v1/notifications/deliveries/'.$deliveryId.'/retry', [], [
+            'Idempotency-Key' => 'notification-engagement-retry',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'SENT')
+            ->assertJsonPath('data.attempts', 2)
+            ->assertJsonPath('data.provider_message_id', 'engagement-retry-receipt');
+
+        $this->assertCount(2, $channel->calls);
+        $this->assertSame('APPROVAL_PENDING', $channel->calls[1]['type']);
+        $this->assertSame(['case_id' => 91], $channel->calls[1]['payload']);
+        $this->assertSame([], $wrongTransport->calls);
+    }
+
+    public function test_retry_refuses_to_use_a_transport_for_a_different_channel(): void
+    {
+        $fixture = $this->workforceFixture();
+        $channel = new ReceiptNotificationChannel([
+            NotificationReceipt::failed('SYNTHETIC_PROVIDER_TIMEOUT'),
+        ]);
+        $this->app->instance(ExternalNotificationChannel::class, $channel);
+        $this->app->instance(NotificationTransport::class, new RecordingPlatformNotificationTransport);
+
+        $this->app->make(NotificationService::class)->notify(
+            [$fixture['user_a_id']],
+            'APPROVAL_PENDING',
+            ['case_id' => 95],
+            eventKey: 'case-95-channel-mismatch',
+        );
+        $deliveryId = (int) DB::table('notification_deliveries')->value('id');
+        DB::table('notification_deliveries')->where('id', $deliveryId)->update(['channel' => 'IN_APP']);
+        $channel->queue(NotificationReceipt::delivered('must-not-send'));
+
+        $this->postJson('/v1/notifications/deliveries/'.$deliveryId.'/retry', [], [
+            'Idempotency-Key' => 'notification-channel-mismatch-retry',
+        ])->assertStatus(409)
+            ->assertJsonPath('data.reason', 'NOTIFICATION_CHANNEL_MISMATCH');
+
         $this->assertCount(1, $channel->calls);
     }
 
@@ -230,7 +387,8 @@ final class NotificationDeliveryAndRevocationTest extends PeopleTestCase
             ->first();
         $this->assertNotNull($notification);
         $payload = json_decode((string) $notification->payload_json, true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame(['payslip_id' => 501, 'period' => '2026-11'], $payload);
+        $this->assertSame(['payslip_id' => 501], $payload);
+        $this->assertArrayNotHasKey('period', $payload);
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR);
         foreach (['gross', 'net', 'amount', 'employer', 'cents'] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $encoded);
@@ -241,7 +399,7 @@ final class NotificationDeliveryAndRevocationTest extends PeopleTestCase
             ->assertOk()
             ->json('data.0');
         $this->assertTrue((bool) $visible['valid']);
-        $this->assertSame(['payslip_id' => 501, 'period' => '2026-11'], $visible['payload']);
+        $this->assertSame(['payslip_id' => 501], $visible['payload']);
 
         $directory->published = [];
         $invalid = $this->getJson('/v1/engagement/notifications')
@@ -310,5 +468,47 @@ final class FakePayslipNotificationDirectory implements PayslipNotificationDirec
             $this->published,
             static fn (PublishedPayslipRef $payslip): bool => $payslip->runId === $runId,
         ));
+    }
+}
+
+final class CallbackReceiptNotificationChannel implements ExternalNotificationChannel
+{
+    public int $calls = 0;
+
+    /** @param \Closure(string, int, array<string, mixed>): NotificationReceipt $callback */
+    public function __construct(private readonly \Closure $callback) {}
+
+    public function channel(): string
+    {
+        return 'LOG_STUB';
+    }
+
+    public function send(string $type, int $userId, array $payload): NotificationReceipt
+    {
+        $this->calls++;
+
+        return ($this->callback)($type, $userId, $payload);
+    }
+}
+
+final class RecordingPlatformNotificationTransport implements NotificationTransport
+{
+    /** @var list<array{template_code: string, recipient_user_id: int, variables: array<string, mixed>}> */
+    public array $calls = [];
+
+    public function channel(): string
+    {
+        return 'IN_APP';
+    }
+
+    public function send(string $templateCode, int $recipientUserId, array $variables): NotificationReceipt
+    {
+        $this->calls[] = [
+            'template_code' => $templateCode,
+            'recipient_user_id' => $recipientUserId,
+            'variables' => $variables,
+        ];
+
+        return NotificationReceipt::delivered('wrong-transport-'.count($this->calls));
     }
 }

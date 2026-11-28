@@ -23,8 +23,12 @@ final class NotificationDelivery extends Model
         'template_code',
         'recipient_user_id',
         'channel',
+        'notification_type',
+        'payload_json',
         'status',
         'attempts',
+        'claim_token',
+        'claimed_at',
         'provider_message_id',
         'last_error',
         'sent_at',
@@ -40,6 +44,8 @@ final class NotificationDelivery extends Model
             'notification_id' => 'integer',
             'recipient_user_id' => 'integer',
             'attempts' => 'integer',
+            'payload_json' => 'array',
+            'claimed_at' => 'immutable_datetime',
             'sent_at' => 'immutable_datetime',
         ];
     }

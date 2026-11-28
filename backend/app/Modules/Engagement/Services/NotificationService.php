@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Engagement\Services;
 
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
+use App\Modules\Engagement\Contracts\NotificationDeliveryRetry;
 use App\Modules\Engagement\Models\Notification;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Contracts\PeopleDirectory;
@@ -18,8 +19,9 @@ use App\Shared\Observability\OutboxRecorder;
 use App\Shared\Time\Clock;
 use App\Shared\Time\CompanyBusinessDate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
-final class NotificationService
+final class NotificationService implements NotificationDeliveryRetry
 {
     public function __construct(
         private readonly ExternalNotificationChannel $external,
@@ -30,6 +32,11 @@ final class NotificationService
         private readonly ?PeopleDirectory $people = null,
         private readonly ?CompanyBusinessDate $businessDates = null,
     ) {}
+
+    public function supportsChannel(string $channel): bool
+    {
+        return hash_equals($this->external->channel(), $channel);
+    }
 
     /**
      * Notice notification payloads are an identifier boundary, never a copy of
@@ -53,18 +60,22 @@ final class NotificationService
         }
 
         if ($type === 'PAYSLIP_PUBLISHED') {
-            $allowed = ['payslip_id', 'period'];
+            $allowed = ['payslip_id'];
             $unexpected = array_values(array_diff(array_keys($payload), $allowed));
 
             if ($unexpected !== [] || ! isset($payload['payslip_id'])) {
                 throw new \InvalidArgumentException(
-                    'Payslip notifications may contain only payslip_id and period; received: '.implode(',', $unexpected),
+                    'Payslip notifications may contain only payslip_id; received: '.implode(',', $unexpected),
                 );
             }
         }
     }
 
     /**
+     * Persist the inbox row and the PENDING delivery reservation in one
+     * transaction, then send only after commit. A duplicate caller that loses
+     * the claim race cannot send a second time.
+     *
      * @param  list<int>  $userIds
      * @param  array<string, mixed>  $payload  IDs only.
      * @return list<int>
@@ -76,10 +87,13 @@ final class NotificationService
         sort($recipients);
         $eventKey = $this->eventKey($eventKey, $type, $payload, $recipients);
         $ids = [];
+        $reservations = [];
         $now = $this->clock->now();
         $created = [];
+        $ledger = $this->ledger();
+        $channel = $this->external->channel();
 
-        DB::transaction(function () use ($recipients, $type, $payload, $eventKey, $now, &$ids, &$created): void {
+        DB::transaction(function () use ($recipients, $type, $payload, $eventKey, $channel, $now, $ledger, &$ids, &$created, &$reservations): void {
             foreach ($recipients as $userId) {
                 $notification = Notification::query()
                     ->where('event_key', $eventKey)
@@ -106,7 +120,16 @@ final class NotificationService
                     }
                 }
 
-                $ids[] = (int) $notification->id;
+                $notificationId = (int) $notification->id;
+                $ids[] = $notificationId;
+                $reservations[] = $ledger->reserve(
+                    notificationId: $notificationId,
+                    recipientUserId: $userId,
+                    eventKey: $eventKey.':'.$notificationId,
+                    channel: $channel,
+                    notificationType: $type,
+                    payload: $payload,
+                );
             }
 
             if ($created !== []) {
@@ -115,32 +138,62 @@ final class NotificationService
                     aggregateType: 'notification',
                     aggregateId: (string) $created[0],
                     aggregateVersion: 1,
-                    payload: ['notification_ids' => $created, 'type' => $type, 'channel' => $this->external->channel()],
+                    payload: ['notification_ids' => $created, 'type' => $type, 'channel' => $channel],
                 );
             }
         });
 
-        foreach ($ids as $index => $notificationId) {
-            $recipientUserId = $recipients[$index] ?? 0;
-            $ledger = $this->ledger();
-            $existing = $ledger->findForNotification($notificationId, $recipientUserId);
-
-            if ($existing?->status === NotificationDeliveryStatus::SENT) {
+        foreach ($reservations as $reservation) {
+            if ($reservation->status === NotificationDeliveryStatus::SENT) {
                 continue;
             }
 
-            $receipt = $this->sendReceipt($recipientUserId, $type, $payload);
-
-            $ledger->recordAttempt(
-                notificationId: $notificationId,
-                recipientUserId: $recipientUserId,
-                eventKey: $eventKey.':'.$notificationId,
-                channel: $this->external->channel(),
-                receipt: $receipt,
-            );
+            $this->attempt($reservation);
         }
 
         return $ids;
+    }
+
+    /**
+     * Owning-module retry. The stored type/channel/payload are authoritative;
+     * Platform never substitutes its template transport for an Engagement row.
+     */
+    public function retryDelivery(int $deliveryId): ?NotificationDeliveryRecord
+    {
+        $delivery = $this->ledger()->find($deliveryId);
+
+        if ($delivery === null
+            || $delivery->status === NotificationDeliveryStatus::SENT
+            || ! $this->supportsChannel($delivery->channel)) {
+            return null;
+        }
+
+        return $this->attempt($delivery);
+    }
+
+    private function attempt(NotificationDeliveryRecord $reservation): ?NotificationDeliveryRecord
+    {
+        $ledger = $this->ledger();
+        $claimToken = Str::uuid()->toString();
+        $claimed = $ledger->claim($reservation->id, $claimToken);
+
+        if ($claimed === null) {
+            return null;
+        }
+
+        $type = $claimed->notificationType ?? '';
+        $payload = $claimed->payload;
+        $receipt = $this->sendReceipt($claimed->recipientUserId, $type, $payload);
+
+        // Completion happens only after the provider call. If this write fails,
+        // the reservation remains PENDING and no receipt evidence is recorded.
+        try {
+            return $ledger->complete($claimed->id, $claimToken, $receipt);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 
     /**
@@ -148,8 +201,8 @@ final class NotificationService
      */
     private function sendReceipt(int $userId, string $type, array $payload): NotificationReceipt
     {
-        if ($userId <= 0) {
-            return NotificationReceipt::failed('INVALID_RECIPIENT');
+        if ($userId <= 0 || $type === '') {
+            return NotificationReceipt::failed('INVALID_RETRY_EVIDENCE');
         }
 
         try {
