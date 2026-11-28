@@ -269,20 +269,30 @@ final class LeaveWorkflowEffectTest extends TestCase
         $this->assertSame(720, $input->unpaidLeaveMinutes);
     }
 
-    public function test_unresolved_policy_fails_closed_in_payroll_input(): void
+    public function test_unresolved_policy_blocks_submission_before_a_case_is_created(): void
     {
         $type = $this->leaveType('UNRESOLVED_CARE');
         $this->policy((int) $type->id, null);
         $this->fundAccount($type);
 
-        $this->requestLeave((int) $type->id, 'UNRESOLVED_CARE', '2026-12-08', '2026-12-08');
-
+        $this->actAs(10);
         try {
-            $this->app->make(PayrollInputDirectory::class)->attendanceForPeriod(1, '2026-12');
-            $this->fail('Unresolved payroll treatment must not be guessed from a leave code.');
+            app(LeaveRequestService::class)->request(
+                employmentId: 1,
+                userId: 10,
+                leaveTypeCode: 'UNRESOLVED_CARE',
+                fromDate: '2026-12-08',
+                toDate: '2026-12-08',
+                halfDay: false,
+                reason: 'Unresolved treatment must be blocked.',
+            );
+            $this->fail('Unresolved payroll treatment must block submission.');
         } catch (ConflictException $exception) {
             $this->assertSame('LEAVE_PAYROLL_TREATMENT_UNRESOLVED', $exception->details()['reason'] ?? null);
         }
+
+        $this->assertSame(0, \App\Modules\Workflow\Models\CaseModel::query()->where('type', 'LEAVE_REQUEST')->count());
+        $this->assertSame(0, LeaveLedgerEntry::query()->where('source_type', 'LEAVE_REQUEST')->count());
     }
 
     public function test_revoke_of_an_approved_leave_in_a_closed_month_returns_period_closed(): void

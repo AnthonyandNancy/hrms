@@ -365,8 +365,8 @@ final class LeaveApprovalService
         $legacy = (array) $policy->accrual_json;
         $treatment = $treatment !== '' ? $treatment : strtoupper((string) ($legacy['payroll_treatment'] ?? 'UNRESOLVED'));
 
-        if (! in_array($treatment, ['PAID', 'PARTIAL', 'UNPAID', 'UNRESOLVED'], true)) {
-            throw new ConflictException('The leave policy payroll treatment is invalid.', [
+        if (! in_array($treatment, ['PAID', 'PARTIAL', 'UNPAID'], true)) {
+            throw new ConflictException('The leave policy payroll treatment is unresolved.', [
                 'reason' => 'LEAVE_PAYROLL_TREATMENT_UNRESOLVED',
                 'case_id' => (int) $projection->case_id,
                 'policy_version_id' => (int) $policy->id,

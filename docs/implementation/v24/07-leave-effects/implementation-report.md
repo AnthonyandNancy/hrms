@@ -305,3 +305,15 @@ Not run: `gate:all` (out of the requested boundary).
   2026-12-11.
 - Verification: 146 leave/workflow/IAM/OpenAPI tests / 16,740 assertions;
   Pint, PHPStan and arch clean.
+
+## T07c3 — unresolved policy boundary
+
+- New leave submissions now fail fast with
+  `LEAVE_PAYROLL_TREATMENT_UNRESOLVED` when the effective policy has no
+  first-class payroll treatment (legacy missing value reads as UNRESOLVED).
+- Approval also rejects UNRESOLVED, so a legacy pending case cannot consume
+  balance under an unknown payroll treatment.
+- Updated existing test fixtures to declare PAID treatment and added a
+  submission-boundary regression proving no Case or RESERVE is written.
+- Verification: 146 leave/workflow/IAM/OpenAPI tests / 16,740 assertions;
+  Pint, PHPStan and arch clean.

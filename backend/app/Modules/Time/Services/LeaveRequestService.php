@@ -212,6 +212,7 @@ final class LeaveRequestService
 
         $type = $this->type($leaveTypeCode);
         $policy = $this->policy($type, $fromDate, false);
+        $this->assertPayrollTreatmentResolved($policy);
         $workingDays = $this->workingDays($fromDate, $toDate);
         $ruleConflicts = $this->ruleConflicts(
             policy: $policy,
@@ -813,6 +814,21 @@ final class LeaveRequestService
      * Walk the company calendar day by day; weekends and holidays are not
      * silently counted as leave.
      */
+    private function assertPayrollTreatmentResolved(\App\Modules\Time\Models\LeavePolicyVersion $policy): void
+    {
+        $treatment = is_string($policy->payroll_treatment) ? strtoupper(trim($policy->payroll_treatment)) : '';
+        $legacy = (array) $policy->accrual_json;
+        $treatment = $treatment !== '' ? $treatment : strtoupper((string) ($legacy['payroll_treatment'] ?? 'UNRESOLVED'));
+
+        if ($treatment === 'UNRESOLVED' || $treatment === '') {
+            throw new ConflictException('The leave policy payroll treatment must be configured before submission.', [
+                'reason' => 'LEAVE_PAYROLL_TREATMENT_UNRESOLVED',
+                'leave_type_id' => (int) $policy->leave_type_id,
+                'policy_version_id' => (int) $policy->id,
+            ]);
+        }
+    }
+
     private function workingDays(string $fromDate, string $toDate): int
     {
         $cursor = CarbonImmutable::parse($fromDate, 'UTC')->startOfDay();
