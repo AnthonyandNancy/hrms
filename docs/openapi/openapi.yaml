@@ -4403,6 +4403,7 @@ components:
             - DRAFT
             - INPUT_LOCKED
             - CALCULATED
+            - CALCULATED_WITH_BLOCKERS
             - REVIEWED
             - APPROVED
             - PUBLISHED
@@ -4444,6 +4445,7 @@ components:
           enum:
             - PENDING
             - CALCULATED
+            - BLOCKED
             - EXCLUDED
             - FAILED
         failure_reason:

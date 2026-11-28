@@ -26,7 +26,7 @@ const RULES: ActionRule[] = [
     action: 'calculate',
     capability: 'payroll.run.prepare',
     allowed: (status) => status === 'INPUT_LOCKED' || status === 'CALCULATED',
-    reason: () => '仅输入已锁定的批次可以试算。',
+    reason: () => '仅输入已锁定的批次可以试算；有阻断的批次需先重开修正输入。',
     tone: 'primary',
     confirmTitle: '试算工资',
     confirmBody: (period) => `将为 ${period} 的全部在册员工试算工资，金额写入整数分。确认试算？`,

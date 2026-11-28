@@ -14,6 +14,7 @@ export type PayrollRunStatus =
   | 'DRAFT'
   | 'INPUT_LOCKED'
   | 'CALCULATED'
+  | 'CALCULATED_WITH_BLOCKERS'
   | 'REVIEWED'
   | 'APPROVED'
   | 'PUBLISHED'
@@ -23,7 +24,7 @@ export type PayrollRunStatus =
 
 export type PayrollRunType = 'REGULAR' | 'CORRECTION' | 'OFF_CYCLE' | 'BONUS'
 
-export type PayrollEmployeeStatus = 'PENDING' | 'CALCULATED' | 'EXCLUDED' | 'FAILED'
+export type PayrollEmployeeStatus = 'PENDING' | 'CALCULATED' | 'BLOCKED' | 'EXCLUDED' | 'FAILED'
 
 export type PayrollRunSummary = {
   id: number
@@ -150,6 +151,7 @@ const RUN_STATUSES: readonly PayrollRunStatus[] = [
   'DRAFT',
   'INPUT_LOCKED',
   'CALCULATED',
+  'CALCULATED_WITH_BLOCKERS',
   'REVIEWED',
   'APPROVED',
   'PUBLISHED',
@@ -234,7 +236,7 @@ export function normalisePayrollEmployee(raw: unknown): PayrollEmployee {
   const row = record(raw, 'employee')
   const status = text(row.status, 'employee.status').toUpperCase() as PayrollEmployeeStatus
 
-  if (!['PENDING', 'CALCULATED', 'EXCLUDED', 'FAILED'].includes(status)) {
+  if (!['PENDING', 'CALCULATED', 'BLOCKED', 'EXCLUDED', 'FAILED'].includes(status)) {
     contractError('employee.status')
   }
 
@@ -798,6 +800,7 @@ export const PAYROLL_STATUS_LABELS: Record<PayrollRunStatus, string> = {
   DRAFT: '草稿',
   INPUT_LOCKED: '输入已锁定',
   CALCULATED: '已试算',
+  CALCULATED_WITH_BLOCKERS: '计算有阻断',
   REVIEWED: '已复核',
   APPROVED: '已批准',
   PUBLISHED: '已发布',
@@ -815,6 +818,7 @@ export function payrollStage(status: PayrollRunStatus): PayrollStage {
       return '草稿'
     case 'INPUT_LOCKED':
     case 'CALCULATED':
+    case 'CALCULATED_WITH_BLOCKERS':
     case 'REVIEWED':
       return '已提交'
     case 'APPROVED':
@@ -856,6 +860,7 @@ export function payrollEmployeeStatusLabel(status: PayrollEmployeeStatus): strin
   return {
     PENDING: '待计算',
     CALCULATED: '已计算',
+    BLOCKED: '输入有阻断',
     EXCLUDED: '已排除',
     FAILED: '计算失败',
   }[status]

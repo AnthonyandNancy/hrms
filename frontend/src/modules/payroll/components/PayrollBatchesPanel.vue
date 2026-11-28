@@ -56,6 +56,7 @@ const STATUS_OPTIONS: Array<{ value: PayrollRunStatus | ''; label: string }> = [
   { value: 'DRAFT', label: PAYROLL_STATUS_LABELS.DRAFT },
   { value: 'INPUT_LOCKED', label: PAYROLL_STATUS_LABELS.INPUT_LOCKED },
   { value: 'CALCULATED', label: PAYROLL_STATUS_LABELS.CALCULATED },
+  { value: 'CALCULATED_WITH_BLOCKERS', label: PAYROLL_STATUS_LABELS.CALCULATED_WITH_BLOCKERS },
   { value: 'REVIEWED', label: `${payrollStage('REVIEWED')}（${PAYROLL_STATUS_LABELS.REVIEWED}）` },
   { value: 'APPROVED', label: PAYROLL_STATUS_LABELS.APPROVED },
   { value: 'PUBLISHED', label: PAYROLL_STATUS_LABELS.PUBLISHED },

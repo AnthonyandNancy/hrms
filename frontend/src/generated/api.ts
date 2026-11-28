@@ -7387,7 +7387,7 @@ export interface components {
             /** @enum {string} */
             run_type: "REGULAR" | "CORRECTION" | "OFF_CYCLE" | "BONUS";
             /** @enum {string} */
-            status: "DRAFT" | "INPUT_LOCKED" | "CALCULATED" | "REVIEWED" | "APPROVED" | "PUBLISHED" | "PAID" | "CLOSED" | "CANCELLED";
+            status: "DRAFT" | "INPUT_LOCKED" | "CALCULATED" | "CALCULATED_WITH_BLOCKERS" | "REVIEWED" | "APPROVED" | "PUBLISHED" | "PAID" | "CLOSED" | "CANCELLED";
             correction_of_run_id: number | null;
             /** Format: date */
             pay_date: string;
@@ -7402,7 +7402,7 @@ export interface components {
         PayrollRunEmployee: {
             employment_id: number;
             /** @enum {string} */
-            status: "PENDING" | "CALCULATED" | "EXCLUDED" | "FAILED";
+            status: "PENDING" | "CALCULATED" | "BLOCKED" | "EXCLUDED" | "FAILED";
             failure_reason: string | null;
             gross_cents?: number;
             taxable_cents?: number;

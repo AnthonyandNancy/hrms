@@ -66,3 +66,19 @@ scheme resolution must be completed.
 Remaining T09 work: benefit/performance frozen inputs, full employee scheme
 resolution across every calculation path, and CALCULATED_WITH_BLOCKERS API/UI
 exposure.
+
+## T09d1 — expose blocked run and employee states
+
+- OpenAPI payroll run status now includes `CALCULATED_WITH_BLOCKERS`; payroll
+  employee status now includes `BLOCKED`.
+- Generated TypeScript types and frontend normalisers/status arrays were
+  synchronized.
+- Chinese labels: run `计算有阻断`, employee `输入有阻断`; the payroll status
+  filter includes the blocked run state.
+- Review/calculate controls remain status-gated: blocked runs cannot review or
+  approve and must be reopened for corrected inputs.
+- Verification: OpenAPI lint/validate/generate/check; frontend typecheck/lint
+  and payroll workspace tests 25 tests passed.
+
+Remaining T09d: benefits/performance frozen input ports and real downstream
+wiring after T14/T15.
