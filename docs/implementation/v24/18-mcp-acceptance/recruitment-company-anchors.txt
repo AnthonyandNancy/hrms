@@ -1,0 +1,16 @@
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:51:        $this->allow($principal, 'recruitment.requisition.read', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:87:        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:105:        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:130:        $this->allow($principal, 'recruitment.requisition.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:150:        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:207:        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:217:        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:238:        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:261:        $this->allow($principal, 'recruitment.candidate.read', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:272:            AnchorRef::company(),
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:333:        $this->allow($principal, 'recruitment.candidate.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:348:        $this->allow($principal, 'recruitment.interview.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:366:        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:390:        $this->allow($principal, 'recruitment.offer.manage', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentController.php:408:        $this->allow($principal, 'recruitment.offer.accept', AnchorRef::company());
+backend/app/Modules/Talent/Http/Controllers/RecruitmentOpeningController.php:55:        if (! $this->authorizer->allows($principal, $capability, AnchorRef::company(), $today)) {
