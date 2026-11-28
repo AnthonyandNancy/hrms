@@ -534,6 +534,21 @@ export async function terminateContract(
   )
 }
 
+export async function activateContract(
+  contractId: number,
+  effectiveDate: string,
+  reason = '',
+): Promise<void> {
+  await resourcePost(
+    `/v1/employment-contracts/${contractId}/activate`,
+    {
+      effective_from: effectiveDate,
+      ...(reason.trim() === '' ? {} : { reason: reason.trim() }),
+    },
+    { idempotencyKey: nextIdempotencyKey('contract-activate') },
+  )
+}
+
 export async function listContractVersions(contractId: number): Promise<ContractVersionPage> {
   const raw = await resourceGet<unknown>(`/v1/employment-contracts/${contractId}/amendments`, {
     page: 1,
