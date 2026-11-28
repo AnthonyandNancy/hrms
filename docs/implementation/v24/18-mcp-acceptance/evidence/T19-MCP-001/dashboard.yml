@@ -1,0 +1,218 @@
+- generic [ref=f1e3]:
+  - link "跳到主要内容" [ref=f1e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f1e5]:
+    - generic [ref=f1e6]:
+      - generic [aria-hidden] [ref=f1e7]: 澄
+      - generic [ref=f1e8]:
+        - generic [ref=f1e9]: 澄明 HR
+        - generic [ref=f1e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f1e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f1e15]:
+      - link "我的工作台" [ref=f1e17] [cursor=pointer]:
+        - /url: /workspace
+      - generic [ref=f1e22]:
+        - button "仪表盘" [expanded] [ref=f1e23] [cursor=pointer]
+        - link "首页看板" [ref=f1e32] [cursor=pointer]:
+          - /url: /dashboard
+      - button "报表中心" [ref=f1e38] [cursor=pointer]
+      - button "员工档案" [ref=f1e47] [cursor=pointer]
+      - button "组织与岗位" [ref=f1e56] [cursor=pointer]
+      - button "员工异动" [ref=f1e65] [cursor=pointer]
+      - button "劳动合同" [ref=f1e74] [cursor=pointer]
+      - button "考勤打卡" [ref=f1e83] [cursor=pointer]
+      - button "请假管理" [ref=f1e94] [cursor=pointer]
+      - button "加班管理" [ref=f1e103] [cursor=pointer]
+      - button "出差管理" [ref=f1e114] [cursor=pointer]
+      - button "薪资管理" [ref=f1e123] [cursor=pointer]
+      - button "绩效考核" [ref=f1e134] [cursor=pointer]
+      - button "系统管理" [ref=f1e143] [cursor=pointer]
+      - button "招聘需求" [ref=f1e153] [cursor=pointer]
+      - button "候选人" [ref=f1e162] [cursor=pointer]
+      - button "培训管理" [ref=f1e171] [cursor=pointer]
+      - button "公告通知" [ref=f1e181] [cursor=pointer]
+  - generic [ref=f1e191]:
+    - banner [ref=f1e192]:
+      - generic [ref=f1e193]:
+        - paragraph [ref=f1e194]: 澄明科技 · 人力资源
+        - generic [ref=f1e195]: 首页看板
+      - link "查看未读公告" [ref=f1e196] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f1e204] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f1e205]: IN
+        - generic [ref=f1e206]: installer
+    - main [ref=f1e211]:
+      - generic [ref=f1e212]:
+        - generic [ref=f1e213]:
+          - generic [ref=f1e214]:
+            - paragraph [ref=f1e215]: 工作台 / 首页看板
+            - heading "人力仪表盘" [level=1] [ref=f1e216]
+            - paragraph [ref=f1e217]: 部门人数、员工构成、近期动态、工作提醒与招聘进展在本页统一展示；指标、单位、口径与不可用原因均由服务端提供。
+          - generic [ref=f1e218]:
+            - generic [ref=f1e219]:
+              - generic [ref=f1e220]: 业务日期
+              - textbox "业务日期" [ref=f1e223]: 2026-11-28
+            - button "刷新快照" [ref=f1e224] [cursor=pointer]
+        - navigation "看板分区" [ref=f1e226]:
+          - link "部门人数" [ref=f1e227] [cursor=pointer]:
+            - /url: "#dashboard-departments"
+          - link "员工构成" [ref=f1e228] [cursor=pointer]:
+            - /url: "#dashboard-workforce"
+          - link "近期动态" [ref=f1e229] [cursor=pointer]:
+            - /url: "#dashboard-changes"
+          - link "工作提醒" [ref=f1e230] [cursor=pointer]:
+            - /url: "#dashboard-tasks"
+          - link "招聘进展" [ref=f1e231] [cursor=pointer]:
+            - /url: "#dashboard-recruitment"
+        - generic [ref=f1e232]:
+          - generic [ref=f1e233]: 截至 2026年11月28日
+          - generic [ref=f1e234]: 实时快照
+          - generic [ref=f1e235]: 数据更新于 2026-11-28 17:51
+          - generic [ref=f1e236]: 可用指标 5 / 7
+        - alert [ref=f1e237]:
+          - generic [ref=f1e242]:
+            - generic [ref=f1e243]: 薪酬成本（指标尚未配置）：薪酬成本投影尚未配置：仅统计已发布工资批次的雇主成本，当前不提供估算值。
+            - generic [ref=f1e244]: 招聘漏斗（指标尚未配置）：招聘漏斗投影尚未配置：需由招聘模块发布真实候选人阶段数量，当前不提供推断值。
+        - region "关键指标" [ref=f1e245]:
+          - button "在职人数，0人，2026年11月28日，查看员工明细 →" [ref=f1e246] [cursor=pointer]:
+            - generic [ref=f1e247]:
+              - generic [ref=f1e248]: 在职人数
+              - generic [ref=f1e249]: 可用
+            - generic [ref=f1e250]: 0人
+            - generic [ref=f1e251]:
+              - generic [ref=f1e252]: 截至 2026年11月28日
+              - generic [ref=f1e253]: 按当前授权范围
+              - generic [ref=f1e254]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e255]: 实时
+            - generic [ref=f1e256]: 查看员工明细 →
+          - button "试用期人数，0人，2026年11月28日，查看员工明细 →" [ref=f1e258] [cursor=pointer]:
+            - generic [ref=f1e259]:
+              - generic [ref=f1e260]: 试用期人数
+              - generic [ref=f1e261]: 可用
+            - generic [ref=f1e262]: 0人
+            - generic [ref=f1e263]:
+              - generic [ref=f1e264]: 截至 2026年11月28日
+              - generic [ref=f1e265]: 按当前授权范围
+              - generic [ref=f1e266]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e267]: 实时
+            - generic [ref=f1e268]: 查看员工明细 →
+          - button "即将到期合同，0份，2026年11月28日，查看合同明细 →" [ref=f1e270] [cursor=pointer]:
+            - generic [ref=f1e271]:
+              - generic [ref=f1e272]: 即将到期合同
+              - generic [ref=f1e273]: 可用
+            - generic [ref=f1e274]: 0份
+            - generic [ref=f1e275]:
+              - generic [ref=f1e276]: 截至 2026年11月28日
+              - generic [ref=f1e277]: 按当前授权范围
+              - generic [ref=f1e278]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e279]: 实时
+            - generic [ref=f1e280]: 查看合同明细 →
+          - button "待审批事项，0项，2026年11月28日，进入流程中心 →" [ref=f1e282] [cursor=pointer]:
+            - generic [ref=f1e283]:
+              - generic [ref=f1e284]: 待审批事项
+              - generic [ref=f1e285]: 可用
+            - generic [ref=f1e286]: 0项
+            - generic [ref=f1e287]:
+              - generic [ref=f1e288]: 截至 2026年11月28日
+              - generic [ref=f1e289]: 按当前授权范围
+              - generic [ref=f1e290]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e291]: 实时
+            - generic [ref=f1e292]: 进入流程中心 →
+          - button "假期负债，0分钟，2026年11月28日，查看假期余额 →" [ref=f1e294] [cursor=pointer]:
+            - generic [ref=f1e295]:
+              - generic [ref=f1e296]: 假期负债
+              - generic [ref=f1e297]: 可用
+            - generic [ref=f1e298]: 0分钟
+            - generic [ref=f1e299]:
+              - generic [ref=f1e300]: 截至 2026年11月28日
+              - generic [ref=f1e301]: 按当前授权范围
+              - generic [ref=f1e302]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e303]: 实时
+            - generic [ref=f1e304]: 查看假期余额 →
+          - button "薪酬成本，—，2026年11月28日，查看不可用原因" [ref=f1e306] [cursor=pointer]:
+            - generic [ref=f1e307]:
+              - generic [ref=f1e308]: 薪酬成本
+              - generic [ref=f1e309]: 指标尚未配置
+            - generic [ref=f1e310]: —
+            - generic [ref=f1e311]:
+              - generic [ref=f1e312]: 截至 2026年11月28日
+              - generic [ref=f1e313]: 按当前授权范围
+              - generic [ref=f1e314]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e315]: 实时
+            - alert [ref=f1e316]:
+              - generic [ref=f1e320]: 指标尚未配置：薪酬成本投影尚未配置：仅统计已发布工资批次的雇主成本，当前不提供估算值。
+            - generic [ref=f1e322]: 查看不可用原因
+          - button "招聘漏斗，—，2026年11月28日，查看不可用原因" [ref=f1e324] [cursor=pointer]:
+            - generic [ref=f1e325]:
+              - generic [ref=f1e326]: 招聘漏斗
+              - generic [ref=f1e327]: 指标尚未配置
+            - generic [ref=f1e328]: —
+            - generic [ref=f1e329]:
+              - generic [ref=f1e330]: 截至 2026年11月28日
+              - generic [ref=f1e331]: 按当前授权范围
+              - generic [ref=f1e332]: 计算于 2026-11-28 17:51
+              - generic [ref=f1e333]: 实时
+            - alert [ref=f1e334]:
+              - generic [ref=f1e338]: 指标尚未配置：招聘漏斗投影尚未配置：需由招聘模块发布真实候选人阶段数量，当前不提供推断值。
+            - generic [ref=f1e340]: 查看不可用原因
+        - generic [ref=f1e342]:
+          - generic [ref=f1e343]:
+            - generic [ref=f1e344]:
+              - generic [ref=f1e345]:
+                - heading "部门人数分析" [level=2] [ref=f1e346]
+                - paragraph [ref=f1e347]: 按服务端返回的授权员工行聚合；不另算部门分母，不补造组织。
+              - generic [ref=f1e348]: 截至 2026年11月28日
+            - paragraph [ref=f1e350]: 当前授权范围没有可展示的部门人数。
+          - generic [ref=f1e351]:
+            - generic [ref=f1e352]:
+              - generic [ref=f1e353]:
+                - heading "员工构成" [level=2] [ref=f1e354]
+                - paragraph [ref=f1e355]: 使用同一授权员工行的在职状态构成；接口未提供的维度不会推算。
+              - generic [ref=f1e356]: 可用
+            - paragraph [ref=f1e358]: 当前授权范围没有可展示的员工状态构成。
+          - generic [ref=f1e359]:
+            - generic [ref=f1e360]:
+              - generic [ref=f1e361]:
+                - heading "近期动态" [level=2] [ref=f1e362]
+                - paragraph [ref=f1e363]: 合同到期与最近公告来自同一次仪表盘响应；没有事件流时不推断。
+              - link "公告中心" [ref=f1e364] [cursor=pointer]:
+                - /url: /notices
+            - generic [ref=f1e365]:
+              - generic [ref=f1e366]:
+                - heading "合同到期提醒" [level=3] [ref=f1e367]
+                - paragraph [ref=f1e368]: 当前没有合同到期提醒。
+              - generic [ref=f1e369]:
+                - heading "最近公告" [level=3] [ref=f1e370]
+                - paragraph [ref=f1e371]: 当前没有可见公告。
+          - generic [ref=f1e372]:
+            - generic [ref=f1e373]:
+              - generic [ref=f1e374]:
+                - heading "工作提醒" [level=2] [ref=f1e375]
+                - paragraph [ref=f1e376]: 待办与指标卡使用同一截至日期和授权范围。
+              - link "流程中心" [ref=f1e377] [cursor=pointer]:
+                - /url: /workflow
+            - paragraph [ref=f1e379]: 当前没有待审批任务。
+          - generic [ref=f1e380]:
+            - generic [ref=f1e381]:
+              - generic [ref=f1e382]:
+                - heading "招聘进展" [level=2] [ref=f1e383]
+                - paragraph [ref=f1e384]: 招聘阶段人数来自招聘模块发布的授权投影；未配置时不显示推断值。
+              - generic [ref=f1e385]: 指标尚未配置
+            - generic [ref=f1e386]:
+              - paragraph [ref=f1e387]:
+                - strong [ref=f1e388]: 指标尚未配置
+              - paragraph [ref=f1e389]: 招聘漏斗投影尚未配置：需由招聘模块发布真实候选人阶段数量，当前不提供推断值。
+          - generic [ref=f1e390]:
+            - generic [ref=f1e391]:
+              - generic [ref=f1e392]:
+                - heading "薪酬成本" [level=2] [ref=f1e393]
+                - paragraph [ref=f1e394]: 只统计已发布工资批次的雇主成本，金额按元显示。
+              - generic [ref=f1e395]: 指标尚未配置
+            - generic [ref=f1e396]:
+              - paragraph [ref=f1e397]:
+                - strong [ref=f1e398]: 指标尚未配置
+              - paragraph [ref=f1e399]: 薪酬成本投影尚未配置：仅统计已发布工资批次的雇主成本，当前不提供估算值。
+    - contentinfo [ref=f1e400]:
+      - generic [ref=f1e401]: 澄明科技 HRMS
+      - generic [ref=f1e402]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f1e403]: 构建 53f588f

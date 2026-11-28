@@ -1,0 +1,73 @@
+- generic [ref=f2e3]:
+  - link "跳到主要内容" [ref=f2e4] [cursor=pointer]:
+    - /url: "#main-content"
+  - complementary "主导航" [ref=f2e5]:
+    - generic [ref=f2e6]:
+      - generic [aria-hidden] [ref=f2e7]: 澄
+      - generic [ref=f2e8]:
+        - generic [ref=f2e9]: 澄明 HR
+        - generic [ref=f2e10]: Acme China Synthetic
+      - button "收起侧边栏" [expanded] [ref=f2e11] [cursor=pointer]
+    - navigation "V1.1 功能菜单" [ref=f2e15]:
+      - link "我的工作台" [ref=f2e17] [cursor=pointer]:
+        - /url: /workspace
+      - button "仪表盘" [ref=f2e23] [cursor=pointer]
+      - button "报表中心" [ref=f2e32] [cursor=pointer]
+      - button "员工档案" [ref=f2e41] [cursor=pointer]
+      - button "组织与岗位" [ref=f2e50] [cursor=pointer]
+      - button "员工异动" [ref=f2e59] [cursor=pointer]
+      - button "劳动合同" [ref=f2e68] [cursor=pointer]
+      - button "考勤打卡" [ref=f2e77] [cursor=pointer]
+      - button "请假管理" [ref=f2e88] [cursor=pointer]
+      - button "加班管理" [ref=f2e97] [cursor=pointer]
+      - button "出差管理" [ref=f2e108] [cursor=pointer]
+      - button "薪资管理" [ref=f2e117] [cursor=pointer]
+      - button "绩效考核" [ref=f2e128] [cursor=pointer]
+      - button "系统管理" [ref=f2e137] [cursor=pointer]
+      - button "招聘需求" [ref=f2e147] [cursor=pointer]
+      - button "候选人" [ref=f2e156] [cursor=pointer]
+      - button "培训管理" [ref=f2e165] [cursor=pointer]
+      - button "公告通知" [ref=f2e175] [cursor=pointer]
+  - generic [ref=f2e185]:
+    - banner [ref=f2e186]:
+      - generic [ref=f2e187]:
+        - paragraph [ref=f2e188]: 澄明科技 · 人力资源
+        - generic [ref=f2e189]: workspace
+      - link "查看未读公告" [ref=f2e190] [cursor=pointer]:
+        - /url: /notices
+      - button "打开账户菜单" [ref=f2e198] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f2e199]: IN
+        - generic [ref=f2e200]: installer
+    - main [ref=f2e205]:
+      - generic [ref=f2e206]:
+        - generic [ref=f2e208]:
+          - generic [aria-hidden] [ref=f2e209]: —
+          - generic [ref=f2e210]:
+            - paragraph [ref=f2e211]: 我的工作台 · 2026年11月28日
+            - heading "，下午好" [level=1] [ref=f2e212]
+            - paragraph [ref=f2e213]: 岗位待维护 · 组织待维护 · 工号 —
+        - status [ref=f2e214]:
+          - generic [aria-hidden] [ref=f2e215]: —
+          - generic [ref=f2e216]:
+            - heading "当前账号未绑定员工" [level=2] [ref=f2e217]
+            - paragraph [ref=f2e218]: 你仍可处理管理待办。本人请假、考勤、工资条和培训入口在完成任职关联后才可用。
+            - button "查看我的待办" [ref=f2e220] [cursor=pointer]
+        - region "我的待办" [ref=f2e222]:
+          - generic [ref=f2e223]:
+            - generic [ref=f2e224]:
+              - heading "我的待办" [level=2] [ref=f2e225]
+              - paragraph [ref=f2e226]: 只显示指派给当前账号的待处理审批；每项可直接进入所属流程案例。
+            - generic [ref=f2e227]: 0 项
+          - generic [ref=f2e228]:
+            - generic [aria-hidden] [ref=f2e229]: —
+            - generic [ref=f2e230]:
+              - heading "当前没有待处理任务" [level=2] [ref=f2e231]
+              - paragraph [ref=f2e232]: 新的审批或待确认事项到达后，会出现在这里。
+        - note [ref=f2e233]:
+          - text: 数据更新于
+          - time [ref=f2e235]: 2026-11-28 17:52
+          - generic [ref=f2e236]: （Asia/Shanghai）
+    - contentinfo [ref=f2e237]:
+      - generic [ref=f2e238]: 澄明科技 HRMS
+      - generic [ref=f2e239]: 审计与导出操作会记录操作者、目的与时间
+      - generic [ref=f2e240]: 构建 53f588f

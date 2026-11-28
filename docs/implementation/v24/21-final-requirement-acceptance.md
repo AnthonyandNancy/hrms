@@ -16,7 +16,7 @@ It is **not** a completed V2.4 business delivery:
 
 - T05a/T05b onboarding, contract draft and compensation draft are merged.
 - T07 leave effects are complete and merged; T16 notification/report is merged with full-gate evidence.
-- T08–T15, T17, and T19 have not been implemented.
+- T20–T24 remain unmapped; 458-card authority is still pending; R03/R04/R05/R08 anchor construction is blocked.
 - No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
 - Real MySQL/Redis/object-storage migration, concurrency and restore verification is not complete.
 - Therefore AC-01/AC-21/AC-22 can not pass, and no Requirement-wide completion claim is allowed.
@@ -42,7 +42,8 @@ It is **not** a completed V2.4 business delivery:
 | T17 frontend precision/actions/self-service | COMPLETE | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17d.log` | Money, self payslips, server actions and Chinese sweep complete; MCP remains T18 |
 | T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
-| T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
+| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/` | Login/workspace/dashboard executed; 20 modules/155 entries/458 cards remain NOT RUN |
+| T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md` | MySQL/Redis/MinIO, clean install, 99 migrations, backup/restore, synthetic upgrade probe pass; concurrency/real upgrade/final GO pending |
 
 ### Full gate result
 
@@ -85,8 +86,8 @@ This proves the merged technical foundation passes the existing automated gates.
 - **T14:** benefit payroll inputs, multi-plan and reversal.
 - **T15:** performance bonus mapping, Offer→compensation, training exam attempts.
 - **T17:** exact money display, complete object actions, self-service payslip and all detail/list state/Chinese copy.
-- **T18 execution:** Playwright MCP human acceptance (assets only, all NOT RUN).
-- **T19:** MySQL/Redis/object storage, upgrade, backup restore, migration reconciliation and final GO/NO-GO.
+- **T18 execution:** first MCP pack executed; remaining 20 modules, 155 entries, 458 cards and role matrix NOT RUN/BLOCKED.
+- **T19:** app-level concurrency, real previous-release upgrade, deployment traffic restore and final GO/NO-GO remain.
 
 ## 5. Requirement acceptance
 
@@ -111,18 +112,18 @@ This proves the merged technical foundation passes the existing automated gates.
 | AC-17 notices/notifications | ✅ MET (code/UI) | T16 receipt-based delivery/retry, revocation/expiry/audience checks and payslip ID-only notifications pass; real provider/MCP pending |
 | AC-18 unified UI/Chinese | ✅ MET (code/UI) | BigInt money, self payslips, allowed_actions-only actions and Chinese enum/copy audit pass; MCP pending |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
-| AC-20 history/regression | ❌ NOT PROVEN | No real migration/replay/restore acceptance |
-| AC-21 full MCP acceptance | ❌ NOT RUN | 0 MCP items executed |
+| AC-20 history/regression | ❌ PARTIAL | Real install/backup/restore/synthetic upgrade probe pass; real previous-release upgrade/replay/concurrency remain |
+| AC-21 full MCP acceptance | ❌ PARTIAL | T19-MCP-001 executed login/workspace/dashboard on real stack; remaining 20 modules/155 entries/458 cards NOT RUN |
 | AC-22 release GO | ❌ NO-GO | P0/P1 blockers, unmerged tasks, no MCP evidence |
 
 ## 6. Resume protocol
 
 1. Keep this branch/HEAD as the stable foundation; T05/T07/T16 are merged with full-gate evidence.
-2. Execute the T18 MCP matrix.
+2. Continue the T18 MCP matrix and resolve role-anchor/card-authority blockers.
 3. Run `pnpm gate:all` after each merge.
-4. Execute T18 Playwright MCP matrix and T19 real-stack/migration/restore verification.
+4. Continue T18 MCP execution and T19 app-level concurrency/real-upgrade verification.
 5. Re-issue GO only when every AC has evidence; this document remains NO-GO until then.
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T17 remaining actions/T19 outstanding and MCP/real-stack evidence absent.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with most MCP matrix entries NOT RUN and T19 concurrency/real-upgrade/final GO still pending.

@@ -93,8 +93,8 @@
 | T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
 | T16 | 通知状态与报表字段裁剪 | COMPLETE | T16 merged after critical-finding fixes | `d8a7f9a`; `docs/implementation/v24/16-notifications-reporting/implementation-report.md`; `gate-all-t16-merge.log`; MCP in T18 |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
-| T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
-| T19 | 真实栈、迁移恢复与发布判定 | PENDING | — | — |
+| T18 | Playwright MCP 全后台验收 | IN PROGRESS | T19-MCP-001 login/workspace/dashboard executed; remaining modules/cards/roles NOT RUN | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/` |
+| T19 | 真实栈、迁移恢复与发布判定 | IN PROGRESS | isolated MySQL/Redis/MinIO stack, clean install, backup/restore and synthetic upgrade probe pass; concurrency/real upgrade/final GO pending | `docs/implementation/v24/19-real-stack/implementation-report.md` |
 
 ### 0.6 执行日志
 
@@ -147,7 +147,8 @@
 | 2026-11-28 | T08c overtime approval UI | `3d35a85` + full gate | 22 gates PASS in 244.7s; list allowed_actions, approve/reject UI, stable key, server confirm gating, read-only hiding; log `docs/implementation/v24/08-overtime-travel/gate-all-t08c.log` | T08 complete; MCP remains T18. |
 | 2026-11-28 | T17c payroll object actions | `e462840` + full gate | 22 gates PASS in 240.9s; allowed_actions-only cancel/reopen/correct/assign-member forms and payload tests; log `docs/implementation/v24/17-frontend/gate-all-t17c.log` | T17d followed. |
 | 2026-11-28 | T17d Chinese sweep | `61ea98f` + full gate | 22 gates PASS in 241.7s; recruiting/travel/training/payroll/drilldown/org/admin enum labels; copy audit clean; log `docs/implementation/v24/17-frontend/gate-all-t17d.log` | T17 complete; T18/T19 remain. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T18 MCP 0 executed; T19 real-stack/recovery outstanding | Execute T18 matrix then T19. |
+| 2026-11-28 | T19 stack/restore/MCP-001 | `53f588f` build + isolated `factoryhr-t19` | MySQL 8.4.13/Redis/MinIO private bucket healthy; clean install baseline; 99 migrations; backup/restore parity; synthetic upgrade probe; real MCP login/workspace/dashboard PASS; evidence `docs/implementation/v24/19-real-stack/`, `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/` | App-level concurrency, real release upgrade, remaining 20 modules/155 entries/458 cards, final GO remain. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: first MCP pack executed but 20 modules/155 entries/458 cards NOT RUN; T19 concurrency/real upgrade pending | Continue T18 matrix and T19 hardening. |
 
 ---
 

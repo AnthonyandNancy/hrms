@@ -208,3 +208,17 @@ Known gaps: GAP-01..GAP-20
 ```
 
 上述计数是本文件的真实初始值，不构成任何业务验收结论。
+
+## 9. Execution update — 2026-11-28
+
+```text
+MCP executed: 1 evidence pack (T19-MCP-001)
+PASS: 2 scoped observations (login/workspace, dashboard clean-install)
+FAIL: 0 observed in executed scope
+BLOCKED (executed): 0 new (existing R03/R04/R05/R08 + 458 authority remain)
+NOT RUN: remaining 20 modules, 155 entries, 12 cross-module flows, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-001/README.md`, `workspace.png`, `workspace.yml`,
+  `dashboard.png`, `dashboard.yml`.
+- T18 remains **IN PROGRESS**; this entry does not imply module-wide PASS.
