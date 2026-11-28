@@ -11,6 +11,9 @@ use App\Modules\Payroll\Models\PayrollScheme;
 use App\Modules\Payroll\Models\StatutoryParameter;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\TaxParameterResolver;
+use App\Modules\Time\Models\AttendancePeriodClosure;
+use App\Modules\Time\Models\TimePayrollFactRow;
+use App\Modules\Time\Models\TimePayrollFactVersion;
 use App\Shared\Auth\AuthenticatedPrincipal;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\Contracts\PayrollRunMembershipDirectory;
@@ -149,6 +152,64 @@ abstract class PayrollTestCase extends TestCase
         }
 
         return ['scheme' => $scheme, 'employment_id' => (int) $employment->id];
+    }
+
+    /**
+     * Test-only closed Time fact fixture. Production closes facts through the
+     * Time service; tests provide deterministic aggregates through this helper.
+     *
+     * @param  list<array{business_date:string,scheduled_minutes?:int,worked_minutes?:int,paid_leave_minutes?:int,partial_leave_minutes?:int,unpaid_leave_minutes?:int,overtime_pay_minutes?:int,overtime_timeoff_minutes?:int,travel_minutes?:int}>  $facts
+     */
+    protected function closeTimeFact(int $employmentId, string $period, array $facts): TimePayrollFactVersion
+    {
+        $version = TimePayrollFactVersion::query()->create([
+            'period' => $period,
+            'version' => 1,
+            'status' => TimePayrollFactVersion::STATUS_CLOSED,
+            'source_hash' => hash('sha256', json_encode($facts, JSON_THROW_ON_ERROR)),
+            'exception_count' => 0,
+            'precheck_json' => null,
+            'generated_at' => $this->clock->now(),
+            'closed_at' => $this->clock->now(),
+            'closed_by' => 10,
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
+        ]);
+
+        foreach ($facts as $fact) {
+            TimePayrollFactRow::query()->create([
+                'fact_version_id' => (int) $version->id,
+                'employment_id' => $employmentId,
+                'business_date' => (string) $fact['business_date'],
+                'range_start' => (string) $fact['business_date'],
+                'range_end' => (string) $fact['business_date'],
+                'scheduled_minutes' => (int) ($fact['scheduled_minutes'] ?? 0),
+                'worked_minutes' => (int) ($fact['worked_minutes'] ?? 0),
+                'paid_leave_minutes' => (int) ($fact['paid_leave_minutes'] ?? 0),
+                'partial_leave_minutes' => (int) ($fact['partial_leave_minutes'] ?? 0),
+                'unpaid_leave_minutes' => (int) ($fact['unpaid_leave_minutes'] ?? 0),
+                'overtime_pay_minutes' => (int) ($fact['overtime_pay_minutes'] ?? 0),
+                'overtime_timeoff_minutes' => (int) ($fact['overtime_timeoff_minutes'] ?? 0),
+                'travel_minutes' => (int) ($fact['travel_minutes'] ?? 0),
+                'source_type' => 'ATTENDANCE',
+                'source_id' => (string) $fact['business_date'],
+                'source_revision' => 'TEST',
+                'approval_status' => 'APPROVED',
+                'source_hash' => hash('sha256', 'fact|'.$employmentId.'|'.json_encode($fact, JSON_THROW_ON_ERROR)),
+                'recorded_at' => $this->clock->now(),
+                'created_at' => $this->clock->now(),
+            ]);
+        }
+
+        AttendancePeriodClosure::query()->create([
+            'month' => $period,
+            'status' => AttendancePeriodClosure::STATUS_CLOSED,
+            'closed_by' => 10,
+            'closed_at' => $this->clock->now(),
+            'current_fact_version_id' => (int) $version->id,
+        ]);
+
+        return $version;
     }
 
     protected function payrollRun(int $schemeId, string $period = '2026-01'): PayrollRun

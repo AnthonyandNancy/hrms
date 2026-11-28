@@ -56,7 +56,7 @@ final class CalculationService
     ) {}
 
     /**
-     * @return array{calculated: int, failed: int, gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}
+     * @return array{calculated: int, failed: int, blocked: int, gross_cents: int, deductions_cents: int, net_cents: int, employer_cost_cents: int}
      */
     public function calculate(PayrollRun $run, int $actorUserId): array
     {
@@ -105,10 +105,19 @@ final class CalculationService
             ];
             $calculated = 0;
             $failed = 0;
+            $blocked = 0;
             $isCorrection = ($locked->run_type instanceof PayrollRunType ? $locked->run_type : PayrollRunType::from((string) $locked->run_type)) === PayrollRunType::CORRECTION;
 
             foreach ($snapshots as $snapshot) {
                 $payload = (array) $snapshot->payload_json;
+                $blockers = (array) ($payload['blockers'] ?? []);
+
+                if ($blockers !== []) {
+                    $this->storeBlocked($locked, $snapshot, $blockers);
+                    $blocked++;
+
+                    continue;
+                }
 
                 try {
                     $result = $this->calculateOne($locked, $scheme, $company->timezone, (string) $company->currencyCode, $payload);
@@ -135,16 +144,20 @@ final class CalculationService
                 }
             }
 
-            if ($calculated === 0) {
+            if ($calculated === 0 && $blocked === 0) {
                 throw new ConflictException('No employee could be calculated; see run employee failure reasons.', [
                     'reason' => 'PAYROLL_CALCULATION_FAILED',
                     'failed' => $failed,
                 ]);
             }
 
+            $targetStatus = $blocked > 0 || $failed > 0
+                ? PayrollRunStatus::CALCULATED_WITH_BLOCKERS
+                : PayrollRunStatus::CALCULATED;
+
             $locked = $this->stateMachine->transition(
                 $locked,
-                PayrollRunStatus::CALCULATED,
+                $targetStatus,
                 [
                     'gross_cents' => $totals['gross_cents'],
                     'deductions_cents' => $totals['deductions_cents'],
@@ -161,18 +174,19 @@ final class CalculationService
                 aggregateId: (int) $locked->id,
                 before: ['status' => PayrollRunStatus::INPUT_LOCKED->value],
                 after: [
-                    'status' => PayrollRunStatus::CALCULATED->value,
+                    'status' => $targetStatus->value,
                     'input_hash' => (string) $locked->input_hash,
                     'gross_cents' => $totals['gross_cents'],
                     'deductions_cents' => $totals['deductions_cents'],
                     'net_cents' => $totals['net_cents'],
                     'employer_cost_cents' => $totals['employer_cost_cents'],
                     'failed' => $failed,
+                    'blocked' => $blocked,
                     'run_type' => $isCorrection ? 'CORRECTION' : 'REGULAR',
                 ],
             );
 
-            return ['calculated' => $calculated, 'failed' => $failed, ...$totals];
+            return ['calculated' => $calculated, 'failed' => $failed, 'blocked' => $blocked, ...$totals];
         });
     }
 
@@ -602,6 +616,37 @@ final class CalculationService
         }
 
         return $created;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $blockers
+     */
+    private function storeBlocked(PayrollRun $run, PayrollInputSnapshot $snapshot, array $blockers): void
+    {
+        $reason = implode('; ', array_map(
+            static fn (array $blocker): string => (string) ($blocker['code'] ?? 'PAYROLL_INPUT_BLOCKED')
+                .': '.(string) ($blocker['message'] ?? 'required payroll input is missing'),
+            $blockers,
+        ));
+
+        PayrollRunEmployee::query()->updateOrCreate(
+            ['run_id' => $run->id, 'employment_id' => $snapshot->employment_id],
+            [
+                'status' => PayrollEmployeeStatus::BLOCKED,
+                'gross_cents' => 0,
+                'taxable_cents' => 0,
+                'deductions_cents' => 0,
+                'net_cents' => 0,
+                'employer_cost_cents' => 0,
+                'employee_si_cents' => 0,
+                'employee_hf_cents' => 0,
+                'employer_si_cents' => 0,
+                'employer_hf_cents' => 0,
+                'tax_cents' => 0,
+                'ytd_applied' => false,
+                'failure_reason' => mb_substr($reason, 0, 1000),
+            ],
+        );
     }
 
     private function storeFailure(PayrollRun $run, PayrollInputSnapshot $snapshot, string $reason): void

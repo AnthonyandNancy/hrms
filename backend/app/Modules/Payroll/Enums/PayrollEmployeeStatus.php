@@ -9,5 +9,6 @@ enum PayrollEmployeeStatus: string
     case PENDING = 'PENDING';
     case CALCULATED = 'CALCULATED';
     case EXCLUDED = 'EXCLUDED';
+    case BLOCKED = 'BLOCKED';
     case FAILED = 'FAILED';
 }

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Payroll;
 
+use App\Modules\Payroll\Enums\PayrollEmployeeStatus;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
 use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollRunEmployee;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
@@ -84,6 +86,20 @@ final class PayrollSnapshotTest extends PayrollTestCase
     public function test_snapshot_records_missing_closed_time_fact_as_a_blocker(): void
     {
         $base = $this->seedPayrollBase();
+        \App\Modules\Time\Models\AttendanceDay::query()->create([
+            'employment_id' => (int) $base['employment_id'],
+            'business_date' => '2026-08-03',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_minutes' => 0,
+            'late_minutes' => 0,
+            'early_leave_minutes' => 0,
+            'absence_minutes' => 0,
+            'status' => 'NORMAL',
+            'rule_version' => 'TEST',
+            'source_hash' => hash('sha256', 'time-evidence'),
+            'calculated_at' => $this->clock->now(),
+        ]);
         $runs = app(PayrollRunService::class);
         $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-08']);
         $run = $runs->lockInputs((int) $run->id, 10);
@@ -151,6 +167,42 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame((int) $version->id, (int) $payload['attendance']['fact_version_id']);
         $this->assertSame(480, (int) $payload['attendance']['scheduled_minutes']);
         $this->assertSame(400, (int) $payload['attendance']['worked_minutes']);
+    }
+
+    public function test_calculation_blocks_missing_closed_fact_and_prevents_review(): void
+    {
+        $base = $this->seedPayrollBase();
+        \App\Modules\Time\Models\AttendanceDay::query()->create([
+            'employment_id' => (int) $base['employment_id'],
+            'business_date' => '2026-10-02',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 480,
+            'overtime_minutes' => 0,
+            'late_minutes' => 0,
+            'early_leave_minutes' => 0,
+            'absence_minutes' => 0,
+            'status' => 'NORMAL',
+            'rule_version' => 'TEST',
+            'source_hash' => hash('sha256', 'blocked-calculation'),
+            'calculated_at' => $this->clock->now(),
+        ]);
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-10']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $result = app(CalculationService::class)->calculate($run, 10);
+        $run = $run->refresh();
+
+        $this->assertSame(0, $result['calculated']);
+        $this->assertSame(1, $result['blocked']);
+        $this->assertSame(PayrollRunStatus::CALCULATED_WITH_BLOCKERS, $run->status);
+        $employee = PayrollRunEmployee::query()->where('run_id', $run->id)->firstOrFail();
+        $this->assertSame(PayrollEmployeeStatus::BLOCKED, $employee->status);
+        $this->assertStringContainsString('CLOSED_TIME_FACT_MISSING', (string) $employee->failure_reason);
+        $this->assertSame(0, \App\Modules\Payroll\Models\Payslip::query()->where('run_id', $run->id)->count());
+
+        $this->expectException(ConflictException::class);
+        app(ApprovalService::class)->review((int) $run->id, 11);
     }
 
     public function test_attendance_change_after_lock_does_not_affect_calculated_run(): void
