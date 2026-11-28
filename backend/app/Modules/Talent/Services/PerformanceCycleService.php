@@ -297,6 +297,16 @@ final class PerformanceCycleService
             // source for published result reads; live ratings are never read
             // again after this point.
             $snapshots = $reviews->map(function (PerformanceReview $review) use ($cycle, $actorUserId, $publishedAt): PerformanceResultSnapshot {
+                $finalRating = $this->finalRating($review);
+                $sourceRevision = hash('sha256', implode('|', [
+                    (string) $review->id,
+                    (string) $review->updated_at,
+                    (string) $review->self_rating,
+                    (string) $review->manager_rating,
+                    (string) $review->calibrated_rating,
+                    $finalRating,
+                ]));
+
                 return PerformanceResultSnapshot::query()->create([
                     'cycle_id' => (int) $cycle->id,
                     'review_id' => (int) $review->id,
@@ -304,7 +314,10 @@ final class PerformanceCycleService
                     'self_rating' => $review->self_rating,
                     'manager_rating' => $review->manager_rating,
                     'calibrated_rating' => $review->calibrated_rating,
-                    'final_rating' => $this->finalRating($review),
+                    'final_rating' => $finalRating,
+                    'score_scaled' => null,
+                    'grade' => $finalRating,
+                    'source_revision' => $sourceRevision,
                     'published_at' => $publishedAt,
                     'published_by' => $actorUserId,
                 ]);
@@ -791,6 +804,9 @@ final class PerformanceCycleService
             'manager_rating' => $snapshot->manager_rating,
             'calibrated_rating' => $snapshot->calibrated_rating,
             'final_rating' => (string) $snapshot->final_rating,
+            'score_scaled' => $snapshot->score_scaled,
+            'grade' => $snapshot->grade,
+            'source_revision' => $snapshot->source_revision,
             'snapshot' => true,
             'published_at' => $this->iso($snapshot->published_at),
             'published_by' => (int) $snapshot->published_by,
