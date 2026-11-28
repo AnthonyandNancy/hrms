@@ -42,13 +42,13 @@
 | `GAP-02` | `UNMAPPED` | master plan 只有 T00–T19；AC/计划要求 T01–T24 | AC-01/AC-21 任务覆盖 | 提供 T20–T24 权威任务卡或修订 | `OPEN` |
 | `GAP-03` | `BLOCKED` | T05–T17 在 master plan 仍为 PENDING | T18 依赖；MCP 业务执行 | 相关任务完成并有证据 | `OPEN` |
 | `GAP-04` | `CONFLICT` | T06 计划表 PENDING vs `06-time-facts/implementation-report.md` COMPLETE | M09–M12 前置状态 | 统一计划/证据状态 | `OPEN` |
-| `GAP-05` | `BLOCKED` | R03/R04/R05/R08 需要 ORG_UNIT/PAYROLL_RUN/CASE anchor_id，但 `iam:bind-role` 只写 null、`UserRoleDrawer` 不传 `binding_anchors` | 4 个角色无法构造；M09–M16 相关角色验收 | T02/T19 增加 anchor binding UI/命令 | `OPEN` |
+| `GAP-05` | `BLOCKED` | R02 的 CASE 审批及 R03/R04/R05/R08 需要 CASE/ORG_UNIT/PAYROLL_RUN anchor_id，但 `iam:bind-role` 只写 null、`UserRoleDrawer` 不传 `binding_anchors` | R02 部分可构造（M20 CASE 审批 BLOCKED）；R03/R04/R05/R08 无法构造 | T02/T19 增加 anchor binding UI/命令 | `OPEN` |
 | `GAP-06` | `UNMAPPED` | M21 无备份/恢复/升级 UI | 6 卡中的安装/升级/备份恢复 | 转 T19 运维证据；T18 不伪造 | `OPEN` |
 | `GAP-07` | `UNMAPPED` | M17 员工档案无培训记录 Tab | E2E-09/M17 卡片 | 补只读入口或用户接受未映射 | `OPEN` |
 | `GAP-08` | `UNMAPPED` | M09 无本人打卡写端点 | “打卡”卡片可能不可执行 | 导航确认；无入口则标 UNMAPPED | `OPEN` |
 | `GAP-09` | `UNMAPPED` | M08 manifest 声明 activate，但 ContractDetailPage 无按钮 | 激活动作 UI 验收 | 补按钮/页面或改口径 | `OPEN` |
 | `GAP-10` | `COUNT` | M19 入口数摘要 6 vs 附录 A 7 页 | 模块计数口径 | 统一为 V2.3 矩阵 6 条 | `OPEN` |
-| `GAP-11` | `COUNT` | M01=7 页（源包）vs 155 矩阵 8 入口；M19=7 页（源包）vs 6 入口 | 页面数≠入口数口径 | 以 155 行台账为准，页面数单独引用源包 | `OPEN` |
+| `GAP-11` | `COUNT` | M01=7 页（源包）vs 155 入口 8；M19=7 页（源包）vs 155 入口 6；入口 141 归 M01 | 页面数≠入口数口径 | **唯一入口口径：§2/§2.1/§4A 均按 155 入口号；141 归 M01；源包页面数仅作来源** | `CLOSED（口径已统一）` |
 | `GAP-12` | `CONTRACT` | Dashboard metric OpenAPI 旧 schema 与实现 DTO 漂移 | M02/M03 契约断言 | 以实际响应+契约测试统一 | `OPEN` |
 | `GAP-13` | `DOC` | `registry.ts` 头注释仍写 155，实际 37 | 计数阅读 | 以数组/测试为准 | `OPEN` |
 | `GAP-14` | `ENV` | `frontend/.env.example` 写 `VITE_PROXY_TARGET`，`vite.config.ts` 用 `VITE_DEV_API_PROXY_TARGET` | 本地代理启动 | 统一变量或明确使用正确变量 | `OPEN` |
@@ -88,7 +88,7 @@
 | M21 | 3 | 6 | `M21-P152`,`M21-P153`,`M21-P155` | `NOT RUN` |
 | **合计** | **155** | **458** | 完整 ID/标题见 `458-card-index.md` | **全部 NOT RUN** |
 
-> 源包页面数按工作区归属为 M01=7、M19=7；155 入口矩阵按入口号归属为 M01=8、M19=6。两者总数都是 155，但口径不同，见 GAP-11。
+> **唯一入口口径：** 155 入口按入口号归属为 M01=8（含 141）、M19=6；`M19-P141` 只是源包页面 ID。源包页面数 M01=7、M19=7 仅作来源，不参与入口计数。
 
 ## 4. 21 模块证据索引
 
@@ -118,6 +118,8 @@
 | M20 | `MCP-M20` | `NOT RUN` | 0 | T07/T11/T13 PENDING；详情动作未入 manifest | — | `evidence/MCP-M20/` |
 | M21 | `MCP-M21` | `NOT RUN` | 0 | 备份/恢复/升级无 UI；T19 接管 | — | `evidence/MCP-M21/` |
 
+> **入口计数唯一口径：** 155 入口按入口号归属；入口 141 归 M01（页面 ID 为 `M19-P141`，源包页面归属 M19）；M01=8、M19=6。禁止把源包页面数 7/7 当作入口数。
+>
 > **禁止**把上表的“Txx PENDING”直接写成执行结论 `BLOCKED`；执行时必须逐证据项记录阻塞原因和影响范围。
 
 ## 5. 12 条跨模块闭环索引
@@ -154,12 +156,12 @@
 - T20–T24 缺任务卡（GAP-02）。
 - T05–T17 未完成（GAP-03）。
 - T06 状态冲突（GAP-04）。
-- R03/R04/R05/R08 锚点 UI/命令缺失（GAP-05）。
+- R02 CASE 审批与 R03/R04/R05/R08 锚点 UI/命令缺失（GAP-05）；R02 公司级部分可验收。
 - M21 备份/恢复/升级无 UI（GAP-06）。
 - M17 员工档案培训入口缺失（GAP-07）。
 - M09 打卡写入口缺失/未确认（GAP-08）。
 - M08 activate UI 缺失（GAP-09）。
-- M19/附录 A 入口计数冲突（GAP-10/GAP-11）。
+- M19 入口数摘要 6 vs 附录 A 7 页（GAP-10）；入口 141 已统一归 M01（GAP-11 口径已关闭）。
 - Dashboard metric 契约漂移（GAP-12）。
 - registry 头注释过期（GAP-13）。
 - Vite 代理变量名不一致（GAP-14）。

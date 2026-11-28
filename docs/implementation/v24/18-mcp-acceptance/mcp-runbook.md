@@ -19,7 +19,7 @@
 3. 隔离 MySQL、Redis、S3/MinIO 对象存储已启动，并使用**本 worktree/本批次专用**的 Compose project 与数据库；不得复用其他 worktree 或主工作区栈。
 4. 干净安装完成：空库执行 `hrms:install` 后，只有一个启用管理员，零员工、零工资批次、零流程案例。
 5. 已准备 R01–R09 共 9 个验收角色：**R01–R07 为 7 个核心角色，R08–R09 为 2 个补充角色**。其中 R03/R04/R05/R08 的锚点构造当前 `BLOCKED`（见 §3.1），T18 不得用替代命令绕过。
-6. 角色锚点只有 R01/R02/R06/R07/R09 可构造；R03/R04/R05/R08 因无法写 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` anchor_id 而 `BLOCKED`，见 §3.1/§3.4。
+6. 角色构造：R01/R06/R07/R09 可完整构造；R02 仅 COMPANY 部分可构造、CASE 审批 `BLOCKED`；R03/R04/R05/R08 因无法写 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` anchor_id 而 `BLOCKED`，见 §3.1/§3.4。
 7. 测试数据全部合成，明显虚构；禁止真实姓名、证件、手机号、工资、公司信息。
 8. 操作人明确知道每一步对应矩阵的证据 ID，并能在同一浏览器会话记录 URL、角色、前置数据、动作、网络响应、截图/snapshot。
 
@@ -42,7 +42,7 @@
 | T05–T17 在 master plan 仍为 PENDING | T18 的依赖不成立 | MCP 业务执行必须 `BLOCKED`；不得以静态审计或自动测试代替 |
 | T06 计划表 PENDING 与 `06-time-facts/implementation-report.md` COMPLETE 冲突 | M09–M12 前置结论不唯一 | 先核实并统一状态；未统一前相关执行项 `BLOCKED` |
 | T20–T24 无任务卡 | AC-01/AC-21 的 T01–T24 唯一覆盖不成立 | 保留目标口径；标 `UNMAPPED`；等待权威任务卡或修订 |
-| R03/R04/R05/R08 无法构造 | 考勤专员、薪酬专员、薪酬复核人、招聘专员无法用现有 UI/CLI 写入 `ORG_UNIT`/`PAYROLL_RUN`/`CASE` 锚点 | 明确 `BLOCKED`；依赖 T02/T19 增加 anchor binding UI 或命令；不得用 `iam:bind-role`/`UserRoleDrawer` 假构造 |
+| R02 CASE 审批 + R03/R04/R05/R08 无法构造 | HR_ADMIN 的 CASE 审批、考勤专员、薪酬专员、薪酬复核人、招聘专员无法用现有 UI/CLI 写入 `CASE`/`ORG_UNIT`/`PAYROLL_RUN` anchor_id | 公司级 R02 可执行；M20 CASE 审批与 R03/R04/R05/R08 明确 `BLOCKED`；依赖 T02/T19 增加 anchor binding UI 或命令；不得用 `iam:bind-role`/`UserRoleDrawer` 假构造 |
 | M21 无备份/恢复/升级 UI | 该 6 卡中的安装/升级/备份恢复不能做 MCP | 转 T19 运维证据；T18 标 `BLOCKED/UNMAPPED`，不得用 API 代替 |
 | M17 员工档案无培训记录 Tab | E2E-09/M17 卡片不可执行 | 标 `UNMAPPED/BLOCKED`；不得新造入口 |
 | M09 无本人打卡写端点 | “打卡”入口可能不可执行 | 导航确认；无入口则标 `UNMAPPED`，不伪造 API |
@@ -57,11 +57,10 @@
 为本批次选择唯一前缀，建议：
 
 ```text
-T18_PROJECT=factoryhr-t18
-T18_ENV=factoryhr-t18
-T18_DB=factoryhr_t18
-T18_BUCKET=factoryhr-t18-private
-T18_HTTP_PORT=5184
+COMPOSE_PROJECT_NAME=factoryhr-t18
+DB_DATABASE=factoryhr_t18
+AWS_BUCKET=factoryhr-t18-private
+HTTP_PORT=5184
 T18_FRONTEND_PORT=5185
 ```
 
@@ -94,13 +93,13 @@ VITE_API_MODE=http pnpm build
 
 ### 2.3 真实依赖、php-app 与代理启动
 
-以下命令使用本批次 Compose project `factoryhr-t18`。**`php-app` 是 FPM，不能直接给浏览器访问；必须同时启动 nginx（默认发布 `HTTP_PORT=5184`）或改用后文的 `php artisan serve --port=8000` 方案。** 所有命令都在本 worktree 根目录执行。
+以下命令使用本批次 Compose project `factoryhr-t18`。**`php-app` 是 FPM，不能直接给浏览器访问；必须同时启动 nginx（Compose 读 `${HTTP_PORT:-5174}`，本批次显式 `export HTTP_PORT=5184`）或按 §2.3.4 改用宿主机 `php artisan serve --port=8000`（仅备选，主路径仍是 nginx 5184）。** 所有命令都在本 worktree 根目录执行。
 
 #### 2.3.1 启动 MySQL 8.4 / Redis / MinIO
 
 ```bash
 export COMPOSE_PROJECT_NAME=factoryhr-t18
-export T18_HTTP_PORT=5184
+export HTTP_PORT=5184
 export T18_FRONTEND_PORT=5185
 export DB_DATABASE=factoryhr_t18
 export DB_USERNAME=factoryhr_t18
@@ -217,12 +216,38 @@ php artisan serve --host=127.0.0.1 --port=8000
 
 ```bash
 cd frontend
-VITE_API_MODE=http VITE_API_BASE_URL=/v1 VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:8000 pnpm dev --host 127.0.0.1 --port 5185
+VITE_API_MODE=http VITE_API_BASE_URL=/v1 VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:5184 pnpm dev --host 127.0.0.1 --port 5185
 ```
 
 后端 CORS 仍必须包含 `http://127.0.0.1:5185`，`APP_URL=http://127.0.0.1:8000`（或实际对外地址）。如果无法发布依赖端口或无法保持隔离，**不要使用本备选**，回到 §2.3.2 的 php-app+nginx 路径。
 
-#### 2.3.5 健康检查顺序
+#### 2.3.5 端口变量一致性核对（执行前逐条检查）
+
+Compose 实际读取的是 **`HTTP_PORT`**，不是 `T18_HTTP_PORT`。必须执行：
+
+```bash
+export COMPOSE_PROJECT_NAME=factoryhr-t18
+export HTTP_PORT=5184
+export T18_FRONTEND_PORT=5185
+export VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:5184
+
+printf 'HTTP_PORT=%s\n' "$HTTP_PORT"
+printf 'proxy=%s\n' "$VITE_DEV_API_PROXY_TARGET"
+docker compose -p "$COMPOSE_PROJECT_NAME" -f deploy/compose/docker-compose.yml config   | grep -E 'published: "?5184|HTTP_PORT' || true
+```
+
+逐条核对：
+
+| 项 | 必须是 | 不允许 |
+|---|---|---|
+| Compose nginx 发布端口 | `${HTTP_PORT:-5174}` 被设为 `5184` | 使用 `T18_HTTP_PORT` 而不导出 `HTTP_PORT` |
+| SPA 同源入口 | `http://127.0.0.1:5184` | `http://127.0.0.1:8000`（除非走 §2.3.4 备选且已改全部命令） |
+| `/v1/health/live`、`/v1/health/ready`、`/v1/meta` | `http://127.0.0.1:5184/...` | 混用 8000/5174/5184 |
+| Vite dev server | `http://127.0.0.1:5185` | 5173/5174 |
+| Vite proxy | `VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:5184` | 8000/其他 worktree |
+| CORS | `HRMS_CORS_ALLOWED_ORIGINS` 含 `http://127.0.0.1:5185,http://localhost:5185` | `*` 或漏掉 5185 |
+
+#### 2.3.6 健康检查顺序
 
 必须按顺序记录，前一步失败不得跳下一步：
 
@@ -291,7 +316,7 @@ docker compose -p factoryhr-t18 exec -T php-app php backend/artisan hrms:install
 | 代号 | 角色 | 需要锚点 | 计划账号 | 构造状态与依赖 |
 |---|---|---|---|---|
 | R01 | `SYSTEM_ADMIN` | COMPANY | `t18.admin` | 可由 `hrms:install` 管理员承担；COMPANY 不需要 anchor_id |
-| R02 | `HR_ADMIN` | COMPANY | `t18.hr` | 可创建用户后由 `iam:bind-role` 绑定；仅 COMPANY 锚点，可执行 |
+| R02 | `HR_ADMIN` | COMPANY + CASE（`workflow.case.decide`） | `t18.hr` | **部分可构造**：COMPANY 授权可由 `iam:bind-role` 绑定；CASE 审批无法写 anchor_id，M20 CASE 审批 `BLOCKED` |
 | R03 | `ATTENDANCE_SPECIALIST` | ORG_UNIT + COMPANY | `t18.attendance` | **BLOCKED**：需要 ORG_UNIT anchor_id；现有命令/UI 都不能写 |
 | R04 | `PAYROLL_SPECIALIST` | PAYROLL_RUN + COMPANY | `t18.payroll` | **BLOCKED**：需要 PAYROLL_RUN anchor_id；现有命令/UI 都不能写 |
 | R05 | `PAYROLL_APPROVER` | PAYROLL_RUN + COMPANY | `t18.approver` | **BLOCKED**：需要 PAYROLL_RUN anchor_id；现有命令/UI 都不能写 |
@@ -299,6 +324,8 @@ docker compose -p factoryhr-t18 exec -T php-app php backend/artisan hrms:install
 | R07 | `EMPLOYEE` | SELF | `t18.employee` | 可创建用户后由 `iam:bind-role` 绑定；SELF 不需要 anchor_id；需绑定 A 的 employment |
 | R08 | `RECRUITER` | ORG_UNIT + CASE | `t18.recruiter` | **BLOCKED**：需要 ORG_UNIT/CASE anchor_id；现有命令/UI 都不能写 |
 | R09 | `AUDITOR` | COMPANY | `t18.auditor` | 可创建用户后由 `iam:bind-role` 绑定；仅 COMPANY 锚点，可执行 |
+
+**R02 例外：** `HR_ADMIN` 不是“仅 COMPANY”。它包含 `workflow.case.decide` 的 CASE 锚点；`iam:bind-role` 不写 anchor_id、`UserRoleDrawer` 不传 `binding_anchors`，所以 R02 的公司级能力可构造，但 M20 的 HR CASE 审批不可构造，必须 `BLOCKED`，依赖 T02/T19 的 anchor binding UI/命令；不得用 SYSTEM_ADMIN 或其他角色冒充。
 
 **口径：** R01–R07 是 7 个核心角色，R08–R09 是 2 个补充角色；`t18.unlinked-admin` 是 R01 的**变体**（COMPANY、无 employment link），不是 R10。`HR_SPECIALIST`、`TRAINING_ADMIN`、`BENEFITS_ADMIN`、`REPORT_VIEWER` 只作为模块可选代表角色，不计入 R01–R09 的 9 个验收角色；若临时使用，必须单独记录账号/锚点/证据，不能改变核心口径。
 
@@ -313,7 +340,7 @@ docker compose -p factoryhr-t18 exec -T php-app php backend/artisan hrms:install
 
 ### 3.2 用户与绑定
 
-对可构造角色（R01/R02/R06/R07/R09）：
+对可构造范围（R01/R06/R07/R09 完整构造；R02 仅 COMPANY 部分构造）：
 
 - 优先用 `/system/users` UI 创建用户（`username`、`email`、密码、可选 employment）；
 - R01 必须由 `hrms:install` 创建；`t18.unlinked-admin` 作为 R01 变体单独创建，确保无 employment link；
@@ -350,7 +377,7 @@ P. 审计事件
 
 ### 3.4 前置数据缺陷的处理
 
-- R03/R04/R05/R08：唯一处理是标 `BLOCKED`，写明依赖 T02/T19 的 anchor binding UI/命令；不提供 CLI/DB/API 替代步骤。
+- R02 的 CASE 审批、R03/R04/R05/R08：唯一处理是标 `BLOCKED`，写明依赖 T02/T19 的 anchor binding UI/命令；不提供 CLI/DB/API 替代步骤。R02 的 COMPANY 能力仍可执行。
 - 无法通过 UI 或已明确可执行的受控命令构造的其他前置数据：标 `BLOCKED`，写缺什么、为什么、影响哪些证据 ID。
 - 页面没有功能入口但 API 存在：标 `UNMAPPED`；不能用 API 结果判 PASS。
 - 不得为了继续执行而修改角色模板、权限、租户或数据库来“绕过”能力；任何前置修复必须有独立提交/记录，不能混入验收证据。
@@ -368,7 +395,7 @@ P. 审计事件
 cd frontend
 VITE_API_MODE=http \
 VITE_API_BASE_URL=/v1 \
-VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:8000 \
+VITE_DEV_API_PROXY_TARGET=http://127.0.0.1:5184 \
 pnpm dev --host 127.0.0.1 --port 5185
 ```
 
@@ -598,12 +625,13 @@ T18 不执行迁移恢复、备份恢复、最终 GO/NO-GO。将以下内容交�
 ```text
 docs/implementation/v24/18-mcp-acceptance/evidence/
   MCP-M01/
-    MCP-M01-001.md
-    MCP-M01-001/
+    P001/
+      MCP-M01-P001-001.md
       screenshot-01.png
       snapshot-01.txt
       network-01.txt
       request-id.txt
+    P002/
   MCP-M02/
   ...
   MCP-X01/
@@ -620,15 +648,15 @@ docs/implementation/v24/18-mcp-acceptance/evidence/
 示例：
 
 ```text
-MCP-M19-004-role-save-20261128T101500Z.png
-MCP-M19-004-role-save-network-20261128T101500Z.txt
-MCP-M13-007-calculate-result-20261128T113000Z.txt
+MCP-M19-P143-004-role-save-20261128T101500Z.png
+MCP-M19-P143-004-role-save-network-20261128T101500Z.txt
+MCP-M13-P089-007-calculate-result-20261128T113000Z.txt
 ```
 
 要求：
 
 - 时间使用 UTC；文件名不含空格、中文、密码、用户真实标识。
-- 一个证据项一个 Markdown 主记录；截图/网络/snapshot 放同编号子目录。
+- 一个证据项一个 Markdown 主记录；截图/网络/snapshot 放在同一 `P<入口三位>` 目录，文件名用证据 ID 前缀；不再创建第二层 `<证据ID>/` 子目录。
 - 失败证据和重试证据都要保留；不得覆盖。
 - 截图不得包含密码、cookie、token、真实 PII。
 
@@ -641,7 +669,7 @@ MCP-M13-007-calculate-result-20261128T113000Z.txt
 - 操作路径/Tab/按钮/输入；
 - 预期、实际、网络状态/请求 ID、截图/snapshot；
 - 刷新、重登、撤权结果；
-- 结论：PASS/FAIL/BLOCKED；
+- 结论：`NOT RUN`/PASS/FAIL/BLOCKED；
 - 若失败：缺陷 ID、最小复现、回补测试/实现、重试结果。
 
 ### 6.4 不得提交的内容
@@ -781,7 +809,7 @@ BLOCKED 必须写：
 T18 最终输出只能是：
 
 ```text
-T18: PASS / FAIL / BLOCKED / NOT RUN
+T18: NOT RUN / PASS / FAIL / BLOCKED
 HEAD:
 执行项:
 通过:
@@ -804,7 +832,7 @@ AC-21 判定:
 - [ ] `VITE_API_MODE=http`，不是 mock
 - [ ] MySQL/Redis/S3 为本批次隔离
 - [ ] 空库干净安装完成
-- [ ] R01–R09（7 核心 + 2 补充）已按 §3.1 核对：可构造的已登录，R03/R04/R05/R08 已按 BLOCKED 登记
+- [ ] R01–R09（7 核心 + 2 补充）已按 §3.1 核对：R01/R06/R07/R09 已登录，R02 公司级可用但 CASE 审批 BLOCKED，R03/R04/R05/R08 按 BLOCKED 登记
 - [ ] 合成数据 A/B/C、合同、薪酬、时间、批次、通知齐备
 - [ ] 浏览器 MCP 已连接并能截图/snapshot/网络记录
 

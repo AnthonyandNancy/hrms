@@ -1,7 +1,7 @@
 # FactoryHR V2.4 T18｜MCP 验收证据模板
 
 > 每个证据项复制本模板，保存为
-> `docs/implementation/v24/18-mcp-acceptance/evidence/<证据ID>/<证据ID>-<NNN>-<动作短名>-<UTC时间>.md`。
+> `docs/implementation/v24/18-mcp-acceptance/evidence/MCP-<模块>/P<入口三位>/<证据ID>-<NNN>-<动作短名>-<UTC时间>.md`（如 `evidence/MCP-M13/P089/`）。
 > 截图、snapshot、网络记录放同编号子目录，文件名使用同一 UTC 时间戳。
 > 不得写入密码、cookie、CSRF token、TOTP secret、真实个人数据。
 
@@ -11,7 +11,7 @@
 
 | 字段 | 值 |
 |---|---|
-| 证据 ID | `MCP-<模块/闭环>-NNN` |
+| 证据 ID | `MCP-<模块>-P<入口三位>-NNN`（如 `MCP-M13-P089-001`）；跨模块闭环用 `MCP-X01-NNN` |
 | 对应矩阵行 | `<模块>-<页面/动作/AC>` |
 | 场景 | `<导航/查询/筛选/分页/表单/提交/取消/审批/刷新/重登/撤权/异常/边界>` |
 | 验收项类型 | `<主流程/状态流程/权限差异/历史入口/跨模块闭环/安装/报表/导出>` |
@@ -138,11 +138,11 @@
 
 | 类型 | 路径 | 说明 |
 |---|---|---|
-| 截图 | `./screenshot-01.png` | `<页面/状态>` |
-| 页面 snapshot | `./snapshot-01.txt` | `<MCP 可访问性树/文本快照>` |
-| 网络记录 | `./network-01.txt` | `<method/path/status/request_id>` |
-| 请求 ID | `./request-id.txt` | `<仅 request_id>` |
-| 其他 | `./...` | `<日志摘要/导出文件名（脱敏）>` |
+| 截图 | `MCP-...-NNN-screenshot-01.png` | `<页面/状态>` |
+| 页面 snapshot | `MCP-...-NNN-snapshot-01.txt` | `<MCP 可访问性树/文本快照>` |
+| 网络记录 | `MCP-...-NNN-network-01.txt` | `<method/path/status/request_id>` |
+| 请求 ID | `MCP-...-NNN-request-id.txt` | `<仅 request_id>` |
+| 其他 | `MCP-...-NNN-<名称>.<ext>` | `<日志摘要/导出文件名（脱敏）>` |
 
 **截图/snapshot 自检：**
 
@@ -171,7 +171,7 @@
 | 最小复现 | `<步骤>` |
 | 回补测试 | `<文件/测试名/命令/结果>` |
 | 回补实现 | `<提交/文件/说明>` |
-| 重试证据 ID | `<MCP-...-重试>` |
+| 重试证据 ID | `<MCP-...-重试>`（新子编号，不覆盖旧证据） |
 | 是否阻断 T18 | `<是/否>` |
 
 **若 BLOCKED：**
@@ -199,7 +199,7 @@
 ## 11. 最小示例（仅为格式示例，不代表已执行）
 
 ```text
-证据 ID: MCP-M01-001
+证据 ID: MCP-M01-P001-001
 场景: 密码登录并进入工作台
 结论: NOT RUN
 环境: VITE_API_MODE=http; HEAD=<sha>; MySQL/Redis/MinIO=<隔离 project>

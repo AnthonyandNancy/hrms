@@ -61,11 +61,15 @@ OpenAPI：293 paths / 376 operations（/v1）
 
 本矩阵“执行结论”列一律 `NOT RUN`；`BLOCKED/UNMAPPED` 表示已知无法开始或无法唯一映射，不是执行结果。
 
+> **功能卡源：** 458 卡已提取、**权威性待确认**；不把源包当作已批准需求，也不把卡索引当作执行结果。
+
 ---
 
 ## 2. 21 模块总览
 
 > `证据 ID` 是模块级证据槽；实际每次操作使用 `<证据ID>-NNN` 子编号。`动作数` 只计数 generated action manifest；括号内为页面源码可见但未入 manifest 的写动作概数，详见 §4。
+>
+> **入口计数唯一口径：** §2 的“历史入口”与 §2.1、§4A 均按 **155 个入口号**归属；入口 141 归 M01（其源包页面 ID 仍为 `M19-P141`，源包页面归属 M19，仅作来源注记）。因此 M01=8、M19=6；源包页面数（M01=7、M19=7）不是本矩阵的入口计数。
 
 | 模块 | 名称 | 历史入口 | 卡片 | 当前页面 | 动作数 | 代表角色 | T/AC 映射 | 证据 ID | 执行结论 |
 |---|---|---:|---:|---:|---:|---|---|---|---|
@@ -90,7 +94,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | M19 | 用户、角色、菜单与细粒度权限 | 6 | 15 | 3 | 11 | SYSTEM_ADMIN,HR_ADMIN,AUDITOR,EMPLOYEE | T01,T02,T17,T18 / AC-03,05,18,21 | `MCP-M19` | `NOT RUN` |
 | M20 | 审批流程中心 | 2 | 7 | 2 | 4 (+2) | LINE_MANAGER,HR_ADMIN,PAYROLL_APPROVER,EMPLOYEE | T02,T07,T11,T13,T18 / AC-13,19,21 | `MCP-M20` | `NOT RUN` |
 | M21 | 公司基础设置与审计运维 | 3 | 6 | 2 | 6 | SYSTEM_ADMIN,AUDITOR,HR_ADMIN | T01,T02,T16,T18,T19 / AC-02,05,16,18,19,21,22 | `MCP-M21` | `NOT RUN` |
-| **合计** | **21 模块** | **155** | **458** | **37** | **132** | 7 类核心 + 2 补充角色 | T01–T19 + T20–T24(UNMAPPED) | `MCP-M01..M21` | **全部 NOT RUN** |
+| **合计** | **21 模块** | **155** | **458** | **37** | **132** | R01–R09（7 核心 + 2 补充；R02 部分可构造） | T01–T19 + T20–T24(UNMAPPED) | `MCP-M01..M21` | **全部 NOT RUN** |
 
 ### 2.1 模块入口编号（唯一、不重叠）
 
@@ -118,6 +122,8 @@ OpenAPI：293 paths / 376 operations（/v1）
 | M20 | 148,149 | 2 | `docs/superpowers/plans/2026-11-27-v2-3-m20-workflow.md` |
 | M21 | 152,153,155 | 3 | `docs/superpowers/plans/2026-11-27-v2-3-m21-platform-settings.md` |
 
+> **唯一入口口径：** 本表、§2 总览和 §4A 台账都按入口号归属：M01 含 141，M19 仅 142–147。`M19-P141` 只是源包页面 ID/页面归属，不改变入口 141 的 M01 计数。源包页面数 M01=7、M19=7 见 GAP-11，不与入口数混用。
+
 ## 3. 全局角色与前置数据
 
 ### 3.1 角色（R01–R09：7 核心 + 2 补充）
@@ -127,7 +133,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 代号 | 实际角色代码 | 锚点 | 验收账号（计划） | 构造状态 |
 |---|---|---|---|---|
 | R01 | `SYSTEM_ADMIN` | COMPANY（通配） | `t18.admin` / `t18.unlinked-admin` | 可执行；`hrms:install` 创建；unlinked 变体需无 employment link |
-| R02 | `HR_ADMIN` | COMPANY | `t18.hr` | 可执行；UI 创建 + `iam:bind-role`（仅 COMPANY） |
+| R02 | `HR_ADMIN` | COMPANY + CASE（`workflow.case.decide`） | `t18.hr` | **部分可构造**：COMPANY 授权可绑定；CASE 审批 `workflow.case.decide` 需 CASE anchor_id，现有 CLI/UI 不能写，M20 CASE 审批 `BLOCKED` |
 | R03 | `ATTENDANCE_SPECIALIST` | ORG_UNIT + COMPANY | `t18.attendance` | **BLOCKED**：现有 `iam:bind-role` 无法写 ORG_UNIT anchor_id；`UserRoleDrawer` 不传 `binding_anchors` |
 | R04 | `PAYROLL_SPECIALIST` | PAYROLL_RUN + COMPANY | `t18.payroll` | **BLOCKED**：现有命令无法写 PAYROLL_RUN anchor_id |
 | R05 | `PAYROLL_APPROVER` | PAYROLL_RUN + COMPANY | `t18.approver` | **BLOCKED**：现有命令无法写 PAYROLL_RUN anchor_id |
@@ -135,6 +141,8 @@ OpenAPI：293 paths / 376 operations（/v1）
 | R07 | `EMPLOYEE` | SELF | `t18.employee` | 可执行；SELF 不需要 anchor_id；需绑定 A 的 employment |
 | R08 | `RECRUITER` | ORG_UNIT + CASE | `t18.recruiter` | **BLOCKED**：现有命令无法写 ORG_UNIT/CASE anchor_id |
 | R09 | `AUDITOR` | COMPANY | `t18.auditor` | 可执行；只读审计 |
+
+**R02 的锚点边界：** `HR_ADMIN` 的多数授权是 COMPANY，但确有一条 `workflow.case.decide` 使用 CASE 锚点；`iam:bind-role --role=HR_ADMIN` 只写 `anchor_id=null`，不能构造 CASE 审批。故 R02 只能算“部分可构造”，公司级 HR 功能可验收，但 M20 的 HR CASE 审批必须 `BLOCKED`，依赖 T02/T19 补 anchor binding UI/命令；不得用 super admin 冒充 HR 审批。
 
 **R03/R04/R05/R08 的阻塞依赖：** 需要 T02/T19 增加 anchor binding UI 或命令，能够显式写入 `binding_anchors: {ORG_UNIT: <id>}`、`{PAYROLL_RUN: <id>}`、`{CASE: <id>}`。在这之前，**不得**用 `iam:bind-role`、`UserRoleDrawer`、手写 `authority_bindings`、SQL、demo seed 或任一 API 临时绕过；任何依赖这些角色的 MCP 项只能 `BLOCKED`。
 
@@ -153,7 +161,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | `T18-COMP-A/B` | 执行薪酬版本 | 与合同、方案、员工一致；金额整数分 |
 | `T18-SCHEME-M/H` | 月薪/计时方案 | 用于 AC-06 同批多方案 |
 | `T18-TIME-2026-11` | 考勤月度事实 | 含无薪假、已确认加班、出差/调休冲突样本 |
-| `T18-RUN-01` | 工资批次 | DRAFT→INPUT_LOCKED→CALCULATED；后续审批由独立账号完成 |
+| `T18-RUN-01` | 工资批次 | DRAFT→INPUT_LOCKED→CALCULATED（实际 `PayrollRunStatus`）；后续复核/审批/发布/发放/关闭由独立账号完成 |
 | `T18-RUN-CORR-01` | 更正批次 | 8080→8300→8350 的累计差额样本 |
 | `T18-LEAVE-01` | 已批准无薪假 | 用于 AC-08；取消后须实际补足出勤 |
 | `T18-OT-01` | 已确认加班 | 8 小时；PAY/TIMEOFF 只能选一个 |
@@ -185,7 +193,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | loading/empty/error/forbidden/partial；未绑定员工时 `employment_linked=false`；撤权/停用后旧标签页写请求 403/401；会话 Cookie HttpOnly，CSRF 不在 localStorage |
 | T/AC | T01、T02、T17、T18 / AC-01、AC-02、AC-03、AC-05、AC-18、AC-19、AC-21 |
 | 当前缺口 | 未绑定管理员账号未内置；MFA=true 的 challenge 路径需单独证据；工作台快捷入口只验证导航，不证明下游模块业务 |
-| 证据 ID / 结论 | `MCP-M01-*`；**NOT RUN**。前置 T17 未完成，且未绑定管理员数据未构造 |
+| 证据 ID / 结论 | `MCP-M01-Pxxx-NNN`；**NOT RUN**。前置 T17 未完成，且未绑定管理员数据未构造 |
 
 ### M02 首页仪表盘
 
@@ -200,7 +208,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 指标 `AVAILABLE/UNCONFIGURED/FORBIDDEN/UNAVAILABLE`；查询失败不得显示 0；无薪酬字段权限时金额不可见/不可反推；部门下钻受范围限制 |
 | T/AC | T16、T17、T18 / AC-16、AC-18、AC-19、AC-21 |
 | 当前缺口 | 指标 status 与 OpenAPI 旧 schema 存在漂移风险（见 gap-log）；当前页面无 action manifest，只有读模型证据 |
-| 证据 ID / 结论 | `MCP-M02-*`；**NOT RUN**。前置 T16/T17 未完成 |
+| 证据 ID / 结论 | `MCP-M02-Pxxx-NNN`；**NOT RUN**。前置 T16/T17 未完成 |
 
 ### M03 报表与导出中心
 
@@ -215,7 +223,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 报表运行失败不得显示空表；导出字段白名单；创建后被撤字段权限再下载 403；订阅者撤权后跳过/失败；分页/筛选/as-of 保持 |
 | T/AC | T16、T17、T18 / AC-05、AC-16、AC-18、AC-19、AC-21 |
 | 当前缺口 | 页面写动作未入 manifest；订阅/取消/重试是否有当前 UI 需 MCP 确认；无定义/无数据状态必须单独造数；未确认的订阅卡片入口标 UNMAPPED，不猜写 |
-| 证据 ID / 结论 | `MCP-M03-*`；**NOT RUN**。前置 T16/T17 未完成，订阅卡片明细缺失 |
+| 证据 ID / 结论 | `MCP-M03-Pxxx-NNN`；**NOT RUN**。前置 T16/T17 未完成，订阅卡片明细缺失 |
 
 ### M04 员工档案
 
@@ -230,7 +238,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 员工建档原子（Person/Employment/Assignment/Terms）；同名不误绑；跨组织访问 404；字段裁剪；归档/恢复版本；子档案 retire append-only；刷新保留筛选/分页/选中 |
 | T/AC | T03、T04、T05、T17、T18 / AC-04、AC-05、AC-07、AC-18、AC-20、AC-21 |
 | 当前缺口 | “新增员工”实际 API 未入 action manifest；员工档案没有“培训记录”Tab（M17 计划要求只读培训入口），见 gap-log；导入/导出动作需 MCP 验证 |
-| 证据 ID / 结论 | `MCP-M04-*`；**NOT RUN**。前置 T05/T17 未完成 |
+| 证据 ID / 结论 | `MCP-M04-Pxxx-NNN`；**NOT RUN**。前置 T05/T17 未完成 |
 
 ### M05 部门与组织结构
 
@@ -245,7 +253,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 禁止组织环；有在岗人员不可硬删；移动影响预览；as-of 历史归属不漂移；组织越权 403/404 |
 | T/AC | T02、T17、T18 / AC-03、AC-04、AC-05、AC-16、AC-18、AC-20、AC-21 |
 | 当前缺口 | 成员添加/编制写命令未完整入 manifest；`POST /v1/org-units` 可能已 legacy，本矩阵不将其作为当前动作 |
-| 证据 ID / 结论 | `MCP-M05-*`；**NOT RUN**。前置 T17 未完成，写动作映射待网络证据核实 |
+| 证据 ID / 结论 | `MCP-M05-Pxxx-NNN`；**NOT RUN**。前置 T17 未完成，写动作映射待网络证据核实 |
 
 ### M06 岗位、职级和任职资格
 
@@ -260,7 +268,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 重复 code 409；在用岗位停用 409；资格版本追加/不可原地改；无职级/无组织时 unconfigured；建议薪酬不自动进入工资 |
 | T/AC | T03、T04、T17、T18 / AC-04、AC-06、AC-09、AC-14、AC-18、AC-21 |
 | 当前缺口 | 岗位停用/编制写动作的 manifest 与页面按钮需逐项核对；本矩阵不伪造额外 action key |
-| 证据 ID / 结论 | `MCP-M06-*`；**NOT RUN**。前置 T17 未完成 |
+| 证据 ID / 结论 | `MCP-M06-Pxxx-NNN`；**NOT RUN**。前置 T17 未完成 |
 
 ### M07 员工入转调离与异动
 
@@ -275,7 +283,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 审批决定≠执行；Effect 失败可见可重试；未来生效不提前；重复提交/决定幂等或 409；审批前不生成 ACTIVE 版本；撤回原因；详情旧链接受权限 |
 | T/AC | T03、T04、T05、T17、T18 / AC-04、AC-09、AC-13、AC-15、AC-20、AC-21 |
 | 当前缺口 | 详情页实际动作未入 manifest/registry；入职新链路与 T05 尚未完成；页面入口无法稳定打开时标 `BLOCKED`，不猜动作 |
-| 证据 ID / 结论 | `MCP-M07-*`；**NOT RUN**。前置 T05/T17 未完成 |
+| 证据 ID / 结论 | `MCP-M07-Pxxx-NNN`；**NOT RUN**。前置 T05/T17 未完成 |
 
 ### M08 劳动合同
 
@@ -290,7 +298,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 同员工合同有效期不重叠；未来生效不提前；终止不可逆；合同约定薪酬与实际执行薪酬分离；跨员工详情拒绝；模板版本不可原地改 |
 | T/AC | T03、T04、T17、T18 / AC-04、AC-09、AC-13、AC-20、AC-21 |
 | 当前缺口 | **manifest 声明 `activate`，但当前 `ContractDetailPage.vue` 只导入 amend/terminate，页面无 activate 按钮**；模板动作未入 manifest。若 UI 无激活入口，标 `UNMAPPED/BLOCKED`，不得用 API 代替 UI 验收 |
-| 证据 ID / 结论 | `MCP-M08-*`；**NOT RUN**。前置 T17 未完成，action/UI 一致性待 MCP 核实 |
+| 证据 ID / 结论 | `MCP-M08-Pxxx-NNN`；**NOT RUN**。前置 T17 未完成，action/UI 一致性待 MCP 核实 |
 
 ### M09 考勤打卡与月结
 
@@ -305,7 +313,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 时间事实唯一；关账生成冻结版本；已计薪事实只走更正；无设备/无规则 unconfigured；班次跨夜；补卡有 case；关账/重开不可非法跳转 |
 | T/AC | T06、T07、T08、T17、T18 / AC-08、AC-10、AC-18、AC-19、AC-21 |
 | 当前缺口 | 当前页面/API **没有独立“本人打卡写入”端点**（只有读、导入、更正、关账）；历史“打卡”卡片入口需 MCP 导航确认，无则为 `UNMAPPED`；原始打卡导出 action 未入 manifest |
-| 证据 ID / 结论 | `MCP-M09-*`；**NOT RUN**。R03 锚点未构造，T06 状态冲突见 gap-log |
+| 证据 ID / 结论 | `MCP-M09-Pxxx-NNN`；**NOT RUN**。R03 锚点未构造，T06 状态冲突见 gap-log |
 
 ### M10 请假与假期余额
 
@@ -320,7 +328,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 带薪属性来自规则版本；本人 subject 只能 SELF；代申请必须显式选择授权员工；跨月按天拆分；重复 code 409；撤销/销假与工资冻结保护；余额账本重放 |
 | T/AC | T06、T07、T17、T18 / AC-05、AC-08、AC-10、AC-13、AC-21 |
 | 当前缺口 | 两张预览接口未入 registry `requiredApis`；代申请 UI 需 employee selector；R03 未构造；卡明细见 `458-card-index.md`（源包待确认） |
-| 证据 ID / 结论 | `MCP-M10-*`；**NOT RUN**。前置 T07/T17 未完成，R03 未构造 |
+| 证据 ID / 结论 | `MCP-M10-Pxxx-NNN`；**NOT RUN**。前置 T07/T17 未完成，R03 未构造 |
 
 ### M11 加班与调休
 
@@ -335,7 +343,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 申请时长≠可付时长；PAY/TIMEOFF 互斥，不能重复结算；重复确认 409/幂等；冻结工资期间不可结算；调休余额只能由流水产生 |
 | T/AC | T06、T08、T17、T18 / AC-05、AC-10、AC-13、AC-21 |
 | 当前缺口 | R03 未构造；T08/T17 未完成；卡明细见 `458-card-index.md`（源包待确认）；结算与工资冻结的真实数据未构造 |
-| 证据 ID / 结论 | `MCP-M11-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M11-Pxxx-NNN`；**NOT RUN** |
 
 ### M12 出差管理
 
@@ -350,7 +358,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 出差/请假/打卡/加班不重叠；费用与工资补贴不重复；重复申请 409；审批权限；统计与明细同口径 |
 | T/AC | T06、T08、T17、T18 / AC-10、AC-13、AC-16、AC-21 |
 | 当前缺口 | T08/T17 未完成；审批锚点/数据依赖待网络验证；卡明细见 `458-card-index.md`（源包待确认） |
-| 证据 ID / 结论 | `MCP-M12-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M12-Pxxx-NNN`；**NOT RUN** |
 
 ### M13 薪酬核算
 
@@ -362,10 +370,10 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 页面可见但未入 manifest | 输入 `GET /runs/{id}/inputs`、对账 `GET /runs/{id}/reconciliation`、银行/税务导出、员工档案/调整读取（source-only 读/导出） |
 | 当前 API（写） | `POST /v1/payroll/runs`、`POST /v1/payroll/runs/{id}/{lock-inputs,calculate,review,approve,publish,cancel,reopen,corrections,mark-paid,close}`、`POST /v1/payroll/items`、`POST /v1/payroll/items/{id}/versions|retire`、`POST /v1/payroll/schemes`、`POST /v1/payroll/employee-plans`；读：runs、detail、employees、inputs、reconciliation、exports、items、schemes、employee-plans、adjustments、payslips、reports |
 | 角色/前置 | R04/R05/R09/R07；方案 M/H、合同/执行薪酬、闭合时间事实、法定参数、员工 A/B、`T18-RUN-01`、`T18-RUN-CORR-01`；R05 需要 PAYROLL_RUN 锚点 |
-| 状态/边界 | DRAFT→INPUT_LOCKED→CALCULATING→CALCULATED/CALCULATED_WITH_BLOCKERS→REVIEWED→APPROVED；发布/发放正交；缺 closed time fact/基础薪酬/社保参数阻断；已发布不可覆盖；更正累计差额；YTD signed；金额整数分、页面两位小数；对象 `allowed_actions` |
+| 状态/边界 | DRAFT→INPUT_LOCKED→CALCULATED→REVIEWED→APPROVED→PUBLISHED→PAID→CLOSED（另有 CANCELLED）；状态以 `PayrollRunStatus` 实际枚举为准；发布/发放正交；缺 closed time fact/基础薪酬/社保参数阻断；已发布不可覆盖；更正累计差额；YTD signed；金额整数分、页面两位小数；对象 `allowed_actions` |
 | T/AC | T09–T13、T17、T18 / AC-05–09、11–14、16、18–21 |
 | 当前缺口 | master plan 表将 T09–T13 标 PENDING；V2.3 设计称“7 类工作区”，当前实现为 4 Tab + 配置子区；R05 锚点缺失；部分动作只在 manifest 声明，需 MCP 确认按钮与状态机一致；49 卡见 `458-card-index.md`（源包待确认） |
-| 证据 ID / 结论 | `MCP-M13-*`；**NOT RUN**。**T09–T13/T17 未完成，不得开始最终 MCP 判定** |
+| 证据 ID / 结论 | `MCP-M13-Pxxx-NNN`；**NOT RUN**。**T09–T13/T17 未完成，不得开始最终 MCP 判定** |
 
 ### M14 社保公积金与福利
 
@@ -380,7 +388,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 参数唯一主源；个人/单位金额进入 Cost；一员工一期一计划；重复冲销 409；已发布快照不因费率更新漂移；无参数/无计划 unconfigured |
 | T/AC | T09、T14、T18 / AC-06、AC-07、AC-14、AC-20、AC-21 |
 | 当前缺口 | 法定参数写动作未入 manifest/registry action；BENEFITS_ADMIN 未 seed；T14 未完成；卡明细见 `458-card-index.md`（源包待确认）；旧 `/payroll/statutory` 必须验证 404 |
-| 证据 ID / 结论 | `MCP-M14-*`；**NOT RUN**。前置 T14 未完成，BENEFITS_ADMIN/参数数据未构造 |
+| 证据 ID / 结论 | `MCP-M14-Pxxx-NNN`；**NOT RUN**。前置 T14 未完成，BENEFITS_ADMIN/参数数据未构造 |
 
 ### M15 绩效考核
 
@@ -395,7 +403,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 未批准/未映射/草稿结果不发钱；发布后只读；申诉只针对已发布结果；权重/评分/重复 code 校验；结果快照不可变 |
 | T/AC | T09、T15、T17、T18 / AC-13、AC-14、AC-15、AC-20、AC-21 |
 | 当前缺口 | 详情写动作未入 manifest/registry；T15/T17 未完成；卡明细见 `458-card-index.md`（源包待确认）；绩效发布映射工资仍待 T14/T15 |
-| 证据 ID / 结论 | `MCP-M15-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M15-Pxxx-NNN`；**NOT RUN** |
 
 ### M16 招聘需求与候选人
 
@@ -410,7 +418,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 关闭需求拒绝新申请/面试/Offer；Offer 转一个员工；招聘→员工→合同→薪酬可追溯；未批准/未映射结果不得进入工资；候选人越权 404 |
 | T/AC | T05、T15、T17、T18 / AC-04、AC-13、AC-14、AC-15、AC-21 |
 | 当前缺口 | R08 无 CASE 锚点时 v2.1 UAT 明确 BLOCKED-FIXTURE；Offer/面试部分写动作未入 manifest；T15/T17 未完成；43 卡明细见 `458-card-index.md`（源包待确认） |
-| 证据 ID / 结论 | `MCP-M16-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M16-Pxxx-NNN`；**NOT RUN** |
 
 ### M17 培训管理
 
@@ -425,7 +433,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 未报名不能签到/考试；取消后名额释放；来源闭环；记录只来自有效报名/签到/考试；不默认改岗位或发钱 |
 | T/AC | T15、T17、T18 / AC-15、AC-18、AC-21 |
 | 当前缺口 | **员工档案无培训记录 Tab**（V2.3 M17 Task 5 要求只读入口；当前 EmployeeDetailPage/EmployeeTabs 仅 8 Tab），标 `UNMAPPED/BLOCKED`；大量写动作未入 manifest；36 卡已入 `458-card-index.md`；T17 未完成 |
-| 证据 ID / 结论 | `MCP-M17-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M17-Pxxx-NNN`；**NOT RUN** |
 
 ### M18 公告与通知
 
@@ -440,7 +448,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 有效受众才可见；重复投递不重复；工资通知不暴露金额；撤回/撤权/过期旧链接失效；未发布不对受众展示；外部投递失败可重试 |
 | T/AC | T16、T17、T18 / AC-05、AC-17、AC-18、AC-19、AC-21 |
 | 当前缺口 | 公告回执/通知已读未入 manifest；通知外部 channel 显示 unavailable；T16/T17 未完成；无 17 卡明细 |
-| 证据 ID / 结论 | `MCP-M18-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M18-Pxxx-NNN`；**NOT RUN** |
 
 ### M19 用户、角色、菜单与细粒度权限
 
@@ -455,7 +463,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 页面/动作/范围/字段同源；内置角色只读/可复制；授权原子保存；expected_version 409；不能自我越权；撤权后旧标签页下次写 403；删除最后管理员 409 |
 | T/AC | T01、T02、T17、T18 / AC-03、AC-05、AC-18、AC-21 |
 | 当前缺口 | **角色分配 API 要求 `binding_anchors`，`UserRoleDrawer` 未提供锚点输入**；PAYROLL_APPROVER/RECRUITER/ATTENDANCE_SPECIALIST 无法通过当前 UI 完整构造，标 `BLOCKED`（详见 gap-log）；V2.3 摘要 M19 写 6 入口、附录 A 写 7 页，冲突；15 卡明细见 `458-card-index.md`（源包待确认） |
-| 证据 ID / 结论 | `MCP-M19-*`；**NOT RUN**。锚点 UI 缺口是角色验收前置阻塞 |
+| 证据 ID / 结论 | `MCP-M19-Pxxx-NNN`；**NOT RUN**。锚点 UI 缺口是角色验收前置阻塞 |
 
 ### M20 审批流程中心
 
@@ -470,7 +478,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 审批通过≠业务写入；Effect 失败可见可重试；重复决定/重试幂等；非 assignee 拒绝；决定后内容变化需重审；旧标签撤权 |
 | T/AC | T02、T07、T11、T13、T18 / AC-13、AC-19、AC-21 |
 | 当前缺口 | 详情页动作 registry 为空，但实际控件存在；T11/T13 未完成；7 卡明细见 `458-card-index.md`（源包待确认）；模板版本是否可新建/发布需 MCP 验证 |
-| 证据 ID / 结论 | `MCP-M20-*`；**NOT RUN** |
+| 证据 ID / 结论 | `MCP-M20-Pxxx-NNN`；**NOT RUN** |
 
 ### M21 公司基础设置与审计运维
 
@@ -485,7 +493,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 状态/边界 | 新库唯一管理员/零业务 demo；生产拒绝 demo/reset；健康 reports migrations/installation/administrator；审计字段 allow-list；原始技术码仅管理员技术明细；备份/恢复不得用当前 UI 伪造 |
 | T/AC | T01、T02、T16、T18、T19 / AC-02、AC-05、AC-16、AC-18、AC-19、AC-21、AC-22 |
 | 当前缺口 | 6 卡汇总包含安装/升级/备份恢复，但当前 MCP 后台**没有备份/恢复/升级 UI**；这些能力只能由 T19 真实栈/运维证据覆盖，T18 标 `BLOCKED/UNMAPPED`。审计健康页明确 backup unavailable |
-| 证据 ID / 结论 | `MCP-M21-*`；**NOT RUN**。备份/恢复/升级卡片不在本页 MCP 可执行范围 |
+| 证据 ID / 结论 | `MCP-M21-Pxxx-NNN`；**NOT RUN**。备份/恢复/升级卡片不在本页 MCP 可执行范围 |
 
 ---
 
@@ -635,7 +643,7 @@ OpenAPI：293 paths / 376 operations（/v1）
 | 138 | M18 | M18-P138 | M18-P138-F01–M18-P138-F02 | FOLD：旧 /notices/audience → /notices（notices）；旧 URL 直达 catch-all /not-found | engagement.notices.audience-preview；受众保存 source-only | R02 / R06 / R07 / R09 | T18-NOTICE-01,T18-NOTICE-TPL-01,T18-NOTIF-01 | 上游 IAM/Org/Workflow；下游通知、工作台、报表 | T16,T17,T18 / AC-05,17,18,19,21 | 入口 138「公告发布范围」执行后出现/完成：选择公告接收部门/角色/指定员工；预览受众人数。判据：受众范围需按发布时有效组织关联计算。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M18/P138/ | NOT RUN | — |
 | 139 | M18 | M18-P139 | M18-P139-F01–M18-P139-F03 | FOLD：旧 /notices/reads → /notices（notices）；旧 URL 直达 catch-all /not-found | 读取 reads；remind；回执/阅读 source-only | R02 / R06 / R07 / R09 | T18-NOTICE-01,T18-NOTICE-TPL-01,T18-NOTIF-01 | 上游 IAM/Org/Workflow；下游通知、工作台、报表 | T16,T17,T18 / AC-05,17,18,19,21 | 入口 139「公告阅读记录」执行后出现/完成：公告详情阅读/未阅读人数；回执列表；催阅。判据：阅读记录是原公告投递对象的回执。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M18/P139/ | NOT RUN | 回执列表 source-only；remind 已入 manifest |
 | 140 | M18 | M18-P140 | M18-P140-F01–M18-P140-F03 | FOLD：旧 /notices/templates → /notices（notices）；旧 URL 直达 catch-all /not-found | engagement.notice-templates.create | R02 / R06 / R07 / R09 | T18-NOTICE-01,T18-NOTICE-TPL-01,T18-NOTIF-01 | 上游 IAM/Org/Workflow；下游通知、工作台、报表 | T16,T17,T18 / AC-05,17,18,19,21 | 入口 140「公告模板」执行后出现/完成：公告模板列表；创建/编辑 Dialog；停用与复制。判据：公告草稿引用模板时保留版本。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M18/P140/ | NOT RUN | — |
-| 141 | M19 | M19-P141 | M19-P141-F01–M19-P141-F02 | KEEP：/account（account） | account 动作（见 M01-P005/P006；密码/会话） | R01 / R02 / R09 AUDITOR / R07 | T18-USERS,T18-ROLE-TPL,T18-ORG-01,T18-RUN-01 | 上游 IAM/Org；下游全部页面/API/导出授权 | T01,T02,T17,T18 / AC-03,05,18,21 | 入口 141「登录与账号安全」执行后出现/完成：账号密码修改；会话与账号设置导航。判据：单公司不增加 SSO/租户选择；MFA 仅可选。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M19/P141/ | NOT RUN | — |
+| 141 | M01 | M19-P141 | M19-P141-F01–M19-P141-F02 | KEEP：/account（account；源包页面归属 M19，入口归属按 §2.1 计 M01） | account 动作（见 M01-P005/P006；密码/会话） | R01 / R02 / R09 AUDITOR / R07 | T18-USERS,T18-ROLE-TPL,T18-ORG-01,T18-RUN-01 | 上游 IAM/Org；下游全部页面/API/导出授权 | T01,T02,T17,T18 / AC-03,05,18,21 | 入口 141「登录与账号安全」执行后出现/完成：账号密码修改；会话与账号设置导航。判据：单公司不增加 SSO/租户选择；MFA 仅可选。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M19/P141/ | NOT RUN | — |
 | 142 | M19 | M19-P142 | M19-P142-F01–M19-P142-F04 | KEEP：/system/users（system-users） | system.users.create / update / assign.role（锚点 UI 缺失，GAP-05） | R01 / R02 / R09 AUDITOR / R07 | T18-USERS,T18-ROLE-TPL,T18-ORG-01,T18-RUN-01 | 上游 IAM/Org；下游全部页面/API/导出授权 | T01,T02,T17,T18 / AC-03,05,18,21 | 入口 142「用户管理」执行后出现/完成：用户列表；账号启停/重置密码；绑定员工；…共4卡。判据：用户与员工不必强制一对一；管理员不能自我越权授权。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M19/P142/ | NOT RUN | GAP-05：角色分配 UI 无 binding_anchors；R03/R05/R08 BLOCKED |
 | 143 | M19 | M19-P143 | M19-P143-F01–M19-P143-F03 | KEEP：/system/roles（system-roles） | system.roles.create / copy / rename / delete / save-authorization | R01 / R02 / R09 AUDITOR / R07 | T18-USERS,T18-ROLE-TPL,T18-ORG-01,T18-RUN-01 | 上游 IAM/Org；下游全部页面/API/导出授权 | T01,T02,T17,T18 / AC-03,05,18,21 | 入口 143「角色管理」执行后出现/完成：角色列表；新建/复制/停用 Dialog；中文授权工作区四个维度。判据：授权保存原子操作；代码与 ADR 不显示业务界面。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M19/P143/ | NOT RUN | — |
 | 144 | M19 | M19-P144 | M19-P144-F01 | FOLD：旧 /system/menus → /system/pages（system-pages）；旧 URL 直达 catch-all /not-found | system.pages.menu.create / update / reset | R01 / R02 / R09 AUDITOR / R07 | T18-USERS,T18-ROLE-TPL,T18-ORG-01,T18-RUN-01 | 上游 IAM/Org；下游全部页面/API/导出授权 | T01,T02,T17,T18 / AC-03,05,18,21 | 入口 144「菜单/页面管理」执行后出现/完成：菜单目录树，名称/顺序/图标/隐藏/路由配置。判据：删除或隐藏菜单不自动删除动作能力。刷新后仍为同一授权范围/状态；无权限或跨范围直接请求被拒绝且不产生数据；失败显示中文与 request_id，不显示空/0。 | evidence/MCP-M19/P144/ | NOT RUN | — |
@@ -681,7 +689,7 @@ FOLD：120；KEEP：35（与 V2.3 处置矩阵一致）
 | M10 | 本人 subject 固定 SELF；代申请显式选择员工且 actor≠subject；预览与提交结果一致；余额变化有流水；跨月按天拆分；已结算撤销走修正流程；无权限角色看不到代申请 | 可选他人 subject、余额直接改总数、已结算静默撤销即 FAIL |
 | M11 | 本人/代申请按角色；确认记录确认人；PAY/TIMEOFF 互斥且只结算一次；调休余额由流水产生；冻结工资期间结算被拒；重复确认幂等/409 | 双重结算、余额手改、冻结期静默补发即 FAIL |
 | M12 | 出差日期与请假/打卡/加班不重叠；审批只给真实待办人；变更/销单保留历史；费用登记关联出差单且不等于银行支付；统计与明细同口径 | 重复日期、超管任意审批、费用重复/冒充支付即 FAIL |
-| M13 | 批次状态按 DRAFT→INPUT_LOCKED→CALCULATING→CALCULATED→REVIEWED→APPROVED 推进；缺来源显示阻断原因而非 0；月薪 A 金额 8000/380/600/500/9480/400/1400/8080/9980 可逐项核对；月中 10 天 8000+10 天 9000=8500；更正累计 +220 再 +50；发布/发放正交；SELF 只看本人已发布；金额整数分/界面两位小数 | 任一金额不符、覆盖已发布、缺来源显示 0、SELF 越权、重复发放即 FAIL |
+| M13 | 批次状态按实际 `PayrollRunStatus`：DRAFT→INPUT_LOCKED→CALCULATED→REVIEWED→APPROVED→PUBLISHED→PAID→CLOSED（CANCELLED 为终态分支）推进；缺来源显示阻断原因而非 0；月薪 A 金额 8000/380/600/500/9480/400/1400/8080/9980 可逐项核对；月中 10 天 8000+10 天 9000=8500；更正累计 +220 再 +50；发布/发放正交；SELF 只看本人已发布；金额整数分/界面两位小数 | 任一金额不符、覆盖已发布、缺来源显示 0、SELF 越权、重复发放即 FAIL |
 | M14 | 法定参数只一个主源；福利方案/参保/流水按员工与期间唯一；个人/单位金额进入工资 Cost；重复冲销 409；已发布快照不因费率更新漂移；无参数时阻断并说明 | 第二套参数写入口、历史批次漂移、重复冲销即 FAIL |
 | M15 | 周期/模板/指标/目标/评分/校准/结果/申诉按周期+员工归属；员工仅自评；主管仅 MANAGED；提交后无痕修改被拒；发布后冻结；仅已发布结果可申诉；草稿不进报表/工资 | 草稿发钱、发布后可改、越权评分/申诉即 FAIL |
 | M16 | 需求受编制/部门约束；审批人是真实待办；Offer 关联候选人+需求；同一 Offer 两次转入职只建一个员工；面试/评价只对真实参与者；关闭需求拒绝新流程；候选人详情可深链 | 重复建档、需求关闭后仍可 Offer、非面试官评价即 FAIL |
@@ -798,7 +806,7 @@ FOLD：120；KEEP：35（与 V2.3 处置矩阵一致）
 11. 重新登录：会话结束后回到 login，不泄露敏感数据。
 12. 证据归档：截图、snapshot、network、实际步骤、结论、缺陷编号全部写入模板。
 
-> 以上是每模块最低要求；AC-21 还要求覆盖 155 个历史入口 dispositions、458 卡（若提供源）和 12 个跨模块闭环。
+> 以上是每模块最低要求；AC-21 还要求覆盖 155 个历史入口 dispositions、458 卡（已提取、权威性待确认）和 12 个跨模块闭环。
 
 ---
 
