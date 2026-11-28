@@ -80,7 +80,7 @@
 | T02 | 权限单一目录与对象动作 | COMPLETE | Step 5 | `docs/implementation/v24/02-action-catalog/evidence.md`; gate log |
 | T03 | 合同约定版本 | COMPLETE | Step 5 | `docs/implementation/v24/03-contracts/evidence.md` |
 | T04 | 员工执行薪酬版本 | COMPLETE | Step 5 | `docs/implementation/v24/04-compensation-chain/evidence.md` |
-| T05 | 单一入职与合同/薪酬待办 | IN PROGRESS | T05a Complete; T05b PENDING | `a304379` merged; `docs/implementation/v24/05-onboarding/implementation-report.md` |
+| T05 | 单一入职与合同/薪酬待办 | COMPLETE | T05a + T05b | `da57e57`; `docs/implementation/v24/05-onboarding/implementation-report.md`; `gate-all-t05b.log` |
 | T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
 | T07 | 请假审批 Effect 与净流水 | BLOCKED | T07a/T07b/T07c 拆分；分支未合并 | `27a8b5c` on `v24-t07-leave-effects`; review findings |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
@@ -109,7 +109,8 @@
 | 2026-11-28 | T18 acceptance assets | merged 1517c56 | 155/458 matrix, 21-module runbook and evidence index merged; all MCP conclusions NOT RUN; R02–R05/R08 anchor setup BLOCKED | T18 remains IN PROGRESS until real MCP execution. |
 | 2026-11-28 | T05 re-scope | Mini Plan created | Legacy direct onboarding will become a Lifecycle facade in three small steps; contract/compensation drafts deferred to T05b | Execute after current parallel branches merge; do not claim T05 complete. |
 | 2026-11-28 | T06 final gate | clean `pnpm gate:all` on merged main | 22 gates PASS in 344.3s; log `docs/implementation/v24/06-time-facts/gate-all-final.log` | T06 approved-with-risk; MySQL concurrency/T19 outstanding. |
-| 2026-11-28 | T05a onboarding merge | `a304379` + full gate | 22 gates PASS in 272.6s; encrypted PII draft, 202 pending Case, capability/org scope, pending dedup; log `docs/implementation/v24/05-onboarding/gate-all.log` | T05b contract/compensation drafts remain. |
+| 2026-11-28 | T05a onboarding merge | `a304379` + full gate | 22 gates PASS in 272.6s; encrypted PII draft, 202 pending Case, capability/org scope, pending dedup; log `docs/implementation/v24/05-onboarding/gate-all.log` | T05b followed. |
+| 2026-11-28 | T05b contract/comp drafts | `da57e57` + full gate | 22 gates PASS in 225.1s; contract DRAFT+CREATION version and compensation DRAFT linked to case/contract; rollback test; log `docs/implementation/v24/05-onboarding/gate-all-t05b.log` | T05 complete; payroll activation remains T09/T11. |
 | 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T05b/T07/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Do not merge blocked branches wholesale; resume from split tasks and rerun each gate. |
 
 ---

@@ -14,7 +14,7 @@ The current branch contains a stable, reviewed foundation (T00–T04, hardened T
 
 It is **not** a completed V2.4 business delivery:
 
-- T05a single-entry onboarding is merged; its T05b contract/compensation drafts are still missing.
+- T05a/T05b onboarding, contract draft and compensation draft are merged.
 - T07 leave effects and T16 notification/report work exist only in isolated branches and are not merged.
 - T08–T15, T17, and T19 have not been implemented.
 - No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
@@ -31,7 +31,7 @@ It is **not** a completed V2.4 business delivery:
 | T03 contract agreed versions | COMPLETE | `docs/implementation/v24/03-contracts/evidence.md` | MySQL trigger/UI waits for T19/T17 |
 | T04 execution compensation link | COMPLETE | `docs/implementation/v24/04-compensation-chain/evidence.md` | Snapshot still reads terms until T09 |
 | T06 monthly Time fact versions | COMPLETE / Approved-with-risk | `docs/implementation/v24/06-time-facts/implementation-report.md`; final gate | MySQL true concurrency deferred to T19; complete workday coverage deferred to T09 |
-| T05a single onboarding entry | COMPLETE | `docs/implementation/v24/05-onboarding/implementation-report.md`; gate `docs/implementation/v24/05-onboarding/gate-all.log` | PII draft, capability/org scope, 202 pending Case; T05b not included |
+| T05 onboarding/contract/compensation | COMPLETE | `docs/implementation/v24/05-onboarding/implementation-report.md`; gates `gate-all.log`, `gate-all-t05b.log` | T05b included; payroll activation/approval is T09/T11 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
 ### Full gate result
@@ -46,14 +46,6 @@ This proves the merged technical foundation passes the existing automated gates.
 
 These branches are intentionally **not merged** because independent review found Critical issues.
 
-### T05b contract/compensation drafts — PENDING
-
-- T05a is merged as `a304379` after full-gate PASS.
-- `/v1/employees/onboard` and canonical `/v1/lifecycle/onboarding` create a
-  pending Lifecycle Case and encrypt person PII in a People-owned draft.
-- T05b remains: approved onboarding must create the contract and execution
-  compensation drafts with the confirmed terms.
-- Re-entry plan: `docs/superpowers/plans/2026-11-28-t05a-single-onboarding-entry-mini-plan.md`; T05b contract/compensation drafts remain untouched.
 
 ### T07 leave Workflow effects — BLOCKED
 
@@ -107,7 +99,7 @@ These branches are intentionally **not merged** because independent review found
 | AC-01 traceability | ❌ NOT ACCEPTED | 155/458/T01–T19 assets exist, but T20–T24 unmapped and execution is NOT RUN |
 | AC-02 clean install | ❌ NOT ACCEPTED | Installer tests pass; no real-stack/browser proof |
 | AC-03 roles/login | ❌ NOT ACCEPTED | Existing IAM only; no five+ role MCP evidence |
-| AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04 and T05a onboarding merged; T05b contract/compensation draft missing |
+| AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04/T05 merged; MCP/real-stack evidence still missing |
 | AC-05 permission/field isolation | ❌ PARTIAL | T02 catalog/actions merged; T16 report leakage unresolved |
 | AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
 | AC-07 payroll sample 9480/1400/8080/9980 | ❌ NOT MET | T09/T10 not implemented |
@@ -130,7 +122,7 @@ These branches are intentionally **not merged** because independent review found
 ## 6. Resume protocol
 
 1. Keep this branch/HEAD as the stable foundation; T05a is merged, while the blocked T07/T16 branches must not be merged wholesale.
-2. Execute T05b contract/compensation drafts on top of the merged T05a.
+2. Continue T07/T16 or the Payroll chain on top of merged T05.
 3. Execute T07a2 (atomic reversal), then T07b (outcome effects/roles/template upgrade), then T07c (audit/UNRESOLVED/timezone/real-HTTP coverage).
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
@@ -140,4 +132,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T05b pending, T07/T16 blocked and T08–T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T07/T16 blocked and T08–T19 outstanding.
