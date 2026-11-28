@@ -261,3 +261,15 @@ worktree.
 - Verification: onboarding focused 39 tests / 12,057 assertions; frontend
   EmployeeListPage + onboarding response 14 tests; typecheck/lint, Pint,
   PHPStan, arch, OpenAPI lint/validate/generate/check green.
+
+## T05a2c — canonical onboarding uses the same People draft
+
+- `POST /v1/lifecycle/onboarding` now reserves the same People-owned encrypted
+  draft when a person payload is supplied; the canonical Case/Intent also carry
+  only `onboarding_draft_id`.
+- The canonical command and legacy facade share the
+  `CMD:lifecycle.onboarding.create` idempotency scope.
+- Added canonical PII regression coverage: raw Case/Intent and lifecycle Case
+  detail contain no ID number, mobile/email, and approval consumes the draft.
+- Verification: onboarding focused 40 tests / 12,081 assertions; Pint, PHPStan
+  and arch:test green.

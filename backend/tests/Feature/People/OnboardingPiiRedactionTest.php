@@ -120,6 +120,73 @@ final class OnboardingPiiRedactionTest extends LifecycleTestCase
         $this->assertStringNotContainsString($pii['email'], (string) DB::table('effects')->where('case_id', $caseId)->value('payload_json'));
     }
 
+    public function test_canonical_lifecycle_onboarding_uses_the_same_encrypted_people_draft(): void
+    {
+        $org = $this->peopleScenario->orgUnit('PII-CANON-ORG');
+        $pii = [
+            'legal_name' => '规范入口 员工',
+            'id_number' => 'PII-CANON-7788',
+            'mobile' => '13900007788',
+            'email' => 'canon.secret@example.test',
+        ];
+
+        $created = $this->postJson('/v1/lifecycle/onboarding', [
+            'person' => [
+                'legal_name' => $pii['legal_name'],
+                'id_type' => 'CN_ID',
+                'id_number' => $pii['id_number'],
+                'mobile' => $pii['mobile'],
+                'email' => $pii['email'],
+            ],
+            'employee_no' => 'PII-CANON-1',
+            'org_unit_id' => (int) $org->id,
+            'hire_date' => '2026-12-02',
+            'employment_type' => 'FULL_TIME',
+            'terms' => [
+                'work_location' => '上海',
+                'work_schedule' => 'STANDARD',
+                'base_salary_minor' => 1_200_000,
+                'salary_currency' => 'CNY',
+            ],
+        ], [
+            'Idempotency-Key' => 'pii-canonical-create',
+            'X-CSRF-Token' => 'test-csrf',
+        ])->assertStatus(201);
+
+        $caseId = (int) $created->json('data.case_id');
+        $draftId = (int) $created->json('data.onboarding_draft_id');
+        $this->assertGreaterThan(0, $draftId);
+        $this->assertDatabaseHas('people_onboarding_drafts', [
+            'id' => $draftId,
+            'case_id' => $caseId,
+            'status' => 'PENDING',
+        ]);
+
+        $rawCase = (string) DB::table('cases')->where('id', $caseId)->value('payload_json');
+        $rawIntent = (string) DB::table('lifecycle_intents')->where('case_id', $caseId)->value('intent_json');
+
+        foreach ([$rawCase, $rawIntent] as $raw) {
+            $this->assertStringContainsString('onboarding_draft_id', $raw);
+            $this->assertStringNotContainsString($pii['id_number'], $raw);
+            $this->assertStringNotContainsString($pii['mobile'], $raw);
+            $this->assertStringNotContainsString($pii['email'], $raw);
+        }
+
+        $detail = $this->getJson("/v1/lifecycle/cases/{$caseId}")->assertOk();
+        $detail->assertJsonPath('data.payload.onboarding_draft_id', $draftId);
+        $this->assertPersonPiiAbsent((string) $detail->getContent(), $pii);
+
+        $this->approveCase($caseId, 'pii-canonical-approve')
+            ->assertOk()
+            ->assertJsonPath('data.effect_status', 'APPLIED');
+
+        $this->assertSame($pii['legal_name'], Person::query()->firstOrFail()->legal_name);
+        $this->assertDatabaseHas('people_onboarding_drafts', [
+            'id' => $draftId,
+            'status' => 'CONSUMED',
+        ]);
+    }
+
     /**
      * @param  array<string, string>  $pii
      */
