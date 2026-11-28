@@ -4515,6 +4515,26 @@ components:
               type:
                 - integer
                 - "null"
+            payslip_status:
+              type: string
+              enum: [UNPUBLISHED, PUBLISHED]
+            disbursement_status:
+              type: string
+              enum: [NOT_REGISTERED, REGISTERED]
+            disbursement_reference:
+              type:
+                - string
+                - "null"
+            members:
+              type: array
+              items:
+                type: object
+                required: [user_id, member_role, assigned_by, reason]
+                properties:
+                  user_id: { type: integer }
+                  member_role: { type: string, enum: [PREPARER, REVIEWER, APPROVER, PUBLISHER, DISBURSER] }
+                  assigned_by: { type: integer }
+                  reason: { type: string }
             input_hash:
               type:
                 - string
@@ -15486,6 +15506,54 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.read
+  /v1/payroll/runs/{id}/members:
+    post:
+      operationId: payrollv1_payroll_runs_id_members_post
+      summary: Preassign a payroll run member
+      tags:
+        - Payroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, member_role, reason]
+              properties:
+                user_id:
+                  type: integer
+                  minimum: 1
+                member_role:
+                  type: string
+                  enum: [REVIEWER, APPROVER, PUBLISHER, DISBURSER]
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+      responses:
+        "201":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.prepare
+      x-action-label: 预分配工资批次成员
   /v1/payroll/runs/{id}/approve:
     post:
       operationId: payrollv1_payroll_runs_id_approve_post

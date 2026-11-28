@@ -40,6 +40,35 @@ final class PayrollHttpLifecycleTest extends PayrollTestCase
         $this->assertSame('PUBLISHED', $publish->json('data.status'));
     }
 
+    public function test_run_member_can_be_preassigned_over_http_and_is_projected_as_an_allowed_action(): void
+    {
+        $base = $this->seedPayrollBase();
+        $run = app(PayrollRunService::class)->createRun(10, [
+            'scheme_id' => (int) $base['scheme']->id,
+            'period' => '2026-09',
+        ]);
+        $this->registerRunMembership($run, 10);
+        $this->actAs(10);
+
+        $this->postJson('/v1/payroll/runs/'.(int) $run->id.'/members', [
+            'user_id' => 11,
+            'member_role' => 'REVIEWER',
+            'reason' => 'Preassigned reviewer for four-eyes control.',
+        ], $this->headers())
+            ->assertCreated()
+            ->assertJsonPath('data.member_role', 'REVIEWER')
+            ->assertJsonPath('data.user_id', 11);
+
+        $this->assertDatabaseHas('payroll_run_members', [
+            'run_id' => (int) $run->id,
+            'user_id' => 11,
+            'member_role' => 'REVIEWER',
+        ]);
+
+        $detail = $this->getJson('/v1/payroll/runs/'.(int) $run->id, $this->headers())->assertOk();
+        $this->assertContains('payroll.run.detail.assign-member', (array) $detail->json('data.allowed_actions'));
+    }
+
     public function test_self_payslip_list_is_scoped_and_cross_employee_detail_is_404(): void
     {
         $base = $this->seedPayrollBase();

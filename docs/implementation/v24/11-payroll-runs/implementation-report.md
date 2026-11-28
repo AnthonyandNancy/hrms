@@ -39,3 +39,19 @@ disbursement states, close prerequisites, and blocked-run transition tests.
 
 Remaining T11: member preassignment HTTP/action projection and blocked-run
 action/state tests.
+
+## T11b2 — member preassignment HTTP and orthogonal action projection
+
+- Added `POST /v1/payroll/runs/{id}/members` guarded by
+  `payroll.run.prepare` on the PAYROLL_RUN anchor.
+- The endpoint preassigns REVIEWER/APPROVER/PUBLISHER/DISBURSER with reason and
+  returns the persisted member record.
+- OpenAPI, generated TypeScript, page action manifest and action catalog now
+  include `payroll.run.detail.assign-member`.
+- Run detail includes `payslip_status`, `disbursement_status`, members and
+  server-computed allowed actions. Publish is allowed only while unpublished;
+  disbursement only while not registered; close only when both flags are
+  complete.
+- Added HTTP coverage for member assignment and allowed-action projection.
+- Verification: payroll suite 108 tests / 509 assertions; Pint, PHPStan and
+  arch green.

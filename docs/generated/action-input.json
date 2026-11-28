@@ -1171,6 +1171,15 @@
       "confirm": "danger"
     },
     {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.assign-member",
+      "label": "预分配工资批次成员",
+      "capability": "payroll.run.prepare",
+      "api": "POST /v1/payroll/runs/{id}/members",
+      "ui": "secondary",
+      "confirm": "none"
+    },
+    {
       "pageCode": "hr-contracts-by-id",
       "key": "people.contract.detail.amend",
       "label": "新增合同变更",

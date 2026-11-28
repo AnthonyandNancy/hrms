@@ -1299,6 +1299,11 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')
         ->name('payroll.runs.show');
+
+    Route::post('/runs/{id}/members', [PayrollRunController::class, 'assignMember'])
+        ->whereNumber('id')
+        ->middleware('capability:payroll.run.prepare,PAYROLL_RUN')
+        ->name('payroll.runs.members.store');
     Route::get('/runs/{id}/employees', [PayrollRunController::class, 'employees'])
         ->whereNumber('id')
         ->middleware('capability:payroll.run.read,PAYROLL_RUN')

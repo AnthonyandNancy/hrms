@@ -2956,6 +2956,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payroll/runs/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preassign a payroll run member */
+        post: operations["payrollv1_payroll_runs_id_members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payroll/runs/{id}/approve": {
         parameters: {
             query?: never;
@@ -7426,6 +7443,18 @@ export interface components {
             reviewed_by: number | null;
             approved_by: number | null;
             published_by: number | null;
+            /** @enum {string} */
+            payslip_status?: "UNPUBLISHED" | "PUBLISHED";
+            /** @enum {string} */
+            disbursement_status?: "NOT_REGISTERED" | "REGISTERED";
+            disbursement_reference?: string | null;
+            members?: {
+                user_id: number;
+                /** @enum {string} */
+                member_role: "PREPARER" | "REVIEWER" | "APPROVER" | "PUBLISHER" | "DISBURSER";
+                assigned_by: number;
+                reason: string;
+            }[];
             input_hash: string | null;
             snapshot_version: number;
             reopen_count: number;
@@ -15036,6 +15065,35 @@ export interface operations {
                     "application/json": components["schemas"]["PayrollRunDetailEnvelope"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    payrollv1_payroll_runs_id_members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    user_id: number;
+                    /** @enum {string} */
+                    member_role: "REVIEWER" | "APPROVER" | "PUBLISHER" | "DISBURSER";
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["Envelope"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

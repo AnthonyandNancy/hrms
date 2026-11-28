@@ -103,16 +103,38 @@ final class PayrollRunController
         return ApiResponse::ok([
             ...$this->runs->runDetail($run, $includeAmounts),
             'state' => $status,
+            'payslip_status' => (string) $run->payslip_status,
+            'disbursement_status' => (string) $run->disbursement_status,
             'version' => (int) $run->snapshot_version,
             'source_version' => $run->input_hash,
             'allowed_actions' => $this->allowedActions->for(
                 $principal,
                 'payroll_run',
                 (int) $run->id,
-                ['status' => $status],
+                ['status' => $status, 'payslip_status' => (string) $run->payslip_status, 'disbursement_status' => (string) $run->disbursement_status],
                 $businessDate,
             ),
         ]);
+    }
+
+    public function assignMember(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'min:1'],
+            'member_role' => ['required', 'string', 'in:REVIEWER,APPROVER,PUBLISHER,DISBURSER'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        $member = $this->runs->assignMember(
+            runId: $id,
+            actorUserId: (int) $principal->userId(),
+            targetUserId: (int) $data['user_id'],
+            memberRole: (string) $data['member_role'],
+            reason: (string) $data['reason'],
+        );
+
+        return ApiResponse::created($member);
     }
 
     public function employees(int $id): JsonResponse

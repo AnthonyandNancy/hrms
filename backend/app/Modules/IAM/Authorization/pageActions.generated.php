@@ -1168,6 +1168,20 @@ return [
         ],
         [
             'pageCode' => 'payroll-run-detail',
+            'key' => 'payroll.run.detail.assign-member',
+            'label' => '预分配工资批次成员',
+            'capability' => 'payroll.run.prepare',
+            'api' => 'POST /v1/payroll/runs/{id}/members',
+            'ui' => 'secondary',
+            'confirm' => 'none',
+            'anchorTypes' => [
+                'PAYROLL_RUN',
+                'COMPANY',
+            ],
+            'fieldProfileMax' => 'P2_SENSITIVE',
+        ],
+        [
+            'pageCode' => 'payroll-run-detail',
             'key' => 'payroll.run.detail.calculate',
             'label' => '试算工资批次',
             'capability' => 'payroll.run.prepare',

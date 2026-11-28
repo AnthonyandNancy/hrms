@@ -29,12 +29,13 @@ final class ObjectAllowedActionResolver implements AllowedActionResolver
         'payroll.run.detail.calculate' => ['INPUT_LOCKED'],
         'payroll.run.detail.review' => ['CALCULATED'],
         'payroll.run.detail.approve' => ['REVIEWED'],
-        'payroll.run.detail.publish' => ['APPROVED'],
+        'payroll.run.detail.publish' => ['APPROVED', 'PAID'],
         'payroll.run.detail.cancel' => ['DRAFT', 'INPUT_LOCKED', 'CALCULATED', 'REVIEWED'],
         'payroll.run.detail.reopen' => ['INPUT_LOCKED', 'CALCULATED', 'REVIEWED'],
         'payroll.run.detail.correct' => ['PUBLISHED', 'PAID', 'CLOSED'],
-        'payroll.run.detail.mark-paid' => ['PUBLISHED'],
-        'payroll.run.detail.close' => ['PAID'],
+        'payroll.run.detail.mark-paid' => ['APPROVED', 'PUBLISHED'],
+        'payroll.run.detail.close' => ['PUBLISHED', 'PAID'],
+        'payroll.run.detail.assign-member' => ['DRAFT', 'INPUT_LOCKED', 'CALCULATED', 'CALCULATED_WITH_BLOCKERS', 'REVIEWED', 'APPROVED'],
         'people.contract.detail.activate' => ['DRAFT', 'PENDING_EFFECTIVE'],
         'people.contract.detail.amend' => ['ACTIVE', 'EXPIRING'],
         'people.contract.detail.terminate' => ['ACTIVE', 'EXPIRING'],
@@ -153,6 +154,23 @@ final class ObjectAllowedActionResolver implements AllowedActionResolver
      */
     private function stateAllows(string $actionKey, array $state): bool
     {
+        $payslipStatus = strtoupper((string) ($state['payslip_status'] ?? ''));
+        $disbursementStatus = strtoupper((string) ($state['disbursement_status'] ?? ''));
+
+        if ($actionKey === 'payroll.run.detail.publish') {
+            return $payslipStatus !== 'PUBLISHED' && in_array(strtoupper((string) ($state['status'] ?? '')), ['APPROVED', 'PAID'], true);
+        }
+
+        if ($actionKey === 'payroll.run.detail.mark-paid') {
+            return $disbursementStatus !== 'REGISTERED' && in_array(strtoupper((string) ($state['status'] ?? '')), ['APPROVED', 'PUBLISHED'], true);
+        }
+
+        if ($actionKey === 'payroll.run.detail.close') {
+            return $payslipStatus === 'PUBLISHED'
+                && $disbursementStatus === 'REGISTERED'
+                && in_array(strtoupper((string) ($state['status'] ?? '')), ['PUBLISHED', 'PAID'], true);
+        }
+
         $statuses = self::ALLOWED_STATES[$actionKey] ?? null;
 
         if ($statuses === null) {
