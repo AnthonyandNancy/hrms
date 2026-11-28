@@ -673,3 +673,17 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 - 更新本文件状态为 `CLOSED` 并写关闭证据；
 - 同步更新 `21-module-mcp-acceptance-matrix.md`、`evidence-index.md` 的相关行；
 - 不得只改本文件而不同步矩阵/索引。
+
+## GAP-21 — no-employment admin pages emit self-service 422/409
+
+- Observed in `T19-CRAWL-001` with synthetic installer (SYSTEM_ADMIN, no
+  employment binding):
+  - attendance: one 422;
+  - leave: one 409;
+  - overtime: five 409s;
+  - travel: one 409.
+- Pages render Chinese unavailable/empty states, but console/network failures
+  remain and prevent these pages from being full T18 PASS.
+- Required fix: gate self-scoped attendance/leave/overtime/travel requests when
+  the current principal has no employment, or return an explicit empty
+  no-employment projection without error.

@@ -255,3 +255,15 @@ NOT RUN: remaining modules/entries/cards and deeper role-removal flows
 ```
 
 - Evidence: `evidence/T19-MCP-004/`.
+
+## 13. Execution update — T19-CRAWL-001
+
+```text
+MCP executed: 5 evidence packs total
+PASS: 28 route-level HTTP 200 renders (24 without console errors)
+PARTIAL: attendance/leave/overtime/travel no-employment 422/409 paths
+NOT RUN: six dynamic detail routes, role matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-CRAWL-001/`.
+- Gap: GAP-21 no-employment admin self-service request gating.
