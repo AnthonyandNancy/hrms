@@ -34,3 +34,12 @@
 
 Remaining T13/AC-12: exact 8080→8300→8350 target-delta scenario and explicit
 cumulative target/delta fields on the run; MCP evidence remains T18.
+
+## T13c — single-company ledger schema correction
+
+- Gate `SingleCompanyMigrationTest`/`NoTenantNoLegalEntityTest` caught a
+  `tenant_id` column in the new ledger. A forward-only migration
+  `2026_11_28_001420_remove_tenant_from_ytd_ledger.php` drops the index and
+  column; model writes no tenant identifier.
+- Targeted single-company, no-tenant and correction tests: 16 tests / 422
+  assertions PASS.

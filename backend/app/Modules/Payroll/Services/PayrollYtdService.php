@@ -127,7 +127,6 @@ final class PayrollYtdService
             ]));
 
             PayrollYtdLedgerEntry::query()->create([
-                'tenant_id' => 0,
                 'employment_id' => (int) $employee->employment_id,
                 'tax_year' => $taxYear,
                 'source_run_id' => (int) $run->id,

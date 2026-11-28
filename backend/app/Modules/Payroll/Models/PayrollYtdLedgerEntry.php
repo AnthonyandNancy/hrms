@@ -32,7 +32,6 @@ final class PayrollYtdLedgerEntry extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'tenant_id',
         'employment_id',
         'tax_year',
         'source_run_id',
