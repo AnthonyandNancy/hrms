@@ -31,5 +31,15 @@
 - Verification: 202 payroll/platform/unit tests / 30,886 assertions PASS;
   Pint, PHPStan, arch and frontend typecheck/lint green.
 
-Remaining T14: frontend reversal action/form and field-profile masking; MCP
-evidence remains T18.
+## T14c — frontend reversal action
+
+- Benefits transaction ledger now shows `已冲销` for reversal rows and their
+  original RECORD, with a permission-gated `冲销` action for unreversed rows.
+- The action asks for a reason of at least 10 characters, sends it through
+  `POST /v1/benefits/transactions/{id}/reverse` with a fresh idempotency key,
+  reloads the ledger and maps duplicate/frozen failures to Chinese copy.
+- BenefitsWorkspace regression now covers the prompt, command endpoint,
+  reason payload and success evidence.
+
+Remaining T14: field-profile masking for non-P3 readers; MCP evidence remains
+T18.

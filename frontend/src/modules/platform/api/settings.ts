@@ -481,6 +481,11 @@ export type BenefitTransaction = {
   employerAmountCents: number
   totalAmountCents: number
   payrollRunId: number | null
+  entryType: 'RECORD' | 'REVERSAL'
+  reversalOfId: number | null
+  reversedById: number | null
+  reason: string | null
+  sourceHash: string | null
   status: string
 }
 
@@ -496,6 +501,11 @@ function benefitTransactionOf(value: unknown): BenefitTransaction {
     employerAmountCents: integer(row.employer_amount_cents, '雇主缴费'),
     totalAmountCents: integer(row.total_amount_cents, '合计缴费'),
     payrollRunId: nullableInteger(row.payroll_run_id),
+    entryType: text(row.entry_type, '台账类型') === 'REVERSAL' ? 'REVERSAL' : 'RECORD',
+    reversalOfId: nullableInteger(row.reversal_of_id),
+    reversedById: nullableInteger(row.reversed_by_id),
+    reason: nullableText(row.reason),
+    sourceHash: nullableText(row.source_hash),
     status: text(row.status, '台账状态'),
   }
 }
@@ -509,6 +519,18 @@ export type BenefitTransactionInput = {
   enrollmentId: number
   period: string
   payrollRunId: number | null
+}
+
+export async function reverseBenefitTransaction(
+  id: number,
+  reason: string,
+  idempotencyKey: string,
+): Promise<BenefitTransaction> {
+  return benefitTransactionOf(await resourcePost<unknown>(
+    `/v1/benefits/transactions/${id}/reverse`,
+    { reason },
+    { idempotencyKey },
+  ))
 }
 
 export async function createBenefitTransaction(
