@@ -89,7 +89,7 @@
 | T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
 | T12 | 月中分段与周期级税费 | COMPLETE | T12a/T12b | `8b97b38`; `docs/implementation/v24/12-midmonth/implementation-report.md`; `gate-all-t12b.log` | MCP still required for end-to-end acceptance. |
 | T13 | 累计更正与 signed YTD | COMPLETE | T13a-T13d | `207cb39`; `docs/implementation/v24/13-corrections/implementation-report.md`; `gate-all-t13d.log`; MCP in T18 |
-| T14 | 福利计薪输入与冲销 | IN PROGRESS | T14a-T14c merged; UI reversal done; field-profile masking pending | `894f056`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14-ui.log` |
+| T14 | 福利计薪输入与冲销 | COMPLETE | T14a-T14d | `39183a6`; `docs/implementation/v24/14-benefits/implementation-report.md`; `gate-all-t14d.log`; MCP in T18 |
 | T15 | 绩效奖金与 Offer/培训链路 | COMPLETE | T15a-T15e | `b848a46`; `docs/implementation/v24/15-performance-bonus/implementation-report.md`; `gate-all-t15e.log`; MCP in T18 |
 | T16 | 通知状态与报表字段裁剪 | BLOCKED | T16a/T16b/T16c 拆分；分支未合并 | `79de276` on `v24-t16-engagement-reporting`; review findings |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
@@ -139,7 +139,8 @@
 | 2026-11-28 | T10f AC-07 hardening | `89943ef` + full gate | 22 gates PASS in 240.3s; EMPLOYER_COST, SUM, CENT unit, exact 9480/1400/8080/9980 calculation; log `docs/implementation/v24/10-payroll-rules/gate-all-t10f.log` | T10 complete; MCP remains T18. |
 | 2026-11-28 | T08a timeoff/travel facts | `236a6e3` + full gate | 22 gates PASS in 237.8s; append-only ledger/TIMEOFF EARN, travel conflicts, payroll travel formula; log `docs/implementation/v24/08-overtime-travel/gate-all-t08a.log` | Overtime Workflow and travel revision API remain T08b. |
 | 2026-11-28 | T13d correction void/retry | `207cb39` + full gate | 22 gates PASS in 245.3s; independent OPEN/VOID state, HTTP void, retry same period, UI evidence; log `docs/implementation/v24/13-corrections/gate-all-t13d.log` | T13 complete; MCP remains T18. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T14 masking/T17/T19 not fully implemented; MCP 0 executed | Continue T08b/T17 and T16 unblock. |
+| 2026-11-28 | T14d benefit masking | `39183a6` + full gate | 22 gates PASS in 240.0s; P3 amount schemas, per-row benefit.read projection, masked frontend labels, backend/frontend regressions; log `docs/implementation/v24/14-benefits/gate-all-t14d.log` | T14 complete; T16 report/export security remains. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T17/T19 not fully implemented; MCP 0 executed | Continue T08b/T17 and T16 unblock. |
 
 ---
 

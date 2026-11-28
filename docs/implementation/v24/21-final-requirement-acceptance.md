@@ -36,7 +36,7 @@ It is **not** a completed V2.4 business delivery:
 | T09 payroll snapshot v2 | COMPLETE | `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; gates `gate-all-t09ab.log`, `gate-all-t09c.log`, `gate-all-t09d2.log` | Benefit/performance adapters are empty/default until T14/T15 replace and rerun |
 | T12 mid-month compensation | COMPLETE | `docs/implementation/v24/12-midmonth/implementation-report.md`; gates `gate-all-t12a.log`, `gate-all-t12b.log` | MCP end-to-end evidence remains T18 |
 | T13 signed YTD/corrections | COMPLETE | `docs/implementation/v24/13-corrections/implementation-report.md`; gates `gate-all-t13ab.log`, `gate-all-t13c.log`, `gate-all-t13d.log` | Independent void/retry and action UI complete; MCP remains T18 |
-| T14 benefits→Payroll | PARTIAL | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log` | Multi-plan/reversal/employer cost/frozen snapshot/UI reversal pass; field-profile masking remains |
+| T14 benefits→Payroll | COMPLETE | `docs/implementation/v24/14-benefits/implementation-report.md`; gates `gate-all-t14.log`, `gate-all-t14-ui.log`, `gate-all-t14d.log` | Multi-plan/reversal/employer cost/snapshot/UI/P3 masking complete; T16 report leakage separate |
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
 | T08a overtime/timeoff/travel facts | PARTIAL | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gate `gate-all-t08a.log` | Ledger/travel conflict/travel payroll done; overtime Workflow/effect and travel revision remain |
@@ -103,7 +103,7 @@ These branches are intentionally **not merged** because independent review found
 | AC-11 rule validation | ✅ MET (code/UI) | Restricted AST compiler/engine, published hash snapshot, dependency graph and editor regressions pass |
 | AC-12 cumulative corrections | ✅ MET (code/UI) | Exact 8080→8300→8350 cumulative regression, signed YTD, unpaid void/retry and action UI pass |
 | AC-13 approval/execution consistency | ❌ PARTIAL | T07 complete; T09 Snapshot/MCP remain |
-| AC-14 benefits/performance payroll | ✅ MET (code/UI) | T14 multi-plan/reversal/employer cost + T15 bonus mapping regressions pass; field masking remains |
+| AC-14 benefits/performance payroll | ✅ MET (code/UI) | Multi-plan/reversal/employer cost, P3 field masking and bonus mapping regressions pass; T16 report security separate |
 | AC-15 recruitment/training | ✅ MET (code/UI) | Offer→compensation, bonus mapping UI, training attempt/source UI regressions pass; MCP pending |
 | AC-16 reports/exports | ❌ PARTIAL/BLOCKED | T16 field/export security issues unresolved |
 | AC-17 notices/notifications | ❌ PARTIAL/BLOCKED | Delivery/retry/audience issues unresolved |
@@ -117,7 +117,7 @@ These branches are intentionally **not merged** because independent review found
 
 1. Keep this branch/HEAD as the stable foundation; T05 and T07 are merged, while the blocked T16 branch must not be merged wholesale.
 2. Continue T16 or the Payroll chain on top of merged T05/T07.
-3. Execute T08b overtime Workflow/travel revision, T17 action surface, T14 masking and T16 unblock/review.
+3. Execute T08b overtime Workflow/travel revision, T17 action surface and T16 unblock/review.
 4. Execute T16a (delivery reservation/default-fail-closed/retry), T16b (per-row field scope/no-zero), T16c (notice expiry/queue/copy).
 5. Continue T08–T17 in dependency order; T09 must not be skipped.
 6. Run `pnpm gate:all` after each merge.
@@ -126,4 +126,4 @@ These branches are intentionally **not merged** because independent review found
 
 ## 7. Final statement
 
-The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16 blocked and T08b/T14 masking/T17/T19 outstanding.
+The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with T16 blocked and T08b/T17/T19 outstanding.
