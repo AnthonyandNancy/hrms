@@ -21,6 +21,7 @@ use App\Modules\People\Contracts\PeopleWorkspaceDirectory;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\AuthorizationSnapshot;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\SodRules;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -351,21 +352,47 @@ final class UserAdminController
             ]);
 
             foreach ($grants as $grant) {
-                AuthorityBinding::query()->create([
-                    'principal_id' => (int) $user->id,
-                    'capability_code' => (string) $grant->capability_code,
-                    'anchor_type' => (string) $grant->anchor_type,
-                    'anchor_id' => $anchors[(string) $grant->anchor_type] ?? ($grant->anchor_id === null ? null : (int) $grant->anchor_id),
-                    'anchor_key' => $anchors[(string) $grant->anchor_type] ?? 0,
-                    'field_profile' => (string) $grant->field_profile,
-                    'purpose_code' => 'ROLE_'.$role->code,
-                    'valid_from' => $from,
-                    'valid_to' => $to,
-                    'source_type' => 'ROLE',
-                    'source_id' => null,
-                    'auth_version' => $currentVersion,
-                    'created_at' => $this->clock->now(),
-                ]);
+                $anchorId = $anchors[(string) $grant->anchor_type]
+                    ?? ($grant->anchor_id === null ? null : (int) $grant->anchor_id);
+                $anchorKey = $anchors[(string) $grant->anchor_type] ?? 0;
+                $existing = AuthorityBinding::query()
+                    ->where('principal_id', (int) $user->id)
+                    ->where('capability_code', (string) $grant->capability_code)
+                    ->where('anchor_type', (string) $grant->anchor_type)
+                    ->where('anchor_key', $anchorKey)
+                    ->where('valid_from', $from)
+                    ->where('auth_version', $currentVersion)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existing === null) {
+                    AuthorityBinding::query()->create([
+                        'principal_id' => (int) $user->id,
+                        'capability_code' => (string) $grant->capability_code,
+                        'anchor_type' => (string) $grant->anchor_type,
+                        'anchor_id' => $anchorId,
+                        'anchor_key' => $anchorKey,
+                        'field_profile' => (string) $grant->field_profile,
+                        'purpose_code' => 'ROLE_'.$role->code,
+                        'valid_from' => $from,
+                        'valid_to' => $to,
+                        'source_type' => 'ROLE',
+                        'source_id' => null,
+                        'auth_version' => $currentVersion,
+                        'created_at' => $this->clock->now(),
+                    ]);
+
+                    continue;
+                }
+
+                // Multiple roles can grant the same capability at the same
+                // anchor. Keep one binding per version and widen only the field
+                // profile; inserting a second row violates the version unique key.
+                $currentProfile = FieldProfile::from((string) $existing->field_profile);
+                $newProfile = FieldProfile::from((string) $grant->field_profile);
+                if ($newProfile->rank() > $currentProfile->rank()) {
+                    $existing->forceFill(['field_profile' => $newProfile->value])->save();
+                }
             }
 
             $this->snapshot->replay($user, 'role.assigned');

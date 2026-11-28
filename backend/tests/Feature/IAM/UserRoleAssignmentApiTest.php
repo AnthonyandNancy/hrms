@@ -8,6 +8,7 @@ use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\User;
 use App\Modules\IAM\Models\UserRole;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\CapabilityWildcard;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Time\Clock;
 use App\Shared\Time\FrozenClock;
@@ -58,6 +59,39 @@ final class UserRoleAssignmentApiTest extends AuthorizationTestSupport
         $this->assertSame(2, (int) $target->fresh()->auth_version);
         $this->assertSame(1, \Illuminate\Support\Facades\DB::table('auth_events')
             ->where('event_type', 'role.revoked')
+            ->count());
+    }
+
+    public function test_overlapping_capabilities_across_two_roles_are_merged_not_duplicated(): void
+    {
+        $this->artisan('iam:sync-capabilities')->assertSuccessful();
+        [$actor, $headers] = $this->roleManager();
+        AuthorityBinding::factory()
+            ->forPrincipal((int) $actor->id, 1)
+            ->anchor(AnchorType::COMPANY, null, FieldProfile::P3_RESTRICTED)
+            ->create([
+                'capability_code' => CapabilityWildcard::WILDCARD,
+                'valid_from' => '2025-01-01 00:00:00',
+                'valid_to' => '2030-01-01 00:00:00',
+            ]);
+        $target = User::factory()->create(['auth_version' => 1]);
+
+        $this->postJson('/v1/users/'.$target->id.'/roles', [
+            'role_code' => 'AUDITOR',
+            'reason' => 'Synthetic first role assignment',
+        ], $headers)->assertCreated();
+
+        $this->postJson('/v1/users/'.$target->id.'/roles', [
+            'role_code' => 'TRAINING_ADMIN',
+            'reason' => 'Synthetic overlapping role assignment',
+        ], $headers)->assertCreated();
+
+        $version = (int) $target->fresh()->auth_version;
+        $this->assertSame(1, AuthorityBinding::query()
+            ->where('principal_id', (int) $target->id)
+            ->where('capability_code', 'org.tree.read')
+            ->where('anchor_type', 'COMPANY')
+            ->where('auth_version', $version)
             ->count());
     }
 

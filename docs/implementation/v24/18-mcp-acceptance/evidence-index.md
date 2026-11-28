@@ -244,3 +244,14 @@ NOT RUN: role-assignment UI, remaining modules/entries/cards
 ```
 
 - Evidence: `evidence/T19-MCP-003/`.
+
+## 12. Execution update — T19-MCP-004
+
+```text
+MCP executed: 4 evidence packs total
+PASS: +1 scoped observation (user role assignment UI; overlapping-role API repaired)
+FAIL: 1 defect found then fixed (500 authority_bindings unique conflict)
+NOT RUN: remaining modules/entries/cards and deeper role-removal flows
+```
+
+- Evidence: `evidence/T19-MCP-004/`.

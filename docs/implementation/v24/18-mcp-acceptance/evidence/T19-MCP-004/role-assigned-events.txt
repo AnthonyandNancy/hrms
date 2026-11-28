@@ -1,0 +1,4 @@
+mysql: [Warning] Using a password on the command line interface can be insecure.
+id	event_type	result	metadata_json	request_id	occurred_at
+7	role.assigned	SUCCESS	{"reason": "Synthetic T19 PAYROLL_RUN scoped assignment", "role_code": "PAYROLL_SPECIALIST_T19", "target_user_id": 2}	01M8GSTV785F4CGB0XA3CYN3AP	2026-11-28 10:04:54
+14	role.assigned	SUCCESS	{"reason": "Synthetic T19 role assignment UI evidence", "role_code": "AUDITOR", "target_user_id": 2}	01M8GVJKS9X4ZMJX66XYZ178AR	2026-11-28 10:35:22
