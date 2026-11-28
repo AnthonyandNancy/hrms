@@ -30,6 +30,7 @@ final class OnboardingDraft extends Model
     /** @var list<string> */
     protected $fillable = [
         'employee_no',
+        'pending_employee_no',
         'idempotency_key',
         'case_id',
         'status',

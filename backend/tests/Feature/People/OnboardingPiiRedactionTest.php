@@ -113,6 +113,7 @@ final class OnboardingPiiRedactionTest extends LifecycleTestCase
             'id' => $draftId,
             'case_id' => $caseId,
             'status' => 'CONSUMED',
+            'pending_employee_no' => null,
         ]);
 
         $this->assertStringNotContainsString($pii['id_number'], (string) DB::table('cases')->where('id', $caseId)->value('payload_json'));

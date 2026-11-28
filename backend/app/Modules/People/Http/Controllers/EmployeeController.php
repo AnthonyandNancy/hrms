@@ -14,6 +14,7 @@ use App\Modules\People\Models\Employment;
 use App\Modules\People\Queries\AsOfEmployeeQuery;
 use App\Modules\People\Services\EmploymentService;
 use App\Shared\ApiResponse;
+use App\Shared\Authorization\AnchorRef;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -278,6 +279,18 @@ final class EmployeeController
         return ApiResponse::ok(ApiResponse::list($events, 1, max(1, count($events)), count($events)));
     }
 
+    private function assertOrgOnboardingScope(Principal $principal, int $orgUnitId, string $on): void
+    {
+        $company = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::company(), $on);
+        $orgUnit = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgUnit($orgUnitId), $on);
+        $subtree = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgSubtree($orgUnitId), $on);
+        $allowed = $company || $orgUnit || $subtree;
+
+        if (! $allowed) {
+            throw new NotFoundOrForbiddenException;
+        }
+    }
+
     private function assertPermits(Principal $principal, string $capability, string $on): void
     {
         if (! $this->authorizer->permits($principal, $capability, $on)) {
@@ -349,6 +362,12 @@ final class EmployeeController
     ): JsonResponse {
         $principal = $this->principals->resolve();
         $data = $request->validated();
+        $orgUnitId = (int) $data['assignment']['org_unit_id'];
+        $this->assertOrgOnboardingScope(
+            $principal,
+            $orgUnitId,
+            $this->businessDates->today()->value(),
+        );
         $person = (array) $data['person'];
         $employment = (array) $data['employment'];
         $assignment = (array) $data['assignment'];

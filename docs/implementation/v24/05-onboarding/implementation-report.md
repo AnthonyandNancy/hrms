@@ -273,3 +273,17 @@ worktree.
   detail contain no ID number, mobile/email, and approval consumes the draft.
 - Verification: onboarding focused 40 tests / 12,081 assertions; Pint, PHPStan
   and arch:test green.
+
+## T05a2d — target organization scope and pending dedup
+
+- Both legacy and canonical onboarding now evaluate
+  `lifecycle.onboarding.manage` against COMPANY, ORG_UNIT and ORG_SUBTREE
+  anchors for the target organization; the authorized org anchor is recorded
+  in the authorizer audit calls.
+- Added `pending_employee_no` with a unique index to the People draft table so
+  only one pending onboarding intent can exist per employee number, while a
+  consumed draft releases the key for a later rehire.
+- Draft consumption clears `pending_employee_no`; regression coverage asserts
+  it after approval.
+- Verification: onboarding focused 40 tests / 12,082 assertions; Pint,
+  PHPStan, arch:test and OpenAPI contract checks green.

@@ -53,6 +53,7 @@ final class OnboardingDraftService implements OnboardingDraftStore
             try {
                 $draft = OnboardingDraft::query()->create([
                     'employee_no' => $employeeNo,
+                    'pending_employee_no' => $employeeNo,
                     'idempotency_key' => $idempotencyKey,
                     'status' => OnboardingDraft::STATUS_PENDING,
                     'payload_ciphertext' => Crypt::encryptString(json_encode(
@@ -159,6 +160,7 @@ final class OnboardingDraftService implements OnboardingDraftStore
 
             $draft->forceFill([
                 'status' => OnboardingDraft::STATUS_CONSUMED,
+                'pending_employee_no' => null,
                 'consumed_at' => $this->clock->now(),
                 'updated_at' => $this->clock->now(),
             ])->save();

@@ -19,7 +19,8 @@ final class CreateEmployeeCommandTest extends LifecycleTestCase
 {
     public function test_it_returns_a_pending_onboarding_case_and_no_domain_rows(): void
     {
-        $response = $this->postJson('/v1/employees/onboard', $this->payload(), $this->headers('onboard-1'))
+        $payload = $this->payload();
+        $response = $this->postJson('/v1/employees/onboard', $payload, $this->headers('onboard-1'))
             ->assertStatus(202)
             ->assertJsonPath('data.case_type', 'ONBOARDING')
             ->assertJsonPath('data.application_status', 'SUBMITTED')
@@ -37,6 +38,11 @@ final class CreateEmployeeCommandTest extends LifecycleTestCase
         $this->assertSame(0, Employment::query()->count());
         $this->assertSame(0, Assignment::query()->count());
         $this->assertSame(0, EmploymentTerms::query()->count());
+        $this->assertTrue(collect($this->authorizer->calls)->contains(static function (array $call) use ($payload): bool {
+            return $call['capability'] === 'lifecycle.onboarding.manage'
+                && $call['anchor']->type === \App\Shared\Authorization\AnchorType::ORG_UNIT
+                && $call['anchor']->id === (int) $payload['assignment']['org_unit_id'];
+        }));
     }
 
     public function test_only_approving_the_case_creates_the_domain_rows(): void

@@ -74,6 +74,7 @@ final class LifecycleController
             'submit' => ['sometimes', 'boolean'],
         ]);
 
+        $this->assertOnboardingOrgScope($principal, (int) $data['org_unit_id'], $today->value());
         $idempotencyKey = (string) $request->header('Idempotency-Key', '');
 
         if ($idempotencyKey === '') {
@@ -399,6 +400,17 @@ final class LifecycleController
     private function assertAllows(Principal $principal, string $capability, AnchorRef $anchor, string $on): void
     {
         if (! $this->authorizer->allows($principal, $capability, $anchor, $on)) {
+            throw new AuthorizationException('Forbidden.');
+        }
+    }
+
+    private function assertOnboardingOrgScope(Principal $principal, int $orgUnitId, string $on): void
+    {
+        $company = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::company(), $on);
+        $orgUnit = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgUnit($orgUnitId), $on);
+        $subtree = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgSubtree($orgUnitId), $on);
+
+        if (! $company && ! $orgUnit && ! $subtree) {
             throw new AuthorizationException('Forbidden.');
         }
     }
