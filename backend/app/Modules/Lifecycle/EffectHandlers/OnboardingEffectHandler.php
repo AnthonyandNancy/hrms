@@ -10,6 +10,7 @@ use App\Modules\Lifecycle\Services\LifecycleEffectSupport;
 use App\Modules\Organization\Contracts\CompanyProfileReader;
 use App\Modules\Organization\Contracts\OrganizationFacts;
 use App\Modules\People\Contracts\EmploymentLifecycleDirectory;
+use App\Modules\People\Contracts\OnboardingDraftStore;
 use App\Modules\People\Contracts\PeopleEmploymentWriter;
 use App\Modules\Workflow\Contracts\DomainEffectCommand;
 use App\Modules\Workflow\Contracts\DomainEffectHandler;
@@ -27,6 +28,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
         private readonly OrganizationFacts $organization,
         private readonly CompanyProfileReader $company,
         private readonly UserDirectory $users,
+        private readonly OnboardingDraftStore $onboardingDrafts,
     ) {}
 
     public function supports(string $effectType): bool
@@ -92,7 +94,7 @@ final class OnboardingEffectHandler implements DomainEffectHandler
                 'manager_assignment_id' => $payload['manager_assignment_id'] ?? null,
                 'assignment_type' => 'PRIMARY',
                 'is_primary' => true,
-                'valid_from' => $hireDate,
+                'valid_from' => (string) ($payload['assignment_valid_from'] ?? $hireDate),
                 'valid_to' => BusinessDate::OPEN_END,
                 'source_type' => 'CASE',
                 'source_id' => $command->caseId,
@@ -101,9 +103,9 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             $terms = (array) ($payload['terms'] ?? []);
             $probationEnd = $terms['probation_end_date'] ?? null;
             $this->people->appendTerms($employmentId, [
-                'effective_from' => $hireDate,
+                'effective_from' => (string) ($terms['effective_from'] ?? $hireDate),
                 'probation_end_date' => $probationEnd,
-                'work_location' => (string) ($terms['work_location'] ?? 'Unspecified'),
+                'work_location' => (string) ($terms['work_location'] ?? 'HQ'),
                 'work_schedule' => (string) ($terms['work_schedule'] ?? 'STANDARD'),
                 'salary_scheme_code' => $terms['salary_scheme_code'] ?? null,
                 'base_salary_minor' => $terms['base_salary_minor'] ?? null,
@@ -172,10 +174,19 @@ final class OnboardingEffectHandler implements DomainEffectHandler
             return $personId;
         }
 
+        if (isset($payload['onboarding_draft_id'])) {
+            $draftId = (int) $payload['onboarding_draft_id'];
+            $person = $this->onboardingDrafts->personFor($draftId);
+            $personId = $this->people->createPerson($person, null);
+            $this->onboardingDrafts->markConsumed($draftId);
+
+            return $personId;
+        }
+
         $person = (array) ($payload['person'] ?? []);
 
         if ($person === []) {
-            throw new ValidationException(['person' => ['Either person_id or a person object is required.']]);
+            throw new ValidationException(['person' => ['Either person_id, an onboarding draft or a person object is required.']]);
         }
 
         return $this->people->createPerson($person, null);

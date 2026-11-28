@@ -94,6 +94,7 @@ async function mountPage(capabilities = ['people.employee.read']) {
   const routes: RouteRecordRaw[] = [
     { path: '/hr/employees', name: 'hr-employees', component: { template: '<div />' } },
     { path: '/hr/employees/:id', name: 'employee-detail', component: { template: '<div />' } },
+    { path: '/hr/movements/:id', name: 'hr-movements-by-id', component: { template: '<div />' } },
     { path: '/forbidden', name: 'forbidden', component: { template: '<div />' } },
   ]
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -136,11 +137,12 @@ beforeEach(() => {
   api.listPositions.mockResolvedValue([])
   api.listEmployees.mockResolvedValue(list([employee()]))
   api.onboardEmployee.mockResolvedValue({
-    person_id: 3,
-    employment_id: 7,
-    employee_no: 'E0007',
-    assignment_id: 4,
-    terms_id: 5,
+    case_id: 42,
+    case_no: 'CASE-ONB-0042',
+    case_type: 'ONBOARDING',
+    application_status: 'SUBMITTED',
+    effect_status: 'NONE',
+    canonical_endpoint: '/v1/lifecycle/onboarding',
     replayed: false,
   })
 })
@@ -218,7 +220,7 @@ describe('EmployeeListPage', () => {
 
   it('shows the empty state and its create call to action', async () => {
     api.listEmployees.mockResolvedValue(list([]))
-    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage'])
     await flushPromises()
 
     expect(wrapper.text()).toContain('暂无员工')
@@ -301,20 +303,18 @@ describe('EmployeeListPage', () => {
     expect(restorer.wrapper.findAll('[data-testid="employee-restore"]')).toHaveLength(1)
   })
 
-  it('hides the create entry point when people.employee.manage is absent', async () => {
-    const { wrapper } = await mountPage(['people.employee.read'])
+  it('hides the create entry point when the canonical lifecycle capability is absent', async () => {
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
     await flushPromises()
 
     expect(wrapper.find('[data-testid="employee-create"]').exists()).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text() === '新建员工')).toBe(false)
   })
 
-  it('creates an employee, closes the drawer, refetches and shows the new employee number', async () => {
+  it('submits onboarding as a pending case, closes the drawer and shows the case link', async () => {
     api.listOrgUnits.mockResolvedValue([{ id: 10, name: '研发部', code: 'DEV' }])
-    api.listEmployees
-      .mockResolvedValueOnce(list([employee()]))
-      .mockResolvedValueOnce(list([employee({ employment_id: 9, employee_no: 'E0007', person_name: '合成新人' }), employee()]))
-    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage'])
+    api.listEmployees.mockResolvedValue(list([employee()]))
+    const { wrapper } = await mountPage(['people.employee.read', 'people.employee.manage', 'lifecycle.onboarding.manage', 'lifecycle.case.read'])
     await flushPromises()
 
     await wrapper.get('[data-testid="employee-create"]').trigger('click')
@@ -334,10 +334,11 @@ describe('EmployeeListPage', () => {
       expect.any(String),
     )
     expect(wrapper.find('[data-testid="form-drawer"]').exists()).toBe(false)
-    expect(api.listEmployees).toHaveBeenCalledTimes(2)
-    expect(api.listEmployees.mock.calls[1]?.[0]).toMatchObject({ page: 1 })
-    expect(wrapper.text()).toContain('员工 E0007 已创建')
-    expect(wrapper.text()).toContain('E0007')
+    expect(api.listEmployees).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="employee-created-message"]').text()).toContain('已提交入职审批')
+    expect(wrapper.text()).toContain('CASE-ONB-0042')
+    expect(wrapper.get('[data-testid="onboarding-case-link"]').attributes('href')).toBe('/hr/movements/42')
+    expect(wrapper.text()).not.toContain('员工 E0007 已创建')
   })
 })
 
@@ -373,11 +374,12 @@ describe('EmployeeCreateDrawer', () => {
     api.onboardEmployee
       .mockReturnValueOnce(first)
       .mockResolvedValueOnce({
-        person_id: 3,
-        employment_id: 7,
-        employee_no: 'E0007',
-        assignment_id: 4,
-        terms_id: 5,
+        case_id: 42,
+        case_no: 'CASE-ONB-0042',
+        case_type: 'ONBOARDING',
+        application_status: 'SUBMITTED',
+        effect_status: 'NONE',
+        canonical_endpoint: '/v1/lifecycle/onboarding',
         replayed: false,
       })
     const wrapper = mountDrawer()
@@ -401,10 +403,11 @@ describe('EmployeeCreateDrawer', () => {
     expect(secondKey).toBe(firstKey)
   })
 
-  it('shows a duplicate employee number in Chinese for a 409 conflict', async () => {
+  it('shows a duplicate employee number in Chinese for a 422 validation reason', async () => {
     api.onboardEmployee.mockRejectedValue(
-      new ApiError('CONFLICT', 'Employee number must be unique.', {
-        status: 409,
+      new ApiError('VALIDATION_FAILED', 'The given data was invalid.', {
+        status: 422,
+        fieldErrors: { employee_no: ['The employee number has already been taken.'] },
         details: { reason: 'EMPLOYEE_NO_DUPLICATE' },
       }),
     )

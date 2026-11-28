@@ -10,6 +10,7 @@ use App\Modules\Lifecycle\Services\ChecklistService;
 use App\Modules\Lifecycle\Services\LifecycleCaseListService;
 use App\Modules\Lifecycle\Services\LifecycleProjectionService;
 use App\Modules\Lifecycle\Services\LifecycleService;
+use App\Modules\People\Contracts\OnboardingDraftStore;
 use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorRef;
@@ -35,6 +36,7 @@ final class LifecycleController
         private readonly LifecycleCaseListService $caseList,
         private readonly ChecklistService $checklists,
         private readonly IdempotencyRunner $idempotency,
+        private readonly OnboardingDraftStore $onboardingDrafts,
     ) {}
 
     public function onboarding(Request $request): JsonResponse
@@ -72,7 +74,36 @@ final class LifecycleController
             'submit' => ['sometimes', 'boolean'],
         ]);
 
-        return $this->command($request, 'onboarding', $principal, $data, LifecycleCaseType::ONBOARDING, $today->value());
+        $this->assertOnboardingOrgScope($principal, (int) $data['org_unit_id'], $today->value());
+        $idempotencyKey = (string) $request->header('Idempotency-Key', '');
+
+        if ($idempotencyKey === '') {
+            throw new ValidationException(['idempotency_key' => ['A valid Idempotency-Key header is required.']]);
+        }
+
+        $draftId = null;
+
+        if (isset($data['person']) && is_array($data['person'])) {
+            $draft = $this->onboardingDrafts->reserve(
+                employeeNo: (string) $data['employee_no'],
+                idempotencyKey: $idempotencyKey,
+                person: $data['person'],
+                actorUserId: $principal->userId(),
+            );
+            $draftId = (int) $draft['draft_id'];
+            $data['onboarding_draft_id'] = $draftId;
+            unset($data['person']);
+        }
+
+        return $this->command(
+            $request,
+            'onboarding',
+            $principal,
+            $data,
+            LifecycleCaseType::ONBOARDING,
+            $today->value(),
+            $draftId,
+        );
     }
 
     public function probationConfirmation(Request $request): JsonResponse
@@ -306,6 +337,7 @@ final class LifecycleController
         array $data,
         LifecycleCaseType $type,
         string $businessDate,
+        ?int $onboardingDraftId = null,
     ): JsonResponse {
         $key = (string) $request->header('Idempotency-Key', '');
 
@@ -315,10 +347,12 @@ final class LifecycleController
 
         $result = DB::transaction(fn (): \App\Modules\Platform\Contracts\IdempotentResult => $this->idempotency->run(
             principalId: $principal->userId(),
-            scope: "POST:/v1/lifecycle/{$path}",
+            scope: $type === LifecycleCaseType::ONBOARDING
+                ? 'CMD:lifecycle.onboarding.create'
+                : "POST:/v1/lifecycle/{$path}",
             key: $key,
             payload: $data,
-            operation: function () use ($principal, $data, $type, $businessDate): array {
+            operation: function () use ($principal, $data, $type, $businessDate, $onboardingDraftId): array {
                 $created = $this->lifecycle->createCase(
                     requesterUserId: $principal->userId(),
                     type: $type,
@@ -329,6 +363,10 @@ final class LifecycleController
 
                 $case = $created['case'];
 
+                if ($onboardingDraftId !== null) {
+                    $this->onboardingDrafts->attachCase($onboardingDraftId, (int) $case->id);
+                }
+
                 return [
                     'http_status' => 201,
                     'body' => [
@@ -337,6 +375,7 @@ final class LifecycleController
                         'case_type' => $case->type,
                         'application_status' => $case->applicationStatus,
                         'effect_status' => $case->effectStatus,
+                        'onboarding_draft_id' => $onboardingDraftId,
                         'draft_employment_intent' => [
                             'person_id' => $data['person_id'] ?? null,
                             'employee_no' => $data['employee_no'] ?? null,
@@ -361,6 +400,17 @@ final class LifecycleController
     private function assertAllows(Principal $principal, string $capability, AnchorRef $anchor, string $on): void
     {
         if (! $this->authorizer->allows($principal, $capability, $anchor, $on)) {
+            throw new AuthorizationException('Forbidden.');
+        }
+    }
+
+    private function assertOnboardingOrgScope(Principal $principal, int $orgUnitId, string $on): void
+    {
+        $company = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::company(), $on);
+        $orgUnit = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgUnit($orgUnitId), $on);
+        $subtree = $this->authorizer->allows($principal, 'lifecycle.onboarding.manage', AnchorRef::orgSubtree($orgUnitId), $on);
+
+        if (! $company && ! $orgUnit && ! $subtree) {
             throw new AuthorizationException('Forbidden.');
         }
     }

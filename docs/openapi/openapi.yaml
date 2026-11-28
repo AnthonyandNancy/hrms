@@ -565,15 +565,19 @@ components:
             work_location: { type: [string, "null"], maxLength: 120 }
             work_schedule: { type: [string, "null"], maxLength: 64 }
             effective_from: { type: [string, "null"], format: date }
-    OnboardedEmployee:
+    PendingOnboardingCase:
       type: object
-      required: [person_id, employment_id, employee_no, assignment_id, terms_id, replayed]
+      description: >
+        Pending Lifecycle onboarding Case. No Person, Employment, Assignment or
+        Terms row exists until the canonical Onboarding Effect is applied.
+      required: [case_id, case_no, case_type, application_status, effect_status, canonical_endpoint, replayed]
       properties:
-        person_id: { type: integer }
-        employment_id: { type: integer }
-        employee_no: { type: string }
-        assignment_id: { type: integer }
-        terms_id: { type: integer }
+        case_id: { type: integer, minimum: 1 }
+        case_no: { type: string, minLength: 1 }
+        case_type: { type: string, enum: [ONBOARDING] }
+        application_status: { type: string }
+        effect_status: { type: string }
+        canonical_endpoint: { type: string, enum: ["/v1/lifecycle/onboarding"] }
         replayed: { type: boolean }
     DepartmentWriteRequest:
       type: object
@@ -10755,11 +10759,16 @@ paths:
       operationId: onboardEmployee
       tags:
         - People
-      summary: Create a person, employment, assignment and first terms version atomically
+      summary: Submit the canonical onboarding Case through the legacy People payload
       description: >
-        One transactional business act. A replay with the same Idempotency-Key
-        returns the original employee with `data.replayed = true` and creates no
-        duplicate. Requires capability `people.employee.manage` at COMPANY.
+        Compatibility facade. The historical payload is mapped to the Lifecycle
+        onboarding payload and submitted as a Workflow Case. The response is
+        always 202 with pending Case metadata; this route never creates Person,
+        Employment, Assignment or Terms rows. Those writes remain exclusive to
+        the approved Onboarding Effect at POST /v1/lifecycle/onboarding. A replay
+        with the same Idempotency-Key returns the same Case with
+        `data.replayed = true`. Requires capability `people.employee.manage` and
+        `lifecycle.onboarding.manage` at COMPANY.
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
         - $ref: "#/components/parameters/IdempotencyKeyRequired"
@@ -10770,8 +10779,8 @@ paths:
             schema:
               $ref: "#/components/schemas/OnboardEmployeeRequest"
       responses:
-        "201":
-          description: Employee onboarded
+        "202":
+          description: Pending onboarding Case accepted (including idempotent replay)
           content:
             application/json:
               schema:
@@ -10780,18 +10789,7 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: "#/components/schemas/OnboardedEmployee"
-        "200":
-          description: Idempotent replay of a previous onboarding
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Envelope"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/OnboardedEmployee"
+                        $ref: "#/components/schemas/PendingOnboardingCase"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -10802,7 +10800,7 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-capability: people.employee.manage
+      x-capability: people.employee.manage,lifecycle.onboarding.manage
       x-action-label: 员工入职建档
   /v1/employees/{employmentId}/certificates:
     get:
