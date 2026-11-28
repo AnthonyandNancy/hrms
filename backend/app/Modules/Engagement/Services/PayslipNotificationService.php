@@ -61,10 +61,7 @@ final class PayslipNotificationService
             $ids = [...$ids, ...$this->notifications->notify(
                 userIds: [$userId],
                 type: 'PAYSLIP_PUBLISHED',
-                payload: [
-                    'payslip_id' => $payslip->payslipId,
-                    'period' => $payslip->period,
-                ],
+                payload: ['payslip_id' => $payslip->payslipId],
                 eventKey: 'payslip-published:'.$payslip->payslipId,
             )];
         }

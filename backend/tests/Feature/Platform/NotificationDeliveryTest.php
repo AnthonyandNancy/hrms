@@ -152,7 +152,11 @@ final class NotificationDeliveryTest extends PeopleTestCase
             'body' => 'You have a pending approval.',
         ], ['Idempotency-Key' => 'nt-retry'])->assertCreated();
 
-        $this->app->instance(NotificationTransport::class, new ReceiptDrivenNotificationTransport);
+        $transport = new ReceiptDrivenNotificationTransport([
+            NotificationReceipt::delivered('dispatch-receipt'),
+            NotificationReceipt::delivered('retry-receipt'),
+        ]);
+        $this->app->instance(NotificationTransport::class, $transport);
 
         $deliveryId = (int) $this->postJson('/v1/notifications/dispatch', [
             'event_key' => 'case-4-created',
@@ -215,6 +219,6 @@ final class ReceiptDrivenNotificationTransport implements NotificationTransport
     public function send(string $templateCode, int $recipientUserId, array $variables): NotificationReceipt
     {
         return array_shift($this->receipts)
-            ?? NotificationReceipt::delivered('stub-provider-'.bin2hex(random_bytes(4)));
+            ?? NotificationReceipt::failed('NO_STUBBED_RECEIPT');
     }
 }

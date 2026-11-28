@@ -10,16 +10,17 @@ use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
 use App\Modules\Engagement\Contracts\NoticeApprovalPort;
 use App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory;
 use App\Modules\Engagement\Services\EloquentNoticeWorkspaceDirectory;
-use App\Modules\Engagement\Services\UnavailableExternalNotificationChannel;
 use App\Modules\Engagement\Services\NoticeAccessPolicy;
 use App\Modules\Engagement\Services\NoticeAudienceService;
 use App\Modules\Engagement\Services\NoticeGovernanceService;
 use App\Modules\Engagement\Services\NoticeService;
 use App\Modules\Engagement\Services\NotificationService;
 use App\Modules\Engagement\Services\PayslipNotificationService;
+use App\Modules\Engagement\Services\UnavailableExternalNotificationChannel;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\Payroll\Contracts\PayslipPublicationNotifier;
 use App\Modules\People\Contracts\NoticeAudienceDirectory;
+use App\Shared\Notifications\NotificationDeliveryRetry;
 use Illuminate\Support\ServiceProvider;
 
 final class EngagementServiceProvider extends ServiceProvider
@@ -30,6 +31,7 @@ final class EngagementServiceProvider extends ServiceProvider
         $this->app->bind(PayslipPublicationNotifier::class, PayslipPublicationNotifierAdapter::class);
         $this->app->bind(NoticeWorkspaceDirectory::class, EloquentNoticeWorkspaceDirectory::class);
 
+        $this->app->bind(NotificationDeliveryRetry::class, NotificationService::class);
         $this->app->bind(NotificationService::class, fn ($app): NotificationService => new NotificationService(
             $app->make(ExternalNotificationChannel::class),
             $app->make(\App\Shared\Observability\OutboxRecorder::class),

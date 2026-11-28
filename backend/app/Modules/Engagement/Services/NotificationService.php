@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Engagement\Services;
 
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
-use App\Modules\Engagement\Contracts\NotificationDeliveryRetry;
 use App\Modules\Engagement\Models\Notification;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Modules\Platform\Contracts\NotificationDeliveryLedger;
 use App\Shared\Exceptions\NotFoundException;
 use App\Shared\Notifications\NotificationDeliveryRecord;
+use App\Shared\Notifications\NotificationDeliveryRetry;
 use App\Shared\Notifications\NotificationDeliveryStatus;
 use App\Shared\Notifications\NotificationReceipt;
 use App\Shared\Observability\AuditRecorder;

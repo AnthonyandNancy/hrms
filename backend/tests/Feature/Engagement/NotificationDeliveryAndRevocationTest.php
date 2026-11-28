@@ -119,6 +119,7 @@ final class NotificationDeliveryAndRevocationTest extends PeopleTestCase
     public function test_reentrant_duplicate_notify_only_invokes_the_provider_once(): void
     {
         $fixture = $this->workforceFixture();
+        /** @var NotificationService|null $service */
         $service = null;
         $reentered = false;
         $secondIds = null;

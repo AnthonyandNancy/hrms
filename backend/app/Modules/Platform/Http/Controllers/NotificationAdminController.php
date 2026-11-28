@@ -16,6 +16,7 @@ use App\Shared\Commands\CommandRunner;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
+use App\Shared\Notifications\NotificationDeliveryRetry;
 use App\Shared\Projections\ProjectionResponder;
 use App\Shared\Projections\ProjectionResult;
 use App\Shared\Time\BusinessDate;
@@ -293,6 +294,15 @@ final class NotificationAdminController
                     throw new ConflictException('This delivery has already been sent.', ['reason' => 'DELIVERY_ALREADY_SENT']);
                 }
 
+                if ($this->retryThroughOwningModule($delivery)) {
+                    return [
+                        'http_status' => 200,
+                        'body' => $this->deliveryRow($delivery->refresh()),
+                        'resource_type' => 'notification_delivery',
+                        'resource_id' => (string) $delivery->id,
+                    ];
+                }
+
                 /** @var NotificationOutbox|null $outbox */
                 $outbox = NotificationOutbox::query()
                     ->whereKey((int) $delivery->notification_outbox_id)
@@ -348,6 +358,36 @@ final class NotificationAdminController
         }
 
         return $response;
+    }
+
+    /**
+     * Engagement-owned rows carry their original type and payload in the
+     * ledger. Only the owning module can replay them, so Platform must not
+     * substitute its template transport. Returns false for Platform rows.
+     */
+    private function retryThroughOwningModule(NotificationDelivery $delivery): bool
+    {
+        if ($delivery->notification_type === null || $delivery->notification_id === null) {
+            return false;
+        }
+
+        $retry = app(NotificationDeliveryRetry::class);
+
+        if (! $retry->supportsChannel((string) $delivery->channel)) {
+            throw new ConflictException(
+                'The notification channel stored for this delivery no longer has a provider.',
+                ['reason' => 'NOTIFICATION_CHANNEL_MISMATCH'],
+            );
+        }
+
+        if ($retry->retryDelivery((int) $delivery->id) === null) {
+            throw new ConflictException(
+                'The notification delivery is already sent or being retried.',
+                ['reason' => 'DELIVERY_RETRY_UNAVAILABLE'],
+            );
+        }
+
+        return true;
     }
 
     /**
