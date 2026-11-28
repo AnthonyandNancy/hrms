@@ -86,7 +86,7 @@
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
 | T09 | Snapshot v2 与员工级方案 | COMPLETE | T09a-T09d | `3cb50af`; `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; `gate-all-t09d2.log`; T14/T15 must replace default adapters and rerun |
 | T10 | 受限规则引擎 | PENDING | — | — |
-| T11 | 批次成员、阻断与正交状态 | IN PROGRESS | T11a/T11b1 merged; member HTTP/action projection pending | `5ead6a6`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b1.log` |
+| T11 | 批次成员、阻断与正交状态 | COMPLETE | T11a/T11b1/T11b2 | `0dfd885`; `docs/implementation/v24/11-payroll-runs/implementation-report.md`; `gate-all-t11b2.log`; member form polish in T17 |
 | T12 | 月中分段与周期级税费 | PENDING | — | — |
 | T13 | 累计更正与 signed YTD | PENDING | — | — |
 | T14 | 福利计薪输入与冲销 | PENDING | — | — |
@@ -118,8 +118,9 @@
 | 2026-11-28 | T09d1 status exposure | `2101916` + full gate | 22 gates PASS in 240.1s; OpenAPI/TS/payroll UI expose CALCULATED_WITH_BLOCKERS and BLOCKED; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09d1.log` | T09d2 followed. |
 | 2026-11-28 | T09d2 merge | `3cb50af` + full gate | 22 gates PASS in 237.7s; benefit/performance frozen ports, fake adapter calculation proof; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09d2.log` | T09 complete; T14/T15 must replace adapters and rerun. |
 | 2026-11-28 | T11a run members | `6a4df39` + full gate | 22 gates PASS in 236.3s; payroll_run_members, PREPARER source, preassigned REVIEWER access, detail membership; log `docs/implementation/v24/11-payroll-runs/gate-all-t11a.log` | T11b followed. |
-| 2026-11-28 | T11b1 orthogonal states | `5ead6a6` + full gate | 22 gates PASS in 241.3s; publish/disbursement flags independent, close prerequisites, YTD-after-disburse trigger; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b1.log` | Member HTTP/actions and blocked action projection remain T11b2. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T11b2/T16 blocked; T08/T10/T12–T15/T17/T19 not implemented; MCP 0 executed | Continue T11b2 and Payroll rule/correction chain. |
+| 2026-11-28 | T11b1 orthogonal states | `5ead6a6` + full gate | 22 gates PASS in 241.3s; publish/disbursement flags independent, close prerequisites, YTD-after-disburse trigger; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b1.log` | T11b2 followed. |
+| 2026-11-28 | T11b2 member actions | `0dfd885` + full gate | 22 gates PASS in 241.3s; member HTTP/actions, blocked/orthogonal action projection; log `docs/implementation/v24/11-payroll-runs/gate-all-t11b2.log` | T11 complete; member form visual polish in T17. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T11 complete, T16 blocked; T08/T10/T12–T15/T17/T19 not implemented; MCP 0 executed | Continue Payroll rule/correction chain and T16. |
 
 ---
 
