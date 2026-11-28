@@ -115,6 +115,7 @@
 | 2026-11-28 | T07c merge | `2ae0378` + full gate | 22 gates PASS in 244.3s; reversal audit/outbox/link/unique, UNRESOLVED boundary, company business dates; log `docs/implementation/v24/07-leave-effects/gate-all-t07c.log` | T07 complete; Snapshot closed-fact consumption remains T09. |
 | 2026-11-28 | T09a/T09b merge | `87b3e91` + full gate | 22 gates PASS in 288.1s; execution compensation and closed Time fact evidence/blocker in Snapshot v2; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09ab.log` | T09c followed. |
 | 2026-11-28 | T09c merge | `8ad0070` + full gate | 22 gates PASS in 287.1s; BLOCKED employees and CALCULATED_WITH_BLOCKERS; payroll feature+integration 104 tests; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09c.log` | Benefits/performance frozen inputs and full employee-scheme paths remain T09d. |
+| 2026-11-28 | T09d1 status exposure | `2101916` + full gate | 22 gates PASS in 240.1s; OpenAPI/TS/payroll UI expose CALCULATED_WITH_BLOCKERS and BLOCKED; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09d1.log` | Benefits/performance ports remain T09d2. |
 | 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T09d/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Resume from T09d/T16 and Payroll chain; rerun each gate. |
 
 ---
