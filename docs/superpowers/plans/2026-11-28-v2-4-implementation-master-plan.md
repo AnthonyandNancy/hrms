@@ -140,7 +140,8 @@
 | 2026-11-28 | T08a timeoff/travel facts | `236a6e3` + full gate | 22 gates PASS in 237.8s; append-only ledger/TIMEOFF EARN, travel conflicts, payroll travel formula; log `docs/implementation/v24/08-overtime-travel/gate-all-t08a.log` | Overtime Workflow and travel revision API remain T08b. |
 | 2026-11-28 | T13d correction void/retry | `207cb39` + full gate | 22 gates PASS in 245.3s; independent OPEN/VOID state, HTTP void, retry same period, UI evidence; log `docs/implementation/v24/13-corrections/gate-all-t13d.log` | T13 complete; MCP remains T18. |
 | 2026-11-28 | T14d benefit masking | `39183a6` + full gate | 22 gates PASS in 240.0s; P3 amount schemas, per-row benefit.read projection, masked frontend labels, backend/frontend regressions; log `docs/implementation/v24/14-benefits/gate-all-t14d.log` | T14 complete; T16 report/export security remains. |
-| 2026-11-28 | T17a exact money/self payslip | `093cc63` + full gate | 22 gates PASS in 239.5s; BigInt money, unsafe rejection, period/pay_date, self panel no payroll.run.read; log `docs/implementation/v24/17-frontend/gate-all-t17a.log` | T17 action/Chinese sweep remains. |
+| 2026-11-28 | T17a exact money/self payslip | `093cc63` + full gate | 22 gates PASS in 239.5s; BigInt money, unsafe rejection, period/pay_date, self panel no payroll.run.read; log `docs/implementation/v24/17-frontend/gate-all-t17a.log` | T17b followed. |
+| 2026-11-28 | T17b server action bar | `f8f6b38` + full gate | 22 gates PASS in 239.6s; allowed_actions-only payroll actions, capability-free reasons, tests updated; log `docs/implementation/v24/17-frontend/gate-all-t17b.log` | Other detail actions/Chinese sweep remain. |
 | 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T16 blocked; T08b/T17 actions/T19 outstanding; MCP 0 executed | Continue T17 actions and T08b/T16 unblock. |
 
 ---
@@ -982,7 +983,7 @@ cd frontend && pnpm test:unit -- reportCatalog.spec.ts reportErrorState.spec.ts
 
 ### T17：前端精确金额、对象动作、自助工资条与详情补全
 
-**状态：** IN PROGRESS (T17a exact money/self payslip done; action/Chinese sweep pending)
+**状态：** IN PROGRESS (T17a/T17b exact money/self payslip/server action bar done; other detail actions/Chinese sweep pending)
 
 **修改位置：**
 - `frontend/src/utils/format.ts`
@@ -1029,7 +1030,8 @@ pnpm actions:check && pnpm page-components:check && pnpm page-model:check && pnp
 - [x] Step 2：T17a focused RED/GREEN。
 - [x] Step 3：formatMoney/parse/MoneyText BigInt；workspace 接自 payslip panel。
 - [x] Step 4：self payslip period/pay_date + 自助 API 范围；聚焦和全门禁 GREEN。
-- [ ] Step 5：服务端 allowed_actions 详情动作、中文枚举/错误 sweep 后完成 T17。
+- [x] Step 5a：PayrollActionBar 只消费 allowed_actions、无 capability 文案。
+- [ ] Step 5b：其他详情动作、中文枚举/错误 sweep 后完成 T17。
 
 ---
 
