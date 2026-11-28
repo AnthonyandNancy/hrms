@@ -80,8 +80,8 @@
 | T02 | 权限单一目录与对象动作 | COMPLETE | Step 5 | `docs/implementation/v24/02-action-catalog/evidence.md`; gate log |
 | T03 | 合同约定版本 | COMPLETE | Step 5 | `docs/implementation/v24/03-contracts/evidence.md` |
 | T04 | 员工执行薪酬版本 | COMPLETE | Step 5 | `docs/implementation/v24/04-compensation-chain/evidence.md` |
-| T05 | 单一入职与合同/薪酬待办 | PENDING | — | — |
-| T06 | Time 月度事实版本 | PENDING | — | — |
+| T05 | 单一入职与合同/薪酬待办 | PENDING | Step 0（已拆 T05a Mini Plan） | `docs/superpowers/plans/2026-11-28-t05a-single-onboarding-entry-mini-plan.md` |
+| T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
 | T07 | 请假审批 Effect 与净流水 | PENDING | — | — |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
 | T09 | Snapshot v2 与员工级方案 | PENDING | — | — |
@@ -93,7 +93,7 @@
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
 | T16 | 通知状态与报表字段裁剪 | PENDING | — | — |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
-| T18 | Playwright MCP 全后台验收 | PENDING | — | — |
+| T18 | Playwright MCP 全后台验收 | IN PROGRESS | 验收资产已合并；MCP 全部 NOT RUN | `docs/implementation/v24/18-mcp-acceptance/` |
 | T19 | 真实栈、迁移恢复与发布判定 | PENDING | — | — |
 
 ### 0.6 执行日志
@@ -105,6 +105,9 @@
 | 2026-11-28 | T01 Step 5 | `phpunit --filter 'Install|Health|SyncCapabilities|DemoSeed'`; `pnpm gate:all` | 28 adjacent tests PASS; 22 gates PASS in 222.5s; evidence at `docs/implementation/v24/01-install/evidence.md` | T01 complete. Continue with T02; do not claim AC-02 until real-stack/MCP evidence. |
 | 2026-11-28 | T02 Step 5 | 38 backend tests + 652 frontend tests + `pnpm gate:all` | 22 gates PASS in 245.3s; generated PHP/JSON/TS action artifacts; evidence at `docs/implementation/v24/02-action-catalog/evidence.md` | T02 complete with contract/Time detail wiring explicitly carried into T03/T07/T08. Continue T03. |
 | 2026-11-28 | T03/T04 Step 5 | combined focused 34 tests + full `pnpm gate:all` | 22 gates PASS in 247.7s; evidence in `docs/implementation/v24/03-contracts/` and `04-compensation-chain/` | Contract ladder and execution compensation link complete. Payroll still reads terms until T09. |
+| 2026-11-28 | T06 hardening review | 58fbe80 + 33 fact tests + independent re-review | Spec ✅ / Approved-with-risk; MySQL true concurrency explicitly deferred T19; final full gate pending T16/T07 merges | Do not claim concurrency verified until T19. |
+| 2026-11-28 | T18 acceptance assets | merged 1517c56 | 155/458 matrix, 21-module runbook and evidence index merged; all MCP conclusions NOT RUN; R02–R05/R08 anchor setup BLOCKED | T18 remains IN PROGRESS until real MCP execution. |
+| 2026-11-28 | T05 re-scope | Mini Plan created | Legacy direct onboarding will become a Lifecycle facade in three small steps; contract/compensation drafts deferred to T05b | Execute after current parallel branches merge; do not claim T05 complete. |
 
 ---
 
@@ -448,7 +451,7 @@ cd frontend && pnpm test:unit -- peoplePages.spec.ts
 
 ### T06：Time 月度事实版本与闭账 hash
 
-**状态：** PENDING
+**状态：** COMPLETE（MySQL 真并发验证留 T19）
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_000400_create_time_payroll_fact_versions.php`
@@ -484,10 +487,11 @@ cd backend
 ```
 
 **TDD 步骤：**
-- [ ] Step 1：写 failing tests：关闭产生 hash+rows、重复 close 幂等、重开保留 v1、新 close v2、所有入口拒绝 closed、缺失排班阻断。
-- [ ] Step 2：运行确认 FAIL。
-- [ ] Step 3：迁移/模型/服务；更新 closure controller/port。
-- [ ] Step 4：闭账回归；提交 `feat(v2.4): freeze monthly time facts and hashes`。
+- [x] Step 1：写 failing tests：关闭产生 hash+rows、重复 close 幂等、重开保留 v1、新 close v2、所有入口拒绝 closed、缺失排班阻断。
+- [x] Step 2：运行确认 FAIL。
+- [x] Step 3：迁移/模型/服务；更新 closure controller/port。
+- [x] Step 4：闭账回归；提交 `feat(v2.4): freeze monthly time facts and hashes`。
+- [x] Step 5：独立审查三轮修复：signed net/真实 revoke、空月与逐员工缺失阻断、close/reopen/mutation 同月锁、idempotency、v3 指针、全列不可变证据；提交 f63fe3e/9842629/58fbe80。
 
 ---
 
