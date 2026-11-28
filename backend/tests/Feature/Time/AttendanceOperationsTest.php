@@ -477,6 +477,10 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
 
     private function seedFactDay(string $date): void
     {
+        if (! \App\Modules\Time\Models\LegalEntityCalendar::query()->exists()) {
+            $this->calendar();
+        }
+
         $shift = $this->shift(code: 'CLOSE-FIX');
         ShiftSchedule::query()->create([
             'employment_id' => 1,

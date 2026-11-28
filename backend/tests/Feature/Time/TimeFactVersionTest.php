@@ -955,6 +955,106 @@ final class TimeFactVersionTest extends TimeHttpTestCase
         $this->assertSame(1, \App\Modules\Time\Models\TimePeriodLock::query()->where('month', '2026-11')->count());
     }
 
+    public function test_second_active_employee_without_any_month_evidence_blocks_close(): void
+    {
+        $this->calendar();
+        $this->actingAsCloser();
+        $this->people->add(TimeTestFixtures::employment(2));
+        $this->attendance('2026-11-02', 480, 480, 'NORMAL');
+
+        $response = $this->closeMonth('2026-11', 'second-employee-close')
+            ->assertStatus(409)
+            ->assertJsonPath('data.reason', 'TIME_FACT_PRECHECK_FAILED');
+
+        $blockers = (array) $response->json('data.blockers');
+        $secondEmployeeBlockers = array_values(array_filter(
+            $blockers,
+            static fn (array $blocker): bool => $blocker['code'] === 'NO_ELIGIBLE_TIME_FACTS'
+                && (int) ($blocker['employment_id'] ?? 0) === 2,
+        ));
+        $this->assertCount(1, $secondEmployeeBlockers);
+        $this->assertMatchesRegularExpression('/[\x{4e00}-\x{9fff}]/u', (string) $secondEmployeeBlockers[0]['message']);
+        $this->assertDatabaseCount('time_payroll_fact_versions', 0);
+    }
+
+    public function test_leave_approval_service_rejects_a_closed_month_before_writing_consumption(): void
+    {
+        $this->calendar();
+        $this->actingAsCloser();
+        $type = $this->leaveType();
+        $this->leavePolicy((int) $type->id, [
+            'mode' => 'ANNUAL_FIXED',
+            'minutes_per_year' => 4800,
+            'payroll_treatment' => 'PAID',
+            'paid_ratio_scaled' => 1_000_000,
+        ]);
+        $this->attendance('2026-11-02', 480, 480, 'NORMAL');
+        $this->closeMonth('2026-11', 'approval-lock-close')->assertCreated();
+
+        $caseId = $this->workflow->createCase(
+            requesterUserId: 10,
+            type: 'LEAVE_REQUEST',
+            subjectType: 'employment',
+            subjectId: 1,
+            payload: ['title' => 'Synthetic closed-month approval'],
+            businessDate: '2026-11-10',
+        );
+        $projection = LeaveRequestProjection::query()->create([
+            'employment_id' => 1,
+            'actor_user_id' => 10,
+            'leave_type_id' => (int) $type->id,
+            'leave_policy_version_id' => (int) LeavePolicyVersion::query()->where('leave_type_id', $type->id)->value('id'),
+            'case_id' => $caseId,
+            'from_date' => '2026-11-10',
+            'to_date' => '2026-11-10',
+            'minutes' => 480,
+            'state' => 'SUBMITTED',
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
+        ]);
+
+        try {
+            app(LeaveApprovalService::class)->applyApprovedCase($caseId, 10);
+            $this->fail('Expected the closed-month approval to be rejected.');
+        } catch (\App\Shared\Exceptions\ConflictException $exception) {
+            $this->assertSame('PERIOD_CLOSED', $exception->details()['reason'] ?? null);
+        }
+
+        $this->assertSame('SUBMITTED', (string) $projection->refresh()->state);
+        $this->assertSame(0, LeaveLedgerEntry::query()
+            ->where('case_id', $caseId)
+            ->where('account', 'CONSUME')
+            ->count());
+    }
+
+    public function test_real_service_path_rolls_back_ledger_and_month_mutex_with_its_transaction(): void
+    {
+        $this->calendar();
+        $type = $this->leaveType();
+        $this->leaveAccount($type);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($type): void {
+                app(LeaveLedgerService::class)->grant(
+                    employmentId: 1,
+                    leaveTypeId: (int) $type->id,
+                    minutes: 480,
+                    businessDate: '2026-12-01',
+                    sourceType: 'SYNTHETIC',
+                    sourceId: 'rollback-1',
+                    reason: 'Synthetic service rollback.',
+                );
+
+                throw new RuntimeException('Synthetic failure after the service wrote.');
+            });
+        } finally {
+            $this->assertSame(0, LeaveLedgerEntry::query()->where('source_id', 'rollback-1')->count());
+            $this->assertSame(0, \App\Modules\Time\Models\TimePeriodLock::query()->where('month', '2026-12')->count());
+        }
+    }
+
     private function actingAsCloser(): void
     {
         $this->actAsHttp(TimeTestFixtures::actor(

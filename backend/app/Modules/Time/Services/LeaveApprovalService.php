@@ -24,6 +24,7 @@ final class LeaveApprovalService
         private readonly LeaveLedgerService $ledger,
         private readonly AuditRecorder $audit,
         private readonly Clock $clock,
+        private readonly PayrollFreezeGuard $freezeGuard,
     ) {}
 
     /**
@@ -56,6 +57,10 @@ final class LeaveApprovalService
             }
 
             $businessDate = $projection->from_date->format('Y-m-d');
+
+            // Ledger money/facts belong to the leave month. Lock the same
+            // durable Time month mutex used by close and all other mutations.
+            $this->freezeGuard->lockAndAssertOpen(substr($businessDate, 0, 7));
 
             $this->ledger->consume(
                 employmentId: (int) $projection->employment_id,

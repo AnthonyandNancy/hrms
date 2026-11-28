@@ -79,8 +79,10 @@ unchanged; their existing live `attendanceForPeriod` preview path is untouched.
     and the pointed fact version is CLOSED with a hash. It never falls back to live
     attendance.
 - `backend/app/Modules/Time/Services/PayrollFreezeGuard.php`
-  - remains the single freeze gate and now also enforces Time's own CLOSED
-    attendance period before consulting `PayrollPeriodLockReader`.
+  - is the single Time period lock/closure gate. `withOpenPeriods()` and
+    `lockAndAssertOpen()` lock the durable `time_period_locks` month mutex inside
+    the caller's write transaction, then reject a CLOSED attendance period before
+    consulting `PayrollPeriodLockReader`.
 - `backend/app/Modules/Time/Services/LeavePolicyService.php`
   - publishes explicit leave payroll treatment (`PAID/PARTIAL/UNPAID`) and
     `paid_ratio_scaled` inside `accrual_json`; absent treatment is `UNRESOLVED`
@@ -89,9 +91,15 @@ unchanged; their existing live `attendanceForPeriod` preview path is untouched.
   `AttendanceCalculator.php`, `AttendanceCorrectionService.php`,
   `LeaveRequestService.php`, `LeaveLedgerService.php`,
   `OvertimeRequestService.php`, `OvertimeSettlementService.php`,
-  `TravelService.php`
-  - all fact-changing entrypoints now call the shared `PayrollFreezeGuard` and
-    reject a CLOSED month with stable `PERIOD_CLOSED` before writing.
+  `TravelService.php`, `LeaveApprovalService.php`, `AttendanceOpsService.php`
+  - all Time fact/ledger/request writers that can affect a monthly fact now lock
+    the same durable month mutex inside the transaction that performs the write,
+    and reject a CLOSED month with stable `PERIOD_CLOSED`.
+  - `TravelService::recordExpense()` is explicitly **not** in the fact lock set:
+    `travel_expenses` is a claim-only financial record and is never read by
+    `time_payroll_fact_rows` or `closedFactForPeriod()`. It therefore does not
+    participate in the Time fact month lock; only the travel request, approval,
+    change, cancel and attendance-link lifecycle do.
 
 ### OpenAPI / generated contract
 
@@ -129,9 +137,10 @@ unchanged; their existing live `attendanceForPeriod` preview path is untouched.
      queryable, and points v2's `reopened_from_version_id` at the prior version.
 5. **Closed mutation rejection**
    - Shift schedules, punches, attendance recalculation, correction request/effect,
-     leave submission/ledger writes/revoke, overtime apply/confirm/settle and
-     travel request/approve/change/cancel/effect reject CLOSED periods via the
-     shared guard and return `PERIOD_CLOSED`.
+     leave submission/approval/ledger writes/revoke, overtime apply/confirm/settle
+     and travel request/approve/change/cancel/effect lock the month mutex and
+     reject CLOSED periods with `PERIOD_CLOSED`. Travel expense claims are not
+     monthly fact inputs and are deliberately outside this lock set.
 6. **Payroll directory**
    - `closedFactForPeriod` reads only the CLOSED version and returns stable,
      typed data for the employment; a missing/open/reopened period returns `null`.
@@ -206,10 +215,10 @@ has a focused failing-test → GREEN mapping:
 | # | Review finding | Regression test | Production fix |
 |---|---|---|---|
 | 1 | Cross-month leave repeated the whole case net in every month; a later-month revoke left the original month full | `test_leave_crossing_months_uses_each_months_effective_days_and_reversal`, `test_real_http_revoke_after_the_original_month_closed_reduces_the_reopened_fact` | `leaveFacts()` computes one signed case net from all `CONSUME + REVERSE` ledger rows and allocates it by cumulative working-day share across the application. There is no second reversal deduction inside a month. The real-path test uses the HTTP revoke route plus `LeaveRequestService`, moves the clock to December, reopens and closes November, and asserts v2 has zero leave instead of 960 |
-| 2 | Scheduled working day with no attendance/leave/travel/explicit absence was silently omitted; closed month with no rows returned a zero export; completely empty month closed | `test_scheduled_working_day_without_any_fact_blocks_close`, `test_a_completely_empty_month_blocks_close_with_no_eligible_facts`, `test_open_reopened_and_hash_missing_facts_do_not_yield_a_payroll_export` | New `SCHEDULE_WITHOUT_FACT` and `NO_ELIGIBLE_TIME_FACTS` blockers; empty month is only allowed when the People as-of bulk contract proves no applicable employment (or the calendar proves no working day); `closedFactForPeriod()` returns `null` when the employment has zero rows |
+| 2 | Scheduled working day with no attendance/leave/travel/explicit absence was silently omitted; closed month with no rows returned a zero export; completely empty month closed | `test_scheduled_working_day_without_any_fact_blocks_close`, `test_a_completely_empty_month_blocks_close_with_no_eligible_facts`, `test_open_reopened_and_hash_missing_facts_do_not_yield_a_payroll_export`, `test_second_active_employee_without_any_month_evidence_blocks_close` | New `SCHEDULE_WITHOUT_FACT` and per-active-employment `NO_ELIGIBLE_TIME_FACTS` blockers; every active employment must have at least one schedule/attendance/leave/overtime/travel evidence row, unless the calendar proves no working day or the as-of directory proves zero employments; `closedFactForPeriod()` returns `null` when the employment has zero rows |
 | 3 | `SUBMITTED/IN_REVIEW` leave/overtime was skipped | `test_non_terminal_leave_and_overtime_requests_block_close` | Terminal rejects are ignored; every other non-approved state raises `LEAVE_APPROVAL_UNRESOLVED` / `OVERTIME_APPROVAL_UNRESOLVED` |
 | 4 | Travel change approval checked only the original date range | `test_travel_change_approval_checks_the_proposed_month_after_the_original_was_opened` | `approve()` checks the pending proposed range and `applyPendingChange()` checks original + proposed before moving the link |
-| 5 | Reopen/close and mutations lacked consistent transaction + row-lock semantics | `test_reopen_rolls_back_every_change_when_a_later_step_fails`, `test_month_mutex_rolls_back_a_write_when_its_transaction_fails`, `test_closed_month_locks_out_a_mutation_and_reopen_restores_the_same_mutex` | New durable `time_period_locks` month mutex (migration `2026_11_28_000900`). `PayrollFreezeGuard::withOpenPeriods()`/`lockAndAssertOpen()` lock that row inside the mutation transaction; every Time mutation, schedule write, close and reopen lock the same row. Close/reopen also lock the closure row. SQLite serializes writers, so the SQLite test proves transaction rollback and closed/reopened mutex semantics; true MySQL parallel contention remains T19 |
+| 5 | Reopen/close and mutations lacked consistent transaction + row-lock semantics | `test_reopen_rolls_back_every_change_when_a_later_step_fails`, `test_month_mutex_rolls_back_a_write_when_its_transaction_fails`, `test_closed_month_locks_out_a_mutation_and_reopen_restores_the_same_mutex`, `test_leave_approval_service_rejects_a_closed_month_before_writing_consumption`, `test_real_service_path_rolls_back_ledger_and_month_mutex_with_its_transaction` | New durable `time_period_locks` month mutex (migration `2026_11_28_000900`). `PayrollFreezeGuard::withOpenPeriods()`/`lockAndAssertOpen()` lock that row inside the mutation transaction; every Time fact/ledger/request writer including `LeaveApprovalService` and the operational shift-schedule writer locks the same row; travel expense claims are excluded because they are not fact inputs. Close/reopen also lock the closure row. SQLite only serializes writers: these tests prove transaction rollback, closed-month rejection and reopen behavior, **not** true parallel locking. Real MySQL close-vs-mutation contention is unexecuted and belongs to T19 |
 | 6 | `periodsForRange()` skipped February from Jan 31 | `test_periods_for_range_does_not_skip_february_after_january_31` | Iteration uses year/month integers, never `DateTime::modify('+1 month')` |
 | 7 | Close/reopen idempotency was not unified | `test_close_and_reopen_use_required_idempotency_and_replay_stably` | New `TimeIdempotentCommand`: missing key → 422 `IDEMPOTENCY_KEY_REQUIRED`; replay → 200 + `Idempotency-Replayed: true`; reused key with different payload → 409 `IDEMPOTENCY_PAYLOAD_MISMATCH`; OpenAPI requires the header |
 | 8 | REST/HOLIDAY attendance incorrectly demanded a schedule | `test_rest_day_attendance_without_schedule_is_not_mistaken_for_missing_shift` | Schedule blockers and `SCHEDULED_MINUTES_UNRESOLVED` apply only on working days |
@@ -220,23 +229,34 @@ has a focused failing-test → GREEN mapping:
 | 13 | Precheck returned a rolled-back, unqueryable `fact_version_id` | `test_incomplete_or_missing_schedule_facts_block_close_with_chinese_location` | The rolled-back id is removed; blocker evidence is returned inline as `precheck_json`, while version/row/closure counts stay zero |
 | 14 | v1 snapshot compared only three columns | `test_reopen_keeps_v1_and_the_next_close_creates_v2` | `factRows()` snapshots all row attributes |
 
-Focused result after the second review remediation:
+Focused result after the third review remediation:
 
 ```text
-OK (30 tests, 175 assertions)
+OK (33 tests, 187 assertions)
 ```
 
-Adjacent Time/payroll regression suite:
+Adjacent Time/Payroll regression suite:
 
 ```text
-OK (93 tests, 506 assertions)
+OK (299 tests, 31646 assertions)
 ```
 
 Full backend suite:
 
 ```text
-OK (1539 tests, 59316 assertions)
+OK (1542 tests, 59328 assertions)
 ```
+
+Verification truthfulness notes:
+
+- `TimeFactVersionTest` and the adjacent suite are executed commands, not
+  projected counts.
+- Pint, PHPStan, `arch:test`, `capability:audit`, OpenAPI lint and OpenAPI
+  validate are executed.
+- `pnpm gate:all` was intentionally not run.
+- **No MySQL concurrency test was executed in this task.** The SQLite mutex
+  tests can only demonstrate serialized/rollback behavior. A real concurrent
+  MySQL `close` vs mutation race remains unverified until T19.
 
 Formatting/static analysis:
 
@@ -275,6 +295,12 @@ pnpm openapi:validate        valid (2 pre-existing health warnings)
 - The migration adds nullable `current_fact_version_id` without a foreign key to
   keep the existing closure row usable during forward-only rollout. Referential
   integrity is enforced by the service and the immutable version status check.
-- Concurrent row-lock contention is implemented through
-  `time_period_locks.month`, but SQLite only serializes writers. The true
-  simultaneous close-vs-write race must be exercised against MySQL in T19.
+- Concurrent close-vs-write protection is implemented through the durable
+  `time_period_locks.month` mutex, but only SQLite tests ran here. SQLite
+  serializes writers, so these are **not** concurrency evidence. Real MySQL
+  parallel `close` vs Time mutation (and reopen vs close) verification is
+  unexecuted and belongs to T19.
+- Monthly close now checks every active employment at the first day of the
+  month for at least one schedule/attendance/leave/overtime/travel evidence.
+  A published calendar with no working days, or an as-of employment directory
+  that proves zero active employments, remains the only empty-month exception.

@@ -11,6 +11,7 @@ use App\Modules\Time\Models\BusinessTripRecord;
 use App\Modules\Time\Models\LeaveLedgerEntry;
 use App\Modules\Time\Models\LeavePolicyVersion;
 use App\Modules\Time\Models\LeaveRequestProjection;
+use App\Modules\Time\Models\LegalEntityCalendar;
 use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
 use App\Modules\Time\Models\ShiftSchedule;
@@ -1023,11 +1024,7 @@ final class TimeFactVersionService
         \Illuminate\Support\Collection $schedules,
         array &$blockers,
     ): void {
-        if ($rows !== []) {
-            return;
-        }
-
-        if (! $this->calendar->calendar() instanceof \App\Modules\Time\Models\LegalEntityCalendar) {
+        if (! $this->calendar->calendar() instanceof LegalEntityCalendar) {
             $blockers[] = $this->blocker(
                 'NO_ELIGIBLE_TIME_FACTS',
                 "{$month} 没有任何考勤事实，且公司工作日历未配置，无法证明本月无需计薪时间事实。",
@@ -1043,20 +1040,67 @@ final class TimeFactVersionService
             return;
         }
 
-        // No applicable employee is a valid empty month only when the People
-        // bulk contract can prove it. Otherwise a completely empty month is a
-        // configuration/data error, never a zero payroll fact.
-        if ($this->employments->activeEmploymentIds($start) === []) {
+        $activeEmploymentIds = $this->employments->activeEmploymentIds($start);
+        if ($activeEmploymentIds === []) {
             return;
         }
 
-        $blockers[] = $this->blocker(
-            'NO_ELIGIBLE_TIME_FACTS',
-            "{$month} 没有任何考勤、请假、加班或出差事实，不能静默生成零工资事实。",
-            null,
-            $start,
-            null,
-        );
+        $evidenceEmploymentIds = array_fill_keys(array_map(
+            static fn (array $row): int => (int) $row['employment_id'],
+            $rows,
+        ), true);
+
+        foreach ($schedules as $schedule) {
+            $evidenceEmploymentIds[(int) $schedule->employment_id] = true;
+        }
+
+        $leaveEmploymentIds = LeaveRequestProjection::query()
+            ->where('from_date', '<=', $end)
+            ->where('to_date', '>=', $start)
+            ->whereNotIn('state', ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED'])
+            ->pluck('employment_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        foreach ($leaveEmploymentIds as $employmentId) {
+            $evidenceEmploymentIds[$employmentId] = true;
+        }
+
+        $overtimeEmploymentIds = OvertimeRequest::query()
+            ->where('business_date', '>=', $start)
+            ->where('business_date', '<=', $end)
+            ->whereNotIn('status', [OvertimeRequest::STATUS_REJECTED, OvertimeRequest::STATUS_CANCELLED])
+            ->pluck('employment_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        foreach ($overtimeEmploymentIds as $employmentId) {
+            $evidenceEmploymentIds[$employmentId] = true;
+        }
+
+        $travelEmploymentIds = TravelAttendanceLink::query()
+            ->where('status', TravelAttendanceLink::STATUS_ACTIVE)
+            ->where('from_date', '<=', $end)
+            ->where('to_date', '>=', $start)
+            ->pluck('employment_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        foreach ($travelEmploymentIds as $employmentId) {
+            $evidenceEmploymentIds[$employmentId] = true;
+        }
+
+        foreach ($activeEmploymentIds as $employmentId) {
+            if (! isset($evidenceEmploymentIds[(int) $employmentId])) {
+                $blockers[] = $this->blocker(
+                    'NO_ELIGIBLE_TIME_FACTS',
+                    "员工 {$employmentId} 在 {$month} 没有任何排班、考勤、请假、加班或出差事实，不能静默生成零工资事实。",
+                    (int) $employmentId,
+                    $start,
+                    null,
+                );
+            }
+        }
     }
 
     /**
