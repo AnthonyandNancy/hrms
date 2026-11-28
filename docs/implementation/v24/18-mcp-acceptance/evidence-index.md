@@ -299,3 +299,14 @@ PARTIAL/BLOCKED: R08 page access after login (GAP-22 hardcoded COMPANY checks)
 ```
 
 - Evidence: `evidence/T19-MCP-006/`.
+
+## 17. Execution update — GAP-22 fixed
+
+```text
+MCP executed: 9 evidence packs total
+PASS: R08 recruiter login + requisition/candidate/org-tree reads
+FIXED: GAP-22 hardcoded COMPANY recruitment scope
+NOT RUN: full R01–R09 matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-MCP-006/`.

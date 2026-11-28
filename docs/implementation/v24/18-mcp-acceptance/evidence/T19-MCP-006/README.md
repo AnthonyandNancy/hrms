@@ -41,3 +41,17 @@ access is not yet accepted.
 - `recruiter-requisitions-403.json`
 
 No password, cookie, CSRF token or real personal data is stored.
+
+## GAP-22 repair — FIXED in v24-t19g
+
+- Recruitment collection reads now use `permits` + `constrain` and derive
+  candidate visibility from visible requisitions.
+- Requisition writes resolve the target org-unit anchor; recruiter template now
+  includes `org.unit.read`.
+- AppShell only requests unread notices when `engagement.notice.read` is granted.
+- Real recruiter after repair:
+  - requisitions: **200**;
+  - candidates: **200**;
+  - org tree: **200**;
+  - notices: not requested by the shell (direct call remains an expected 403).
+- R08 requests/candidates screenshots and network log are included.

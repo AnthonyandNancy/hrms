@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use App\Modules\IAM\Contracts\Principal;
 use App\Shared\Authorization\AnchorRef;
+use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
 use App\Shared\Authorization\FieldProfile;
 use App\Shared\Authorization\FieldSet;
@@ -23,9 +24,15 @@ final class AllowAllAuthorizer implements Authorizer
     /** @var array<string, FieldProfile> */
     public array $fieldProfiles = [];
 
+    public ?int $constrainedOrgUnitId = null;
+
     public function constrain(Builder $query, Principal $principal, string $capability, string $businessDate): Builder
     {
         $this->calls[] = ['capability' => $capability, 'anchor' => AnchorRef::self(), 'on' => $businessDate];
+
+        if ($this->constrainedOrgUnitId !== null) {
+            $query->where('org_unit_id', $this->constrainedOrgUnitId);
+        }
 
         return in_array($capability, $this->deniedCapabilities, true) ? $query->whereRaw('1 = 0') : $query;
     }
@@ -38,6 +45,10 @@ final class AllowAllAuthorizer implements Authorizer
     public function allows(Principal $principal, string $capability, AnchorRef $anchor, string $businessDate): bool
     {
         $this->calls[] = ['capability' => $capability, 'anchor' => $anchor, 'on' => $businessDate];
+
+        if ($this->constrainedOrgUnitId !== null && $anchor->type === AnchorType::COMPANY) {
+            return false;
+        }
 
         return ! in_array($capability, $this->deniedCapabilities, true);
     }

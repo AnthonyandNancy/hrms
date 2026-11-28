@@ -709,3 +709,12 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 - Required fix: use `permits` plus `constrain` for collection reads and
   resolve resource org-unit anchors for detail/write paths; add org-unit
   scoped recruiter regressions. This affects R08 and M14-M17.
+
+### GAP-22 status — FIXED in v24-t19g
+
+- Recruitment requisition/candidate reads now constrain by visible org-unit
+  requisitions; writes resolve explicit org-unit anchors.
+- RECRUITER now receives `org.unit.read`; AppShell gates unread notices by
+  `engagement.notice.read`.
+- Real recruiter verification: requisitions/candidates/org-tree 200; no shell
+  notices request; only the pre-login `/v1/me` 401 remains.

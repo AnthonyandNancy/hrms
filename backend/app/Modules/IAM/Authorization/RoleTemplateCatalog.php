@@ -262,6 +262,7 @@ final class RoleTemplateCatalog
                 $grant('RECRUITER', 'workflow.case.create', $ou, FieldProfile::P1_INTERNAL),
                 $grant('RECRUITER', 'people.employee.read', $ou, FieldProfile::P1_INTERNAL),
                 $grant('RECRUITER', 'org.tree.read', $ou, FieldProfile::P0_PUBLIC),
+                $grant('RECRUITER', 'org.unit.read', $ou, FieldProfile::P1_INTERNAL),
                 $grant('RECRUITER', 'recruitment.requisition.export', $ou, FieldProfile::P1_INTERNAL),
                 $grant('RECRUITER', 'people.document.download', $ou, FieldProfile::P2_SENSITIVE),
                 $grant('RECRUITER', 'notification.read', $ou, FieldProfile::P1_INTERNAL),

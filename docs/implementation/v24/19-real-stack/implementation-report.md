@@ -157,3 +157,13 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
 - Recruiter login returned 200.
 - R08 page access is still blocked by GAP-22 (hardcoded COMPANY checks in
   recruitment/shared routes); this is not accepted as R08 PASS.
+
+
+## v24-t19g recruitment org scope
+
+- Backend overlay adds org-unit constrained recruitment requisition/candidate
+  reads and RECRUITER `org.unit.read`.
+- Frontend gates Shell unread-notice requests by capability.
+- Deployed and synced capabilities; R08 recruiter real-session checks:
+  requisitions 200, candidates 200, org-tree 200; shell no longer requests
+  notices. GAP-22 marked FIXED.
