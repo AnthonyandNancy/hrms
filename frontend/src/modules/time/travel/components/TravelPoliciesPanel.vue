@@ -13,6 +13,7 @@ import {
   parseMinorUnitsInput,
   publishTravelPolicy,
   getTravelPolicies,
+  travelPolicyStatusLabel,
   type TravelPolicy,
 } from '../api'
 
@@ -213,7 +214,7 @@ onMounted(() => {
         <span class="mono">{{ formatMoney(Number(row.transportCapCents)) }}</span>
       </template>
       <template #cell-effectiveFrom="{ row }">{{ formatBusinessDate(String(row.effectiveFrom)) }}</template>
-      <template #cell-status="{ row }">{{ String(row.status) }}</template>
+      <template #cell-status="{ row }">{{ travelPolicyStatusLabel(String(row.status)) }}</template>
     </DataTable>
 
     <div v-if="formOpen" class="travel-policies__drawer" role="dialog" aria-modal="true" data-testid="travel-policy-form">

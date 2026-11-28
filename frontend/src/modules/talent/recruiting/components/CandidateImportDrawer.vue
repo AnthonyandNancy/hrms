@@ -14,6 +14,10 @@ const emit = defineEmits<{
   imported: [result: CandidateImportResult]
 }>()
 
+function importRowStatusLabel(status: string): string {
+  return status === 'ACCEPTED' ? '已导入' : status === 'REJECTED' ? '已拒绝' : '未知状态'
+}
+
 const form = reactive({
   requisitionId: '',
   source: 'CSV',
@@ -133,7 +137,7 @@ function close(): void {
         <tbody>
           <tr v-for="row in result.rows" :key="row.rowNumber">
             <td>{{ row.rowNumber }}</td>
-            <td>{{ row.status }}</td>
+            <td>{{ importRowStatusLabel(row.status) }}</td>
             <td>{{ row.reason ?? '—' }}</td>
             <td>{{ row.candidateId ?? '—' }}</td>
           </tr>

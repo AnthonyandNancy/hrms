@@ -12,6 +12,7 @@ import {
   getTravelRequests,
   paymentStatusLabel,
   expenseCategoryLabel,
+  expenseStatusLabel,
   parseMinorUnitsInput,
   stableSubmissionKey,
   submitTravelExpense,
@@ -232,7 +233,7 @@ onMounted(() => {
           <span class="mono">{{ formatMoney(Number(row.amountCents), String(row.currency)) }}</span>
           <small class="travel-expenses__muted">（{{ row.amountCents }} 分）</small>
         </template>
-        <template #cell-status="{ row }">{{ String(row.status) }}</template>
+        <template #cell-status="{ row }">{{ expenseStatusLabel(String(row.status)) }}</template>
         <template #cell-paymentStatus="{ row }">{{ paymentStatusLabel(String(row.paymentStatus)) }}</template>
         <template #cell-note="{ row }">{{ row.note ?? '—' }}</template>
       </DataTable>

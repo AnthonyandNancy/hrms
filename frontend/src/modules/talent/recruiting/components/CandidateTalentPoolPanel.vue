@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ApiError, errorCopy } from '@/api/errors'
 import { formatBusinessDate } from '@/utils/format'
-import { createTalentPoolTag, listTalentPoolTags, type TalentPoolTag } from '../api'
+import { candidateStatusLabel, createTalentPoolTag, listTalentPoolTags, type TalentPoolTag } from '../api'
 
 const props = defineProps<{
   candidateId: number
@@ -68,7 +68,7 @@ onMounted(load)
         <strong>{{ row.tag }}</strong>
         <span>{{ row.reason ?? '未填写原因' }}</span>
         <span class="panel-muted">
-          {{ row.status }}
+          {{ candidateStatusLabel(row.status) }}
           <template v-if="row.retentionUntil !== null"> · 保留至 {{ formatBusinessDate(row.retentionUntil) }}</template>
         </span>
       </li>

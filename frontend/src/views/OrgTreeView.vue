@@ -5,6 +5,7 @@ import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { getApi } from '@/api'
 import type { MoveImpact, MoveImpactFacts, OrgNode } from '@/api/contracts'
 import { errorCopy } from '@/api/errors'
+import { departmentTypeLabel } from '@/modules/people/departments/api'
 import { usePageError } from '@/composables/usePageError'
 import { formatBusinessDate, todayBusinessDate } from '@/utils/format'
 import { useSessionStore } from '@/stores/session'
@@ -228,7 +229,7 @@ onMounted(load)
           <div class="panel__header">
             <div>
               <h2 class="panel__title">{{ selected.name }}</h2>
-              <p class="panel__subtitle">{{ selected.code }} · {{ selected.type }}</p>
+              <p class="panel__subtitle">{{ selected.code }} · {{ departmentTypeLabel(selected.type) }}</p>
             </div>
             <span class="plain-chip">{{ selected.headcount }} 人</span>
           </div>

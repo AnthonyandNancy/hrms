@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ApiError } from '@/api/errors'
-import { listRecruitmentBoard, type RecruitmentBoardRow } from '../api'
+import { listRecruitmentBoard, requisitionStatusLabel, type RecruitmentBoardRow } from '../api'
 
 const rows = ref<RecruitmentBoardRow[]>([])
 const loading = ref(false)
@@ -38,7 +38,7 @@ onMounted(load)
       <tbody>
         <tr v-for="row in rows" :key="row.requisitionId">
           <td>{{ row.requisitionNo }} · {{ row.title }}</td>
-          <td>{{ row.status }}</td>
+          <td>{{ requisitionStatusLabel(row.status) }}</td>
           <td>{{ row.headcount }}</td>
           <td>{{ row.candidateCount }}</td>
           <td>{{ row.interviewCount }}</td>

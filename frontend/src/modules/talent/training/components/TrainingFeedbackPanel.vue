@@ -170,7 +170,7 @@ watch(() => props.sessionId, () => void load(), { immediate: true })
               <td>#{{ row.enrollmentId }}</td>
               <td>{{ row.rating ?? '未评分' }}</td>
               <td>{{ row.comments }}</td>
-              <td>{{ row.status === 'RECORDED' ? '已记录' : row.status }}</td>
+              <td>{{ row.status === 'RECORDED' ? '已记录' : row.status === 'REVERSED' ? '已冲销' : '未知状态' }}</td>
             </tr>
           </tbody>
         </table>

@@ -53,3 +53,18 @@ Chinese enum/error sweep.
 - Added frontend regressions asserting server-action visibility and exact
   cancel/correction payloads/idempotency keys.
 - Verification: PayrollWorkspace 17 tests; typecheck/lint green.
+
+## T17d — Chinese enum sweep
+
+- Removed raw status/type rendering from remaining user-facing views:
+  - candidate applications/imports/talent pool;
+  - requisition board/openings;
+  - travel expenses and travel policy statuses;
+  - training feedback fallback;
+  - payslip drawer run status;
+  - metric drilldown status, org tree type and admin binding/item statuses.
+- Added explicit helpers where no shared mapping existed and preserved existing
+  localized mappings elsewhere.
+- Rescan leaves only dictionary code fields, existing label helpers, and
+  conditional Chinese copy; no raw workflow/payroll/travel/recruiting enum tokens
+  remain in the scanned template patterns.
