@@ -113,7 +113,7 @@ This proves the merged technical foundation passes the existing automated gates.
 | AC-18 unified UI/Chinese | ✅ MET (code/UI) | BigInt money, self payslips, allowed_actions-only actions and Chinese enum/copy audit pass; MCP pending |
 | AC-19 errors/edges | ❌ PARTIAL | Several failed/partial branches still have half-success paths |
 | AC-20 history/regression | ❌ PARTIAL | Real install/backup/restore, synthetic upgrade, concurrent idempotency and scoped authorization pass; previous-release upgrade and recovery under deployment traffic remain |
-| AC-21 full MCP acceptance | ❌ PARTIAL | T19-MCP-001/002/003 executed login/dashboard, role anchor UI and PAYROLL_RUN allow/deny; remaining 20 modules/155 entries/458 cards and role-assignment UI NOT RUN |
+| AC-21 full MCP acceptance | ❌ PARTIAL | T19-MCP-001/002/003/004 executed login/dashboard, role anchor UI, PAYROLL_RUN allow/deny and user role-assignment UI; remaining 20 modules/155 entries/458 cards NOT RUN |
 | AC-22 release GO | ❌ NO-GO | P0/P1 blockers, unmerged tasks, no MCP evidence |
 
 ## 6. Resume protocol

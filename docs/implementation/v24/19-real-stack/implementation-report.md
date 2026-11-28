@@ -95,3 +95,15 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
 
 Remaining T19: real previous-release upgrade package, final backend image,
 deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
+
+
+## Image build blocker
+
+- `factoryhr/php-app:v24-t19c` exists and both wildcard and role-merge fixes
+  were validated in the running `factoryhr-t19` containers.
+- A clean `v24-t19d` rebuild was attempted from HEAD `3f36f41`, but the Alpine
+  package layer stalled in the gcc installation stage for more than ten minutes
+  and was stopped. The runtime containers remain healthy with db/cache/storage
+  checks true.
+- Therefore the current validation is explicitly runtime-hotpatched, not a
+  clean release image. A final clean image build must be repeated before GO.
