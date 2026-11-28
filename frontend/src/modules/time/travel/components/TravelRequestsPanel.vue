@@ -6,6 +6,8 @@ import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
+import { useSessionStore } from '@/stores/session'
 import {
   applicationStatusLabel,
   attendanceLinkStatusLabel,
@@ -33,6 +35,9 @@ const emit = defineEmits<{
   success: [message: string]
   'detail-closed': []
 }>()
+
+const session = useSessionStore()
+const hasEmployment = computed(() => (session.principal?.employmentId ?? null) !== null)
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -102,6 +107,17 @@ function captureError(reason: unknown): void {
 }
 
 async function load(): Promise<void> {
+  if (props.mode === 'mine' && !hasEmployment.value) {
+    loading.value = false
+    loaded.value = true
+    rows.value = []
+    total.value = 0
+    errorMessage.value = ''
+    errorRequestId.value = null
+    errorCode.value = ''
+    actionError.value = ''
+    return
+  }
   loading.value = true
   loaded.value = false
   errorMessage.value = ''
@@ -142,6 +158,7 @@ async function openDetail(row: TravelRequest): Promise<void> {
 }
 
 async function openDetailById(id: number): Promise<void> {
+  if (props.mode === 'mine' && !hasEmployment.value) return
   const existing = rows.value.find((row) => row.travelId === id)
   if (existing !== undefined) {
     await openDetail(existing)
@@ -330,7 +347,13 @@ onMounted(() => {
 
     <p v-if="actionError" class="travel-requests__error" role="alert" data-testid="travel-requests-action-error">{{ actionError }}</p>
 
-    <div v-if="loading" data-testid="travel-requests-loading">
+    <NoActiveEmploymentState
+      v-if="mode === 'mine' && !hasEmployment"
+      title="当前账号未绑定员工"
+      description="本人出差需要员工任职绑定；出差台账与政策视图仍按授权范围使用。"
+    />
+
+    <div v-else-if="loading" data-testid="travel-requests-loading">
       <LoadingState :rows="5" label="正在加载出差数据" />
     </div>
     <ErrorState

@@ -257,7 +257,11 @@ async function mountPage(
 ): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: { employmentId: 1 } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),

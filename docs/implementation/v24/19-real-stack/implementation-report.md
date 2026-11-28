@@ -135,3 +135,15 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
   files overlaid in v24-t19d plus two frontend role-anchor files already in the
   nginx v24-t19b image. This is an incremental release path; a fresh full
   Dockerfile build remains outstanding.
+
+
+## v24-t19e GAP-21 release image
+
+- Backend overlay on v24-t19d adds the attendance device boolean-query fix.
+- Frontend image rebuilt from current source adds no-employment self-request
+  gating and `NoActiveEmploymentState` rendering.
+- Deployed php-app/frontend `v24-t19e`; health 200 (db/cache/storage).
+- Real-stack recheck of attendance/leave/overtime/travel: zero non-2xx `/v1`
+  responses and zero console errors; evidence under T19-CRAWL-002.
+- This remains an incremental image path on the validated release base; a fresh
+  full Dockerfile build is still a release-hardening item.

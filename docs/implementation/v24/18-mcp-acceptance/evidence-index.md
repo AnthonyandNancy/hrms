@@ -267,3 +267,15 @@ NOT RUN: six dynamic detail routes, role matrix, 155 entries, 458 cards
 
 - Evidence: `evidence/T19-CRAWL-001/`.
 - Gap: GAP-21 no-employment admin self-service request gating.
+
+
+## 14. Execution update — T19-CRAWL-002
+
+```text
+MCP executed: 6 evidence packs total
+PASS: attendance/leave/overtime/travel no-employment states, zero non-2xx, zero console errors
+GAP-21: FIXED in v24-t19e
+NOT RUN: dynamic details, role matrix, 155 entries, 458 cards
+```
+
+- Evidence: `evidence/T19-CRAWL-002/`.

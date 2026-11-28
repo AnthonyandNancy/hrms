@@ -8,6 +8,7 @@ import { useSessionStore } from '@/stores/session'
 import LoadingState from '@/components/LoadingState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import NoActiveEmploymentState from '@/components/NoActiveEmploymentState.vue'
 import LeaveBalanceCards from '../components/LeaveBalanceCards.vue'
 import LeaveRequestDrawer from '../components/LeaveRequestDrawer.vue'
 import LeaveRequestList from '../components/LeaveRequestList.vue'
@@ -36,6 +37,7 @@ type PageState = 'loading' | 'empty' | 'unconfigured' | 'forbidden' | 'error' | 
 const session = useSessionStore()
 const pageErrorState = usePageError()
 
+const hasEmployment = computed(() => (session.principal?.employmentId ?? null) !== null)
 const canRead = computed(() => session.can('time.leave.read'))
 const canRequest = computed(() => session.can('time.leave.request'))
 const canCancel = computed(() => session.can('time.leave.request.cancel'))
@@ -162,9 +164,13 @@ async function load(): Promise<void> {
   partialSections.value = []
 
   const calls: Array<Promise<{ key: string; ok: boolean; value?: unknown; reason?: unknown }>> = [
-    getLeaveBalances().then((value) => ({ key: 'balances', ok: true as const, value })).catch((reason: unknown) => ({ key: 'balances', ok: false as const, reason })),
+    (hasEmployment.value
+      ? getLeaveBalances()
+      : Promise.resolve([])).then((value) => ({ key: 'balances', ok: true as const, value })).catch((reason: unknown) => ({ key: 'balances', ok: false as const, reason })),
     getLeaveTypes().then((value) => ({ key: 'types', ok: true as const, value })).catch((reason: unknown) => ({ key: 'types', ok: false as const, reason })),
-    getLeaveRequests(canAdmin.value ? { scope: 'all', page_size: 100 } : {}).then((value) => ({ key: 'requests', ok: true as const, value })).catch((reason: unknown) => ({ key: 'requests', ok: false as const, reason })),
+    ((hasEmployment.value || canAdmin.value)
+      ? getLeaveRequests(canAdmin.value ? { scope: 'all', page_size: 100 } : {})
+      : Promise.resolve([])).then((value) => ({ key: 'requests', ok: true as const, value })).catch((reason: unknown) => ({ key: 'requests', ok: false as const, reason })),
   ]
 
   if (canReadPolicies.value) {
@@ -314,7 +320,12 @@ function sectionLabel(key: string): string {
         部分数据暂时无法加载：{{ partialSections.map(sectionLabel).join('、') }}。其余模块仍按服务端返回结果展示。
       </div>
 
-      <section v-show="activeTab === 'mine'" role="tabpanel" aria-label="我的请假" class="leave-workspace__panel">
+      <NoActiveEmploymentState
+        v-if="activeTab === 'mine' && !hasEmployment"
+        title="当前账号未绑定员工"
+        description="本人请假和假期余额需要员工任职绑定；请假台账与假期配置仍按授权范围使用。"
+      />
+      <section v-show="activeTab === 'mine' && hasEmployment" role="tabpanel" aria-label="我的请假" class="leave-workspace__panel">
         <section class="leave-workspace__meta" aria-label="请假数据业务日期">
           <span data-testid="leave-as-of">余额截至：{{ asOfLabel }}</span>
           <span v-if="balanceSummary">摘要：{{ balanceSummary }}</span>

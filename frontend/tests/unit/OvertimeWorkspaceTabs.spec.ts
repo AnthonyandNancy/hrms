@@ -165,10 +165,15 @@ function installReads(overrides: Record<string, unknown> = {}): void {
 async function mountWorkspace(
   capabilities: string[],
   initialPath = '/overtime',
+  employmentId: number | null = 1,
 ): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: employmentId === null ? null : { employmentId } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -385,5 +390,20 @@ describe('Overtime confirmation and settlement', () => {
 
     expect(wrapper.text()).toContain('仅可选择调休')
     expect(wrapper.text()).toContain('仅调休')
+  })
+})
+
+describe('OvertimeWorkspace no-employment gating', () => {
+  it('does not request self overtime or timeoff when the principal has no employment', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/time/overtime/policies') return Promise.resolve({ items: [], current: null })
+      return Promise.resolve({ items: [], total: 0 })
+    })
+    const { wrapper } = await mountWorkspace(['time.overtime.read'], '/overtime', null)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    expect(resource.get.mock.calls.some(([path]) => path === '/v1/time/overtime/requests')).toBe(false)
+    expect(resource.get.mock.calls.some(([path]) => path === '/v1/time/overtime/timeoff-balances')).toBe(false)
   })
 })

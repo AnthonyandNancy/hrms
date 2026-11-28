@@ -31,7 +31,11 @@ const punch: AttendancePunch = {
 function mountTable(capabilities: string[], showPunches = true) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: { employmentId: 1 } as never,
+  })
 
   return mount(AttendanceRecordTable, {
     props: {

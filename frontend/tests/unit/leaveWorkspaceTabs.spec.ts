@@ -118,7 +118,11 @@ function defaultGet(path: string): Promise<unknown> {
 async function mountPage(capabilities: string[], initialPath = '/leave'): Promise<ReturnType<typeof mount>> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: { employmentId: 1 } as never,
+  })
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [

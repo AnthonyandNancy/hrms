@@ -321,6 +321,11 @@ final class AttendanceOperationsTest extends TimeHttpTestCase
         $this->assertSame('DEGRADED', $response->json('data.items.0.health'));
         $this->assertSame('LIVE', $response->json('data.freshness'));
 
+        // Browser query serializers send the documented boolean as `true`.
+        $this->getJson('/v1/time/attendance/devices?active=true&page=1&page_size=100')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1);
+
         // There is no device write surface at all.
         $this->postJson('/v1/time/attendance/devices', [
             'code' => 'DEV-NEW',

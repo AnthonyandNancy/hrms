@@ -687,3 +687,12 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
 - Required fix: gate self-scoped attendance/leave/overtime/travel requests when
   the current principal has no employment, or return an explicit empty
   no-employment projection without error.
+
+### GAP-21 status — FIXED in v24-t19e
+
+- Device query now accepts `active=true` and `active=false`.
+- Attendance/leave/overtime/travel self requests are gated on the principal's
+  employment id; a `NoActiveEmploymentState` renders without self API calls.
+- Real-stack recheck `T19-CRAWL-002`: all four pages have zero non-2xx `/v1`
+  responses and zero console errors.
+- Regression: backend devices test plus four frontend no-employment tests.

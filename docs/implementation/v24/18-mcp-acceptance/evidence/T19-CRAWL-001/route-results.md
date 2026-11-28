@@ -11,10 +11,10 @@ All listed routes returned HTTP 200 under the real SYSTEM_ADMIN session.
 | /hr/positions | PASS page render |
 | /hr/movements | PASS page render |
 | /hr/contracts | PASS page render |
-| /attendance | PARTIAL: console 422, no-employment context |
-| /leave | PARTIAL: console 409, no-employment context |
-| /overtime | PARTIAL: five console 409s, no-employment context |
-| /travel | PARTIAL: console 409, no-employment context |
+| /attendance | PASS after GAP-21 fix (`T19-CRAWL-002`) |
+| /leave | PASS after GAP-21 fix (`T19-CRAWL-002`) |
+| /overtime | PASS after GAP-21 fix (`T19-CRAWL-002`) |
+| /travel | PASS after GAP-21 fix (`T19-CRAWL-002`) |
 | /payroll | PASS page render |
 | /payroll/runs/1 | PASS page render |
 | /performance | PASS page render |

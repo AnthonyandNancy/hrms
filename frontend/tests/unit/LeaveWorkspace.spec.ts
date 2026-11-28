@@ -164,10 +164,14 @@ function defaultGet(path: string): Promise<unknown> {
   return Promise.reject(new Error(`Unexpected GET ${path}`))
 }
 
-async function mountPage(capabilities: string[]): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
+async function mountPage(capabilities: string[], employmentId: number | null = 1): Promise<{ wrapper: ReturnType<typeof mount>; router: Router }> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useSessionStore().$patch({ status: 'authenticated', capabilities })
+  useSessionStore().$patch({
+    status: 'authenticated',
+    capabilities,
+    principal: employmentId === null ? null : { employmentId } as never,
+  })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -601,5 +605,19 @@ describe('LeaveWorkspace states and capability guards', () => {
     expect(partial.text()).toContain('部分数据')
     expect(partial.text()).toContain('请假申请')
     expect(wrapper.find('[data-testid="leave-balance-ANNUAL"]').exists()).toBe(true)
+  })
+})
+
+describe('LeaveWorkspace no-employment gating', () => {
+  it('does not request self balances or requests when the principal has no employment', async () => {
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/time/leave/types') return Promise.resolve(rawTypes())
+      return Promise.resolve({ items: [], total: 0 })
+    })
+    const { wrapper } = await mountPage(['time.leave.read'], null)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="no-active-employment"]').exists()).toBe(true)
+    expect(resource.get.mock.calls.some(([path]) => path === '/v1/time/leave/balances')).toBe(false)
   })
 })
