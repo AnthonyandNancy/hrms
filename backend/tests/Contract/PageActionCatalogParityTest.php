@@ -44,6 +44,7 @@ final class PageActionCatalogParityTest extends TestCase
             'payroll.run.detail.publish',
             'payroll.run.detail.reopen',
             'payroll.run.detail.review',
+            'payroll.run.detail.void-correction',
         ], array_column($catalog->forObject('payroll_run'), 'key'));
 
         $this->assertSame(

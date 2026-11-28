@@ -1399,6 +1399,11 @@ Route::prefix('payroll')->middleware(['auth.session', 'csrf.header'])->group(fun
         ->middleware(IdempotentCommand::class)
         ->middleware(['mfa.step-up', 'capability:payroll.run.correct,PAYROLL_RUN'])
         ->name('payroll.runs.corrections.store');
+    Route::post('/runs/{id}/corrections/void', [PayrollRunController::class, 'voidCorrection'])
+        ->whereNumber('id')
+        ->middleware(IdempotentCommand::class)
+        ->middleware(['mfa.step-up', 'capability:payroll.run.correct,PAYROLL_RUN'])
+        ->name('payroll.runs.corrections.void');
 
     Route::get('/runs/{id}/exports/bank', [PayrollRunController::class, 'exportBank'])
         ->whereNumber('id')

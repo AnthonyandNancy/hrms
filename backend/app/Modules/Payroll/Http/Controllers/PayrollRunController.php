@@ -374,6 +374,17 @@ final class PayrollRunController
         return ApiResponse::created($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
     }
 
+    public function voidCorrection(Request $request, int $id): JsonResponse
+    {
+        $principal = $this->principals->resolve();
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+        ]);
+        $run = $this->corrections->voidUnpaid($id, (int) $principal->userId(), (string) $data['reason']);
+
+        return ApiResponse::ok($this->runs->runDetail($run, $this->amountsVisibleFor($principal, $run)));
+    }
+
     public function reconciliation(int $id): JsonResponse
     {
         $principal = $this->principals->resolve();

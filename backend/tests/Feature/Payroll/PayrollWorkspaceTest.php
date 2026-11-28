@@ -13,6 +13,7 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollSchemeItem;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
+use App\Modules\Payroll\Services\CorrectionService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Shared\Authorization\AnchorType;
 use App\Shared\Authorization\Authorizer;
@@ -79,6 +80,32 @@ final class PayrollWorkspaceTest extends PayrollTestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'RETIRED')
             ->assertJsonPath('data.retire_reason', 'Synthetic retirement reason.');
+    }
+
+    public function test_unpaid_correction_void_is_a_real_http_command(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-01']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        app(CalculationService::class)->calculate($run, 10);
+        app(ApprovalService::class)->review((int) $run->id, 11);
+        app(ApprovalService::class)->approve((int) $run->id, 12);
+        app(ApprovalService::class)->publish((int) $run->id, 13);
+
+        $correction = app(CorrectionService::class)->create(
+            (int) $run->id,
+            11,
+            '2026-02',
+            'Synthetic HTTP correction void fixture.',
+        );
+        $this->actAs(11);
+        $this->postJson('/v1/payroll/runs/'.(int) $correction->id.'/corrections/void', [
+            'reason' => 'Synthetic HTTP correction void reason.',
+        ], ['Idempotency-Key' => 'payroll-correction-void-http'])
+            ->assertOk()
+            ->assertJsonPath('data.correction_status', 'VOID')
+            ->assertJsonPath('data.correction_void_reason', 'Synthetic HTTP correction void reason.');
     }
 
     public function test_real_lifecycle_actions_advance_a_draft_run_to_published(): void

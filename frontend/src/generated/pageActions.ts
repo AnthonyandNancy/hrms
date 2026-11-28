@@ -1371,6 +1371,20 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
         "COMPANY"
       ],
       "fieldProfileMax": "P2_SENSITIVE"
+    },
+    {
+      "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.void-correction",
+      "label": "作废未支付更正",
+      "capability": "payroll.run.correct",
+      "api": "POST /v1/payroll/runs/{id}/corrections/void",
+      "ui": "danger",
+      "confirm": "danger",
+      "anchorTypes": [
+        "PAYROLL_RUN",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P2_SENSITIVE"
     }
   ],
   "performance": [

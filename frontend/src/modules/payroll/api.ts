@@ -85,6 +85,9 @@ export type PayrollRunDetail = PayrollRunSummary & {
   reopenCount: number
   correctionBaselineRunId?: number | null
   correctionSequence?: number
+  correctionStatus?: 'OPEN' | 'VOID'
+  correctionVoidedAt?: string | null
+  correctionVoidReason?: string | null
   priorCorrectionIds?: number[]
   correctionTargetNetCents?: number | null
   correctionBaselineNetCents?: number | null
@@ -284,6 +287,9 @@ export function normalisePayrollRunDetail(raw: unknown): PayrollRunDetail {
     correctionSequence: row.correction_sequence === undefined
       ? 1
       : requiredInteger(row.correction_sequence, 'correction_sequence'),
+    correctionStatus: row.correction_status === 'VOID' ? 'VOID' : 'OPEN',
+    correctionVoidedAt: nullableText(row.correction_voided_at, 'correction_voided_at'),
+    correctionVoidReason: nullableText(row.correction_void_reason, 'correction_void_reason'),
     priorCorrectionIds: Array.isArray(row.prior_correction_ids)
       ? row.prior_correction_ids.map((id, index) => requiredInteger(id, `prior_correction_ids.${index}`))
       : [],
@@ -433,6 +439,18 @@ export function newPayrollIdempotencyKey(prefix: string): string {
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
   return `payroll-${prefix}-${suffix}`.slice(0, 128)
+}
+
+export async function voidPayrollCorrection(
+  id: number,
+  reason: string,
+  idempotencyKey = newPayrollIdempotencyKey('correction-void'),
+): Promise<PayrollRunDetail> {
+  return normalisePayrollRunDetail(await resourcePost<unknown>(
+    `/v1/payroll/runs/${id}/corrections/void`,
+    { reason },
+    { idempotencyKey },
+  ))
 }
 
 export async function runPayrollAction(

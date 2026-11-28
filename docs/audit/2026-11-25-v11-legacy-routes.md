@@ -420,3 +420,5 @@
 | 371 | `POST` | `/v1/payroll/scheme-items/{id}/rules` | `payroll.run.prepare` | `COMPANY` | kernel | — |
 | 372 | `POST` | `/v1/payroll/rules/{id}/publish` | `payroll.run.prepare` | `COMPANY` | kernel | — |
 | 373 | `POST` | `/v1/payroll/rules/{id}/retire` | `payroll.run.prepare` | `COMPANY` | kernel | — |
+
+| 374 | `POST` | `/v1/payroll/runs/{id}/corrections/void` | `payroll.run.correct` | `PAYROLL_RUN` | kernel | — |

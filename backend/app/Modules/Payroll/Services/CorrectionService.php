@@ -58,6 +58,7 @@ final class CorrectionService
             $priorCorrections = PayrollRun::query()
                 ->where('correction_of_run_id', $originalRunId)
                 ->where('run_type', PayrollRunType::CORRECTION->value)
+                ->where('correction_status', 'OPEN')
                 ->whereIn('status', [
                     PayrollRunStatus::PUBLISHED->value,
                     PayrollRunStatus::PAID->value,
@@ -72,6 +73,8 @@ final class CorrectionService
                 ->where('correction_of_run_id', $originalRunId)
                 ->where('period', $period)
                 ->where('run_type', PayrollRunType::CORRECTION->value)
+                ->where('correction_status', 'OPEN')
+                ->whereNotIn('status', [PayrollRunStatus::CANCELLED->value])
                 ->first();
 
             if ($existing !== null) {
@@ -91,6 +94,7 @@ final class CorrectionService
                 'correction_of_run_id' => $originalRunId,
                 'correction_baseline_run_id' => (int) $baseline,
                 'correction_sequence' => $priorCorrections->count() + 1,
+                'correction_status' => 'OPEN',
                 'prior_correction_ids_json' => $priorCorrections->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all(),
                 'prepared_by' => $actorUserId,
                 'rule_version' => $original->rule_version,
@@ -106,6 +110,7 @@ final class CorrectionService
                     'correction_of_run_id' => $originalRunId,
                     'correction_baseline_run_id' => (int) $baseline,
                     'correction_sequence' => $priorCorrections->count() + 1,
+                    'correction_status' => 'OPEN',
                     'prior_correction_ids' => $priorCorrections->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all(),
                     'period' => $period,
                     'reason' => $reason,
@@ -115,6 +120,56 @@ final class CorrectionService
             // The contract requires corrections to be references to original
             // employment rows, not a fresh population. Build the same set.
             $this->snapshots->lockForCorrection($run, $actorUserId);
+
+            return $run->refresh();
+        });
+    }
+
+    /**
+     * Void a correction that has not been published/paid. This changes only the
+     * independent correction state; the run status and any financial facts are
+     * left untouched so a later correction for the same period can be created.
+     */
+    public function voidUnpaid(int $correctionRunId, int $actorUserId, string $reason): PayrollRun
+    {
+        $reason = trim($reason);
+        if (mb_strlen($reason) < 10) {
+            throw new ValidationException(['reason' => ['A correction void reason of at least 10 characters is required.']]);
+        }
+
+        return DB::transaction(function () use ($correctionRunId, $actorUserId, $reason): PayrollRun {
+            $run = PayrollRun::query()->whereKey($correctionRunId)->lockForUpdate()->first();
+            if ($run === null) {
+                throw new \App\Shared\Exceptions\NotFoundOrForbiddenException;
+            }
+            $type = $run->run_type instanceof PayrollRunType ? $run->run_type : PayrollRunType::from((string) $run->run_type);
+            if ($type !== PayrollRunType::CORRECTION) {
+                throw new ConflictException('Only a correction run can be voided.', ['reason' => 'NOT_CORRECTION_RUN']);
+            }
+            if ((string) ($run->correction_status ?? 'OPEN') === 'VOID') {
+                return $run;
+            }
+            $status = $run->status instanceof PayrollRunStatus ? $run->status : PayrollRunStatus::from((string) $run->status);
+            if (! $status->isPrePublish()) {
+                throw new ConflictException('Only an unpaid, unpublished correction can be voided.', [
+                    'reason' => 'CORRECTION_NOT_VOIDABLE',
+                    'status' => $status->value,
+                ]);
+            }
+
+            $run->forceFill([
+                'correction_status' => 'VOID',
+                'correction_voided_at' => $this->clock->now(),
+                'correction_void_reason' => $reason,
+            ])->save();
+
+            $this->audit->record(
+                actorUserId: $actorUserId,
+                action: 'payroll.correction.voided',
+                aggregateType: 'payroll_run',
+                aggregateId: (int) $run->id,
+                after: ['reason' => $reason, 'correction_of_run_id' => $run->correction_of_run_id],
+            );
 
             return $run->refresh();
         });

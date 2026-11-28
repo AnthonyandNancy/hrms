@@ -28,6 +28,7 @@ import {
   payrollStageTone,
   runPayrollAction,
   savePayrollExport,
+  voidPayrollCorrection,
   type PayrollAction,
   type PayrollEmployee,
   type PayrollEmployeeStatus,
@@ -57,6 +58,14 @@ const inputs = ref<PayrollInputSnapshot[]>([])
 const reconciliation = ref<PayrollReconciliation | null>(null)
 const partialNote = ref('')
 const actionSubmitting = ref<PayrollAction | null>(null)
+const canCorrect = computed(() => session.can('payroll.run.correct'))
+const correctionVoidReason = ref('')
+const correctionVoiding = ref(false)
+const correctionVoidError = ref('')
+const canVoidCorrection = computed(() => detail.value?.runType === 'CORRECTION'
+  && detail.value.correctionStatus !== 'VOID'
+  && ['DRAFT', 'INPUT_LOCKED', 'CALCULATED', 'CALCULATED_WITH_BLOCKERS', 'REVIEWED', 'APPROVED'].includes(detail.value.status)
+  && canCorrect.value)
 const actionError = ref('')
 const actionSuccess = ref('')
 
@@ -198,6 +207,26 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
     loaded.value = true
+  }
+}
+
+async function voidCorrection(): Promise<void> {
+  const current = detail.value
+  if (current === null) return
+  correctionVoidError.value = ''
+  if (correctionVoidReason.value.trim().length < 10) {
+    correctionVoidError.value = '作废原因至少 10 个字符。'
+    return
+  }
+  correctionVoiding.value = true
+  try {
+    await voidPayrollCorrection(current.id, correctionVoidReason.value.trim())
+    correctionVoidReason.value = ''
+    await load()
+  } catch (reason) {
+    correctionVoidError.value = errorCopy(reason)
+  } finally {
+    correctionVoiding.value = false
   }
 }
 
@@ -642,8 +671,13 @@ onMounted(() => {
               目标结果减去原批次和全部已批准更正；本次差额不会重复支付此前更正。
             </p>
           </div>
-          <span class="plain-chip">第 {{ detail.correctionSequence ?? 1 }} 次更正</span>
+          <span class="plain-chip" :data-testid="`payroll-correction-status-${detail.correctionStatus ?? 'OPEN'}`">
+            {{ detail.correctionStatus === 'VOID' ? '已作废' : '进行中' }} · 第 {{ detail.correctionSequence ?? 1 }} 次更正
+          </span>
         </div>
+        <p v-if="detail.correctionStatus === 'VOID'" class="payroll-detail__warning" role="status" data-testid="payroll-correction-void-evidence">
+          作废时间：{{ formatDateTimeInTimezone(detail.correctionVoidedAt) }}；原因：{{ detail.correctionVoidReason ?? '—' }}
+        </p>
         <dl class="payroll-detail__facts payroll-detail__facts--inline">
           <div>
             <dt>原始批次</dt>
@@ -682,6 +716,14 @@ onMounted(() => {
             </dd>
           </div>
         </dl>
+        <div v-if="canVoidCorrection" class="payroll-detail__void-correction">
+          <p class="payroll-detail__segments-note">
+            作废仅适用于未发布、未支付的更正；保留原记录以审计，同一期间可重新创建更正。
+          </p>
+          <el-input v-model="correctionVoidReason" maxlength="500" data-testid="payroll-correction-void-reason" placeholder="至少 10 个字符的作废原因" />
+          <el-button type="danger" :loading="correctionVoiding" data-testid="payroll-correction-void-submit" @click="voidCorrection">作废未支付更正</el-button>
+          <p v-if="correctionVoidError !== ''" class="payroll-detail__error" role="alert" data-testid="payroll-correction-void-error">{{ correctionVoidError }}</p>
+        </div>
       </section>
 
       <section

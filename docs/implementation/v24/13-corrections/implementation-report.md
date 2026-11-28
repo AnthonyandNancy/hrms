@@ -63,3 +63,24 @@ cumulative target/delta fields on the run; MCP evidence remains T18.
   delta, cumulative amount and original/baseline run links.
 - Verification: payroll 114 tests / 580 assertions; payroll UI 15 tests;
   typecheck/lint, Pint, PHPStan and arch green.
+
+## T13d — unpaid correction void/retry
+
+- Added independent correction state on payroll runs:
+  - `correction_status` OPEN/VOID;
+  - `correction_voided_at`, `correction_void_reason`.
+- Removed the correction `(original, period)` unique hard constraint; one OPEN
+  correction per period is enforced in the service, while prior VOID rows remain
+  as audit evidence.
+- `CorrectionService::voidUnpaid` only accepts an unpublished/unpaid correction,
+  changes correction state only, and leaves run status/financial facts intact.
+- Re-running create for the same period after VOID now returns a new correction
+  with sequence/baseline computed from non-void corrections.
+- Added `POST /v1/payroll/runs/{id}/corrections/void`:
+  - `payroll.run.correct` + PAYROLL_RUN anchor + mfa.step-up + idempotency;
+  - OpenAPI/action manifest/page required APIs/permission catalog/ledger sync.
+- Payroll detail displays correction OPEN/VOID state, void evidence and a
+  permission-gated void form; frontend API uses the real command.
+- Regressions: service void→retry, published void rejection, real HTTP void.
+- Verification: correction/payroll workspace 15 tests / 155 assertions; frontend
+  detail/workspace 24 tests; typecheck/lint/Pint/PHPStan/arch green.

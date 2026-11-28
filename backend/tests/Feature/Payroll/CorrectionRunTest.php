@@ -214,6 +214,39 @@ final class CorrectionRunTest extends PayrollTestCase
         $this->assertSame($expected, (int) array_sum(array_column((array) $chain['ytd_ledger'], 'net_cents')));
     }
 
+    public function test_unpaid_correction_can_be_voided_and_retried_without_reusing_the_records(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $corrections = app(CorrectionService::class);
+
+        $voided = $corrections->create((int) $original->id, 11, '2026-03', 'Synthetic correction that will be voided.');
+        $voided = $corrections->voidUnpaid((int) $voided->id, 11, 'Synthetic reason for voiding the unpaid correction.');
+        $this->assertSame('VOID', (string) $voided->correction_status);
+        $this->assertNotNull($voided->correction_voided_at);
+        $this->assertSame(PayrollRunStatus::DRAFT, $voided->status);
+
+        $retry = $corrections->create((int) $original->id, 11, '2026-03', 'Synthetic retry after a voided correction.');
+        $this->assertNotSame((int) $voided->id, (int) $retry->id);
+        $this->assertSame('OPEN', (string) $retry->correction_status);
+        $this->assertSame(1, (int) $retry->correction_sequence);
+        $this->assertSame((int) $original->id, (int) $retry->correction_baseline_run_id);
+        $this->assertSame([], (array) ($retry->prior_correction_ids_json ?? []));
+    }
+
+    public function test_published_correction_cannot_be_voided_as_unpaid(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $original = $this->closedJanuaryRun($base);
+        $correction = app(CorrectionService::class)->create((int) $original->id, 11, '2026-04', 'Synthetic published correction void attempt.');
+        $correction = app(PayrollRunService::class)->lockInputs((int) $correction->id, 11);
+        app(CalculationService::class)->calculate($correction, 11);
+        $this->publishCorrection($correction->refresh());
+
+        $this->expectException(ConflictException::class);
+        app(CorrectionService::class)->voidUnpaid((int) $correction->id, 11, 'Synthetic reason for an invalid published void.');
+    }
+
     public function test_correction_requires_a_published_original(): void
     {
         $base = $this->seedPayrollBase();

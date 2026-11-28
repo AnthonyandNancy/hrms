@@ -15978,6 +15978,44 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-capability: payroll.run.read
+  /v1/payroll/runs/{id}/corrections/void:
+    post:
+      operationId: payrollv1_payroll_runs_id_corrections_void_post
+      tags: [Payroll]
+      summary: Void an unpaid unpublished correction and allow a retry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
+        - $ref: "#/components/parameters/CsrfToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 10, maxLength: 500 }
+      responses:
+        "200":
+          $ref: "#/components/responses/Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: payroll.run.correct
+      x-action-label: 作废未支付更正
   /v1/payroll/runs/{id}/exports/bank:
     get:
       operationId: payrollv1_payroll_runs_id_exports_bank_get

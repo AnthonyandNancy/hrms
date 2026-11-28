@@ -1217,6 +1217,15 @@
     },
     {
       "pageCode": "payroll-run-detail",
+      "key": "payroll.run.detail.void-correction",
+      "label": "作废未支付更正",
+      "capability": "payroll.run.correct",
+      "api": "POST /v1/payroll/runs/{id}/corrections/void",
+      "ui": "danger",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "payroll-run-detail",
       "key": "payroll.run.detail.mark-paid",
       "label": "登记工资发放",
       "capability": "payroll.run.close",

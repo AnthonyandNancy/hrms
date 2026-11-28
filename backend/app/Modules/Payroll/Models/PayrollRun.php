@@ -27,6 +27,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $correction_of_run_id
  * @property int|null $correction_baseline_run_id
  * @property int $correction_sequence
+ * @property string $correction_status
+ * @property \Carbon\CarbonImmutable|null $correction_voided_at
+ * @property string|null $correction_void_reason
  * @property array<int, int>|null $prior_correction_ids_json
  * @property int|null $correction_target_net_cents
  * @property int|null $correction_baseline_net_cents
@@ -85,6 +88,9 @@ final class PayrollRun extends Model
         'correction_of_run_id',
         'correction_baseline_run_id',
         'correction_sequence',
+        'correction_status',
+        'correction_voided_at',
+        'correction_void_reason',
         'prior_correction_ids_json',
         'correction_target_net_cents',
         'correction_baseline_net_cents',
@@ -136,6 +142,7 @@ final class PayrollRun extends Model
             'correction_of_run_id' => 'integer',
             'correction_baseline_run_id' => 'integer',
             'correction_sequence' => 'integer',
+            'correction_voided_at' => 'immutable_datetime',
             'prior_correction_ids_json' => 'array',
             'correction_target_net_cents' => 'integer',
             'correction_baseline_net_cents' => 'integer',
