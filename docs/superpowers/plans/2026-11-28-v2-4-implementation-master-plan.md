@@ -84,7 +84,7 @@
 | T06 | Time 月度事实版本 | COMPLETE | Step 5 + hardening review | `docs/implementation/v24/06-time-facts/implementation-report.md`；MySQL 并发验证留 T19 |
 | T07 | 请假审批 Effect 与净流水 | COMPLETE | T07a/T07b/T07c | `2ae0378`; `docs/implementation/v24/07-leave-effects/implementation-report.md`; `gate-all-t07c.log` |
 | T08 | 加班/调休/出差事实 | PENDING | — | — |
-| T09 | Snapshot v2 与员工级方案 | PENDING | — | — |
+| T09 | Snapshot v2 与员工级方案 | IN PROGRESS | T09a/T09b merged; closed-fact blocker pending calculation/status wiring | `87b3e91`; `docs/implementation/v24/09-payroll-snapshot/implementation-report.md`; `gate-all-t09ab.log` |
 | T10 | 受限规则引擎 | PENDING | — | — |
 | T11 | 批次成员、阻断与正交状态 | PENDING | — | — |
 | T12 | 月中分段与周期级税费 | PENDING | — | — |
@@ -113,7 +113,8 @@
 | 2026-11-28 | T05b contract/comp drafts | `da57e57` + full gate | 22 gates PASS in 225.1s; contract DRAFT+CREATION version and compensation DRAFT linked to case/contract; rollback test; log `docs/implementation/v24/05-onboarding/gate-all-t05b.log` | T05 complete; payroll activation remains T09/T11. |
 | 2026-11-28 | T07b merge | `0209113` + full gate | 22 gates PASS in 247.6s; real leave apply/reverse + outcome release, narrow admin auth, template v2; log `docs/implementation/v24/07-leave-effects/gate-all-t07b.log` | T07c followed. |
 | 2026-11-28 | T07c merge | `2ae0378` + full gate | 22 gates PASS in 244.3s; reversal audit/outbox/link/unique, UNRESOLVED boundary, company business dates; log `docs/implementation/v24/07-leave-effects/gate-all-t07c.log` | T07 complete; Snapshot closed-fact consumption remains T09. |
-| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T07 complete, T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Resume from T16 split tasks and Payroll chain; rerun each gate. |
+| 2026-11-28 | T09a/T09b merge | `87b3e91` + full gate | 22 gates PASS in 288.1s; execution compensation and closed Time fact evidence/blocker in Snapshot v2; log `docs/implementation/v24/09-payroll-snapshot/gate-all-t09ab.log` | T09c: calculate blockers, CALCULATED_WITH_BLOCKERS, benefit/performance inputs, full employee scheme resolution. |
+| 2026-11-28 | Final acceptance | `docs/implementation/v24/21-final-requirement-acceptance.md` | **NO-GO**: T09c/T16 blocked; T08–T15/T17/T19 not implemented; MCP 0 executed | Resume from T09c/T16 and Payroll chain; rerun each gate. |
 
 ---
 
