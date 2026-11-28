@@ -95,9 +95,16 @@ final class PayrollFreezeGuard
         $end = new \DateTimeImmutable($toDate);
         $periods = [];
 
-        while ($start <= $end) {
-            $periods[(string) $start->format('Y-m')] = true;
-            $start = $start->modify('+1 month')->modify('first day of this month');
+        // Iterate on year/month integers. DateTime::modify('+1 month')
+        // overflows Jan 31 to Mar 3 and silently skips February.
+        $cursor = (int) $start->format('Y') * 12 + (int) $start->format('n') - 1;
+        $last = (int) $end->format('Y') * 12 + (int) $end->format('n') - 1;
+
+        while ($cursor <= $last) {
+            $year = intdiv($cursor, 12);
+            $month = ($cursor % 12) + 1;
+            $periods[sprintf('%04d-%02d', $year, $month)] = true;
+            $cursor++;
         }
 
         return array_keys($periods);

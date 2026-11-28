@@ -19977,7 +19977,7 @@ paths:
         - Time
       summary: Close an attendance month for the company
       parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:
@@ -20027,6 +20027,7 @@ paths:
           schema:
             type: integer
             minimum: 1
+        - $ref: "#/components/parameters/IdempotencyKeyRequired"
       requestBody:
         required: true
         content:

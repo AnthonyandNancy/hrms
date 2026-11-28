@@ -274,6 +274,14 @@ final class TravelService
                 ->lockForUpdate()
                 ->first();
 
+            if ($pendingChange !== null && $action === 'APPROVE') {
+                $proposed = (array) $pendingChange->proposed_json;
+                $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange(
+                    (string) ($proposed['from_date'] ?? $trip->from_date->format('Y-m-d')),
+                    (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
+                ));
+            }
+
             $applicationCaseId = (int) $trip->case_id;
             $changeCaseId = $pendingChange?->case_id !== null ? (int) $pendingChange->case_id : null;
 
@@ -921,10 +929,18 @@ final class TravelService
             return null;
         }
 
-        $this->freezeGuard->assertPeriodsOpen(PayrollFreezeGuard::periodsForRange(
-            $trip->from_date->format('Y-m-d'),
-            $trip->to_date->format('Y-m-d'),
-        ));
+        $proposed = (array) $change->proposed_json;
+        $periods = [
+            ...PayrollFreezeGuard::periodsForRange(
+                $trip->from_date->format('Y-m-d'),
+                $trip->to_date->format('Y-m-d'),
+            ),
+            ...PayrollFreezeGuard::periodsForRange(
+                (string) ($proposed['from_date'] ?? $trip->from_date->format('Y-m-d')),
+                (string) ($proposed['to_date'] ?? $trip->to_date->format('Y-m-d')),
+            ),
+        ];
+        $this->freezeGuard->assertPeriodsOpen($periods);
 
         return DB::transaction(function () use ($trip, $change): TravelRequestChange {
             $this->applyChangeToTrip($trip, $change);

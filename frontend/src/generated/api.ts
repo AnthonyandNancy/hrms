@@ -18683,8 +18683,8 @@ export interface operations {
     closeAttendancePeriod: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
             };
             path?: never;
             cookie?: never;
@@ -18718,7 +18718,9 @@ export interface operations {
     reopenAttendancePeriod: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKeyRequired"];
+            };
             path: {
                 id: number;
             };

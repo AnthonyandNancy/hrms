@@ -56,6 +56,10 @@ final class PayrollInputDirectoryService implements PayrollInputDirectory
             ->orderBy('source_id')
             ->get();
 
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
         /** @var list<array<string, mixed>> $facts */
         $facts = [];
 

@@ -645,7 +645,7 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->middleware('capability:time.shift.schedule.read')
         ->name('time.shift-schedules.index');
     Route::post('/shift-schedules', [AttendanceOpsController::class, 'storeSchedule'])
-        ->middleware(['csrf.header', 'capability:time.shift.schedule.manage'])
+        ->middleware(['csrf.header', IdempotentCommand::class, 'capability:time.shift.schedule.manage'])
         ->name('time.shift-schedules.store');
 
     Route::get('/attendance/closings', [AttendanceOpsController::class, 'closings'])

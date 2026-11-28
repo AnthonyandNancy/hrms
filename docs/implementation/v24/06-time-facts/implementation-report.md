@@ -1,8 +1,9 @@
 # T06 — Time monthly payroll fact versions
 
-- **Status:** COMPLETE
+- **Status:** COMPLETE (review remediation applied)
 - **Date:** 2026-11-28
 - **Baseline:** `b2a5a63b13a6522936d4dfb6a53dec3cdb0b260f`
+- **Commits:** `a5c90a199cb2b4d067495d4560dc517ec6684295` (T06) plus the review-remediation commit on top
 - **Branch:** `v2.4-implementation`
 - **Plan:** `docs/superpowers/plans/2026-11-28-v2-4-implementation-master-plan.md`, T06
 - **Design:** `docs/FactoryHR_V2.4_需求与技术设计说明书.md` 5.1.5, 5.3.3, AC-08/10/20
@@ -50,7 +51,8 @@ unchanged; their existing live `attendanceForPeriod` preview path is untouched.
     append-only `leave_ledger_entries`, confirmed `overtime_requests` with their
     single `overtime_settlements`, and active `travel_attendance_links`.
   - precheck blockers are returned as Chinese, source-locatable entries:
-    missing schedule, unresolved attendance, unresolved leave approval/ledger,
+    missing schedule, scheduled working day without a fact, unresolved
+    attendance, unresolved leave/overtime approval, leave ledger net missing,
     missing leave payroll treatment, unconfirmed overtime, missing overtime
     settlement, unresolved travel approval, duplicate sources and overlapping
     time occupation.
@@ -191,6 +193,57 @@ frontend: pnpm typecheck
 ```
 
 `pnpm gate:all` was intentionally not run, per the task instruction.
+
+## Independent review remediation (2026-11-28)
+
+The independent review returned “Spec ❌ / Changes requested”. Every finding now
+has a focused failing-test → GREEN mapping:
+
+| # | Review finding | Regression test | Production fix |
+|---|---|---|---|
+| 1 | Cross-month leave repeated the whole case net in every month | `test_leave_crossing_months_uses_each_months_effective_days_and_reversal` | `leaveFacts()` apportions gross consumption across the application's full working-day range; reversal entries reduce only the month containing their `effective_on` |
+| 2 | Scheduled working day with no attendance/leave/travel/explicit absence was silently omitted; closed month with no rows returned a zero export | `test_scheduled_working_day_without_any_fact_blocks_close`, `test_open_reopened_and_hash_missing_facts_do_not_yield_a_payroll_export` | New `SCHEDULE_WITHOUT_FACT` blocker; `closedFactForPeriod()` returns `null` when the employment has zero rows |
+| 3 | `SUBMITTED/IN_REVIEW` leave/overtime was skipped | `test_non_terminal_leave_and_overtime_requests_block_close` | Terminal rejects are ignored; every other non-approved state raises `LEAVE_APPROVAL_UNRESOLVED` / `OVERTIME_APPROVAL_UNRESOLVED` |
+| 4 | Travel change approval checked only the original date range | `test_travel_change_approval_checks_the_proposed_month_after_the_original_was_opened` | `approve()` checks the pending proposed range and `applyPendingChange()` checks original + proposed before moving the link |
+| 5 | Reopen/close and mutations lacked consistent transaction + row-lock semantics | `test_reopen_rolls_back_every_change_when_a_later_step_fails` | Reopen now runs in `DB::transaction` with `lockForUpdate()` on the closure; close already locks the closure and writes version/rows/pointer atomically. Idempotency reservation shares the same transaction. SQLite serializes writers, so true concurrent locking is verified on MySQL in T19 |
+| 6 | `periodsForRange()` skipped February from Jan 31 | `test_periods_for_range_does_not_skip_february_after_january_31` | Iteration uses year/month integers, never `DateTime::modify('+1 month')` |
+| 7 | Close/reopen idempotency was not unified | `test_close_and_reopen_use_required_idempotency_and_replay_stably` | New `TimeIdempotentCommand`: missing key → 422 `IDEMPOTENCY_KEY_REQUIRED`; replay → 200 + `Idempotency-Replayed: true`; reused key with different payload → 409 `IDEMPOTENCY_PAYLOAD_MISMATCH`; OpenAPI requires the header |
+| 8 | REST/HOLIDAY attendance incorrectly demanded a schedule | `test_rest_day_attendance_without_schedule_is_not_mistaken_for_missing_shift` | Schedule blockers and `SCHEDULED_MINUTES_UNRESOLVED` apply only on working days |
+| 9 | Route `shift_schedules` write diverged from calculator `ShiftAssignment` read | `test_real_schedule_route_recalculate_and_close_use_the_same_shift_source` | `AttendanceCalculator::shiftAssignment()` resolves a concrete `ShiftSchedule` first, then falls back to effective-dated `ShiftAssignment` |
+| 10 | Punch batch import could partially succeed | `test_punch_import_is_all_or_nothing_when_a_later_item_is_invalid` | Full batch validation precedes a single transaction around all inserts |
+| 11 | `reopened_from_version_id` pointed at the first reopened version, not vN-1 | `test_each_reopen_points_the_next_version_to_its_direct_predecessor` | Every new close stores the immediate latest version id |
+| 12 | Missing coverage for overtime/travel/UNPAID/PARTIAL/cross-month/schedule-only/directory/hash/duplicate-overlap/full row snapshot | The 26 focused tests below | Coverage added; `factRows()` compares every persisted column on v1→v2 |
+| 13 | Precheck returned a rolled-back, unqueryable `fact_version_id` | `test_incomplete_or_missing_schedule_facts_block_close_with_chinese_location` | The rolled-back id is removed; blocker evidence is returned inline as `precheck_json`, while version/row/closure counts stay zero |
+| 14 | v1 snapshot compared only three columns | `test_reopen_keeps_v1_and_the_next_close_creates_v2` | `factRows()` snapshots all row attributes |
+
+Focused result after remediation:
+
+```text
+OK (26 tests, 148 assertions)
+```
+
+Adjacent Time/payroll regression suite:
+
+```text
+OK (80 tests, 435 assertions)
+```
+
+Full backend suite:
+
+```text
+OK (1535 tests, 59282 assertions)
+```
+
+Formatting/static analysis:
+
+```text
+vendor/bin/pint --test      PASS (1357 files)
+vendor/bin/phpstan analyse  [OK] No errors
+php artisan capability:audit Capability audit OK
+php artisan arch:test        Module boundaries OK
+openapi-lint                 OK (293 paths, 376 operations, 3.1.0)
+pnpm openapi:validate        valid (2 pre-existing health warnings)
+```
 
 ## Incomplete / follow-up boundaries
 

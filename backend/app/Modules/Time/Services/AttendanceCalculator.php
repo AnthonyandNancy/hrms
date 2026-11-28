@@ -11,6 +11,7 @@ use App\Modules\Time\Models\AttendanceRuleVersion;
 use App\Modules\Time\Models\LegalEntityCalendar;
 use App\Modules\Time\Models\PunchRecord;
 use App\Modules\Time\Models\ShiftAssignment;
+use App\Modules\Time\Models\ShiftSchedule;
 use App\Modules\Time\Models\ShiftTemplate;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Time\BusinessDate;
@@ -248,8 +249,29 @@ final class AttendanceCalculator
         return max(0, $this->windows->elapsedMinutes($start, $end) - $shift->break_minutes);
     }
 
+    /**
+     * Resolve the one effective shift source for a day.
+     *
+     * The operational schedule route writes `shift_schedules`; legacy
+     * effective-dated assignments remain supported as a fallback. A concrete
+     * day schedule always wins so route -> recalculate -> close cannot
+     * silently ignore what an administrator scheduled.
+     */
     public function shiftAssignment(int $employmentId, string $businessDate): ?ShiftTemplate
     {
+        $schedule = ShiftSchedule::query()
+            ->where('employment_id', $employmentId)
+            ->where('business_date', $businessDate)
+            ->first();
+
+        if ($schedule !== null) {
+            return ShiftTemplate::query()
+                ->whereKey((int) $schedule->shift_template_id)
+                ->where('valid_from', '<=', $businessDate)
+                ->where('valid_to', '>', $businessDate)
+                ->first();
+        }
+
         $assignment = ShiftAssignment::query()
             ->where('employment_id', $employmentId)
             ->where('valid_from', '<=', $businessDate)

@@ -103,9 +103,7 @@ final class TimeFactVersionService
                 'exception_count' => 0,
                 'precheck_json' => null,
                 'generated_at' => $this->clock->now(),
-                'reopened_from_version_id' => $latest?->reopened_from_version_id !== null
-                    ? (int) $latest->reopened_from_version_id
-                    : $previousVersionId,
+                'reopened_from_version_id' => $previousVersionId,
                 'created_at' => $this->clock->now(),
                 'updated_at' => $this->clock->now(),
             ]);
@@ -113,24 +111,18 @@ final class TimeFactVersionService
             $facts = $this->buildFacts($month);
 
             if ($facts['blockers'] !== []) {
-                $version->forceFill([
-                    'precheck_json' => [
-                        'checked_at' => $this->clock->now()->toIso8601ZuluString(),
-                        'blockers' => $facts['blockers'],
-                        'exception_count' => count($facts['blockers']),
-                    ],
-                    'exception_count' => count($facts['blockers']),
-                    'updated_at' => $this->clock->now(),
-                ])->save();
-
                 throw new ConflictException(
                     '考勤月结预检未通过，请先处理下列问题后重新关闭。',
                     [
                         'reason' => 'TIME_FACT_PRECHECK_FAILED',
                         'period' => $month,
-                        'fact_version_id' => (int) $version->id,
                         'exception_count' => count($facts['blockers']),
                         'blockers' => $facts['blockers'],
+                        'precheck_json' => [
+                            'checked_at' => $this->clock->now()->toIso8601ZuluString(),
+                            'blockers' => $facts['blockers'],
+                            'exception_count' => count($facts['blockers']),
+                        ],
                     ],
                 );
             }
@@ -205,33 +197,41 @@ final class TimeFactVersionService
      */
     public function reopen(AttendancePeriodClosure $closure, string $reason, int $actorUserId): AttendancePeriodClosure
     {
-        $current = $this->currentVersion($closure);
+        return DB::transaction(function () use ($closure, $reason, $actorUserId): AttendancePeriodClosure {
+            /** @var AttendancePeriodClosure $locked */
+            $locked = AttendancePeriodClosure::query()
+                ->whereKey((int) $closure->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($current !== null && (string) $current->status === TimePayrollFactVersion::STATUS_CLOSED) {
-            $current->forceFill([
-                'status' => TimePayrollFactVersion::STATUS_REOPENED,
-                'reopened_at' => $this->clock->now(),
+            $current = $this->currentVersion($locked);
+
+            if ($current !== null && (string) $current->status === TimePayrollFactVersion::STATUS_CLOSED) {
+                $current->forceFill([
+                    'status' => TimePayrollFactVersion::STATUS_REOPENED,
+                    'reopened_at' => $this->clock->now(),
+                    'reopened_by' => $actorUserId,
+                    'reopen_reason' => $reason,
+                    'updated_at' => $this->clock->now(),
+                ])->save();
+            }
+
+            $locked->forceFill([
+                'status' => AttendancePeriodClosure::STATUS_REOPENED,
                 'reopened_by' => $actorUserId,
+                'reopened_at' => $this->clock->now(),
                 'reopen_reason' => $reason,
                 'updated_at' => $this->clock->now(),
             ])->save();
-        }
 
-        $closure->forceFill([
-            'status' => AttendancePeriodClosure::STATUS_REOPENED,
-            'reopened_by' => $actorUserId,
-            'reopened_at' => $this->clock->now(),
-            'reopen_reason' => $reason,
-            'updated_at' => $this->clock->now(),
-        ])->save();
+            $this->audit->record($actorUserId, 'time.attendance.fact_version.reopened', 'attendance_period', (int) $locked->id, after: [
+                'month' => (string) $locked->month,
+                'fact_version_id' => $current?->id !== null ? (int) $current->id : null,
+                'reason' => $reason,
+            ]);
 
-        $this->audit->record($actorUserId, 'time.attendance.fact_version.reopened', 'attendance_period', (int) $closure->id, after: [
-            'month' => (string) $closure->month,
-            'fact_version_id' => $current?->id !== null ? (int) $current->id : null,
-            'reason' => $reason,
-        ]);
-
-        return $closure->refresh();
+            return $locked->refresh();
+        });
     }
 
     /**
@@ -278,7 +278,11 @@ final class TimeFactVersionService
                 );
             }
 
-            if (! $schedules->has($employmentId.'|'.$date)) {
+            $isRestDay = ! $this->calendar->isWorkingDay($date);
+
+            if (! $isRestDay
+                && ! $schedules->has($employmentId.'|'.$date)
+                && ($scheduled > 0 || $worked > 0)) {
                 $blockers[] = $this->blocker(
                     'SHIFT_SCHEDULE_MISSING',
                     "员工 {$employmentId} 在 {$date} 缺少排班，无法确定应出勤分钟。",
@@ -288,7 +292,7 @@ final class TimeFactVersionService
                 );
             }
 
-            if ($scheduled === 0 && $worked > 0) {
+            if ($scheduled === 0 && $worked > 0 && ! $isRestDay) {
                 $blockers[] = $this->blocker(
                     'SCHEDULED_MINUTES_UNRESOLVED',
                     "员工 {$employmentId} 在 {$date} 有出勤但排班分钟为 0，无法确定应出勤。",
@@ -334,9 +338,36 @@ final class TimeFactVersionService
         $travel = $this->travelFacts($month, $start, $end, $blockers);
         $rows = [...$rows, ...$travel];
 
+        $factDays = [];
+        foreach ($rows as $row) {
+            $factDays[(int) $row['employment_id'].'|'.$row['business_date']] = true;
+        }
+
+        foreach ($schedules as $schedule) {
+            $employmentId = (int) $schedule->employment_id;
+            $date = $schedule->business_date->format('Y-m-d');
+
+            if (! $this->calendar->isWorkingDay($date)) {
+                continue;
+            }
+
+            if (! isset($factDays[$employmentId.'|'.$date])) {
+                $blockers[] = $this->blocker(
+                    'SCHEDULE_WITHOUT_FACT',
+                    "员工 {$employmentId} 在 {$date} 有排班但没有考勤、请假、出差或明确缺勤事实，无法月结。",
+                    $employmentId,
+                    $date,
+                    (string) $schedule->id,
+                );
+            }
+        }
+
         $duplicates = [];
         foreach ($rows as $row) {
-            $signature = implode('|', [$row['employment_id'], $row['business_date'], $row['source_type'], $row['source_id']]);
+            $sourceIdentity = $row['source_revision'] !== null && $row['source_revision'] !== ''
+                ? (string) $row['source_revision']
+                : (string) $row['source_id'];
+            $signature = implode('|', [$row['employment_id'], $row['business_date'], $row['source_type'], $sourceIdentity]);
             if (isset($duplicates[$signature])) {
                 $blockers[] = $this->blocker(
                     'DUPLICATE_SOURCE_FACT',
@@ -475,15 +506,10 @@ final class TimeFactVersionService
         $caseIds = $projections->pluck('case_id')->map(static fn (mixed $id): int => (int) $id)->all();
         $entries = LeaveLedgerEntry::query()
             ->whereIn('case_id', $caseIds)
-            ->whereIn('account', ['CONSUME', 'REVERSE'])
+            ->whereIn('account', ['CONSUME', 'REVERSE', 'RELEASE'])
             ->orderBy('id')
-            ->get();
-
-        $netByCase = [];
-        foreach ($entries as $entry) {
-            $caseId = (int) $entry->case_id;
-            $netByCase[$caseId] = ($netByCase[$caseId] ?? 0) + abs((int) $entry->quantity_minutes);
-        }
+            ->get()
+            ->groupBy(static fn (LeaveLedgerEntry $entry): int => (int) $entry->case_id);
 
         $policyIds = $projections->pluck('leave_policy_version_id')->filter()->map(static fn (mixed $id): int => (int) $id)->unique()->all();
         $policies = LeavePolicyVersion::query()->whereIn('id', $policyIds)->get()->keyBy(static fn (LeavePolicyVersion $policy): int => (int) $policy->id);
@@ -494,7 +520,7 @@ final class TimeFactVersionService
             $state = strtoupper((string) $projection->state);
             $caseId = (int) $projection->case_id;
 
-            if (in_array($state, ['SUBMITTED', 'REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED', 'REVOKED'], true)) {
+            if (in_array($state, ['REJECTED', 'WITHDRAWN', 'CANCELLED', 'RELEASED', 'REVOKED'], true)) {
                 continue;
             }
 
@@ -502,19 +528,6 @@ final class TimeFactVersionService
                 $blockers[] = $this->blocker(
                     'LEAVE_APPROVAL_UNRESOLVED',
                     "员工 {$projection->employment_id} 的请假申请 {$caseId} 审批状态未闭环。",
-                    (int) $projection->employment_id,
-                    $projection->from_date->format('Y-m-d'),
-                    (string) $caseId,
-                );
-
-                continue;
-            }
-
-            $net = (int) ($netByCase[$caseId] ?? 0);
-            if ($net <= 0) {
-                $blockers[] = $this->blocker(
-                    'LEAVE_LEDGER_NET_MISSING',
-                    "员工 {$projection->employment_id} 的已批准请假 {$caseId} 缺少有效消费流水。",
                     (int) $projection->employment_id,
                     $projection->from_date->format('Y-m-d'),
                     (string) $caseId,
@@ -563,8 +576,58 @@ final class TimeFactVersionService
                 continue;
             }
 
-            $perDay = intdiv($net, count($workingDays));
-            $remainder = $net % count($workingDays);
+            /** @var \Illuminate\Support\Collection<int, LeaveLedgerEntry> $caseEntries */
+            $caseEntries = $entries->get($caseId, collect());
+            $consumed = 0;
+            $reversed = 0;
+            $monthReversed = 0;
+
+            foreach ($caseEntries as $entry) {
+                $minutes = abs((int) $entry->quantity_minutes);
+
+                if ($entry->account === 'CONSUME') {
+                    $consumed += $minutes;
+                } elseif ($entry->account === 'REVERSE') {
+                    $reversed += $minutes;
+                    $effectiveOn = $entry->effective_on !== null
+                        ? CarbonImmutable::parse((string) $entry->effective_on, 'UTC')->format('Y-m-d')
+                        : '';
+
+                    if ($effectiveOn !== '' && $effectiveOn >= $effectiveStart && $effectiveOn <= $effectiveEnd) {
+                        $monthReversed += $minutes;
+                    }
+                }
+            }
+
+            $caseNet = $consumed;
+
+            if ($caseNet <= 0) {
+                $blockers[] = $this->blocker(
+                    'LEAVE_LEDGER_NET_MISSING',
+                    "员工 {$projection->employment_id} 的已批准请假 {$caseId} 缺少有效消费流水。",
+                    (int) $projection->employment_id,
+                    $projection->from_date->format('Y-m-d'),
+                    (string) $caseId,
+                );
+
+                continue;
+            }
+
+            // The case's net minutes are apportioned across all working days of
+            // the application. A closed month sees only its own effective share;
+            // reversal entries reduce the month where they take effect.
+            $allWorkingDays = $this->workingDates($requestStart, $requestEnd);
+            $totalWorkingDays = max(1, count($allWorkingDays));
+            $monthWorkingDays = count($workingDays);
+            $monthBase = intdiv($caseNet * $monthWorkingDays, $totalWorkingDays);
+            $monthNet = max(0, $monthBase - $monthReversed);
+
+            if ($monthNet <= 0) {
+                continue;
+            }
+
+            $perDay = intdiv($monthNet, $monthWorkingDays);
+            $remainder = $monthNet % $monthWorkingDays;
 
             foreach ($workingDays as $index => $date) {
                 $minutes = $perDay + ($index === 0 ? $remainder : 0);
@@ -589,7 +652,7 @@ final class TimeFactVersionService
                     'travel_mode' => null,
                     'source_type' => 'LEAVE_REQUEST',
                     'source_id' => (string) $caseId,
-                    'source_revision' => 'POLICY-'.$policy->version,
+                    'source_revision' => 'POLICY-'.$policy->version.'|ENTRY-'.$this->maxLedgerEntryId($caseEntries),
                     'approval_status' => 'APPROVED',
                     'source_hash' => hash('sha256', implode('|', [
                         'leave',
@@ -638,7 +701,19 @@ final class TimeFactVersionService
             $date = $request->business_date->format('Y-m-d');
             $status = strtoupper((string) $request->status);
 
+            if (in_array($status, [OvertimeRequest::STATUS_REJECTED, OvertimeRequest::STATUS_CANCELLED], true)) {
+                continue;
+            }
+
             if (! in_array($status, [OvertimeRequest::STATUS_APPROVED, OvertimeRequest::STATUS_CONFIRMED], true)) {
+                $blockers[] = $this->blocker(
+                    'OVERTIME_APPROVAL_UNRESOLVED',
+                    "员工 {$request->employment_id} 在 {$date} 的加班申请审批未闭环。",
+                    (int) $request->employment_id,
+                    $date,
+                    (string) $request->id,
+                );
+
                 continue;
             }
 
@@ -905,6 +980,14 @@ final class TimeFactVersionService
         // Partial leave keeps the paid and unpaid split in the dedicated
         // partial column; downstream payroll can derive either component.
         return [0, $paid, $unpaid];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, LeaveLedgerEntry>  $entries
+     */
+    private function maxLedgerEntryId(\Illuminate\Support\Collection $entries): int
+    {
+        return (int) $entries->max(static fn (LeaveLedgerEntry $entry): int => (int) $entry->id);
     }
 
     /**
