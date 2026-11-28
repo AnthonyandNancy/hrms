@@ -422,3 +422,5 @@
 | 373 | `POST` | `/v1/payroll/rules/{id}/retire` | `payroll.run.prepare` | `COMPANY` | kernel | — |
 
 | 374 | `POST` | `/v1/payroll/runs/{id}/corrections/void` | `payroll.run.correct` | `PAYROLL_RUN` | kernel | — |
+
+| 375 | `POST` | `/v1/time/overtime/requests/{id}/approve` | `time.overtime.manage` | `MANAGED` | kernel | — |

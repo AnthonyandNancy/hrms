@@ -79,6 +79,7 @@ final class SeedWorkflowTemplatesCommand extends Command
             'leave.request',
             'attendance.correction',
             'travel.request',
+            'overtime.request',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',

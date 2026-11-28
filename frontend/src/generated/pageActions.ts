@@ -1019,6 +1019,21 @@ export const PAGE_ACTIONS: Record<string, GeneratedPageAction[]> = {
     },
     {
       "pageCode": "overtime",
+      "key": "overtime.request.approve",
+      "label": "审批加班申请",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/requests/{id}/approve",
+      "ui": "primary",
+      "confirm": "danger",
+      "anchorTypes": [
+        "ORG_UNIT",
+        "ORG_SUBTREE",
+        "COMPANY"
+      ],
+      "fieldProfileMax": "P1_INTERNAL"
+    },
+    {
+      "pageCode": "overtime",
       "key": "overtime.request.confirm",
       "label": "确认加班时长",
       "capability": "time.overtime.confirm",

@@ -36,7 +36,7 @@ final class PageActionCatalog
         ],
         'overtime_request' => [
             'page' => 'overtime',
-            'keys' => ['overtime.request.confirm', 'overtime.settlement.create'],
+            'keys' => ['overtime.request.approve', 'overtime.request.confirm', 'overtime.settlement.create'],
         ],
         'travel_request' => [
             'page' => 'travel',

@@ -6,6 +6,7 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\EmploymentDirectory;
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
+use App\Modules\Time\Contracts\WorkflowCasePort;
 use App\Modules\Time\Models\AttendanceDay;
 use App\Modules\Time\Models\OvertimePolicyVersion;
 use App\Modules\Time\Models\OvertimeRecord;
@@ -53,6 +54,7 @@ final class OvertimeRequestService
         private readonly Container $container,
         private readonly PayrollFreezeGuard $freezeGuard,
         private readonly TimeoffLedgerService $timeoffLedger,
+        private readonly WorkflowCasePort $workflow,
     ) {}
 
     public function apply(
@@ -86,6 +88,21 @@ final class OvertimeRequestService
                 ]);
             }
 
+            $caseId = $this->workflow->createCase(
+                requesterUserId: $actorUserId,
+                type: 'OVERTIME_REQUEST',
+                subjectType: 'employment',
+                subjectId: $employmentId,
+                payload: [
+                    'title' => 'Overtime request',
+                    'employment_id' => $employmentId,
+                    'business_date' => $businessDate,
+                    'declared_minutes' => $declaredMinutes,
+                    'reason' => $reason,
+                ],
+                businessDate: $businessDate,
+            );
+
             try {
                 /** @var OvertimeRequest $request */
                 $request = OvertimeRequest::query()->create([
@@ -93,9 +110,9 @@ final class OvertimeRequestService
                     'business_date' => $businessDate,
                     'declared_minutes' => $declaredMinutes,
                     'confirmed_minutes' => null,
-                    'status' => OvertimeRequest::STATUS_APPROVED,
+                    'status' => OvertimeRequest::STATUS_SUBMITTED,
                     'reason' => $reason,
-                    'case_id' => null,
+                    'case_id' => $caseId,
                     'overtime_record_id' => null,
                     'policy_version_id' => null,
                     'policy_snapshot_json' => null,
@@ -111,6 +128,7 @@ final class OvertimeRequestService
                 'employment_id' => $employmentId,
                 'business_date' => $businessDate,
                 'declared_minutes' => $declaredMinutes,
+                'case_id' => $caseId,
             ]);
 
             return $request;
@@ -122,6 +140,66 @@ final class OvertimeRequestService
      * record used by the settlement command. The policy snapshot is written in
      * the same transaction as the state transition and record.
      */
+    public function approve(int $overtimeRequestId, string $decision, string $comment, int $actorUserId): OvertimeRequest
+    {
+        $action = strtoupper($decision);
+        if (! in_array($action, ['APPROVE', 'REJECT'], true)) {
+            throw new ValidationException(['decision' => ['The decision must be APPROVE or REJECT.']]);
+        }
+
+        return DB::transaction(function () use ($overtimeRequestId, $action, $comment, $actorUserId): OvertimeRequest {
+            $request = OvertimeRequest::query()->whereKey($overtimeRequestId)->lockForUpdate()->first();
+            if ($request === null) {
+                throw new NotFoundOrForbiddenException;
+            }
+            if ((string) $request->status !== OvertimeRequest::STATUS_SUBMITTED || $request->case_id === null) {
+                throw new ConflictException('Only a submitted overtime request can be decided.', [
+                    'reason' => 'OVERTIME_REQUEST_NOT_SUBMITTED',
+                    'status' => (string) $request->status,
+                ]);
+            }
+
+            $case = $this->workflow->case((int) $request->case_id);
+            if ($case === null) {
+                throw new ConflictException('The overtime workflow case was not found.', [
+                    'reason' => 'OVERTIME_CASE_MISSING',
+                    'case_id' => (int) $request->case_id,
+                ]);
+            }
+            if (in_array($case->status, ['APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELLED'], true)) {
+                throw new ConflictException('The overtime workflow case has already been decided.', [
+                    'reason' => 'OVERTIME_CASE_ALREADY_DECIDED',
+                    'status' => $case->status,
+                ]);
+            }
+
+            $this->workflow->decide((int) $request->case_id, $action, $comment);
+            $decided = $this->workflow->case((int) $request->case_id);
+            $expected = $action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+            if ($decided === null || $decided->status !== $expected) {
+                throw new ConflictException('The overtime workflow decision did not reach the expected state.', [
+                    'reason' => 'OVERTIME_CASE_DECISION_FAILED',
+                    'case_id' => (int) $request->case_id,
+                ]);
+            }
+
+            $request->forceFill([
+                'status' => $action === 'APPROVE' ? OvertimeRequest::STATUS_APPROVED : OvertimeRequest::STATUS_REJECTED,
+                'updated_at' => $this->clock->now(),
+            ])->save();
+
+            $this->audit->record(
+                $actorUserId,
+                'time.overtime.decided',
+                'overtime_request',
+                (int) $request->id,
+                after: ['decision' => $action, 'case_id' => (int) $request->case_id, 'comment' => $comment],
+            );
+
+            return $request->refresh();
+        });
+    }
+
     public function confirm(
         int $overtimeRequestId,
         int $confirmedMinutes,

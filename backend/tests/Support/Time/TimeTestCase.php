@@ -220,13 +220,45 @@ abstract class TimeTestCase extends TestCase
      * Bind the authenticated principal and the Time actor together for HTTP
      * tests. The capability engine is the same Time-scoped test authorizer so
      * the route guard and the row scope cannot silently diverge.
-     *
+     */
+    protected function actingAsOvertimeManager(): static
+    {
+        $this->app->instance(\App\Shared\Authorization\Authorizer::class, new TimeTestAuthorizer($this->actors));
+
+        $actor = TimeTestFixtures::actor(
+            employmentId: 1,
+            scope: 'MANAGED',
+            capabilities: [
+                'time.overtime.read',
+                'time.overtime.request',
+                'time.overtime.manage',
+                'time.overtime.confirm',
+                'time.overtime.settle',
+                'time.timeoff.read',
+            ],
+            managedEmploymentIds: [1],
+        );
+        $this->actAsTimeActor($actor);
+
+        $principal = new TestPrincipal(
+            userId: $actor->userId,
+            employmentId: $actor->employmentId,
+        );
+        $this->app->instance(\App\Modules\IAM\Contracts\Principal::class, $principal);
+        $this->app->instance(\App\Shared\Auth\AuthenticatedPrincipal::class, $principal);
+        $this->app->make(\App\Modules\IAM\Auth\AuthenticationContext::class)->set($principal);
+
+        return $this;
+    }
+
+    /**
      * @param  list<string>  $capabilities
      */
     protected function actingAsTimeEmployee(array $capabilities = [
         'time.overtime.read',
         'time.overtime.request',
         'time.overtime.confirm',
+        'time.overtime.manage',
         'time.overtime.settle',
         'time.timeoff.read',
     ]): static

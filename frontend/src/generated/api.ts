@@ -5021,6 +5021,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/time/overtime/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a submitted overtime workflow case */
+        post: operations["timeOvertimeRequestsApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/time/overtime/timeoff-balances": {
         parameters: {
             query?: never;
@@ -20229,6 +20246,46 @@ export interface operations {
                 headers: {
                     /** @description Present and true when a completed request was replayed. */
                     "Idempotency-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"] & {
+                        data?: components["schemas"]["OvertimeRequest"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    timeOvertimeRequestsApprove: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "APPROVE" | "REJECT";
+                    comment?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Decided overtime request */
+            200: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {

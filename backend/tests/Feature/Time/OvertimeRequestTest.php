@@ -55,6 +55,7 @@ final class OvertimeRequestTest extends TimeTestCase
         ], ['Idempotency-Key' => 'ot-1'])->assertCreated();
 
         $id = (int) $created->json('data.id');
+        $this->approveOvertime($id);
 
         $this->postJson("/v1/time/overtime/requests/{$id}/confirm", [
             'confirmed_minutes' => 90,
@@ -85,6 +86,7 @@ final class OvertimeRequestTest extends TimeTestCase
         ], ['Idempotency-Key' => 'ot-separate-create'])->assertCreated();
 
         $id = (int) $created->json('data.id');
+        $this->approveOvertime($id);
         $confirmed = $this->postJson("/v1/time/overtime/requests/{$id}/confirm", [
             'confirmed_minutes' => 75,
         ], ['Idempotency-Key' => 'ot-separate-confirm'])->assertOk();
@@ -167,6 +169,7 @@ final class OvertimeRequestTest extends TimeTestCase
         ], ['Idempotency-Key' => 'ot-loop-timeoff'])->assertCreated();
 
         $firstId = (int) $first->json('data.id');
+        $this->approveOvertime($firstId);
         $confirmed = $this->postJson("/v1/time/overtime/requests/{$firstId}/confirm", [
             'confirmed_minutes' => 90,
         ], ['Idempotency-Key' => 'ot-loop-timeoff-confirm'])->assertOk();
@@ -266,5 +269,65 @@ final class OvertimeRequestTest extends TimeTestCase
 
         $this->assertSame($first->json('data.id'), $second->json('data.id'));
         $this->assertDatabaseCount('overtime_requests', 1);
+    }
+
+    public function test_manager_receives_object_approve_action_and_confirm_after_approval(): void
+    {
+        $this->actingAsOvertimeManager();
+
+        $created = $this->postJson('/v1/time/overtime/requests', [
+            'business_date' => '2026-11-28',
+            'declared_minutes' => 60,
+            'reason' => 'Synthetic manager object action.',
+        ], ['Idempotency-Key' => 'ot-manager-actions-create'])->assertCreated()
+            ->assertJsonPath('data.status', OvertimeRequest::STATUS_SUBMITTED);
+        $this->assertContains('overtime.request.approve', (array) $created->json('data.allowed_actions'));
+
+        $id = (int) $created->json('data.id');
+        $approved = $this->postJson("/v1/time/overtime/requests/{$id}/approve", [
+            'decision' => 'APPROVE',
+            'comment' => 'Synthetic manager approval.',
+        ], ['Idempotency-Key' => 'ot-manager-actions-approve'])->assertOk()
+            ->assertJsonPath('data.status', OvertimeRequest::STATUS_APPROVED);
+        $this->assertContains('overtime.request.confirm', (array) $approved->json('data.allowed_actions'));
+    }
+
+    public function test_overtime_application_waits_for_workflow_and_rejection_blocks_confirmation(): void
+    {
+        $this->actingAsTimeEmployee();
+        $created = $this->postJson('/v1/time/overtime/requests', [
+            'business_date' => '2026-11-27',
+            'declared_minutes' => 60,
+            'reason' => 'Synthetic workflow approval path.',
+        ], ['Idempotency-Key' => 'ot-workflow-create'])->assertCreated()
+            ->assertJsonPath('data.status', OvertimeRequest::STATUS_SUBMITTED);
+        $id = (int) $created->json('data.id');
+        $this->assertGreaterThan(0, (int) $created->json('data.case_id'));
+
+        $this->postJson("/v1/time/overtime/requests/{$id}/confirm", [
+            'confirmed_minutes' => 60,
+        ], ['Idempotency-Key' => 'ot-workflow-confirm-too-early'])
+            ->assertConflict()
+            ->assertJsonPath('data.reason', 'OVERTIME_REQUEST_NOT_APPROVED');
+
+        $this->postJson("/v1/time/overtime/requests/{$id}/approve", [
+            'decision' => 'REJECT',
+            'comment' => 'Synthetic rejection.',
+        ], ['Idempotency-Key' => 'ot-workflow-reject'])->assertOk()
+            ->assertJsonPath('data.status', OvertimeRequest::STATUS_REJECTED);
+
+        $this->postJson("/v1/time/overtime/requests/{$id}/confirm", [
+            'confirmed_minutes' => 60,
+        ], ['Idempotency-Key' => 'ot-workflow-confirm-rejected'])
+            ->assertConflict()
+            ->assertJsonPath('data.reason', 'OVERTIME_REQUEST_NOT_APPROVED');
+    }
+
+    private function approveOvertime(int $id): void
+    {
+        $this->postJson("/v1/time/overtime/requests/{$id}/approve", [
+            'decision' => 'APPROVE',
+            'comment' => 'Synthetic manager approval.',
+        ], ['Idempotency-Key' => 'ot-approve-'.$id])->assertOk();
     }
 }

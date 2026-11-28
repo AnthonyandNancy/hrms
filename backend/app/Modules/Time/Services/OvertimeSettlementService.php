@@ -6,6 +6,7 @@ namespace App\Modules\Time\Services;
 
 use App\Modules\Time\Contracts\PayrollPeriodLockReader;
 use App\Modules\Time\Models\OvertimeRecord;
+use App\Modules\Time\Models\OvertimeRequest;
 use App\Modules\Time\Models\OvertimeSettlement;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
@@ -73,6 +74,21 @@ final class OvertimeSettlementService
 
             $period = $record->business_date->format('Y-m');
             $this->freezeGuard->lockAndAssertOpen($period);
+
+            $confirmedRequest = OvertimeRequest::query()
+                ->where('overtime_record_id', $recordId)
+                ->first();
+            $policySnapshot = $confirmedRequest !== null ? (array) ($confirmedRequest->policy_snapshot_json ?? []) : [];
+            $policyAllowed = match ($method) {
+                'PAY' => (bool) ($policySnapshot['allow_pay'] ?? true),
+                'TIMEOFF' => (bool) ($policySnapshot['allow_timeoff'] ?? true),
+            };
+            if (! $policyAllowed) {
+                throw new ConflictException('The confirmed overtime policy does not allow this settlement method.', [
+                    'reason' => 'OVERTIME_METHOD_NOT_ALLOWED',
+                    'method' => $method,
+                ]);
+            }
 
             if ($method === 'PAY' && $this->isFrozen((int) $record->employment_id, $period)) {
                 throw new ConflictException(

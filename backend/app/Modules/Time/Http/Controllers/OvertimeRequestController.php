@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Time\Http\Controllers;
 
+use App\Modules\IAM\Contracts\AllowedActionResolver;
 use App\Modules\Time\Contracts\TimeActor;
 use App\Modules\Time\Http\TimeRequestScope;
 use App\Modules\Time\Services\OvertimeRequestService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\PrincipalResolver;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandResult;
 use App\Shared\Commands\CommandRunner;
@@ -26,6 +28,8 @@ final class OvertimeRequestController
         private readonly OvertimeRequestService $requests,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
+        private readonly PrincipalResolver $principals,
+        private readonly AllowedActionResolver $allowedActions,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -123,7 +127,7 @@ final class OvertimeRequestController
 
                 return [
                     'http_status' => 201,
-                    'body' => $this->requests->payload($created),
+                    'body' => $this->payloadWithActions($created),
                     'resource_type' => 'overtime_request',
                     'resource_id' => (string) $created->id,
                 ];
@@ -132,6 +136,55 @@ final class OvertimeRequestController
         );
 
         return $this->respond($result, created: true);
+    }
+
+    public function approve(Request $request, int $id): JsonResponse
+    {
+        $actor = $this->scope->actor($request);
+        $data = $request->validate([
+            'decision' => ['required', 'string', 'in:APPROVE,REJECT'],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ]);
+        $existing = $this->requests->find($id);
+        if ($existing === null) {
+            throw new NotFoundOrForbiddenException;
+        }
+        $this->scope->employment($actor, (int) $existing->employment_id, $existing->business_date->format('Y-m-d'));
+        $payload = [
+            'overtime_request_id' => $id,
+            'decision' => (string) $data['decision'],
+            'comment' => (string) ($data['comment'] ?? ''),
+        ];
+        $result = $this->commands->run(
+            new CommandDefinition(
+                name: 'time.overtime.request.approve',
+                capability: 'time.overtime.manage',
+                anchor: AnchorType::MANAGED,
+                idempotent: true,
+                invariants: [],
+                effect: null,
+                auditAction: 'time.overtime.decided',
+            ),
+            $payload,
+            function () use ($actor, $payload): array {
+                $decision = $this->requests->approve(
+                    overtimeRequestId: (int) $payload['overtime_request_id'],
+                    decision: (string) $payload['decision'],
+                    comment: (string) $payload['comment'],
+                    actorUserId: $actor->userId,
+                );
+
+                return [
+                    'http_status' => 200,
+                    'body' => $this->payloadWithActions($decision),
+                    'resource_type' => 'overtime_request',
+                    'resource_id' => (string) $decision->id,
+                ];
+            },
+            idempotencyKey: (string) $request->header('Idempotency-Key', ''),
+        );
+
+        return $this->respond($result, created: false);
     }
 
     public function confirm(Request $request, int $id): JsonResponse
@@ -180,7 +233,7 @@ final class OvertimeRequestController
 
                 return [
                     'http_status' => 200,
-                    'body' => $this->requests->payload($confirmed),
+                    'body' => $this->payloadWithActions($confirmed),
                     'resource_type' => 'overtime_request',
                     'resource_id' => (string) $confirmed->id,
                 ];
@@ -218,6 +271,27 @@ final class OvertimeRequestController
             'available_minutes' => $available,
             'settlement_count' => count($result->items),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadWithActions(\App\Modules\Time\Models\OvertimeRequest $request): array
+    {
+        $payload = $this->requests->payload($request);
+        $payload['allowed_actions'] = $this->allowedActions->for(
+            $this->principals->resolve(),
+            'overtime_request',
+            (int) $request->id,
+            [
+                'status' => (string) $request->status,
+                'subject_employment_id' => (int) $request->employment_id,
+                'case_id' => $request->case_id,
+            ],
+            $request->business_date->format('Y-m-d'),
+        );
+
+        return $payload;
     }
 
     /**

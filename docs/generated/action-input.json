@@ -623,6 +623,15 @@
     },
     {
       "pageCode": "overtime",
+      "key": "overtime.request.approve",
+      "label": "审批加班申请",
+      "capability": "time.overtime.manage",
+      "api": "POST /v1/time/overtime/requests/{id}/approve",
+      "ui": "primary",
+      "confirm": "danger"
+    },
+    {
+      "pageCode": "overtime",
       "key": "overtime.settlement.create",
       "label": "结算加班",
       "capability": "time.overtime.settle",

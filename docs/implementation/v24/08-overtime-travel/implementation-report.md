@@ -27,3 +27,23 @@
 Remaining T08: overtime request unified Workflow approval/effect (currently
 request creation still directly APPROVED), travel change/reversal full flow and
 API allowed_actions wiring.
+
+## T08b — overtime Workflow approval and policy-constrained settlement
+
+- Overtime application now opens a Workflow `OVERTIME_REQUEST` case and stores
+  `case_id`; `status` starts as SUBMITTED instead of directly APPROVED.
+- Added `OVERTIME_REQUEST → overtime.request` template mapping and seeded
+  template, plus `overtime.request.approve` object action.
+- Added `POST /v1/time/overtime/requests/{id}/approve`:
+  - `time.overtime.manage`, MANAGED anchor, idempotent CommandRunner;
+  - decides the Workflow case and only then projects APPROVED/REJECTED;
+  - returns server `allowed_actions`; APPROVE exposes CONFIRM, rejection does not.
+- CONFIRM remains separate and still requires the approved request, then
+  materialises one overtime record with its policy snapshot.
+- Overtime settlement now reads the confirmed policy snapshot and rejects
+  PAY/TIMEOFF when `allow_pay`/`allow_timeoff` is false
+  (`OVERTIME_METHOD_NOT_ALLOWED`); TIMEOFF still writes exactly one ledger EARN.
+- Updated OpenAPI/action manifest/page APIs/permission catalog/ledger and all
+  affected tests to approve through Workflow before confirmation.
+- Verification: Time suite 239 tests / 1,132 assertions; targeted workflow,
+  settlement, contract/parity tests green; Pint/PHPStan/arch green.

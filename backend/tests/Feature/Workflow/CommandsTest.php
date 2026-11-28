@@ -21,14 +21,15 @@ class CommandsTest extends TestCase
         $this->artisan('workflow:seed-templates')->assertSuccessful();
         $this->artisan('workflow:seed-templates')->assertSuccessful();
 
-        // Nine codes: the documented business flows plus the Time-owned
-        // attendance.correction and travel.request workflows.
-        $this->assertSame(9, WorkflowTemplate::query()->count());
+        // Ten codes include the Time-owned attendance.correction, travel.request
+        // and overtime.request workflows.
+        $this->assertSame(10, WorkflowTemplate::query()->count());
 
         foreach ([
             'leave.request',
             'attendance.correction',
             'travel.request',
+            'overtime.request',
             'transfer.request',
             'contract.renewal',
             'onboarding.request',

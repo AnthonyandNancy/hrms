@@ -400,7 +400,7 @@ final class PermissionResourceCatalog
                 'order' => 73,
                 'icon' => 'Menu',
                 'component_key' => 'overtime/index',
-                'required_apis' => ['GET /v1/time/overtime/policies', 'POST /v1/time/overtime/policies', 'POST /v1/time/overtime/policies/{id}/retire', 'GET /v1/time/overtime/requests', 'POST /v1/time/overtime/requests', 'POST /v1/time/overtime/requests/{id}/confirm', 'GET /v1/time/overtime/timeoff-balances', 'GET /v1/time/overtime/settlements', 'POST /v1/overtime/records/{recordId}/settlements'],
+                'required_apis' => ['GET /v1/time/overtime/policies', 'POST /v1/time/overtime/policies', 'POST /v1/time/overtime/policies/{id}/retire', 'GET /v1/time/overtime/requests', 'POST /v1/time/overtime/requests', 'POST /v1/time/overtime/requests/{id}/confirm', 'POST /v1/time/overtime/requests/{id}/approve', 'GET /v1/time/overtime/timeoff-balances', 'GET /v1/time/overtime/settlements', 'POST /v1/overtime/records/{recordId}/settlements'],
                 'states' => ['loading', 'empty', 'error', 'forbidden', 'partial'],
                 'negative_tests' => ['unauthenticated', 'no_capability', 'cross_anchor', 'field_or_export'],
                 'layer' => 'business',

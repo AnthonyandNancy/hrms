@@ -169,6 +169,10 @@ final class OvertimePolicyVersionTest extends TimeHttpTestCase
             'declared_minutes' => 120,
             'reason' => 'Synthetic support',
         ], ['Idempotency-Key' => 'ot-snap'])->assertCreated()->json('data.id');
+        $this->postJson("/v1/time/overtime/requests/{$requestId}/approve", [
+            'decision' => 'APPROVE',
+            'comment' => 'Synthetic snapshot approval.',
+        ], ['Idempotency-Key' => 'ot-snap-approve'])->assertOk();
 
         $confirmed = $this->postJson("/v1/time/overtime/requests/{$requestId}/confirm", [
             'confirmed_minutes' => 90,

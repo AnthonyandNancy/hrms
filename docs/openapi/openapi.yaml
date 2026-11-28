@@ -21971,6 +21971,54 @@ paths:
           $ref: "#/components/responses/InternalError"
       x-capability: time.overtime.confirm
       x-action-label: 确认加班时长
+  /v1/time/overtime/requests/{id}/approve:
+    post:
+      operationId: timeOvertimeRequestsApprove
+      tags:
+        - Time
+      summary: Approve or reject a submitted overtime workflow case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVE, REJECT] }
+                comment: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Decided overtime request
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OvertimeRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-capability: time.overtime.manage
+      x-action-label: 审批加班申请
   /v1/time/overtime/timeoff-balances:
     get:
       operationId: timeOvertimeTimeoffBalancesShow

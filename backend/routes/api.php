@@ -711,6 +711,10 @@ Route::prefix('time')->middleware('auth.session')->group(function (): void {
         ->whereNumber('id')
         ->middleware('capability:time.overtime.confirm')
         ->name('time.overtime.requests.confirm');
+    Route::post('/overtime/requests/{id}/approve', [OvertimeRequestController::class, 'approve'])
+        ->whereNumber('id')
+        ->middleware('capability:time.overtime.manage')
+        ->name('time.overtime.requests.approve');
     Route::get('/overtime/timeoff-balances', [OvertimeRequestController::class, 'timeoffBalances'])
         ->middleware('capability:time.timeoff.read')
         ->name('time.overtime.timeoff-balances');
