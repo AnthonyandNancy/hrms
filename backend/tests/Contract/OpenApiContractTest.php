@@ -108,16 +108,27 @@ class OpenApiContractTest extends TestCase
         $spec = $this->parseSpec();
         $schemas = $spec['components']['schemas'];
 
-        foreach (['DashboardData', 'DashboardMetric', 'DashboardPendingApproval', 'DashboardNotice', 'DashboardContractAlert'] as $schema) {
+        foreach (['DashboardData', 'DashboardMetric', 'DashboardSections', 'DashboardPendingApproval', 'DashboardNotice', 'DashboardContractAlert'] as $schema) {
             $this->assertArrayHasKey($schema, $schemas);
         }
 
         $this->assertSame(
-            ['asOf', 'freshness', 'greeting', 'metrics', 'pendingApprovals', 'recentNotices', 'contractAlerts'],
+            ['asOf', 'freshness', 'freshnessState', 'metrics', 'sections', 'pendingApprovals', 'recentNotices', 'contractAlerts'],
             $schemas['DashboardData']['required'],
         );
+        $this->assertArrayNotHasKey('greeting', $schemas['DashboardData']['properties']);
         $this->assertSame(
-            ['id', 'caseNo', 'title', 'status', 'ageDays', 'dueAt'],
+            ['code', 'label', 'value', 'unit', 'unitLabel', 'status', 'availability', 'reason', 'scope', 'scopeLabel', 'period', 'predicate', 'asOf', 'drilldown', 'trend', 'sourceHash', 'computedAt', 'preview'],
+            $schemas['DashboardMetric']['required'],
+        );
+        $this->assertArrayNotHasKey('trendDirection', $schemas['DashboardMetric']['properties']);
+        $this->assertArrayNotHasKey('drilldownLabel', $schemas['DashboardMetric']['properties']);
+        $this->assertSame(
+            ['departments', 'workforce', 'recruitment'],
+            $schemas['DashboardSections']['required'],
+        );
+        $this->assertSame(
+            ['id', 'caseNo', 'title', 'status', 'statusLabel', 'ageDays', 'dueAt'],
             $schemas['DashboardPendingApproval']['required'],
         );
         $this->assertSame(

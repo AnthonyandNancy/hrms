@@ -6015,16 +6015,31 @@ export interface components {
             label: string;
             value: number;
             unit: string;
+            unitLabel: string;
             /** @enum {string} */
             status: "AVAILABLE" | "UNAVAILABLE" | "UNCONFIGURED" | "FORBIDDEN";
-            reason: string | null;
-            trend: string | null;
             /** @enum {string} */
-            trendDirection: "UP" | "DOWN" | "FLAT";
-            drilldownLabel: string;
+            availability: "AVAILABLE" | "UNAVAILABLE" | "UNCONFIGURED" | "FORBIDDEN";
+            reason: string | null;
+            scope: string;
+            scopeLabel: string;
+            period: string;
+            predicate: string;
+            /** Format: date */
+            asOf: string;
+            drilldown: {
+                route: string;
+                query: {
+                    [key: string]: string;
+                };
+            } | null;
+            trend: string | null;
             sourceHash: string;
             /** Format: date-time */
             computedAt: string;
+            preview: {
+                [key: string]: unknown;
+            }[];
         };
         /** @description Bounded preview of the pending_approvals projection under the same caller scope. */
         DashboardPendingApproval: {
@@ -6032,6 +6047,7 @@ export interface components {
             caseNo: string;
             title: string;
             status: string;
+            statusLabel: string;
             ageDays: number;
             /** Format: date-time */
             dueAt: string | null;
@@ -6056,13 +6072,34 @@ export interface components {
             endDate: string;
             daysRemaining: number;
         };
+        DashboardDepartmentRow: {
+            label: string;
+            count: number;
+        };
+        DashboardWorkforceRow: {
+            key: string;
+            label: string;
+            count: number;
+        };
+        DashboardRecruitmentRow: {
+            stage: string;
+            label: string;
+            count: number;
+        };
+        DashboardSections: {
+            departments: components["schemas"]["DashboardDepartmentRow"][];
+            workforce: components["schemas"]["DashboardWorkforceRow"][];
+            recruitment: components["schemas"]["DashboardRecruitmentRow"][];
+        };
         DashboardData: {
             /** Format: date */
             asOf: string;
             /** Format: date-time */
             freshness: string;
-            greeting: string;
+            /** @enum {string} */
+            freshnessState: "LIVE" | "MATERIALIZED" | "STALE";
             metrics: components["schemas"]["DashboardMetric"][];
+            sections: components["schemas"]["DashboardSections"];
             pendingApprovals: components["schemas"]["DashboardPendingApproval"][];
             recentNotices: components["schemas"]["DashboardNotice"][];
             contractAlerts: components["schemas"]["DashboardContractAlert"][];

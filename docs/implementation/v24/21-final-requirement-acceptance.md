@@ -1,8 +1,8 @@
 # FactoryHR V2.4 — Final Requirement Acceptance (NO-GO)
 
 - **Date:** 2026-11-28
-- **Branch:** `v2.4-implementation`
-- **Current HEAD:** `b888693` (plus this acceptance record)
+- **Branch:** `main`
+- **Current HEAD:** `f8c26496` plus the post-merge bugfix batch
 - **Requirement:** `docs/FactoryHR_V2.4_需求与技术设计说明书.md`
 - **Plan:** `docs/superpowers/plans/2026-11-28-v2-4-implementation-master-plan.md`
 - **Full gate:** `docs/implementation/v24/06-time-facts/gate-all-final.log`
@@ -16,9 +16,12 @@ It is **not** a completed V2.4 business delivery:
 
 - T05a/T05b onboarding, contract draft and compensation draft are merged.
 - T07 leave effects are complete and merged; T16 notification/report is merged with full-gate evidence.
-- T20–T24 remain unmapped; 458-card authority is still pending; R03/R04/R05/R08 anchor construction is blocked.
-- No Playwright MCP human acceptance has been executed; all MCP items remain `NOT RUN`.
-- Real MySQL/Redis/object-storage migration, concurrency and restore verification is not complete.
+- T20–T24 remain unmapped and 458-card authority is still pending.
+- T18 is IN PROGRESS: nine role accounts, 155 URL dispositions, payroll
+  lifecycle/SoD and selected scoped pages have real evidence; functional 155
+  rows, the complete action matrix and 458 cards remain `NOT RUN`.
+- T19 is IN PROGRESS: PHP clean image is built, but frontend clean build,
+  clean-stack install, deployment-traffic recovery and final GO remain pending.
 - Therefore AC-01/AC-21/AC-22 can not pass, and no Requirement-wide completion claim is allowed.
 
 ## 2. Merged and verified work
@@ -42,8 +45,8 @@ It is **not** a completed V2.4 business delivery:
 | T17 frontend precision/actions/self-service | COMPLETE | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`–`gate-all-t17d.log` | Money, self payslips, server actions and Chinese sweep complete; MCP remains T18 |
 | T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
-| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/T19-MCP-001/`–`T19-MCP-004/` | Login/dashboard, role anchor UI, PAYROLL_RUN allow/deny and user role-assignment UI executed; remaining matrix NOT RUN |
-| T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md`; `upgrade-rollback/`, `t19d-smoke/`; `18-mcp-acceptance/evidence/T19-MCP-003/`, `T19-MCP-004/` | MySQL/Redis/MinIO, clean install, migrations, backup/restore, synthetic upgrade, concurrent idempotency, scoped access, role-assignment/overlap repair, v24-t19d smoke and same-DB rollback/forward pass; clean full Dockerfile build/final GO pending |
+| T18 MCP acceptance | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/evidence/` (`T19-MCP-001`–`012`, `T19-CRAWL-004`) | Role accounts, scoped pages, payroll lifecycle/SoD and 155/155 URL dispositions pass; functional 155 rows, full action matrix and 458 cards NOT RUN |
+| T19 real stack/recovery | IN PROGRESS | `docs/implementation/v24/19-real-stack/implementation-report.md`; `upgrade-rollback/`, `t19d-smoke/` | PHP clean image `v24-clean` built; MySQL/Redis/MinIO, migration/backup/restore, synthetic upgrade, rollback/forward pass; frontend clean build, clean-stack install, traffic-recovery drill and final GO pending |
 
 ### Full gate result
 
@@ -74,20 +77,19 @@ This proves the merged technical foundation passes the existing automated gates.
   SQLite cannot prove true concurrent delivery locking; browser/MCP proof remains
   T18 and real-stack verification remains T19.
 
-## 4. Not implemented
+## 4. Remaining work
 
-- **T05b:** contract and execution-compensation drafts created by approved onboarding.
-- **T08:** overtime PAY/TIMEOFF ledger and travel time-fact closure.
-- **T09:** Snapshot v2 consuming contract + execution compensation + closed Time facts + employee-level schemes; no-zero/blocker integration.
-- **T10:** restricted payroll AST rule engine and published rule versions.
-- **T11:** payroll run members, blockers, independent publication/disbursement.
-- **T12:** mid-month compensation segmentation and period-level statutory calculation.
-- **T13:** cumulative corrections and signed YTD ledger.
-- **T14:** benefit payroll inputs, multi-plan and reversal.
-- **T15:** performance bonus mapping, Offer→compensation, training exam attempts.
-- **T17:** exact money display, complete object actions, self-service payslip and all detail/list state/Chinese copy.
-- **T18 execution:** first MCP pack executed; remaining 20 modules, 155 entries, 458 cards and role matrix NOT RUN/BLOCKED.
-- **T19:** app-level concurrency, real previous-release upgrade, deployment traffic restore and final GO/NO-GO remain.
+- **T18:** execute the functional 155-row ledger, complete R01–R09 action
+  matrix, 458 cards and the loading/empty/error/forbidden/partial/conflict
+  states with refresh/re-login/revocation evidence.
+- **T19:** finish frontend clean build, deploy a clean stack, run install/ready/
+  smoke, perform traffic-recovery and TLS/secret-manager cutover, then issue GO.
+- **T20–T24:** task cards and card authority/mapping remain unapproved.
+- **Open delivery gaps:** M21 backup/restore/upgrade UI (GAP-06), self-service
+  clock-in (GAP-08), page-visible write actions outside the action manifest
+  (GAP-15), and historical evidence-log gaps (GAP-16).
+- The post-merge bugfix batch fixed GAP-09, GAP-12, GAP-13, GAP-14 and GAP-18;
+  T17 and role-anchor/status records were reconciled.
 
 ## 5. Requirement acceptance
 
@@ -95,7 +97,7 @@ This proves the merged technical foundation passes the existing automated gates.
 |---|---|---|
 | AC-01 traceability | ❌ NOT ACCEPTED | 155/458/T01–T19 assets exist, but T20–T24 unmapped and execution is NOT RUN |
 | AC-02 clean install | ❌ NOT ACCEPTED | Installer tests pass; no real-stack/browser proof |
-| AC-03 roles/login | ❌ NOT ACCEPTED | Existing IAM only; no five+ role MCP evidence |
+| AC-03 roles/login | ❌ PARTIAL | Nine synthetic role accounts constructed and selected scoped pages pass; full role/action matrix remains NOT RUN |
 | AC-04 employee/contract/compensation | ❌ PARTIAL | T03/T04/T05 merged; MCP/real-stack evidence still missing |
 | AC-05 permission/field isolation | ✅ MET (code/UI) | T02 action catalog + T14 benefit masking + T16 per-row report/export field projection pass; MCP pending |
 | AC-06 same-run multiple schemes | ❌ NOT MET | T09 not implemented |
@@ -127,3 +129,11 @@ This proves the merged technical foundation passes the existing automated gates.
 ## 7. Final statement
 
 The merged technical foundation is green and useful, but V2.4 is **not complete**. Any claim of Requirement satisfaction at this HEAD would be false. The correct status is **NO-GO**, with most MCP matrix entries NOT RUN and T19 concurrency/real-upgrade/final GO still pending.
+
+
+## 8. Main-branch bugfix batch
+
+The post-merge batch fixed contract activation UI, Dashboard OpenAPI drift,
+Vite proxy naming, MFA demo-seed/compose defaults, registry count documentation,
+and reconciled stale T17/role-anchor acceptance records. The final decision
+remains **NO-GO** until the remaining T18/T19 and T20–T24 evidence is complete.

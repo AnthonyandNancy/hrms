@@ -6,6 +6,7 @@ namespace Tests\Unit\IAM;
 
 use App\Modules\IAM\Models\AuthorityBinding;
 use App\Modules\IAM\Models\Capability;
+use App\Modules\IAM\Models\MfaFactor;
 use App\Modules\IAM\Models\Role;
 use App\Modules\IAM\Models\RolePage;
 use App\Modules\IAM\Models\Session;
@@ -58,12 +59,16 @@ final class IamCommandsTest extends TestCase
         $this->freeze();
         $this->artisan('iam:sync-capabilities')->assertSuccessful();
 
-        config(['iam.demo_seed_password' => 'Correct-Horse-9!']);
+        config([
+            'iam.demo_seed_password' => 'Correct-Horse-9!',
+            'iam.mfa.enabled' => false,
+        ]);
 
         $this->artisan('iam:seed-demo')->assertSuccessful();
         $this->artisan('iam:seed-demo')->assertSuccessful();
 
         $this->assertSame(5, User::query()->count());
+        $this->assertSame(0, MfaFactor::query()->count(), 'Password-only demo seeding must not fabricate a required TOTP factor.');
         $this->assertDatabaseHas('users', ['username' => 'demo.admin', 'is_privileged' => true]);
         $this->assertGreaterThan(0, AuthorityBinding::query()->count());
 

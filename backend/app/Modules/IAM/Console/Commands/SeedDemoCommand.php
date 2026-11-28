@@ -104,14 +104,16 @@ final class SeedDemoCommand extends Command
                 $employmentWriter->linkUser((int) $user->id, $employmentId, '2026-01-01', null, null);
             }
 
-            // Every demo user whose role grants P2/P3 (including self-service
-            // payslip reads) now needs a real second factor at login. Enrol
-            // all demo users so none is locked out by the MFA policy.
-            if (! MfaFactor::query()
-                ->where('user_id', (int) $user->id)
-                ->whereNotNull('confirmed_at')
-                ->whereNull('disabled_at')
-                ->exists()) {
+            // TOTP is only part of the login flow when MFA is enabled. With
+            // password-only mode (the production default), creating factors
+            // and printing provisioning URIs would falsely imply that a
+            // second factor is required.
+            if ((bool) config('iam.mfa.enabled', false)
+                && ! MfaFactor::query()
+                    ->where('user_id', (int) $user->id)
+                    ->whereNotNull('confirmed_at')
+                    ->whereNull('disabled_at')
+                    ->exists()) {
                 $this->enrollTotp($user, $clock);
             }
 

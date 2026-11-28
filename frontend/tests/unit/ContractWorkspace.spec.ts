@@ -410,6 +410,36 @@ describe('contract workspace', () => {
     )
   })
 
+  it('activates a draft contract through an explicit effective date', async () => {
+    const draft = { ...CONTRACTS[0], status: 'DRAFT' }
+    resource.get.mockImplementation((path: string) => {
+      if (path === '/v1/employments/1/contracts/31') return Promise.resolve(draft)
+      if (path === '/v1/employment-contracts/31/amendments') return Promise.resolve(projectionEnvelope(VERSIONS))
+      if (path === '/v1/employments/1/document-files') return Promise.resolve(projectionEnvelope(ATTACHMENTS))
+      return Promise.reject(new Error(`Unexpected GET ${path}`))
+    })
+
+    const wrapper = await mountPage(ContractDetailPage, '/hr/contracts/31?employment_id=1')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="contract-activate"]').trigger('click')
+    const dialog = wrapper.get('[data-testid="contract-activate-dialog"]')
+    expect(dialog.text()).toContain('合成员工甲')
+    expect(dialog.text()).toContain('确认与签署起始日期一致')
+
+    await wrapper.get('[data-testid="activate-date"]').setValue('2026-01-01')
+    await wrapper.get('[data-testid="activate-reason"]').setValue('合成合同激活')
+    resource.post.mockResolvedValueOnce({})
+    await wrapper.get('[data-testid="activate-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/employment-contracts/31/activate',
+      { effective_from: '2026-01-01', reason: '合成合同激活' },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+  })
+
   it('renders forbidden, error, empty and partial states without fabricating rows', async () => {
     resource.get.mockRejectedValueOnce(
       new ApiError('FORBIDDEN', 'Forbidden', { status: 403, requestId: 'req-contract-403' }),

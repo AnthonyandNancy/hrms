@@ -736,3 +736,31 @@ T18 任务卡明写：依赖 T01–T17 的功能行为，T18 只允许在功能�
   the adapter upgrades legacy definitions to the next deterministic version.
 - Real lifecycle approved and published; SoD blocked same-person
   review→approve and approve→publish.
+
+
+## 2026-11-28 main-branch bugfix batch
+
+The following gaps were confirmed against `main` and repaired by the
+post-merge bugfix batch:
+
+- **GAP-09 FIXED:** contract detail now exposes the `people.contract.manage`
+  activation action with effective date/reason and an idempotent API call.
+- **GAP-12 FIXED:** Dashboard OpenAPI now documents the actual DTO
+  (`freshnessState`, `sections`, `availability`, `scope`, `drilldown`,
+  `preview`, status labels); stale `greeting` / `trendDirection` /
+  `drilldownLabel` required fields were removed and contract tests updated.
+- **GAP-13 FIXED:** registry header now states the actual 37 current pages and
+  separates the 155 historical URL disposition.
+- **GAP-14 FIXED:** `.env.example` now uses `VITE_DEV_API_PROXY_TARGET`; Vite
+  also accepts the legacy alias for transition.
+- **GAP-18 FIXED:** compose pins `IAM_MFA_ENABLED` (default false), and demo
+  seeding no longer creates/prints TOTP factors when MFA is disabled.
+- **GAP-19 DOCUMENTED:** 37 current pages are retained; the extra performance
+  cycle detail is an accepted V2.4 detail deep link, not a 155 entry.
+- **T17 status corrected:** plan now marks T17 COMPLETE; earlier PENDING row
+  was stale.
+- **GAP-05/GAP-17 status corrected:** role-anchor construction and the nine
+  synthetic role accounts have working evidence; see T18 packs.
+
+Still open, not silently claimed fixed: GAP-01/02/06/08/15/16/20 and the
+remaining T18/T19 action-matrix, clean-stack and final-release gates.

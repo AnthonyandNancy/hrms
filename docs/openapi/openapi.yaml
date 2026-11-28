@@ -618,13 +618,20 @@ components:
         - label
         - value
         - unit
+        - unitLabel
         - status
+        - availability
         - reason
+        - scope
+        - scopeLabel
+        - period
+        - predicate
+        - asOf
+        - drilldown
         - trend
-        - trendDirection
-        - drilldownLabel
         - sourceHash
         - computedAt
+        - preview
       properties:
         code:
           type: string
@@ -643,7 +650,16 @@ components:
           type: integer
         unit:
           type: string
+        unitLabel:
+          type: string
         status:
+          type: string
+          enum:
+            - AVAILABLE
+            - UNAVAILABLE
+            - UNCONFIGURED
+            - FORBIDDEN
+        availability:
           type: string
           enum:
             - AVAILABLE
@@ -654,23 +670,45 @@ components:
           type:
             - string
             - "null"
+        scope:
+          type: string
+        scopeLabel:
+          type: string
+        period:
+          type: string
+        predicate:
+          type: string
+        asOf:
+          type: string
+          format: date
+        drilldown:
+          type:
+            - object
+            - "null"
+          required:
+            - route
+            - query
+          properties:
+            route:
+              type: string
+            query:
+              type: object
+              additionalProperties:
+                type: string
         trend:
           type:
             - string
             - "null"
-        trendDirection:
-          type: string
-          enum:
-            - UP
-            - DOWN
-            - FLAT
-        drilldownLabel:
-          type: string
         sourceHash:
           type: string
         computedAt:
           type: string
           format: date-time
+        preview:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
     DashboardPendingApproval:
       type: object
       description: Bounded preview of the pending_approvals projection under the same caller scope.
@@ -679,6 +717,7 @@ components:
         - caseNo
         - title
         - status
+        - statusLabel
         - ageDays
         - dueAt
       properties:
@@ -689,6 +728,8 @@ components:
         title:
           type: string
         status:
+          type: string
+        statusLabel:
           type: string
         ageDays:
           type: integer
@@ -752,13 +793,72 @@ components:
           type: integer
           minimum: 0
           maximum: 30
+    DashboardDepartmentRow:
+      type: object
+      required:
+        - label
+        - count
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    DashboardWorkforceRow:
+      type: object
+      required:
+        - key
+        - label
+        - count
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    DashboardRecruitmentRow:
+      type: object
+      required:
+        - stage
+        - label
+        - count
+      properties:
+        stage:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    DashboardSections:
+      type: object
+      required:
+        - departments
+        - workforce
+        - recruitment
+      properties:
+        departments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardDepartmentRow"
+        workforce:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardWorkforceRow"
+        recruitment:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRecruitmentRow"
     DashboardData:
       type: object
       required:
         - asOf
         - freshness
-        - greeting
+        - freshnessState
         - metrics
+        - sections
         - pendingApprovals
         - recentNotices
         - contractAlerts
@@ -769,12 +869,18 @@ components:
         freshness:
           type: string
           format: date-time
-        greeting:
+        freshnessState:
           type: string
+          enum:
+            - LIVE
+            - MATERIALIZED
+            - STALE
         metrics:
           type: array
           items:
             $ref: "#/components/schemas/DashboardMetric"
+        sections:
+          $ref: "#/components/schemas/DashboardSections"
         pendingApprovals:
           type: array
           maxItems: 5

@@ -14,6 +14,7 @@ import ContractFormDrawer from '../components/ContractFormDrawer.vue'
 import ContractVersionList from '../components/ContractVersionList.vue'
 import {
   CONTRACT_STATUS_TONES,
+  activateContract,
   amendContract,
   contractTypeLabel,
   getContract,
@@ -38,6 +39,12 @@ const session = useSessionStore()
 
 const canAmend = computed(() => session.can('people.contract.amend'))
 const canTerminate = computed(() => session.can('people.contract.terminate'))
+const canActivate = computed(
+  () =>
+    session.can('people.contract.manage') &&
+    contract.value !== null &&
+    contract.value.display_status === 'DRAFT',
+)
 
 const state = ref<LoadState>('idle')
 const contract = ref<Contract | null>(null)
@@ -61,6 +68,12 @@ const terminateDate = ref('')
 const terminateReason = ref('')
 const terminating = ref(false)
 const terminateError = ref('')
+
+const activateOpen = ref(false)
+const activateDate = ref('')
+const activateReason = ref('')
+const activating = ref(false)
+const activateError = ref('')
 
 let requestSequence = 0
 
@@ -219,6 +232,41 @@ function openTerminate(): void {
   terminateOpen.value = true
 }
 
+function openActivate(): void {
+  if (!canActivate.value) return
+  activateDate.value = asOf.value
+  activateReason.value = ''
+  activateError.value = ''
+  activateOpen.value = true
+}
+
+async function confirmActivate(): Promise<void> {
+  if (contract.value === null) return
+  activateError.value = ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(activateDate.value)) {
+    activateError.value = '请填写激活生效日期。'
+    return
+  }
+  if (activateReason.value.trim() !== '' && activateReason.value.trim().length < 3) {
+    activateError.value = '激活原因至少需要 3 个字符，或留空。'
+    return
+  }
+
+  const contractId = contract.value.id
+  activating.value = true
+  try {
+    await activateContract(contractId, activateDate.value, activateReason.value)
+    ElMessage.success('合同已激活，生效日期与版本历史已写入。')
+    activateOpen.value = false
+    await load()
+    await loadVersions(contractId)
+  } catch (error) {
+    activateError.value = errorCopy(error)
+  } finally {
+    activating.value = false
+  }
+}
+
 async function confirmTerminate(): Promise<void> {
   if (contract.value === null) return
   terminateError.value = ''
@@ -286,6 +334,14 @@ onBeforeUnmount(() => {
   >
     <template #actions>
       <el-button data-testid="contract-back" @click="backToList">返回台账</el-button>
+      <el-button
+        v-if="canActivate"
+        type="primary"
+        data-testid="contract-activate"
+        @click="openActivate"
+      >
+        激活合同
+      </el-button>
       <el-button v-if="canEditCurrent" data-testid="contract-amend" @click="openEdit">变更合同</el-button>
       <el-button
         v-if="canTerminate && isTerminable"
@@ -468,6 +524,44 @@ onBeforeUnmount(() => {
       :server-error="saveError"
       @amend="amend"
     />
+
+    <el-dialog
+      v-model="activateOpen"
+      title="激活劳动合同"
+      width="480px"
+      :close-on-click-modal="false"
+      data-testid="contract-activate-dialog"
+    >
+      <div v-if="contract !== null" class="contract-terminate">
+        <p>
+          即将激活 <strong>{{ contract.employee_name ?? `员工 #${contract.employment_id}` }}</strong>
+          （合同编号 {{ contract.contract_no }}）。
+        </p>
+        <p class="contract-terminate__warning">
+          激活后合同进入生效流程，生效日期会写入版本历史；请确认与签署起始日期一致。
+        </p>
+        <label class="contract-terminate__field">
+          <span>激活生效日期 *</span>
+          <el-date-picker v-model="activateDate" data-testid="activate-date" type="date" value-format="YYYY-MM-DD" aria-label="激活生效日期" />
+        </label>
+        <label class="contract-terminate__field">
+          <span>激活原因</span>
+          <el-input v-model="activateReason" data-testid="activate-reason" type="textarea" :rows="3" maxlength="500" aria-label="激活原因" />
+        </label>
+        <p v-if="activateError !== ''" class="contract-terminate__error" role="alert">{{ activateError }}</p>
+      </div>
+      <template #footer>
+        <el-button @click="activateOpen = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="activating"
+          data-testid="activate-confirm"
+          @click="confirmActivate"
+        >
+          确认激活
+        </el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="terminateOpen"

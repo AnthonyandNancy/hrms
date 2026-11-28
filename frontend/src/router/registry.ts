@@ -7,9 +7,12 @@
  * generated from HRMS-V1.1实施书.md. scripts/audit_route_coverage.mjs compares
  * this registry against that inventory; missing or extra pages fail CI.
  *
- * Count contract: 134 business pages + 15 platform entries + 6 base pages
- * = 155 entries. Form routes are actions inside their workspace, never pages
- * (ADR-0035), so create/edit/archive URLs are intentionally absent.
+ * Count contract: 37 current entries = 4 base + 23 business + 10 platform.
+ * The 155-entry V2.3 historical URL disposition is tracked separately in
+ * docs/v2.3-remediation/2026-11-27-155-entry-disposition-matrix.md and must
+ * not be confused with the current page count. Form routes are actions inside
+ * their workspace, never pages (ADR-0035), so create/edit/archive URLs are
+ * intentionally absent.
  */
 
 import type {
