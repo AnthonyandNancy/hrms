@@ -91,7 +91,7 @@
 | T13 | 累计更正与 signed YTD | PENDING | — | — |
 | T14 | 福利计薪输入与冲销 | PENDING | — | — |
 | T15 | 绩效奖金与 Offer/培训链路 | PENDING | — | — |
-| T16 | 通知状态与报表字段裁剪 | PENDING | — | — |
+| T16 | 通知状态与报表字段裁剪 | COMPLETE | Step 5 | `docs/implementation/v24/16-notifications-reporting/implementation-report.md` |
 | T17 | 前端精确金额、动作与自助 | PENDING | — | — |
 | T18 | Playwright MCP 全后台验收 | PENDING | — | — |
 | T19 | 真实栈、迁移恢复与发布判定 | PENDING | — | — |
@@ -105,6 +105,7 @@
 | 2026-11-28 | T01 Step 5 | `phpunit --filter 'Install|Health|SyncCapabilities|DemoSeed'`; `pnpm gate:all` | 28 adjacent tests PASS; 22 gates PASS in 222.5s; evidence at `docs/implementation/v24/01-install/evidence.md` | T01 complete. Continue with T02; do not claim AC-02 until real-stack/MCP evidence. |
 | 2026-11-28 | T02 Step 5 | 38 backend tests + 652 frontend tests + `pnpm gate:all` | 22 gates PASS in 245.3s; generated PHP/JSON/TS action artifacts; evidence at `docs/implementation/v24/02-action-catalog/evidence.md` | T02 complete with contract/Time detail wiring explicitly carried into T03/T07/T08. Continue T03. |
 | 2026-11-28 | T03/T04 Step 5 | combined focused 34 tests + full `pnpm gate:all` | 22 gates PASS in 247.7s; evidence in `docs/implementation/v24/03-contracts/` and `04-compensation-chain/` | Contract ladder and execution compensation link complete. Payroll still reads terms until T09. |
+| 2026-11-28 | T16 Step 5 | focused 19 T16 tests + 67 adjacent tests + 1111 Feature + 655 frontend tests; Pint/PHPStan/arch/capability/OpenAPI PASS | All gates PASS; `pnpm gate:all` intentionally not run; evidence at `docs/implementation/v24/16-notifications-reporting/implementation-report.md` | Notification receipts, live link re-authorization, identifier-only payslip notices and field-tier report projection complete. T17 owns the remaining self-service/exact-money UI. |
 
 ---
 
@@ -898,7 +899,7 @@ cd backend
 
 ### T16：通知真实投递位置与报表字段裁剪
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_001400_create_notification_deliveries.php`

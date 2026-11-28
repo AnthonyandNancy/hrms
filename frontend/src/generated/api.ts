@@ -5824,7 +5824,7 @@ export interface components {
             value: number;
             unit: string;
             /** @enum {string} */
-            status: "AVAILABLE" | "UNAVAILABLE";
+            status: "AVAILABLE" | "UNAVAILABLE" | "UNCONFIGURED" | "FORBIDDEN";
             reason: string | null;
             trend: string | null;
             /** @enum {string} */
@@ -7555,6 +7555,11 @@ export interface components {
             publishedAt: string | null;
             /** Format: date-time */
             retractedAt: string | null;
+            /**
+             * Format: date-time
+             * @description UTC instant after which the notice and any notification link become unreadable.
+             */
+            expiresAt: string | null;
             authorName: string | null;
             requiresAck: boolean;
             acknowledged: boolean;
@@ -7568,10 +7573,25 @@ export interface components {
         Notification: {
             id: number;
             type: string;
+            /** @description Identifier-only. Empty when live re-authorization marks the notification invalid. */
             payload: {
                 [key: string]: unknown;
             };
             read: boolean;
+            /** @description False after the referenced notice/payslip is retracted, expired or no longer in the caller's scope. */
+            valid: boolean;
+            invalidReason: string | null;
+            /** @description Latest provider receipt for this in-app notification. Absent ledger evidence is null, never a synthetic SENT. */
+            delivery?: {
+                id?: number;
+                /** @enum {string} */
+                status?: "PENDING" | "SENT" | "FAILED";
+                attempts?: number;
+                provider_message_id?: string | null;
+                last_error?: string | null;
+                /** Format: date-time */
+                sent_at?: string | null;
+            } | null;
             /** Format: date-time */
             createdAt: string | null;
         };
@@ -8350,6 +8370,7 @@ export interface components {
             /** @enum {string} */
             status: "PENDING" | "SENT" | "FAILED";
             attempts: number;
+            provider_message_id: string | null;
             last_error: string | null;
             /** Format: date-time */
             sent_at: string | null;

@@ -358,6 +358,7 @@ watch(
         <p v-for="(line, index) in notice.body" :key="index">{{ line }}</p>
         <dl class="notice-detail-facts">
           <div><dt>发布时间</dt><dd>{{ formatDateTimeInTimezone(notice.publishedAt) }}</dd></div>
+          <div v-if="notice.expiresAt"><dt>失效时间</dt><dd>{{ formatDateTimeInTimezone(notice.expiresAt) }}</dd></div>
           <div><dt>审批案例</dt><dd>{{ notice?.approvalCaseId ?? '无' }}</dd></div>
           <div><dt>模板版本</dt><dd>{{ notice?.templateCode ?? '无' }} {{ notice?.templateVersion ?? '' }}</dd></div>
         </dl>

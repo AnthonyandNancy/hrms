@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Engagement\Services;
 
 use App\Modules\Engagement\Models\Notice;
+use App\Modules\Engagement\Models\NoticeAudienceSnapshot;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
 use App\Modules\People\Contracts\NoticeAudienceDirectory;
@@ -72,6 +73,12 @@ final class NoticeAccessPolicy
         return $this->authorizer->allows($principal, 'engagement.notice.manage', AnchorRef::self(), $businessDate);
     }
 
+    /**
+     * The audience snapshot is frozen at publication, but it is not a blank
+     * cheque: the principal must still be a recorded recipient and still match
+     * the current live target. This makes old links die after a retraction,
+     * expiry, audience change or org/role move.
+     */
     public function isTarget(Principal $principal, Notice $notice, string $businessDate): bool
     {
         $audience = (array) $notice->audience_json;
@@ -79,7 +86,7 @@ final class NoticeAccessPolicy
         $employmentId = $principal->employmentId()
             ?? $this->people->employmentForUser($principal->userId());
 
-        return match ($type) {
+        $liveMatch = match ($type) {
             'ALL' => true,
             'ROLE' => array_intersect(
                 array_map(static fn (mixed $code): string => (string) $code, (array) ($audience['role_codes'] ?? [])),
@@ -92,6 +99,31 @@ final class NoticeAccessPolicy
                 ) !== [],
             default => false,
         };
+
+        if (! $liveMatch) {
+            return false;
+        }
+
+        // Older published rows are backfilled by migration; a newly created
+        // notice always writes its snapshot in the same transaction. If a
+        // snapshot exists, it is authoritative for who received the link.
+        $hasSnapshot = NoticeAudienceSnapshot::query()
+            ->where('notice_id', (int) $notice->id)
+            ->exists();
+
+        if (! $hasSnapshot) {
+            return true;
+        }
+
+        return NoticeAudienceSnapshot::query()
+            ->where('notice_id', (int) $notice->id)
+            ->where('user_id', $principal->userId())
+            ->exists();
+    }
+
+    public function isExpired(Notice $notice): bool
+    {
+        return $notice->expires_at !== null && $notice->expires_at <= $this->clock->now();
     }
 
     public function canRead(Principal $principal, Notice $notice, string $businessDate): bool
@@ -101,7 +133,20 @@ final class NoticeAccessPolicy
         }
 
         return $notice->status === Notice::STATUS_PUBLISHED
+            && ! $this->isExpired($notice)
             && $notice->publish_at <= $this->clock->now()
             && $this->isTarget($principal, $notice, $businessDate);
+    }
+
+    /**
+     * A notification link is valid only while the referenced notice can still
+     * be read by the same principal. The check is executed on every list/open
+     * and read call; possession of the old notification is not authority.
+     */
+    public function canOpenNoticeNotification(Principal $principal, int $noticeId, string $businessDate): bool
+    {
+        $notice = Notice::query()->whereKey($noticeId)->first();
+
+        return $notice !== null && $this->canRead($principal, $notice, $businessDate);
     }
 }

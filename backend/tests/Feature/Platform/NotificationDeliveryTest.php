@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Platform;
 
+use App\Modules\Platform\Contracts\NotificationTransport;
 use App\Modules\Platform\Models\NotificationDelivery;
+use App\Shared\Notifications\NotificationReceipt;
 use Tests\Support\PeopleTestCase;
 
 final class NotificationDeliveryTest extends PeopleTestCase
@@ -80,6 +82,45 @@ final class NotificationDeliveryTest extends PeopleTestCase
             ->assertJsonPath('data.reason', 'EVENT_KEY_PAYLOAD_MISMATCH');
     }
 
+    public function test_dispatch_without_a_transport_receipt_is_failed_and_retry_requires_a_new_receipt(): void
+    {
+        $this->postJson('/v1/notification-templates', [
+            'code' => 'APPROVAL_PENDING',
+            'channel' => 'IN_APP',
+            'subject' => 'Approval pending',
+            'body' => 'You have a pending approval.',
+        ], ['Idempotency-Key' => 'nt-receipt'])->assertCreated();
+
+        $transport = new ReceiptDrivenNotificationTransport([
+            NotificationReceipt::failed('SYNTHETIC_PROVIDER_REJECTED'),
+        ]);
+        $this->app->instance(NotificationTransport::class, $transport);
+
+        $deliveryId = (int) $this->postJson('/v1/notifications/dispatch', [
+            'event_key' => 'case-receipt-1',
+            'template_code' => 'APPROVAL_PENDING',
+            'recipient_user_id' => 1,
+        ], ['Idempotency-Key' => 'nd-receipt-1'])->assertCreated()
+            ->assertJsonPath('data.status', 'FAILED')
+            ->assertJsonPath('data.sent_at', null)
+            ->json('data.delivery_id');
+
+        $this->assertNull(NotificationDelivery::query()->whereKey($deliveryId)->value('provider_message_id'));
+
+        $retry = $this->postJson('/v1/notifications/deliveries/'.$deliveryId.'/retry', [], ['Idempotency-Key' => 'nd-receipt-retry-1'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'FAILED')
+            ->assertJsonPath('data.attempts', 2);
+        $this->assertNull($retry->json('data.sent_at'));
+
+        $transport->queue(NotificationReceipt::delivered('provider-receipt-retry'));
+        $this->postJson('/v1/notifications/deliveries/'.$deliveryId.'/retry', [], ['Idempotency-Key' => 'nd-receipt-retry-2'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'SENT')
+            ->assertJsonPath('data.attempts', 3)
+            ->assertJsonPath('data.provider_message_id', 'provider-receipt-retry');
+    }
+
     public function test_delivery_log_is_a_projection_and_failed_delivery_can_be_retried_once(): void
     {
         $this->postJson('/v1/notification-templates', [
@@ -123,5 +164,32 @@ final class NotificationDeliveryTest extends PeopleTestCase
             'subject' => 'Approval pending',
             'body' => 'You have a pending approval.',
         ])->assertUnprocessable()->assertJsonPath('data.reason', 'IDEMPOTENCY_KEY_REQUIRED');
+    }
+}
+
+final class ReceiptDrivenNotificationTransport implements NotificationTransport
+{
+    /** @var list<NotificationReceipt> */
+    private array $receipts;
+
+    /** @param list<NotificationReceipt> $receipts */
+    public function __construct(array $receipts = [])
+    {
+        $this->receipts = $receipts;
+    }
+
+    public function queue(NotificationReceipt $receipt): void
+    {
+        $this->receipts[] = $receipt;
+    }
+
+    public function channel(): string
+    {
+        return 'IN_APP';
+    }
+
+    public function send(string $templateCode, int $recipientUserId, array $variables): NotificationReceipt
+    {
+        return array_shift($this->receipts) ?? NotificationReceipt::failed('NO_STUBBED_RECEIPT');
     }
 }

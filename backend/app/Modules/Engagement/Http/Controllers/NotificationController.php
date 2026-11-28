@@ -20,7 +20,7 @@ final class NotificationController
     public function index(Request $request): JsonResponse
     {
         $principal = $this->principals->resolve();
-        $items = $this->notifications->listForUser($principal->userId());
+        $items = $this->notifications->listForUser($principal);
 
         return ApiResponse::ok(array_values($items));
     }
@@ -29,6 +29,6 @@ final class NotificationController
     {
         $principal = $this->principals->resolve();
 
-        return ApiResponse::ok($this->notifications->markRead($principal->userId(), $notification));
+        return ApiResponse::ok($this->notifications->markRead($principal, $notification));
     }
 }

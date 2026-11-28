@@ -644,6 +644,8 @@ components:
           enum:
             - AVAILABLE
             - UNAVAILABLE
+            - UNCONFIGURED
+            - FORBIDDEN
         reason:
           type:
             - string
@@ -4837,6 +4839,7 @@ components:
         - roleCodes
         - publishedAt
         - retractedAt
+        - expiresAt
         - authorName
         - requiresAck
         - acknowledged
@@ -4877,6 +4880,12 @@ components:
             - string
             - "null"
           format: date-time
+        expiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: UTC instant after which the notice and any notification link become unreadable.
         authorName:
           type:
             - string
@@ -4908,6 +4917,8 @@ components:
         - type
         - payload
         - read
+        - valid
+        - invalidReason
         - createdAt
       properties:
         id:
@@ -4917,8 +4928,28 @@ components:
         payload:
           type: object
           additionalProperties: true
+          description: Identifier-only. Empty when live re-authorization marks the notification invalid.
         read:
           type: boolean
+        valid:
+          type: boolean
+          description: False after the referenced notice/payslip is retracted, expired or no longer in the caller's scope.
+        invalidReason:
+          type:
+            - string
+            - "null"
+        delivery:
+          type:
+            - object
+            - "null"
+          description: Latest provider receipt for this in-app notification. Absent ledger evidence is null, never a synthetic SENT.
+          properties:
+            id: { type: integer }
+            status: { type: string, enum: [PENDING, SENT, FAILED] }
+            attempts: { type: integer, minimum: 0 }
+            provider_message_id: { type: [string, 'null'] }
+            last_error: { type: [string, 'null'] }
+            sent_at: { type: [string, 'null'], format: date-time }
         createdAt:
           type:
             - string
@@ -6550,7 +6581,7 @@ components:
         active: { type: boolean }
     NotificationDelivery:
       type: object
-      required: [id, delivery_id, template_code, recipient_user_id, channel, status, attempts, last_error, sent_at]
+      required: [id, delivery_id, template_code, recipient_user_id, channel, status, attempts, provider_message_id, last_error, sent_at]
       properties:
         id: { type: integer }
         delivery_id: { type: integer }
@@ -6559,6 +6590,7 @@ components:
         channel: { type: string, enum: [IN_APP, EMAIL, WECHAT_WORK] }
         status: { type: string, enum: [PENDING, SENT, FAILED] }
         attempts: { type: integer, minimum: 0 }
+        provider_message_id: { type: [string, 'null'] }
         last_error: { type: [string, 'null'] }
         sent_at: { type: [string, 'null'], format: date-time }
     CalendarVersion:

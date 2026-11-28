@@ -244,6 +244,29 @@ describe('dashboard sections', () => {
     expect(wrapper.text()).not.toContain('projection publishes')
   })
 
+  it('renders a caller-forbidden money metric as forbidden rather than a zero amount', async () => {
+    const data = snapshot()
+    data.metrics = data.metrics.map((item) => item.code === 'payroll_cost_by_entity'
+      ? {
+          ...item,
+          value: 0,
+          status: 'FORBIDDEN',
+          reason: '薪酬成本指标包含敏感金额字段，当前账号无权查看。',
+          preview: [],
+        }
+      : item)
+    resource.get.mockResolvedValue(data)
+
+    const wrapper = await mountDashboard()
+    await flushPromises()
+
+    const payroll = wrapper.get('[data-testid="dashboard-payroll-unavailable"]')
+    expect(payroll.text()).toContain('无权查看')
+    expect(payroll.text()).toContain('敏感金额字段')
+    expect(payroll.text()).not.toContain('¥0.00')
+    expect(wrapper.find('[data-testid="metric-card-payroll_cost_by_entity"]').text()).not.toContain('0.00')
+  })
+
   it('uses the server drilldown route and as-of rather than a frontend re-count', async () => {
     resource.get.mockResolvedValue(snapshot())
     const wrapper = await mountDashboard()

@@ -238,6 +238,7 @@ final class NoticeGovernanceService
                     'notice_id' => (int) $notice->id,
                     'requires_ack' => (bool) $notice->requires_ack,
                 ],
+                eventKey: 'notice-published:'.(int) $notice->id,
             );
 
             $this->audit->record(
@@ -419,6 +420,7 @@ final class NoticeGovernanceService
                             'notice_id' => (int) $notice->id,
                             'requires_ack' => (bool) $notice->requires_ack,
                         ],
+                        eventKey: 'notice-reminder:'.(int) $notice->id.':'.(int) $userId.':'.(int) $principal->userId(),
                     );
 
                     $notificationId = $ids[0] ?? null;

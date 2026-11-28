@@ -10,6 +10,8 @@ use App\Modules\Platform\Contracts\IdempotencyRunner;
 use App\Modules\Platform\Contracts\InstallationStateStore;
 use App\Modules\Platform\Contracts\MenuOverrideReader;
 use App\Modules\Platform\Contracts\MenuOverrideWriter;
+use App\Modules\Platform\Contracts\NotificationDeliveryLedger;
+use App\Modules\Platform\Contracts\NotificationTransport;
 use App\Modules\Platform\Contracts\OutboxDispatcher;
 use App\Modules\Platform\Contracts\ParameterReader;
 use App\Modules\Platform\Contracts\PrivateFileStore;
@@ -22,8 +24,10 @@ use App\Modules\Platform\Services\DatabaseDictionaryReader;
 use App\Modules\Platform\Services\DatabaseParameterReader;
 use App\Modules\Platform\Services\EloquentFileObjectReader;
 use App\Modules\Platform\Services\EloquentInstallationStateStore;
+use App\Modules\Platform\Services\EloquentNotificationDeliveryLedger;
 use App\Modules\Platform\Services\FileMetadataAdapter;
 use App\Modules\Platform\Services\LocalPrivateFileStore;
+use App\Modules\Platform\Services\LogNotificationTransport;
 use App\Modules\Platform\Services\LogOutboxDispatcher;
 use App\Modules\Platform\Services\MenuOverrideService;
 use App\Modules\Platform\Services\OutboxRecorderAdapter;
@@ -48,6 +52,8 @@ final class PlatformServiceProvider extends ServiceProvider
         $this->app->bind(FileObjectReader::class, EloquentFileObjectReader::class);
         $this->app->bind(MenuOverrideReader::class, MenuOverrideService::class);
         $this->app->bind(MenuOverrideWriter::class, MenuOverrideService::class);
+        $this->app->bind(NotificationDeliveryLedger::class, EloquentNotificationDeliveryLedger::class);
+        $this->app->bind(NotificationTransport::class, LogNotificationTransport::class);
 
         $this->app->singleton(MigrationTargetRegistry::class, function (): MigrationTargetRegistry {
             $registry = new MigrationTargetRegistry;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Platform\Http\Controllers;
 
+use App\Modules\Platform\Contracts\NotificationTransport;
 use App\Modules\Platform\Models\NotificationDelivery;
 use App\Modules\Platform\Models\NotificationOutbox;
 use App\Modules\Platform\Models\NotificationTemplate;
@@ -36,6 +37,7 @@ final class NotificationAdminController
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
         private readonly Clock $clock,
+        private readonly ?NotificationTransport $transport = null,
     ) {}
 
     public function templates(Request $request): JsonResponse
@@ -177,22 +179,39 @@ final class NotificationAdminController
                     return $this->existingOutboxResult($existing, $payload);
                 }
 
+                $receipt = ($this->transport ?? app(NotificationTransport::class))->send(
+                    (string) $template->code,
+                    (int) $payload['recipient_user_id'],
+                    (array) $payload['variables'],
+                );
+
                 /** @var NotificationDelivery $delivery */
                 $delivery = NotificationDelivery::query()->create([
                     'notification_outbox_id' => (int) $outbox->id,
                     'template_code' => (string) $template->code,
                     'recipient_user_id' => $payload['recipient_user_id'],
                     'channel' => (string) $template->channel,
-                    'status' => NotificationDelivery::STATUS_SENT,
+                    'status' => $receipt->successful ? NotificationDelivery::STATUS_SENT : NotificationDelivery::STATUS_FAILED,
                     'attempts' => 1,
-                    'last_error' => null,
-                    'sent_at' => $this->clock->now(),
+                    'provider_message_id' => $receipt->providerMessageId,
+                    'last_error' => $receipt->successful ? null : $receipt->failureReason,
+                    'sent_at' => $receipt->successful ? $this->clock->now() : null,
                 ]);
 
                 // The reference channel records an in-app notification row.
                 // Platform writes only its own delivery evidence; Engagement
                 // owns in-app notification rows and is notified through the
-                // shared outbox contract.
+                // shared outbox contract. A failed receipt is not "sent", so it
+                // must not publish a sent event or claim a sent_at timestamp.
+                if (! $receipt->successful) {
+                    return [
+                        'http_status' => 201,
+                        'body' => $this->deliveryRow($delivery),
+                        'resource_type' => 'notification_delivery',
+                        'resource_id' => (string) $delivery->id,
+                    ];
+                }
+
                 app(\App\Shared\Observability\OutboxRecorder::class)->record(
                     eventType: 'platform.notification.delivery.sent',
                     aggregateType: 'notification_delivery',
@@ -274,12 +293,43 @@ final class NotificationAdminController
                     throw new ConflictException('This delivery has already been sent.', ['reason' => 'DELIVERY_ALREADY_SENT']);
                 }
 
+                /** @var NotificationOutbox|null $outbox */
+                $outbox = NotificationOutbox::query()
+                    ->whereKey((int) $delivery->notification_outbox_id)
+                    ->first();
+                $variables = $outbox === null ? [] : (array) (($outbox->payload_json ?? [])['variables'] ?? []);
+
+                // Retry is a real provider attempt, not a status write. A
+                // failed receipt leaves the same row FAILED and retryable.
+                $receipt = ($this->transport ?? app(NotificationTransport::class))->send(
+                    (string) $delivery->template_code,
+                    (int) $delivery->recipient_user_id,
+                    $variables,
+                );
+
                 $delivery->forceFill([
-                    'status' => NotificationDelivery::STATUS_SENT,
+                    'status' => $receipt->successful ? NotificationDelivery::STATUS_SENT : NotificationDelivery::STATUS_FAILED,
                     'attempts' => (int) $delivery->attempts + 1,
-                    'last_error' => null,
-                    'sent_at' => $this->clock->now(),
+                    'provider_message_id' => $receipt->providerMessageId,
+                    'last_error' => $receipt->successful ? null : $receipt->failureReason,
+                    'sent_at' => $receipt->successful ? $this->clock->now() : null,
                 ])->save();
+
+                if ($receipt->successful) {
+                    app(\App\Shared\Observability\OutboxRecorder::class)->record(
+                        eventType: 'platform.notification.delivery.sent',
+                        aggregateType: 'notification_delivery',
+                        aggregateId: (string) $delivery->id,
+                        aggregateVersion: 2,
+                        payload: [
+                            'delivery_id' => (int) $delivery->id,
+                            'template_code' => (string) $delivery->template_code,
+                            'channel' => (string) $delivery->channel,
+                            'recipient_user_id' => (int) $delivery->recipient_user_id,
+                            'retry' => true,
+                        ],
+                    );
+                }
 
                 return [
                     'http_status' => 200,
@@ -358,6 +408,7 @@ final class NotificationAdminController
             'channel' => (string) $delivery->channel,
             'status' => (string) $delivery->status,
             'attempts' => (int) $delivery->attempts,
+            'provider_message_id' => $delivery->provider_message_id !== null ? (string) $delivery->provider_message_id : null,
             'last_error' => $delivery->last_error !== null ? (string) $delivery->last_error : null,
             'sent_at' => $delivery->getAttribute('sent_at') instanceof \Carbon\CarbonInterface
                 ? $delivery->getAttribute('sent_at')->toIso8601ZuluString()

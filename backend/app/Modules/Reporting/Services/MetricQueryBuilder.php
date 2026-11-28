@@ -7,6 +7,7 @@ namespace App\Modules\Reporting\Services;
 use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Reporting\Models\ProjectionRow;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldProfile;
 use App\Shared\Exceptions\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -24,13 +25,14 @@ final class MetricQueryBuilder
     public function __construct(
         private readonly Authorizer $authorizer,
         private readonly ProjectionBuilder $builder,
+        private readonly FieldTierResolver $fieldTiers,
     ) {}
 
     /**
      * @param  array<string, mixed>  $filters
      * @return array{metric: string, label: string, predicate: string, asOf: string, total: int, unit: string, unitLabel: string, status: string, reason: string|null, scope: string, scopeLabel: string, period: string, columns: list<array{key: string, label: string}>, items: list<array<string, mixed>>, rows: list<array<string, mixed>>}
      */
-    public function query(Principal $principal, string $metric, string $asOf, array $filters = []): array
+    public function query(Principal $principal, string $metric, string $asOf, array $filters = [], bool $requireMoney = true): array
     {
         if (! MetricDefinition::exists($metric)) {
             throw new ValidationException(['metric' => ['Unknown dashboard metric.']], 'The given data was invalid.', ['reason' => 'UNKNOWN_METRIC']);
@@ -43,11 +45,26 @@ final class MetricQueryBuilder
             return $this->unavailable($metric, $asOf, $unavailable);
         }
 
+        $money = $this->moneyVisible($principal, $asOf);
+
+        if ($metric === 'payroll_cost_by_entity') {
+            $money = $money && $this->builder->payrollAvailable();
+        }
+
+        if ($requireMoney && $metric === 'payroll_cost_by_entity' && ! $money) {
+            return $this->unavailable($metric, $asOf, [
+                'status' => $this->builder->payrollAvailable() ? 'FORBIDDEN' : 'UNCONFIGURED',
+                'reason' => $this->builder->payrollAvailable()
+                    ? MetricDefinition::forbiddenReason($metric)
+                    : MetricDefinition::reason($metric),
+            ]);
+        }
+
         $rows = $this->metricQuery($principal, $metric, $asOf, $filters)->orderBy('id')->get();
-        $items = $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row))->all();
-        $total = in_array($metric, ['leave_liability', 'payroll_cost_by_entity', 'recruitment_funnel'], true)
+        $items = $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row, $money))->all();
+        $total = in_array($metric, ['leave_liability', 'recruitment_funnel'], true)
             ? (int) $rows->sum(static fn (ProjectionRow $row): int => (int) $row->numeric_value)
-            : count($items);
+            : ($metric === 'payroll_cost_by_entity' ? ($money ? (int) $rows->sum(static fn (ProjectionRow $row): int => (int) $row->numeric_value) : 0) : count($items));
 
         return [
             'metric' => $metric,
@@ -63,7 +80,7 @@ final class MetricQueryBuilder
             'scope' => 'AUTHORIZED',
             'scopeLabel' => '按当前授权范围',
             'period' => 'AS_OF',
-            'columns' => MetricDefinition::columns($metric),
+            'columns' => $this->columns($metric, $money),
             'items' => $items,
             'rows' => $items,
         ];
@@ -98,12 +115,22 @@ final class MetricQueryBuilder
             ->orderBy('id')
             ->limit(max(1, min(20, $limit)))
             ->get();
+        $money = $this->moneyVisible($principal, $asOf);
+
+        if ($metric === 'payroll_cost_by_entity' && ! $money && $this->builder->payrollAvailable()) {
+            return [
+                'status' => 'FORBIDDEN',
+                'availability' => 'FORBIDDEN',
+                'reason' => MetricDefinition::forbiddenReason($metric),
+                'items' => [],
+            ];
+        }
 
         return [
             'status' => 'AVAILABLE',
             'availability' => 'AVAILABLE',
             'reason' => null,
-            'items' => $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row))->all(),
+            'items' => $rows->map(fn (ProjectionRow $row): array => $this->drilldownRow($row, $money))->all(),
         ];
     }
 
@@ -154,10 +181,6 @@ final class MetricQueryBuilder
      */
     private function unavailableIfNeeded(Principal $principal, string $metric, string $asOf): ?array
     {
-        if ($metric === 'payroll_cost_by_entity' && ! $this->builder->payrollAvailable()) {
-            return ['status' => 'UNCONFIGURED', 'reason' => MetricDefinition::reason($metric)];
-        }
-
         if ($metric === 'recruitment_funnel' && ! $this->builder->recruitmentAvailable()) {
             return ['status' => 'UNCONFIGURED', 'reason' => MetricDefinition::reason($metric)];
         }
@@ -184,9 +207,20 @@ final class MetricQueryBuilder
     /**
      * @return array<string, mixed>
      */
-    public function drilldownRow(ProjectionRow $row): array
+    public function drilldownRow(ProjectionRow $row, ?bool $money = null): array
     {
+        /** @var array<string, mixed> $attributes */
         $attributes = (array) $row->attributes_json;
+        $money ??= true;
+
+        if (! $money) {
+            $attributes = array_diff_key($attributes, array_flip([
+                'gross_cents',
+                'net_cents',
+                'employer_cost_cents',
+                'salary',
+            ]));
+        }
 
         /** @var array<string, mixed> $attributes */
         return [
@@ -242,9 +276,32 @@ final class MetricQueryBuilder
             'scope' => 'AUTHORIZED',
             'scopeLabel' => '按当前授权范围',
             'period' => 'AS_OF',
-            'columns' => MetricDefinition::columns($metric),
+            'columns' => $state['status'] === 'FORBIDDEN' ? [] : MetricDefinition::columns($metric),
             'items' => [],
             'rows' => [],
         ];
+    }
+
+    /**
+     * Payroll cost is a money metric. Without a P2 (sensitive) or P3
+     * (restricted) dashboard field grant it must be FORBIDDEN, not a zero.
+     */
+    private function moneyVisible(Principal $principal, string $asOf): bool
+    {
+        $profile = $this->fieldTiers->maxProfile($principal, 'reporting.dashboard.read', $asOf);
+
+        return $profile->rank() >= FieldProfile::P2_SENSITIVE->rank();
+    }
+
+    /**
+     * @return list<array{key: string, label: string}>
+     */
+    private function columns(string $metric, bool $money): array
+    {
+        if (! $money && $metric === 'payroll_cost_by_entity') {
+            return [];
+        }
+
+        return MetricDefinition::columns($metric);
     }
 }

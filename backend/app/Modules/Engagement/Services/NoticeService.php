@@ -42,6 +42,7 @@ final class NoticeService
         }
 
         $publishAt = $this->instant((string) ($input['publishAt'] ?? $input['publish_at'] ?? $this->clock->now()->toIso8601ZuluString()));
+        $expiresAt = $this->optionalInstant($input['expiresAt'] ?? $input['expires_at'] ?? null);
         $title = trim((string) ($input['title'] ?? ''));
         $body = trim((string) ($input['body'] ?? ''));
         $approvalRequired = (bool) ($input['approval_required'] ?? $input['approvalRequired'] ?? false);
@@ -54,13 +55,14 @@ final class NoticeService
             );
         }
 
-        $notice = DB::transaction(function () use ($principal, $resolved, $publishAt, $title, $body, $input, $approvalRequired): Notice {
+        $notice = DB::transaction(function () use ($principal, $resolved, $publishAt, $expiresAt, $title, $body, $input, $approvalRequired): Notice {
             $notice = Notice::query()->create([
                 'title' => mb_substr($title, 0, 200),
                 'body' => $body,
                 'audience_json' => $resolved['audience_json'],
                 'publish_at' => $publishAt,
                 'retract_at' => null,
+                'expires_at' => $expiresAt,
                 'created_by' => $principal->userId(),
                 'status' => $approvalRequired ? Notice::STATUS_DRAFT : Notice::STATUS_PUBLISHED,
                 'requires_ack' => (bool) ($input['requiresAck'] ?? $input['requires_ack'] ?? false),
@@ -85,6 +87,7 @@ final class NoticeService
                         'notice_id' => (int) $notice->id,
                         'requires_ack' => (bool) $notice->requires_ack,
                     ],
+                    eventKey: 'notice-published:'.(int) $notice->id,
                 );
             }
 
@@ -307,6 +310,7 @@ final class NoticeService
             'roleCodes' => array_values(array_map('strval', (array) ($audience['role_codes'] ?? []))),
             'publishedAt' => $notice->publish_at?->toIso8601ZuluString(),
             'retractedAt' => $notice->retract_at?->toIso8601ZuluString(),
+            'expiresAt' => $notice->expires_at?->toIso8601ZuluString(),
             'authorName' => null,
             'requiresAck' => (bool) $notice->requires_ack,
             'acknowledged' => $acknowledged,
@@ -324,6 +328,23 @@ final class NoticeService
     private function audit(): AuditRecorder
     {
         return $this->audit ?? app(AuditRecorder::class);
+    }
+
+    private function optionalInstant(mixed $value): ?CarbonImmutable
+    {
+        if ($value === null || (is_string($value) && trim($value) === '')) {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse((string) $value, 'UTC')->utc();
+        } catch (\Throwable) {
+            throw new ValidationException(
+                ['expiresAt' => ['expiresAt must be a valid ISO-8601 timestamp.']],
+                'The given data was invalid.',
+                ['reason' => 'INVALID_EXPIRES_AT'],
+            );
+        }
     }
 
     private function instant(string $value): CarbonImmutable

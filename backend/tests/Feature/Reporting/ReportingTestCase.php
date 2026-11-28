@@ -125,8 +125,8 @@ abstract class ReportingTestCase extends PeopleTestCase
         $broadPrincipal = $this->authenticate((int) $broadUser->id, (int) $a1->id, (int) $broadUser->auth_version);
         $narrowPrincipal = $this->authenticate((int) $narrowUser->id, (int) $a2->id, (int) $narrowUser->auth_version);
 
-        $this->grant($broadUser, 'reporting.dashboard.read', AnchorType::COMPANY, null);
-        $this->grant($broadUser, 'reporting.report.read', AnchorType::COMPANY, null);
+        $this->grant($broadUser, 'reporting.dashboard.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
+        $this->grant($broadUser, 'reporting.report.read', AnchorType::COMPANY, null, FieldProfile::P2_SENSITIVE);
         $this->grant($broadUser, 'reporting.definition.manage', AnchorType::COMPANY, null);
         $this->grant($broadUser, 'reporting.subscription.manage', AnchorType::COMPANY, null);
         $this->grant($broadUser, 'reporting.export', AnchorType::COMPANY, null);
