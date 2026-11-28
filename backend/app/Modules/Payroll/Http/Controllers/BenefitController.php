@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Payroll\Http\Controllers;
 
+use App\Modules\IAM\Contracts\Principal;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Modules\Payroll\Models\BenefitTransaction;
 use App\Modules\Payroll\Services\BenefitService;
 use App\Shared\ApiResponse;
 use App\Shared\Authorization\AnchorType;
+use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldSet;
+use App\Shared\Authorization\ResourceRef;
 use App\Shared\Commands\CommandDefinition;
 use App\Shared\Commands\CommandRunner;
 use App\Shared\Projections\ProjectionResponder;
@@ -30,6 +34,7 @@ final class BenefitController
         private readonly BenefitService $benefits,
         private readonly CommandRunner $commands,
         private readonly ProjectionResponder $projections,
+        private readonly Authorizer $authorizer,
     ) {}
 
     public function plans(Request $request): JsonResponse
@@ -122,11 +127,12 @@ final class BenefitController
             ->whereIn('id', $result['rows']->pluck('plan_id')->all())
             ->get()
             ->keyBy('id');
-        $items = $result['rows']->map(function (BenefitEnrollment $enrollment) use ($plans): array {
+        $items = $result['rows']->map(function (BenefitEnrollment $enrollment) use ($plans, $principal): array {
             /** @var BenefitPlan $plan */
             $plan = $plans->get((int) $enrollment->plan_id);
+            $fields = $this->fieldsFor($principal, 'benefit_enrollment', (int) $enrollment->id, (int) $enrollment->employment_id);
 
-            return $this->benefits->enrollmentPayload($enrollment, $plan);
+            return $this->benefits->enrollmentPayload($enrollment, $plan, $fields);
         })->all();
 
         return $this->projections->ok($this->benefits->projection($asOf, $items, $result['total'], $page, $pageSize, 'benefit_enrollments'));
@@ -197,7 +203,11 @@ final class BenefitController
             $page,
             $pageSize,
         );
-        $items = $result['rows']->map(fn (BenefitTransaction $row): array => $this->benefits->transactionPayload($row))->all();
+        $items = $result['rows']->map(function (BenefitTransaction $row) use ($principal): array {
+            $fields = $this->fieldsFor($principal, 'benefit_transaction', (int) $row->id, (int) $row->employment_id);
+
+            return $this->benefits->transactionPayload($row, $fields);
+        })->all();
 
         return $this->projections->ok($this->benefits->projection($asOf, $items, $result['total'], $page, $pageSize, 'benefit_transactions'));
     }
@@ -270,6 +280,20 @@ final class BenefitController
         );
 
         return $this->commandResponse($result->status, $result->body, $result->replayed);
+    }
+
+    private function fieldsFor(Principal $principal, string $resourceType, int $id, int $employmentId): FieldSet
+    {
+        return $this->authorizer->fields(
+            $principal,
+            'benefit.read',
+            new ResourceRef(
+                resourceType: $resourceType,
+                id: $id,
+                row: [],
+                employmentId: $employmentId,
+            ),
+        );
     }
 
     private function idempotencyKey(Request $request): string

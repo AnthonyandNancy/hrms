@@ -7,6 +7,7 @@ namespace Tests\Feature\Platform;
 use App\Modules\Payroll\Models\BenefitEnrollment;
 use App\Modules\Payroll\Models\BenefitPlan;
 use App\Shared\Architecture\ModuleBoundaryScanner;
+use App\Shared\Authorization\FieldProfile;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\PeopleTestCase;
 
@@ -218,6 +219,40 @@ final class BenefitTest extends PeopleTestCase
             ->assertJsonFragment(['code' => 'MANUAL_PLAN']);
     }
 
+    public function test_benefit_amounts_are_masked_when_the_caller_lacks_p3(): void
+    {
+        $this->benefitEmployment();
+        $planId = (int) $this->postJson('/v1/benefits/plans', [
+            'code' => 'MEDICAL_P3',
+            'name' => 'Medical P3',
+            'employer_rate' => '0.100000',
+            'employee_rate' => '0.050000',
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-p3-plan'])->json('data.id');
+        $enrollmentId = (int) $this->postJson('/v1/benefits/enrollments', [
+            'plan_id' => $planId,
+            'employment_id' => $this->benefitEmploymentId,
+            'base_amount_cents' => 1_000_000,
+            'effective_from' => '2026-01-01',
+        ], ['Idempotency-Key' => 'benefit-p3-enrollment'])->json('data.id');
+        $this->postJson('/v1/benefits/transactions', [
+            'enrollment_id' => $enrollmentId,
+            'period' => '2026-01',
+        ], ['Idempotency-Key' => 'benefit-p3-transaction'])->assertCreated();
+
+        $this->authorizer->fieldProfiles['benefit.read'] = FieldProfile::P2_SENSITIVE;
+
+        $enrollments = $this->getJson('/v1/benefits/enrollments')->assertOk();
+        $this->assertArrayNotHasKey('base_amount_cents', $enrollments->json('data.items.0'));
+        $this->assertArrayNotHasKey('employee_contribution_cents', $enrollments->json('data.items.0'));
+
+        $transactions = $this->getJson('/v1/benefits/transactions')->assertOk();
+        $this->assertArrayNotHasKey('base_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('employee_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('employer_amount_cents', $transactions->json('data.items.0'));
+        $this->assertArrayNotHasKey('total_amount_cents', $transactions->json('data.items.0'));
+    }
+
     public function test_benefit_tables_have_one_declared_owner(): void
     {
         $owners = ModuleBoundaryScanner::TABLE_OWNERS['Payroll'];
@@ -251,6 +286,7 @@ final class BenefitTest extends PeopleTestCase
             'source_type' => 'TEST',
         ]);
 
+        $this->authorizer->fieldProfiles['benefit.read'] = FieldProfile::P3_RESTRICTED;
         $this->actAs(userId: 1001, employmentId: $this->benefitEmploymentId);
     }
 }

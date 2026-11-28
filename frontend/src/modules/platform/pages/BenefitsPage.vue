@@ -151,11 +151,11 @@ const enrollmentRows = computed(() =>
   visibleEnrollmentRows.value.map((enrollment) => ({
     ...enrollment,
     planLabel: planLabel(enrollment.planId),
-    baseLabel: formatMoney(enrollment.baseAmountCents),
-    employeeRateLabel: ratePercent(enrollment.employeeRate),
-    employerRateLabel: ratePercent(enrollment.employerRate),
-    employeeContributionLabel: formatMoney(enrollment.employeeContributionCents),
-    employerContributionLabel: formatMoney(enrollment.employerContributionCents),
+    baseLabel: enrollment.baseAmountCents === undefined ? '金额受限' : formatMoney(enrollment.baseAmountCents),
+    employeeRateLabel: enrollment.employeeRate === undefined ? '费率受限' : ratePercent(enrollment.employeeRate),
+    employerRateLabel: enrollment.employerRate === undefined ? '费率受限' : ratePercent(enrollment.employerRate),
+    employeeContributionLabel: enrollment.employeeContributionCents === undefined ? '金额受限' : formatMoney(enrollment.employeeContributionCents),
+    employerContributionLabel: enrollment.employerContributionCents === undefined ? '金额受限' : formatMoney(enrollment.employerContributionCents),
     effectiveFromLabel: formatBusinessDate(enrollment.effectiveFrom),
     effectiveToLabel: enrollment.effectiveTo === null ? '长期有效' : formatBusinessDate(enrollment.effectiveTo),
     statusLabel: '有效版本',
@@ -171,10 +171,10 @@ const reversedRecordIds = computed(() => new Set(
 const transactionRows = computed(() =>
   transactions.value.map((transaction) => ({
     ...transaction,
-    baseLabel: formatMoney(transaction.baseAmountCents),
-    employeeAmountLabel: formatMoney(transaction.employeeAmountCents),
-    employerAmountLabel: formatMoney(transaction.employerAmountCents),
-    totalAmountLabel: formatMoney(transaction.totalAmountCents),
+    baseLabel: transaction.baseAmountCents === undefined ? '金额受限' : formatMoney(transaction.baseAmountCents),
+    employeeAmountLabel: transaction.employeeAmountCents === undefined ? '金额受限' : formatMoney(transaction.employeeAmountCents),
+    employerAmountLabel: transaction.employerAmountCents === undefined ? '金额受限' : formatMoney(transaction.employerAmountCents),
+    totalAmountLabel: transaction.totalAmountCents === undefined ? '金额受限' : formatMoney(transaction.totalAmountCents),
     payrollLabel: transaction.payrollRunId === null ? '未关联工资批次' : `工资批次 #${transaction.payrollRunId}`,
     statusLabel: transaction.entryType === 'REVERSAL' || reversedRecordIds.value.has(transaction.id)
       ? '已冲销'

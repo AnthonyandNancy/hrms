@@ -11,6 +11,7 @@ use App\Modules\Payroll\Models\BenefitPlan;
 use App\Modules\Payroll\Models\BenefitTransaction;
 use App\Modules\People\Contracts\PeopleDirectory;
 use App\Shared\Authorization\Authorizer;
+use App\Shared\Authorization\FieldSet;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\NotFoundOrForbiddenException;
 use App\Shared\Exceptions\ValidationException;
@@ -437,17 +438,17 @@ final class BenefitService
     /**
      * @return array<string, mixed>
      */
-    public function enrollmentPayload(BenefitEnrollment $enrollment, BenefitPlan $plan): array
+    public function enrollmentPayload(BenefitEnrollment $enrollment, BenefitPlan $plan, ?FieldSet $fields = null): array
     {
         return [
             'id' => (int) $enrollment->id,
             'plan_id' => (int) $enrollment->plan_id,
             'employment_id' => (int) $enrollment->employment_id,
-            'base_amount_cents' => (int) $enrollment->base_amount_cents,
-            'employee_rate' => (string) $plan->employee_rate,
-            'employer_rate' => (string) $plan->employer_rate,
-            'employee_contribution_cents' => $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employee_rate),
-            'employer_contribution_cents' => $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employer_rate),
+            ...($fields === null || $fields->isVisible('base_amount_cents') ? ['base_amount_cents' => (int) $enrollment->base_amount_cents] : []),
+            ...($fields === null || $fields->isVisible('employee_rate') ? ['employee_rate' => (string) $plan->employee_rate] : []),
+            ...($fields === null || $fields->isVisible('employer_rate') ? ['employer_rate' => (string) $plan->employer_rate] : []),
+            ...($fields === null || $fields->isVisible('employee_contribution_cents') ? ['employee_contribution_cents' => $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employee_rate)] : []),
+            ...($fields === null || $fields->isVisible('employer_contribution_cents') ? ['employer_contribution_cents' => $this->rateAmount((int) $enrollment->base_amount_cents, (string) $plan->employer_rate)] : []),
             'effective_from' => (string) $enrollment->effective_from,
             'effective_to' => $enrollment->effective_to !== null ? (string) $enrollment->effective_to : null,
             'version' => (int) $enrollment->version,
@@ -474,17 +475,17 @@ final class BenefitService
     /**
      * @return array<string, mixed>
      */
-    public function transactionPayload(BenefitTransaction $transaction): array
+    public function transactionPayload(BenefitTransaction $transaction, ?FieldSet $fields = null): array
     {
         return [
             'id' => (int) $transaction->id,
             'enrollment_id' => (int) $transaction->enrollment_id,
             'employment_id' => (int) $transaction->employment_id,
             'period' => (string) $transaction->period,
-            'base_amount_cents' => (int) $transaction->base_amount_cents,
-            'employee_amount_cents' => (int) $transaction->employee_amount_cents,
-            'employer_amount_cents' => (int) $transaction->employer_amount_cents,
-            'total_amount_cents' => (int) $transaction->total_amount_cents,
+            ...($fields === null || $fields->isVisible('base_amount_cents') ? ['base_amount_cents' => (int) $transaction->base_amount_cents] : []),
+            ...($fields === null || $fields->isVisible('employee_amount_cents') ? ['employee_amount_cents' => (int) $transaction->employee_amount_cents] : []),
+            ...($fields === null || $fields->isVisible('employer_amount_cents') ? ['employer_amount_cents' => (int) $transaction->employer_amount_cents] : []),
+            ...($fields === null || $fields->isVisible('total_amount_cents') ? ['total_amount_cents' => (int) $transaction->total_amount_cents] : []),
             'payroll_run_id' => $transaction->payroll_run_id !== null ? (int) $transaction->payroll_run_id : null,
             'entry_type' => (string) $transaction->entry_type,
             'reversal_of_id' => $transaction->reversal_of_id !== null ? (int) $transaction->reversal_of_id : null,

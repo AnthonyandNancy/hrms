@@ -43,3 +43,19 @@
 
 Remaining T14: field-profile masking for non-P3 readers; MCP evidence remains
 T18.
+
+## T14d — benefit amount field-profile masking
+
+- Added P3 field schemas for `benefit_enrollment` and `benefit_transaction`:
+  base amount, employee/employer contributions, employee/employer amounts and
+  total; rates/status/dates remain at lower profiles.
+- Benefit list reads now resolve `benefit.read` field projection per row and
+  omit P3 amount fields unless the binding carries P3. Production authorizer
+  records field-name-only sensitive-read evidence.
+- Write responses still echo caller-supplied amounts, matching the existing
+  write-echo contract; list/detail projections never use that path.
+- Frontend normalizers accept absent amount fields and render `金额受限` rather
+  than `0` or throwing.
+- Added backend P2/P3 masking regression and frontend masked-amount regression.
+- Verification: benefit backend 10 tests / 94 assertions; BenefitsWorkspace 15
+  tests; typecheck/lint/Pint/PHPStan green.

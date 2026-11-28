@@ -50,6 +50,11 @@ function integer(value: unknown, field: string): number {
   contractError(field)
 }
 
+function optionalInteger(value: unknown, field: string): number | undefined {
+  if (value === undefined) return undefined
+  return integer(value, field)
+}
+
 function nullableInteger(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
   return integer(value, '数字字段')
@@ -401,11 +406,11 @@ export type BenefitEnrollment = {
   id: number
   planId: number
   employmentId: number
-  baseAmountCents: number
-  employeeRate: string
-  employerRate: string
-  employeeContributionCents: number
-  employerContributionCents: number
+  baseAmountCents?: number
+  employeeRate?: string
+  employerRate?: string
+  employeeContributionCents?: number
+  employerContributionCents?: number
   effectiveFrom: string
   effectiveTo: string | null
   version: number
@@ -417,11 +422,11 @@ function benefitEnrollmentOf(value: unknown): BenefitEnrollment {
     id: integer(row.id, '参编号'),
     planId: integer(row.plan_id, '方案编号'),
     employmentId: integer(row.employment_id, '任职编号'),
-    baseAmountCents: integer(row.base_amount_cents, '参保基数'),
-    employeeRate: text(row.employee_rate, '个人费率'),
-    employerRate: text(row.employer_rate, '雇主费率'),
-    employeeContributionCents: integer(row.employee_contribution_cents, '个人缴费'),
-    employerContributionCents: integer(row.employer_contribution_cents, '雇主缴费'),
+    baseAmountCents: optionalInteger(row.base_amount_cents, '参保基数'),
+    employeeRate: row.employee_rate === undefined ? undefined : text(row.employee_rate, '个人费率'),
+    employerRate: row.employer_rate === undefined ? undefined : text(row.employer_rate, '雇主费率'),
+    employeeContributionCents: optionalInteger(row.employee_contribution_cents, '个人缴费'),
+    employerContributionCents: optionalInteger(row.employer_contribution_cents, '雇主缴费'),
     effectiveFrom: text(row.effective_from, '生效日'),
     effectiveTo: nullableText(row.effective_to),
     version: integer(row.version, '参保版本号'),
@@ -476,10 +481,10 @@ export type BenefitTransaction = {
   enrollmentId: number
   employmentId: number
   period: string
-  baseAmountCents: number
-  employeeAmountCents: number
-  employerAmountCents: number
-  totalAmountCents: number
+  baseAmountCents?: number
+  employeeAmountCents?: number
+  employerAmountCents?: number
+  totalAmountCents?: number
   payrollRunId: number | null
   entryType: 'RECORD' | 'REVERSAL'
   reversalOfId: number | null
@@ -496,10 +501,10 @@ function benefitTransactionOf(value: unknown): BenefitTransaction {
     enrollmentId: integer(row.enrollment_id, '参保编号'),
     employmentId: integer(row.employment_id, '任职编号'),
     period: text(row.period, '期间'),
-    baseAmountCents: integer(row.base_amount_cents, '缴费基数'),
-    employeeAmountCents: integer(row.employee_amount_cents, '个人缴费'),
-    employerAmountCents: integer(row.employer_amount_cents, '雇主缴费'),
-    totalAmountCents: integer(row.total_amount_cents, '合计缴费'),
+    baseAmountCents: optionalInteger(row.base_amount_cents, '缴费基数'),
+    employeeAmountCents: optionalInteger(row.employee_amount_cents, '个人缴费'),
+    employerAmountCents: optionalInteger(row.employer_amount_cents, '雇主缴费'),
+    totalAmountCents: optionalInteger(row.total_amount_cents, '合计缴费'),
     payrollRunId: nullableInteger(row.payroll_run_id),
     entryType: text(row.entry_type, '台账类型') === 'REVERSAL' ? 'REVERSAL' : 'RECORD',
     reversalOfId: nullableInteger(row.reversal_of_id),
