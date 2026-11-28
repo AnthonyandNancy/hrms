@@ -107,3 +107,17 @@ deployment-traffic restore drill, TLS/secret-manager cutover and final GO.
   checks true.
 - Therefore the current validation is explicitly runtime-hotpatched, not a
   clean release image. A final clean image build must be repeated before GO.
+
+
+## v24-t19d overlay image smoke
+
+- Built a fast reproducible overlay on `v24-t19c` containing the two committed
+  backend fixes; both files passed `php -l`.
+- Deployed php-app/worker/scheduler on `factoryhr/php-app:v24-t19d` and restarted
+  nginx to refresh upstream DNS.
+- Health 200 (db/cache/storage true); overlap role API 201; effective
+  `org.tree.read` and `people.employee.read` each have one COMPANY binding;
+  run #1 API 200 and run #2 403.
+- Evidence: `t19d-smoke/`.
+- Boundary: this is an overlay image, not a fresh full Dockerfile build. The
+  latter remains required before GO.
