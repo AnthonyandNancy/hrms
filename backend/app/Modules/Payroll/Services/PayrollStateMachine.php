@@ -20,8 +20,9 @@ final class PayrollStateMachine
      */
     public const TRANSITIONS = [
         'DRAFT' => [PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
-        'INPUT_LOCKED' => [PayrollRunStatus::CALCULATED, PayrollRunStatus::DRAFT, PayrollRunStatus::CANCELLED],
+        'INPUT_LOCKED' => [PayrollRunStatus::CALCULATED, PayrollRunStatus::CALCULATED_WITH_BLOCKERS, PayrollRunStatus::DRAFT, PayrollRunStatus::CANCELLED],
         'CALCULATED' => [PayrollRunStatus::REVIEWED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
+        'CALCULATED_WITH_BLOCKERS' => [PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
         'REVIEWED' => [PayrollRunStatus::APPROVED, PayrollRunStatus::CALCULATED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
         'APPROVED' => [PayrollRunStatus::PUBLISHED, PayrollRunStatus::REVIEWED, PayrollRunStatus::INPUT_LOCKED, PayrollRunStatus::CANCELLED],
         'PUBLISHED' => [PayrollRunStatus::PAID],

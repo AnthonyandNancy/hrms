@@ -287,18 +287,24 @@ final class SnapshotService
                 'source_hash' => $closedFact->sourceHash,
             ];
         } else {
-            // Transitional compatibility: record the missing closed fact as a
-            // blocker but keep the legacy projection until Calculation v2
-            // honours blockers. Never treat this fallback as frozen evidence.
+            // No Time module data is a legitimate full-month salary case. Once
+            // Time has evidence for the period, the absence of a closed fact is
+            // a payroll blocker; live attendance may be shown only as evidence,
+            // never treated as frozen payroll input.
             $attendance = $this->time->attendanceForPeriod($employmentId, (string) $run->period);
-            $blockers[] = [
-                'code' => 'CLOSED_TIME_FACT_MISSING',
-                'message' => 'The payroll period has no closed Time fact version.',
-                'employment_id' => $employmentId,
-                'period' => (string) $run->period,
-            ];
+            $hasTimeEvidence = $this->time->hasRecordedAttendance($employmentId, (string) $run->period);
+
+            if ($hasTimeEvidence) {
+                $blockers[] = [
+                    'code' => 'CLOSED_TIME_FACT_MISSING',
+                    'message' => 'The payroll period has Time evidence but no closed Time fact version.',
+                    'employment_id' => $employmentId,
+                    'period' => (string) $run->period,
+                ];
+            }
+
             $attendanceSummary = $attendance === null
-                ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_type' => 'missing', 'source_hash' => hash('sha256', 'MISSING|'.$employmentId.'|'.$run->period)]
+                ? ['scheduled_minutes' => 0, 'worked_minutes' => 0, 'paid_leave_minutes' => 0, 'unpaid_leave_minutes' => 0, 'overtime_minutes' => 0, 'source_type' => 'full_month', 'source_hash' => hash('sha256', 'FULL-MONTH|'.$employmentId.'|'.$run->period)]
                 : [
                     'from' => $attendance->from,
                     'to' => $attendance->to,
@@ -308,7 +314,7 @@ final class SnapshotService
                     'unpaid_leave_minutes' => $attendance->unpaidLeaveMinutes,
                     'overtime_minutes' => $attendance->overtimeMinutes,
                     'leave_consumption' => $attendance->leaveConsumption,
-                    'source_type' => 'live_fallback',
+                    'source_type' => $hasTimeEvidence ? 'live_fallback' : 'full_month',
                     'source_hash' => $attendance->sourceHash,
                 ];
         }

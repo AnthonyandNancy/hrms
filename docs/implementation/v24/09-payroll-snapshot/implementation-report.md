@@ -44,3 +44,25 @@ CALCULATED_WITH_BLOCKERS run transitions.
 Remaining T09 work: calculation must honor blockers, run status must support
 `CALCULATED_WITH_BLOCKERS`, and benefit/performance inputs plus employee-level
 scheme resolution must be completed.
+
+## T09c — calculation honors blockers
+
+- `PayrollEmployeeStatus` now has `BLOCKED`; snapshot blockers produce a
+  `PayrollRunEmployee` row with zero monetary values and a stable reason, and no
+  payslip is created for that employee.
+- Added `PayrollRunStatus::CALCULATED_WITH_BLOCKERS`. A run with any blocked or
+  failed employee transitions there instead of `CALCULATED`; the state machine
+  only allows reopen/cancel from that state, so review/approve cannot proceed.
+- Missing closed Time facts are blockers only when Time has actual evidence for
+  the period. No Time-module data remains the legitimate full-month salary
+  path; live attendance alone is never treated as frozen payroll input.
+- Updated payroll integration fixtures to seed closed Time facts for attendance,
+  paid/unpaid leave, overtime and termination cases.
+- Added a regression proving missing closed facts produce `BLOCKED`,
+  `CALCULATED_WITH_BLOCKERS`, no payslip and a rejected review transition.
+- Verification: all Payroll feature + integration tests 104 / 481 assertions;
+  Pint, PHPStan and arch green.
+
+Remaining T09 work: benefit/performance frozen inputs, full employee scheme
+resolution across every calculation path, and CALCULATED_WITH_BLOCKERS API/UI
+exposure.
