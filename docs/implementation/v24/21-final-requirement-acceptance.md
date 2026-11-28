@@ -40,7 +40,7 @@ It is **not** a completed V2.4 business delivery:
 | T15 performance/Offer/training | COMPLETE | `docs/implementation/v24/15-performance-bonus/implementation-report.md`; gates `gate-all-t15a.log`–`gate-all-t15e.log` | MCP evidence remains T18 |
 | T10 payroll rule engine | COMPLETE | `docs/implementation/v24/10-payroll-rules/implementation-report.md`; gates `gate-all-t10a.log`–`gate-all-t10f.log` | JSON-only editor and legacy fail-closed are documented residual risks; MCP T18 |
 | T17a/T17b frontend money/self payslip/action bar | PARTIAL | `docs/implementation/v24/17-frontend/implementation-report.md`; gates `gate-all-t17a.log`, `gate-all-t17b.log` | BigInt money/self payslip/payroll action allowlist done; other detail actions/Chinese sweep remain |
-| T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log` | Ledger, travel facts, Workflow approval, policy method constraints complete; MCP T18 |
+| T08 overtime/timeoff/travel | COMPLETE | `docs/implementation/v24/08-overtime-travel/implementation-report.md`; gates `gate-all-t08a.log`, `gate-all-t08b.log`, `gate-all-t08c.log` | Ledger, travel facts, Workflow approval, policy constraints and approval UI complete; MCP T18 |
 | T11 payroll runs/membership | COMPLETE | `docs/implementation/v24/11-payroll-runs/implementation-report.md`; gates `gate-all-t11a.log`, `gate-all-t11b1.log`, `gate-all-t11b2.log` | Member form visual polish remains T17 |
 | T18 MCP acceptance assets | IN PROGRESS | `docs/implementation/v24/18-mcp-acceptance/` | Assets only; no MCP execution |
 
