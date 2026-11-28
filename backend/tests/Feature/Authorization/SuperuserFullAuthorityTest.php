@@ -34,6 +34,13 @@ final class SuperuserFullAuthorityTest extends AuthorizationTestSupport
             \App\Shared\Authorization\AnchorRef::company(),
             $date,
         ));
+
+        $this->assertTrue($authorizer->allows(
+            $principal,
+            'payroll.run.read',
+            \App\Shared\Authorization\AnchorRef::payrollRun(77),
+            $date,
+        ), 'A COMPANY wildcard must cover run-scoped collection routes for the system administrator.');
     }
 
     public function test_p3_payroll_read_is_granted_and_writes_sensitive_access_audit_evidence(): void

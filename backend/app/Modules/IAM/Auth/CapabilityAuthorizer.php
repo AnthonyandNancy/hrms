@@ -419,6 +419,16 @@ final class CapabilityAuthorizer implements Authorizer
 
     private function matchingAnchorType(BindingGrant $grant, AnchorRef $anchor): bool
     {
+        // The installer-issued COMPANY wildcard is the explicit system
+        // administrator grant. It must cover run/case-scoped collection routes
+        // even though the route advertises a narrower anchor type; row-level
+        // access is still checked by the owning module's membership contract.
+        if (CapabilityWildcard::is($grant->capabilityCode)
+            && $grant->anchorType === Anchor::COMPANY
+            && $grant->anchorId === null) {
+            return true;
+        }
+
         return $grant->anchorType === $anchor->type;
     }
 
