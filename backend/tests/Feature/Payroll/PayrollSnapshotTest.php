@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Tests\Feature\Payroll;
 
 use App\Modules\Payroll\Enums\PayrollRunStatus;
+use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\Payroll\Models\PayrollInputSnapshot;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Services\ApprovalService;
 use App\Modules\Payroll\Services\CalculationService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Payroll\Services\ReopenService;
+use App\Modules\Time\Models\AttendancePeriodClosure;
+use App\Modules\Time\Models\TimePayrollFactRow;
+use App\Modules\Time\Models\TimePayrollFactVersion;
 use App\Shared\Exceptions\ConflictException;
 use App\Shared\Exceptions\ValidationException;
 use Tests\Support\PayrollTestCase;
@@ -36,6 +40,117 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame($snapshot->payload_json, $snapshotAfter->payload_json);
         $this->assertSame($snapshot->source_hash, $snapshotAfter->source_hash);
         $this->assertSame(1, PayrollInputSnapshot::query()->where('run_id', $run->id)->count());
+    }
+
+    public function test_snapshot_prefers_active_execution_compensation_over_employment_terms(): void
+    {
+        $base = $this->seedPayrollBase(1_000_000);
+        $employmentId = (int) $base['employment_id'];
+        $scheme = $base['scheme'];
+
+        $compensation = EmployeeCompensation::query()->create([
+            'employment_id' => $employmentId,
+            'contract_version_id' => null,
+            'effective_from' => '2026-01-01',
+            'effective_to' => null,
+            'status' => 'ACTIVE',
+            'currency' => 'CNY',
+            'base_salary_cents' => 800_000,
+            'salary_scheme_code' => (string) $scheme->code,
+            'payroll_scheme_id' => (int) $scheme->id,
+            'payroll_scheme_version' => (int) $scheme->version,
+            'parameter_overrides_json' => ['meal_per_day_cents' => 2500],
+            'approved_case_id' => null,
+            'source_type' => 'TEST',
+            'source_id' => 1,
+            'content_hash' => hash('sha256', 'snapshot-compensation'),
+            'supersedes_id' => null,
+            'created_by' => 10,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $scheme->id, 'period' => '2026-07']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $payload = (array) PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail()->payload_json;
+
+        $this->assertSame(2, (int) $payload['schema_version']);
+        $this->assertSame((int) $compensation->id, (int) $payload['compensation']['compensation_id']);
+        $this->assertSame(800_000, (int) $payload['compensation']['base_salary_cents']);
+        $this->assertSame((int) $scheme->id, (int) $payload['scheme']['scheme_id']);
+        $this->assertSame(2500, (int) $payload['compensation']['parameter_overrides']['meal_per_day_cents']);
+    }
+
+    public function test_snapshot_records_missing_closed_time_fact_as_a_blocker(): void
+    {
+        $base = $this->seedPayrollBase();
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-08']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+
+        $payload = (array) PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail()->payload_json;
+        $this->assertSame(2, (int) $payload['schema_version']);
+        $this->assertSame('CLOSED_TIME_FACT_MISSING', (string) ($payload['blockers'][0]['code'] ?? ''));
+        $this->assertContains((string) ($payload['attendance']['source_type'] ?? ''), ['live_fallback', 'missing']);
+        $this->assertNull($payload['attendance']['fact_version_id'] ?? null);
+    }
+
+    public function test_snapshot_uses_closed_time_fact_and_has_no_missing_fact_blocker(): void
+    {
+        $base = $this->seedPayrollBase();
+        $employmentId = (int) $base['employment_id'];
+        $version = TimePayrollFactVersion::query()->create([
+            'period' => '2026-09',
+            'version' => 1,
+            'status' => TimePayrollFactVersion::STATUS_CLOSED,
+            'source_hash' => hash('sha256', 'closed-fact-2026-09'),
+            'exception_count' => 0,
+            'precheck_json' => null,
+            'generated_at' => $this->clock->now(),
+            'closed_at' => $this->clock->now(),
+            'closed_by' => 10,
+            'created_at' => $this->clock->now(),
+            'updated_at' => $this->clock->now(),
+        ]);
+        TimePayrollFactRow::query()->create([
+            'fact_version_id' => (int) $version->id,
+            'employment_id' => $employmentId,
+            'business_date' => '2026-09-01',
+            'range_start' => '2026-09-01',
+            'range_end' => '2026-09-01',
+            'scheduled_minutes' => 480,
+            'worked_minutes' => 400,
+            'paid_leave_minutes' => 0,
+            'partial_leave_minutes' => 0,
+            'unpaid_leave_minutes' => 80,
+            'overtime_pay_minutes' => 0,
+            'overtime_timeoff_minutes' => 0,
+            'travel_minutes' => 0,
+            'source_type' => 'ATTENDANCE',
+            'source_id' => '2026-09-01',
+            'source_revision' => 'R1',
+            'approval_status' => 'APPROVED',
+            'source_hash' => hash('sha256', 'closed-row'),
+            'recorded_at' => $this->clock->now(),
+        ]);
+        AttendancePeriodClosure::query()->create([
+            'month' => '2026-09',
+            'status' => AttendancePeriodClosure::STATUS_CLOSED,
+            'closed_by' => 10,
+            'closed_at' => $this->clock->now(),
+            'current_fact_version_id' => (int) $version->id,
+        ]);
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $base['scheme']->id, 'period' => '2026-09']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $payload = (array) PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail()->payload_json;
+
+        $this->assertSame([], $payload['blockers']);
+        $this->assertSame('time_closed_fact', (string) $payload['attendance']['source_type']);
+        $this->assertSame((int) $version->id, (int) $payload['attendance']['fact_version_id']);
+        $this->assertSame(480, (int) $payload['attendance']['scheduled_minutes']);
+        $this->assertSame(400, (int) $payload['attendance']['worked_minutes']);
     }
 
     public function test_attendance_change_after_lock_does_not_affect_calculated_run(): void

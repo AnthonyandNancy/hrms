@@ -182,8 +182,11 @@ final class CalculationService
     public function calculateOne(PayrollRun $run, PayrollScheme $scheme, string $timezone, string $currency, array $payload): PayrollCalculationResult
     {
         $terms = (array) ($payload['terms'] ?? []);
+        $compensation = (array) ($payload['compensation'] ?? []);
+        $compensationSalary = isset($compensation['base_salary_cents']) ? (int) $compensation['base_salary_cents'] : null;
         $termSalary = isset($terms['base_salary_cents']) ? (int) $terms['base_salary_cents'] : null;
-        $baseSalary = $termSalary ?? (int) ($payload['scheme']['base_salary_cents'] ?? $scheme->base_salary_cents);
+        $schemeData = (array) ($payload['scheme'] ?? []);
+        $baseSalary = $compensationSalary ?? $termSalary ?? (int) ($schemeData['base_salary_cents'] ?? $scheme->base_salary_cents);
 
         if ($baseSalary < 0) {
             throw new \InvalidArgumentException('Salary cannot be negative.');
@@ -195,14 +198,14 @@ final class CalculationService
         $payDate = new DateTimeImmutable(substr((string) $run->pay_date, 0, 10).' 00:00:00', new DateTimeZone('UTC'));
         $cutoffValue = $run->cutoff_at instanceof \DateTimeInterface ? $run->cutoff_at->format('Y-m-d H:i:s') : substr((string) $run->cutoff_at, 0, 19);
         $cutoff = new DateTimeImmutable($cutoffValue, new DateTimeZone('UTC'));
-        $roundingMode = RoundingMode::from((string) $scheme->rounding_mode);
+        $roundingMode = RoundingMode::from((string) ($schemeData['rounding_mode'] ?? $scheme->rounding_mode));
 
         $context = new PayrollContext(
             currency: $currency,
             timezone: $timezone,
             rounding: new RoundingConfig($roundingMode),
-            prorationDivisor: ProrationDivisor::from((string) $scheme->proration_divisor),
-            allowNegativeNet: (bool) $scheme->allow_negative_net,
+            prorationDivisor: ProrationDivisor::from((string) ($schemeData['proration_divisor'] ?? $scheme->proration_divisor)),
+            allowNegativeNet: (bool) ($schemeData['allow_negative_net'] ?? $scheme->allow_negative_net),
         );
 
         $ytd = (array) ($payload['ytd_opening'] ?? []);
@@ -293,9 +296,11 @@ final class CalculationService
                 employeeRate: $hf['employee_rate'],
                 employerRate: $hf['employer_rate'],
             ),
-            overtimeMultiplier: \App\Shared\Money\Decimal::fromString((string) $scheme->overtime_multiplier),
-            salarySourceType: isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme',
-            salarySourceId: isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id,
+            overtimeMultiplier: \App\Shared\Money\Decimal::fromString((string) ($schemeData['overtime_multiplier'] ?? $scheme->overtime_multiplier)),
+            salarySourceType: $compensationSalary !== null ? 'employee_compensation' : (isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme'),
+            salarySourceId: $compensationSalary !== null
+                ? (string) ($compensation['compensation_id'] ?? '')
+                : (isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id),
             attendanceSourceType: 'time_payroll_input',
             attendanceSourceId: (string) ($payload['attendance']['source_hash'] ?? 'missing'),
             allowances: $allowances,
