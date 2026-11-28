@@ -301,6 +301,99 @@ export async function listPerformanceReviews(
   )
 }
 
+export type PerformanceBonusMapping = {
+  id: number
+  performanceSnapshotId: number
+  cycleId: number
+  employmentId: number
+  payrollItemCode: string
+  period: string
+  amountCents: number
+  mappingVersion: string
+  status: 'DRAFT' | 'APPROVED' | 'REVOKED'
+  approvedBy: number | null
+  approvedAt: string | null
+  sourceRevision: string
+}
+
+export type PerformanceBonusMappingPage = {
+  items: PerformanceBonusMapping[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+function normalisePerformanceBonusMapping(raw: unknown): PerformanceBonusMapping {
+  const row = isRecord(raw) ? raw : contractError('bonus_mapping')
+  const status = text(row.status, 'bonus_mapping.status').toUpperCase()
+  return {
+    id: requiredInteger(row.id, 'bonus_mapping.id'),
+    performanceSnapshotId: requiredInteger(row.performance_snapshot_id, 'bonus_mapping.performance_snapshot_id'),
+    cycleId: requiredInteger(row.cycle_id, 'bonus_mapping.cycle_id'),
+    employmentId: requiredInteger(row.employment_id, 'bonus_mapping.employment_id'),
+    payrollItemCode: text(row.payroll_item_code, 'bonus_mapping.payroll_item_code'),
+    period: text(row.period, 'bonus_mapping.period'),
+    amountCents: requiredInteger(row.amount_cents, 'bonus_mapping.amount_cents'),
+    mappingVersion: text(row.mapping_version, 'bonus_mapping.mapping_version'),
+    status: status === 'APPROVED' ? 'APPROVED' : status === 'REVOKED' ? 'REVOKED' : 'DRAFT',
+    approvedBy: nullableInteger(row.approved_by),
+    approvedAt: typeof row.approved_at === 'string' ? row.approved_at : null,
+    sourceRevision: typeof row.source_revision === 'string' ? row.source_revision : '',
+  }
+}
+
+export async function listPerformanceBonusMappings(
+  filters: { employmentId?: number; period?: string; status?: string } = {},
+  pageNumber = 1,
+  pageSize = 20,
+): Promise<PerformanceBonusMappingPage> {
+  const params: Record<string, unknown> = {
+    page: Math.max(1, Math.trunc(pageNumber)),
+    page_size: Math.min(100, Math.max(1, Math.trunc(pageSize))),
+  }
+  if (filters.employmentId !== undefined) params.employment_id = filters.employmentId
+  if (filters.period !== undefined && filters.period !== '') params.period = filters.period
+  if (filters.status !== undefined && filters.status !== '') params.status = filters.status
+
+  return page(
+    await resourceGet<unknown>('/v1/performance/bonus-mappings', params),
+    'bonus_mapping_page',
+    normalisePerformanceBonusMapping,
+  )
+}
+
+export async function createPerformanceBonusMapping(input: {
+  snapshotId: number
+  payrollItemCode: string
+  period: string
+  amountCents: number
+  mappingVersion?: string
+  idempotencyKey?: string
+}): Promise<PerformanceBonusMapping> {
+  return normalisePerformanceBonusMapping(await resourcePost<unknown>(
+    '/v1/performance/bonus-mappings',
+    {
+      snapshot_id: input.snapshotId,
+      payroll_item_code: input.payrollItemCode.trim(),
+      period: input.period.trim(),
+      amount_cents: input.amountCents,
+      mapping_version: input.mappingVersion ?? 'V1',
+    },
+    { idempotencyKey: input.idempotencyKey ?? newPerformanceIdempotencyKey('bonus-mapping') },
+  ))
+}
+
+export async function approvePerformanceBonusMapping(
+  id: number,
+  idempotencyKey: string = newPerformanceIdempotencyKey('bonus-approve'),
+): Promise<PerformanceBonusMapping> {
+  return normalisePerformanceBonusMapping(await resourcePost<unknown>(
+    `/v1/performance/bonus-mappings/${id}/approve`,
+    {},
+    { idempotencyKey },
+  ))
+}
+
 export function newPerformanceIdempotencyKey(prefix: string): string {
   const suffix =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'

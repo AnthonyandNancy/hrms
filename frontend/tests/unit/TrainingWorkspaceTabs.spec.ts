@@ -21,6 +21,7 @@ vi.mock('@/api/resourceClient', () => ({
 
 import TrainingWorkspacePage from '@/modules/talent/training/pages/TrainingWorkspacePage.vue'
 import SessionOperationDrawer from '@/modules/talent/training/components/SessionOperationDrawer.vue'
+import TrainingExamPanel from '@/modules/talent/training/components/TrainingExamPanel.vue'
 
 const OverlayStub = defineComponent({
   inheritAttrs: false,
@@ -294,6 +295,60 @@ describe('session operation center', () => {
     )
   })
 })
+
+  it('submits an exam attempt with enrollment and score and shows the source result', async () => {
+    resource.get.mockResolvedValue(page([{
+      exam_id: 71,
+      course_id: 5,
+      session_id: 91,
+      code: 'EXAM-1',
+      title: '合成考试',
+      version: 1,
+      passing_score: 60,
+      max_score: 100,
+      status: 'PUBLISHED',
+      published_at: '2026-01-01T00:00:00Z',
+      recorded_at: null,
+    }]))
+    resource.post.mockResolvedValue({
+      attempt_id: 301,
+      exam_id: 71,
+      enrollment_id: 21,
+      employment_id: 101,
+      attempt_no: 1,
+      score: 80,
+      passed: true,
+      source_hash: 'd'.repeat(64),
+      submitted_at: '2026-01-01T00:00:00Z',
+    })
+
+    const pinia = piniaWith(['training.exam.manage'])
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/training', component: { template: '<div />' } }],
+    })
+    await router.push('/training')
+    await router.isReady()
+    const wrapper = mount(TrainingExamPanel, {
+      props: { sessionId: 91, courseId: 5 },
+      global: { plugins: [pinia, router, ElementPlus], stubs: { ElDialog: OverlayStub } },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="training-exam-attempt-71"]').trigger('click')
+    await wrapper.get('[data-testid="training-attempt-enrollment"]').setValue('21')
+    await wrapper.get('[data-testid="training-attempt-score"]').setValue('80')
+    await wrapper.get('[data-testid="training-attempt-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(resource.post).toHaveBeenCalledWith(
+      '/v1/training/exams/71/attempts',
+      expect.objectContaining({ enrollment_id: 21, score: 80 }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    )
+    expect(wrapper.get('[data-testid="training-attempt-result"]').text()).toContain('尝试 #1')
+    expect(wrapper.get('[data-testid="training-attempt-result"]').text()).toContain('通过')
+  })
 
 describe('SessionOperationDrawer contract seam', () => {
   it('renders a forbidden placeholder instead of issuing hidden panel reads', async () => {

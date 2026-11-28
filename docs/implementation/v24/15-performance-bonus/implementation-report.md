@@ -70,3 +70,17 @@ Remaining T15: mapping UI and training attempt HTTP surface/UI; MCP remains T18.
   idempotency and company exam-management capability; response includes
   attempt number, score, pass flag and 64-char source hash.
 - Added HTTP regression for attempt submission after enrollment + check-in.
+
+## T15e — mapping and attempt UI
+
+- Added a permission-gated `绩效奖金映射` dialog on the performance workspace:
+  - loads server mappings on demand;
+  - creates integer-cent DRAFT mappings with snapshot/period/item/version;
+  - approves DRAFT mappings through the real API;
+  - shows approved/draft states without deriving payroll eligibility.
+- Added exam attempt submission UI in the training exam panel:
+  - published exams expose `提交成绩`;
+  - enrollment id and integer score are validated before the API call;
+  - success displays attempt number, pass/fail and source hash prefix.
+- Added unit regressions for both dialogs/actions and their exact API payloads.
+- Verification: frontend typecheck/lint and focused UI tests pass.

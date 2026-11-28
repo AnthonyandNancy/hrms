@@ -121,6 +121,18 @@ export type TrainingExam = {
   recordedAt: string | null
 }
 
+export type TrainingExamAttempt = {
+  id: number
+  examId: number
+  enrollmentId: number
+  employmentId: number
+  attemptNo: number
+  score: number
+  passed: boolean
+  sourceHash: string
+  submittedAt: string | null
+}
+
 export type TrainingFeedback = {
   id: number
   enrollmentId: number
@@ -443,6 +455,21 @@ export function normaliseExam(raw: unknown): TrainingExam {
     status: enumValue(row.status, EXAM_STATUSES, 'status'),
     publishedAt: nullableText(row.published_at, 'published_at'),
     recordedAt: nullableText(row.recorded_at, 'recorded_at'),
+  }
+}
+
+export function normaliseExamAttempt(raw: unknown): TrainingExamAttempt {
+  const row = record(raw, 'exam_attempt')
+  return {
+    id: integer(row.attempt_id, 'attempt_id'),
+    examId: integer(row.exam_id, 'exam_id'),
+    enrollmentId: integer(row.enrollment_id, 'enrollment_id'),
+    employmentId: integer(row.employment_id, 'employment_id'),
+    attemptNo: integer(row.attempt_no, 'attempt_no'),
+    score: integer(row.score, 'score'),
+    passed: row.passed === true,
+    sourceHash: text(row.source_hash, 'source_hash'),
+    submittedAt: nullableText(row.submitted_at, 'submitted_at'),
   }
 }
 
@@ -897,6 +924,24 @@ export async function publishExam(examId: number): Promise<TrainingExam> {
     { idempotencyKey: newTrainingIdempotencyKey('exam-publish') },
   )
   return normaliseExam(raw)
+}
+
+export async function submitExamAttempt(
+  examId: number,
+  enrollmentId: number,
+  score: number,
+  answers: Record<string, unknown> = {},
+): Promise<TrainingExamAttempt> {
+  const raw = await resourcePost<unknown>(
+    `/v1/training/exams/${examId}/attempts`,
+    {
+      enrollment_id: enrollmentId,
+      score,
+      ...(Object.keys(answers).length > 0 ? { answers } : {}),
+    },
+    { idempotencyKey: newTrainingIdempotencyKey('exam-attempt') },
+  )
+  return normaliseExamAttempt(raw)
 }
 
 export async function createFeedback(draft: FeedbackDraft): Promise<TrainingFeedback> {
