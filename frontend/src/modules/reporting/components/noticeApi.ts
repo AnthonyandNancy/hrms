@@ -22,6 +22,7 @@ export type Notice = {
   roleCodes?: string[]
   publishedAt: string | null
   retractedAt?: string | null
+  expiresAt?: string | null
   authorName: string | null
   requiresAck: boolean
   acknowledged: boolean
@@ -54,6 +55,7 @@ export type PublishNoticeInput = {
   roleCodes?: string[]
   requiresAck: boolean
   approvalRequired?: boolean
+  expiresAt?: string | null
 }
 
 export type NoticeAudiencePreview = {
@@ -224,6 +226,7 @@ function normaliseNotice(raw: unknown): Notice | null {
     roleCodes: stringList(raw.roleCodes),
     publishedAt: nullableText(raw.publishedAt),
     retractedAt: nullableText(raw.retractedAt),
+    expiresAt: nullableText(raw.expiresAt),
     authorName: nullableText(raw.authorName),
     requiresAck: raw.requiresAck === true,
     acknowledged: raw.acknowledged === true,
@@ -331,6 +334,9 @@ export async function publishNotice(input: PublishNoticeInput): Promise<Notice> 
     payload.roleCodes = [...input.roleCodes]
   }
   payload.approvalRequired = input.approvalRequired === true
+  if (input.expiresAt !== undefined && input.expiresAt !== null && input.expiresAt !== '') {
+    payload.expiresAt = input.expiresAt
+  }
   if (input.audience === 'ROLE' && input.roleCodes !== undefined) {
     payload.roleCodes = [...input.roleCodes]
   }

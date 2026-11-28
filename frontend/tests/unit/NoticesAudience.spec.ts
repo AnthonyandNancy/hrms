@@ -61,6 +61,7 @@ const publishedNotice = {
   roleCodes: ['HR_ADMIN'],
   publishedAt: '2026-11-27T01:00:00Z',
   retractedAt: null,
+  expiresAt: null,
   authorName: null,
   requiresAck: true,
   acknowledged: false,

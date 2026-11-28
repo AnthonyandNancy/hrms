@@ -184,7 +184,7 @@ final class MetricDefinition
     public static function forbiddenReason(string $code): string
     {
         return match ($code) {
-            'payroll_cost_by_entity' => '当前账号无权查看薪酬成本。',
+            'payroll_cost_by_entity' => '当前账号无权查看薪酬金额，成本与单人明细均不展示。',
             'recruitment_funnel' => '当前账号无权查看招聘漏斗。',
             default => '当前账号无权查看该指标。',
         };

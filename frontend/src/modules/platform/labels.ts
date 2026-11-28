@@ -268,6 +268,7 @@ const NOTIFICATION_TYPES: Record<string, string> = {
   CASE_ASSIGNED: '审批任务指派',
   CASE_APPROVED: '审批已通过',
   CASE_REJECTED: '审批已驳回',
+  PAYSLIP_PUBLISHED: '工资条发布',
 }
 
 export function notificationTypeLabel(code: string): string {

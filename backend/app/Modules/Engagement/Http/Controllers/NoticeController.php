@@ -85,6 +85,8 @@ final class NoticeController
             'role_codes.*' => ['string', 'regex:/^[A-Z][A-Z0-9_]{2,63}$/'],
             'publishAt' => ['nullable', 'date'],
             'publish_at' => ['nullable', 'date'],
+            'expiresAt' => ['nullable', 'date'],
+            'expires_at' => ['nullable', 'date'],
             'requiresAck' => ['nullable', 'boolean'],
             'requires_ack' => ['nullable', 'boolean'],
             'approvalRequired' => ['nullable', 'boolean'],

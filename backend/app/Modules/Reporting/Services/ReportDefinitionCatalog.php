@@ -106,6 +106,8 @@ final class ReportDefinitionCatalog
                 'drilldown_route' => '/dashboard/metric/payroll_cost_by_entity',
                 'filters_json' => [],
                 'fields_json' => [
+                    self::field('employee', '员工', FieldProfile::P1_INTERNAL),
+                    self::field('currency_code', '币种', FieldProfile::P0_PUBLIC),
                     self::field('gross_cents', '应发工资（元）', FieldProfile::P2_SENSITIVE),
                     self::field('net_cents', '实发工资（元）', FieldProfile::P2_SENSITIVE),
                     self::field('employer_cost_cents', '雇主成本（元）', FieldProfile::P2_SENSITIVE),

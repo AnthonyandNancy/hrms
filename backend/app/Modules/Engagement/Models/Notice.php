@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed> $audience_json
  * @property \Carbon\CarbonImmutable $publish_at
  * @property \Carbon\CarbonImmutable|null $retract_at
+ * @property \Carbon\CarbonImmutable|null $expires_at
  * @property int $created_by
  * @property string $status
  * @property bool $requires_ack
@@ -54,6 +55,7 @@ final class Notice extends Model
         'audience_json',
         'publish_at',
         'retract_at',
+        'expires_at',
         'created_by',
         'status',
         'requires_ack',
@@ -79,6 +81,7 @@ final class Notice extends Model
             'audience_json' => 'array',
             'publish_at' => 'immutable_datetime',
             'retract_at' => 'immutable_datetime',
+            'expires_at' => 'immutable_datetime',
             'created_by' => 'integer',
             'requires_ack' => 'boolean',
             'audience_count' => 'integer',

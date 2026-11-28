@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Engagement\Providers;
 
 use App\Modules\Engagement\Adapters\NoticeApprovalWorkflowAdapter;
+use App\Modules\Engagement\Adapters\PayslipPublicationNotifierAdapter;
 use App\Modules\Engagement\Contracts\ExternalNotificationChannel;
 use App\Modules\Engagement\Contracts\NoticeApprovalPort;
 use App\Modules\Engagement\Contracts\NoticeWorkspaceDirectory;
@@ -15,7 +16,9 @@ use App\Modules\Engagement\Services\NoticeAudienceService;
 use App\Modules\Engagement\Services\NoticeGovernanceService;
 use App\Modules\Engagement\Services\NoticeService;
 use App\Modules\Engagement\Services\NotificationService;
+use App\Modules\Engagement\Services\PayslipNotificationService;
 use App\Modules\IAM\Contracts\UserAudienceDirectory;
+use App\Modules\Payroll\Contracts\PayslipPublicationNotifier;
 use App\Modules\People\Contracts\NoticeAudienceDirectory;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,12 +27,24 @@ final class EngagementServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bindIf(ExternalNotificationChannel::class, LogExternalNotificationChannel::class);
+        $this->app->bind(PayslipPublicationNotifier::class, PayslipPublicationNotifierAdapter::class);
         $this->app->bind(NoticeWorkspaceDirectory::class, EloquentNoticeWorkspaceDirectory::class);
 
         $this->app->bind(NotificationService::class, fn ($app): NotificationService => new NotificationService(
             $app->make(ExternalNotificationChannel::class),
             $app->make(\App\Shared\Observability\OutboxRecorder::class),
             $app->make(\App\Shared\Time\Clock::class),
+            null,
+            $app->make(\App\Modules\Platform\Contracts\NotificationDeliveryLedger::class),
+            $app->make(\App\Modules\People\Contracts\PeopleDirectory::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
+        ));
+
+        $this->app->bind(PayslipNotificationService::class, fn ($app): PayslipNotificationService => new PayslipNotificationService(
+            $app->make(\App\Modules\Payroll\Contracts\PayslipNotificationDirectory::class),
+            $app->make(NotificationService::class),
+            $app->make(NoticeAudienceDirectory::class),
+            $app->make(\App\Shared\Time\CompanyBusinessDate::class),
         ));
 
         $this->app->bind(NoticeAudienceService::class, fn ($app): NoticeAudienceService => new NoticeAudienceService(

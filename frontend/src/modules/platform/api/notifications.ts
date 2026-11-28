@@ -6,7 +6,9 @@ import { ApiError } from '@/api/errors'
  *
  * The backend exposes an inbox list plus a single-item mark-read command. It
  * deliberately has no bulk-read route and no channel-preference route; the
- * page must not pretend either exists.
+ * page must not pretend either exists. `valid` and `invalidReason` are live
+ * re-authorization facts: an invalid row keeps its inbox identity but carries
+ * no payload and cannot be marked read.
  */
 
 type Raw = Record<string, unknown>
@@ -16,6 +18,8 @@ export type InboxNotification = {
   type: string
   payload: Raw
   read: boolean
+  valid: boolean
+  invalidReason: string | null
   createdAt: string | null
 }
 
@@ -47,11 +51,14 @@ function nullableText(value: unknown): string | null {
 
 function notificationOf(value: unknown): InboxNotification {
   const row = record(value, '站内通知')
+  const valid = row.valid !== false
   return {
     id: integer(row.id, '通知编号'),
     type: String(row.type ?? ''),
-    payload: isRecord(row.payload) ? row.payload : {},
+    payload: valid && isRecord(row.payload) ? row.payload : {},
     read: row.read === true,
+    valid,
+    invalidReason: nullableText(row.invalidReason),
     createdAt: nullableText(row.createdAt) ?? nullableText(row.created_at),
   }
 }

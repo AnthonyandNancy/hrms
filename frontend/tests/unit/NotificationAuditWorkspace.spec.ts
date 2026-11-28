@@ -46,6 +46,8 @@ function inboxNotification(overrides: Record<string, unknown> = {}) {
     type: 'NOTICE_PUBLISHED',
     payload: { notice_id: 42, requires_ack: false },
     read: false,
+    valid: true,
+    invalidReason: null,
     createdAt: '2026-11-27T01:00:00Z',
     ...overrides,
   }
@@ -159,6 +161,25 @@ describe('notification center workspace', () => {
     expect(resource.post).toHaveBeenNthCalledWith(2, '/v1/engagement/notifications/10/read', {})
     expect(wrapper.find('[data-testid="notification-unread-9"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="notification-unread-10"]').exists()).toBe(false)
+  })
+
+  it('renders a live-invalid notification without a payload or mark-read action', async () => {
+    resource.get.mockResolvedValue([
+      inboxNotification({
+        id: 31,
+        payload: {},
+        valid: false,
+        invalidReason: '公告已撤回、过期或不再属于有效受众，原通知内容不可查看。',
+      }),
+    ])
+
+    const wrapper = await mountPage(NotificationsPage, ['notification.read'])
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="notification-invalid-31"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="notification-summary-31"]').text()).toContain('原通知内容不可查看')
+    expect(wrapper.find('[data-testid="notification-mark-read-31"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="notification-mark-all-read"]').exists()).toBe(false)
   })
 
   it('renders loading, empty, error, forbidden and partial states without fabricated rows', async () => {

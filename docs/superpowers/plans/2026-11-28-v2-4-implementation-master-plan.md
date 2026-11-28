@@ -939,7 +939,7 @@ cd backend
 
 ### T16：通知真实投递位置与报表字段裁剪
 
-**状态：** PENDING
+**状态：** COMPLETE
 
 **修改位置：**
 - 新增 `backend/database/migrations/2026_11_28_001400_create_notification_deliveries.php`

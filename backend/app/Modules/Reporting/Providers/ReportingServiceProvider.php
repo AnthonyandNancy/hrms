@@ -12,6 +12,7 @@ use App\Modules\Reporting\Contracts\ExportDispatcher;
 use App\Modules\Reporting\Services\DashboardService;
 use App\Modules\Reporting\Services\ExportJobRunner;
 use App\Modules\Reporting\Services\ExportService;
+use App\Modules\Reporting\Services\FieldTierResolver;
 use App\Modules\Reporting\Services\InlineExportDispatcher;
 use App\Modules\Reporting\Services\MetricQueryBuilder;
 use App\Modules\Reporting\Services\ProjectionBuilder;
@@ -43,6 +44,7 @@ final class ReportingServiceProvider extends ServiceProvider
         $this->app->bind(MetricQueryBuilder::class, fn ($app): MetricQueryBuilder => new MetricQueryBuilder(
             $app->make(\App\Shared\Authorization\Authorizer::class),
             $app->make(ProjectionBuilder::class),
+            $app->make(FieldTierResolver::class),
         ));
 
         $this->app->bind(DashboardService::class, fn ($app): DashboardService => new DashboardService(
@@ -60,6 +62,11 @@ final class ReportingServiceProvider extends ServiceProvider
             $app->make(ProjectionBuilder::class),
             $app->make(\App\Shared\Time\Clock::class),
             $app->make(\App\Shared\Authorization\Contracts\SensitiveAccessAuditor::class),
+            $app->make(FieldTierResolver::class),
+        ));
+
+        $this->app->bind(FieldTierResolver::class, fn ($app): FieldTierResolver => new FieldTierResolver(
+            $app->make(\App\Shared\Authorization\Contracts\AuthorityBindingRepository::class),
         ));
 
         $this->app->bind(ReportSubscriptionService::class, fn ($app): ReportSubscriptionService => new ReportSubscriptionService(
