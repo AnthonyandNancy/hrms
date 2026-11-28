@@ -27,4 +27,23 @@ interface CompensationVersionDirectory
      * }|null
      */
     public function effectiveForEmployment(int $employmentId, string $asOf): ?array;
+
+    /**
+     * Effective-dated execution compensation segments overlapping a payroll
+     * earnings period. Boundaries are clamped to the requested period.
+     *
+     * @return list<array{
+     *     compensation_id:int,
+     *     segment_from:string,
+     *     segment_to:string,
+     *     base_salary_cents:int,
+     *     currency:string,
+     *     contract_version_id:int|null,
+     *     payroll_scheme_id:int|null,
+     *     payroll_scheme_version:int|null,
+     *     salary_scheme_code:string|null,
+     *     parameter_overrides:array<string, mixed>
+     * }>
+     */
+    public function segmentsForPeriod(int $employmentId, string $periodStart, string $periodEnd): array;
 }

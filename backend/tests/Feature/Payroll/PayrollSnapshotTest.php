@@ -218,6 +218,70 @@ final class PayrollSnapshotTest extends PayrollTestCase
         $this->assertSame(PayrollRunStatus::CALCULATED, $run->refresh()->status);
     }
 
+    public function test_mid_month_compensation_segments_weight_base_salary_by_working_days(): void
+    {
+        $base = $this->seedPayrollBase();
+        $employmentId = (int) $base['employment_id'];
+        $scheme = $base['scheme'];
+
+        foreach ([
+            ['effective_from' => '2026-01-01', 'effective_to' => '2026-04-15', 'base_salary_cents' => 800_000],
+            ['effective_from' => '2026-04-16', 'effective_to' => null, 'base_salary_cents' => 900_000],
+        ] as $index => $segment) {
+            EmployeeCompensation::query()->create([
+                'employment_id' => $employmentId,
+                'contract_version_id' => null,
+                'effective_from' => $segment['effective_from'],
+                'effective_to' => $segment['effective_to'],
+                'status' => 'ACTIVE',
+                'currency' => 'CNY',
+                'base_salary_cents' => $segment['base_salary_cents'],
+                'salary_scheme_code' => (string) $scheme->code,
+                'payroll_scheme_id' => (int) $scheme->id,
+                'payroll_scheme_version' => (int) $scheme->version,
+                'parameter_overrides_json' => [],
+                'approved_case_id' => null,
+                'source_type' => 'TEST',
+                'source_id' => $index + 1,
+                'content_hash' => hash('sha256', 'segment-'.$index),
+                'supersedes_id' => null,
+                'created_by' => 10,
+                'created_at' => $this->clock->now(),
+            ]);
+        }
+
+        $this->closeTimeFact($employmentId, '2026-04', [
+            ['business_date' => '2026-04-01', 'scheduled_minutes' => 10_560, 'worked_minutes' => 10_560],
+        ]);
+
+        $runs = app(PayrollRunService::class);
+        $run = $runs->createRun(10, ['scheme_id' => (int) $scheme->id, 'period' => '2026-04']);
+        $run = $runs->lockInputs((int) $run->id, 10);
+        $snapshot = PayrollInputSnapshot::query()->where('run_id', $run->id)->firstOrFail();
+        $payload = (array) $snapshot->payload_json;
+        $this->assertCount(2, $payload['compensation_segments']);
+        $this->assertSame((int) $run->snapshot_version, (int) $snapshot->snapshot_version, 'snapshot version mismatch');
+        $this->assertSame('INPUT', (string) $snapshot->snapshot_type);
+        $this->assertSame(1, PayrollInputSnapshot::query()
+            ->where('run_id', $run->id)
+            ->where('snapshot_type', 'INPUT')
+            ->where('snapshot_version', '<=', (int) $run->snapshot_version)
+            ->count());
+
+        try {
+            $result = app(CalculationService::class)->calculate($run, 10);
+        } catch (ConflictException $exception) {
+            $rows = PayrollRunEmployee::query()->where('run_id', $run->id)->get()->toArray();
+            $this->fail('Calculation failed: '.json_encode($rows, JSON_THROW_ON_ERROR).' | '.$exception->getMessage());
+        }
+        if ($result['gross_cents'] !== 850_000) {
+            $failed = PayrollRunEmployee::query()->where('run_id', $run->id)->first();
+            $this->fail('Segment calculation failed: '.$failed->failure_reason.' result='.json_encode($result, JSON_THROW_ON_ERROR));
+        }
+        $this->assertSame(850_000, $result['gross_cents']);
+        $this->assertSame(PayrollRunStatus::CALCULATED, $run->refresh()->status);
+    }
+
     public function test_calculation_blocks_missing_closed_fact_and_prevents_review(): void
     {
         $base = $this->seedPayrollBase();

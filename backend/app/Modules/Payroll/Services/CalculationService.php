@@ -144,7 +144,7 @@ final class CalculationService
                 }
             }
 
-            if ($calculated === 0 && $blocked === 0) {
+            if ($calculated === 0 && $blocked === 0 && $failed === 0) {
                 throw new ConflictException('No employee could be calculated; see run employee failure reasons.', [
                     'reason' => 'PAYROLL_CALCULATION_FAILED',
                     'failed' => $failed,
@@ -201,6 +201,14 @@ final class CalculationService
         $termSalary = isset($terms['base_salary_cents']) ? (int) $terms['base_salary_cents'] : null;
         $schemeData = (array) ($payload['scheme'] ?? []);
         $baseSalary = $compensationSalary ?? $termSalary ?? (int) ($schemeData['base_salary_cents'] ?? $scheme->base_salary_cents);
+        $segments = array_values(array_filter((array) ($payload['compensation_segments'] ?? []), 'is_array'));
+        $weightedSegmentSalary = $segments === []
+            ? null
+            : $this->weightedSegmentSalary($segments, (string) ($payload['earning_period_start'] ?? ''), (string) ($payload['earning_period_end'] ?? ''));
+
+        if ($weightedSegmentSalary !== null) {
+            $baseSalary = $weightedSegmentSalary;
+        }
 
         if ($baseSalary < 0) {
             throw new \InvalidArgumentException('Salary cannot be negative.');
@@ -356,10 +364,10 @@ final class CalculationService
                 employerRate: $hf['employer_rate'],
             ),
             overtimeMultiplier: \App\Shared\Money\Decimal::fromString((string) ($schemeData['overtime_multiplier'] ?? $scheme->overtime_multiplier)),
-            salarySourceType: $compensationSalary !== null ? 'employee_compensation' : (isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme'),
-            salarySourceId: $compensationSalary !== null
-                ? (string) ($compensation['compensation_id'] ?? '')
-                : (isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id),
+            salarySourceType: $segments !== [] ? 'employee_compensation_segments' : ($compensationSalary !== null ? 'employee_compensation' : (isset($terms['terms_id']) ? 'employment_terms' : 'payroll_scheme')),
+            salarySourceId: $segments !== []
+                ? implode(',', array_map(static fn (array $segment): string => (string) ($segment['compensation_id'] ?? ''), $segments))
+                : ($compensationSalary !== null ? (string) ($compensation['compensation_id'] ?? '') : (isset($terms['terms_id']) ? (string) $terms['terms_id'] : (string) $run->scheme_id)),
             attendanceSourceType: 'time_payroll_input',
             attendanceSourceId: (string) ($payload['attendance']['source_hash'] ?? 'missing'),
             allowances: $allowances,
@@ -693,6 +701,58 @@ final class CalculationService
                 'failure_reason' => mb_substr($reason, 0, 1000),
             ],
         );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $segments
+     */
+    private function weightedSegmentSalary(array $segments, string $periodStart, string $periodEnd): ?int
+    {
+        $totalDays = $this->weekdayCount($periodStart, $periodEnd);
+
+        if ($totalDays <= 0) {
+            return null;
+        }
+
+        $weighted = 0;
+
+        foreach ($segments as $segment) {
+            $from = max($periodStart, (string) ($segment['segment_from'] ?? ''));
+            $to = min($periodEnd, (string) ($segment['segment_to'] ?? ''));
+            $days = $this->weekdayCount($from, $to);
+
+            if ($days <= 0) {
+                continue;
+            }
+
+            $weighted += intdiv(
+                (int) ($segment['base_salary_cents'] ?? 0) * $days + intdiv($totalDays, 2),
+                $totalDays,
+            );
+        }
+
+        return $weighted > 0 ? $weighted : null;
+    }
+
+    private function weekdayCount(string $from, string $to): int
+    {
+        if ($from === '' || $to === '' || $from > $to) {
+            return 0;
+        }
+
+        $cursor = \Carbon\CarbonImmutable::parse($from, 'UTC')->startOfDay();
+        $end = \Carbon\CarbonImmutable::parse($to, 'UTC')->startOfDay();
+        $days = 0;
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            if ($cursor->dayOfWeekIso <= 5) {
+                $days++;
+            }
+
+            $cursor = $cursor->addDay();
+        }
+
+        return $days;
     }
 
     private function storeFailure(PayrollRun $run, PayrollInputSnapshot $snapshot, string $reason): void

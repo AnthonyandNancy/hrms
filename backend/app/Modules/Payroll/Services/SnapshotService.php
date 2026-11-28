@@ -240,6 +240,11 @@ final class SnapshotService
         $blockers = [];
         $asOf = $this->dateOnly($run->earning_period_end);
         $compensation = $this->compensations->effectiveForEmployment($employmentId, $asOf);
+        $compensationSegments = $this->compensations->segmentsForPeriod(
+            $employmentId,
+            $this->dateOnly($run->earning_period_start),
+            $this->dateOnly($run->earning_period_end),
+        );
         $terms = $this->terms->termsAsOf($employmentId, $asOf);
         $resolvedScheme = $scheme;
 
@@ -336,6 +341,7 @@ final class SnapshotService
             'attendance' => $attendanceSummary,
             'blockers' => $blockers,
             'compensation' => $compensation,
+            'compensation_segments' => $compensationSegments,
             'benefits' => $this->benefits->frozenForPeriod($employmentId, (string) $run->period),
             'performance_bonuses' => $this->performanceBonuses->frozenForPeriod($employmentId, (string) $run->period),
             'terms' => $terms === null ? null : [
